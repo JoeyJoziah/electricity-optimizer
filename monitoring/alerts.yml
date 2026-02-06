@@ -1,0 +1,171 @@
+groups:
+  - name: electricity_optimizer_alerts
+    interval: 30s
+    rules:
+      # API Performance Alerts
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile latency is {{ $value }}s (threshold: 1s)"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # Data Pipeline Alerts
+      - alert: PriceDataStaleness
+        expr: (time() - price_data_last_update_timestamp) > 1800
+        for: 5m
+        labels:
+          severity: warning
+          component: data-pipeline
+        annotations:
+          summary: "Price data hasn't updated in 30 minutes"
+          description: "Last update: {{ $value }}s ago"
+
+      - alert: AirflowDAGFailed
+        expr: airflow_dag_status{status="failed"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: airflow
+        annotations:
+          summary: "Airflow DAG failed"
+          description: "DAG {{ $labels.dag_id }} has failed"
+
+      # ML Model Alerts
+      - alert: ModelForecastAccuracyDegraded
+        expr: forecast_mape > 15
+        for: 1h
+        labels:
+          severity: warning
+          component: ml-models
+        annotations:
+          summary: "ML model accuracy degraded"
+          description: "MAPE is {{ $value }}% (threshold: 15%)"
+
+      - alert: ModelInferenceLatencyHigh
+        expr: model_inference_duration_seconds > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: ml-models
+        annotations:
+          summary: "Model inference taking too long"
+          description: "Inference time: {{ $value }}s (threshold: 1s)"
+
+      # Database Alerts
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High database connection usage"
+          description: "Using {{ $value | humanizePercentage }} of max connections"
+
+      - alert: DatabaseSlowQueries
+        expr: rate(pg_stat_statements_mean_exec_time[5m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query time: {{ $value }}ms"
+
+      # Redis Alerts
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Using {{ $value | humanizePercentage }} of max memory"
+
+      - alert: RedisConnectionsHigh
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "High number of Redis connections"
+          description: "{{ $value }} connections (threshold: 100)"
+
+      # System Resource Alerts
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Low disk space"
+          description: "Only {{ $value }}% disk space available on {{ $labels.instance }}"
+
+      # Service Health Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: monitoring
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} is down"
+
+      # Business Metrics Alerts
+      - alert: LowUserEngagement
+        expr: rate(user_actions_total[1h]) < 10
+        for: 1h
+        labels:
+          severity: info
+          component: business
+        annotations:
+          summary: "Low user engagement"
+          description: "User action rate: {{ $value }}/hour"
+
+      - alert: HighSwitchingFailureRate
+        expr: rate(supplier_switches_total{status="failed"}[1h]) / rate(supplier_switches_total[1h]) > 0.1
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "High supplier switching failure rate"
+          description: "Failure rate: {{ $value | humanizePercentage }}"
