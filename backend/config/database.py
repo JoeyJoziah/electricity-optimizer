@@ -39,7 +39,11 @@ class DatabaseManager:
         await self._init_redis()
 
     async def _init_supabase(self):
-        """Initialize Supabase client"""
+        """Initialize Supabase client (optional for local dev)"""
+        if not settings.supabase_url or not settings.supabase_service_key:
+            print("ℹ️  Supabase not configured - skipping (optional for local dev)")
+            return
+
         try:
             self.supabase_client = create_client(
                 settings.supabase_url,
@@ -47,8 +51,10 @@ class DatabaseManager:
             )
             print("✅ Supabase client initialized")
         except Exception as e:
-            print(f"❌ Failed to initialize Supabase: {e}")
-            raise
+            print(f"⚠️  Failed to initialize Supabase: {e}")
+            if settings.is_production:
+                raise
+            print("ℹ️  Continuing without Supabase (development mode)")
 
     async def _init_timescaledb(self):
         """Initialize TimescaleDB connection pool"""

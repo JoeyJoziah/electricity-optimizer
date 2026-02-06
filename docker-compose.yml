@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -8,10 +6,20 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${SUPABASE_URL}
+      # Supabase
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      # Databases
+      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
       - REDIS_URL=redis://redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
+      # API Keys
+      - FLATPEAK_API_KEY=${FLATPEAK_API_KEY}
+      - NREL_API_KEY=${NREL_API_KEY}
+      - IEA_API_KEY=${IEA_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - ENVIRONMENT=development
     depends_on:
       - redis
       - timescaledb
@@ -41,7 +49,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
     command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
@@ -50,7 +58,7 @@ services:
   timescaledb:
     image: timescale/timescaledb:latest-pg15
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}

@@ -28,10 +28,10 @@ class Settings(BaseSettings):
         validation_alias="CORS_ORIGINS"
     )
 
-    # Database - Supabase
-    supabase_url: str = Field(validation_alias="SUPABASE_URL")
-    supabase_anon_key: str = Field(validation_alias="SUPABASE_ANON_KEY")
-    supabase_service_key: str = Field(validation_alias="SUPABASE_SERVICE_KEY")
+    # Database - Supabase (optional for local dev)
+    supabase_url: Optional[str] = Field(default=None, validation_alias="SUPABASE_URL")
+    supabase_anon_key: Optional[str] = Field(default=None, validation_alias="SUPABASE_ANON_KEY")
+    supabase_service_key: Optional[str] = Field(default=None, validation_alias="SUPABASE_SERVICE_KEY")
 
     # Database - TimescaleDB
     timescaledb_url: str = Field(validation_alias="TIMESCALEDB_URL")
