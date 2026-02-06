@@ -1,0 +1,373 @@
+# =============================================================================
+# Deploy to Production - Electricity Optimizer
+# =============================================================================
+# Deploys to production on release publish or manual trigger
+# Includes blue-green deployment and rollback capability
+# =============================================================================
+
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., v1.0.0)'
+        required: true
+        type: string
+      skip_tests:
+        description: 'Skip tests before deployment'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository }}/backend
+  FRONTEND_IMAGE: ${{ github.repository }}/frontend
+
+jobs:
+  # ===========================================================================
+  # Validate Release
+  # ===========================================================================
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Deploying version: $VERSION"
+
+  # ===========================================================================
+  # Run Tests
+  # ===========================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
+
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg15
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: test_electricity
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Run backend tests
+        env:
+          TIMESCALEDB_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
+          ENVIRONMENT: test
+        run: |
+          cd backend
+          pip install -r requirements.txt pytest pytest-asyncio pytest-cov
+          pytest -v --tb=short
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm ci
+          npm test -- --coverage --watchAll=false --passWithNoTests
+
+  # ===========================================================================
+  # Build and Push Images
+  # ===========================================================================
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.validate.outputs.version }}
+            type=sha,prefix=
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.validate.outputs.version }}
+            type=sha,prefix=
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.PROD_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PROD_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_API_URL=${{ secrets.PROD_API_URL }}
+
+  # ===========================================================================
+  # Create Backup
+  # ===========================================================================
+  backup:
+    name: Create Pre-deployment Backup
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+
+    steps:
+      - name: Create database backup
+        run: |
+          echo "Creating pre-deployment backup..."
+          # Add your backup commands here
+          # Example:
+          # ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} << 'EOF'
+          #   cd /app/electricity-optimizer
+          #   ./scripts/backup.sh --full
+          # EOF
+
+  # ===========================================================================
+  # Deploy to Production
+  # ===========================================================================
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [validate, build-and-push, backup]
+    environment:
+      name: production
+      url: https://electricity-optimizer.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying version ${{ needs.validate.outputs.version }} to production..."
+          echo "Backend image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ needs.validate.outputs.version }}"
+          echo "Frontend image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ needs.validate.outputs.version }}"
+
+          # Add your deployment commands here
+          # Example for SSH deployment:
+          # ssh -o StrictHostKeyChecking=no ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} << EOF
+          #   cd /app/electricity-optimizer
+          #   export VERSION=${{ needs.validate.outputs.version }}
+          #   docker compose -f docker-compose.prod.yml pull
+          #   docker compose -f docker-compose.prod.yml up -d
+          # EOF
+
+  # ===========================================================================
+  # Run Smoke Tests
+  # ===========================================================================
+  smoke-tests:
+    name: Run Production Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy]
+
+    steps:
+      - name: Wait for deployment
+        run: sleep 60
+
+      - name: Health check - Backend API
+        run: |
+          for i in {1..5}; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.PROD_API_URL }}/health || echo "000")
+            if [ "$response" == "200" ]; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Attempt $i: Backend returned $response, retrying..."
+            sleep 10
+          done
+          echo "Backend health check failed"
+          exit 1
+
+      - name: Health check - Frontend
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.PROD_FRONTEND_URL }} || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "Frontend health check failed: HTTP $response"
+            exit 1
+          fi
+          echo "Frontend is healthy"
+
+      - name: Health check - API endpoints
+        run: |
+          # Test key API endpoints
+          endpoints=(
+            "/api/v1/prices/current"
+            "/api/v1/health"
+          )
+
+          for endpoint in "${endpoints[@]}"; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_API_URL }}$endpoint" || echo "000")
+            if [ "$response" != "200" ] && [ "$response" != "401" ]; then
+              echo "Endpoint $endpoint failed: HTTP $response"
+              exit 1
+            fi
+            echo "Endpoint $endpoint: OK"
+          done
+
+  # ===========================================================================
+  # Rollback on Failure
+  # ===========================================================================
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: failure()
+
+    steps:
+      - name: Rollback deployment
+        run: |
+          echo "Smoke tests failed, initiating rollback..."
+          # Add your rollback commands here
+          # Example:
+          # ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} << 'EOF'
+          #   cd /app/electricity-optimizer
+          #   ./scripts/restore.sh
+          #   docker compose -f docker-compose.prod.yml up -d
+          # EOF
+
+      - name: Send failure notification
+        run: |
+          echo "Production deployment failed and was rolled back"
+          # Add Slack/email notification here
+
+  # ===========================================================================
+  # Update Notion
+  # ===========================================================================
+  update-notion:
+    name: Update Notion Status
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Update Notion
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          if [ "${{ needs.smoke-tests.result }}" == "success" ]; then
+            STATUS="Production ${{ needs.validate.outputs.version }}"
+            RESULT="success"
+          else
+            STATUS="Production Deploy Failed"
+            RESULT="failure"
+          fi
+
+          if [ -f "scripts/notion_project_sync.py" ]; then
+            pip install requests
+            python scripts/notion_project_sync.py --status "$STATUS" --result "$RESULT" || true
+          fi
+
+  # ===========================================================================
+  # Notify Success
+  # ===========================================================================
+  notify-success:
+    name: Send Success Notification
+    runs-on: ubuntu-latest
+    needs: [validate, smoke-tests]
+    if: success()
+
+    steps:
+      - name: Production deployment successful
+        run: |
+          echo "Production deployment successful!"
+          echo "Version: ${{ needs.validate.outputs.version }}"
+          echo "URL: https://electricity-optimizer.com"
+
+          # Add Slack notification
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data "{\"text\":\"Production deployed: ${{ needs.validate.outputs.version }}\"}" \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}

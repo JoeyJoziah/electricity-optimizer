@@ -1,0 +1,268 @@
+# =============================================================================
+# Deploy to Staging - Electricity Optimizer
+# =============================================================================
+# Automatically deploys to staging on merge to develop branch
+# Builds and pushes Docker images to GitHub Container Registry
+# =============================================================================
+
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests before deployment'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository }}/backend
+  FRONTEND_IMAGE: ${{ github.repository }}/frontend
+
+jobs:
+  # ===========================================================================
+  # Run Tests
+  # ===========================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
+
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg15
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: test_electricity
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Run backend tests
+        env:
+          TIMESCALEDB_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
+          ENVIRONMENT: test
+        run: |
+          cd backend
+          pip install -r requirements.txt pytest pytest-asyncio pytest-cov
+          pytest -v --tb=short
+
+  # ===========================================================================
+  # Build and Push Images
+  # ===========================================================================
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      backend_tag: ${{ steps.meta-backend.outputs.version }}
+      frontend_tag: ${{ steps.meta-frontend.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=raw,value=staging
+            type=sha,prefix=staging-
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=raw,value=staging
+            type=sha,prefix=staging-
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.STAGING_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_API_URL=${{ secrets.STAGING_API_URL }}
+
+  # ===========================================================================
+  # Deploy to Staging
+  # ===========================================================================
+  deploy:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    environment:
+      name: staging
+      url: https://staging.electricity-optimizer.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging server
+        run: |
+          echo "Deploying to staging environment..."
+          echo "Backend image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:staging"
+          echo "Frontend image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:staging"
+          # Add your deployment commands here (SSH, kubectl, etc.)
+          # Example for SSH deployment:
+          # ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }} << 'EOF'
+          #   cd /app/electricity-optimizer
+          #   docker compose -f docker-compose.prod.yml pull
+          #   docker compose -f docker-compose.prod.yml up -d
+          # EOF
+
+  # ===========================================================================
+  # Run Smoke Tests
+  # ===========================================================================
+  smoke-tests:
+    name: Run Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy]
+
+    steps:
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check - Backend
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGING_API_URL }}/health || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "Backend health check failed: HTTP $response"
+            exit 1
+          fi
+          echo "Backend is healthy"
+
+      - name: Health check - Frontend
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGING_FRONTEND_URL }} || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "Frontend health check failed: HTTP $response"
+            exit 1
+          fi
+          echo "Frontend is healthy"
+
+  # ===========================================================================
+  # Update Notion
+  # ===========================================================================
+  update-notion:
+    name: Update Notion Status
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Update Notion
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          if [ "${{ needs.smoke-tests.result }}" == "success" ]; then
+            STATUS="Deployed to Staging"
+            RESULT="success"
+          else
+            STATUS="Staging Deploy Failed"
+            RESULT="failure"
+          fi
+
+          echo "Updating Notion with deployment status: $STATUS"
+
+          # Run the Notion sync script if it exists
+          if [ -f "scripts/notion_project_sync.py" ]; then
+            pip install requests
+            python scripts/notion_project_sync.py --status "$STATUS" --result "$RESULT" || true
+          fi
+
+  # ===========================================================================
+  # Notify
+  # ===========================================================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: always()
+
+    steps:
+      - name: Notify on success
+        if: needs.smoke-tests.result == 'success'
+        run: |
+          echo "Staging deployment successful!"
+          echo "URL: https://staging.electricity-optimizer.com"
+          # Add Slack/Discord notification here if needed
+
+      - name: Notify on failure
+        if: needs.smoke-tests.result == 'failure'
+        run: |
+          echo "Staging deployment failed!"
+          # Add Slack/Discord notification here if needed

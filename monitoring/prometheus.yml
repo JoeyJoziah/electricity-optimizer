@@ -1,9 +1,15 @@
+# =============================================================================
+# Prometheus Configuration - Electricity Optimizer
+# =============================================================================
+# Scrape configuration for all services
+# =============================================================================
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
     monitor: 'electricity-optimizer'
-    environment: 'development'
+    environment: 'production'
 
 # Alerting configuration
 alerting:
@@ -11,45 +17,90 @@ alerting:
     - static_configs:
         - targets: ['alertmanager:9093']
 
-# Load rules once and periodically evaluate them
+# Rule files
 rule_files:
   - 'alerts.yml'
 
 # Scrape configurations
 scrape_configs:
-  # Backend API metrics
+  # ===========================================================================
+  # Backend API Metrics
+  # ===========================================================================
   - job_name: 'backend-api'
     static_configs:
       - targets: ['backend:8000']
     metrics_path: '/metrics'
     scrape_interval: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'backend'
 
-  # TimescaleDB metrics
+  # ===========================================================================
+  # TimescaleDB Metrics (via postgres-exporter)
+  # ===========================================================================
   - job_name: 'timescaledb'
     static_configs:
-      - targets: ['timescaledb:5432']
+      - targets: ['postgres-exporter:9187']
     scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'timescaledb'
 
-  # Redis metrics
+  # ===========================================================================
+  # Redis Metrics (via redis-exporter)
+  # ===========================================================================
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
-    scrape_interval: 30s
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'redis'
 
-  # Airflow metrics
+  # ===========================================================================
+  # Airflow Metrics
+  # ===========================================================================
   - job_name: 'airflow'
     static_configs:
       - targets: ['airflow-webserver:8080']
     metrics_path: '/admin/metrics'
     scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'airflow'
 
-  # Prometheus itself
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-
-  # Node exporter (system metrics)
+  # ===========================================================================
+  # Node Exporter (System Metrics)
+  # ===========================================================================
   - job_name: 'node'
     static_configs:
       - targets: ['node-exporter:9100']
     scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'host'
+
+  # ===========================================================================
+  # Prometheus Self-Monitoring
+  # ===========================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # ===========================================================================
+  # Celery Worker Metrics (if exposed)
+  # ===========================================================================
+  - job_name: 'celery'
+    static_configs:
+      - targets: ['celery-worker:9808']
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'celery'
