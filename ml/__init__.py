@@ -31,50 +31,77 @@ Target Performance:
 
 __version__ = "1.0.0"
 
-from .models import (
-    ElectricityPriceForecaster,
-    EnsembleForecaster,
-    XGBoostForecaster,
-    LightGBMForecaster,
-)
+# Lazy imports to handle missing dependencies gracefully
+__all__ = []
 
-from .data.feature_engineering import (
-    ElectricityPriceFeatureEngine,
-    create_dummy_data,
-)
+# Feature Engineering (no TensorFlow required)
+try:
+    from .data.feature_engineering import (
+        ElectricityPriceFeatureEngine,
+        create_dummy_data,
+    )
+    __all__.extend(['ElectricityPriceFeatureEngine', 'create_dummy_data'])
+except ImportError:
+    pass
 
-from .training import (
-    TrainingConfig,
-    ModelTrainer,
-    train_model,
-)
+# Optimization (no TensorFlow required)
+try:
+    from .optimization.switching_decision import (
+        SupplierSwitchingEngine,
+        Tariff,
+        TariffType,
+        ConsumptionProfile,
+        SwitchingRecommendation,
+    )
+    __all__.extend([
+        'SupplierSwitchingEngine',
+        'Tariff',
+        'TariffType',
+        'ConsumptionProfile',
+        'SwitchingRecommendation',
+    ])
+except ImportError:
+    pass
 
-from .evaluation import (
-    BacktestConfig,
-    BacktestResult,
-    ModelBacktester,
-    run_backtest,
-)
+# Models (require TensorFlow)
+try:
+    from .models import (
+        ElectricityPriceForecaster,
+        EnsembleForecaster,
+    )
+    __all__.extend(['ElectricityPriceForecaster', 'EnsembleForecaster'])
+except ImportError:
+    pass
 
-__all__ = [
-    # Models
-    'ElectricityPriceForecaster',
-    'EnsembleForecaster',
-    'XGBoostForecaster',
-    'LightGBMForecaster',
+# Try XGBoost/LightGBM
+try:
+    from .models.ensemble import (
+        XGBoostForecaster,
+        LightGBMForecaster,
+    )
+    __all__.extend(['XGBoostForecaster', 'LightGBMForecaster'])
+except ImportError:
+    pass
 
-    # Feature Engineering
-    'ElectricityPriceFeatureEngine',
-    'create_dummy_data',
+# Training (require TensorFlow)
+try:
+    from .training import (
+        TrainingConfig,
+        ModelTrainer,
+        train_model,
+    )
+    __all__.extend(['TrainingConfig', 'ModelTrainer', 'train_model'])
+except ImportError:
+    pass
 
-    # Training
-    'TrainingConfig',
-    'ModelTrainer',
-    'train_model',
-
-    # Evaluation
-    'BacktestConfig',
-    'BacktestResult',
-    'ModelBacktester',
-    'run_backtest',
-]
+# Evaluation
+try:
+    from .evaluation import (
+        BacktestConfig,
+        BacktestResult,
+        ModelBacktester,
+        run_backtest,
+    )
+    __all__.extend(['BacktestConfig', 'BacktestResult', 'ModelBacktester', 'run_backtest'])
+except ImportError:
+    pass
