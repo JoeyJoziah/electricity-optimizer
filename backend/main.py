@@ -271,12 +271,19 @@ async def root():
 
 
 # Import and include API routers
-# TODO: Uncomment as routers are implemented
-# from routers import prices, suppliers, users, optimization, compliance
+from routers import predictions
+
+app.include_router(
+    predictions.router,
+    prefix=f"{settings.api_prefix}/ml",
+    tags=["ML Predictions"]
+)
+
+# TODO: Uncomment as additional routers are implemented
+# from routers import prices, suppliers, users, compliance
 # app.include_router(prices.router, prefix=f"{settings.api_prefix}/prices", tags=["Prices"])
 # app.include_router(suppliers.router, prefix=f"{settings.api_prefix}/suppliers", tags=["Suppliers"])
 # app.include_router(users.router, prefix=f"{settings.api_prefix}/users", tags=["Users"])
-# app.include_router(optimization.router, prefix=f"{settings.api_prefix}/optimization", tags=["Optimization"])
 # app.include_router(compliance.router, prefix=f"{settings.api_prefix}/compliance", tags=["Compliance"])
 
 
