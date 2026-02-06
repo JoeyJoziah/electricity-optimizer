@@ -32,6 +32,7 @@ from .nrel import NRELClient
 from .iea import IEAClient
 from .cache import PricingCache
 from .rate_limiter import RateLimiter, TokenBucketLimiter
+from .service import PricingService, create_pricing_service_from_settings
 
 __all__ = [
     # Base classes and models
@@ -53,4 +54,7 @@ __all__ = [
     "PricingCache",
     "RateLimiter",
     "TokenBucketLimiter",
+    # Service
+    "PricingService",
+    "create_pricing_service_from_settings",
 ]
