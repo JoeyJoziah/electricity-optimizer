@@ -1,0 +1,287 @@
+{
+  "project_name": "Electricity Optimizer",
+  "hive_id": "electricity-optimizer-hive-001",
+  "topology": "hierarchical-mesh",
+  "initialized_at": "2026-02-06T20:57:00.000Z",
+  "version": "1.0.0",
+  
+  "queen_coordinator": {
+    "role": "strategic_orchestrator",
+    "responsibilities": [
+      "High-level planning and decision making",
+      "Resource allocation across swarms",
+      "Conflict resolution",
+      "Progress monitoring and reporting",
+      "Cross-swarm coordination"
+    ],
+    "memory_namespace": "queen"
+  },
+  
+  "swarms": {
+    "backend-api-swarm": {
+      "id": "backend-001",
+      "type": "worker",
+      "specialization": "Backend Development",
+      "agents": [
+        "fastapi-specialist",
+        "database-architect",
+        "api-designer",
+        "repository-pattern-expert"
+      ],
+      "responsibilities": [
+        "FastAPI application development",
+        "Supabase integration",
+        "TimescaleDB setup",
+        "Redis caching",
+        "Celery task queue",
+        "API endpoint implementation"
+      ],
+      "memory_namespace": "backend",
+      "status": "ready"
+    },
+    
+    "data-ml-pipeline-swarm": {
+      "id": "ml-001",
+      "type": "worker",
+      "specialization": "ML/Data Engineering",
+      "agents": [
+        "ml-model-trainer",
+        "data-engineer",
+        "feature-engineer",
+        "airflow-specialist"
+      ],
+      "responsibilities": [
+        "CNN-LSTM price forecasting",
+        "Load optimization algorithms (MILP)",
+        "Supplier switching decision engine",
+        "Airflow DAG development",
+        "Model training and evaluation",
+        "Feature engineering"
+      ],
+      "memory_namespace": "ml",
+      "status": "ready"
+    },
+    
+    "ui-visualization-swarm": {
+      "id": "frontend-001",
+      "type": "worker",
+      "specialization": "Frontend Development",
+      "agents": [
+        "nextjs-specialist",
+        "react-expert",
+        "visualization-designer",
+        "ux-optimizer"
+      ],
+      "responsibilities": [
+        "Next.js 14 dashboard",
+        "Real-time price charts",
+        "Supplier comparison UI",
+        "Switching wizard",
+        "Mobile responsive design",
+        "Accessibility compliance"
+      ],
+      "memory_namespace": "frontend",
+      "status": "ready"
+    },
+    
+    "infrastructure-devops-swarm": {
+      "id": "infra-001",
+      "type": "worker",
+      "specialization": "Infrastructure & DevOps",
+      "agents": [
+        "docker-specialist",
+        "cicd-engineer",
+        "monitoring-expert",
+        "cost-optimizer"
+      ],
+      "responsibilities": [
+        "Docker containerization",
+        "CI/CD pipeline setup",
+        "Prometheus/Grafana monitoring",
+        "Alert configuration",
+        "Cost optimization (<$50/month)",
+        "Deployment automation"
+      ],
+      "memory_namespace": "infrastructure",
+      "status": "ready"
+    },
+    
+    "security-compliance-swarm": {
+      "id": "security-001",
+      "type": "validator",
+      "specialization": "Security & Compliance",
+      "agents": [
+        "security-auditor",
+        "gdpr-compliance-expert",
+        "auth-specialist",
+        "penetration-tester"
+      ],
+      "responsibilities": [
+        "GDPR compliance implementation",
+        "JWT authentication",
+        "Security audits",
+        "Penetration testing",
+        "Secret management",
+        "Privacy policy enforcement"
+      ],
+      "memory_namespace": "security",
+      "validation_required": true,
+      "status": "ready"
+    },
+    
+    "project-quality-swarm": {
+      "id": "quality-001",
+      "type": "validator",
+      "specialization": "Quality Assurance",
+      "agents": [
+        "code-reviewer",
+        "test-engineer",
+        "performance-tester",
+        "documentation-specialist"
+      ],
+      "responsibilities": [
+        "Code reviews",
+        "Test coverage (backend 80%, frontend 70%)",
+        "E2E testing with Playwright",
+        "Load testing with Locust",
+        "Documentation updates",
+        "Performance optimization"
+      ],
+      "memory_namespace": "quality",
+      "validation_required": true,
+      "status": "ready"
+    }
+  },
+  
+  "coordination_rules": {
+    "max_concurrent_agents": 15,
+    "task_distribution": "adaptive-balanced",
+    "conflict_resolution": "queen-decides",
+    "memory_sync_interval_seconds": 30,
+    "health_check_interval_seconds": 60
+  },
+  
+  "communication_channels": {
+    "queen_to_swarm": "broadcast",
+    "swarm_to_queen": "report",
+    "swarm_to_swarm": "peer-to-peer",
+    "memory_sharing": "distributed"
+  },
+  
+  "memory_architecture": {
+    "type": "distributed",
+    "persistence": "file-based",
+    "sync_strategy": "eventual-consistency",
+    "namespaces": [
+      "queen",
+      "backend",
+      "ml",
+      "frontend",
+      "infrastructure",
+      "security",
+      "quality",
+      "arch",
+      "project",
+      "agents",
+      "swarm",
+      "impl",
+      "test"
+    ],
+    "storage_path": ".hive-mind/memory"
+  },
+  
+  "workflow_phases": [
+    {
+      "name": "INTAKE",
+      "description": "Requirements gathering and planning",
+      "tools": ["/plan", "/architect"]
+    },
+    {
+      "name": "DESIGN",
+      "description": "System design and architecture",
+      "swarms": ["backend-api-swarm", "data-ml-pipeline-swarm", "ui-visualization-swarm"],
+      "tools": ["/architect", "/design"]
+    },
+    {
+      "name": "BUILD",
+      "description": "Implementation and coding",
+      "swarms": ["backend-api-swarm", "data-ml-pipeline-swarm", "ui-visualization-swarm"],
+      "tools": ["/code", "/tdd"]
+    },
+    {
+      "name": "REVIEW",
+      "description": "Quality gates and validation",
+      "swarms": ["project-quality-swarm", "security-compliance-swarm"],
+      "tools": ["/code-review-swarm", "/security-review"]
+    },
+    {
+      "name": "INTEGRATE",
+      "description": "PR automation and integration",
+      "swarms": ["infrastructure-devops-swarm"],
+      "tools": ["/github-swarm", "/pr-manager"]
+    },
+    {
+      "name": "DEPLOY",
+      "description": "Deployment and monitoring",
+      "swarms": ["infrastructure-devops-swarm"],
+      "tools": ["/infrastructure-devops-swarm"]
+    },
+    {
+      "name": "LEARN",
+      "description": "Adaptive improvement",
+      "tools": ["/continuous-learning", "/memory-persist"]
+    },
+    {
+      "name": "SYNC",
+      "description": "Notion updates and state persistence",
+      "tools": ["notion_sync.py", "/claude-flow-memory"]
+    }
+  ],
+  
+  "integrations": {
+    "notion": {
+      "enabled": true,
+      "database_id": "24bcbe22-37de-449f-b694-3544f0d864e3",
+      "data_source_id": "b2195f7f-baf5-44db-a6ec-fa461715721a",
+      "sync_interval_minutes": 15
+    },
+    "github": {
+      "enabled": false,
+      "repository": "electricity-optimizer",
+      "auto_pr": true,
+      "auto_issue_tracking": true
+    },
+    "claude_flow": {
+      "enabled": true,
+      "memory_store": true,
+      "swarm_coordination": true
+    }
+  },
+  
+  "metrics": {
+    "track_task_completion": true,
+    "track_agent_performance": true,
+    "track_swarm_efficiency": true,
+    "track_memory_usage": true,
+    "track_coordination_overhead": true
+  },
+  
+  "success_criteria": {
+    "mvp_launch": {
+      "users": 100,
+      "weekly_active_rate": 0.70,
+      "avg_savings_per_user": 150,
+      "forecast_mape": 0.10,
+      "load_optimization_reduction": 0.15,
+      "uptime": 0.995,
+      "nps": 50
+    },
+    "technical_kpis": {
+      "api_response_p95_ms": 500,
+      "dashboard_load_time_s": 3,
+      "backend_test_coverage": 0.80,
+      "frontend_test_coverage": 0.70,
+      "lighthouse_score": 90
+    }
+  }
+}

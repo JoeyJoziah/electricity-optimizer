@@ -1,0 +1,81 @@
+{
+  "project_name": "Automated Electricity Supplier Price Optimizer",
+  "description": "AI-powered platform for electricity price monitoring, forecasting, and automated supplier switching",
+  "status": "Phase 1: Setup - In Progress",
+  "started_at": "2026-02-06",
+  "target_mvp": "2026-04-30",
+  "target_launch": "2026-05-15",
+  
+  "tech_stack": {
+    "backend": "FastAPI, Supabase (PostgreSQL), TimescaleDB, Redis, Celery",
+    "ml_data": "TensorFlow, XGBoost, Airflow, PuLP, Prophet",
+    "frontend": "Next.js 14, React 18, Recharts, D3.js, Tailwind CSS",
+    "infrastructure": "Docker, Prometheus, Grafana, GitHub Actions"
+  },
+  
+  "phases": [
+    {
+      "id": 1,
+      "name": "Project Setup & Infrastructure",
+      "duration": "Weeks 1-2",
+      "completion": 25,
+      "status": "in_progress"
+    },
+    {
+      "id": 2,
+      "name": "Backend Development",
+      "duration": "Weeks 2-4",
+      "completion": 0,
+      "status": "not_started"
+    },
+    {
+      "id": 3,
+      "name": "ML & Data Pipeline",
+      "duration": "Weeks 3-5",
+      "completion": 0,
+      "status": "not_started"
+    },
+    {
+      "id": 4,
+      "name": "Frontend Development",
+      "duration": "Weeks 4-6",
+      "completion": 0,
+      "status": "not_started"
+    },
+    {
+      "id": 5,
+      "name": "Testing",
+      "duration": "Weeks 7-9",
+      "completion": 0,
+      "status": "not_started"
+    },
+    {
+      "id": 6,
+      "name": "Security & Compliance",
+      "duration": "Weeks 6-8",
+      "completion": 0,
+      "status": "not_started"
+    },
+    {
+      "id": 7,
+      "name": "Launch",
+      "duration": "Weeks 10-12",
+      "completion": 0,
+      "status": "not_started"
+    }
+  ],
+  
+  "external_apis": {
+    "pricing": ["Flatpeak (EU)", "NREL (US)", "IEA (Global)"],
+    "smart_meters": ["UtilityAPI", "OpenVolt"]
+  },
+  
+  "key_features": [
+    "Real-time electricity price monitoring",
+    "24-hour price forecasting (CNN-LSTM, MAPE <10%)",
+    "Automated load shifting optimization (MILP, 15%+ savings)",
+    "Intelligent supplier switching recommendations",
+    "GDPR-compliant data management",
+    "Mobile responsive dashboard"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "architecture": "Microservices with ML Pipeline",
+  "deployment": "Docker containerized, Cloud deployment",
+  
+  "backend": {
+    "framework": "FastAPI",
+    "primary_database": "Supabase (PostgreSQL)",
+    "timeseries_database": "TimescaleDB",
+    "cache": "Redis",
+    "task_queue": "Celery",
+    "api_gateway": "Kong"
+  },
+  
+  "ml_pipeline": {
+    "forecasting_models": ["CNN-LSTM", "XGBoost", "LightGBM", "Prophet", "ARIMA"],
+    "optimization": "PuLP (MILP solver)",
+    "orchestration": "Apache Airflow",
+    "training_framework": "TensorFlow/Keras"
+  },
+  
+  "frontend": {
+    "framework": "Next.js 14",
+    "ui_library": "React 18",
+    "state_management": "Zustand + React Query",
+    "styling": "Tailwind CSS",
+    "charts": "Recharts + D3.js",
+    "realtime": "Supabase Realtime"
+  },
+  
+  "infrastructure": {
+    "containerization": "Docker + Docker Compose",
+    "cicd": "GitHub Actions",
+    "monitoring": "Prometheus + Grafana",
+    "logging": "Structured logging + Sentry",
+    "deployment_targets": ["AWS/Railway/Fly.io (backend)", "Vercel (frontend)"]
+  },
+  
+  "security": {
+    "authentication": "Supabase Auth (JWT + OAuth + Magic Links)",
+    "secrets_management": "1Password",
+    "compliance": "GDPR (consent tracking, data export, right to erasure)",
+    "encryption": "HTTPS enforced, encrypted data at rest"
+  }
+}
