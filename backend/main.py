@@ -110,6 +110,10 @@ app.add_middleware(
 # GZIP Compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# Security Headers
+from middleware.security_headers import SecurityHeadersMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+
 
 # Request ID and Timing Middleware
 @app.middleware("http")
@@ -295,10 +299,23 @@ app.include_router(
     tags=["Suppliers"]
 )
 
-# TODO: Uncomment as additional routers are implemented
-# from routers import users, compliance
-# app.include_router(users.router, prefix=f"{settings.api_prefix}/users", tags=["Users"])
-# app.include_router(compliance.router, prefix=f"{settings.api_prefix}/compliance", tags=["Compliance"])
+# Authentication endpoints
+from api.v1 import auth as auth_v1
+
+app.include_router(
+    auth_v1.router,
+    prefix=f"{settings.api_prefix}/auth",
+    tags=["Authentication"]
+)
+
+# GDPR Compliance endpoints
+from api.v1 import compliance as compliance_v1
+
+app.include_router(
+    compliance_v1.router,
+    prefix=f"{settings.api_prefix}/compliance",
+    tags=["Compliance"]
+)
 
 
 if __name__ == "__main__":
