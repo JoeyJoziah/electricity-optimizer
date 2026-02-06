@@ -272,6 +272,8 @@ async def root():
 
 # Import and include API routers
 from routers import predictions
+from api.v1 import prices as prices_v1
+from api.v1 import suppliers as suppliers_v1
 
 app.include_router(
     predictions.router,
@@ -279,10 +281,22 @@ app.include_router(
     tags=["ML Predictions"]
 )
 
+# Price endpoints
+app.include_router(
+    prices_v1.router,
+    prefix=f"{settings.api_prefix}/prices",
+    tags=["Prices"]
+)
+
+# Supplier endpoints
+app.include_router(
+    suppliers_v1.router,
+    prefix=f"{settings.api_prefix}/suppliers",
+    tags=["Suppliers"]
+)
+
 # TODO: Uncomment as additional routers are implemented
-# from routers import prices, suppliers, users, compliance
-# app.include_router(prices.router, prefix=f"{settings.api_prefix}/prices", tags=["Prices"])
-# app.include_router(suppliers.router, prefix=f"{settings.api_prefix}/suppliers", tags=["Suppliers"])
+# from routers import users, compliance
 # app.include_router(users.router, prefix=f"{settings.api_prefix}/users", tags=["Users"])
 # app.include_router(compliance.router, prefix=f"{settings.api_prefix}/compliance", tags=["Compliance"])
 
