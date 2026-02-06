@@ -1,0 +1,49 @@
+{
+  "notion": {
+    "api_key_env": "NOTION_API_KEY",
+    "database_id_env": "NOTION_DATABASE_ID",
+    "project_page_id_env": "NOTION_PROJECT_PAGE_ID",
+    "sync_interval_seconds": 900
+  },
+  "sync": {
+    "bidirectional": true,
+    "local_todo_file": "TODO.md",
+    "github_integration": true,
+    "auto_create_issues": false,
+    "auto_update_progress": true
+  },
+  "mappings": {
+    "status": {
+      "Not Started": "🔴",
+      "Planning": "🟡",
+      "In Progress": "🟠",
+      "Blocked": "⛔",
+      "Review": "🔵",
+      "Done": "✅"
+    },
+    "priority": {
+      "Critical": "🔥",
+      "High": "⬆️",
+      "Medium": "➡️",
+      "Low": "⬇️"
+    }
+  },
+  "filters": {
+    "sync_only_assigned": false,
+    "exclude_archived": true,
+    "sync_phases": [
+      "Phase 1: Setup",
+      "Phase 2: Backend",
+      "Phase 3: ML/Data",
+      "Phase 4: Frontend",
+      "Phase 5: Testing",
+      "Phase 6: Compliance",
+      "Phase 7: Launch"
+    ]
+  },
+  "metrics": {
+    "track_completion_percentage": true,
+    "track_velocity": true,
+    "track_blockers": true
+  }
+}
