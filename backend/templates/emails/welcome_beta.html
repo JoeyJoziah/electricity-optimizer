@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Electricity Optimizer Beta</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+        .beta-code {
+            background: #f3f4f6;
+            border: 2px dashed #667eea;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .beta-code-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+        }
+        .steps {
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 15px 0;
+        }
+        .step-number {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .feature-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .perks {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white !important;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 28px;">⚡ Welcome to Electricity Optimizer Beta!</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9;">You're one of our first 50 beta users 🎉</p>
+    </div>
+
+    <div class="content">
+        <p>Hi {{name}},</p>
+
+        <p>Congratulations! You've been accepted to the Electricity Optimizer beta program. We're excited to have you on board!</p>
+
+        <div class="beta-code">
+            <div style="color: #6b7280; font-size: 14px; margin-bottom: 8px;">Your Beta Access Code</div>
+            <div class="beta-code-value">{{betaCode}}</div>
+            <div style="color: #6b7280; font-size: 12px; margin-top: 8px;">Keep this code safe - you'll need it to sign up</div>
+        </div>
+
+        <a href="https://electricity-optimizer.app/auth/signup?code={{betaCode}}" class="button" style="width: 100%; text-align: center; display: block; box-sizing: border-box;">
+            Get Started →
+        </a>
+
+        <div class="steps">
+            <h3 style="margin-top: 0;">Getting Started:</h3>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Create Your Account</strong><br>
+                Visit <a href="https://electricity-optimizer.app/auth/signup">electricity-optimizer.app/auth/signup</a> and use your beta code
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Connect Your Data</strong> (Optional)<br>
+                Link your UK smart meter via UtilityAPI or use demo data
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Explore & Save</strong><br>
+                Check out price forecasts, supplier comparisons, and optimization features
+            </div>
+
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>Share Feedback</strong><br>
+                Help us improve! Use the feedback widget or email us directly
+            </div>
+        </div>
+
+        <h3>🎯 What You Can Do:</h3>
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <strong>Real-Time Tracking</strong>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #6b7280;">Monitor current electricity prices across multiple suppliers</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔮</div>
+                <strong>24-Hour Forecasts</strong>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #6b7280;">AI-powered predictions with 90%+ accuracy</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💰</div>
+                <strong>Auto-Switching</strong>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #6b7280;">Automatic supplier recommendations when better deals appear</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <strong>Load Optimization</strong>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #6b7280;">Schedule appliances to run during cheapest periods</p>
+            </div>
+        </div>
+
+        <div class="perks">
+            <h3 style="margin-top: 0;">🌟 Beta Perks:</h3>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Lifetime 50% Discount</strong> when we launch publicly</li>
+                <li><strong>Priority Support</strong> - 24-hour response time guaranteed</li>
+                <li><strong>Shape the Product</strong> - Your feedback directly influences development</li>
+                <li><strong>Early Access</strong> to all new features</li>
+            </ul>
+        </div>
+
+        <h3>📞 Support & Feedback:</h3>
+        <ul>
+            <li><strong>Support:</strong> <a href="mailto:support@electricity-optimizer.app">support@electricity-optimizer.app</a></li>
+            <li><strong>Feedback:</strong> <a href="mailto:feedback@electricity-optimizer.app">feedback@electricity-optimizer.app</a></li>
+            <li><strong>In-App:</strong> Use the feedback widget (bottom-right corner)</li>
+            <li><strong>Response Time:</strong> Within 24 hours</li>
+        </ul>
+
+        <h3>🎯 What We're Testing:</h3>
+        <ul>
+            <li>Forecast accuracy (target: &lt;10% error)</li>
+            <li>Savings recommendations (target: £150+/year)</li>
+            <li>User experience and onboarding</li>
+            <li>Feature usability and performance</li>
+        </ul>
+
+        <p style="margin-top: 30px;"><strong>Thank you for being an early supporter!</strong> 🚀</p>
+
+        <p>Your participation in the beta program is invaluable. We can't wait to see how much you save on your electricity bills!</p>
+
+        <p>Best regards,<br>
+        <strong>The Electricity Optimizer Team</strong></p>
+
+        <p style="font-size: 12px; color: #6b7280; margin-top: 30px;">
+            P.S. First 50 beta users get lifetime 50% discount - that's you! 🎉
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>
+            <a href="https://electricity-optimizer.app">Website</a> •
+            <a href="https://electricity-optimizer.app/privacy">Privacy Policy</a> •
+            <a href="https://electricity-optimizer.app/terms">Terms of Service</a>
+        </p>
+        <p style="margin-top: 10px; font-size: 12px;">
+            You're receiving this email because you signed up for the Electricity Optimizer beta program.<br>
+            © 2026 Electricity Optimizer. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>
