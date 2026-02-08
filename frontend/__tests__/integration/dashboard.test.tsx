@@ -39,7 +39,7 @@ jest.mock('@/lib/api/suppliers', () => ({
       suppliers: [
         {
           id: '1',
-          name: 'Octopus Energy',
+          name: 'Eversource Energy',
           avgPricePerKwh: 0.25,
           estimatedAnnualCost: 1200,
           greenEnergy: true,
@@ -47,7 +47,7 @@ jest.mock('@/lib/api/suppliers', () => ({
         },
         {
           id: '2',
-          name: 'Bulb Energy',
+          name: 'NextEra Energy',
           avgPricePerKwh: 0.22,
           estimatedAnnualCost: 1050,
           greenEnergy: true,
@@ -176,8 +176,8 @@ describe('Dashboard Integration', () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText('Octopus Energy')).toBeInTheDocument()
-      expect(screen.getByText('Bulb Energy')).toBeInTheDocument()
+      expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
+      expect(screen.getByText('NextEra Energy')).toBeInTheDocument()
     })
   })
 

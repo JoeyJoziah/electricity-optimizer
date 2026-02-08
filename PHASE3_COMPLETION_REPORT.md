@@ -287,7 +287,7 @@ Phase 3 successfully delivered a production-ready ML/Data pipeline for electrici
 12. **Interval Score (95%)**: Gneiting-Raftery score
 
 **Business Metrics**:
-13. **Cost of Prediction Error**: Financial cost (GBP/USD) due to errors
+13. **Cost of Prediction Error**: Financial cost (USD/GBP) due to errors
 14. **Optimization Savings Impact**: % reduction in savings
 
 **backtesting.py** (721 lines) - Historical Validation:
@@ -331,7 +331,7 @@ Response:
       "predicted_price": 0.2134,
       "confidence_lower": 0.1814,
       "confidence_upper": 0.2454,
-      "currency": "GBP"
+      "currency": "USD"
     },
     ...
   ],
@@ -413,7 +413,7 @@ Response:
   "optimized_cost": 4.7651,
   "savings_amount": 1.0583,
   "savings_percent": 18.2,
-  "currency": "GBP",
+  "currency": "USD",
   "optimized_schedule": {
     "Dishwasher": {
       "start_time": "2026-02-07T02:00:00Z",

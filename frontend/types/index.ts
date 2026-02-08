@@ -99,7 +99,7 @@ export interface UserSettings {
     supplierUpdates: boolean
   }
   displayPreferences: {
-    currency: 'GBP' | 'EUR' | 'USD'
+    currency: 'USD' | 'GBP' | 'EUR'
     theme: 'light' | 'dark' | 'system'
     timeFormat: '12h' | '24h'
   }

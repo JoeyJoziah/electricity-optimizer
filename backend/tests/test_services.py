@@ -46,21 +46,21 @@ class TestPriceService:
         # Setup mock return
         mock_price_repo.get_latest_by_supplier.return_value = MagicMock(
             id="price_1",
-            region="uk",
-            supplier="Octopus Energy",
-            price_per_kwh=Decimal("0.25"),
+            region="us_ct",
+            supplier="Eversource Energy",
+            price_per_kwh=Decimal("0.26"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
 
         service = PriceService(mock_price_repo, mock_cache)
         price = await service.get_current_price(
-            region=PriceRegion.UK,
-            supplier="Octopus Energy"
+            region=PriceRegion.US_CT,
+            supplier="Eversource Energy"
         )
 
         assert price is not None
-        assert price.price_per_kwh == Decimal("0.25")
+        assert price.price_per_kwh == Decimal("0.26")
 
     @pytest.mark.asyncio
     async def test_get_cheapest_supplier(self, mock_price_repo, mock_cache):
@@ -76,7 +76,7 @@ class TestPriceService:
         ]
 
         service = PriceService(mock_price_repo, mock_cache)
-        cheapest = await service.get_cheapest_supplier(region=PriceRegion.UK)
+        cheapest = await service.get_cheapest_supplier(region=PriceRegion.US_CT)
 
         assert cheapest is not None
         assert cheapest.supplier == "Cheap Energy"
@@ -94,7 +94,7 @@ class TestPriceService:
         ]
 
         service = PriceService(mock_price_repo, mock_cache)
-        comparison = await service.get_price_comparison(region=PriceRegion.UK)
+        comparison = await service.get_price_comparison(region=PriceRegion.US_CT)
 
         assert isinstance(comparison, list)
         assert len(comparison) == 2
@@ -117,7 +117,7 @@ class TestPriceService:
 
         # 10 kWh usage
         cost = await service.calculate_daily_cost(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             supplier="Test",
             kwh_usage=Decimal("10.0"),
             target_date=datetime.now(timezone.utc).date()
@@ -133,12 +133,12 @@ class TestPriceService:
         from models.price import PriceRegion, PriceForecast
 
         mock_price_repo.get_current_prices.return_value = [
-            MagicMock(price_per_kwh=Decimal("0.25"), supplier="Test Supplier", currency="GBP")
+            MagicMock(price_per_kwh=Decimal("0.26"), supplier="Test Supplier", currency="USD")
         ]
 
         service = PriceService(mock_price_repo, mock_cache)
         forecast = await service.get_price_forecast(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             hours=24
         )
 
@@ -165,7 +165,7 @@ class TestPriceService:
 
         service = PriceService(mock_price_repo, mock_cache)
         windows = await service.get_optimal_usage_windows(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             duration_hours=2,
             within_hours=24
         )
@@ -204,7 +204,7 @@ class TestRecommendationService:
         mock_user_repo.get_by_id.return_value = MagicMock(
             id="user_123",
             current_supplier="Expensive Energy",
-            region="uk",
+            region="us_ct",
             preferences={}
         )
 
@@ -227,7 +227,7 @@ class TestRecommendationService:
 
         mock_user_repo.get_by_id.return_value = MagicMock(
             id="user_123",
-            region="uk"
+            region="us_ct"
         )
 
         mock_price_service.get_optimal_usage_windows.return_value = [
@@ -259,8 +259,8 @@ class TestRecommendationService:
 
         mock_user_repo.get_by_id.return_value = MagicMock(
             id="user_123",
-            region="uk",
-            preferences={"green_energy_only": True}
+            region="us_ct",
+            preferences={"green_energy_only": True},
         )
 
         mock_price_service.get_price_comparison.return_value = [
@@ -302,7 +302,7 @@ class TestAnalyticsService:
 
         service = AnalyticsService(mock_price_repo)
         avg = await service.calculate_average_price(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             days=7
         )
 
@@ -323,7 +323,7 @@ class TestAnalyticsService:
 
         service = AnalyticsService(mock_price_repo)
         volatility = await service.calculate_volatility(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             days=7
         )
 
@@ -347,7 +347,7 @@ class TestAnalyticsService:
 
         service = AnalyticsService(mock_price_repo)
         trend = await service.get_price_trend(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             days=7
         )
 
@@ -375,7 +375,7 @@ class TestAnalyticsService:
 
         service = AnalyticsService(mock_price_repo)
         analysis = await service.get_peak_hours_analysis(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             days=7
         )
 

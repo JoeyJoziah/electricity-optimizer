@@ -14,13 +14,13 @@ test.describe('Full Supplier Switching Flow', () => {
         'electricity-optimizer-settings',
         JSON.stringify({
           state: {
-            region: 'UK',
-            annualUsageKwh: 2900,
+            region: 'US',
+            annualUsageKwh: 10500,
             peakDemandKw: 3,
             appliances: [],
             currentSupplier: {
               id: '3',
-              name: 'British Gas',
+              name: 'United Illuminating (UI)',
               avgPricePerKwh: 0.28,
               standingCharge: 0.55,
               greenEnergy: false,
@@ -43,18 +43,18 @@ test.describe('Full Supplier Switching Flow', () => {
           suppliers: [
             {
               id: '1',
-              name: 'Octopus Energy',
+              name: 'Eversource Energy',
               avgPricePerKwh: 0.25,
               standingCharge: 0.50,
               greenEnergy: true,
               rating: 4.5,
               estimatedAnnualCost: 1200,
-              tariffType: 'variable',
+              tariffType: 'time_of_use',
               features: ['Smart tariffs', 'App control', '100% renewable'],
             },
             {
               id: '2',
-              name: 'Bulb Energy',
+              name: 'NextEra Energy',
               avgPricePerKwh: 0.22,
               standingCharge: 0.45,
               greenEnergy: true,
@@ -66,7 +66,7 @@ test.describe('Full Supplier Switching Flow', () => {
             },
             {
               id: '3',
-              name: 'British Gas',
+              name: 'United Illuminating (UI)',
               avgPricePerKwh: 0.28,
               standingCharge: 0.55,
               greenEnergy: false,
@@ -78,7 +78,7 @@ test.describe('Full Supplier Switching Flow', () => {
             },
             {
               id: '4',
-              name: 'EDF Energy',
+              name: 'Town Utility',
               avgPricePerKwh: 0.26,
               standingCharge: 0.52,
               greenEnergy: false,
@@ -130,11 +130,11 @@ test.describe('Full Supplier Switching Flow', () => {
     // Verify supplier comparison table loads
     await expect(page.getByRole('heading', { name: 'Compare Suppliers' })).toBeVisible()
     await expect(page.getByText('Current Supplier')).toBeVisible()
-    await expect(page.getByText('British Gas')).toBeVisible()
+    await expect(page.getByText('United Illuminating (UI)')).toBeVisible()
 
     // Find recommended supplier
     await expect(page.getByText('Recommended')).toBeVisible()
-    await expect(page.getByText('Bulb Energy')).toBeVisible()
+    await expect(page.getByText('NextEra Energy')).toBeVisible()
 
     // Click switch on recommended supplier
     await page
@@ -165,7 +165,7 @@ test.describe('Full Supplier Switching Flow', () => {
 
     // Step 3: Contract review
     await expect(page.getByText('Contract Terms')).toBeVisible()
-    await expect(page.getByText('Exit Fee: £25.00')).toBeVisible()
+    await expect(page.getByText('Exit Fee: $25.00')).toBeVisible()
     await expect(page.getByText('Contract Length: 12 months')).toBeVisible()
     await expect(page.getByText('Cooling Off Period: 14 days')).toBeVisible()
 
@@ -175,7 +175,7 @@ test.describe('Full Supplier Switching Flow', () => {
 
     // Step 4: Confirmation
     await expect(page.getByText('Confirm Switch')).toBeVisible()
-    await expect(page.getByText('Bulb Energy')).toBeVisible()
+    await expect(page.getByText('NextEra Energy')).toBeVisible()
     await expect(page.getByText(/confirm your switch/i)).toBeVisible()
 
     await page.click('button:has-text("Confirm Switch")')
@@ -191,8 +191,8 @@ test.describe('Full Supplier Switching Flow', () => {
     await page.goto('/suppliers')
 
     // Each supplier card should show savings vs current
-    await expect(page.getByText(/Save £150\/year/)).toBeVisible() // Octopus
-    await expect(page.getByText(/Save £300\/year/)).toBeVisible() // Bulb
+    await expect(page.getByText(/Save \$150\/year/)).toBeVisible() // Eversource
+    await expect(page.getByText(/Save \$300\/year/)).toBeVisible() // NextEra
   })
 
   test('filters suppliers by green energy', async ({ page }) => {
@@ -202,10 +202,10 @@ test.describe('Full Supplier Switching Flow', () => {
     await page.click('[data-testid="filter-green-energy"]')
 
     // Should only show green suppliers
-    await expect(page.getByText('Octopus Energy')).toBeVisible()
-    await expect(page.getByText('Bulb Energy')).toBeVisible()
-    await expect(page.getByText('British Gas')).not.toBeVisible()
-    await expect(page.getByText('EDF Energy')).not.toBeVisible()
+    await expect(page.getByText('Eversource Energy')).toBeVisible()
+    await expect(page.getByText('NextEra Energy')).toBeVisible()
+    await expect(page.getByText('United Illuminating (UI)')).not.toBeVisible()
+    await expect(page.getByText('Town Utility')).not.toBeVisible()
   })
 
   test('sorts suppliers by price', async ({ page }) => {
@@ -214,9 +214,9 @@ test.describe('Full Supplier Switching Flow', () => {
     // Click sort by price
     await page.click('[data-testid="sort-by-price"]')
 
-    // First supplier should be cheapest (Bulb at £1,050)
+    // First supplier should be cheapest
     const firstCard = page.locator('[data-testid^="supplier-card"]').first()
-    await expect(firstCard).toContainText('Bulb Energy')
+    await expect(firstCard).toContainText('NextEra Energy')
   })
 
   test('sorts suppliers by rating', async ({ page }) => {
@@ -224,9 +224,9 @@ test.describe('Full Supplier Switching Flow', () => {
 
     await page.click('[data-testid="sort-by-rating"]')
 
-    // First supplier should be highest rated (Octopus at 4.5)
+    // First supplier should be highest rated (Eversource at 4.5)
     const firstCard = page.locator('[data-testid^="supplier-card"]').first()
-    await expect(firstCard).toContainText('Octopus Energy')
+    await expect(firstCard).toContainText('Eversource Energy')
   })
 
   test('shows supplier details on click', async ({ page }) => {
@@ -244,7 +244,7 @@ test.describe('Full Supplier Switching Flow', () => {
   test('displays current supplier badge', async ({ page }) => {
     await page.goto('/suppliers')
 
-    // British Gas should have current supplier badge
+    // United Illuminating should have current supplier badge
     const currentSupplierCard = page.locator('[data-testid="supplier-card-3"]')
     await expect(currentSupplierCard.getByText('Current')).toBeVisible()
   })
@@ -265,7 +265,7 @@ test.describe('Full Supplier Switching Flow', () => {
 
     // Should show exit fee warning
     await expect(page.getByText(/exit fee/i)).toBeVisible()
-    await expect(page.getByText(/£50/)).toBeVisible()
+    await expect(page.getByText(/\$50/)).toBeVisible()
     await expect(page.getByText(/current contract/i)).toBeVisible()
   })
 
@@ -277,9 +277,9 @@ test.describe('Full Supplier Switching Flow', () => {
       .getByRole('button', { name: /switch/i })
       .click()
 
-    // In review step, should show net savings (£300 - £50 exit fee = £250)
+    // In review step, should show net savings ($300 - $50 exit fee = $250)
     await expect(page.getByText(/Net savings after exit fee/i)).toBeVisible()
-    await expect(page.getByText(/£250/)).toBeVisible()
+    await expect(page.getByText(/\$250/)).toBeVisible()
   })
 
   test('prevents switching without required consents', async ({ page }) => {

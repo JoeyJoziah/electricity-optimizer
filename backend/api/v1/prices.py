@@ -22,6 +22,8 @@ from models.price import (
     PriceForecast,
     PriceComparisonResponse,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.price_service import PriceService
 from services.analytics_service import AnalyticsService
 from api.dependencies import (
@@ -29,6 +31,14 @@ from api.dependencies import (
     get_analytics_service,
     get_current_user_optional,
     TokenData,
+)
+from config.database import get_timescale_session
+from integrations.pricing_apis.service import create_pricing_service_from_settings
+from integrations.pricing_apis.base import (
+    PriceData as APIPriceData,
+    PricingRegion,
+    APIError,
+    RateLimitError,
 )
 
 import structlog
@@ -45,13 +55,13 @@ def _generate_mock_prices(region: str, count: int = 24) -> List[Price]:
     for i in range(count):
         ts = now - timedelta(hours=count - i)
         hour = ts.hour
-        base = round(0.20 + 0.05 * np.sin((hour - 6) * np.pi / 12), 4)
+        base = round(0.22 + 0.06 * np.sin((hour - 6) * np.pi / 12), 4)
         prices.append(Price(
             region=region,
-            supplier="Octopus Energy",
+            supplier="Eversource Energy",
             price_per_kwh=Decimal(str(base)),
             timestamp=ts,
-            currency="GBP",
+            currency="USD",
             is_peak=7 <= hour <= 19,
             carbon_intensity=round(150 + 50 * np.sin((hour - 6) * np.pi / 12), 1),
         ))
@@ -340,15 +350,15 @@ async def compare_prices(
         logger.warning("using_mock_comparison", reason=str(e))
         now = datetime.now(timezone.utc)
         mock_suppliers = [
-            ("Octopus Energy", Decimal("0.2100")),
-            ("British Gas", Decimal("0.2450")),
-            ("EDF Energy", Decimal("0.2300")),
+            ("Eversource Energy", Decimal("0.2600")),
+            ("United Illuminating (UI)", Decimal("0.2850")),
+            ("NextEra Energy", Decimal("0.2700")),
         ]
         responses = [
             PriceResponse(
                 ticker=f"ELEC-{region.value.upper()}",
                 current_price=price,
-                currency="GBP",
+                currency="USD",
                 region=region.value,
                 supplier=name,
                 updated_at=now,
@@ -359,9 +369,9 @@ async def compare_prices(
             region=region.value,
             timestamp=now,
             suppliers=responses,
-            cheapest_supplier="Octopus Energy",
-            cheapest_price=Decimal("0.2100"),
-            average_price=Decimal("0.2283"),
+            cheapest_supplier="Eversource Energy",
+            cheapest_price=Decimal("0.2600"),
+            average_price=Decimal("0.2717"),
         )
 
 
@@ -536,19 +546,81 @@ async def get_peak_hours_analysis(
         200: {"description": "Price sync triggered successfully"},
     }
 )
-async def refresh_prices():
+async def refresh_prices(
+    session: AsyncSession = Depends(get_timescale_session),
+):
     """
     Trigger a refresh of electricity price data from external sources.
 
     Called by the GitHub Actions price-sync workflow (every 6 hours)
     to keep cached price data up to date.
-
-    TODO: Integrate with pricing API services to fetch live data.
     """
     logger.info("price_refresh_triggered")
 
+    default_regions = [
+        PricingRegion.US_CT,
+        PricingRegion.US_NY,
+        PricingRegion.US_CA,
+        PricingRegion.UK,
+        PricingRegion.GERMANY,
+        PricingRegion.FRANCE,
+    ]
+
+    synced_count = 0
+    regions_covered = []
+    errors = []
+
+    pricing_service = create_pricing_service_from_settings()
+
+    try:
+        async with pricing_service:
+            comparison = await pricing_service.compare_prices(default_regions)
+
+            prices_to_store = []
+            for region, price_data in comparison.items():
+                kwh_price = price_data.convert_to_kwh()
+
+                # Map PricingRegion to PriceRegion for DB storage
+                region_map = {
+                    "UK": "uk", "DE": "germany", "FR": "france",
+                    "ES": "spain", "IT": "italy", "NL": "netherlands",
+                    "US_CT": "us_ca", "US_CA": "us_ca", "US_NY": "us_ny",
+                    "US_TX": "us_tx", "US_FL": "us_fl",
+                }
+                db_region = region_map.get(region.value, region.value.lower())
+
+                prices_to_store.append(Price(
+                    region=db_region,
+                    supplier=kwh_price.supplier or "Unknown",
+                    price_per_kwh=kwh_price.price,
+                    timestamp=kwh_price.timestamp,
+                    currency=kwh_price.currency,
+                    is_peak=kwh_price.is_peak,
+                    carbon_intensity=kwh_price.carbon_intensity,
+                    source_api=kwh_price.source_api,
+                ))
+                regions_covered.append(region.value)
+
+            if prices_to_store and session:
+                from repositories.price_repository import PriceRepository
+                repo = PriceRepository(session)
+                synced_count = await repo.bulk_create(prices_to_store)
+
+    except RateLimitError as e:
+        logger.warning("price_refresh_rate_limited", error=str(e), retry_after=e.retry_after)
+        errors.append(f"Rate limited: {e}")
+    except APIError as e:
+        logger.warning("price_refresh_api_error", error=str(e))
+        errors.append(f"API error: {e}")
+    except Exception as e:
+        logger.error("price_refresh_failed", error=str(e))
+        errors.append(f"Unexpected error: {e}")
+
     return {
-        "status": "refreshed",
-        "message": "Price sync triggered",
+        "status": "refreshed" if synced_count > 0 else "partial",
+        "message": f"Synced {synced_count} price records from {len(regions_covered)} regions",
+        "synced_records": synced_count,
+        "regions_covered": regions_covered,
+        "errors": errors if errors else None,
         "triggered_at": datetime.now(timezone.utc).isoformat(),
     }

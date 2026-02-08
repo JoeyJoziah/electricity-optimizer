@@ -53,9 +53,9 @@ describe('SavingsDonut', () => {
   })
 
   it('formats currency correctly', () => {
-    render(<SavingsDonut data={mockSavingsData} currency="GBP" />)
+    render(<SavingsDonut data={mockSavingsData} currency="USD" />)
 
-    expect(screen.getByText(/£350/)).toBeInTheDocument()
+    expect(screen.getByText(/\$350/)).toBeInTheDocument()
   })
 
   it('shows period label', () => {

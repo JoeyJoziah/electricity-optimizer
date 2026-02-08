@@ -84,7 +84,7 @@ class ForecastMetrics:
             lines.extend([
                 "",
                 "Business Metrics:",
-                f"  Cost of Error:           £{self.cost_of_error:.2f}",
+                f"  Cost of Error:           ${self.cost_of_error:.2f}",
                 f"  Savings Impact:          {self.optimization_savings_impact:.2f}%",
             ])
 

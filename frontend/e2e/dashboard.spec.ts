@@ -57,7 +57,7 @@ test.describe('Dashboard', () => {
           suppliers: [
             {
               id: '1',
-              name: 'Octopus Energy',
+              name: 'Eversource Energy',
               avgPricePerKwh: 0.25,
               standingCharge: 0.50,
               greenEnergy: true,
@@ -67,7 +67,7 @@ test.describe('Dashboard', () => {
             },
             {
               id: '2',
-              name: 'Bulb Energy',
+              name: 'NextEra Energy',
               avgPricePerKwh: 0.22,
               standingCharge: 0.45,
               greenEnergy: true,
@@ -123,7 +123,7 @@ test.describe('Dashboard', () => {
 
   test('displays supplier comparison widget', async ({ page }) => {
     await expect(page.getByText('Top Suppliers')).toBeVisible()
-    await expect(page.getByText('Octopus Energy')).toBeVisible()
+    await expect(page.getByText('Eversource Energy')).toBeVisible()
   })
 
   test('navigates to prices page', async ({ page }) => {

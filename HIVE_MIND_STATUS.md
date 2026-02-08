@@ -210,7 +210,7 @@
 ### MVP Launch Targets
 - 👥 Users: 100+ in first month
 - 📈 Weekly Active Rate: 70%+
-- 💰 Avg Savings per User: £150+/year
+- 💰 Avg Savings per User: $200+/year
 - 🎯 Forecast Accuracy: MAPE <10%
 - ⚡ Load Optimization: 15%+ cost reduction
 - ⬆️ Uptime: 99.5%+

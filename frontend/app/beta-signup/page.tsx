@@ -113,7 +113,7 @@ export default function BetaSignupPage() {
           </div>
           <CardTitle className="text-3xl">Join the Beta Program</CardTitle>
           <CardDescription className="text-base mt-2">
-            Save £150+ per year on electricity bills with AI-powered optimization
+            Save $200+ per year on electricity bills with AI-powered optimization
           </CardDescription>
         </CardHeader>
 
@@ -153,15 +153,15 @@ export default function BetaSignupPage() {
 
               <div>
                 <label htmlFor="postcode" className="block text-sm font-medium mb-2">
-                  UK Postcode *
+                  ZIP Code *
                 </label>
                 <Input
                   id="postcode"
                   type="text"
                   required
-                  placeholder="SW1A 1AA"
+                  placeholder="06510"
                   value={formData.postcode}
-                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
+                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Used to find the best suppliers in your area
@@ -185,15 +185,9 @@ export default function BetaSignupPage() {
                   onChange={(e) => setFormData({ ...formData, currentSupplier: e.target.value })}
                 >
                   <option value="">Select your supplier</option>
-                  <option value="British Gas">British Gas</option>
-                  <option value="EDF Energy">EDF Energy</option>
-                  <option value="E.ON">E.ON</option>
-                  <option value="OVO Energy">OVO Energy</option>
-                  <option value="Scottish Power">Scottish Power</option>
-                  <option value="SSE">SSE</option>
-                  <option value="Shell Energy">Shell Energy</option>
-                  <option value="Octopus Energy">Octopus Energy</option>
-                  <option value="Bulb">Bulb</option>
+                  <option value="Eversource Energy">Eversource Energy</option>
+                  <option value="United Illuminating">United Illuminating (UI)</option>
+                  <option value="Town Utility">Town utility</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
@@ -210,11 +204,11 @@ export default function BetaSignupPage() {
                   onChange={(e) => setFormData({ ...formData, monthlyBill: e.target.value })}
                 >
                   <option value="">Select range</option>
-                  <option value="<£50">Less than £50</option>
-                  <option value="£50-£100">£50 - £100</option>
-                  <option value="£100-£150">£100 - £150</option>
-                  <option value="£150-£200">£150 - £200</option>
-                  <option value=">£200">More than £200</option>
+                  <option value="<$75">Less than $75</option>
+                  <option value="$75-$150">$75 - $150</option>
+                  <option value="$150-$225">$150 - $225</option>
+                  <option value="$225-$300">$225 - $300</option>
+                  <option value=">$300">More than $300</option>
                 </select>
               </div>
 
@@ -288,7 +282,7 @@ export default function BetaSignupPage() {
                 </div>
                 <h4 className="font-medium mb-1">Save Money</h4>
                 <p className="text-sm text-gray-600">
-                  £150+ average annual savings
+                  $200+ average annual savings
                 </p>
               </div>
 

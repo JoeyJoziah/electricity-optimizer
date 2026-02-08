@@ -245,16 +245,16 @@ test.describe('Load Optimization Flow', () => {
 
     // Should show savings projections
     await expect(page.getByText('Daily Savings')).toBeVisible()
-    await expect(page.getByText('£0.37')).toBeVisible()
+    await expect(page.getByText('$0.37')).toBeVisible()
 
     await expect(page.getByText('Weekly Savings')).toBeVisible()
-    await expect(page.getByText('£2.59')).toBeVisible()
+    await expect(page.getByText('$2.59')).toBeVisible()
 
     await expect(page.getByText('Monthly Savings')).toBeVisible()
-    await expect(page.getByText('£11.10')).toBeVisible()
+    await expect(page.getByText('$11.10')).toBeVisible()
 
     await expect(page.getByText('Annual Savings')).toBeVisible()
-    await expect(page.getByText('£135.05')).toBeVisible()
+    await expect(page.getByText('$135.05')).toBeVisible()
   })
 
   test('can set appliance as non-flexible', async ({ page }) => {
@@ -288,8 +288,8 @@ test.describe('Load Optimization Flow', () => {
 
     // Should show reason
     await expect(page.getByText('Cheapest period between 2-4 AM')).toBeVisible()
-    await expect(page.getByText('Price at scheduled time: £0.15/kWh')).toBeVisible()
-    await expect(page.getByText('Price if run now: £0.30/kWh')).toBeVisible()
+    await expect(page.getByText('Price at scheduled time: $0.15/kWh')).toBeVisible()
+    await expect(page.getByText('Price if run now: $0.30/kWh')).toBeVisible()
   })
 
   test('can create recurring schedule', async ({ page }) => {

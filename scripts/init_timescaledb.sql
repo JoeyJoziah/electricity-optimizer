@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS electricity_prices (
     region VARCHAR(50) NOT NULL,
     supplier VARCHAR(100) NOT NULL,
     price DECIMAL(10, 4) NOT NULL,  -- Price in local currency per kWh
-    currency VARCHAR(3) NOT NULL,    -- GBP, USD, EUR
+    currency VARCHAR(3) NOT NULL,    -- USD, GBP, EUR
     price_type VARCHAR(20) NOT NULL, -- spot, day_ahead, fixed
     data_source VARCHAR(50) NOT NULL, -- flatpeak, nrel, iea
     created_at TIMESTAMPTZ DEFAULT NOW()

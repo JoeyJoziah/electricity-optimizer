@@ -269,7 +269,7 @@ Response:
       "predicted_price": 0.2345,
       "confidence_lower": 0.1993,
       "confidence_upper": 0.2697,
-      "currency": "GBP"
+      "currency": "USD"
     }
     // ... 23 more hours
   ],
@@ -331,7 +331,7 @@ Response:
   "optimized_cost": 0.45,
   "savings_amount": 0.30,
   "savings_percent": 40.0,
-  "currency": "GBP",
+  "currency": "USD",
   "optimized_schedule": {
     "Dishwasher": {
       "start_time": "2026-02-07T02:00:00Z",
@@ -573,9 +573,9 @@ schedule = optimizer.optimize_schedule(
 )
 
 # Results:
-# Unoptimized: £0.75
-# Optimized:   £0.45
-# Savings:     40% (£0.30)
+# Unoptimized: $0.75
+# Optimized:   $0.45
+# Savings:     40% ($0.30)
 ```
 
 ---

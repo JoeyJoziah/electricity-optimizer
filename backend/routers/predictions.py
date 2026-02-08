@@ -52,7 +52,7 @@ class PricePrediction(BaseModel):
     predicted_price: float = Field(description="Predicted price in local currency per kWh")
     confidence_lower: Optional[float] = Field(None, description="Lower bound (95% confidence)")
     confidence_upper: Optional[float] = Field(None, description="Upper bound (95% confidence)")
-    currency: str = Field(default="GBP")
+    currency: str = Field(default="USD")
 
 
 class PriceForecastResponse(BaseModel):
@@ -231,7 +231,7 @@ async def generate_price_forecast(
             predicted_price=round(predicted_price, 4),
             confidence_lower=round(confidence_lower, 4),
             confidence_upper=round(confidence_upper, 4),
-            currency="GBP" if region in ["UK"] else "USD"
+            currency="USD" if region not in ["UK"] else "GBP"
         ))
 
     return predictions
@@ -489,7 +489,7 @@ async def estimate_savings(
             optimized_cost=round(optimized_cost, 4),
             savings_amount=round(savings_amount, 4),
             savings_percent=round(savings_percent, 2),
-            currency="GBP" if request.region in [Region.UK] else "USD",
+            currency="USD" if request.region not in [Region.UK] else "GBP",
             optimized_schedule=optimized_schedule
         )
 

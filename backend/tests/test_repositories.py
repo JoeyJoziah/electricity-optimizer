@@ -54,11 +54,11 @@ class TestPriceRepository:
         mock_result.scalars.return_value.all.return_value = [
             MagicMock(
                 id="price_1",
-                region="uk",
-                supplier="Octopus Energy",
-                price_per_kwh=Decimal("0.25"),
+                region="us_ct",
+                supplier="Eversource Energy",
+                price_per_kwh=Decimal("0.26"),
                 timestamp=datetime.now(timezone.utc),
-                currency="GBP"
+                currency="USD"
             )
         ]
         mock_db_session.execute.return_value = mock_result
@@ -93,11 +93,11 @@ class TestPriceRepository:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = MagicMock(
             id="price_123",
-            region="uk",
+            region="us_ct",
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
         mock_db_session.execute.return_value = mock_result
 
@@ -127,11 +127,11 @@ class TestPriceRepository:
         from models.price import Price, PriceRegion
 
         price_data = Price(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             supplier="Test Supplier",
             price_per_kwh=Decimal("0.30"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -173,18 +173,18 @@ class TestPriceRepository:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = MagicMock(
             id="price_latest",
-            region="uk",
-            supplier="Octopus Energy",
-            price_per_kwh=Decimal("0.28"),
+            region="us_ct",
+            supplier="Eversource Energy",
+            price_per_kwh=Decimal("0.26"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
         mock_db_session.execute.return_value = mock_result
 
         repo = PriceRepository(mock_db_session, mock_redis)
         price = await repo.get_latest_by_supplier(
             region=PriceRegion.UK,
-            supplier="Octopus Energy"
+            supplier="Eversource Energy"
         )
 
         assert price is not None
@@ -197,18 +197,18 @@ class TestPriceRepository:
 
         prices = [
             Price(
-                region=PriceRegion.UK,
+                region=PriceRegion.US_CT,
                 supplier="Supplier A",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=datetime.now(timezone.utc),
-                currency="GBP"
+                currency="USD"
             ),
             Price(
-                region=PriceRegion.UK,
+                region=PriceRegion.US_CT,
                 supplier="Supplier B",
                 price_per_kwh=Decimal("0.27"),
                 timestamp=datetime.now(timezone.utc),
-                currency="GBP"
+                currency="USD"
             )
         ]
 
@@ -242,11 +242,11 @@ class TestPriceRepository:
         # Setup cache to return data
         cached_data = json.dumps([{
             "id": "cached_price",
-            "region": "uk",
+            "region": "us_ct",
             "supplier": "Cached Supplier",
             "price_per_kwh": "0.20",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "currency": "GBP"
+            "currency": "USD"
         }])
         mock_redis.get.return_value = cached_data
 
@@ -284,7 +284,7 @@ class TestUserRepository:
             id="user_123",
             email="test@example.com",
             name="Test User",
-            region="uk"
+            region="us_ct"
         )
         mock_db_session.execute.return_value = mock_result
 
@@ -303,7 +303,7 @@ class TestUserRepository:
             id="user_123",
             email="test@example.com",
             name="Test User",
-            region="uk"
+            region="us_ct"
         )
         mock_db_session.execute.return_value = mock_result
 
@@ -321,7 +321,7 @@ class TestUserRepository:
         user_data = User(
             email="new@example.com",
             name="New User",
-            region="uk"
+            region="us_ct"
         )
 
         repo = UserRepository(mock_db_session)
@@ -408,8 +408,8 @@ class TestSupplierRepository:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = MagicMock(
             id="supplier_123",
-            name="Octopus Energy",
-            regions=["uk", "germany"]
+            name="Eversource Energy",
+            regions=["us_ct"]
         )
         mock_db_session.execute.return_value = mock_result
 
@@ -425,13 +425,13 @@ class TestSupplierRepository:
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [
-            MagicMock(id="s1", name="Supplier 1", regions=["uk"]),
-            MagicMock(id="s2", name="Supplier 2", regions=["uk"])
+            MagicMock(id="s1", name="Supplier 1", regions=["us_ct"]),
+            MagicMock(id="s2", name="Supplier 2", regions=["us_ct"])
         ]
         mock_db_session.execute.return_value = mock_result
 
         repo = SupplierRepository(mock_db_session)
-        suppliers = await repo.list_by_region("uk")
+        suppliers = await repo.list_by_region("us_ct")
 
         assert isinstance(suppliers, list)
 
@@ -442,8 +442,8 @@ class TestSupplierRepository:
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [
-            MagicMock(id="t1", name="Agile Octopus"),
-            MagicMock(id="t2", name="Go Octopus")
+            MagicMock(id="t1", name="Standard Service"),
+            MagicMock(id="t2", name="Time of Use")
         ]
         mock_db_session.execute.return_value = mock_result
 

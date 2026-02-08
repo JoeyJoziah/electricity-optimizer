@@ -6,8 +6,8 @@ import '@testing-library/jest-dom'
 const mockRecommendation = {
   supplier: {
     id: '2',
-    name: 'Bulb Energy',
-    logo: '/logos/bulb.png',
+    name: 'NextEra Energy',
+    logo: '/logos/nextera.png',
     avgPricePerKwh: 0.22,
     standingCharge: 0.45,
     greenEnergy: true,
@@ -17,8 +17,8 @@ const mockRecommendation = {
   },
   currentSupplier: {
     id: '1',
-    name: 'British Gas',
-    logo: '/logos/bg.png',
+    name: 'United Illuminating (UI)',
+    logo: '/logos/ui.png',
     avgPricePerKwh: 0.28,
     standingCharge: 0.55,
     greenEnergy: false,
@@ -36,7 +36,7 @@ describe('SwitchWizard', () => {
   it('shows recommendation in step 1', () => {
     render(<SwitchWizard recommendation={mockRecommendation} />)
 
-    expect(screen.getByText('Bulb Energy')).toBeInTheDocument()
+    expect(screen.getByText('NextEra Energy')).toBeInTheDocument()
     expect(screen.getByText(/300/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /review recommendation/i })).toBeInTheDocument()
   })
@@ -197,8 +197,8 @@ describe('SwitchWizard', () => {
   it('shows comparison between current and new supplier', () => {
     render(<SwitchWizard recommendation={mockRecommendation} />)
 
-    expect(screen.getByText('British Gas')).toBeInTheDocument()
-    expect(screen.getByText('Bulb Energy')).toBeInTheDocument()
+    expect(screen.getByText('United Illuminating (UI)')).toBeInTheDocument()
+    expect(screen.getByText('NextEra Energy')).toBeInTheDocument()
   })
 
   it('handles API errors gracefully', async () => {

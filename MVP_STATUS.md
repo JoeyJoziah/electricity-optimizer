@@ -252,7 +252,7 @@
 - [ ] Monitor key metrics
   - Uptime (99.5%+ target)
   - Forecast accuracy (MAPE <10%)
-  - User savings (£150+/year average)
+  - User savings ($200+/year average)
   - Engagement (70%+ weekly active)
 - [ ] Collect user feedback
 - [ ] Bug fixes and iteration
@@ -310,7 +310,7 @@
 **User Metrics:**
 - [ ] 100+ users in first month
 - [ ] 70%+ weekly active rate
-- [ ] £150+/year average savings per user
+- [ ] $200+/year average savings per user
 - [ ] NPS 50+
 
 **Technical KPIs:**

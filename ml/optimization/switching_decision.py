@@ -51,7 +51,7 @@ class Tariff:
         supplier: Supplier name
         name: Tariff name
         tariff_type: Type of tariff
-        unit_rate: Base rate per kWh (GBP or currency)
+        unit_rate: Base rate per kWh (USD or currency)
         standing_charge: Daily standing charge
         peak_rate: Peak rate for TOU tariffs (optional)
         off_peak_rate: Off-peak rate for TOU tariffs (optional)
@@ -656,8 +656,8 @@ def create_sample_tariffs() -> List[Tariff]:
         ),
         Tariff(
             id="dynamic_agile",
-            supplier="AgilePower",
-            name="Agile Dynamic",
+            supplier="GridFlex",
+            name="Dynamic Rate",
             tariff_type=TariffType.DYNAMIC,
             unit_rate=0.18,
             standing_charge=0.42,

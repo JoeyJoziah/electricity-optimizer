@@ -32,7 +32,7 @@ export interface SavingsData {
 export interface SavingsDonutProps {
   data: SavingsData
   showLegend?: boolean
-  currency?: 'GBP' | 'EUR' | 'USD'
+  currency?: 'USD' | 'GBP' | 'EUR'
   className?: string
 }
 
@@ -48,7 +48,7 @@ const periodLabels: Record<SavingsData['period'], string> = {
 export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(({
   data,
   showLegend = false,
-  currency = 'GBP',
+  currency = 'USD',
   className,
 }) => {
   const { totalSavings, breakdown, period } = data

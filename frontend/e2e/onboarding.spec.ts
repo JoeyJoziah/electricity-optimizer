@@ -82,7 +82,7 @@ test.describe('User Onboarding Flow', () => {
           suppliers: [
             {
               id: '1',
-              name: 'Octopus Energy',
+              name: 'Eversource Energy',
               avgPricePerKwh: 0.25,
               standingCharge: 0.50,
               greenEnergy: true,

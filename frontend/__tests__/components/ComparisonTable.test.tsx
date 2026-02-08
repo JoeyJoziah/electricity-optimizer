@@ -6,7 +6,7 @@ import '@testing-library/jest-dom'
 const mockSuppliers = [
   {
     id: '1',
-    name: 'Octopus Energy',
+    name: 'Eversource Energy',
     avgPricePerKwh: 0.25,
     standingCharge: 0.50,
     greenEnergy: true,
@@ -16,7 +16,7 @@ const mockSuppliers = [
   },
   {
     id: '2',
-    name: 'Bulb Energy',
+    name: 'NextEra Energy',
     avgPricePerKwh: 0.22,
     standingCharge: 0.45,
     greenEnergy: true,
@@ -26,7 +26,7 @@ const mockSuppliers = [
   },
   {
     id: '3',
-    name: 'British Gas',
+    name: 'United Illuminating (UI)',
     avgPricePerKwh: 0.28,
     standingCharge: 0.55,
     greenEnergy: false,
@@ -40,9 +40,9 @@ describe('ComparisonTable', () => {
   it('renders all suppliers in the table', () => {
     render(<ComparisonTable suppliers={mockSuppliers} />)
 
-    expect(screen.getByText('Octopus Energy')).toBeInTheDocument()
-    expect(screen.getByText('Bulb Energy')).toBeInTheDocument()
-    expect(screen.getByText('British Gas')).toBeInTheDocument()
+    expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
+    expect(screen.getByText('NextEra Energy')).toBeInTheDocument()
+    expect(screen.getByText('United Illuminating (UI)')).toBeInTheDocument()
   })
 
   it('displays column headers correctly', () => {
@@ -59,8 +59,8 @@ describe('ComparisonTable', () => {
     render(<ComparisonTable suppliers={mockSuppliers} />)
 
     const rows = screen.getAllByRole('row')
-    // First data row should be Bulb (cheapest)
-    expect(within(rows[1]).getByText('Bulb Energy')).toBeInTheDocument()
+    // First data row should be NextEra (cheapest)
+    expect(within(rows[1]).getByText('NextEra Energy')).toBeInTheDocument()
   })
 
   it('allows sorting by different columns', async () => {
@@ -71,8 +71,8 @@ describe('ComparisonTable', () => {
     await user.click(screen.getByText(/rating/i))
 
     const rows = screen.getAllByRole('row')
-    // First data row should be British Gas (lowest rating 3.8)
-    expect(within(rows[1]).getByText('British Gas')).toBeInTheDocument()
+    // First data row should be United Illuminating (lowest rating 3.8)
+    expect(within(rows[1]).getByText('United Illuminating (UI)')).toBeInTheDocument()
   })
 
   it('toggles sort direction on repeated clicks', async () => {
@@ -83,12 +83,12 @@ describe('ComparisonTable', () => {
     // First click on annual cost toggles to descending
     await user.click(screen.getByText(/annual cost/i))
     let rows = screen.getAllByRole('row')
-    expect(within(rows[1]).getByText('British Gas')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('United Illuminating (UI)')).toBeInTheDocument()
 
     // Second click toggles back to ascending
     await user.click(screen.getByText(/annual cost/i))
     rows = screen.getAllByRole('row')
-    expect(within(rows[1]).getByText('Bulb Energy')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('NextEra Energy')).toBeInTheDocument()
   })
 
   it('highlights the cheapest option', () => {
@@ -120,7 +120,7 @@ describe('ComparisonTable', () => {
   })
 
   it('shows savings compared to current supplier', () => {
-    const currentSupplier = mockSuppliers[2] // British Gas - 1350/year
+    const currentSupplier = mockSuppliers[2] // United Illuminating - 1350/year
 
     render(
       <ComparisonTable
@@ -154,8 +154,8 @@ describe('ComparisonTable', () => {
 
     await user.click(screen.getByRole('checkbox', { name: /green energy only/i }))
 
-    expect(screen.getByText('Octopus Energy')).toBeInTheDocument()
-    expect(screen.getByText('Bulb Energy')).toBeInTheDocument()
-    expect(screen.queryByText('British Gas')).not.toBeInTheDocument()
+    expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
+    expect(screen.getByText('NextEra Energy')).toBeInTheDocument()
+    expect(screen.queryByText('United Illuminating (UI)')).not.toBeInTheDocument()
   })
 })

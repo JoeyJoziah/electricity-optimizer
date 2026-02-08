@@ -74,8 +74,8 @@ def flatpeak_response_current():
             "timestamp": "2024-01-15T10:30:00Z",
             "price": 0.2845,
             "unit": "kWh",
-            "supplier": "Octopus Energy",
-            "tariff_name": "Agile Octopus",
+            "supplier": "Eversource Energy",
+            "tariff_name": "Standard Service",
             "is_peak": False,
             "breakdown": {
                 "energy": 0.15,
@@ -166,17 +166,17 @@ class TestPriceData:
     def test_create_price_data(self):
         """Test creating a PriceData instance"""
         price = PriceData(
-            region=PricingRegion.UK,
+            region=PricingRegion.US_CT,
             timestamp=datetime.now(timezone.utc),
-            price=Decimal("0.2845"),
+            price=Decimal("0.2600"),
             unit=PriceUnit.KWH,
-            currency="GBP",
-            supplier="Octopus Energy",
+            currency="USD",
+            supplier="Eversource Energy",
         )
 
-        assert price.region == PricingRegion.UK
-        assert price.price == Decimal("0.2845")
-        assert price.currency == "GBP"
+        assert price.region == PricingRegion.US_CT
+        assert price.price == Decimal("0.2600")
+        assert price.currency == "USD"
 
     def test_price_data_serialization(self):
         """Test PriceData to_dict and from_dict"""
@@ -220,17 +220,17 @@ class TestPriceForecast:
         """Test creating a PriceForecast instance"""
         prices = [
             PriceData(
-                region=PricingRegion.UK,
+                region=PricingRegion.US_CT,
                 timestamp=datetime.now(timezone.utc) + timedelta(hours=i),
-                price=Decimal("0.25"),
+                price=Decimal("0.26"),
                 unit=PriceUnit.KWH,
-                currency="GBP",
+                currency="USD",
             )
             for i in range(24)
         ]
 
         forecast = PriceForecast(
-            region=PricingRegion.UK,
+            region=PricingRegion.US_CT,
             forecast_generated_at=datetime.now(timezone.utc),
             forecast_horizon_hours=24,
             source_api="flatpeak",
@@ -244,7 +244,7 @@ class TestPriceForecast:
     def test_forecast_serialization(self):
         """Test PriceForecast serialization"""
         forecast = PriceForecast(
-            region=PricingRegion.UK,
+            region=PricingRegion.US_CT,
             forecast_generated_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
             forecast_horizon_hours=24,
             source_api="test",
@@ -627,7 +627,7 @@ class TestFlatpeakClient:
                 assert price.region == PricingRegion.UK
                 assert price.price == Decimal("0.2845")
                 assert price.currency == "GBP"
-                assert price.supplier == "Octopus Energy"
+                assert price.supplier == "Eversource Energy"
                 assert price.source_api == "flatpeak"
 
     @pytest.mark.asyncio

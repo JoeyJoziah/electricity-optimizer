@@ -5,8 +5,8 @@ import '@testing-library/jest-dom'
 
 const mockSupplier = {
   id: '1',
-  name: 'Octopus Energy',
-  logo: '/logos/octopus.png',
+  name: 'Eversource Energy',
+  logo: '/logos/eversource.png',
   avgPricePerKwh: 0.25,
   standingCharge: 0.50,
   greenEnergy: true,
@@ -20,7 +20,7 @@ describe('SupplierCard', () => {
   it('renders supplier information correctly', () => {
     render(<SupplierCard supplier={mockSupplier} />)
 
-    expect(screen.getByText('Octopus Energy')).toBeInTheDocument()
+    expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
     expect(screen.getByText(/0\.25/)).toBeInTheDocument()
     expect(screen.getByText(/1,200/)).toBeInTheDocument()
   })
@@ -106,7 +106,7 @@ describe('SupplierCard', () => {
     render(<SupplierCard supplier={supplierWithExitFee} showDetails />)
 
     expect(screen.getByText(/exit fee/i)).toBeInTheDocument()
-    expect(screen.getByText(/£50\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/\$50\.00/)).toBeInTheDocument()
   })
 
   it('is keyboard accessible', async () => {
@@ -126,7 +126,7 @@ describe('SupplierCard', () => {
   it('renders supplier logo when provided', () => {
     render(<SupplierCard supplier={mockSupplier} />)
 
-    const logo = screen.getByAltText(/octopus energy logo/i)
+    const logo = screen.getByAltText(/eversource energy logo/i)
     expect(logo).toBeInTheDocument()
   })
 

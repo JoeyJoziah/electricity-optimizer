@@ -588,7 +588,7 @@ class TestExitFeeHandling:
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.32,
             standing_charge=0.50,
-            exit_fee=100.0  # £100 exit fee
+            exit_fee=100.0  # $100 exit fee
         )
 
         alternatives = [

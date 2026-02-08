@@ -312,11 +312,11 @@ railway logs --service airflow
 <form action="/api/beta-signup" method="POST">
   <input name="email" type="email" required>
   <input name="name" type="text" required>
-  <input name="postcode" placeholder="UK Postcode">
+  <input name="zipcode" placeholder="ZIP Code">
   <select name="current_supplier">
-    <option>British Gas</option>
-    <option>EDF Energy</option>
-    <option>E.ON</option>
+    <option>Eversource Energy</option>
+    <option>United Illuminating (UI)</option>
+    <option>Town utility</option>
     <option>Other</option>
   </select>
   <label>
@@ -343,7 +343,7 @@ Here's what to expect:
 1. **Get Started**: Visit https://electricity-optimizer.app/auth/signup
    Use this beta code: BETA-2026-[unique-code]
 
-2. **Connect Your Data**: We support UK smart meters via UtilityAPI
+2. **Connect Your Data**: We support smart meters via UtilityAPI
    (Optional - you can skip and see demo data)
 
 3. **Explore Features**:
@@ -364,7 +364,7 @@ Here's what to expect:
 
 **What We're Testing**:
 - Forecast accuracy (target: <10% error)
-- Savings recommendations (target: £150+/year)
+- Savings recommendations (target: $200+/year)
 - User experience and onboarding
 
 Thank you for being an early supporter! 🚀
@@ -648,7 +648,7 @@ railway scale --service backend --replicas 2
 ### Nice to Have 🌟
 - [ ] 10+ user testimonials
 - [ ] 5+ supplier switches
-- [ ] £100+ average savings shown
+- [ ] $150+ average savings shown
 - [ ] 30%+ daily active rate
 
 ---

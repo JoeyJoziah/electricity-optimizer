@@ -361,7 +361,7 @@ The **Automated Electricity Supplier Price Optimizer** is **production-ready** a
 - ✅ Forecast Accuracy: MAPE <10%
 
 **Business Metrics**:
-- ✅ Savings Delivered: £100+/user average
+- ✅ Savings Delivered: $150+/user average
 - ✅ Support Response: <24 hours
 - ✅ Critical Bugs: 0
 - ✅ Bug Resolution: <48 hours average
@@ -371,7 +371,7 @@ The **Automated Electricity Supplier Price Optimizer** is **production-ready** a
 **Scale**:
 - 100+ active users
 - 60%+ weekly active rate
-- £150+/year average savings
+- $200+/year average savings
 
 **Quality**:
 - 99.5%+ uptime

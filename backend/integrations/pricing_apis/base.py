@@ -73,6 +73,7 @@ class PricingRegion(str, Enum):
     US_GA = "US_GA"  # Georgia
     US_NC = "US_NC"  # North Carolina
     US_MI = "US_MI"  # Michigan
+    US_CT = "US_CT"  # Connecticut
 
     # Global/Other
     JAPAN = "JP"

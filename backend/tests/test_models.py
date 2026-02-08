@@ -29,17 +29,17 @@ class TestPriceModel:
 
         price = Price(
             id="price_123",
-            region=PriceRegion.UK,
-            supplier="Octopus Energy",
-            price_per_kwh=Decimal("0.25"),
+            region=PriceRegion.US_CT,
+            supplier="Eversource Energy",
+            price_per_kwh=Decimal("0.26"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
 
-        assert price.region == PriceRegion.UK
-        assert price.price_per_kwh == Decimal("0.25")
-        assert price.supplier == "Octopus Energy"
-        assert price.currency == "GBP"
+        assert price.region == PriceRegion.US_CT
+        assert price.price_per_kwh == Decimal("0.26")
+        assert price.supplier == "Eversource Energy"
+        assert price.currency == "USD"
 
     def test_price_model_validates_negative_price(self):
         """Test Price model rejects negative prices"""
@@ -48,11 +48,11 @@ class TestPriceModel:
         with pytest.raises(ValidationError) as exc_info:
             Price(
                 id="price_123",
-                region=PriceRegion.UK,
+                region=PriceRegion.US_CT,
                 supplier="Test Supplier",
                 price_per_kwh=Decimal("-0.10"),  # Invalid negative price
                 timestamp=datetime.now(timezone.utc),
-                currency="GBP"
+                currency="USD"
             )
 
         assert "price_per_kwh" in str(exc_info.value)
@@ -64,11 +64,11 @@ class TestPriceModel:
         # Zero price should be allowed (negative pricing scenarios)
         price = Price(
             id="price_123",
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             supplier="Test Supplier",
             price_per_kwh=Decimal("0.00"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
 
         assert price.price_per_kwh == Decimal("0.00")
@@ -80,7 +80,7 @@ class TestPriceModel:
         with pytest.raises(ValidationError):
             Price(
                 id="price_123",
-                region=PriceRegion.UK,
+                region=PriceRegion.US_CT,
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=datetime.now(timezone.utc),
@@ -98,7 +98,7 @@ class TestPriceModel:
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=datetime.now(timezone.utc),
-                currency="GBP"
+                currency="USD"
             )
 
     def test_price_model_auto_generates_id(self):
@@ -106,11 +106,11 @@ class TestPriceModel:
         from models.price import Price, PriceRegion
 
         price = Price(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
 
         assert price.id is not None
@@ -121,11 +121,11 @@ class TestPriceModel:
         from models.price import Price, PriceRegion
 
         price = Price(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=datetime.now(timezone.utc),
-            currency="GBP"
+            currency="USD"
         )
 
         assert price.is_peak is None
@@ -139,17 +139,17 @@ class TestPriceModel:
         timestamp = datetime.now(timezone.utc)
         price = Price(
             id="price_123",
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=timestamp,
-            currency="GBP"
+            currency="USD"
         )
 
         data = price.model_dump()
 
         assert data["id"] == "price_123"
-        assert data["region"] == "uk"
+        assert data["region"] == "us_ct"
         assert data["price_per_kwh"] == Decimal("0.25")
 
 
@@ -160,7 +160,7 @@ class TestPriceRegionEnum:
         """Test all expected regions are defined"""
         from models.price import PriceRegion
 
-        expected_regions = ["UK", "GERMANY", "FRANCE", "SPAIN", "US_CA", "US_TX", "US_NY"]
+        expected_regions = ["UK", "GERMANY", "FRANCE", "SPAIN", "US_CA", "US_TX", "US_NY", "US_CT"]
 
         for region in expected_regions:
             assert hasattr(PriceRegion, region)
@@ -183,17 +183,17 @@ class TestPriceForecastModel:
         base_time = datetime.now(timezone.utc)
         prices = [
             Price(
-                region=PriceRegion.UK,
+                region=PriceRegion.US_CT,
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=base_time + timedelta(hours=i),
-                currency="GBP"
+                currency="USD"
             )
             for i in range(24)
         ]
 
         forecast = PriceForecast(
-            region=PriceRegion.UK,
+            region=PriceRegion.US_CT,
             generated_at=base_time,
             horizon_hours=24,
             prices=prices,
@@ -210,7 +210,7 @@ class TestPriceForecastModel:
 
         with pytest.raises(ValidationError):
             PriceForecast(
-                region=PriceRegion.UK,
+                region=PriceRegion.US_CT,
                 generated_at=datetime.now(timezone.utc),
                 horizon_hours=24,
                 prices=[],
@@ -234,12 +234,12 @@ class TestUserModel:
             id="user_123",
             email="test@example.com",
             name="Test User",
-            region="uk"
+            region="us_ct"
         )
 
         assert user.email == "test@example.com"
         assert user.name == "Test User"
-        assert user.region == "uk"
+        assert user.region == "us_ct"
 
     def test_user_model_validates_email(self):
         """Test User model validates email format"""
@@ -250,7 +250,7 @@ class TestUserModel:
                 id="user_123",
                 email="invalid-email",  # Invalid email format
                 name="Test User",
-                region="uk"
+                region="us_ct"
             )
 
     def test_user_model_auto_generates_id(self):
@@ -260,7 +260,7 @@ class TestUserModel:
         user = User(
             email="test@example.com",
             name="Test User",
-            region="uk"
+            region="us_ct"
         )
 
         assert user.id is not None
@@ -272,7 +272,7 @@ class TestUserModel:
         user = User(
             email="test@example.com",
             name="Test User",
-            region="uk"
+            region="us_ct"
         )
 
         assert user.preferences is not None
@@ -285,7 +285,7 @@ class TestUserModel:
         user = User(
             email="test@example.com",
             name="Test User",
-            region="uk"
+            region="us_ct"
         )
 
         assert user.created_at is not None
@@ -300,7 +300,7 @@ class TestUserPreferencesModel:
         from models.user import UserPreferences
 
         prefs = UserPreferences(
-            preferred_suppliers=["Octopus Energy", "British Gas"],
+            preferred_suppliers=["Eversource Energy", "United Illuminating"],
             notification_enabled=True,
             cost_threshold=Decimal("0.30"),
             auto_switch_enabled=False
@@ -334,14 +334,14 @@ class TestSupplierModel:
 
         supplier = Supplier(
             id="supplier_123",
-            name="Octopus Energy",
-            regions=["uk", "germany"],
+            name="Eversource Energy",
+            regions=["us_ct"],
             tariff_types=["variable", "fixed"],
             api_available=True
         )
 
-        assert supplier.name == "Octopus Energy"
-        assert "uk" in supplier.regions
+        assert supplier.name == "Eversource Energy"
+        assert "us_ct" in supplier.regions
         assert supplier.api_available is True
 
     def test_supplier_model_validates_name_length(self):
@@ -352,7 +352,7 @@ class TestSupplierModel:
             Supplier(
                 id="supplier_123",
                 name="",  # Empty name should fail
-                regions=["uk"],
+                regions=["us_ct"],
                 tariff_types=["variable"]
             )
 
@@ -373,19 +373,19 @@ class TestSupplierModel:
         from models.supplier import Supplier, SupplierContact
 
         contact = SupplierContact(
-            email="support@octopus.energy",
-            phone="+44 800 123 4567",
-            website="https://octopus.energy"
+            email="support@eversource.com",
+            phone="+1 800 286 2000",
+            website="https://eversource.com"
         )
 
         supplier = Supplier(
-            name="Octopus Energy",
-            regions=["uk"],
+            name="Eversource Energy",
+            regions=["us_ct"],
             tariff_types=["variable"],
             contact=contact
         )
 
-        assert supplier.contact.email == "support@octopus.energy"
+        assert supplier.contact.email == "support@eversource.com"
 
 
 class TestTariffModel:
@@ -398,7 +398,7 @@ class TestTariffModel:
         tariff = Tariff(
             id="tariff_123",
             supplier_id="supplier_456",
-            name="Agile Octopus",
+            name="Standard Service",
             type=TariffType.VARIABLE,
             base_rate=Decimal("0.10"),
             unit_rate=Decimal("0.25"),
@@ -406,7 +406,7 @@ class TestTariffModel:
             green_energy_percentage=100
         )
 
-        assert tariff.name == "Agile Octopus"
+        assert tariff.name == "Standard Service"
         assert tariff.type == TariffType.VARIABLE
         assert tariff.green_energy_percentage == 100
 
@@ -438,16 +438,16 @@ class TestAPISchemas:
         from models.price import PriceResponse
 
         response = PriceResponse(
-            ticker="ELEC-UK",
-            current_price=Decimal("0.25"),
-            currency="GBP",
-            region="uk",
-            supplier="Octopus Energy",
+            ticker="ELEC-US-CT",
+            current_price=Decimal("0.26"),
+            currency="USD",
+            region="us_ct",
+            supplier="Eversource Energy",
             updated_at=datetime.now(timezone.utc)
         )
 
-        assert response.ticker == "ELEC-UK"
-        assert response.current_price == Decimal("0.25")
+        assert response.ticker == "ELEC-US-CT"
+        assert response.current_price == Decimal("0.26")
 
     def test_price_list_response_schema(self):
         """Test PriceListResponse schema for paginated results"""
@@ -455,10 +455,10 @@ class TestAPISchemas:
 
         prices = [
             PriceResponse(
-                ticker="ELEC-UK",
-                current_price=Decimal("0.25"),
-                currency="GBP",
-                region="uk",
+                ticker="ELEC-US-CT",
+                current_price=Decimal("0.26"),
+                currency="USD",
+                region="us_ct",
                 supplier="Test",
                 updated_at=datetime.now(timezone.utc)
             )

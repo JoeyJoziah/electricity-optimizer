@@ -327,7 +327,7 @@
 - **Forecast Accuracy**: MAPE <10%
 
 ### Business Metrics
-- **Savings Delivered**: £100+/user average
+- **Savings Delivered**: $150+/user average
 - **Support Response**: <24 hours
 - **Critical Bugs**: 0
 - **Bug Resolution**: <48 hours average

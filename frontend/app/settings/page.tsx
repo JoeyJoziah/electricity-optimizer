@@ -112,7 +112,7 @@ export default function SettingsPage() {
                 type="number"
                 value={annualUsageKwh}
                 onChange={(e) => setAnnualUsage(parseInt(e.target.value) || 0)}
-                helperText="UK average is around 2,900 kWh per year"
+                helperText="US average is around 10,500 kWh per year"
               />
 
               <Input
@@ -192,14 +192,14 @@ export default function SettingsPage() {
                   value={displayPreferences.currency}
                   onChange={(e) =>
                     setDisplayPreferences({
-                      currency: e.target.value as 'GBP' | 'EUR' | 'USD',
+                      currency: e.target.value as 'USD' | 'GBP' | 'EUR',
                     })
                   }
                   className="rounded-lg border border-gray-300 px-3 py-2"
                 >
+                  <option value="USD">USD (Dollars)</option>
                   <option value="GBP">GBP (Pounds)</option>
                   <option value="EUR">EUR (Euros)</option>
-                  <option value="USD">USD (Dollars)</option>
                 </select>
               </div>
 

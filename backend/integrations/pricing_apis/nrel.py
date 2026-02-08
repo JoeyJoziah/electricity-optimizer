@@ -44,6 +44,7 @@ NREL_REGION_MAP = {
     PricingRegion.US_GA: "GA",
     PricingRegion.US_NC: "NC",
     PricingRegion.US_MI: "MI",
+    PricingRegion.US_CT: "CT",
 }
 
 # Representative ZIP codes for each state (for API calls)
@@ -58,6 +59,7 @@ STATE_ZIP_CODES = {
     "GA": "30301",  # Atlanta
     "NC": "27601",  # Raleigh
     "MI": "48201",  # Detroit
+    "CT": "06510",  # New Haven
 }
 
 # Utility sector types

@@ -82,13 +82,13 @@ def sample_price_data():
     from integrations.pricing_apis.base import PriceData, PricingRegion, PriceUnit
 
     return PriceData(
-        region=PricingRegion.UK,
+        region=PricingRegion.US_CT,
         timestamp=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
         price=Decimal("0.2845"),
         unit=PriceUnit.KWH,
-        currency="GBP",
-        supplier="Octopus Energy",
-        tariff_name="Agile Octopus",
+        currency="USD",
+        supplier="Eversource Energy",
+        tariff_name="Standard Service",
         source_api="flatpeak",
         energy_cost=Decimal("0.15"),
         network_cost=Decimal("0.08"),
@@ -115,22 +115,22 @@ def sample_forecast_data():
 
     prices = [
         PriceData(
-            region=PricingRegion.UK,
+            region=PricingRegion.US_CT,
             timestamp=base_time + timedelta(hours=i),
             price=Decimal("0.25") + Decimal(str(0.05 * (i % 4))),
             unit=PriceUnit.KWH,
-            currency="GBP",
-            source_api="flatpeak",
+            currency="USD",
+            source_api="nrel",
             is_peak=16 <= i <= 21,
         )
         for i in range(24)
     ]
 
     return PriceForecast(
-        region=PricingRegion.UK,
+        region=PricingRegion.US_CT,
         forecast_generated_at=base_time,
         forecast_horizon_hours=24,
-        source_api="flatpeak",
+        source_api="nrel",
         prices=prices,
         model_version="v2.1",
         confidence_level=0.85,
@@ -150,8 +150,8 @@ def flatpeak_current_response():
             "timestamp": "2024-01-15T10:30:00Z",
             "price": 0.2845,
             "unit": "kWh",
-            "supplier": "Octopus Energy",
-            "tariff_name": "Agile Octopus",
+            "supplier": "Eversource Energy",
+            "tariff_name": "Standard Service",
             "is_peak": False,
             "breakdown": {
                 "energy": 0.15,
