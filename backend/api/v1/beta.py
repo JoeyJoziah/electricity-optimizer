@@ -50,60 +50,30 @@ def generate_beta_code() -> str:
 
 
 async def send_welcome_email(email: str, name: str, beta_code: str):
-    """Send welcome email to beta user"""
-    # TODO: Implement actual email sending (SendGrid, AWS SES, etc.)
-    # For now, just log
-    print(f"📧 Sending welcome email to {email}")
-    print(f"   Name: {name}")
-    print(f"   Beta Code: {beta_code}")
+    """Send welcome email to beta user using HTML template via EmailService."""
+    print(f"Sending welcome email to {email} (name={name}, beta_code={beta_code})")
 
-    # Email template would be here
-    subject = "Welcome to Electricity Optimizer Beta! 🎉"
-    body = f"""
-    Hi {name},
+    try:
+        from services.email_service import EmailService
 
-    Congratulations! You've been accepted to the Electricity Optimizer beta program.
+        service = EmailService()
+        html_body = service.render_template(
+            "welcome_beta.html",
+            name=name,
+            betaCode=beta_code,
+        )
 
-    Your Beta Access Code: {beta_code}
+        subject = "Welcome to Electricity Optimizer Beta!"
+        success = await service.send(to=email, subject=subject, html_body=html_body)
 
-    Here's what to expect:
+        if success:
+            print(f"Welcome email sent to {email}")
+        else:
+            print(f"Email send returned false for {email} (no provider configured)")
 
-    1. **Get Started**: Visit https://electricity-optimizer.app/auth/signup
-       Use your beta code: {beta_code}
-
-    2. **Connect Your Data**: We support UK smart meters via UtilityAPI
-       (Optional - you can skip and see demo data)
-
-    3. **Explore Features**:
-       - Real-time electricity price tracking
-       - 24-hour price forecasting
-       - Automatic supplier switching recommendations
-       - Smart appliance scheduling
-
-    4. **Share Feedback**: Your feedback shapes the product!
-       - In-app feedback widget (bottom-right corner)
-       - Direct email: feedback@electricity-optimizer.app
-       - Weekly survey (5 min)
-
-    **Support**:
-    - Email: support@electricity-optimizer.app
-    - Response time: <24 hours
-
-    **Beta Perks**:
-    - Lifetime 50% discount when we launch
-    - Priority support
-    - Shape the product
-
-    Thank you for being an early supporter! 🚀
-
-    Best regards,
-    The Electricity Optimizer Team
-
-    P.S. First 50 beta users get lifetime 50% discount!
-    """
-
-    # In production, use email service:
-    # await email_service.send(to=email, subject=subject, body=body)
+    except Exception as e:
+        # Don't crash the signup flow if email fails
+        print(f"Failed to send welcome email to {email}: {e}")
 
     return True
 

@@ -185,44 +185,59 @@ async def store_forecast_in_cache(
         pass
 
 
-async def generate_price_forecast(
-    region: str,
-    hours_ahead: int,
-    session: AsyncSession
-) -> List[PricePrediction]:
+_model_cache: Dict[str, Any] = {}
+
+
+def _load_model():
     """
-    Generate price forecast using ML model
-
-    In production, this would:
-    1. Load the trained model from disk/S3
-    2. Fetch recent historical data
-    3. Run feature engineering
-    4. Generate predictions
-    5. Calculate confidence intervals
-
-    For now, returns simulated forecast
+    Load ML model for inference, trying EnsemblePredictor first, then PricePredictor.
+    Returns None if no model files found (triggering simulation fallback).
+    Caches loaded model to avoid reloading on every request.
     """
-    # TODO: Implement actual model inference
-    # from ml.models.price_forecaster import load_model, predict
-    # model = load_model('latest')
-    # predictions = model.predict(features)
+    if "model" in _model_cache:
+        return _model_cache["model"]
 
-    # Simulated forecast for demonstration
+    import os
+    from config.settings import settings
+
+    model_path = settings.model_path or os.environ.get("MODEL_PATH")
+    if not model_path or not os.path.isdir(model_path):
+        _model_cache["model"] = None
+        return None
+
+    try:
+        from ml.inference.ensemble_predictor import EnsemblePredictor
+        model = EnsemblePredictor(model_path)
+        _model_cache["model"] = model
+        logger.info("ml_model_loaded", model_type="ensemble", path=model_path)
+        return model
+    except Exception as e:
+        logger.warning("ensemble_model_load_failed", error=str(e))
+
+    try:
+        from ml.inference.predictor import PricePredictor
+        model = PricePredictor(model_path)
+        _model_cache["model"] = model
+        logger.info("ml_model_loaded", model_type="single", path=model_path)
+        return model
+    except Exception as e:
+        logger.warning("single_model_load_failed", error=str(e))
+
+    _model_cache["model"] = None
+    return None
+
+
+def _simulate_forecast(region: str, hours_ahead: int) -> List[PricePrediction]:
+    """Generate simulated forecast as fallback when no ML model is available."""
     base_time = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
     predictions = []
 
     for i in range(hours_ahead):
         timestamp = base_time + timedelta(hours=i+1)
-
-        # Simulate price with daily pattern
         hour = timestamp.hour
         base_price = 0.20 + 0.05 * np.sin((hour - 6) * np.pi / 12)
-
-        # Add some randomness
         noise = np.random.normal(0, 0.01)
         predicted_price = max(0.01, base_price + noise)
-
-        # Confidence intervals (± 15%)
         confidence_lower = predicted_price * 0.85
         confidence_upper = predicted_price * 1.15
 
@@ -235,6 +250,85 @@ async def generate_price_forecast(
         ))
 
     return predictions
+
+
+async def generate_price_forecast(
+    region: str,
+    hours_ahead: int,
+    session: AsyncSession
+) -> List[PricePrediction]:
+    """
+    Generate price forecast using ML model with graceful fallback to simulation.
+
+    Attempts to load a trained model (ensemble or single) and run inference.
+    If no model is available or inference fails, falls back to simulated forecast.
+    """
+    model = _load_model()
+
+    if model is not None:
+        try:
+            import pandas as pd
+
+            # Fetch recent price data from DB for features
+            features_df = None
+            if session:
+                from sqlalchemy import select, desc
+                from models.price import Price
+                result = await session.execute(
+                    select(Price)
+                    .where(Price.region == region.lower())
+                    .order_by(desc(Price.timestamp))
+                    .limit(168)
+                )
+                rows = list(result.scalars().all())
+                if rows:
+                    features_df = pd.DataFrame([{
+                        "price": float(r.price_per_kwh),
+                        "hour": r.timestamp.hour,
+                        "day_of_week": r.timestamp.weekday(),
+                        "is_peak": 1 if r.is_peak else 0,
+                        "carbon_intensity": r.carbon_intensity or 0.0,
+                    } for r in reversed(rows)])
+
+            if features_df is None or features_df.empty:
+                logger.warning("ml_inference_no_data", region=region)
+                return _simulate_forecast(region, hours_ahead)
+
+            result = model.predict(features_df, horizon=hours_ahead)
+
+            base_time = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+            predictions = []
+            point = result["point"]
+            lower = result["lower"]
+            upper = result["upper"]
+
+            for i in range(min(hours_ahead, len(point))):
+                predictions.append(PricePrediction(
+                    timestamp=base_time + timedelta(hours=i+1),
+                    predicted_price=round(float(point[i]), 4),
+                    confidence_lower=round(float(lower[i]), 4),
+                    confidence_upper=round(float(upper[i]), 4),
+                    currency="USD" if region not in ["UK"] else "GBP"
+                ))
+
+            logger.info("ml_inference_success", region=region, predictions=len(predictions))
+
+            # Store inference timestamp in Redis for model-info endpoint
+            try:
+                from config.database import db_manager
+                redis = await db_manager.get_redis_client()
+                if redis:
+                    await redis.set("model:last_updated", datetime.utcnow().isoformat())
+            except Exception:
+                pass
+
+            return predictions
+
+        except Exception as e:
+            logger.warning("ml_inference_failed", error=str(e), region=region)
+
+    logger.info("using_simulated_forecast", region=region)
+    return _simulate_forecast(region, hours_ahead)
 
 
 # ============================================================================
@@ -514,6 +608,13 @@ async def get_model_info(redis_client = Depends(get_redis)):
         model_version = await get_latest_model_version(redis_client)
         accuracy_mape = await get_model_accuracy(redis_client)
 
+    last_updated = None
+    if redis_client:
+        try:
+            last_updated = await redis_client.get("model:last_updated")
+        except Exception:
+            pass
+
     return {
         "model_version": model_version,
         "accuracy_mape": accuracy_mape,
@@ -521,5 +622,5 @@ async def get_model_info(redis_client = Depends(get_redis)):
         "forecast_horizon_hours": 24,
         "update_frequency": "hourly",
         "training_frequency": "weekly",
-        "last_updated": "2026-02-06T10:00:00Z"  # TODO: Get from DB
+        "last_updated": last_updated or datetime.utcnow().isoformat() + "Z",
     }
