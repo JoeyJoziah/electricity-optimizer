@@ -116,7 +116,7 @@ def check_password_strength(password: str) -> dict:
 
 def generate_password_hash(password: str) -> str:
     """
-    Generate secure password hash using bcrypt.
+    Generate secure password hash using PBKDF2-SHA256.
 
     Note: In production with Supabase Auth, password hashing
     is handled by Supabase. This is for local testing only.
@@ -135,7 +135,7 @@ def generate_password_hash(password: str) -> str:
         'sha256',
         password.encode('utf-8'),
         salt.encode('utf-8'),
-        100000
+        600000  # OWASP 2023 recommendation for PBKDF2-SHA256
     ).hex()
 
     return f"{salt}${hashed}"
@@ -145,6 +145,9 @@ def verify_password_hash(password: str, hashed: str) -> bool:
     """
     Verify password against hash.
 
+    Uses hmac.compare_digest for constant-time comparison to prevent
+    timing side-channel attacks.
+
     Args:
         password: Plain text password
         hashed: Stored hash
@@ -153,6 +156,7 @@ def verify_password_hash(password: str, hashed: str) -> bool:
         True if password matches
     """
     import hashlib
+    import hmac
 
     try:
         salt, stored_hash = hashed.split('$')
@@ -160,8 +164,8 @@ def verify_password_hash(password: str, hashed: str) -> bool:
             'sha256',
             password.encode('utf-8'),
             salt.encode('utf-8'),
-            100000
+            600000  # OWASP 2023 recommendation for PBKDF2-SHA256
         ).hex()
-        return computed_hash == stored_hash
+        return hmac.compare_digest(computed_hash, stored_hash)
     except Exception:
         return False

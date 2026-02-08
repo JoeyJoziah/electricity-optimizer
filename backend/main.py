@@ -12,15 +12,28 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from prometheus_client import make_asgi_app
 import structlog
+import sys
 import time
 
 from config.settings import settings
 from config.database import db_manager
 
+# Record application startup time for uptime calculation
+_startup_time = time.time()
 
-# Configure structured logging
-structlog.configure(
-    processors=[
+
+# Configure structured logging (optimized for free tier)
+# Use simpler processors in production to reduce overhead
+if settings.is_production:
+    log_processors = [
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.format_exc_info,
+        structlog.processors.JSONRenderer()
+    ]
+else:
+    log_processors = [
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
@@ -30,7 +43,10 @@ structlog.configure(
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
         structlog.processors.JSONRenderer()
-    ],
+    ]
+
+structlog.configure(
+    processors=log_processors,
     context_class=dict,
     logger_factory=structlog.stdlib.LoggerFactory(),
     cache_logger_on_first_use=True,
@@ -46,28 +62,36 @@ async def lifespan(app: FastAPI):
     logger.info("application_starting", environment=settings.environment)
 
     try:
-        # Initialize database connections
+        # Initialize database connections (graceful degradation in dev)
         await db_manager.initialize()
         logger.info("database_connections_initialized")
+    except Exception as e:
+        logger.error("database_init_failed", error=str(e))
+        if settings.is_production:
+            raise
+        logger.warning("continuing_without_full_db", environment=settings.environment)
 
-        # Initialize Sentry if configured
-        if settings.sentry_dsn:
+    # Initialize Sentry if configured (lazy import to reduce startup time)
+    if settings.sentry_dsn:
+        try:
             import sentry_sdk
             from sentry_sdk.integrations.fastapi import FastApiIntegration
 
             sentry_sdk.init(
                 dsn=settings.sentry_dsn,
                 environment=settings.environment,
-                traces_sample_rate=1.0 if settings.is_development else 0.1,
-                integrations=[FastApiIntegration()]
+                traces_sample_rate=0.1 if settings.is_production else 0.05,  # Lower sample rate for free tier
+                profiles_sample_rate=0.0,  # Disable profiling to save memory
+                integrations=[FastApiIntegration()],
+                send_default_pii=False,
+                max_breadcrumbs=30,  # Reduce from default 100
             )
             logger.info("sentry_initialized")
+        except Exception as e:
+            logger.warning("sentry_init_failed", error=str(e))
+            # Continue without Sentry rather than failing
 
-        logger.info("application_started", version=settings.app_version)
-
-    except Exception as e:
-        logger.error("application_startup_failed", error=str(e))
-        raise
+    logger.info("application_started", version=settings.app_version)
 
     yield
 
@@ -84,12 +108,13 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI application
+# Disable interactive API docs in production to reduce attack surface
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="AI-powered electricity price optimization platform",
-    docs_url="/docs" if settings.is_development else None,
-    redoc_url="/redoc" if settings.is_development else None,
+    docs_url="/docs" if not settings.is_production else None,
+    redoc_url="/redoc" if not settings.is_production else None,
     lifespan=lifespan
 )
 
@@ -98,13 +123,17 @@ app = FastAPI(
 # MIDDLEWARE
 # ============================================================================
 
-# CORS
+# CORS -- restrict origin regex to only the project's own subdomains.
+# The previous regex r"https://.*\.(vercel\.app|onrender\.com)" was too broad
+# and would allow any attacker-controlled Vercel/Render deployment to make
+# credentialed cross-origin requests.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=r"https://electricity-optimizer[a-z0-9\-]*\.(vercel\.app|onrender\.com)",
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key"],
 )
 
 # GZIP Compression
@@ -114,8 +143,15 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 from middleware.security_headers import SecurityHeadersMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Rate Limiting
+from middleware.rate_limiter import RateLimitMiddleware
+app.add_middleware(
+    RateLimitMiddleware,
+    exclude_paths=["/health", "/health/live", "/health/ready", "/metrics"],
+)
 
-# Request ID and Timing Middleware
+
+# Request ID and Timing Middleware (optimized for production)
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     """Add request ID and processing time to response headers"""
@@ -133,13 +169,24 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Process-Time"] = str(process_time)
 
-    logger.info(
-        "request_completed",
-        method=request.method,
-        path=request.url.path,
-        status_code=response.status_code,
-        process_time=process_time
-    )
+    # Only log slow requests in production to reduce overhead
+    if settings.is_production:
+        if process_time > 1.0 or response.status_code >= 400:
+            logger.info(
+                "request_completed",
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                process_time=process_time
+            )
+    else:
+        logger.info(
+            "request_completed",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            process_time=process_time
+        )
 
     return response
 
@@ -150,14 +197,19 @@ async def add_process_time_header(request: Request, call_next):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors"""
-    logger.warning("validation_error", errors=exc.errors(), body=exc.body)
+    """Handle validation errors -- never echo back the request body as it may contain passwords or tokens"""
+    # Sanitize error details: strip 'input' field which may contain sensitive values
+    sanitized_errors = []
+    for err in exc.errors():
+        sanitized = {k: v for k, v in err.items() if k != "input"}
+        sanitized_errors.append(sanitized)
+
+    logger.warning("validation_error", errors=sanitized_errors, path=request.url.path)
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
-            "detail": exc.errors(),
-            "body": exc.body
+            "detail": sanitized_errors,
         }
     )
 
@@ -191,11 +243,26 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """Basic health check endpoint"""
+    """Basic health check endpoint with deployment metadata"""
+    uptime_seconds = time.time() - _startup_time
+
+    # Determine database connectivity status
+    db_status = "disconnected"
+    try:
+        if db_manager.timescale_engine or db_manager.timescale_pool:
+            result = await db_manager.execute_timescale_query("SELECT 1")
+            if result:
+                db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+
     return {
         "status": "healthy",
         "version": settings.app_version,
-        "environment": settings.environment
+        "environment": settings.environment,
+        "uptime_seconds": round(uptime_seconds, 2),
+        "python_version": sys.version,
+        "database_status": db_status,
     }
 
 
@@ -268,7 +335,7 @@ async def root():
         "name": settings.app_name,
         "version": settings.app_version,
         "environment": settings.environment,
-        "docs": "/docs" if settings.is_development else "disabled",
+        "docs": "/docs",
         "health": "/health",
         "metrics": "/metrics"
     }
@@ -299,6 +366,15 @@ app.include_router(
     tags=["Suppliers"]
 )
 
+# Beta Signup endpoints
+from api.v1 import beta as beta_v1
+
+app.include_router(
+    beta_v1.router,
+    prefix=f"{settings.api_prefix}",
+    tags=["Beta"]
+)
+
 # Authentication endpoints
 from api.v1 import auth as auth_v1
 
@@ -315,6 +391,24 @@ app.include_router(
     compliance_v1.router,
     prefix=f"{settings.api_prefix}/compliance",
     tags=["Compliance"]
+)
+
+# User endpoints
+from api.v1 import user as user_v1
+
+app.include_router(
+    user_v1.router,
+    prefix=f"{settings.api_prefix}/user",
+    tags=["User"]
+)
+
+# Recommendation endpoints
+from api.v1 import recommendations as recommendations_v1
+
+app.include_router(
+    recommendations_v1.router,
+    prefix=f"{settings.api_prefix}/recommendations",
+    tags=["Recommendations"]
 )
 
 

@@ -67,27 +67,28 @@ describe('ComparisonTable', () => {
     const user = userEvent.setup()
     render(<ComparisonTable suppliers={mockSuppliers} />)
 
-    // Sort by rating
+    // Sort by rating (first click = ascending, lowest first)
     await user.click(screen.getByText(/rating/i))
 
     const rows = screen.getAllByRole('row')
-    // First data row should be Octopus (highest rating)
-    expect(within(rows[1]).getByText('Octopus Energy')).toBeInTheDocument()
+    // First data row should be British Gas (lowest rating 3.8)
+    expect(within(rows[1]).getByText('British Gas')).toBeInTheDocument()
   })
 
   it('toggles sort direction on repeated clicks', async () => {
     const user = userEvent.setup()
     render(<ComparisonTable suppliers={mockSuppliers} />)
 
-    // First click - ascending by annual cost
+    // Default sort is already estimatedAnnualCost ASC
+    // First click on annual cost toggles to descending
     await user.click(screen.getByText(/annual cost/i))
     let rows = screen.getAllByRole('row')
-    expect(within(rows[1]).getByText('Bulb Energy')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('British Gas')).toBeInTheDocument()
 
-    // Second click - descending
+    // Second click toggles back to ascending
     await user.click(screen.getByText(/annual cost/i))
     rows = screen.getAllByRole('row')
-    expect(within(rows[1]).getByText('British Gas')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('Bulb Energy')).toBeInTheDocument()
   })
 
   it('highlights the cheapest option', () => {

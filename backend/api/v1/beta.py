@@ -3,12 +3,15 @@ Beta Signup API Endpoint
 Handles beta user registration and welcome email sending
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Body, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
+import hmac
 import secrets
 import re
+
+from api.dependencies import get_current_user, TokenData
 
 router = APIRouter(prefix="/beta", tags=["beta"])
 
@@ -18,9 +21,9 @@ class BetaSignupRequest(BaseModel):
     email: EmailStr
     name: str = Field(..., min_length=2, max_length=100)
     postcode: str = Field(..., min_length=5, max_length=10)
-    currentSupplier: str
-    monthlyBill: str
-    hearAbout: str
+    currentSupplier: str = Field(..., min_length=1, max_length=100)
+    monthlyBill: str = Field(..., min_length=1, max_length=50)
+    hearAbout: str = Field(..., min_length=1, max_length=200)
 
 
 class BetaSignupResponse(BaseModel):
@@ -172,8 +175,10 @@ async def beta_signup(
 
 
 @router.get("/signups/count")
-async def get_beta_count():
-    """Get total beta signups count"""
+async def get_beta_count(
+    current_user: TokenData = Depends(get_current_user),
+):
+    """Get total beta signups count (requires authentication)"""
     return {
         "total": len(beta_signups),
         "target": 50,
@@ -182,8 +187,10 @@ async def get_beta_count():
 
 
 @router.get("/signups/stats")
-async def get_beta_stats():
-    """Get beta signup statistics"""
+async def get_beta_stats(
+    current_user: TokenData = Depends(get_current_user),
+):
+    """Get beta signup statistics (requires authentication)"""
     if not beta_signups:
         return {
             "total": 0,
@@ -220,9 +227,13 @@ async def get_beta_stats():
 
 
 @router.post("/verify-code")
-async def verify_beta_code(code: str):
+async def verify_beta_code(code: str = Body(..., max_length=50, embed=True)):
     """Verify beta access code is valid"""
-    is_valid = any(s["betaCode"] == code for s in beta_signups)
+    # Use constant-time comparison to prevent timing-based enumeration
+    is_valid = any(
+        hmac.compare_digest(s["betaCode"], code)
+        for s in beta_signups
+    )
 
     if is_valid:
         return {"valid": True, "message": "Beta code verified"}

@@ -36,7 +36,7 @@ const priceZoneColors = {
   expensive: 'bg-danger-100',
 }
 
-export const ScheduleTimeline: React.FC<ScheduleTimelineProps> = ({
+export const ScheduleTimeline: React.FC<ScheduleTimelineProps> = React.memo(({
   schedules,
   priceZones = [],
   showCurrentTime = false,
@@ -273,4 +273,6 @@ export const ScheduleTimeline: React.FC<ScheduleTimelineProps> = ({
       </div>
     </div>
   )
-}
+})
+
+ScheduleTimeline.displayName = 'ScheduleTimeline'

@@ -39,21 +39,32 @@ export default function PricesPage() {
   )
   const { data: optimalData } = useOptimalPeriods(region, 24)
 
-  // Process chart data
+  // Process chart data (handle both frontend and backend field names)
   const chartData = React.useMemo(() => {
     if (!historyData?.prices) return []
 
-    const history = historyData.prices.map((p) => ({
-      time: p.time,
-      price: p.price,
-      forecast: null,
-      isOptimal: p.price !== null && p.price < 0.22,
-    }))
+    const history: { time: string; price: number | null; forecast: number | null; isOptimal: boolean }[] = historyData.prices.map((p: any) => {
+      const time = p.time || p.timestamp
+      const price = p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null)
+      return {
+        time: typeof time === 'string' ? time : new Date(time).toISOString(),
+        price,
+        forecast: null as number | null,
+        isOptimal: price !== null && price < 0.22,
+      }
+    })
 
-    // Add forecast data
+    // Add forecast data (handle both array and backend object shape)
     if (forecastData?.forecast) {
+      const fc = forecastData.forecast as any
+      const forecastItems = Array.isArray(fc)
+        ? fc
+        : (fc.prices || []).map((p: any, i: number) => ({
+            hour: i + 1,
+            price: Number(p.price_per_kwh ?? p.price ?? 0),
+          }))
       const now = new Date()
-      forecastData.forecast.forEach((f) => {
+      forecastItems.forEach((f: any) => {
         const forecastTime = new Date(now.getTime() + f.hour * 60 * 60 * 1000)
         history.push({
           time: forecastTime.toISOString(),
@@ -67,7 +78,14 @@ export default function PricesPage() {
     return history
   }, [historyData, forecastData])
 
-  const currentPrice = pricesData?.prices?.[0]
+  // Map current price from backend fields
+  const rawPrice = pricesData?.prices?.[0] as any
+  const currentPrice = rawPrice ? {
+    price: Number(rawPrice.price ?? rawPrice.current_price ?? 0),
+    trend: rawPrice.trend || 'stable' as const,
+    changePercent: rawPrice.changePercent ?? (rawPrice.price_change_24h ? Number(rawPrice.price_change_24h) : null),
+    region: rawPrice.region,
+  } : null
   const trend = currentPrice?.trend || 'stable'
   const TrendIcon =
     trend === 'increasing'
@@ -76,20 +94,20 @@ export default function PricesPage() {
         ? TrendingDown
         : Minus
 
-  // Calculate price statistics
+  // Calculate price statistics (handle backend field names)
   const stats = React.useMemo(() => {
     if (!historyData?.prices) return null
 
     const prices = historyData.prices
-      .filter((p) => p.price !== null)
-      .map((p) => p.price as number)
+      .map((p: any) => p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null))
+      .filter((p: number | null): p is number => p !== null)
 
     if (prices.length === 0) return null
 
     return {
       min: Math.min(...prices),
       max: Math.max(...prices),
-      avg: prices.reduce((a, b) => a + b, 0) / prices.length,
+      avg: prices.reduce((a: number, b: number) => a + b, 0) / prices.length,
     }
   }, [historyData])
 

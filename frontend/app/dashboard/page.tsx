@@ -29,6 +29,22 @@ import {
 } from 'lucide-react'
 import type { TimeRange } from '@/types'
 
+// Static data hoisted to module scope to prevent re-renders
+const SAVINGS_DATA = {
+  totalSavings: 45.50,
+  breakdown: [
+    { category: 'Load Shifting', amount: 25.00, percentage: 55 },
+    { category: 'Optimal Times', amount: 15.50, percentage: 34 },
+    { category: 'Price Alerts', amount: 5.00, percentage: 11 },
+  ],
+  period: 'month' as const,
+}
+
+const PRICE_ZONES = [
+  { start: '01:00', end: '06:00', type: 'cheap' as const },
+  { start: '17:00', end: '21:00', type: 'expensive' as const },
+]
+
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>('24h')
   const region = useSettingsStore((s) => s.region)
@@ -54,19 +70,30 @@ export default function DashboardPage() {
   // Realtime connection
   const { isConnected } = useRealtimePrices(region)
 
-  // Process price data for chart
+  // Process price data for chart (handle both frontend and backend field names)
   const chartData = React.useMemo(() => {
     if (!historyData?.prices) return []
-    return historyData.prices.map((p) => ({
-      time: p.time,
-      price: p.price,
-      forecast: null,
-      isOptimal: p.price !== null && p.price < 0.22,
-    }))
+    return historyData.prices.map((p: any) => {
+      const time = p.time || p.timestamp
+      const price = p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null)
+      return {
+        time: typeof time === 'string' ? time : new Date(time).toISOString(),
+        price,
+        forecast: p.forecast ?? null,
+        isOptimal: price !== null && price < 0.22,
+      }
+    })
   }, [historyData])
 
-  // Get current price info
-  const currentPrice = pricesData?.prices?.[0]
+  // Get current price info (handle backend field names: current_price vs price)
+  const rawPrice = pricesData?.prices?.[0] as any
+  const currentPrice = rawPrice ? {
+    price: Number(rawPrice.price ?? rawPrice.current_price ?? 0),
+    trend: rawPrice.trend || 'stable',
+    changePercent: rawPrice.changePercent ?? (rawPrice.price_change_24h ? Number(rawPrice.price_change_24h) : null),
+    region: rawPrice.region,
+    supplier: rawPrice.supplier,
+  } : null
   const trend = currentPrice?.trend || 'stable'
   const TrendIcon =
     trend === 'increasing'
@@ -75,32 +102,32 @@ export default function DashboardPage() {
         ? TrendingDown
         : Minus
 
-  // Mock savings data (would come from API)
-  const savingsData = {
-    totalSavings: 45.50,
-    breakdown: [
-      { category: 'Load Shifting', amount: 25.00, percentage: 55 },
-      { category: 'Optimal Times', amount: 15.50, percentage: 34 },
-      { category: 'Price Alerts', amount: 5.00, percentage: 11 },
-    ],
-    period: 'month' as const,
-  }
-
-  // Mock schedules (would come from API)
-  const schedules = [
+  // Mock schedules - memoized to prevent re-renders
+  const today = React.useMemo(() => new Date().toISOString().split('T')[0], [])
+  const schedules = React.useMemo(() => [
     {
       applianceId: '1',
       applianceName: 'Washing Machine',
-      scheduledStart: new Date().toISOString().replace(/T.*/, 'T02:00:00Z'),
-      scheduledEnd: new Date().toISOString().replace(/T.*/, 'T04:00:00Z'),
+      scheduledStart: `${today}T02:00:00Z`,
+      scheduledEnd: `${today}T04:00:00Z`,
       estimatedCost: 0.45,
       savings: 0.15,
       reason: 'Lowest price period',
     },
-  ]
+  ], [today])
 
-  // Top 2 suppliers for quick comparison
-  const topSuppliers = suppliersData?.suppliers?.slice(0, 2) || []
+  // Top 2 suppliers for quick comparison (map backend fields to frontend types)
+  const topSuppliers = React.useMemo(() => (suppliersData?.suppliers?.slice(0, 2) || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    logo: s.logo || s.logo_url,
+    avgPricePerKwh: s.avgPricePerKwh ?? 0.22,
+    standingCharge: s.standingCharge ?? 0.40,
+    greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
+    rating: s.rating ?? 0,
+    estimatedAnnualCost: s.estimatedAnnualCost ?? 850,
+    tariffType: s.tariffType ?? (s.tariff_types?.[0] || 'variable'),
+  })), [suppliersData, currentSupplier])
 
   // Loading state
   if (pricesLoading && historyLoading) {
@@ -206,7 +233,7 @@ export default function DashboardPage() {
                 <Leaf className="h-5 w-5 text-success-500" />
               </div>
               <p className="mt-2 text-2xl font-bold text-success-600">
-                {formatCurrency(savingsData.totalSavings)}
+                {formatCurrency(SAVINGS_DATA.totalSavings)}
               </p>
               <p className="mt-1 text-sm text-gray-500">This month</p>
             </CardContent>
@@ -288,7 +315,7 @@ export default function DashboardPage() {
               <CardTitle>Savings Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
-              <SavingsDonut data={savingsData} showLegend />
+              <SavingsDonut data={SAVINGS_DATA} showLegend />
             </CardContent>
           </Card>
         </div>
@@ -305,7 +332,19 @@ export default function DashboardPage() {
                 <Skeleton variant="rectangular" height={250} />
               ) : forecastData?.forecast ? (
                 <ForecastChart
-                  forecast={forecastData.forecast}
+                  forecast={
+                    Array.isArray(forecastData.forecast)
+                      ? forecastData.forecast
+                      : ((forecastData.forecast as any).prices || []).map((p: any, i: number) => ({
+                          hour: i + 1,
+                          price: Number(p.price_per_kwh ?? p.price ?? 0),
+                          confidence: [
+                            Number(p.price_per_kwh ?? p.price ?? 0) * 0.85,
+                            Number(p.price_per_kwh ?? p.price ?? 0) * 1.15,
+                          ] as [number, number],
+                          timestamp: p.timestamp || new Date().toISOString(),
+                        }))
+                  }
                   currentPrice={currentPrice?.price}
                   showConfidence
                   height={250}
@@ -353,10 +392,7 @@ export default function DashboardPage() {
               schedules={schedules}
               showCurrentTime
               showSavings
-              priceZones={[
-                { start: '01:00', end: '06:00', type: 'cheap' },
-                { start: '17:00', end: '21:00', type: 'expensive' },
-              ]}
+              priceZones={PRICE_ZONES}
             />
           </CardContent>
         </Card>

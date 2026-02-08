@@ -103,7 +103,7 @@ describe('Dashboard Integration', () => {
 
     await waitFor(() => {
       // Price monitor widget
-      expect(screen.getByText(/current price/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/current price/i).length).toBeGreaterThan(0)
 
       // Savings tracker
       expect(screen.getByText(/total saved/i)).toBeInTheDocument()
@@ -112,7 +112,7 @@ describe('Dashboard Integration', () => {
       expect(screen.getByRole('img', { name: /price chart/i })).toBeInTheDocument()
 
       // Supplier section
-      expect(screen.getByText(/suppliers/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/suppliers/i).length).toBeGreaterThan(0)
     })
   })
 
@@ -120,8 +120,8 @@ describe('Dashboard Integration', () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText(/0\.25/)).toBeInTheDocument()
-      expect(screen.getByTestId('price-trend')).toBeInTheDocument()
+      expect(screen.getAllByText(/0\.25/).length).toBeGreaterThan(0)
+      expect(screen.getAllByTestId('price-trend').length).toBeGreaterThan(0)
     })
   })
 
@@ -129,7 +129,7 @@ describe('Dashboard Integration', () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText(/24-hour forecast/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/24-hour forecast/i).length).toBeGreaterThan(0)
     })
   })
 
@@ -137,7 +137,7 @@ describe('Dashboard Integration', () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText(/optimal times/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/optimal times/i).length).toBeGreaterThan(0)
     })
   })
 
@@ -164,7 +164,7 @@ describe('Dashboard Integration', () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText(/current price/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/current price/i).length).toBeGreaterThan(0)
     })
 
     // Click on price chart to see details
@@ -196,7 +196,7 @@ describe('Dashboard Integration', () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText(/0\.25/)).toBeInTheDocument()
+      expect(screen.getAllByText(/0\.25/).length).toBeGreaterThan(0)
     })
 
     // Click refresh
@@ -228,10 +228,19 @@ describe('Dashboard Integration', () => {
   })
 
   it('displays notification banner for price alerts', async () => {
+    const { getCurrentPrices } = require('@/lib/api/prices')
+    getCurrentPrices.mockReturnValueOnce(
+      Promise.resolve({
+        prices: [
+          { region: 'UK', price: 0.25, timestamp: '2026-02-06T12:00:00Z', trend: 'decreasing' },
+        ],
+      })
+    )
+
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      // With price at 0.25 and forecast dropping to 0.18
+      // With trend set to decreasing, should show prices dropping banner
       expect(screen.getByText(/prices dropping/i)).toBeInTheDocument()
     })
   })

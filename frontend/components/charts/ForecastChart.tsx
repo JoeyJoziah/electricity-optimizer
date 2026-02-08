@@ -16,21 +16,44 @@ import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/format'
 import type { PriceForecast } from '@/types'
 
+const tooltipStyle = {
+  backgroundColor: 'white',
+  border: '1px solid #e5e7eb',
+  borderRadius: '8px',
+}
+
 export interface ForecastChartProps {
-  forecast: PriceForecast[]
+  forecast: PriceForecast[] | Record<string, unknown>
   showConfidence?: boolean
   currentPrice?: number
   height?: number
   className?: string
 }
 
-export const ForecastChart: React.FC<ForecastChartProps> = ({
-  forecast,
+export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
+  forecast: rawForecast,
   showConfidence = true,
   currentPrice,
   height = 250,
   className,
 }) => {
+  // Normalize forecast data: handle both frontend array and backend object shapes
+  const forecast: PriceForecast[] = useMemo(() => {
+    if (Array.isArray(rawForecast)) return rawForecast
+    // Backend returns { prices: [...], confidence: number } object
+    const obj = rawForecast as Record<string, unknown>
+    const prices = (obj.prices || []) as Array<Record<string, unknown>>
+    return prices.map((p, i) => ({
+      hour: i + 1,
+      price: Number(p.price_per_kwh ?? p.price ?? 0),
+      confidence: [
+        Number(p.price_per_kwh ?? p.price ?? 0) * 0.85,
+        Number(p.price_per_kwh ?? p.price ?? 0) * 1.15,
+      ] as [number, number],
+      timestamp: (p.timestamp as string) || new Date().toISOString(),
+    }))
+  }, [rawForecast])
+
   const chartData = useMemo(() => {
     const now = new Date()
     return forecast.map((point) => ({
@@ -109,11 +132,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
               tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-              }}
+              contentStyle={tooltipStyle}
               formatter={(value: number, name: string) => {
                 if (name === 'price') return [formatCurrency(value), 'Forecast']
                 if (name === 'confidenceHigh') return [formatCurrency(value), 'Upper bound']
@@ -199,4 +218,6 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
       </div>
     </div>
   )
-}
+})
+
+ForecastChart.displayName = 'ForecastChart'

@@ -371,11 +371,15 @@ class CircuitBreaker:
     async def record_success(self) -> None:
         """Record a successful call"""
         async with self._lock:
-            if self._state == CircuitState.HALF_OPEN:
+            current = self.state
+            if current == CircuitState.HALF_OPEN:
+                # Materialize virtual HALF_OPEN transition
+                if self._state != CircuitState.HALF_OPEN:
+                    self._state = CircuitState.HALF_OPEN
                 self._success_count += 1
                 if self._success_count >= self.config.success_threshold:
                     self._transition_to_closed()
-            else:
+            elif current == CircuitState.CLOSED:
                 self._failure_count = 0
 
     async def record_failure(self) -> None:
@@ -384,7 +388,8 @@ class CircuitBreaker:
             self._failure_count += 1
             self._last_failure_time = datetime.utcnow()
 
-            if self._state == CircuitState.HALF_OPEN:
+            current = self.state
+            if current == CircuitState.HALF_OPEN:
                 self._transition_to_open()
             elif self._failure_count >= self.config.failure_threshold:
                 self._transition_to_open()

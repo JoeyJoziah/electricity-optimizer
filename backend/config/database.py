@@ -57,16 +57,30 @@ class DatabaseManager:
             print("ℹ️  Continuing without Supabase (development mode)")
 
     async def _init_timescaledb(self):
-        """Initialize TimescaleDB connection pool"""
+        """Initialize database connection pool (TimescaleDB or Neon PostgreSQL)"""
+        db_url = settings.effective_database_url
+        if not db_url:
+            print("Database not configured - skipping (set DATABASE_URL or TIMESCALEDB_URL)")
+            return
+
         try:
+            # Handle Neon SSL requirement
+            connect_args = {}
+            if "neon.tech" in db_url or "neon" in db_url:
+                connect_args["ssl"] = "require"
+
             # SQLAlchemy async engine for ORM
+            # Optimized for free tier (512MB RAM, single worker)
+            sqlalchemy_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
             self.timescale_engine = create_async_engine(
-                settings.timescaledb_url.replace("postgresql://", "postgresql+asyncpg://"),
-                echo=settings.debug,
-                pool_size=10,
-                max_overflow=20,
+                sqlalchemy_url,
+                echo=False,  # Disable SQL echo in production to reduce overhead
+                pool_size=2,  # Reduced from 5 for free tier
+                max_overflow=3,  # Reduced from 10 for free tier
                 pool_pre_ping=True,
-                pool_recycle=3600
+                pool_recycle=300,
+                pool_timeout=30,  # Add timeout to prevent hanging
+                connect_args=connect_args,
             )
 
             # Create async session maker
@@ -76,37 +90,56 @@ class DatabaseManager:
                 expire_on_commit=False
             )
 
-            # Also create asyncpg pool for raw queries
-            self.timescale_pool = await asyncpg.create_pool(
-                settings.timescaledb_url,
-                min_size=5,
-                max_size=20,
-                command_timeout=60
-            )
+            # Create asyncpg pool for raw queries (skip for Neon - use SQLAlchemy only)
+            # Optimized pool sizes for free tier
+            if "neon.tech" not in db_url:
+                try:
+                    self.timescale_pool = await asyncpg.create_pool(
+                        db_url,
+                        min_size=1,  # Reduced from 2
+                        max_size=5,  # Reduced from 10 for free tier
+                        command_timeout=30,  # Reduced from 60 to fail faster
+                        max_inactive_connection_lifetime=300  # Close idle connections after 5 min
+                    )
+                except Exception as pool_err:
+                    print(f"asyncpg pool unavailable ({pool_err}), using SQLAlchemy only")
 
-            print("✅ TimescaleDB connection pool initialized")
+            print("Database connection pool initialized")
         except Exception as e:
-            print(f"❌ Failed to initialize TimescaleDB: {e}")
-            raise
+            print(f"Failed to initialize database: {e}")
+            if settings.is_production:
+                raise
+            print("Continuing without database (development mode)")
 
     async def _init_redis(self):
         """Initialize Redis connection"""
+        if not settings.redis_url:
+            print("Redis not configured - skipping")
+            return
+
         try:
+            # Optimized Redis connection pool for free tier
             self.redis_client = await aioredis.from_url(
                 settings.redis_url,
                 password=settings.redis_password,
                 encoding="utf-8",
                 decode_responses=True,
-                max_connections=50
+                max_connections=10,  # Reduced from 20 for free tier
+                socket_keepalive=True,
+                socket_connect_timeout=5,
+                retry_on_timeout=True
             )
 
             # Test connection
             await self.redis_client.ping()
 
-            print("✅ Redis connection initialized")
+            print("Redis connection initialized")
         except Exception as e:
-            print(f"❌ Failed to initialize Redis: {e}")
-            raise
+            print(f"Failed to initialize Redis: {e}")
+            if settings.is_production:
+                raise
+            print("Continuing without Redis (development mode)")
+            self.redis_client = None
 
     async def close(self):
         """Close all database connections"""
@@ -124,9 +157,10 @@ class DatabaseManager:
 
     @asynccontextmanager
     async def get_timescale_session(self):
-        """Get TimescaleDB session (SQLAlchemy)"""
+        """Get TimescaleDB session (SQLAlchemy). Yields None if not initialized."""
         if not self.async_session_maker:
-            raise RuntimeError("Database not initialized")
+            yield None
+            return
 
         async with self.async_session_maker() as session:
             try:
@@ -139,23 +173,25 @@ class DatabaseManager:
                 await session.close()
 
     async def execute_timescale_query(self, query: str, *args):
-        """Execute raw query on TimescaleDB"""
-        if not self.timescale_pool:
-            raise RuntimeError("TimescaleDB pool not initialized")
+        """Execute raw query on database (asyncpg pool or SQLAlchemy fallback)"""
+        if self.timescale_pool:
+            async with self.timescale_pool.acquire() as conn:
+                return await conn.fetch(query, *args)
 
-        async with self.timescale_pool.acquire() as conn:
-            return await conn.fetch(query, *args)
+        if self.timescale_engine:
+            from sqlalchemy import text
+            async with self.timescale_engine.connect() as conn:
+                result = await conn.execute(text(query))
+                return result.fetchall()
 
-    async def get_redis_client(self) -> aioredis.Redis:
-        """Get Redis client"""
-        if not self.redis_client:
-            raise RuntimeError("Redis not initialized")
+        return []
+
+    async def get_redis_client(self) -> Optional[aioredis.Redis]:
+        """Get Redis client (returns None if not initialized)"""
         return self.redis_client
 
-    def get_supabase_client(self) -> Client:
-        """Get Supabase client"""
-        if not self.supabase_client:
-            raise RuntimeError("Supabase not initialized")
+    def get_supabase_client(self) -> Optional[Client]:
+        """Get Supabase client (returns None if not initialized)"""
         return self.supabase_client
 
 

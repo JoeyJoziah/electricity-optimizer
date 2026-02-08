@@ -22,16 +22,18 @@ describe('PriceLineChart', () => {
   it('displays both actual and forecast prices when showForecast is true', () => {
     render(<PriceLineChart data={mockPriceData} showForecast />)
 
-    // Should show legend for both
-    expect(screen.getByText('Actual Price')).toBeInTheDocument()
-    expect(screen.getByText('Forecast')).toBeInTheDocument()
+    // Chart aria-label indicates both actual and forecast are shown
+    const chart = screen.getByRole('img', { name: /actual and forecast/i })
+    expect(chart).toBeInTheDocument()
   })
 
   it('formats prices in currency format', () => {
-    render(<PriceLineChart data={mockPriceData} />)
+    render(<PriceLineChart data={mockPriceData} showCurrentPrice />)
 
-    // Prices should be displayed with currency formatting
-    expect(screen.getByText(/0\.25/)).toBeInTheDocument()
+    // Current price is displayed with currency formatting
+    const currentPriceEl = screen.getByTestId('current-price')
+    expect(currentPriceEl).toBeInTheDocument()
+    expect(currentPriceEl).toHaveTextContent(/0\.20/)
   })
 
   it('highlights optimal time periods when highlightOptimal is true', () => {
@@ -60,7 +62,7 @@ describe('PriceLineChart', () => {
   })
 
   it('updates in real-time when new data arrives', async () => {
-    const { rerender } = render(<PriceLineChart data={mockPriceData} />)
+    const { rerender } = render(<PriceLineChart data={mockPriceData} showCurrentPrice />)
 
     // Simulate real-time update
     const updatedData = [
@@ -68,10 +70,11 @@ describe('PriceLineChart', () => {
       { time: '2026-02-06T05:00:00Z', price: 0.17, forecast: null },
     ]
 
-    rerender(<PriceLineChart data={updatedData} />)
+    rerender(<PriceLineChart data={updatedData} showCurrentPrice />)
 
     await waitFor(() => {
-      expect(screen.getByText(/0\.17/)).toBeInTheDocument()
+      const currentPriceEl = screen.getByTestId('current-price')
+      expect(currentPriceEl).toHaveTextContent(/0\.17/)
     })
   })
 

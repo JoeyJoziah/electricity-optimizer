@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 import structlog
 
@@ -47,27 +47,69 @@ router = APIRouter()
 class SignUpRequest(BaseModel):
     """Request for user signup"""
     email: EmailStr
-    password: str = Field(..., min_length=12)
-    name: Optional[str] = None
+    password: str = Field(..., min_length=12, max_length=128)
+    name: Optional[str] = Field(default=None, max_length=200)
 
 
 class SignInRequest(BaseModel):
     """Request for user signin"""
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class OAuthRequest(BaseModel):
     """Request for OAuth signin"""
-    provider: str
-    redirect_url: str
-    scopes: Optional[str] = None
+    provider: str = Field(..., max_length=50)
+    redirect_url: str = Field(..., max_length=500)
+    scopes: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("redirect_url")
+    @classmethod
+    def validate_redirect_url(cls, v: str) -> str:
+        """Prevent open redirect by validating redirect URL against allowed domains"""
+        from urllib.parse import urlparse
+        parsed = urlparse(v)
+        allowed_domains = [
+            "localhost",
+            "electricity-optimizer.app",
+            "electricity-optimizer.vercel.app",
+        ]
+        hostname = parsed.hostname or ""
+        if not any(hostname == d or hostname.endswith(f".{d}") for d in allowed_domains):
+            raise ValueError(
+                f"redirect_url domain '{hostname}' is not allowed. "
+                f"Must be one of: {', '.join(allowed_domains)}"
+            )
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("redirect_url must use http or https scheme")
+        return v
 
 
 class MagicLinkRequest(BaseModel):
     """Request for magic link signin"""
     email: EmailStr
-    redirect_url: str
+    redirect_url: str = Field(..., max_length=500)
+
+    @field_validator("redirect_url")
+    @classmethod
+    def validate_redirect_url(cls, v: str) -> str:
+        """Prevent open redirect by validating redirect URL against allowed domains"""
+        from urllib.parse import urlparse
+        parsed = urlparse(v)
+        allowed_domains = [
+            "localhost",
+            "electricity-optimizer.app",
+            "electricity-optimizer.vercel.app",
+        ]
+        hostname = parsed.hostname or ""
+        if not any(hostname == d or hostname.endswith(f".{d}") for d in allowed_domains):
+            raise ValueError(
+                f"redirect_url domain '{hostname}' is not allowed. "
+                f"Must be one of: {', '.join(allowed_domains)}"
+            )
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("redirect_url must use http or https scheme")
+        return v
 
 
 class RefreshRequest(BaseModel):
@@ -100,6 +142,11 @@ class UserResponse(BaseModel):
     name: Optional[str] = None
     email_verified: bool = False
     created_at: Optional[str] = None
+
+
+class PasswordStrengthRequest(BaseModel):
+    """Request for password strength check"""
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class PasswordStrengthResponse(BaseModel):
@@ -148,7 +195,7 @@ async def signup(
     - At least one digit
     - At least one special character
     """
-    logger.info("signup_attempt", email=signup_request.email)
+    logger.info("signup_attempt")
 
     try:
         # Validate password first
@@ -216,7 +263,7 @@ async def signin(
 
     Returns access and refresh tokens on success.
     """
-    logger.info("signin_attempt", email=signin_request.email)
+    logger.info("signin_attempt")
 
     try:
         result = await auth_service.sign_in(
@@ -244,7 +291,7 @@ async def signin(
         )
 
     except InvalidCredentialsError:
-        logger.warning("signin_failed", email=signin_request.email)
+        logger.warning("signin_failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -301,7 +348,7 @@ async def signin_magic_link(
 
     User will receive an email with a sign-in link.
     """
-    logger.info("magic_link_attempt", email=magic_request.email)
+    logger.info("magic_link_attempt")
 
     try:
         result = await auth_service.sign_in_with_magic_link(
@@ -445,11 +492,13 @@ async def get_me(
     summary="Check password strength",
     description="Check if password meets security requirements"
 )
-async def check_password(password: str):
+async def check_password(request: PasswordStrengthRequest):
     """
     Check password strength without creating account.
 
     Returns detailed assessment of password security.
+    Password is sent in the request body (never as a query parameter)
+    to avoid logging in server access logs and browser history.
     """
-    result = check_password_strength(password)
+    result = check_password_strength(request.password)
     return PasswordStrengthResponse(**result)

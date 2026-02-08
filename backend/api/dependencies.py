@@ -38,7 +38,7 @@ async def get_db_session() -> AsyncGenerator:
     Get async database session.
 
     Yields:
-        AsyncSession for database operations
+        AsyncSession for database operations (None if DB not available)
     """
     async with db_manager.get_timescale_session() as session:
         yield session
@@ -49,7 +49,7 @@ async def get_redis():
     Get Redis client.
 
     Returns:
-        Redis client instance
+        Redis client instance (None if not available)
     """
     return await db_manager.get_redis_client()
 
@@ -59,7 +59,7 @@ def get_supabase():
     Get Supabase client.
 
     Returns:
-        Supabase client instance
+        Supabase client instance (None if not available)
     """
     return db_manager.get_supabase_client()
 
@@ -171,9 +171,16 @@ async def verify_api_key(
             detail="API key required"
         )
 
-    # In production, validate against stored API keys
-    # For now, check against a configured key
-    if api_key != settings.jwt_secret:  # Use a dedicated API key in production
+    # Validate against a dedicated API key (never reuse the JWT signing secret)
+    if not settings.internal_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="API key authentication not configured"
+        )
+
+    # Use constant-time comparison to prevent timing attacks
+    import hmac
+    if not hmac.compare_digest(api_key, settings.internal_api_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"

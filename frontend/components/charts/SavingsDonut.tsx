@@ -11,6 +11,12 @@ import {
 import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/format'
 
+const tooltipStyle = {
+  backgroundColor: 'white',
+  border: '1px solid #e5e7eb',
+  borderRadius: '8px',
+}
+
 export interface SavingsCategory {
   category: string
   amount: number
@@ -39,7 +45,7 @@ const periodLabels: Record<SavingsData['period'], string> = {
   year: 'This year',
 }
 
-export const SavingsDonut: React.FC<SavingsDonutProps> = ({
+export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(({
   data,
   showLegend = false,
   currency = 'GBP',
@@ -93,11 +99,7 @@ export const SavingsDonut: React.FC<SavingsDonutProps> = ({
             </Pie>
             <Tooltip
               formatter={(value: number) => formatCurrency(value, currency)}
-              contentStyle={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-              }}
+              contentStyle={tooltipStyle}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -141,4 +143,6 @@ export const SavingsDonut: React.FC<SavingsDonutProps> = ({
       )}
     </div>
   )
-}
+})
+
+SavingsDonut.displayName = 'SavingsDonut'

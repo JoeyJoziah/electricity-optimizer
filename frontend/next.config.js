@@ -2,6 +2,13 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  experimental: {
+    optimizePackageImports: ['date-fns', 'lucide-react', 'recharts'],
+  },
+
+  // Production optimizations
+  poweredByHeader: false,
+  compress: true,
 
   // Environment variables
   env: {
@@ -12,13 +19,32 @@ const nextConfig = {
 
   // Image optimization
   images: {
-    domains: ['localhost'],
     remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
       {
         protocol: 'https',
         hostname: '*.supabase.co',
       },
     ],
+    formats: ['image/avif', 'image/webp'],
+  },
+
+  // Security headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ]
   },
 
   // API proxy rewrites

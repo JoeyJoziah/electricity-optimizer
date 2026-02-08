@@ -232,7 +232,7 @@ class PricingCache:
             True if successful
         """
         full_key = self._generate_key(key)
-        effective_ttl = ttl or self.config.current_price_ttl
+        effective_ttl = ttl if ttl is not None else self.config.current_price_ttl
 
         try:
             entry = CacheEntry(
@@ -575,7 +575,7 @@ class InMemoryCache(PricingCache):
     ) -> bool:
         """Set value in memory cache"""
         full_key = self._generate_key(key)
-        effective_ttl = ttl or self.config.current_price_ttl
+        effective_ttl = ttl if ttl is not None else self.config.current_price_ttl
 
         async with self._lock:
             self._cache[full_key] = CacheEntry(

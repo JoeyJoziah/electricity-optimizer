@@ -286,7 +286,7 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_circuit_half_open_after_timeout(self):
         """Test circuit transitions to half-open after timeout"""
-        config = CircuitBreakerConfig(failure_threshold=2, timeout_seconds=0)
+        config = CircuitBreakerConfig(failure_threshold=2, timeout_seconds=0.05)
         cb = CircuitBreaker("test", config)
 
         # Trigger open state
@@ -295,7 +295,7 @@ class TestCircuitBreaker:
 
         assert cb.state == CircuitState.OPEN
 
-        # Wait for timeout (immediate since timeout=0)
+        # Wait for timeout
         await asyncio.sleep(0.1)
 
         # Should be half-open now
@@ -609,9 +609,10 @@ class TestFlatpeakClient:
     async def test_get_current_price(self, flatpeak_response_current):
         """Test fetching current price from Flatpeak"""
         with patch("httpx.AsyncClient") as MockClient:
-            mock_response = AsyncMock()
+            mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = flatpeak_response_current
+            mock_response.raise_for_status.return_value = None
 
             mock_client = AsyncMock()
             mock_client.is_closed = False
@@ -633,9 +634,10 @@ class TestFlatpeakClient:
     async def test_get_price_forecast(self, flatpeak_response_forecast):
         """Test fetching price forecast from Flatpeak"""
         with patch("httpx.AsyncClient") as MockClient:
-            mock_response = AsyncMock()
+            mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = flatpeak_response_forecast
+            mock_response.raise_for_status.return_value = None
 
             mock_client = AsyncMock()
             mock_client.is_closed = False
@@ -693,9 +695,10 @@ class TestNRELClient:
     async def test_get_current_price(self, nrel_response):
         """Test fetching current rate from NREL"""
         with patch("httpx.AsyncClient") as MockClient:
-            mock_response = AsyncMock()
+            mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = nrel_response
+            mock_response.raise_for_status.return_value = None
 
             mock_client = AsyncMock()
             mock_client.is_closed = False
@@ -716,9 +719,10 @@ class TestNRELClient:
     async def test_get_price_forecast(self, nrel_response):
         """Test generating price forecast from NREL"""
         with patch("httpx.AsyncClient") as MockClient:
-            mock_response = AsyncMock()
+            mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = nrel_response
+            mock_response.raise_for_status.return_value = None
 
             mock_client = AsyncMock()
             mock_client.is_closed = False
@@ -761,9 +765,10 @@ class TestIEAClient:
     async def test_get_current_price(self, iea_response):
         """Test fetching current price from IEA"""
         with patch("httpx.AsyncClient") as MockClient:
-            mock_response = AsyncMock()
+            mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = iea_response
+            mock_response.raise_for_status.return_value = None
 
             mock_client = AsyncMock()
             mock_client.is_closed = False
@@ -922,9 +927,10 @@ class TestCacheIntegration:
     async def test_flatpeak_with_cache(self, flatpeak_response_current, memory_cache):
         """Test Flatpeak client uses cache correctly"""
         with patch("httpx.AsyncClient") as MockClient:
-            mock_response = AsyncMock()
+            mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = flatpeak_response_current
+            mock_response.raise_for_status.return_value = None
 
             mock_client = AsyncMock()
             mock_client.is_closed = False
@@ -966,10 +972,13 @@ class TestRetryLogic:
                 nonlocal call_count
                 call_count += 1
 
-                mock_response = AsyncMock()
+                mock_response = MagicMock()
                 if call_count < 3:
                     mock_response.status_code = 500
                     mock_response.text = "Error"
+                    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+                        message="HTTP 500", request=MagicMock(), response=mock_response
+                    )
                 else:
                     mock_response.status_code = 200
                     mock_response.json.return_value = {
@@ -979,6 +988,7 @@ class TestRetryLogic:
                             "unit": "kWh",
                         }
                     }
+                    mock_response.raise_for_status.return_value = None
                 return mock_response
 
             mock_client = AsyncMock()

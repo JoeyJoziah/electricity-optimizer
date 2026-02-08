@@ -4,8 +4,9 @@ Application Settings and Configuration Management
 Uses pydantic-settings for type-safe configuration from environment variables.
 """
 
+import os
 from typing import Optional, List
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,7 +25,11 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
+        default=[
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:8000",
+        ],
         validation_alias="CORS_ORIGINS"
     )
 
@@ -33,21 +38,25 @@ class Settings(BaseSettings):
     supabase_anon_key: Optional[str] = Field(default=None, validation_alias="SUPABASE_ANON_KEY")
     supabase_service_key: Optional[str] = Field(default=None, validation_alias="SUPABASE_SERVICE_KEY")
 
-    # Database - TimescaleDB
-    timescaledb_url: str = Field(validation_alias="TIMESCALEDB_URL")
+    # Database - TimescaleDB / Neon PostgreSQL
+    timescaledb_url: Optional[str] = Field(default=None, validation_alias="TIMESCALEDB_URL")
+    database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
 
     # Redis
-    redis_url: str = Field(default="redis://localhost:6379", validation_alias="REDIS_URL")
+    redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")
     redis_password: Optional[str] = Field(default=None, validation_alias="REDIS_PASSWORD")
 
     # Authentication
-    jwt_secret: str = Field(validation_alias="JWT_SECRET")
+    jwt_secret: str = Field(default="dev-secret-change-in-production", validation_alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
     jwt_expiration_hours: int = Field(default=24, validation_alias="JWT_EXPIRATION_HOURS")
 
+    # Service-to-service API key (must NOT be the same as jwt_secret)
+    internal_api_key: Optional[str] = Field(default=None, validation_alias="INTERNAL_API_KEY")
+
     # External APIs
-    flatpeak_api_key: str = Field(validation_alias="FLATPEAK_API_KEY")
-    nrel_api_key: str = Field(validation_alias="NREL_API_KEY")
+    flatpeak_api_key: Optional[str] = Field(default=None, validation_alias="FLATPEAK_API_KEY")
+    nrel_api_key: Optional[str] = Field(default=None, validation_alias="NREL_API_KEY")
     iea_api_key: Optional[str] = Field(default=None, validation_alias="IEA_API_KEY")
     utilityapi_key: Optional[str] = Field(default=None, validation_alias="UTILITYAPI_KEY")
     openvolt_api_key: Optional[str] = Field(default=None, validation_alias="OPENVOLT_API_KEY")
@@ -83,7 +92,8 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"
+        extra="ignore",
+        protected_namespaces=("settings_",),
     )
 
     @field_validator("environment")
@@ -93,6 +103,29 @@ class Settings(BaseSettings):
         allowed = ["development", "staging", "production", "test"]
         if v not in allowed:
             raise ValueError(f"environment must be one of {allowed}")
+        return v
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        """Ensure JWT secret is not using default value in production"""
+        env = os.environ.get("ENVIRONMENT", "development")
+        insecure_defaults = [
+            "dev-secret-change-in-production",
+            "your-super-secret-key-change-in-production",
+            "dev-local-secret-key-2026",
+            "secret",
+            "changeme",
+        ]
+        if env == "production" and v in insecure_defaults:
+            raise ValueError(
+                "CRITICAL: JWT_SECRET must be set to a strong, unique value in production. "
+                "Do not use default/development secrets."
+            )
+        if env == "production" and len(v) < 32:
+            raise ValueError(
+                "JWT_SECRET must be at least 32 characters in production."
+            )
         return v
 
     @field_validator("cors_origins", mode="before")
@@ -121,6 +154,11 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development"""
         return self.environment == "development"
+
+    @property
+    def effective_database_url(self) -> Optional[str]:
+        """Get the effective database URL (DATABASE_URL takes priority over TIMESCALEDB_URL)"""
+        return self.database_url or self.timescaledb_url
 
 
 # Global settings instance

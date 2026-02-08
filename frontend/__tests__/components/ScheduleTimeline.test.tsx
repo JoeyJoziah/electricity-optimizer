@@ -45,9 +45,10 @@ describe('ScheduleTimeline', () => {
   it('displays time blocks for each schedule', () => {
     render(<ScheduleTimeline schedules={mockSchedules} />)
 
-    // Should have 3 schedule blocks
-    const blocks = screen.getAllByTestId('schedule-block')
-    expect(blocks).toHaveLength(3)
+    // Should have 3 schedule blocks (each has data-testid="schedule-block-{id}")
+    expect(screen.getByTestId('schedule-block-1')).toBeInTheDocument()
+    expect(screen.getByTestId('schedule-block-2')).toBeInTheDocument()
+    expect(screen.getByTestId('schedule-block-3')).toBeInTheDocument()
   })
 
   it('shows schedule details on hover/click', async () => {
@@ -121,10 +122,9 @@ describe('ScheduleTimeline', () => {
 
     // Washing Machine (02:00-04:00) overlaps with Dishwasher (03:00-04:30)
     // They should be displayed in different rows
-    const blocks = screen.getAllByTestId('schedule-block')
-
-    // Check that blocks don't overlap visually (would need style checking in real test)
-    expect(blocks).toHaveLength(3)
+    expect(screen.getByTestId('schedule-block-1')).toBeInTheDocument()
+    expect(screen.getByTestId('schedule-block-2')).toBeInTheDocument()
+    expect(screen.getByTestId('schedule-block-3')).toBeInTheDocument()
   })
 
   it('shows savings indicator on each block', () => {

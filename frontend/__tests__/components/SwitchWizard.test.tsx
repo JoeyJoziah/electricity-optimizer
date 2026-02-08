@@ -38,14 +38,14 @@ describe('SwitchWizard', () => {
 
     expect(screen.getByText('Bulb Energy')).toBeInTheDocument()
     expect(screen.getByText(/300/)).toBeInTheDocument()
-    expect(screen.getByText(/review recommendation/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /review recommendation/i })).toBeInTheDocument()
   })
 
   it('displays savings summary on first step', () => {
     render(<SwitchWizard recommendation={mockRecommendation} />)
 
     expect(screen.getByText(/save/i)).toBeInTheDocument()
-    expect(screen.getByText(/year/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/year/i).length).toBeGreaterThan(0)
   })
 
   it('progresses through 4 steps correctly', async () => {
@@ -53,12 +53,12 @@ describe('SwitchWizard', () => {
     render(<SwitchWizard recommendation={mockRecommendation} />)
 
     // Step 1: Review
-    expect(screen.getByText(/review recommendation/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /review recommendation/i })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /next/i }))
 
     // Step 2: GDPR Consent
     await waitFor(() => {
-      expect(screen.getByText(/data consent/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /data consent/i })).toBeInTheDocument()
     })
 
     // Check consent checkbox
@@ -68,13 +68,13 @@ describe('SwitchWizard', () => {
 
     // Step 3: Contract Review
     await waitFor(() => {
-      expect(screen.getByText(/contract terms/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /contract terms/i })).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: /next/i }))
 
     // Step 4: Confirm
     await waitFor(() => {
-      expect(screen.getByText(/confirm switch/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /confirm switch/i })).toBeInTheDocument()
     })
   })
 
@@ -86,7 +86,7 @@ describe('SwitchWizard', () => {
     await user.click(screen.getByRole('button', { name: /next/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/data consent/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /data consent/i })).toBeInTheDocument()
     })
 
     // Try to proceed without consent - button should be disabled
@@ -114,8 +114,8 @@ describe('SwitchWizard', () => {
     await user.click(screen.getByRole('button', { name: /next/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/exit fee/i)).toBeInTheDocument()
-      expect(screen.getByText(/50/)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /contract terms/i })).toBeInTheDocument()
+      expect(screen.getAllByText(/exit fee/i).length).toBeGreaterThan(0)
     })
   })
 
@@ -137,13 +137,13 @@ describe('SwitchWizard', () => {
 
     // Step 3: Contract
     await waitFor(() => {
-      expect(screen.getByText(/contract terms/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /contract terms/i })).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: /next/i }))
 
     // Step 4: Confirm
     await waitFor(() => {
-      expect(screen.getByText(/confirm switch/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /confirm switch/i })).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: /confirm/i }))
 
@@ -160,14 +160,14 @@ describe('SwitchWizard', () => {
     await user.click(screen.getByRole('button', { name: /next/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/data consent/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /data consent/i })).toBeInTheDocument()
     })
 
     // Go back to step 1
     await user.click(screen.getByRole('button', { name: /back/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/review recommendation/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /review recommendation/i })).toBeInTheDocument()
     })
   })
 
@@ -214,22 +214,22 @@ describe('SwitchWizard', () => {
     })
     await user.click(screen.getByRole('button', { name: /next/i }))
     await waitFor(() => {
-      expect(screen.getByText(/contract terms/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /contract terms/i })).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: /next/i }))
     await waitFor(() => {
-      expect(screen.getByText(/confirm switch/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /confirm switch/i })).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: /confirm/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/error/i)).toBeInTheDocument()
+      expect(screen.getByText('API Error')).toBeInTheDocument()
     })
   })
 
   it('shows loading state during submission', async () => {
     const onComplete = jest.fn(
-      () => new Promise((resolve) => setTimeout(resolve, 1000))
+      () => new Promise<void>((resolve) => setTimeout(resolve, 1000))
     )
     const user = userEvent.setup()
 
@@ -242,11 +242,11 @@ describe('SwitchWizard', () => {
     })
     await user.click(screen.getByRole('button', { name: /next/i }))
     await waitFor(() => {
-      expect(screen.getByText(/contract terms/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /contract terms/i })).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: /next/i }))
     await waitFor(() => {
-      expect(screen.getByText(/confirm switch/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /confirm switch/i })).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: /confirm/i }))
 

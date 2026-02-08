@@ -93,7 +93,7 @@ class TestSettings:
             assert settings.timescaledb_url.startswith("postgresql://")
 
     def test_cors_origins_parsing(self):
-        """Test CORS origins can be parsed from comma-separated string"""
+        """Test CORS origins can be parsed from JSON string"""
         from config.settings import Settings
 
         with patch.dict(os.environ, {
@@ -101,7 +101,7 @@ class TestSettings:
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
-            "CORS_ORIGINS": "http://localhost:3000,http://localhost:8000,https://app.example.com"
+            "CORS_ORIGINS": '["http://localhost:3000","http://localhost:8000","https://app.example.com"]'
         }):
             settings = Settings()
 
@@ -115,7 +115,7 @@ class TestSettings:
 
         with patch.dict(os.environ, {
             "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
+            "JWT_SECRET": "test-secret-key-that-is-at-least-32-chars-long-for-production",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
             "ENVIRONMENT": "production"
@@ -241,20 +241,20 @@ class TestDatabaseManager:
         assert db_manager.redis_client is None  # Not initialized yet
 
     @pytest.mark.asyncio
-    async def test_get_redis_raises_if_not_initialized(self):
-        """Test get_redis_client raises if not initialized"""
+    async def test_get_redis_returns_none_if_not_initialized(self):
+        """Test get_redis_client returns None if not initialized"""
         from config.database import DatabaseManager
 
         db_manager = DatabaseManager()
 
-        with pytest.raises(RuntimeError, match="Redis not initialized"):
-            await db_manager.get_redis_client()
+        result = await db_manager.get_redis_client()
+        assert result is None
 
-    def test_get_supabase_raises_if_not_initialized(self):
-        """Test get_supabase_client raises if not initialized"""
+    def test_get_supabase_returns_none_if_not_initialized(self):
+        """Test get_supabase_client returns None if not initialized"""
         from config.database import DatabaseManager
 
         db_manager = DatabaseManager()
 
-        with pytest.raises(RuntimeError, match="Supabase not initialized"):
-            db_manager.get_supabase_client()
+        result = db_manager.get_supabase_client()
+        assert result is None

@@ -120,7 +120,7 @@ class TestPriceService:
             region=PriceRegion.UK,
             supplier="Test",
             kwh_usage=Decimal("10.0"),
-            date=datetime.now(timezone.utc).date()
+            target_date=datetime.now(timezone.utc).date()
         )
 
         # 10 kWh * 0.20/kWh = 2.00
@@ -131,6 +131,10 @@ class TestPriceService:
         """Test getting price forecast"""
         from services.price_service import PriceService
         from models.price import PriceRegion, PriceForecast
+
+        mock_price_repo.get_current_prices.return_value = [
+            MagicMock(price_per_kwh=Decimal("0.25"), supplier="Test Supplier", currency="GBP")
+        ]
 
         service = PriceService(mock_price_repo, mock_cache)
         forecast = await service.get_price_forecast(
@@ -200,7 +204,8 @@ class TestRecommendationService:
         mock_user_repo.get_by_id.return_value = MagicMock(
             id="user_123",
             current_supplier="Expensive Energy",
-            region="uk"
+            region="uk",
+            preferences={}
         )
 
         mock_price_service.get_price_comparison.return_value = [
@@ -231,6 +236,10 @@ class TestRecommendationService:
                 'end': datetime.now(timezone.utc) + timedelta(hours=2),
                 'avg_price': Decimal("0.12")
             }
+        ]
+
+        mock_price_service.get_current_prices.return_value = [
+            MagicMock(price_per_kwh=Decimal("0.30"))
         ]
 
         service = RecommendationService(mock_price_service, mock_user_repo)

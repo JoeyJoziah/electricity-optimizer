@@ -106,7 +106,7 @@ describe('SupplierCard', () => {
     render(<SupplierCard supplier={supplierWithExitFee} showDetails />)
 
     expect(screen.getByText(/exit fee/i)).toBeInTheDocument()
-    expect(screen.getByText(/50/)).toBeInTheDocument()
+    expect(screen.getByText(/£50\.00/)).toBeInTheDocument()
   })
 
   it('is keyboard accessible', async () => {

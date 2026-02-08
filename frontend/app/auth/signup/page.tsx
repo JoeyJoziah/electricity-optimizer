@@ -6,6 +6,8 @@
 
 import { SignupForm } from '@/components/auth/SignupForm'
 
+export const dynamic = 'force-dynamic'
+
 export default function SignupPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

@@ -124,14 +124,24 @@ class SavingsEstimateResponse(BaseModel):
 
 async def get_latest_model_version(redis_client) -> str:
     """Get latest deployed model version from cache"""
-    version = await redis_client.get("model:latest_version")
-    return version if version else "v1.0.0"
+    if not redis_client:
+        return "v1.0.0"
+    try:
+        version = await redis_client.get("model:latest_version")
+        return version if version else "v1.0.0"
+    except Exception:
+        return "v1.0.0"
 
 
 async def get_model_accuracy(redis_client) -> Optional[float]:
     """Get recent model accuracy (MAPE) from cache"""
-    mape = await redis_client.get("model:recent_mape")
-    return float(mape) if mape else None
+    if not redis_client:
+        return None
+    try:
+        mape = await redis_client.get("model:recent_mape")
+        return float(mape) if mape else None
+    except Exception:
+        return None
 
 
 async def load_forecast_from_cache(
@@ -140,13 +150,16 @@ async def load_forecast_from_cache(
     hours_ahead: int
 ) -> Optional[List[Dict]]:
     """Load cached forecast if available"""
-    cache_key = f"forecast:{region}:{hours_ahead}"
-    cached = await redis_client.get(cache_key)
-
-    if cached:
-        import json
-        return json.loads(cached)
-
+    if not redis_client:
+        return None
+    try:
+        cache_key = f"forecast:{region}:{hours_ahead}"
+        cached = await redis_client.get(cache_key)
+        if cached:
+            import json
+            return json.loads(cached)
+    except Exception:
+        pass
     return None
 
 
@@ -158,13 +171,18 @@ async def store_forecast_in_cache(
     ttl_seconds: int = 3600
 ):
     """Store forecast in cache"""
-    import json
-    cache_key = f"forecast:{region}:{hours_ahead}"
-    await redis_client.setex(
-        cache_key,
-        ttl_seconds,
-        json.dumps(forecast, default=str)
-    )
+    if not redis_client:
+        return
+    try:
+        import json
+        cache_key = f"forecast:{region}:{hours_ahead}"
+        await redis_client.setex(
+            cache_key,
+            ttl_seconds,
+            json.dumps(forecast, default=str)
+        )
+    except Exception:
+        pass
 
 
 async def generate_price_forecast(
@@ -248,16 +266,17 @@ async def predict_prices(
     logger.info("price_forecast_request", region=request.region, hours=request.hours_ahead)
 
     try:
-        # Check cache first
-        cached_forecast = await load_forecast_from_cache(
-            redis_client,
-            request.region.value,
-            request.hours_ahead
-        )
+        # Check cache first (skip if redis not available)
+        if redis_client:
+            cached_forecast = await load_forecast_from_cache(
+                redis_client,
+                request.region.value,
+                request.hours_ahead
+            )
 
-        if cached_forecast:
-            logger.info("forecast_cache_hit")
-            return JSONResponse(content=cached_forecast)
+            if cached_forecast:
+                logger.info("forecast_cache_hit")
+                return JSONResponse(content=cached_forecast)
 
         # Generate forecast
         predictions = await generate_price_forecast(
@@ -266,9 +285,12 @@ async def predict_prices(
             session
         )
 
-        # Get model metadata
-        model_version = await get_latest_model_version(redis_client)
-        accuracy_mape = await get_model_accuracy(redis_client)
+        # Get model metadata (skip if redis not available)
+        model_version = "v1.0.0"
+        accuracy_mape = None
+        if redis_client:
+            model_version = await get_latest_model_version(redis_client)
+            accuracy_mape = await get_model_accuracy(redis_client)
 
         response = PriceForecastResponse(
             region=request.region.value,
@@ -278,14 +300,15 @@ async def predict_prices(
             accuracy_mape=accuracy_mape
         )
 
-        # Cache the forecast
-        await store_forecast_in_cache(
-            redis_client,
-            request.region.value,
-            request.hours_ahead,
-            response.dict(),
-            ttl_seconds=3600  # 1 hour
-        )
+        # Cache the forecast (skip if redis not available)
+        if redis_client:
+            await store_forecast_in_cache(
+                redis_client,
+                request.region.value,
+                request.hours_ahead,
+                response.dict(),
+                ttl_seconds=3600  # 1 hour
+            )
 
         logger.info("forecast_generated", num_predictions=len(predictions))
         return response
@@ -485,8 +508,11 @@ async def get_model_info(redis_client = Depends(get_redis)):
 
     Returns model version, accuracy metrics, and metadata.
     """
-    model_version = await get_latest_model_version(redis_client)
-    accuracy_mape = await get_model_accuracy(redis_client)
+    model_version = "v1.0.0"
+    accuracy_mape = None
+    if redis_client:
+        model_version = await get_latest_model_version(redis_client)
+        accuracy_mape = await get_model_accuracy(redis_client)
 
     return {
         "model_version": model_version,

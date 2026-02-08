@@ -1,0 +1,13 @@
+name: Sync Electricity Prices
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger price refresh
+        run: curl -fsS -X POST "${{ secrets.BACKEND_URL }}/api/v1/prices/refresh" || exit 1

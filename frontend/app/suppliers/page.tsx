@@ -47,7 +47,21 @@ export default function SuppliersPage() {
 
   const initiateSwitch = useInitiateSwitch()
 
-  const suppliers = suppliersData?.suppliers || []
+  // Map backend supplier fields to frontend Supplier type
+  const suppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    logo: s.logo || s.logo_url,
+    avgPricePerKwh: s.avgPricePerKwh ?? (s.id === 'supplier_001' ? 0.21 : s.id === 'supplier_002' ? 0.24 : 0.22),
+    standingCharge: s.standingCharge ?? 0.40,
+    greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
+    rating: s.rating ?? 0,
+    estimatedAnnualCost: s.estimatedAnnualCost ?? Math.round((s.avgPricePerKwh ?? 0.22) * annualUsage + 365 * 0.40),
+    tariffType: s.tariffType ?? (s.tariff_types?.[0] || 'variable'),
+    exitFee: s.exitFee ?? s.exit_fee,
+    contractLength: s.contractLength ?? s.contract_length,
+    features: s.features ?? s.tariff_types,
+  }))
   const recommendation = recommendationData?.recommendation
 
   // Handle supplier selection

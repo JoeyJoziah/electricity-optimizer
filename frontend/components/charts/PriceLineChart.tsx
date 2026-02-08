@@ -22,6 +22,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import type { PriceDataPoint, TimeRange } from '@/types'
 
+const tooltipStyle = {
+  backgroundColor: 'white',
+  border: '1px solid #e5e7eb',
+  borderRadius: '8px',
+  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+}
+
 export interface PriceLineChartProps {
   data: PriceDataPoint[]
   showForecast?: boolean
@@ -37,7 +44,7 @@ export interface PriceLineChartProps {
 
 const TIME_RANGES: TimeRange[] = ['6h', '12h', '24h', '48h', '7d']
 
-export const PriceLineChart: React.FC<PriceLineChartProps> = ({
+export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
   data,
   showForecast = false,
   highlightOptimal = false,
@@ -236,12 +243,7 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = ({
               tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-              }}
+              contentStyle={tooltipStyle}
               formatter={(value: number, name: string) => [
                 formatCurrency(value),
                 name === 'price' ? 'Actual Price' : 'Forecast',
@@ -297,4 +299,6 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = ({
       </div>
     </div>
   )
-}
+})
+
+PriceLineChart.displayName = 'PriceLineChart'
