@@ -1,0 +1,94 @@
+'use client'
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  getSuppliers,
+  getSupplier,
+  getRecommendation,
+  compareSuppliers,
+  initiateSwitch,
+  getSwitchStatus,
+  InitiateSwitchRequest,
+} from '@/lib/api/suppliers'
+
+/**
+ * Hook for fetching available suppliers
+ */
+export function useSuppliers(region: string = 'uk', annualUsage?: number) {
+  return useQuery({
+    queryKey: ['suppliers', region, annualUsage],
+    queryFn: () => getSuppliers(region, annualUsage),
+    staleTime: 300000, // Consider stale after 5 minutes
+  })
+}
+
+/**
+ * Hook for fetching a single supplier
+ */
+export function useSupplier(supplierId: string) {
+  return useQuery({
+    queryKey: ['supplier', supplierId],
+    queryFn: () => getSupplier(supplierId),
+    enabled: !!supplierId,
+    staleTime: 300000,
+  })
+}
+
+/**
+ * Hook for getting supplier recommendation
+ */
+export function useSupplierRecommendation(
+  currentSupplierId: string,
+  annualUsage: number,
+  region: string = 'uk'
+) {
+  return useQuery({
+    queryKey: ['recommendation', currentSupplierId, annualUsage, region],
+    queryFn: () => getRecommendation(currentSupplierId, annualUsage, region),
+    enabled: !!currentSupplierId && annualUsage > 0,
+    staleTime: 300000,
+  })
+}
+
+/**
+ * Hook for comparing suppliers
+ */
+export function useCompareSuppliers(
+  supplierIds: string[],
+  annualUsage: number
+) {
+  return useQuery({
+    queryKey: ['compare', supplierIds, annualUsage],
+    queryFn: () => compareSuppliers(supplierIds, annualUsage),
+    enabled: supplierIds.length > 0 && annualUsage > 0,
+    staleTime: 300000,
+  })
+}
+
+/**
+ * Hook for initiating a supplier switch
+ */
+export function useInitiateSwitch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (request: InitiateSwitchRequest) => initiateSwitch(request),
+    onSuccess: () => {
+      // Invalidate relevant queries after successful switch
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['recommendation'] })
+    },
+  })
+}
+
+/**
+ * Hook for checking switch status
+ */
+export function useSwitchStatus(referenceNumber: string) {
+  return useQuery({
+    queryKey: ['switch-status', referenceNumber],
+    queryFn: () => getSwitchStatus(referenceNumber),
+    enabled: !!referenceNumber,
+    refetchInterval: 60000, // Check every minute
+  })
+}
