@@ -117,6 +117,17 @@ FLATPEAK_API_KEY=
 NREL_API_KEY=
 IEA_API_KEY=
 
+# Email (SendGrid primary)
+SENDGRID_API_KEY=
+# Email (SMTP fallback)
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+EMAIL_FROM_ADDRESS=noreply@electricity-optimizer.app
+# ML Model
+MODEL_PATH=
+
 # Security
 JWT_SECRET=
 JWT_ALGORITHM=HS256
@@ -183,7 +194,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 - [ ] Backend responding at /health endpoint
 - [ ] Frontend loads without errors
-- [ ] Can sign up for beta at /beta-signup
+- [ ] Can sign up for beta at /beta-signup (welcome email sends via SendGrid/SMTP)
 - [ ] Dashboard displays mock data
 - [ ] API endpoints return 200 OK
 - [ ] Monitoring dashboards accessible
@@ -191,5 +202,5 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 ---
 
-**Last Updated**: 2026-02-07
+**Last Updated**: 2026-02-08
 **Next Step**: Set up Supabase account

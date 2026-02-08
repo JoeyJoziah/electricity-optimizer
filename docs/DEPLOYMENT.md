@@ -33,6 +33,19 @@ Obtain API keys from the following providers:
 - NREL API (US utility rates)
 - IEA API (Global statistics)
 
+```
+# Email Service (SendGrid primary, SMTP fallback)
+SENDGRID_API_KEY=          # SendGrid API key for welcome emails
+SMTP_HOST=                 # SMTP server hostname (fallback)
+SMTP_PORT=587              # SMTP port (fallback)
+SMTP_USERNAME=             # SMTP username (fallback)
+SMTP_PASSWORD=             # SMTP password (fallback)
+EMAIL_FROM_ADDRESS=noreply@electricity-optimizer.app
+
+# ML Model Path
+MODEL_PATH=                # Path to trained model directory (optional)
+```
+
 ---
 
 ## Local Development
@@ -75,6 +88,8 @@ make health
 | Airflow | http://localhost:8080 | admin/admin |
 | Grafana | http://localhost:3001 | admin/GRAFANA_PASSWORD |
 | Prometheus | http://localhost:9090 | - |
+
+> **Note:** The backend includes a live email service at `backend/services/email_service.py` that handles welcome and notification emails via SendGrid (with SMTP fallback). Ensure the email environment variables above are configured before using email features.
 
 ### Development Workflow
 

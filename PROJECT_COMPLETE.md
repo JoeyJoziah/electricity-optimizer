@@ -235,7 +235,7 @@ DEPLOYMENT_PLATFORM=fly ./scripts/production-deploy.sh
 1. **Beta Program Management**
    - Beta signup form with validation
    - Beta code generation (BETA-2026-XXXX)
-   - Welcome email automation
+   - Welcome email automation (SendGrid + SMTP fallback)
    - Signup statistics dashboard
    - Beta user tracking
 
@@ -288,6 +288,10 @@ DEPLOYMENT_PLATFORM=fly ./scripts/production-deploy.sh
 - [x] Beta API endpoint implemented (POST /api/v1/beta/signup)
 - [x] Welcome email template created
 - [x] Beta code generation system (BETA-2026-XXXX)
+- [x] Email service implemented (SendGrid primary, SMTP fallback)
+- [x] ML inference pipeline (EnsemblePredictor + PricePredictor + simulation fallback)
+- [x] Live price refresh endpoint wired to PricingService (NREL/Flatpeak/IEA)
+- [x] US_CT region support end-to-end (Connecticut)
 - [x] Production deployment script (9-step automation)
 - [ ] Recruit 50+ beta users (social media, forums, network)
 - [ ] Deploy to production (choose platform above)
@@ -502,7 +506,8 @@ make prometheus  # Open Prometheus
 
 **Next Steps**:
 1. **Deploy** to production (use scripts/production-deploy.sh)
-2. **Recruit** 50+ beta users via /beta-signup
+2. **Configure** API keys (NREL_API_KEY, SENDGRID_API_KEY) for live data + emails
+3. **Recruit** 50+ beta users via /beta-signup
 3. **Monitor** key metrics (uptime, accuracy, savings)
 4. **Collect** feedback and iterate
 5. **Scale** to public launch
