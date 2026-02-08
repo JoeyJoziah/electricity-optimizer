@@ -166,6 +166,7 @@ class PricingService:
             PricingRegion.US_GA,
             PricingRegion.US_NC,
             PricingRegion.US_MI,
+            PricingRegion.US_CT,
         }
 
         if region in eu_regions:

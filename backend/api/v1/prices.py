@@ -584,7 +584,7 @@ async def refresh_prices(
                 region_map = {
                     "UK": "uk", "DE": "germany", "FR": "france",
                     "ES": "spain", "IT": "italy", "NL": "netherlands",
-                    "US_CT": "us_ca", "US_CA": "us_ca", "US_NY": "us_ny",
+                    "US_CT": "us_ct", "US_CA": "us_ca", "US_NY": "us_ny",
                     "US_TX": "us_tx", "US_FL": "us_fl",
                 }
                 db_region = region_map.get(region.value, region.value.lower())
