@@ -14,7 +14,7 @@ RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 
 # Install dependencies with clean install
-RUN npm ci --only=production=false
+RUN npm ci
 
 # Development stage
 FROM base AS development
