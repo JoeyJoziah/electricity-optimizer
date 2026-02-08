@@ -37,6 +37,8 @@ yarn-error.log*
 out/
 .vercel
 .turbo
+next-env.d.ts
+tsconfig.tsbuildinfo
 
 # Environment variables
 .env

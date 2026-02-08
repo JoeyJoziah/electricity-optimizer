@@ -22,6 +22,7 @@ class PriceRegion(str, Enum):
     ITALY = "italy"
     NETHERLANDS = "netherlands"
     BELGIUM = "belgium"
+    US_CT = "us_ct"
     US_CA = "us_ca"
     US_TX = "us_tx"
     US_NY = "us_ny"
