@@ -71,9 +71,10 @@ export default function SettingsPage() {
                   onChange={(e) => setRegion(e.target.value)}
                   className="rounded-lg border border-gray-300 px-3 py-2"
                 >
+                  <option value="US_CT">Connecticut</option>
+                  <option value="US">United States (Other)</option>
                   <option value="UK">United Kingdom</option>
                   <option value="EU">Europe</option>
-                  <option value="US">United States</option>
                 </select>
               </div>
 

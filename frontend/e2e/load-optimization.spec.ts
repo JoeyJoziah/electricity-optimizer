@@ -14,7 +14,7 @@ test.describe('Load Optimization Flow', () => {
         'electricity-optimizer-settings',
         JSON.stringify({
           state: {
-            region: 'UK',
+            region: 'US_CT',
             annualUsageKwh: 2900,
             peakDemandKw: 3,
             appliances: [],

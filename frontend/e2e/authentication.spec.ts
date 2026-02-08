@@ -80,7 +80,7 @@ test.describe('Authentication Flows', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          prices: [{ region: 'UK', price: 0.25, timestamp: new Date().toISOString() }],
+          prices: [{ region: 'US_CT', price: 0.25, timestamp: new Date().toISOString() }],
         }),
       })
     })
@@ -364,7 +364,7 @@ test.describe('Authentication Security', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          prices: [{ region: 'UK', price: 0.25, timestamp: new Date().toISOString() }],
+          prices: [{ region: 'US_CT', price: 0.25, timestamp: new Date().toISOString() }],
         }),
       })
     })

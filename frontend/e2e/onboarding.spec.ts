@@ -50,7 +50,7 @@ test.describe('User Onboarding Flow', () => {
         body: JSON.stringify({
           prices: [
             {
-              region: 'UK',
+              region: 'US_CT',
               price: 0.25,
               timestamp: new Date().toISOString(),
               trend: 'decreasing',
@@ -182,7 +182,7 @@ test.describe('User Onboarding Flow', () => {
 
     // Step 2: Select region
     await expect(page.getByText(/select your region/i)).toBeVisible()
-    await page.click('text=United Kingdom')
+    await page.click('text=Connecticut')
     await page.click('button:has-text("Next")')
 
     // Step 3: Connect smart meter (optional)
@@ -250,7 +250,7 @@ test.describe('User Onboarding Flow', () => {
 
     // Complete step 1 and 2
     await page.click('button:has-text("Get Started")')
-    await page.click('text=United Kingdom')
+    await page.click('text=Connecticut')
     await page.click('button:has-text("Next")')
 
     // Reload page
@@ -275,7 +275,7 @@ test.describe('Post-Onboarding Dashboard Access', () => {
         'electricity-optimizer-settings',
         JSON.stringify({
           state: {
-            region: 'UK',
+            region: 'US_CT',
             annualUsageKwh: 2900,
             peakDemandKw: 3,
           },
@@ -288,7 +288,7 @@ test.describe('Post-Onboarding Dashboard Access', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          prices: [{ region: 'UK', price: 0.25, timestamp: new Date().toISOString() }],
+          prices: [{ region: 'US_CT', price: 0.25, timestamp: new Date().toISOString() }],
         }),
       })
     })

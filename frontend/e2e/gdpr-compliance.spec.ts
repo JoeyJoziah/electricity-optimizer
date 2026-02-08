@@ -14,7 +14,7 @@ test.describe('GDPR Compliance Flow', () => {
         'electricity-optimizer-settings',
         JSON.stringify({
           state: {
-            region: 'UK',
+            region: 'US_CT',
             annualUsageKwh: 2900,
             peakDemandKw: 3,
           },
@@ -35,7 +35,7 @@ test.describe('GDPR Compliance Flow', () => {
               created_at: '2024-01-15T10:00:00Z',
             },
             preferences: {
-              region: 'UK',
+              region: 'US_CT',
               notification_enabled: true,
             },
             usage_data: [

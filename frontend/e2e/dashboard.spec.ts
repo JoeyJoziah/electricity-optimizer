@@ -10,7 +10,7 @@ test.describe('Dashboard', () => {
         body: JSON.stringify({
           prices: [
             {
-              region: 'UK',
+              region: 'US_CT',
               price: 0.25,
               timestamp: new Date().toISOString(),
               trend: 'decreasing',

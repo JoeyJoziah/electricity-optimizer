@@ -9,7 +9,7 @@ jest.mock('@/lib/api/prices', () => ({
   getCurrentPrices: jest.fn(() =>
     Promise.resolve({
       prices: [
-        { region: 'UK', price: 0.25, timestamp: '2026-02-06T12:00:00Z' },
+        { region: 'US_CT', price: 0.25, timestamp: '2026-02-06T12:00:00Z' },
       ],
     })
   ),
@@ -232,7 +232,7 @@ describe('Dashboard Integration', () => {
     getCurrentPrices.mockReturnValueOnce(
       Promise.resolve({
         prices: [
-          { region: 'UK', price: 0.25, timestamp: '2026-02-06T12:00:00Z', trend: 'decreasing' },
+          { region: 'US_CT', price: 0.25, timestamp: '2026-02-06T12:00:00Z', trend: 'decreasing' },
         ],
       })
     )
