@@ -71,8 +71,8 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy only necessary files from builder
-COPY --from=builder /app/public ./public
+# Copy public assets from builder (if they exist)
+COPY --from=builder /app/public ./public/
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
