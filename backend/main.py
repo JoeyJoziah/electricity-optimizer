@@ -113,8 +113,8 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="AI-powered electricity price optimization platform",
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url="/redoc" if not settings.is_production else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan
 )
 
