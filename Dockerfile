@@ -8,9 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
+# Copy requirements and install dependencies to /install prefix
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # Runtime stage
@@ -26,15 +26,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /home/appuser/.local
+# Copy Python dependencies from builder into system Python path
+COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY backend/ .
 
 # Set environment variables
-ENV PATH=/home/appuser/.local/bin:$PATH \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 # Change ownership to non-root user
