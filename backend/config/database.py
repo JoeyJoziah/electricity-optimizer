@@ -69,6 +69,15 @@ class DatabaseManager:
             if "neon.tech" in db_url or "neon" in db_url:
                 connect_args["ssl"] = "require"
 
+            # Strip sslmode and channel_binding from URL (asyncpg uses connect_args instead)
+            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+            parsed = urlparse(db_url)
+            params = parse_qs(parsed.query)
+            params.pop("sslmode", None)
+            params.pop("channel_binding", None)
+            clean_query = urlencode({k: v[0] for k, v in params.items()})
+            db_url = urlunparse(parsed._replace(query=clean_query))
+
             # SQLAlchemy async engine for ORM
             # Optimized for free tier (512MB RAM, single worker)
             sqlalchemy_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
