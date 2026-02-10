@@ -12,10 +12,12 @@
     "project_root": "/Users/devinmcgrath/projects/electricity-optimizer"
   },
   "github": {
-    "enabled": false,
+    "enabled": true,
     "repo": "electricity-optimizer",
+    "repo_full_name": "JoeyJoziah/electricity-optimizer",
     "sync_issues": true,
-    "sync_prs": true
+    "sync_prs": true,
+    "closed_lookback_days": 30
   },
   "field_mappings": {
     "title": "Title",
@@ -40,6 +42,32 @@
     "review": "Review",
     "done": "Done"
   },
+  "github_label_mappings": {
+    "priority": {
+      "critical": "Critical",
+      "priority: critical": "Critical",
+      "priority: high": "High",
+      "high": "High",
+      "priority: medium": "Medium",
+      "medium": "Medium",
+      "priority: low": "Low",
+      "low": "Low"
+    },
+    "category": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "data/ml": "Data/ML",
+      "ml": "Data/ML",
+      "infrastructure": "Infrastructure",
+      "infra": "Infrastructure",
+      "security": "Security",
+      "testing": "Testing",
+      "documentation": "Documentation",
+      "docs": "Documentation",
+      "bug": "Backend",
+      "enhancement": "Backend"
+    }
+  },
   "created_at": "2026-02-06T20:55:09.789Z",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
