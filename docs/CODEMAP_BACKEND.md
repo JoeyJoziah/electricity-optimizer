@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Auto-generated: 2026-02-08
+> Auto-generated: 2026-02-10
 
 ## Directory Structure
 
@@ -46,6 +46,7 @@ backend/
 ## Key Integration Points
 
 ### POST /api/v1/prices/refresh (prices.py)
+- **Requires `X-API-Key` header** (authenticated via `verify_api_key` dependency)
 - Calls `create_pricing_service_from_settings()` → `PricingService`
 - Fetches prices via `compare_prices()` for 6 regions: US_CT, US_CA, US_NY, UK, GERMANY, FRANCE
 - Converts `PriceData` → `Price` model via region_map
@@ -115,4 +116,4 @@ Two separate enums for different layers:
 cd frontend && npx jest
 ```
 
-**Test status:** 267 passing, 0 regressions from 2026-02-08 changes.
+**Test status:** 293 passing, 0 regressions from 2026-02-10 changes.

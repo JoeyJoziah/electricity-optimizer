@@ -88,12 +88,23 @@ Deployment configuration files:
 
 Refer to `docs/DEPLOYMENT.md` for detailed deployment instructions.
 
+### Environment Variables
+
+Copy `.env.example` to `.env` and configure. Key variables:
+
+- `JWT_SECRET` -- generate with `openssl rand -hex 32`
+- `INTERNAL_API_KEY` -- separate key for service-to-service auth (price-sync workflow)
+- `NREL_API_KEY` / `FLATPEAK_API_KEY` -- external pricing API keys
+- `DATABASE_URL` -- PostgreSQL connection string (optional for local dev)
+
 ## API Documentation
 
-When the backend is running, interactive API docs are available at:
+When the backend is running locally, interactive API docs are available at:
 
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+
+> **Note:** Swagger UI and ReDoc are only available in development mode. They are disabled in production for security.
 
 ## Project Structure
 
@@ -126,6 +137,17 @@ electricity-optimizer/
   tests/              Load, performance, and security tests
   docs/               Project documentation
 ```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment guide (local, staging, production) |
+| [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Architecture, service catalog, monitoring |
+| [TESTING.md](docs/TESTING.md) | Test suites, coverage targets, CI integration |
+| [MVP_LAUNCH_CHECKLIST.md](docs/MVP_LAUNCH_CHECKLIST.md) | Pre-launch validation checklist |
+| [BETA_DEPLOYMENT_GUIDE.md](docs/BETA_DEPLOYMENT_GUIDE.md) | Beta deployment and user onboarding |
+| [CODEMAP_BACKEND.md](docs/CODEMAP_BACKEND.md) | Backend architecture and integration map |
 
 ## License
 

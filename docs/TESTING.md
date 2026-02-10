@@ -1,8 +1,8 @@
 # Testing Guide
 
-**Last Updated**: 2026-02-06
+**Last Updated**: 2026-02-10
 **Overall Test Coverage**: 80%+
-**Total Tests**: 500+
+**Total Tests**: 384+
 
 ---
 
@@ -12,9 +12,9 @@ The Electricity Optimizer uses a comprehensive multi-layer testing strategy:
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit Tests** | 90+ | 85%+ | pytest |
+| **Backend Unit Tests** | 293 | 85%+ | pytest |
 | **ML Model Tests** | 143 | 80%+ | pytest |
-| **Frontend Component Tests** | 50+ | 70%+ | Jest + RTL |
+| **Frontend Component Tests** | 91 | 70%+ | Jest + RTL |
 | **Security Tests** | 144 | 90%+ | pytest |
 | **E2E Tests** | 100+ | Critical flows | Playwright |
 | **Load Tests** | N/A | 1000+ users | Locust |

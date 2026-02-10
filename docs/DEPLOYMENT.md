@@ -84,7 +84,7 @@ make health
 |---------|-----|-------------|
 | Frontend | http://localhost:3000 | - |
 | Backend API | http://localhost:8000 | - |
-| API Docs | http://localhost:8000/docs | - |
+| API Docs | http://localhost:8000/docs | Dev only (disabled in production) |
 | Airflow | http://localhost:8080 | admin/admin |
 | Grafana | http://localhost:3001 | admin/GRAFANA_PASSWORD |
 | Prometheus | http://localhost:9090 | - |
@@ -296,6 +296,7 @@ open http://localhost:3001
 - Never commit secrets to version control
 - Use 1Password for production secrets
 - Rotate keys every 90 days
+- INTERNAL_API_KEY required for service-to-service auth (price-sync workflow)
 
 ### Network Security
 

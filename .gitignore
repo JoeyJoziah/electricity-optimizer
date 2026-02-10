@@ -62,12 +62,10 @@ secrets/
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Logs
 logs/
 *.log
-npm-debug.log*
 pnpm-debug.log*
 lerna-debug.log*
 
@@ -80,7 +78,6 @@ lerna-debug.log*
 airflow.cfg
 airflow.db
 airflow-webserver.pid
-logs/
 
 # ML Models
 *.pkl

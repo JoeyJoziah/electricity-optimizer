@@ -336,13 +336,16 @@ deploy:
 - Environment variables for non-sensitive config
 - 1Password for production secrets
 - Never commit secrets to Git
+- INTERNAL_API_KEY for service-to-service authentication
 
 ### Access Control
 
 - Airflow/Grafana behind VPN or IP whitelist
 - JWT authentication for API
 - Role-based access control
+- API documentation (Swagger/ReDoc) disabled in production
+- Price refresh endpoint requires API key authentication
 
 ---
 
-**Last Updated**: 2026-02-06
+**Last Updated**: 2026-02-10
