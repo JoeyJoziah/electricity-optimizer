@@ -113,8 +113,8 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="AI-powered electricity price optimization platform",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
     lifespan=lifespan
 )
 
@@ -331,14 +331,16 @@ app.mount("/metrics", metrics_app)
 @app.get("/", tags=["Root"])
 async def root():
     """Root endpoint with API information"""
-    return {
+    info = {
         "name": settings.app_name,
         "version": settings.app_version,
         "environment": settings.environment,
-        "docs": "/docs",
         "health": "/health",
-        "metrics": "/metrics"
+        "metrics": "/metrics",
     }
+    if not settings.is_production:
+        info["docs"] = "/docs"
+    return info
 
 
 # Import and include API routers

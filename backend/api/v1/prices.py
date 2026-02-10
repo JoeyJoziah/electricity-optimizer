@@ -30,6 +30,7 @@ from api.dependencies import (
     get_price_service,
     get_analytics_service,
     get_current_user_optional,
+    verify_api_key,
     TokenData,
 )
 from config.database import get_timescale_session
@@ -547,6 +548,7 @@ async def get_peak_hours_analysis(
     }
 )
 async def refresh_prices(
+    _api_key: bool = Depends(verify_api_key),
     session: AsyncSession = Depends(get_timescale_session),
 ):
     """

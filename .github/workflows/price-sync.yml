@@ -10,4 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger price refresh
-        run: curl -fsS -X POST "${{ secrets.BACKEND_URL }}/api/v1/prices/refresh" || exit 1
+        run: curl -fsS -X POST -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" "${{ secrets.BACKEND_URL }}/api/v1/prices/refresh" || exit 1

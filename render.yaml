@@ -19,6 +19,8 @@ services:
         sync: false
       - key: ENVIRONMENT
         value: production
+      - key: INTERNAL_API_KEY
+        sync: false
 
   - type: web
     name: electricity-optimizer-frontend
