@@ -3,13 +3,31 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { AuthProvider } from '@/lib/hooks/useAuth'
-import { Sidebar } from '@/components/layout/Sidebar'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Electricity Optimizer',
-  description: 'AI-powered electricity price optimization platform',
+  title: {
+    default: 'Electricity Optimizer - Save on CT Electricity Bills',
+    template: '%s | Electricity Optimizer',
+  },
+  description: 'AI-powered electricity price optimization for Connecticut residents. Compare rates, get smart alerts, and save money with ML-powered forecasting.',
+  keywords: ['electricity', 'Connecticut', 'energy savings', 'price comparison', 'CT electricity rates'],
+  openGraph: {
+    title: 'Electricity Optimizer',
+    description: 'Save money on Connecticut electricity with AI-powered optimization',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Electricity Optimizer',
+    description: 'AI-powered electricity savings for CT residents',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 }
 
 export default function RootLayout({
@@ -22,10 +40,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <QueryProvider>
           <AuthProvider>
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <main className="flex-1 lg:pl-64">{children}</main>
-            </div>
+            {children}
           </AuthProvider>
         </QueryProvider>
       </body>
