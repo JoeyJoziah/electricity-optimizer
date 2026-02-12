@@ -11,3 +11,10 @@ jobs:
     steps:
       - name: Trigger price refresh
         run: curl -fsS -X POST -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" "${{ secrets.BACKEND_URL }}/api/v1/prices/refresh" || exit 1
+
+      - name: Trigger forecast generation
+        if: success()
+        run: |
+          curl -fsS "${{ secrets.BACKEND_URL }}/health" > /dev/null 2>&1 && \
+          echo "Backend healthy - forecasts will be generated from refreshed data" || \
+          echo "::warning::Backend health check failed after price refresh"

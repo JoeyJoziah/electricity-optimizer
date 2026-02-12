@@ -46,6 +46,12 @@ class UserPreferences(BaseModel):
     peak_avoidance_enabled: bool = False
     preferred_usage_hours: List[int] = Field(default_factory=list)
 
+    # Price alert preferences
+    price_alert_enabled: bool = False
+    price_alert_below: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    price_alert_above: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    alert_optimal_windows: bool = True
+
 
 class User(BaseModel):
     """

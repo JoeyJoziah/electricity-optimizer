@@ -47,7 +47,8 @@ class ModelConfig:
 
     # Input configuration
     sequence_length: int = 168  # 7 days of hourly data
-    num_features: int = 15      # Number of input features
+    # 15 base features + 4 weather features (temp, humidity, wind, cloud_cover)
+    num_features: int = 19
 
     # Output configuration
     forecast_horizon: int = 24  # 24-hour ahead forecast
@@ -640,7 +641,7 @@ def test_model():
     np.random.seed(42)
     n_samples = 1000
     sequence_length = 168
-    num_features = 15
+    num_features = 19  # 15 base + 4 weather features
     forecast_horizon = 24
 
     X = np.random.randn(n_samples, sequence_length, num_features)

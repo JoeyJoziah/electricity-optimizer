@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     iea_api_key: Optional[str] = Field(default=None, validation_alias="IEA_API_KEY")
     utilityapi_key: Optional[str] = Field(default=None, validation_alias="UTILITYAPI_KEY")
     openvolt_api_key: Optional[str] = Field(default=None, validation_alias="OPENVOLT_API_KEY")
+    openweathermap_api_key: Optional[str] = Field(default=None, validation_alias="OPENWEATHERMAP_API_KEY")
 
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=100, validation_alias="RATE_LIMIT_PER_MINUTE")
@@ -68,7 +69,7 @@ class Settings(BaseSettings):
     # GDPR & Compliance
     data_retention_days: int = Field(default=730, validation_alias="DATA_RETENTION_DAYS")
     consent_required: bool = Field(default=True, validation_alias="CONSENT_REQUIRED")
-    data_residency: str = Field(default="EU", validation_alias="DATA_RESIDENCY")
+    data_residency: str = Field(default="US", validation_alias="DATA_RESIDENCY")
 
     # ML Model Configuration
     model_path: Optional[str] = Field(default=None, validation_alias="MODEL_PATH")

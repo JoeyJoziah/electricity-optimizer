@@ -9,12 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
 import { PriceLineChart } from '@/components/charts/PriceLineChart'
 import { ForecastChart } from '@/components/charts/ForecastChart'
-import { SavingsDonut } from '@/components/charts/SavingsDonut'
 import { ScheduleTimeline } from '@/components/charts/ScheduleTimeline'
 import { SupplierCard } from '@/components/suppliers/SupplierCard'
 import { useCurrentPrices, usePriceHistory, usePriceForecast } from '@/lib/hooks/usePrices'
 import { useSuppliers } from '@/lib/hooks/useSuppliers'
 import { useRealtimePrices } from '@/lib/hooks/useRealtime'
+import { SavingsTracker } from '@/components/gamification/SavingsTracker'
 import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
@@ -24,7 +24,6 @@ import {
   Minus,
   ArrowRight,
   Zap,
-  Leaf,
   Clock,
 } from 'lucide-react'
 import type { TimeRange } from '@/types'
@@ -38,6 +37,15 @@ const SAVINGS_DATA = {
     { category: 'Price Alerts', amount: 5.00, percentage: 11 },
   ],
   period: 'month' as const,
+}
+
+const GAMIFICATION_DATA = {
+  dailySavings: 1.85,
+  weeklySavings: 12.30,
+  monthlySavings: 45.50,
+  streakDays: 12,
+  bestStreak: 18,
+  optimizationScore: 78,
 }
 
 const PRICE_ZONES = [
@@ -223,19 +231,21 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Total Saved */}
+          {/* Total Saved with streak */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-gray-500">
                   Total Saved
                 </p>
-                <Leaf className="h-5 w-5 text-success-500" />
+                <Badge variant="success">{GAMIFICATION_DATA.streakDays}-day streak</Badge>
               </div>
               <p className="mt-2 text-2xl font-bold text-success-600">
-                {formatCurrency(SAVINGS_DATA.totalSavings)}
+                {formatCurrency(GAMIFICATION_DATA.monthlySavings)}
               </p>
-              <p className="mt-1 text-sm text-gray-500">This month</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {formatCurrency(GAMIFICATION_DATA.dailySavings)} today
+              </p>
             </CardContent>
           </Card>
 
@@ -309,13 +319,13 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Savings donut */}
+          {/* Savings tracker with gamification */}
           <Card>
             <CardHeader>
-              <CardTitle>Savings Breakdown</CardTitle>
+              <CardTitle>Savings & Streaks</CardTitle>
             </CardHeader>
             <CardContent>
-              <SavingsDonut data={SAVINGS_DATA} showLegend />
+              <SavingsTracker {...GAMIFICATION_DATA} />
             </CardContent>
           </Card>
         </div>

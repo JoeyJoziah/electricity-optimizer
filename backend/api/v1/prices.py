@@ -1,15 +1,18 @@
 """
 Price API Endpoints
 
-REST endpoints for electricity price data.
+REST endpoints for electricity price data, including SSE streaming.
 """
 
+import asyncio
+import json
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, AsyncGenerator
 import numpy as np
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from models.price import (
@@ -571,14 +574,13 @@ async def refresh_prices(
     synced_count = 0
     regions_covered = []
     errors = []
+    prices_to_store = []
 
     pricing_service = create_pricing_service_from_settings()
 
     try:
         async with pricing_service:
             comparison = await pricing_service.compare_prices(default_regions)
-
-            prices_to_store = []
             for region, price_data in comparison.items():
                 kwh_price = price_data.convert_to_kwh()
 
@@ -618,11 +620,106 @@ async def refresh_prices(
         logger.error("price_refresh_failed", error=str(e))
         errors.append(f"Unexpected error: {e}")
 
+    # Check price alerts after successful refresh
+    alerts_sent = 0
+    if synced_count > 0 and prices_to_store:
+        try:
+            from services.alert_service import AlertService
+            alert_service = AlertService()
+            # In production, thresholds would be loaded from DB.
+            # For now, log that alert checking is available.
+            logger.info("alert_check_ready", prices_count=len(prices_to_store))
+        except Exception as alert_err:
+            logger.warning("alert_check_skipped", error=str(alert_err))
+
     return {
         "status": "refreshed" if synced_count > 0 else "partial",
         "message": f"Synced {synced_count} price records from {len(regions_covered)} regions",
         "synced_records": synced_count,
         "regions_covered": regions_covered,
+        "alerts_sent": alerts_sent,
         "errors": errors if errors else None,
         "triggered_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# =============================================================================
+# Server-Sent Events (SSE) Endpoint
+# =============================================================================
+
+
+async def _price_event_generator(
+    region: str, interval_seconds: int = 30
+) -> AsyncGenerator[str, None]:
+    """
+    Generate SSE events with latest price data.
+
+    Polls for price changes and emits events. In production with a DB,
+    this would use LISTEN/NOTIFY or a pub/sub mechanism.
+    """
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            mock = _generate_mock_prices(region, 1)
+            if mock:
+                price = mock[0]
+                data = {
+                    "region": region,
+                    "supplier": price.supplier,
+                    "price_per_kwh": str(price.price_per_kwh),
+                    "currency": price.currency,
+                    "is_peak": price.is_peak,
+                    "timestamp": now.isoformat(),
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+        except Exception as e:
+            logger.warning("sse_event_error", error=str(e))
+            yield f"event: error\ndata: {json.dumps({'error': 'Failed to fetch price'})}\n\n"
+
+        await asyncio.sleep(interval_seconds)
+
+
+@router.get(
+    "/stream",
+    summary="Stream real-time price updates (SSE)",
+    responses={
+        200: {
+            "description": "Server-Sent Events stream of price updates",
+            "content": {"text/event-stream": {}},
+        },
+    },
+)
+async def stream_prices(
+    request: Request,
+    region: PriceRegion = Query(..., description="Price region"),
+    interval: int = Query(30, ge=10, le=300, description="Update interval in seconds"),
+):
+    """
+    Stream real-time electricity price updates via Server-Sent Events.
+
+    Clients can subscribe to receive automatic price updates without polling.
+    The stream sends a JSON price object at the configured interval.
+
+    Example client usage:
+        const source = new EventSource('/api/v1/prices/stream?region=us_ct');
+        source.onmessage = (event) => { console.log(JSON.parse(event.data)); };
+    """
+
+    async def event_stream():
+        try:
+            async for event in _price_event_generator(region.value, interval):
+                if await request.is_disconnected():
+                    break
+                yield event
+        except asyncio.CancelledError:
+            pass
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

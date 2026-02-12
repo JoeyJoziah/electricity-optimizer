@@ -17,10 +17,16 @@ services:
         sync: false
       - key: NREL_API_KEY
         sync: false
+      - key: OPENWEATHERMAP_API_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
       - key: ENVIRONMENT
         value: production
       - key: INTERNAL_API_KEY
         sync: false
+      - key: DATA_RESIDENCY
+        value: US
 
   - type: web
     name: electricity-optimizer-frontend
@@ -30,7 +36,7 @@ services:
     dockerContext: ./frontend
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        value: https://electricity-optimizer.onrender.com/api/v1
+        value: https://electricity-optimizer-api.onrender.com/api/v1
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY

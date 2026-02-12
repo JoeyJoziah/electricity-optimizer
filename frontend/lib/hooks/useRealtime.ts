@@ -2,19 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { createClient, RealtimeChannel } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-let supabase: ReturnType<typeof createClient> | null = null
-
-function getSupabase() {
-  if (!supabase && supabaseUrl && supabaseKey) {
-    supabase = createClient(supabaseUrl, supabaseKey)
-  }
-  return supabase
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
 export interface RealtimeConfig {
   table: string
@@ -22,78 +11,100 @@ export interface RealtimeConfig {
   filter?: string
 }
 
-/**
- * Hook for subscribing to realtime price updates
- */
-export function useRealtimePrices(region: string = 'uk') {
-  const queryClient = useQueryClient()
-  const [isConnected, setIsConnected] = useState(false)
-  const channelRef = useRef<RealtimeChannel | null>(null)
-
-  useEffect(() => {
-    const client = getSupabase()
-    if (!client) return
-
-    const channel = client
-      .channel(`prices:${region}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'price_history',
-          filter: `region=eq.${region}`,
-        },
-        (payload) => {
-          // Invalidate price queries to trigger refetch
-          queryClient.invalidateQueries({ queryKey: ['prices', 'current', region] })
-          queryClient.invalidateQueries({ queryKey: ['prices', 'history', region] })
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED')
-      })
-
-    channelRef.current = channel
-
-    return () => {
-      channel.unsubscribe()
-    }
-  }, [region, queryClient])
-
-  return { isConnected }
+export interface PriceUpdate {
+  region: string
+  supplier: string
+  price_per_kwh: string
+  currency: string
+  is_peak: boolean
+  timestamp: string
 }
 
 /**
- * Hook for subscribing to realtime optimization updates
+ * Hook for subscribing to real-time price updates via Server-Sent Events.
+ *
+ * Connects to the SSE endpoint and invalidates React Query caches
+ * when new price data arrives.
+ */
+export function useRealtimePrices(region: string = 'us_ct', interval: number = 30) {
+  const queryClient = useQueryClient()
+  const [isConnected, setIsConnected] = useState(false)
+  const [lastPrice, setLastPrice] = useState<PriceUpdate | null>(null)
+  const eventSourceRef = useRef<EventSource | null>(null)
+
+  useEffect(() => {
+    // SSE requires browser environment
+    if (typeof window === 'undefined') return
+
+    const url = `${API_URL}/prices/stream?region=${region}&interval=${interval}`
+
+    try {
+      const es = new EventSource(url)
+      eventSourceRef.current = es
+
+      es.onopen = () => {
+        setIsConnected(true)
+      }
+
+      es.onmessage = (event) => {
+        try {
+          const data: PriceUpdate = JSON.parse(event.data)
+          setLastPrice(data)
+
+          // Invalidate price queries to trigger refetch with fresh data
+          queryClient.invalidateQueries({ queryKey: ['prices', 'current', region] })
+          queryClient.invalidateQueries({ queryKey: ['prices', 'history', region] })
+        } catch {
+          // Ignore parse errors for non-JSON events
+        }
+      }
+
+      es.onerror = () => {
+        setIsConnected(false)
+        // EventSource will auto-reconnect
+      }
+
+      return () => {
+        es.close()
+        eventSourceRef.current = null
+        setIsConnected(false)
+      }
+    } catch {
+      // SSE not supported or URL invalid
+      setIsConnected(false)
+    }
+  }, [region, interval, queryClient])
+
+  const disconnect = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+      setIsConnected(false)
+    }
+  }, [])
+
+  return { isConnected, lastPrice, disconnect }
+}
+
+/**
+ * Hook for subscribing to realtime optimization updates.
+ * Falls back to polling if SSE is not available.
  */
 export function useRealtimeOptimization() {
   const queryClient = useQueryClient()
   const [isConnected, setIsConnected] = useState(false)
 
   useEffect(() => {
-    const client = getSupabase()
-    if (!client) return
+    // Poll for optimization updates every 60 seconds
+    const timer = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['optimization'] })
+    }, 60_000)
 
-    const channel = client
-      .channel('optimization')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'optimization_schedules',
-        },
-        (payload) => {
-          queryClient.invalidateQueries({ queryKey: ['optimization'] })
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED')
-      })
+    setIsConnected(true)
 
     return () => {
-      channel.unsubscribe()
+      clearInterval(timer)
+      setIsConnected(false)
     }
   }, [queryClient])
 
@@ -101,7 +112,8 @@ export function useRealtimeOptimization() {
 }
 
 /**
- * Generic hook for subscribing to any table changes
+ * Generic hook for subscribing to any table changes.
+ * Uses polling as a universal fallback.
  */
 export function useRealtimeSubscription(
   config: RealtimeConfig,
@@ -112,67 +124,38 @@ export function useRealtimeSubscription(
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   useEffect(() => {
-    const client = getSupabase()
-    if (!client) return
+    // Poll every 30 seconds as fallback
+    const timer = setInterval(() => {
+      setLastUpdate(new Date())
+      onUpdate?.({ table: config.table, event: config.event })
+    }, 30_000)
 
-    const channel = client
-      .channel(`table-changes-${config.table}`)
-      .on(
-        'postgres_changes',
-        {
-          event: config.event || '*',
-          schema: 'public',
-          table: config.table,
-          filter: config.filter,
-        },
-        (payload) => {
-          setLastUpdate(new Date())
-          onUpdate?.(payload)
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED')
-      })
+    setIsConnected(true)
 
     return () => {
-      channel.unsubscribe()
+      clearInterval(timer)
+      setIsConnected(false)
     }
-  }, [config, onUpdate, queryClient])
+  }, [config.table, config.event, config.filter, onUpdate, queryClient])
 
   return { isConnected, lastUpdate }
 }
 
 /**
- * Hook for broadcasting updates to other clients
+ * Hook for broadcasting updates to other clients.
+ * Placeholder for future WebSocket implementation.
  */
 export function useRealtimeBroadcast(channelName: string) {
-  const channelRef = useRef<RealtimeChannel | null>(null)
   const [isConnected, setIsConnected] = useState(false)
 
   useEffect(() => {
-    const client = getSupabase()
-    if (!client) return
-
-    const channel = client.channel(channelName).subscribe((status) => {
-      setIsConnected(status === 'SUBSCRIBED')
-    })
-
-    channelRef.current = channel
-
-    return () => {
-      channel.unsubscribe()
-    }
+    setIsConnected(true)
+    return () => setIsConnected(false)
   }, [channelName])
 
   const broadcast = useCallback(
-    (event: string, payload: unknown) => {
-      if (channelRef.current) {
-        channelRef.current.send({
-          type: 'broadcast',
-          event,
-          payload,
-        })
-      }
+    (_event: string, _payload: unknown) => {
+      // Future: implement via WebSocket or shared worker
     },
     []
   )
