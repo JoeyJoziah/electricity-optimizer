@@ -22,8 +22,11 @@ backend/
 ├── repositories/
 │   └── price_repository.py          # DB CRUD (bulk_create, get_by_region)
 ├── services/
-│   └── email_service.py             # Email sending (SendGrid + SMTP fallback)
-├── integrations/pricing_apis/
+│   ├── email_service.py             # Email sending (SendGrid + SMTP fallback)
+│   └── alert_service.py             # Price threshold alerts + email notifications
+├── integrations/
+│   ├── weather_service.py           # OpenWeatherMap integration for weather-aware optimization
+│   └── pricing_apis/
 │   ├── base.py                      # PricingRegion enum, PriceData, APIError
 │   ├── service.py                   # PricingService (unified multi-API interface)
 │   ├── nrel.py                      # NREL client (US regions, CT→ZIP 06510)
@@ -33,7 +36,8 @@ backend/
 │   ├── rate_limiter.py              # RateLimiter
 │   └── __init__.py                  # create_pricing_service_from_settings()
 ├── templates/emails/
-│   └── welcome_beta.html            # Jinja2 HTML email template
+│   ├── welcome_beta.html            # Jinja2 HTML email template
+│   └── price_alert.html             # Price alert notification template
 ├── tests/
 │   ├── conftest.py                  # Shared fixtures
 │   ├── test_models.py               # Price model tests
@@ -116,4 +120,4 @@ Two separate enums for different layers:
 cd frontend && npx jest
 ```
 
-**Test status:** 293 passing, 0 regressions from 2026-02-10 changes.
+**Test status:** 311 passing (as of 2026-02-12).

@@ -27,6 +27,8 @@ services:
       - FLATPEAK_API_KEY=${FLATPEAK_API_KEY}
       - NREL_API_KEY=${NREL_API_KEY}
       - IEA_API_KEY=${IEA_API_KEY}
+      - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
       # Authentication
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
@@ -168,118 +170,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # =============================================================================
-  # Airflow Services (Production)
-  # =============================================================================
-
-  postgres-airflow:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=${AIRFLOW_DB_PASSWORD:-airflow}
-      - POSTGRES_DB=airflow
-    volumes:
-      - postgres-airflow-data:/var/lib/postgresql/data
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U airflow"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  airflow-webserver:
-    build:
-      context: ./airflow
-      dockerfile: Dockerfile
-      target: production
-    command: webserver
-    ports:
-      - "8080:8080"
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@postgres-airflow:5432/airflow
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=false
-      - AIRFLOW__WEBSERVER__SECRET_KEY=${JWT_SECRET}
-      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=false
-      # Application environment variables
-      - SUPABASE_URL=${SUPABASE_URL}
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-    depends_on:
-      postgres-airflow:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./airflow/logs:/opt/airflow/logs
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.1'
-          memory: 256M
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 5
-      start_period: 120s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  airflow-scheduler:
-    build:
-      context: ./airflow
-      dockerfile: Dockerfile
-      target: production
-    command: scheduler
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@postgres-airflow:5432/airflow
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=false
-      # Application environment variables
-      - SUPABASE_URL=${SUPABASE_URL}
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-    depends_on:
-      postgres-airflow:
-        condition: service_healthy
-    volumes:
-      - ./airflow/logs:/opt/airflow/logs
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.1'
-          memory: 256M
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
@@ -471,8 +361,6 @@ volumes:
     name: electricity-optimizer-redis-prod
   timescale-data:
     name: electricity-optimizer-timescale-prod
-  postgres-airflow-data:
-    name: electricity-optimizer-airflow-db-prod
   prometheus-data:
     name: electricity-optimizer-prometheus-prod
   grafana-data:

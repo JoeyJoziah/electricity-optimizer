@@ -61,19 +61,6 @@ scrape_configs:
         replacement: 'redis'
 
   # ===========================================================================
-  # Airflow Metrics
-  # ===========================================================================
-  - job_name: 'airflow'
-    static_configs:
-      - targets: ['airflow-webserver:8080']
-    metrics_path: '/admin/metrics'
-    scrape_interval: 30s
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'airflow'
-
-  # ===========================================================================
   # Node Exporter (System Metrics)
   # ===========================================================================
   - job_name: 'node'

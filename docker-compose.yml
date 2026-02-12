@@ -27,6 +27,8 @@ services:
       - FLATPEAK_API_KEY=${FLATPEAK_API_KEY}
       - NREL_API_KEY=${NREL_API_KEY}
       - IEA_API_KEY=${IEA_API_KEY}
+      - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
       # Authentication
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
@@ -116,121 +118,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
-  # =============================================================================
-  # Airflow Services
-  # =============================================================================
-
-  postgres-airflow:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=airflow
-      - POSTGRES_DB=airflow
-    volumes:
-      - postgres-airflow-data:/var/lib/postgresql/data
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U airflow"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  airflow-init:
-    image: apache/airflow:2.8.0-python3.11
-    depends_on:
-      postgres-airflow:
-        condition: service_healthy
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow:5432/airflow
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=false
-    command: >
-      bash -c "
-        airflow db migrate &&
-        airflow users create \
-          --username admin \
-          --password admin \
-          --firstname Admin \
-          --lastname User \
-          --role Admin \
-          --email admin@localhost || true
-      "
-    networks:
-      - electricity-optimizer
-
-  airflow-webserver:
-    build:
-      context: ./airflow
-      dockerfile: Dockerfile
-      target: development
-    command: webserver
-    ports:
-      - "8080:8080"
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow:5432/airflow
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=false
-      - AIRFLOW__WEBSERVER__SECRET_KEY=${JWT_SECRET}
-      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=true
-      # Application environment variables
-      - SUPABASE_URL=${SUPABASE_URL}
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-    depends_on:
-      airflow-init:
-        condition: service_completed_successfully
-      postgres-airflow:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/plugins:/opt/airflow/plugins
-      - ./airflow/logs:/opt/airflow/logs
-      - ./ml:/opt/airflow/ml
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 5
-      start_period: 60s
-
-  airflow-scheduler:
-    build:
-      context: ./airflow
-      dockerfile: Dockerfile
-      target: development
-    command: scheduler
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow:5432/airflow
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=false
-      # Application environment variables
-      - SUPABASE_URL=${SUPABASE_URL}
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-    depends_on:
-      airflow-init:
-        condition: service_completed_successfully
-      postgres-airflow:
-        condition: service_healthy
-    volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/plugins:/opt/airflow/plugins
-      - ./airflow/logs:/opt/airflow/logs
-      - ./ml:/opt/airflow/ml
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
 
   # =============================================================================
   # Background Workers
@@ -365,8 +252,6 @@ volumes:
     name: electricity-optimizer-redis
   timescale-data:
     name: electricity-optimizer-timescale
-  postgres-airflow-data:
-    name: electricity-optimizer-airflow-db
   prometheus-data:
     name: electricity-optimizer-prometheus
   grafana-data:

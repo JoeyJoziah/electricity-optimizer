@@ -45,7 +45,6 @@ up: ## Start all services in development mode
 	@echo "$(GREEN)Services started!$(NC)"
 	@echo "  Frontend:   http://localhost:3000"
 	@echo "  Backend:    http://localhost:8000"
-	@echo "  Airflow:    http://localhost:8080"
 	@echo "  Grafana:    http://localhost:3001"
 
 up-prod: ## Start all services in production mode
@@ -70,9 +69,6 @@ logs-backend: ## View backend logs
 
 logs-frontend: ## View frontend logs
 	docker compose logs -f frontend
-
-logs-airflow: ## View Airflow logs
-	docker compose logs -f airflow-webserver airflow-scheduler
 
 # =============================================================================
 # Testing
@@ -184,7 +180,7 @@ backup: ## Create database backup
 	@echo "$(BLUE)Creating backup...$(NC)"
 	./scripts/backup.sh
 
-backup-full: ## Create full backup (including Airflow)
+backup-full: ## Create full backup (all databases)
 	@echo "$(BLUE)Creating full backup...$(NC)"
 	./scripts/backup.sh --full
 
@@ -240,9 +236,6 @@ shell-backend: ## Open shell in backend container
 
 shell-frontend: ## Open shell in frontend container
 	docker compose exec frontend sh
-
-shell-airflow: ## Open shell in Airflow container
-	docker compose exec airflow-webserver bash
 
 install: ## Install all dependencies locally
 	@echo "$(BLUE)Installing dependencies...$(NC)"

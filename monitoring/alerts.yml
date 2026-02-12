@@ -34,16 +34,6 @@ groups:
           summary: "Price data hasn't updated in 30 minutes"
           description: "Last update: {{ $value }}s ago"
 
-      - alert: AirflowDAGFailed
-        expr: airflow_dag_status{status="failed"} > 0
-        for: 1m
-        labels:
-          severity: critical
-          component: airflow
-        annotations:
-          summary: "Airflow DAG failed"
-          description: "DAG {{ $labels.dag_id }} has failed"
-
       # ML Model Alerts
       - alert: ModelForecastAccuracyDegraded
         expr: forecast_mape > 15
@@ -109,7 +99,7 @@ groups:
 
       # System Resource Alerts
       - alert: HighCPUUsage
-        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
         for: 10m
         labels:
           severity: warning
@@ -119,7 +109,7 @@ groups:
           description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
 
       - alert: HighMemoryUsage
-        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
         for: 10m
         labels:
           severity: warning

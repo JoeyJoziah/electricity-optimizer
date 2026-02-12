@@ -8,8 +8,8 @@
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS consent_records (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
     purpose VARCHAR(50) NOT NULL,
     consent_given BOOLEAN NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS consent_records (
     withdrawal_timestamp TIMESTAMPTZ,
     metadata_json JSONB,
 
-    -- Indexes for efficient queries
     CONSTRAINT fk_consent_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -48,10 +47,10 @@ END $$;
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS deletion_logs (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
     deleted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_by VARCHAR(36) NOT NULL,
+    deleted_by VARCHAR(100) NOT NULL,
     deletion_type VARCHAR(20) NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
     user_agent VARCHAR(500) NOT NULL,
@@ -85,8 +84,8 @@ CREATE TRIGGER tr_prevent_deletion_log_update
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS auth_sessions (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
     token_hash VARCHAR(64) NOT NULL,
     refresh_token_hash VARCHAR(64),
     expires_at TIMESTAMPTZ NOT NULL,
@@ -111,7 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_session_expires ON auth_sessions(expires_at);
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS login_attempts (
-    id VARCHAR(36) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     identifier VARCHAR(255) NOT NULL,  -- email or IP
     identifier_type VARCHAR(20) NOT NULL,  -- 'email' or 'ip'
     attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -140,16 +139,16 @@ $$ LANGUAGE plpgsql;
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS activity_logs (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID,
     action VARCHAR(100) NOT NULL,
     resource_type VARCHAR(50),
-    resource_id VARCHAR(36),
+    resource_id UUID,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ip_address VARCHAR(45),
     user_agent VARCHAR(500),
     details JSONB,
-    correlation_id VARCHAR(36),
+    correlation_id UUID,
 
     CONSTRAINT fk_activity_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
@@ -158,14 +157,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_user_id ON activity_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_logs(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_action ON activity_logs(action);
 
--- Convert to TimescaleDB hypertable for efficient time-series queries
--- (Only if TimescaleDB extension is available)
-DO $$ BEGIN
-    PERFORM create_hypertable('activity_logs', 'timestamp', if_not_exists => TRUE);
-EXCEPTION
-    WHEN undefined_function THEN
-        RAISE NOTICE 'TimescaleDB not available, skipping hypertable creation';
-END $$;
+-- Note: TimescaleDB hypertable removed (Neon.tech uses standard PostgreSQL)
 
 
 -- =============================================================================
@@ -187,25 +179,32 @@ ALTER TABLE users
 
 -- =============================================================================
 -- DATA RETENTION POLICY
--- Automatically purge old data per GDPR Article 5(1)(e)
+-- Automatically purge old activity logs per GDPR Article 5(1)(e)
+-- Run periodically via cron/scheduled job
 -- =============================================================================
 
--- Policy: Keep activity logs for 2 years
-DO $$ BEGIN
-    PERFORM add_retention_policy('activity_logs', INTERVAL '2 years', if_not_exists => TRUE);
-EXCEPTION
-    WHEN undefined_function THEN
-        RAISE NOTICE 'TimescaleDB not available, skipping retention policy';
-END $$;
+CREATE OR REPLACE FUNCTION cleanup_old_activity_logs()
+RETURNS void AS $$
+BEGIN
+    DELETE FROM activity_logs
+    WHERE timestamp < NOW() - INTERVAL '2 years';
+END;
+$$ LANGUAGE plpgsql;
 
 
 -- =============================================================================
 -- GRANTS
+-- Neon uses the default neondb_owner role
 -- =============================================================================
 
--- Grant permissions to application role
-GRANT SELECT, INSERT ON consent_records TO app_user;
-GRANT SELECT, INSERT ON deletion_logs TO app_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON auth_sessions TO app_user;
-GRANT SELECT, INSERT ON login_attempts TO app_user;
-GRANT SELECT, INSERT, UPDATE ON activity_logs TO app_user;
+-- Grant permissions to the Neon default role (safe no-op if role doesn't exist)
+DO $$ BEGIN
+    GRANT SELECT, INSERT ON consent_records TO neondb_owner;
+    GRANT SELECT, INSERT ON deletion_logs TO neondb_owner;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON auth_sessions TO neondb_owner;
+    GRANT SELECT, INSERT ON login_attempts TO neondb_owner;
+    GRANT SELECT, INSERT, UPDATE ON activity_logs TO neondb_owner;
+EXCEPTION
+    WHEN undefined_object THEN
+        RAISE NOTICE 'neondb_owner role not found, skipping grants';
+END $$;
