@@ -5,8 +5,9 @@ Stripe integration for subscription management.
 """
 
 from typing import Optional
+from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 import structlog
 import stripe
 
@@ -23,12 +24,34 @@ router = APIRouter()
 # =============================================================================
 
 
+ALLOWED_REDIRECT_DOMAINS = [
+    "electricity-optimizer.vercel.app",
+    "electricity-optimizer-frontend.onrender.com",
+    "localhost",
+]
+
+
 class CheckoutSessionRequest(BaseModel):
     """Request to create a checkout session."""
 
     tier: str = Field(..., pattern=r"^(pro|business)$", description="Subscription tier")
     success_url: HttpUrl = Field(..., description="URL to redirect after successful checkout")
     cancel_url: HttpUrl = Field(..., description="URL to redirect if checkout is cancelled")
+
+    @field_validator("success_url", "cancel_url")
+    @classmethod
+    def validate_redirect_domain(cls, v):
+        parsed = urlparse(str(v))
+        hostname = parsed.hostname or ""
+        if not any(
+            hostname == d or hostname.endswith(f".{d}")
+            for d in ALLOWED_REDIRECT_DOMAINS
+        ):
+            raise ValueError(
+                f"Redirect URL domain '{hostname}' is not allowed. "
+                f"Must be one of: {', '.join(ALLOWED_REDIRECT_DOMAINS)}"
+            )
+        return v
 
 
 class CheckoutSessionResponse(BaseModel):

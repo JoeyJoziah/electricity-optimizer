@@ -312,8 +312,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Try to get user ID from Authorization header
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
-            # Use token prefix as identifier (not full token for privacy)
-            return f"user:{auth_header[7:20]}"
+            # Hash the full token to get a unique per-user bucket
+            import hashlib
+            token_hash = hashlib.sha256(auth_header[7:].encode()).hexdigest()[:16]
+            return f"user:{token_hash}"
 
         # Fall back to IP address
         client = request.client

@@ -250,7 +250,7 @@ async def health_check():
     db_status = "disconnected"
     try:
         if db_manager.timescale_engine or db_manager.timescale_pool:
-            result = await db_manager.execute_timescale_query("SELECT 1")
+            result = await db_manager._execute_raw_query("SELECT 1")
             if result:
                 db_status = "connected"
     except Exception:
@@ -285,7 +285,7 @@ async def readiness_check():
 
     # Check TimescaleDB
     try:
-        result = await db_manager.execute_timescale_query("SELECT 1")
+        result = await db_manager._execute_raw_query("SELECT 1")
         checks["timescaledb"] = len(result) > 0
     except Exception as e:
         logger.error("timescaledb_health_check_failed", error=str(e))

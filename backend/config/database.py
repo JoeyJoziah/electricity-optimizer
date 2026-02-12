@@ -181,7 +181,7 @@ class DatabaseManager:
             finally:
                 await session.close()
 
-    async def execute_timescale_query(self, query: str, *args):
+    async def _execute_raw_query(self, query: str, *args):
         """Execute raw query on database (asyncpg pool or SQLAlchemy fallback)"""
         if self.timescale_pool:
             async with self.timescale_pool.acquire() as conn:
