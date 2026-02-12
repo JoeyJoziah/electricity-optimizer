@@ -73,6 +73,10 @@ class User(BaseModel):
     is_verified: bool = False
     email_verified: bool = False
 
+    # Subscription (Stripe integration)
+    subscription_tier: str = Field(default="free", pattern=r"^(free|pro|business)$")
+    stripe_customer_id: Optional[str] = None
+
     # Preferences
     preferences: Dict[str, Any] = Field(default_factory=dict)
 

@@ -25,6 +25,14 @@ services:
         value: production
       - key: INTERNAL_API_KEY
         sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_BUSINESS
+        sync: false
       - key: DATA_RESIDENCY
         value: US
 

@@ -413,6 +413,15 @@ app.include_router(
     tags=["Recommendations"]
 )
 
+# Billing endpoints
+from api.v1 import billing as billing_v1
+
+app.include_router(
+    billing_v1.router,
+    prefix=f"{settings.api_prefix}/billing",
+    tags=["Billing"]
+)
+
 
 if __name__ == "__main__":
     import uvicorn

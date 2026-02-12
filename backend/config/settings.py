@@ -88,6 +88,12 @@ class Settings(BaseSettings):
     email_from_address: str = Field(default="noreply@electricity-optimizer.app", validation_alias="EMAIL_FROM_ADDRESS")
     email_from_name: str = Field(default="Electricity Optimizer", validation_alias="EMAIL_FROM_NAME")
 
+    # Stripe Billing
+    stripe_secret_key: Optional[str] = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: Optional[str] = Field(default=None, validation_alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_pro: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_PRO")
+    stripe_price_business: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_BUSINESS")
+
     # Feature Flags
     enable_auto_switching: bool = Field(default=False, validation_alias="ENABLE_AUTO_SWITCHING")
     enable_load_optimization: bool = Field(default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION")
