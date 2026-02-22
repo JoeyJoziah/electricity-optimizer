@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 import numpy as np
 import asyncio
@@ -229,7 +229,7 @@ def _load_model():
 
 def _simulate_forecast(region: str, hours_ahead: int) -> List[PricePrediction]:
     """Generate simulated forecast as fallback when no ML model is available."""
-    base_time = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+    base_time = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     predictions = []
 
     for i in range(hours_ahead):
@@ -246,7 +246,7 @@ def _simulate_forecast(region: str, hours_ahead: int) -> List[PricePrediction]:
             predicted_price=round(predicted_price, 4),
             confidence_lower=round(confidence_lower, 4),
             confidence_upper=round(confidence_upper, 4),
-            currency="USD" if region not in ["UK"] else "GBP"
+            currency={"UK": "GBP", "EU": "EUR", "GERMANY": "EUR", "FRANCE": "EUR", "SPAIN": "EUR"}.get(region, "USD")
         ))
 
     return predictions
@@ -296,7 +296,7 @@ async def generate_price_forecast(
 
             result = model.predict(features_df, horizon=hours_ahead)
 
-            base_time = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+            base_time = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
             predictions = []
             point = result["point"]
             lower = result["lower"]
@@ -308,7 +308,7 @@ async def generate_price_forecast(
                     predicted_price=round(float(point[i]), 4),
                     confidence_lower=round(float(lower[i]), 4),
                     confidence_upper=round(float(upper[i]), 4),
-                    currency="USD" if region not in ["UK"] else "GBP"
+                    currency={"UK": "GBP", "EU": "EUR", "GERMANY": "EUR", "FRANCE": "EUR", "SPAIN": "EUR"}.get(region, "USD")
                 ))
 
             logger.info("ml_inference_success", region=region, predictions=len(predictions))
@@ -318,7 +318,7 @@ async def generate_price_forecast(
                 from config.database import db_manager
                 redis = await db_manager.get_redis_client()
                 if redis:
-                    await redis.set("model:last_updated", datetime.utcnow().isoformat())
+                    await redis.set("model:last_updated", datetime.now(timezone.utc).isoformat())
             except Exception:
                 pass
 
@@ -388,7 +388,7 @@ async def predict_prices(
 
         response = PriceForecastResponse(
             region=request.region.value,
-            forecast_time=datetime.utcnow(),
+            forecast_time=datetime.now(timezone.utc),
             model_version=model_version,
             predictions=predictions,
             accuracy_mape=accuracy_mape
@@ -400,7 +400,7 @@ async def predict_prices(
                 redis_client,
                 request.region.value,
                 request.hours_ahead,
-                response.dict(),
+                response.model_dump(),
                 ttl_seconds=3600  # 1 hour
             )
 
@@ -447,8 +447,8 @@ async def find_optimal_times(
 
         # Filter by time window if specified
         if request.earliest_start or request.latest_end:
-            earliest = request.earliest_start or datetime.utcnow()
-            latest = request.latest_end or (datetime.utcnow() + timedelta(days=1))
+            earliest = request.earliest_start or datetime.now(timezone.utc)
+            latest = request.latest_end or (datetime.now(timezone.utc) + timedelta(days=1))
 
             predictions = [
                 p for p in predictions
@@ -583,7 +583,7 @@ async def estimate_savings(
             optimized_cost=round(optimized_cost, 4),
             savings_amount=round(savings_amount, 4),
             savings_percent=round(savings_percent, 2),
-            currency="USD" if request.region not in [Region.UK] else "GBP",
+            currency={"UK": "GBP", "EU": "EUR", "GERMANY": "EUR", "FRANCE": "EUR", "SPAIN": "EUR"}.get(request.region.value, "USD"),
             optimized_schedule=optimized_schedule
         )
 
@@ -622,5 +622,5 @@ async def get_model_info(redis_client = Depends(get_redis)):
         "forecast_horizon_hours": 24,
         "update_frequency": "hourly",
         "training_frequency": "weekly",
-        "last_updated": last_updated or datetime.utcnow().isoformat() + "Z",
+        "last_updated": last_updated or datetime.now(timezone.utc).isoformat() + "Z",
     }

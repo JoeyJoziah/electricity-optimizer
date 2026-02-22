@@ -16,7 +16,7 @@ supabase>=2.3,<3.0
 redis[hiredis]==5.0.1
 
 # Task Queue
-celery[redis]==5.3.6
+celery[redis]==5.3.6  # NOTE: Not currently active - no tasks module defined
 
 # HTTP Client (httpx version constrained by supabase)
 httpx>=0.24,<0.26

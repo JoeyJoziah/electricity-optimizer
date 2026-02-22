@@ -196,6 +196,7 @@ class PriceHistoryResponse(BaseModel):
     average_price: Optional[Decimal] = None
     min_price: Optional[Decimal] = None
     max_price: Optional[Decimal] = None
+    source: Optional[str] = None
 
 
 class PriceForecastResponse(BaseModel):
@@ -206,6 +207,7 @@ class PriceForecastResponse(BaseModel):
     generated_at: datetime
     horizon_hours: int
     confidence: float
+    source: Optional[str] = None
 
 
 class PriceComparisonResponse(BaseModel):
@@ -217,3 +219,4 @@ class PriceComparisonResponse(BaseModel):
     cheapest_supplier: str
     cheapest_price: Decimal
     average_price: Decimal
+    source: Optional[str] = None

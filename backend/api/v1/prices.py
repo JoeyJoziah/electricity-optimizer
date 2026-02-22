@@ -37,6 +37,7 @@ from api.dependencies import (
     TokenData,
 )
 from config.database import get_timescale_session
+from config.settings import get_settings
 from integrations.pricing_apis.service import create_pricing_service_from_settings
 from integrations.pricing_apis.base import (
     PriceData as APIPriceData,
@@ -48,6 +49,7 @@ from integrations.pricing_apis.base import (
 import structlog
 
 logger = structlog.get_logger(__name__)
+settings = get_settings()
 
 router = APIRouter()
 
@@ -83,6 +85,7 @@ class CurrentPriceResponse(BaseModel):
     prices: Optional[List[PriceResponse]] = None
     region: str
     timestamp: datetime
+    source: Optional[str] = None
 
 
 class PriceStatisticsResponse(BaseModel):
@@ -93,6 +96,7 @@ class PriceStatisticsResponse(BaseModel):
     max_price: Optional[Decimal]
     avg_price: Optional[Decimal]
     count: int
+    source: Optional[str] = None
 
 
 # =============================================================================
@@ -142,7 +146,8 @@ async def get_current_prices(
                     carbon_intensity=price.carbon_intensity,
                 ),
                 region=region.value,
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(timezone.utc),
+                source="live",
             )
 
         prices = await price_service.get_current_prices(region, limit)
@@ -164,12 +169,18 @@ async def get_current_prices(
         return CurrentPriceResponse(
             prices=price_responses,
             region=region.value,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(timezone.utc),
+            source="live",
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning("using_mock_prices", reason=str(e))
+        logger.error("using_mock_prices", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         mock = _generate_mock_prices(region.value, 3)
         return CurrentPriceResponse(
             prices=[
@@ -186,7 +197,8 @@ async def get_current_prices(
                 for p in mock[-3:]
             ],
             region=region.value,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(timezone.utc),
+            source="fallback",
         )
 
 
@@ -225,9 +237,15 @@ async def get_price_history(
             average_price=stats.get("avg_price"),
             min_price=stats.get("min_price"),
             max_price=stats.get("max_price"),
+            source="live",
         )
     except Exception as e:
-        logger.warning("using_mock_history", reason=str(e))
+        logger.error("using_mock_history", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         mock = _generate_mock_prices(region.value, days * 24)
         avg = sum(float(p.price_per_kwh) for p in mock) / len(mock)
         return PriceHistoryResponse(
@@ -239,6 +257,7 @@ async def get_price_history(
             average_price=Decimal(str(round(avg, 4))),
             min_price=min(p.price_per_kwh for p in mock),
             max_price=max(p.price_per_kwh for p in mock),
+            source="fallback",
         )
 
 
@@ -277,11 +296,17 @@ async def get_price_forecast(
             generated_at=forecast.generated_at,
             horizon_hours=forecast.horizon_hours,
             confidence=forecast.confidence,
+            source="live",
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning("using_mock_forecast", reason=str(e))
+        logger.error("using_mock_forecast", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         now = datetime.now(timezone.utc)
         mock = _generate_mock_prices(region.value, hours)
         forecast = PriceForecast(
@@ -298,6 +323,7 @@ async def get_price_forecast(
             generated_at=now,
             horizon_hours=hours,
             confidence=0.85,
+            source="fallback",
         )
 
 
@@ -349,9 +375,15 @@ async def compare_prices(
             cheapest_supplier=prices[0].supplier,
             cheapest_price=prices[0].price_per_kwh,
             average_price=avg_price.quantize(Decimal("0.0001")),
+            source="live",
         )
     except Exception as e:
-        logger.warning("using_mock_comparison", reason=str(e))
+        logger.error("using_mock_comparison", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         now = datetime.now(timezone.utc)
         mock_suppliers = [
             ("Eversource Energy", Decimal("0.2600")),
@@ -376,6 +408,7 @@ async def compare_prices(
             cheapest_supplier="Eversource Energy",
             cheapest_price=Decimal("0.2600"),
             average_price=Decimal("0.2717"),
+            source="fallback",
         )
 
 
@@ -406,9 +439,15 @@ async def get_price_statistics(
             max_price=stats.get("max_price"),
             avg_price=stats.get("avg_price"),
             count=stats.get("count", 0),
+            source="live",
         )
     except Exception as e:
-        logger.warning("using_mock_statistics", reason=str(e))
+        logger.error("using_mock_statistics", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         return PriceStatisticsResponse(
             region=region.value,
             period_days=days,
@@ -416,6 +455,7 @@ async def get_price_statistics(
             max_price=Decimal("0.2800"),
             avg_price=Decimal("0.2100"),
             count=days * 24,
+            source="fallback",
         )
 
 
@@ -450,10 +490,16 @@ async def get_optimal_usage_windows(
             "duration_hours": duration_hours,
             "within_hours": within_hours,
             "windows": windows,
-            "generated_at": datetime.now(timezone.utc).isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "live",
         }
     except Exception as e:
-        logger.warning("using_mock_windows", reason=str(e))
+        logger.error("using_mock_windows", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         now = datetime.now(timezone.utc)
         return {
             "region": region.value,
@@ -463,7 +509,8 @@ async def get_optimal_usage_windows(
                 {"start": (now + timedelta(hours=2)).isoformat(), "end": (now + timedelta(hours=2 + duration_hours)).isoformat(), "avg_price": 0.16, "rank": 1},
                 {"start": (now + timedelta(hours=14)).isoformat(), "end": (now + timedelta(hours=14 + duration_hours)).isoformat(), "avg_price": 0.18, "rank": 2},
             ],
-            "generated_at": now.isoformat()
+            "generated_at": now.isoformat(),
+            "source": "fallback",
         }
 
 
@@ -490,10 +537,16 @@ async def get_price_trends(
             "region": region.value,
             "period_days": days,
             **trend,
-            "generated_at": datetime.now(timezone.utc).isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "live",
         }
     except Exception as e:
-        logger.warning("using_mock_trends", reason=str(e))
+        logger.error("using_mock_trends", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         return {
             "region": region.value,
             "period_days": days,
@@ -501,7 +554,8 @@ async def get_price_trends(
             "change_percent": -2.3,
             "current_avg": 0.21,
             "previous_avg": 0.215,
-            "generated_at": datetime.now(timezone.utc).isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "fallback",
         }
 
 
@@ -528,10 +582,16 @@ async def get_peak_hours_analysis(
             "region": region.value,
             "period_days": days,
             **analysis,
-            "generated_at": datetime.now(timezone.utc).isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "live",
         }
     except Exception as e:
-        logger.warning("using_mock_peak_hours", reason=str(e))
+        logger.error("using_mock_peak_hours", reason=str(e))
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Price service temporarily unavailable",
+            )
         return {
             "region": region.value,
             "period_days": days,
@@ -539,7 +599,8 @@ async def get_peak_hours_analysis(
             "off_peak_hours": list(range(0, 7)) + list(range(20, 24)),
             "peak_avg_price": 0.25,
             "off_peak_avg_price": 0.16,
-            "generated_at": datetime.now(timezone.utc).isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "fallback",
         }
 
 
