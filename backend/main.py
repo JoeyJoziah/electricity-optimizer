@@ -198,10 +198,14 @@ async def add_process_time_header(request: Request, call_next):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle validation errors -- never echo back the request body as it may contain passwords or tokens"""
-    # Sanitize error details: strip 'input' field which may contain sensitive values
+    # Sanitize error details:
+    #   - Strip 'input' field which may contain sensitive values (passwords, tokens).
+    #   - Strip 'ctx' field: Pydantic v2 stores the raw exception object in
+    #     ctx["error"], which is NOT JSON-serialisable and would cause a
+    #     cascading 500 if included in the JSONResponse payload.
     sanitized_errors = []
     for err in exc.errors():
-        sanitized = {k: v for k, v in err.items() if k != "input"}
+        sanitized = {k: v for k, v in err.items() if k not in ("input", "ctx")}
         sanitized_errors.append(sanitized)
 
     logger.warning("validation_error", errors=sanitized_errors, path=request.url.path)

@@ -1,0 +1,114 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { Header } from '@/components/layout/Header'
+import '@testing-library/jest-dom'
+
+// Mock usePrices hook
+const mockRefreshPrices = jest.fn()
+jest.mock('@/lib/hooks/usePrices', () => ({
+  useRefreshPrices: () => mockRefreshPrices,
+}))
+
+// Mock lucide-react icons
+jest.mock('lucide-react', () => ({
+  Bell: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="bell-icon" {...props} />,
+  RefreshCw: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="refresh-icon" {...props} />,
+  Menu: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="menu-icon" {...props} />,
+}))
+
+// Mock cn utility
+jest.mock('@/lib/utils/cn', () => ({
+  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
+}))
+
+// Mock Button and Badge components
+jest.mock('@/components/ui/button', () => ({
+  Button: ({ children, onClick, disabled, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button onClick={onClick} disabled={disabled} {...props}>{children}</button>
+  ),
+}))
+
+jest.mock('@/components/ui/badge', () => ({
+  Badge: ({ children, ...props }: React.HTMLAttributes<HTMLSpanElement>) => (
+    <span {...props}>{children}</span>
+  ),
+}))
+
+describe('Header', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('renders the page title', () => {
+    render(<Header title="Dashboard" />)
+
+    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+  })
+
+  it('renders with different title prop', () => {
+    render(<Header title="Prices" />)
+
+    expect(screen.getByText('Prices')).toBeInTheDocument()
+  })
+
+  it('renders the mobile menu button', () => {
+    render(<Header title="Dashboard" />)
+
+    expect(screen.getByLabelText('Open menu')).toBeInTheDocument()
+  })
+
+  it('calls onMenuClick when mobile menu button is clicked', async () => {
+    const onMenuClick = jest.fn()
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+
+    render(<Header title="Dashboard" onMenuClick={onMenuClick} />)
+
+    await user.click(screen.getByLabelText('Open menu'))
+
+    expect(onMenuClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the realtime live indicator', () => {
+    render(<Header title="Dashboard" />)
+
+    expect(screen.getByText('Live')).toBeInTheDocument()
+  })
+
+  it('renders the refresh data button', () => {
+    render(<Header title="Dashboard" />)
+
+    expect(screen.getByLabelText('Refresh data')).toBeInTheDocument()
+  })
+
+  it('calls refreshPrices when refresh button is clicked', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+    render(<Header title="Dashboard" />)
+
+    await user.click(screen.getByLabelText('Refresh data'))
+
+    expect(mockRefreshPrices).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the notifications button', () => {
+    render(<Header title="Dashboard" />)
+
+    expect(screen.getByLabelText('View notifications')).toBeInTheDocument()
+  })
+
+  it('renders notification badge count', () => {
+    render(<Header title="Dashboard" />)
+
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('renders as a header element', () => {
+    render(<Header title="Dashboard" />)
+
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+  })
+})

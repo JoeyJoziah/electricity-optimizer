@@ -8,10 +8,12 @@ from typing import Optional
 from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, HttpUrl, field_validator
+from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 import stripe
 
-from api.dependencies import get_current_user, TokenData
+from api.dependencies import get_current_user, get_db_session, TokenData
+from repositories.user_repository import UserRepository
 from services.stripe_service import StripeService
 
 logger = structlog.get_logger(__name__)
@@ -109,6 +111,7 @@ class WebhookEventResponse(BaseModel):
 async def create_checkout_session(
     request: CheckoutSessionRequest,
     current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
 ):
     """
     Create a Stripe Checkout session for subscription.
@@ -125,9 +128,10 @@ async def create_checkout_session(
         )
 
     try:
-        # TODO: Fetch user details and existing customer_id from database
-        # For now, use token data
-        user_email = current_user.email or "user@example.com"
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_id(current_user.user_id)
+        user_email = (user.email if user else current_user.email) or "user@example.com"
+        customer_id = user.stripe_customer_id if user else None
 
         session_data = await stripe_service.create_checkout_session(
             user_id=current_user.user_id,
@@ -135,7 +139,7 @@ async def create_checkout_session(
             tier=request.tier,
             success_url=str(request.success_url),
             cancel_url=str(request.cancel_url),
-            customer_id=None,  # TODO: Get from user model
+            customer_id=customer_id,
         )
 
         return CheckoutSessionResponse(
@@ -181,6 +185,7 @@ async def create_checkout_session(
 async def create_portal_session(
     request: PortalSessionRequest,
     current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
 ):
     """
     Create a Stripe Customer Portal session for subscription management.
@@ -197,9 +202,9 @@ async def create_portal_session(
             detail="Billing system is not configured. Please contact support.",
         )
 
-    # TODO: Fetch user's stripe_customer_id from database
-    # For now, raise error
-    customer_id = None  # TODO: Get from user model
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(current_user.user_id)
+    customer_id = user.stripe_customer_id if user else None
 
     if not customer_id:
         raise HTTPException(
@@ -242,6 +247,7 @@ async def create_portal_session(
 )
 async def get_subscription_status(
     current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
 ):
     """
     Get current subscription status for the authenticated user.
@@ -256,8 +262,9 @@ async def get_subscription_status(
             detail="Billing system is not configured. Please contact support.",
         )
 
-    # TODO: Fetch user's stripe_customer_id from database
-    customer_id = None  # TODO: Get from user model
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(current_user.user_id)
+    customer_id = user.stripe_customer_id if user else None
 
     if not customer_id:
         # No customer ID means user is on free tier
@@ -313,7 +320,10 @@ async def get_subscription_status(
         503: {"description": "Stripe not configured"},
     },
 )
-async def handle_stripe_webhook(request: Request):
+async def handle_stripe_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
     """
     Handle Stripe webhook events.
 
@@ -348,7 +358,6 @@ async def handle_stripe_webhook(request: Request):
         # Process the event
         result = await stripe_service.handle_webhook_event(event)
 
-        # TODO: Update user record in database based on result
         if result["handled"]:
             action = result["action"]
             user_id = result.get("user_id")
@@ -364,11 +373,26 @@ async def handle_stripe_webhook(request: Request):
                 customer_id=customer_id,
             )
 
-            # TODO: Database operations
-            # - activate_subscription: Update user.subscription_tier and user.stripe_customer_id
-            # - update_subscription: Update user.subscription_tier
-            # - deactivate_subscription: Set user.subscription_tier to "free"
-            # - payment_failed: Send notification to user
+            if user_id:
+                user_repo = UserRepository(db)
+                user = await user_repo.get_by_id(user_id)
+                if user:
+                    if action == "activate_subscription":
+                        user.subscription_tier = tier or "pro"
+                        user.stripe_customer_id = customer_id
+                        await user_repo.update(user_id, user)
+                    elif action == "update_subscription":
+                        user.subscription_tier = tier or user.subscription_tier
+                        await user_repo.update(user_id, user)
+                    elif action == "deactivate_subscription":
+                        user.subscription_tier = "free"
+                        await user_repo.update(user_id, user)
+                    elif action == "payment_failed":
+                        logger.warning(
+                            "payment_failed_notification",
+                            user_id=user_id,
+                            customer_id=customer_id,
+                        )
 
         return WebhookEventResponse(
             received=True,
