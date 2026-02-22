@@ -8,19 +8,19 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(page.getByRole('heading', { name: /simple, transparent pricing/i })).toBeVisible()
 
     // Free tier
-    await expect(page.getByText('Free')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Free' })).toBeVisible()
     await expect(page.getByText('$0')).toBeVisible()
     await expect(page.getByText('Get Started Free')).toBeVisible()
 
     // Pro tier
-    await expect(page.getByText('Pro')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Pro' })).toBeVisible()
     await expect(page.getByText('$4.99')).toBeVisible()
     await expect(page.getByText('/mo').first()).toBeVisible()
     await expect(page.getByText('Start Free Trial')).toBeVisible()
     await expect(page.getByText('Most Popular')).toBeVisible()
 
     // Business tier
-    await expect(page.getByText('Business')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Business' })).toBeVisible()
     await expect(page.getByText('$14.99')).toBeVisible()
     await expect(page.getByText('Contact Sales')).toBeVisible()
   })
@@ -224,7 +224,7 @@ test.describe('Billing Flow - Upgrade to Pro', () => {
     await page.goto('/settings')
 
     // Settings page should load
-    await expect(page.getByText('Account')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
 
     // Should show subscription status or upgrade prompt
     // The settings page shows account info; free tier users should see current tier
@@ -338,11 +338,11 @@ test.describe('Billing Flow - Subscribed User', () => {
   test('subscribed user can access settings page', async ({ page }) => {
     await page.goto('/settings')
 
-    await expect(page.getByText('Account')).toBeVisible()
-    await expect(page.getByText('Energy Usage')).toBeVisible()
-    await expect(page.getByText('Notifications')).toBeVisible()
-    await expect(page.getByText('Display')).toBeVisible()
-    await expect(page.getByText('Privacy & Data')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Energy Usage' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Display' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Privacy & Data' })).toBeVisible()
   })
 
   test('settings page shows subscription region as Connecticut', async ({ page }) => {
@@ -361,8 +361,8 @@ test.describe('Billing Flow - Subscribed User', () => {
 
     await page.goto('/settings')
 
-    // Region selector should show Connecticut
-    await expect(page.getByText('Connecticut')).toBeVisible()
+    // Region selector should show Connecticut (US_CT value)
+    await expect(page.locator('select').first()).toHaveValue('US_CT')
   })
 
   test('customer portal link works for subscribed users', async ({ page }) => {
@@ -382,16 +382,16 @@ test.describe('Billing Flow - Subscribed User', () => {
     await page.goto('/settings')
 
     // The settings page should be accessible for subscribed users
-    await expect(page.getByText('Account')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
   })
 
   test('pricing page still renders for already subscribed users', async ({ page }) => {
     await page.goto('/pricing')
 
     // Pricing page should still show all tiers
-    await expect(page.getByText('Free')).toBeVisible()
-    await expect(page.getByText('Pro')).toBeVisible()
-    await expect(page.getByText('Business')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Free' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Pro' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Business' })).toBeVisible()
     await expect(page.getByText('$4.99')).toBeVisible()
     await expect(page.getByText('$14.99')).toBeVisible()
   })

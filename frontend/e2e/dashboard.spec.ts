@@ -88,7 +88,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 
     // Current price widget
-    await expect(page.getByText('Current Price')).toBeVisible()
+    await expect(page.getByText('Current Price').first()).toBeVisible()
     await expect(page.getByTestId('current-price')).toBeVisible()
 
     // Total saved widget
@@ -144,7 +144,7 @@ test.describe('Dashboard', () => {
     await page.setViewportSize({ width: 375, height: 667 })
 
     // Dashboard should still load
-    await expect(page.getByText('Current Price')).toBeVisible()
+    await expect(page.getByText('Current Price').first()).toBeVisible()
 
     // Sidebar should be hidden on mobile
     await expect(page.getByRole('navigation')).not.toBeVisible()

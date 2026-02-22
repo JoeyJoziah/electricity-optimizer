@@ -150,7 +150,7 @@ test.describe('GDPR Compliance Flow', () => {
   test('navigates to privacy settings', async ({ page }) => {
     await page.goto('/settings')
 
-    await expect(page.getByText('Privacy & Data')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Privacy & Data' })).toBeVisible()
   })
 
   test('user can export all data', async ({ page }) => {

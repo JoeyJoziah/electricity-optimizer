@@ -101,12 +101,12 @@ test.describe('User Onboarding Flow', () => {
     // Fill signup form
     await expect(page.getByRole('heading', { name: /sign up/i })).toBeVisible()
 
-    await page.fill('[name="email"]', 'newuser@example.com')
-    await page.fill('[name="password"]', 'SecurePass123!')
-    await page.fill('[name="confirmPassword"]', 'SecurePass123!')
+    await page.fill('#email', 'newuser@example.com')
+    await page.fill('#password', 'SecurePass123!')
+    await page.fill('#confirmPassword', 'SecurePass123!')
 
     // Accept terms
-    await page.check('[name="acceptTerms"]')
+    await page.check('#terms')
 
     // Submit form
     await page.click('button[type="submit"]')
@@ -119,7 +119,7 @@ test.describe('User Onboarding Flow', () => {
     await page.goto('/auth/signup')
 
     // Focus password field
-    await page.fill('[name="password"]', 'weak')
+    await page.fill('#password', 'weak')
 
     // Should show password requirements
     await expect(page.getByText(/at least 8 characters/i)).toBeVisible()
@@ -128,11 +128,11 @@ test.describe('User Onboarding Flow', () => {
   test('validates matching passwords', async ({ page }) => {
     await page.goto('/auth/signup')
 
-    await page.fill('[name="email"]', 'newuser@example.com')
-    await page.fill('[name="password"]', 'SecurePass123!')
-    await page.fill('[name="confirmPassword"]', 'DifferentPass123!')
+    await page.fill('#email', 'newuser@example.com')
+    await page.fill('#password', 'SecurePass123!')
+    await page.fill('#confirmPassword', 'DifferentPass123!')
 
-    await page.check('[name="acceptTerms"]')
+    await page.check('#terms')
     await page.click('button[type="submit"]')
 
     // Should show error
@@ -142,9 +142,9 @@ test.describe('User Onboarding Flow', () => {
   test('requires terms acceptance', async ({ page }) => {
     await page.goto('/auth/signup')
 
-    await page.fill('[name="email"]', 'newuser@example.com')
-    await page.fill('[name="password"]', 'SecurePass123!')
-    await page.fill('[name="confirmPassword"]', 'SecurePass123!')
+    await page.fill('#email', 'newuser@example.com')
+    await page.fill('#password', 'SecurePass123!')
+    await page.fill('#confirmPassword', 'SecurePass123!')
 
     // Don't check terms
     await page.click('button[type="submit"]')
@@ -296,7 +296,7 @@ test.describe('Post-Onboarding Dashboard Access', () => {
     await page.goto('/dashboard')
 
     // Should see dashboard content
-    await expect(page.getByText('Current Price')).toBeVisible()
+    await expect(page.getByText('Current Price').first()).toBeVisible()
     await expect(page.getByText('Forecast')).toBeVisible()
   })
 
