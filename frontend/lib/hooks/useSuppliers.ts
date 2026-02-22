@@ -14,7 +14,7 @@ import {
 /**
  * Hook for fetching available suppliers
  */
-export function useSuppliers(region: string = 'uk', annualUsage?: number) {
+export function useSuppliers(region: string = 'us_ct', annualUsage?: number) {
   return useQuery({
     queryKey: ['suppliers', region, annualUsage],
     queryFn: () => getSuppliers(region, annualUsage),
@@ -40,7 +40,7 @@ export function useSupplier(supplierId: string) {
 export function useSupplierRecommendation(
   currentSupplierId: string,
   annualUsage: number,
-  region: string = 'uk'
+  region: string = 'us_ct'
 ) {
   return useQuery({
     queryKey: ['recommendation', currentSupplierId, annualUsage, region],

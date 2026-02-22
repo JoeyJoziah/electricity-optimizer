@@ -29,7 +29,7 @@ export interface InitiateSwitchResponse {
  * Get list of available suppliers
  */
 export async function getSuppliers(
-  region: string = 'uk',
+  region: string = 'us_ct',
   annualUsage?: number
 ): Promise<GetSuppliersResponse> {
   const params: Record<string, string> = { region }
@@ -52,7 +52,7 @@ export async function getSupplier(supplierId: string): Promise<Supplier> {
 export async function getRecommendation(
   currentSupplierId: string,
   annualUsage: number,
-  region: string = 'uk'
+  region: string = 'us_ct'
 ): Promise<GetRecommendationResponse> {
   return apiClient.post<GetRecommendationResponse>('/suppliers/recommend', {
     currentSupplierId,

@@ -58,10 +58,10 @@ const defaultSettings: Omit<
   | 'setDisplayPreferences'
   | 'resetSettings'
 > = {
-  region: 'uk',
+  region: 'us_ct',
   currentSupplier: null,
-  annualUsageKwh: 2900, // UK average
-  peakDemandKw: 3,
+  annualUsageKwh: 10500, // US average
+  peakDemandKw: 5,
   appliances: [],
   notificationPreferences: {
     priceAlerts: true,
@@ -69,9 +69,9 @@ const defaultSettings: Omit<
     supplierUpdates: false,
   },
   displayPreferences: {
-    currency: 'GBP',
+    currency: 'USD',
     theme: 'system',
-    timeFormat: '24h',
+    timeFormat: '12h',
   },
 }
 

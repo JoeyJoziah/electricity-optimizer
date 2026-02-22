@@ -10,6 +10,7 @@ like TensorFlow. It validates:
 4. Solve time under 5 seconds
 """
 
+import os
 import sys
 import time
 import importlib.util
@@ -23,8 +24,9 @@ def load_module_direct(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
-# Load optimization modules directly
-BASE = '/Users/devinmcgrath/projects/electricity-optimizer/ml/optimization'
+# Load optimization modules directly (relative to this file's location)
+BASE = os.path.join(os.path.dirname(__file__), '..', 'optimization')
+BASE = os.path.abspath(BASE)
 
 appliance_models = load_module_direct(
     'ml.optimization.appliance_models',

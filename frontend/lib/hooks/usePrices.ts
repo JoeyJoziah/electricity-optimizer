@@ -6,7 +6,7 @@ import { getCurrentPrices, getPriceHistory, getPriceForecast, getOptimalPeriods 
 /**
  * Hook for fetching current electricity prices
  */
-export function useCurrentPrices(region: string = 'uk') {
+export function useCurrentPrices(region: string = 'us_ct') {
   return useQuery({
     queryKey: ['prices', 'current', region],
     queryFn: () => getCurrentPrices(region),
@@ -18,7 +18,7 @@ export function useCurrentPrices(region: string = 'uk') {
 /**
  * Hook for fetching price history
  */
-export function usePriceHistory(region: string = 'uk', hours: number = 24) {
+export function usePriceHistory(region: string = 'us_ct', hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'history', region, hours],
     queryFn: () => getPriceHistory(region, hours),
@@ -29,7 +29,7 @@ export function usePriceHistory(region: string = 'uk', hours: number = 24) {
 /**
  * Hook for fetching price forecast
  */
-export function usePriceForecast(region: string = 'uk', hours: number = 24) {
+export function usePriceForecast(region: string = 'us_ct', hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'forecast', region, hours],
     queryFn: () => getPriceForecast(region, hours),
@@ -41,7 +41,7 @@ export function usePriceForecast(region: string = 'uk', hours: number = 24) {
 /**
  * Hook for fetching optimal periods
  */
-export function useOptimalPeriods(region: string = 'uk', hours: number = 24) {
+export function useOptimalPeriods(region: string = 'us_ct', hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'optimal', region, hours],
     queryFn: () => getOptimalPeriods(region, hours),

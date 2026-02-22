@@ -34,7 +34,7 @@ export async function getOptimalSchedule(
  */
 export async function getOptimizationResult(
   date: string,
-  region: string = 'uk'
+  region: string = 'us_ct'
 ): Promise<OptimizationResult> {
   return apiClient.get<OptimizationResult>('/optimization/result', {
     date,
@@ -63,7 +63,7 @@ export async function getAppliances(): Promise<{ appliances: Appliance[] }> {
  */
 export async function calculatePotentialSavings(
   appliances: Appliance[],
-  region: string = 'uk'
+  region: string = 'us_ct'
 ): Promise<{
   dailySavings: number
   weeklySavings: number
