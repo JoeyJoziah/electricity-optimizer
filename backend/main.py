@@ -4,6 +4,7 @@ Electricity Optimizer - FastAPI Backend Application
 Main application entry point with API endpoints, middleware, and lifecycle management.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from prometheus_client import make_asgi_app
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 import structlog
 import sys
 import time
@@ -149,6 +152,48 @@ app.add_middleware(
     RateLimitMiddleware,
     exclude_paths=["/health", "/health/live", "/health/ready", "/metrics"],
 )
+
+# Request Body Size Limit (1 MB) — prevents memory exhaustion DoS
+MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024  # 1 MB
+
+
+class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests with Content-Length exceeding the configured limit."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Request body too large. Maximum size is 1 MB."},
+            )
+        return await call_next(request)
+
+
+app.add_middleware(RequestBodySizeLimitMiddleware)
+
+# Per-Request Timeout (30s) — prevents slow requests from holding workers
+REQUEST_TIMEOUT_SECONDS = 30
+
+
+class RequestTimeoutMiddleware(BaseHTTPMiddleware):
+    """Enforce a per-request timeout. SSE streaming endpoints are excluded."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        if "/stream" in request.url.path:
+            return await call_next(request)
+        try:
+            return await asyncio.wait_for(
+                call_next(request), timeout=REQUEST_TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            return JSONResponse(
+                status_code=504,
+                content={"detail": "Request timed out"},
+            )
+
+
+app.add_middleware(RequestTimeoutMiddleware)
 
 
 # Request ID and Timing Middleware (optimized for production)
