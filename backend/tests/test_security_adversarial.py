@@ -49,7 +49,7 @@ from typing import Optional
 import pytest
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.testclient import TestClient
-from jose import jwt as jose_jwt
+import jwt as jose_jwt
 
 
 # ---------------------------------------------------------------------------
@@ -98,9 +98,9 @@ def _make_none_alg_token(user_id: str = "attacker") -> str:
     """
     Attempt the 'alg:none' confusion attack.
 
-    python-jose rejects alg=none during decode when a key is provided, so
+    PyJWT rejects alg=none during decode when a key is provided, so
     this token should always be rejected.  We craft the payload manually
-    to avoid python-jose stripping the algorithm.
+    to avoid the library stripping the algorithm.
     """
     import base64
     import json

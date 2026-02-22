@@ -14,7 +14,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Set
 from uuid import uuid4
 
-from jose import jwt, JWTError, ExpiredSignatureError
+import jwt
+from jwt.exceptions import PyJWTError as JWTError, ExpiredSignatureError
 import redis as redis_sync
 import structlog
 
