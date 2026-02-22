@@ -27,20 +27,6 @@ backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 import os
-
-# Force test environment so the app never tries to reach production databases.
-os.environ.setdefault("ENVIRONMENT", "test")
-os.environ.setdefault("JWT_SECRET", "adversarial-test-secret-key-minimum-32-chars")
-os.environ.setdefault("JWT_ALGORITHM", "HS256")
-os.environ.setdefault("INTERNAL_API_KEY", "test-internal-api-key-for-adversarial-tests")
-os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_adversarial_placeholder")
-os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test_placeholder_secret_for_tests")
-# CORS_ORIGINS must be a JSON-serialisable list string for pydantic-settings
-# when the field is declared as List[str].  A plain comma-separated value
-# triggers a SettingsError on pydantic-settings >= 2.  We set it as a JSON
-# array string which pydantic-settings v2 accepts via its list coercion.
-os.environ.setdefault("CORS_ORIGINS", '["http://localhost:3000"]')
-
 import time
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -51,14 +37,28 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.testclient import TestClient
 import jwt as jose_jwt
 
+# Import the actual singletons so we use the same secret the app uses,
+# regardless of import order (os.environ.setdefault is unreliable when
+# Settings() is already created by conftest or other modules).
+from config.settings import settings as _settings
+from auth.jwt_handler import jwt_handler as _jwt_handler
+
 
 # ---------------------------------------------------------------------------
 # Helpers: token factories
 # ---------------------------------------------------------------------------
 
-TEST_SECRET = os.environ["JWT_SECRET"]
+# Use the jwt_handler's actual secret so tokens always match the verifier,
+# even when the settings singleton was created before our env vars were set.
+TEST_SECRET = _jwt_handler.secret_key
 TEST_ALGORITHM = "HS256"
 ISSUER = "electricity-optimizer"
+
+# Test values for settings that may not have been set before the singleton
+# was created.  Used by full_app_client fixture below.
+_TEST_INTERNAL_API_KEY = "test-internal-api-key-for-adversarial-tests"
+_TEST_STRIPE_SECRET_KEY = "sk_test_adversarial_placeholder"
+_TEST_STRIPE_WEBHOOK_SECRET = "whsec_test_placeholder_secret_for_tests"
 
 
 def _make_access_token(
@@ -124,7 +124,7 @@ def _make_none_alg_token(user_id: str = "attacker") -> str:
 # App fixture: minimal FastAPI app wired to the real auth middleware
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def test_app():
     """
     Minimal FastAPI application that exercises the real middleware stack
@@ -167,7 +167,7 @@ def test_app():
     return app
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def client(test_app):
     """Synchronous TestClient wrapping the minimal test app."""
     with TestClient(test_app, raise_server_exceptions=False) as c:
@@ -178,14 +178,27 @@ def client(test_app):
 # Fixture: full app client (for webhook / billing / supplier endpoint tests)
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def full_app_client():
     """
     TestClient for the real FastAPI application defined in main.py.
 
     Database calls and external service calls are patched out so the tests
-    are fully offline.
+    are fully offline.  Settings attributes that were not in the environment
+    when the singleton was created are patched directly on the object.
+
+    Function-scoped to avoid stale state accumulation across test ordering.
     """
+    # Patch settings that the test expectations depend on.
+    _originals = {}
+    for attr, val in [
+        ("internal_api_key", _TEST_INTERNAL_API_KEY),
+        ("stripe_secret_key", _TEST_STRIPE_SECRET_KEY),
+        ("stripe_webhook_secret", _TEST_STRIPE_WEBHOOK_SECRET),
+    ]:
+        _originals[attr] = getattr(_settings, attr)
+        object.__setattr__(_settings, attr, val)
+
     # Patch database initialisation so the app starts without a real DB.
     with patch("config.database.db_manager.initialize", new_callable=AsyncMock), \
          patch("config.database.db_manager.close", new_callable=AsyncMock), \
@@ -203,9 +216,19 @@ def full_app_client():
         mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session_cm.return_value = mock_session
 
-        from main import app
+        # Reload main to get a fresh app free of stale state from earlier
+        # test modules that may have used the same app via TestClient.
+        import importlib
+        import main as _main_mod
+        importlib.reload(_main_mod)
+        app = _main_mod.app
+
         with TestClient(app, raise_server_exceptions=False) as c:
             yield c
+
+    # Restore original settings values.
+    for attr, val in _originals.items():
+        object.__setattr__(_settings, attr, val)
 
 
 # =============================================================================
