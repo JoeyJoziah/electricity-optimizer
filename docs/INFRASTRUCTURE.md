@@ -84,6 +84,44 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | deploy-staging.yml | On merge to develop | Staging deployment to Render.com |
 | deploy-production.yml | On release | Production deployment to Render.com |
 
+### Board Sync (Local Automation)
+
+The board-sync system keeps GitHub Projects board #4 and the Notion roadmap in sync with development activity. It runs locally via git hooks and Claude Code hooks.
+
+**Orchestrator:** `.claude/hooks/board-sync/sync-boards.sh`
+
+| Subcommand | Description |
+|------------|-------------|
+| `all` | Sync GitHub Projects + Notion (default) |
+| `github` | Sync GitHub Projects only |
+| `notion` | Sync Notion only (delegates to `scripts/github_notion_sync.py`) |
+| `status` | Show last sync time, lock state, queue depth |
+| `logs` | Tail sync log (`.claude/logs/board-sync.log`) |
+| `queue` | Show queued sync requests |
+| `drain` | Process queue then run full sync |
+
+**Flags:** `--force` (bypass 30s debounce), `--bg` (background execution)
+
+**Coordination:**
+- PID-based lock file prevents concurrent syncs
+- 30-second debounce between syncs (configurable)
+- Queue file batches high-frequency edit triggers
+
+**Triggers:**
+
+| Event | Hook | Behavior |
+|-------|------|----------|
+| Git commit | `.git/hooks/post-commit` | Background sync |
+| Git merge | `.git/hooks/post-merge` | Background sync |
+| Branch switch | `.git/hooks/post-checkout` | Background sync (branch only, not file checkout) |
+| Claude edit | `PostToolUse: Edit/Write/MultiEdit` | Queue sync request |
+| Claude task update | `PostToolUse: TaskUpdate` | Drain queue + background sync |
+| Session end | `Stop` | Drain queue + foreground forced sync |
+
+**Setup after clone:** Run `scripts/install-hooks.sh` to install git hooks from templates.
+
+**Config:** GitHub project number and owner stored in `.notion_sync_config.json` under the `github_project` key.
+
 ### Monitoring Services
 
 | Service | Image | Port | Purpose |

@@ -556,3 +556,27 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 ```
 
 **Test status:** 500 passing (as of 2026-02-23), 17 test files.
+
+
+## Scripts & Automation
+
+### scripts/
+
+| File | Purpose |
+|------|---------|
+| `github_notion_sync.py` | Syncs GitHub issues/PRs to Notion roadmap (`--mode full` or `--mode event`) |
+| `install-hooks.sh` | Installs git hooks from `.claude/hooks/board-sync/` templates |
+
+### .claude/hooks/board-sync/
+
+Local board-sync infrastructure. See [Infrastructure](./INFRASTRUCTURE.md#board-sync-local-automation) for full details.
+
+| File | Purpose |
+|------|---------|
+| `sync-boards.sh` | Central orchestrator (lock, debounce, queue, GitHub + Notion sync) |
+| `post-edit-sync.sh` | Claude PostToolUse hook — queues sync on Edit/Write/MultiEdit |
+| `post-task-sync.sh` | Claude PostToolUse hook — drains queue on TaskUpdate |
+| `session-end-sync.sh` | Claude Stop hook — foreground forced sync |
+| `git-post-commit.sh` | Git hook template (background sync on commit) |
+| `git-post-merge.sh` | Git hook template (background sync on merge) |
+| `git-post-checkout.sh` | Git hook template (background sync on branch switch) |
