@@ -1,11 +1,10 @@
 """
 Authentication Tests
 
-Comprehensive tests for JWT authentication and Supabase Auth integration:
+Comprehensive tests for JWT authentication and Neon Auth session validation:
 - JWT token creation and validation
 - Token expiration handling
-- OAuth flow (mocked)
-- Magic link generation
+- Neon Auth session validation (neon_auth schema)
 - Permission-based access control
 - Invalid token rejection
 """
@@ -268,265 +267,266 @@ class TestJWTHandler:
 
 
 # =============================================================================
-# SUPABASE AUTH SERVICE TESTS
+# NEON AUTH SESSION VALIDATION TESTS
 # =============================================================================
 
 
-class TestSupabaseAuthService:
-    """Tests for Supabase Auth integration"""
+class TestNeonAuthSessionValidation:
+    """Tests for Neon Auth session validation (neon_auth schema queries)"""
 
     @pytest.fixture
-    def mock_supabase_client(self):
-        """Create mock Supabase client"""
-        client = MagicMock()
-
-        # Mock auth methods
-        client.auth.sign_up.return_value = MagicMock(
-            user=MagicMock(id="user-123", email="test@example.com"),
-            session=MagicMock(access_token="access-token", refresh_token="refresh-token")
-        )
-        client.auth.sign_in_with_password.return_value = MagicMock(
-            user=MagicMock(id="user-123", email="test@example.com"),
-            session=MagicMock(access_token="access-token", refresh_token="refresh-token")
-        )
-        client.auth.sign_out.return_value = None
-        client.auth.refresh_session.return_value = MagicMock(
-            session=MagicMock(access_token="new-access-token", refresh_token="new-refresh-token")
-        )
-
-        return client
+    def mock_db_session(self):
+        """Create a mock async database session"""
+        session = AsyncMock()
+        return session
 
     @pytest.fixture
-    def auth_service(self, mock_supabase_client):
-        """Create Supabase auth service with mock client"""
-        from auth.supabase_auth import SupabaseAuthService
-
-        return SupabaseAuthService(client=mock_supabase_client)
+    def mock_request(self):
+        """Create a mock FastAPI request"""
+        request = MagicMock()
+        request.cookies = {}
+        return request
 
     # -------------------------------------------------------------------------
-    # Sign Up Tests
+    # _get_session_from_token Tests
     # -------------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_sign_up_success(self, auth_service, mock_supabase_client):
-        """Test successful user signup"""
-        result = await auth_service.sign_up(
-            email="newuser@example.com",
-            password="SecurePassword123!"
-        )
+    async def test_get_session_from_token_valid(self, mock_db_session):
+        """Test valid session token returns SessionData"""
+        from auth.neon_auth import _get_session_from_token, SessionData
+
+        # Mock the DB result row
+        mock_row = MagicMock()
+        mock_row.user_id = "user-123"
+        mock_row.email = "test@example.com"
+        mock_row.name = "Test User"
+        mock_row.email_verified = True
+        mock_row.role = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db_session.execute.return_value = mock_result
+
+        result = await _get_session_from_token("valid-token", mock_db_session)
 
         assert result is not None
-        assert result.user is not None
-        assert result.session is not None
-        mock_supabase_client.auth.sign_up.assert_called_once()
+        assert isinstance(result, SessionData)
+        assert result.user_id == "user-123"
+        assert result.email == "test@example.com"
+        assert result.name == "Test User"
+        assert result.email_verified is True
 
     @pytest.mark.asyncio
-    async def test_sign_up_weak_password(self, auth_service):
-        """Test signup with weak password fails"""
-        from auth.supabase_auth import WeakPasswordError
+    async def test_get_session_from_token_expired(self, mock_db_session):
+        """Test expired session token returns None"""
+        from auth.neon_auth import _get_session_from_token
 
-        with pytest.raises(WeakPasswordError):
-            await auth_service.sign_up(
-                email="test@example.com",
-                password="123"  # Too weak
-            )
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = None
+        mock_db_session.execute.return_value = mock_result
 
-    @pytest.mark.asyncio
-    async def test_sign_up_invalid_email(self, auth_service):
-        """Test signup with invalid email fails"""
-        from auth.supabase_auth import InvalidEmailError
+        result = await _get_session_from_token("expired-token", mock_db_session)
 
-        with pytest.raises(InvalidEmailError):
-            await auth_service.sign_up(
-                email="not-an-email",
-                password="SecurePassword123!"
-            )
+        assert result is None
 
     @pytest.mark.asyncio
-    async def test_sign_up_duplicate_email(self, auth_service, mock_supabase_client):
-        """Test signup with existing email fails"""
-        from auth.supabase_auth import EmailAlreadyExistsError
+    async def test_get_session_from_token_banned_user(self, mock_db_session):
+        """Test banned user session returns None (query filters banned users)"""
+        from auth.neon_auth import _get_session_from_token
 
-        mock_supabase_client.auth.sign_up.side_effect = Exception("User already registered")
+        # Query WHERE clause filters banned users, so fetchone returns None
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = None
+        mock_db_session.execute.return_value = mock_result
 
-        with pytest.raises(EmailAlreadyExistsError):
-            await auth_service.sign_up(
-                email="existing@example.com",
-                password="SecurePassword123!"
-            )
+        result = await _get_session_from_token("banned-user-token", mock_db_session)
 
-    # -------------------------------------------------------------------------
-    # Sign In Tests
-    # -------------------------------------------------------------------------
+        assert result is None
 
     @pytest.mark.asyncio
-    async def test_sign_in_success(self, auth_service, mock_supabase_client):
-        """Test successful sign in"""
-        result = await auth_service.sign_in(
-            email="user@example.com",
-            password="CorrectPassword123!"
-        )
+    async def test_get_session_from_token_no_name(self, mock_db_session):
+        """Test session with null name defaults to empty string"""
+        from auth.neon_auth import _get_session_from_token
+
+        mock_row = MagicMock()
+        mock_row.user_id = "user-456"
+        mock_row.email = "noname@example.com"
+        mock_row.name = None
+        mock_row.email_verified = False
+        mock_row.role = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db_session.execute.return_value = mock_result
+
+        result = await _get_session_from_token("token-no-name", mock_db_session)
 
         assert result is not None
-        assert result.user is not None
-        assert result.session is not None
-        mock_supabase_client.auth.sign_in_with_password.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_sign_in_wrong_password(self, auth_service, mock_supabase_client):
-        """Test sign in with wrong password fails"""
-        from auth.supabase_auth import InvalidCredentialsError
-
-        mock_supabase_client.auth.sign_in_with_password.side_effect = Exception("Invalid login credentials")
-
-        with pytest.raises(InvalidCredentialsError):
-            await auth_service.sign_in(
-                email="user@example.com",
-                password="WrongPassword"
-            )
-
-    @pytest.mark.asyncio
-    async def test_sign_in_nonexistent_user(self, auth_service, mock_supabase_client):
-        """Test sign in with nonexistent user fails"""
-        from auth.supabase_auth import InvalidCredentialsError
-
-        mock_supabase_client.auth.sign_in_with_password.side_effect = Exception("User not found")
-
-        with pytest.raises(InvalidCredentialsError):
-            await auth_service.sign_in(
-                email="nonexistent@example.com",
-                password="SomePassword123!"
-            )
+        assert result.name == ""
 
     # -------------------------------------------------------------------------
-    # OAuth Tests
+    # get_current_user Tests
     # -------------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_sign_in_with_oauth_google(self, auth_service, mock_supabase_client):
-        """Test OAuth sign in with Google"""
-        mock_supabase_client.auth.sign_in_with_oauth.return_value = MagicMock(
-            url="https://accounts.google.com/oauth/authorize?..."
+    async def test_get_current_user_from_bearer_header(self, mock_db_session, mock_request):
+        """Test extracting session token from Authorization header"""
+        from auth.neon_auth import get_current_user, SessionData
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        mock_row = MagicMock()
+        mock_row.user_id = "user-789"
+        mock_row.email = "bearer@example.com"
+        mock_row.name = "Bearer User"
+        mock_row.email_verified = True
+        mock_row.role = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db_session.execute.return_value = mock_result
+
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="valid-session-token"
         )
 
-        result = await auth_service.sign_in_with_oauth(
-            provider="google",
-            redirect_url="http://localhost:3000/auth/callback"
+        result = await get_current_user(mock_request, credentials, mock_db_session)
+
+        assert result.user_id == "user-789"
+        assert result.email == "bearer@example.com"
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_from_cookie(self, mock_db_session, mock_request):
+        """Test extracting session token from cookie"""
+        from auth.neon_auth import get_current_user, SESSION_COOKIE_NAME
+
+        mock_request.cookies = {SESSION_COOKIE_NAME: "cookie-session-token"}
+
+        mock_row = MagicMock()
+        mock_row.user_id = "user-cookie"
+        mock_row.email = "cookie@example.com"
+        mock_row.name = "Cookie User"
+        mock_row.email_verified = False
+        mock_row.role = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db_session.execute.return_value = mock_result
+
+        result = await get_current_user(mock_request, None, mock_db_session)
+
+        assert result.user_id == "user-cookie"
+        assert result.email == "cookie@example.com"
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_no_token_raises_401(self, mock_db_session, mock_request):
+        """Test missing session token raises 401"""
+        from auth.neon_auth import get_current_user
+        from fastapi import HTTPException
+
+        mock_request.cookies = {}
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(mock_request, None, mock_db_session)
+
+        assert exc_info.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_invalid_token_raises_401(self, mock_db_session, mock_request):
+        """Test invalid session token raises 401"""
+        from auth.neon_auth import get_current_user
+        from fastapi import HTTPException
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        # DB returns no matching session
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = None
+        mock_db_session.execute.return_value = mock_result
+
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="invalid-token"
         )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(mock_request, credentials, mock_db_session)
+
+        assert exc_info.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_no_db_raises_503(self, mock_request):
+        """Test missing database connection raises 503"""
+        from auth.neon_auth import get_current_user
+        from fastapi import HTTPException
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="valid-token"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(mock_request, credentials, None)
+
+        assert exc_info.value.status_code == 503
+
+    # -------------------------------------------------------------------------
+    # get_current_user_optional Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_optional_returns_none(self, mock_db_session, mock_request):
+        """Test optional auth returns None for unauthenticated request"""
+        from auth.neon_auth import get_current_user_optional
+
+        mock_request.cookies = {}
+
+        result = await get_current_user_optional(mock_request, None, mock_db_session)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_optional_returns_user(self, mock_db_session, mock_request):
+        """Test optional auth returns SessionData when authenticated"""
+        from auth.neon_auth import get_current_user_optional, SESSION_COOKIE_NAME
+
+        mock_request.cookies = {SESSION_COOKIE_NAME: "token"}
+
+        mock_row = MagicMock()
+        mock_row.user_id = "user-opt"
+        mock_row.email = "opt@example.com"
+        mock_row.name = ""
+        mock_row.email_verified = False
+        mock_row.role = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db_session.execute.return_value = mock_result
+
+        result = await get_current_user_optional(mock_request, None, mock_db_session)
 
         assert result is not None
-        assert "url" in result
+        assert result.user_id == "user-opt"
 
-    @pytest.mark.asyncio
-    async def test_sign_in_with_oauth_github(self, auth_service, mock_supabase_client):
-        """Test OAuth sign in with GitHub"""
-        mock_supabase_client.auth.sign_in_with_oauth.return_value = MagicMock(
-            url="https://github.com/login/oauth/authorize?..."
+    # -------------------------------------------------------------------------
+    # SessionData Tests
+    # -------------------------------------------------------------------------
+
+    def test_session_data_defaults(self):
+        """Test SessionData has correct defaults"""
+        from auth.neon_auth import SessionData
+
+        data = SessionData(user_id="u1", email="e@e.com")
+        assert data.name == ""
+        assert data.email_verified is False
+        assert data.role is None
+
+    def test_session_data_with_role(self):
+        """Test SessionData with role"""
+        from auth.neon_auth import SessionData
+
+        data = SessionData(
+            user_id="u1", email="e@e.com", role="admin"
         )
-
-        result = await auth_service.sign_in_with_oauth(
-            provider="github",
-            redirect_url="http://localhost:3000/auth/callback"
-        )
-
-        assert result is not None
-        assert "url" in result
-
-    @pytest.mark.asyncio
-    async def test_sign_in_with_oauth_invalid_provider(self, auth_service):
-        """Test OAuth with invalid provider fails"""
-        from auth.supabase_auth import InvalidProviderError
-
-        with pytest.raises(InvalidProviderError):
-            await auth_service.sign_in_with_oauth(
-                provider="invalid-provider",
-                redirect_url="http://localhost:3000/auth/callback"
-            )
-
-    # -------------------------------------------------------------------------
-    # Magic Link Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_sign_in_with_magic_link(self, auth_service, mock_supabase_client):
-        """Test magic link sign in"""
-        mock_supabase_client.auth.sign_in_with_otp.return_value = MagicMock(
-            user=None,  # User comes after clicking link
-            session=None
-        )
-
-        result = await auth_service.sign_in_with_magic_link(
-            email="user@example.com",
-            redirect_url="http://localhost:3000/auth/callback"
-        )
-
-        assert result is not None
-        assert result["message"] == "Magic link sent to email"
-
-    @pytest.mark.asyncio
-    async def test_magic_link_invalid_email(self, auth_service):
-        """Test magic link with invalid email fails"""
-        from auth.supabase_auth import InvalidEmailError
-
-        with pytest.raises(InvalidEmailError):
-            await auth_service.sign_in_with_magic_link(
-                email="not-an-email",
-                redirect_url="http://localhost:3000/auth/callback"
-            )
-
-    # -------------------------------------------------------------------------
-    # Sign Out Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_sign_out_success(self, auth_service, mock_supabase_client):
-        """Test successful sign out"""
-        result = await auth_service.sign_out()
-
-        assert result is True
-        mock_supabase_client.auth.sign_out.assert_called_once()
-
-    # -------------------------------------------------------------------------
-    # Session Refresh Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_refresh_session_success(self, auth_service, mock_supabase_client):
-        """Test successful session refresh"""
-        result = await auth_service.refresh_session(
-            refresh_token="valid-refresh-token"
-        )
-
-        assert result is not None
-        assert result.session is not None
-
-    @pytest.mark.asyncio
-    async def test_refresh_session_invalid_token(self, auth_service, mock_supabase_client):
-        """Test session refresh with invalid token fails"""
-        from auth.supabase_auth import InvalidTokenError
-
-        mock_supabase_client.auth.refresh_session.side_effect = Exception("Invalid refresh token")
-
-        with pytest.raises(InvalidTokenError):
-            await auth_service.refresh_session(
-                refresh_token="invalid-token"
-            )
-
-    # -------------------------------------------------------------------------
-    # Get User Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_get_current_user(self, auth_service, mock_supabase_client):
-        """Test getting current user from token"""
-        mock_supabase_client.auth.get_user.return_value = MagicMock(
-            user=MagicMock(id="user-123", email="test@example.com")
-        )
-
-        result = await auth_service.get_current_user(token="valid-access-token")
-
-        assert result is not None
-        assert result.id == "user-123"
+        assert data.role == "admin"
 
 
 # =============================================================================
@@ -633,78 +633,87 @@ class TestAuthMiddleware:
 
 
 class TestAuthAPI:
-    """Tests for authentication API endpoints"""
-
-    @pytest.fixture
-    def mock_auth_service(self):
-        """Create mock auth service"""
-        service = AsyncMock()
-        return service
-
-    # -------------------------------------------------------------------------
-    # Signup Endpoint Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_signup_endpoint_success(self, mock_auth_service):
-        """Test POST /api/v1/auth/signup success"""
-        # Should create user and return tokens
-
-    @pytest.mark.asyncio
-    async def test_signup_endpoint_validation(self, mock_auth_service):
-        """Test signup validates request body"""
-        # Should reject invalid email/password
-
-    # -------------------------------------------------------------------------
-    # Signin Endpoint Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_signin_endpoint_success(self, mock_auth_service):
-        """Test POST /api/v1/auth/signin success"""
-        # Should return tokens on successful auth
-
-    @pytest.mark.asyncio
-    async def test_signin_endpoint_invalid_credentials(self, mock_auth_service):
-        """Test signin with invalid credentials"""
-        # Should return 401
-
-    # -------------------------------------------------------------------------
-    # OAuth Endpoint Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_oauth_endpoint_returns_redirect_url(self, mock_auth_service):
-        """Test POST /api/v1/auth/signin/oauth returns redirect URL"""
-        # Should return OAuth provider URL
-
-    # -------------------------------------------------------------------------
-    # Token Refresh Endpoint Tests
-    # -------------------------------------------------------------------------
-
-    @pytest.mark.asyncio
-    async def test_refresh_endpoint_success(self, mock_auth_service):
-        """Test POST /api/v1/auth/refresh success"""
-        # Should return new access token
-
-    @pytest.mark.asyncio
-    async def test_refresh_endpoint_invalid_token(self, mock_auth_service):
-        """Test refresh with invalid token"""
-        # Should return 401
+    """Tests for authentication API endpoints (/me, /password/check-strength)"""
 
     # -------------------------------------------------------------------------
     # Me Endpoint Tests
     # -------------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_me_endpoint_authenticated(self, mock_auth_service):
-        """Test GET /api/v1/auth/me returns user info"""
-        # Should return current user data
+    async def test_me_endpoint_requires_auth(self):
+        """Test GET /api/v1/auth/me returns 401 without auth"""
+        from api.v1.auth import router
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1/auth")
+
+        with TestClient(app) as client:
+            response = client.get("/api/v1/auth/me")
+            assert response.status_code == 401
+
+    # -------------------------------------------------------------------------
+    # Password Strength Endpoint Tests
+    # -------------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_me_endpoint_unauthenticated(self, mock_auth_service):
-        """Test /me without auth returns 401"""
-        # Should return 401
+    async def test_password_check_strength_strong(self):
+        """Test password strength check with strong password"""
+        from api.v1.auth import router
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1/auth")
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/auth/password/check-strength",
+                json={"password": "ValidPass123!"}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert "score" in data
+            assert "strength" in data
+            assert "valid" in data
+            assert data["valid"] is True
+
+    @pytest.mark.asyncio
+    async def test_password_check_strength_weak(self):
+        """Test password strength check with weak password"""
+        from api.v1.auth import router
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1/auth")
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/auth/password/check-strength",
+                json={"password": "weak"}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["valid"] is False
+
+    @pytest.mark.asyncio
+    async def test_password_check_strength_empty_rejected(self):
+        """Test password strength check rejects empty password"""
+        from api.v1.auth import router
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1/auth")
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/auth/password/check-strength",
+                json={"password": ""}
+            )
+            assert response.status_code == 422
 
 
 # =============================================================================
@@ -817,35 +826,21 @@ class TestSecurityHeaders:
 
 
 class TestAuthIntegration:
-    """Integration tests for authentication flow"""
+    """Integration tests for authentication flow (Neon Auth)"""
 
     @pytest.mark.asyncio
-    async def test_full_signup_signin_flow(self):
-        """Test complete signup -> signin -> access protected route flow"""
-        # 1. Sign up
-        # 2. Sign in
-        # 3. Access protected route with token
-        # 4. Verify user data
+    async def test_session_validation_flow(self):
+        """Test session token validation against neon_auth schema"""
+        # Auth flows (sign-up/sign-in) are now handled by Better Auth
+        # via the Next.js frontend. Backend only validates sessions.
+        # Full integration requires a live database with neon_auth schema.
 
     @pytest.mark.asyncio
-    async def test_token_refresh_flow(self):
-        """Test access token refresh using refresh token"""
-        # 1. Sign in
-        # 2. Get refresh token
-        # 3. Wait for access token to expire
-        # 4. Refresh token
-        # 5. Use new access token
+    async def test_me_endpoint_with_valid_session(self):
+        """Test /me returns user data when session is valid"""
+        # Requires mocking neon_auth.session + neon_auth.user queries
 
     @pytest.mark.asyncio
-    async def test_oauth_callback_flow(self):
-        """Test OAuth callback handling"""
-        # 1. Initiate OAuth
-        # 2. Simulate callback
-        # 3. Verify session created
-
-    @pytest.mark.asyncio
-    async def test_logout_invalidates_tokens(self):
-        """Test that logout invalidates all tokens"""
-        # 1. Sign in
-        # 2. Sign out
-        # 3. Verify tokens no longer work
+    async def test_expired_session_rejected(self):
+        """Test that expired sessions are rejected"""
+        # neon_auth.session rows with expiresAt < NOW() should be rejected

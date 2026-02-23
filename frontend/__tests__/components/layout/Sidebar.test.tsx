@@ -22,6 +22,21 @@ jest.mock('@/lib/utils/cn', () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
 }))
 
+// Mock useAuth hook (Neon Auth via Better Auth)
+jest.mock('@/lib/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    signIn: jest.fn(),
+    signUp: jest.fn(),
+    signOut: jest.fn(),
+    signInWithGoogle: jest.fn(),
+    signInWithGitHub: jest.fn(),
+    sendMagicLink: jest.fn(),
+  }),
+}))
+
 // Mock lucide-react icons
 jest.mock('lucide-react', () => ({
   LayoutDashboard: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-dashboard" {...props} />,
@@ -30,6 +45,8 @@ jest.mock('lucide-react', () => ({
   Calendar: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-optimize" {...props} />,
   Settings: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-settings" {...props} />,
   Zap: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-zap" {...props} />,
+  LogOut: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-logout" {...props} />,
+  User: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-user" {...props} />,
 }))
 
 describe('Sidebar', () => {

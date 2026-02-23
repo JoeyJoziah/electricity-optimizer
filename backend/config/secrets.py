@@ -41,8 +41,6 @@ class SecretsManager:
     # Mapping of secret names to 1Password item.field paths
     SECRET_MAPPINGS = {
         "jwt_secret": "api-secrets.jwt_secret",
-        "supabase_service_key": "supabase.service_key",
-        "supabase_anon_key": "supabase.anon_key",
         "flatpeak_api_key": "pricing-apis.flatpeak",
         "nrel_api_key": "pricing-apis.nrel",
         "iea_api_key": "pricing-apis.iea",
@@ -219,11 +217,6 @@ def require_secret(name: str) -> str:
 def get_jwt_secret() -> str:
     """Get JWT signing secret"""
     return require_secret("jwt_secret")
-
-
-def get_supabase_service_key() -> str:
-    """Get Supabase service role key"""
-    return require_secret("supabase_service_key")
 
 
 def get_database_password() -> str:

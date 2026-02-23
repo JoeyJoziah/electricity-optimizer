@@ -118,8 +118,8 @@ def generate_password_hash(password: str) -> str:
     """
     Generate secure password hash using PBKDF2-SHA256.
 
-    Note: In production with Supabase Auth, password hashing
-    is handled by Supabase. This is for local testing only.
+    Note: In production with Neon Auth (Better Auth), password hashing
+    is handled by the auth service. This is for local testing only.
 
     Args:
         password: Plain text password

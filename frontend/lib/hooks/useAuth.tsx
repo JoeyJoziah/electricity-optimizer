@@ -3,26 +3,22 @@
 /**
  * Authentication Hook
  *
- * Provides authentication state and methods for React components.
+ * Provides authentication state and methods using Better Auth client.
+ * Session management uses httpOnly cookies (no localStorage tokens).
  */
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  AuthUser,
-  signIn as apiSignIn,
-  signUp as apiSignUp,
-  signOut as apiSignOut,
-  signInWithOAuth,
-  signInWithMagicLink,
-  refreshAccessToken,
-  getCurrentUser,
-  storeTokens,
-  getStoredAccessToken,
-  getStoredRefreshToken,
-  clearStoredTokens,
-  AuthError,
-} from '@/lib/auth/supabase'
+import { authClient } from '@/lib/auth/client'
+
+// Auth user type
+export interface AuthUser {
+  id: string
+  email: string
+  name?: string
+  emailVerified: boolean
+  createdAt: string
+}
 
 // Auth context type
 interface AuthContextType {
@@ -50,7 +46,7 @@ interface AuthProviderProps {
 /**
  * Authentication Provider
  *
- * Wraps the application and provides auth state and methods.
+ * Wraps the application and provides auth state and methods via Better Auth.
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -58,33 +54,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  // Initialize auth state from stored token
+  // Initialize auth state from session cookie
   useEffect(() => {
     const initAuth = async () => {
-      const token = getStoredAccessToken()
-
-      if (token) {
-        try {
-          const currentUser = await getCurrentUser(token)
-          setUser(currentUser)
-        } catch {
-          // Token expired or invalid, try to refresh
-          const refreshToken = getStoredRefreshToken()
-          if (refreshToken) {
-            try {
-              const { accessToken, refreshToken: newRefreshToken } = await refreshAccessToken(refreshToken)
-              storeTokens(accessToken, newRefreshToken)
-              const currentUser = await getCurrentUser(accessToken)
-              setUser(currentUser)
-            } catch {
-              // Refresh failed, clear tokens
-              clearStoredTokens()
-            }
-          }
+      try {
+        const { data: session } = await authClient.getSession()
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name || undefined,
+            emailVerified: session.user.emailVerified,
+            createdAt: session.user.createdAt?.toString() || '',
+          })
         }
+      } catch {
+        // No valid session — user is not authenticated
+      } finally {
+        setIsLoading(false)
       }
-
-      setIsLoading(false)
     }
 
     initAuth()
@@ -96,15 +84,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null)
 
     try {
-      const { accessToken, refreshToken } = await apiSignIn({ email, password })
-      storeTokens(accessToken, refreshToken)
+      const { data, error: authError } = await authClient.signIn.email({
+        email,
+        password,
+      })
 
-      const currentUser = await getCurrentUser(accessToken)
-      setUser(currentUser)
+      if (authError) {
+        throw new Error(authError.message || 'Failed to sign in')
+      }
+
+      if (data?.user) {
+        setUser({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name || undefined,
+          emailVerified: data.user.emailVerified,
+          createdAt: data.user.createdAt?.toString() || '',
+        })
+      }
 
       router.push('/dashboard')
     } catch (err) {
-      const message = err instanceof AuthError ? err.message : 'Failed to sign in'
+      const message = err instanceof Error ? err.message : 'Failed to sign in'
       setError(message)
       throw err
     } finally {
@@ -118,15 +119,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null)
 
     try {
-      const { accessToken, refreshToken } = await apiSignUp({ email, password, name })
-      storeTokens(accessToken, refreshToken)
+      const { data, error: authError } = await authClient.signUp.email({
+        email,
+        password,
+        name: name || '',
+      })
 
-      const currentUser = await getCurrentUser(accessToken)
-      setUser(currentUser)
+      if (authError) {
+        throw new Error(authError.message || 'Failed to sign up')
+      }
+
+      if (data?.user) {
+        setUser({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name || undefined,
+          emailVerified: data.user.emailVerified,
+          createdAt: data.user.createdAt?.toString() || '',
+        })
+      }
 
       router.push('/dashboard')
     } catch (err) {
-      const message = err instanceof AuthError ? err.message : 'Failed to sign up'
+      const message = err instanceof Error ? err.message : 'Failed to sign up'
       setError(message)
       throw err
     } finally {
@@ -139,7 +154,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true)
 
     try {
-      await apiSignOut()
+      await authClient.signOut()
     } finally {
       setUser(null)
       setIsLoading(false)
@@ -153,11 +168,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null)
 
     try {
-      const redirectUrl = `${window.location.origin}/auth/callback`
-      const { url } = await signInWithOAuth('google', redirectUrl)
-      window.location.href = url
+      await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: '/dashboard',
+      })
     } catch (err) {
-      const message = err instanceof AuthError ? err.message : 'Failed to sign in with Google'
+      const message = err instanceof Error ? err.message : 'Failed to sign in with Google'
       setError(message)
       setIsLoading(false)
       throw err
@@ -170,32 +186,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null)
 
     try {
-      const redirectUrl = `${window.location.origin}/auth/callback`
-      const { url } = await signInWithOAuth('github', redirectUrl)
-      window.location.href = url
+      await authClient.signIn.social({
+        provider: 'github',
+        callbackURL: '/dashboard',
+      })
     } catch (err) {
-      const message = err instanceof AuthError ? err.message : 'Failed to sign in with GitHub'
+      const message = err instanceof Error ? err.message : 'Failed to sign in with GitHub'
       setError(message)
       setIsLoading(false)
       throw err
     }
   }, [])
 
-  // Send magic link
-  const sendMagicLink = useCallback(async (email: string) => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const redirectUrl = `${window.location.origin}/auth/callback`
-      await signInWithMagicLink(email, redirectUrl)
-    } catch (err) {
-      const message = err instanceof AuthError ? err.message : 'Failed to send magic link'
-      setError(message)
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
+  // Send magic link (not natively supported by better-auth — show message)
+  const sendMagicLink = useCallback(async (_email: string) => {
+    setError('Magic link sign-in is not currently available. Please use email/password or social login.')
   }, [])
 
   // Clear error
@@ -249,17 +254,4 @@ export function useRequireAuth(): AuthContextType {
   }, [auth.isLoading, auth.isAuthenticated, router])
 
   return auth
-}
-
-/**
- * Hook to get the current access token
- */
-export function useAccessToken(): string | null {
-  const [token, setToken] = useState<string | null>(null)
-
-  useEffect(() => {
-    setToken(getStoredAccessToken())
-  }, [])
-
-  return token
 }

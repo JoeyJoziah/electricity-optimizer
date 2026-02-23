@@ -33,12 +33,7 @@ class Settings(BaseSettings):
         validation_alias="CORS_ORIGINS"
     )
 
-    # Database - Supabase (optional for local dev)
-    supabase_url: Optional[str] = Field(default=None, validation_alias="SUPABASE_URL")
-    supabase_anon_key: Optional[str] = Field(default=None, validation_alias="SUPABASE_ANON_KEY")
-    supabase_service_key: Optional[str] = Field(default=None, validation_alias="SUPABASE_SERVICE_KEY")
-
-    # Database - TimescaleDB / Neon PostgreSQL
+    # Database - Neon PostgreSQL
     timescaledb_url: Optional[str] = Field(default=None, validation_alias="TIMESCALEDB_URL")
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
 

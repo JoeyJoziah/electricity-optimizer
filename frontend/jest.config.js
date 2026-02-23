@@ -9,6 +9,7 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    '^better-auth/react$': '<rootDir>/__mocks__/better-auth-react.js',
   },
   testPathIgnorePatterns: ['<rootDir>/e2e/'],
   collectCoverageFrom: [

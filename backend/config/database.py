@@ -2,8 +2,7 @@
 Database Configuration and Connection Management
 
 Handles connections to:
-- Supabase (PostgreSQL) for application data
-- TimescaleDB for time-series price data
+- Neon PostgreSQL for application data (+ neon_auth schema for authentication)
 - Redis for caching and task queues
 """
 
@@ -11,7 +10,6 @@ import asyncpg
 from typing import Optional
 from contextlib import asynccontextmanager
 from redis import asyncio as aioredis
-from supabase import create_client, Client
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
@@ -30,7 +28,6 @@ class DatabaseManager:
     """Manages database connections and pooling"""
 
     def __init__(self):
-        self.supabase_client: Optional[Client] = None
         self.timescale_engine = None
         self.timescale_pool: Optional[asyncpg.Pool] = None
         self.redis_client: Optional[aioredis.Redis] = None
@@ -38,30 +35,11 @@ class DatabaseManager:
 
     async def initialize(self):
         """Initialize all database connections"""
-        await self._init_supabase()
-        await self._init_timescaledb()
+        await self._init_database()
         await self._init_redis()
 
-    async def _init_supabase(self):
-        """Initialize Supabase client (optional for local dev)"""
-        if not settings.supabase_url or not settings.supabase_service_key:
-            logger.info("supabase_not_configured")
-            return
-
-        try:
-            self.supabase_client = create_client(
-                settings.supabase_url,
-                settings.supabase_service_key
-            )
-            logger.info("supabase_initialized")
-        except Exception as e:
-            logger.warning("supabase_init_failed", error=str(e))
-            if settings.is_production:
-                raise
-            logger.info("continuing_without_supabase", environment=settings.environment)
-
-    async def _init_timescaledb(self):
-        """Initialize database connection pool (TimescaleDB or Neon PostgreSQL)"""
+    async def _init_database(self):
+        """Initialize database connection pool (Neon PostgreSQL)"""
         db_url = settings.effective_database_url
         if not db_url:
             logger.info("database_not_configured")
@@ -170,7 +148,7 @@ class DatabaseManager:
 
     @asynccontextmanager
     async def get_timescale_session(self):
-        """Get TimescaleDB session (SQLAlchemy). Yields None if not initialized."""
+        """Get database session (SQLAlchemy). Yields None if not initialized."""
         if not self.async_session_maker:
             yield None
             return
@@ -203,10 +181,6 @@ class DatabaseManager:
         """Get Redis client (returns None if not initialized)"""
         return self.redis_client
 
-    def get_supabase_client(self) -> Optional[Client]:
-        """Get Supabase client (returns None if not initialized)"""
-        return self.supabase_client
-
 
 # Global database manager instance
 db_manager = DatabaseManager()
@@ -214,7 +188,7 @@ db_manager = DatabaseManager()
 
 # Dependency injection for FastAPI
 async def get_timescale_session():
-    """FastAPI dependency for TimescaleDB session"""
+    """FastAPI dependency for database session"""
     async with db_manager.get_timescale_session() as session:
         yield session
 
@@ -222,8 +196,3 @@ async def get_timescale_session():
 async def get_redis():
     """FastAPI dependency for Redis client"""
     return await db_manager.get_redis_client()
-
-
-def get_supabase():
-    """FastAPI dependency for Supabase client"""
-    return db_manager.get_supabase_client()

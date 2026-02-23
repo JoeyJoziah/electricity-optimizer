@@ -1,7 +1,7 @@
 """
 Authentication Module
 
-Provides JWT token management, Supabase Auth integration,
+Provides JWT token management, Neon Auth session validation,
 and authentication middleware for the Electricity Optimizer API.
 """
 
@@ -11,12 +11,9 @@ __all__ = [
     "InvalidTokenError",
     "TokenExpiredError",
     "TokenRevokedError",
-    "SupabaseAuthService",
-    "InvalidCredentialsError",
-    "InvalidEmailError",
-    "WeakPasswordError",
-    "EmailAlreadyExistsError",
-    "InvalidProviderError",
+    "SessionData",
+    "get_current_user",
+    "get_current_user_optional",
     "validate_password",
 ]
 
@@ -26,12 +23,8 @@ def __getattr__(name):
     if name in ("JWTHandler", "InvalidTokenError", "TokenExpiredError", "TokenRevokedError"):
         from auth.jwt_handler import JWTHandler, InvalidTokenError, TokenExpiredError, TokenRevokedError
         return locals()[name]
-    elif name in ("SupabaseAuthService", "InvalidCredentialsError", "InvalidEmailError",
-                  "WeakPasswordError", "EmailAlreadyExistsError", "InvalidProviderError"):
-        from auth.supabase_auth import (
-            SupabaseAuthService, InvalidCredentialsError, InvalidEmailError,
-            WeakPasswordError, EmailAlreadyExistsError, InvalidProviderError
-        )
+    elif name in ("SessionData", "get_current_user", "get_current_user_optional"):
+        from auth.neon_auth import SessionData, get_current_user, get_current_user_optional
         return locals()[name]
     elif name == "validate_password":
         from auth.password import validate_password

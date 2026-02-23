@@ -6,27 +6,22 @@ FastAPI dependency injection for database, services, and authentication.
 
 from typing import AsyncGenerator, Optional
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
-import jwt
-from jwt.exceptions import PyJWTError as JWTError
-from pydantic import BaseModel
+from fastapi.security import APIKeyHeader
 
 from config.settings import settings
 from config.database import db_manager
 
-
-# OAuth2 scheme for JWT tokens
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+# Re-export auth dependencies from neon_auth module.
+# TokenData is an alias for SessionData to maintain backward compatibility
+# with existing endpoints that use `current_user: TokenData = Depends(get_current_user)`.
+from auth.neon_auth import (
+    get_current_user,
+    get_current_user_optional,
+    SessionData as TokenData,
+)
 
 # API Key header for service-to-service auth
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-
-class TokenData(BaseModel):
-    """JWT token payload data"""
-    user_id: Optional[str] = None
-    email: Optional[str] = None
-    scopes: list = []
 
 
 # =============================================================================
@@ -55,100 +50,9 @@ async def get_redis():
     return await db_manager.get_redis_client()
 
 
-def get_supabase():
-    """
-    Get Supabase client.
-
-    Returns:
-        Supabase client instance (None if not available)
-    """
-    return db_manager.get_supabase_client()
-
-
 # =============================================================================
 # Authentication Dependencies
 # =============================================================================
-
-
-async def get_current_user_optional(
-    token: Optional[str] = Depends(oauth2_scheme)
-) -> Optional[TokenData]:
-    """
-    Get current user from JWT token (optional).
-
-    Does not raise error if token is missing or invalid.
-
-    Args:
-        token: JWT token from Authorization header
-
-    Returns:
-        TokenData if valid token, None otherwise
-    """
-    if not token:
-        return None
-
-    try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret,
-            algorithms=[settings.jwt_algorithm]
-        )
-        user_id: str = payload.get("sub")
-        email: str = payload.get("email")
-        scopes: list = payload.get("scopes", [])
-
-        if user_id is None:
-            return None
-
-        return TokenData(user_id=user_id, email=email, scopes=scopes)
-
-    except JWTError:
-        return None
-
-
-async def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme)
-) -> TokenData:
-    """
-    Get current user from JWT token (required).
-
-    Raises 401 if token is missing or invalid.
-
-    Args:
-        token: JWT token from Authorization header
-
-    Returns:
-        TokenData with user information
-
-    Raises:
-        HTTPException: If token is missing or invalid
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    if not token:
-        raise credentials_exception
-
-    try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret,
-            algorithms=[settings.jwt_algorithm]
-        )
-        user_id: str = payload.get("sub")
-        email: str = payload.get("email")
-        scopes: list = payload.get("scopes", [])
-
-        if user_id is None:
-            raise credentials_exception
-
-        return TokenData(user_id=user_id, email=email, scopes=scopes)
-
-    except JWTError:
-        raise credentials_exception
 
 
 async def verify_api_key(
@@ -208,7 +112,8 @@ def require_scope(required_scope: str):
     async def check_scope(
         token_data: TokenData = Depends(get_current_user)
     ) -> TokenData:
-        if required_scope not in token_data.scopes:
+        # Neon Auth sessions don't have scopes — check role instead
+        if token_data.role != required_scope and token_data.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Scope '{required_scope}' required"
@@ -220,10 +125,10 @@ def require_scope(required_scope: str):
 
 def require_admin():
     """
-    Require admin scope.
+    Require admin role.
 
     Returns:
-        Dependency that checks for admin scope
+        Dependency that checks for admin role
     """
     return require_scope("admin")
 
@@ -277,7 +182,15 @@ async def get_recommendation_service(
     user_repo = UserRepository(db)
     price_service = PriceService(price_repo, redis)
 
-    return RecommendationService(price_service, user_repo)
+    # Wire HNSW vector store for pattern-based confidence adjustment
+    vector_store = None
+    try:
+        from services.hnsw_vector_store import HNSWVectorStore
+        vector_store = HNSWVectorStore()
+    except Exception:
+        pass  # Graceful fallback — recommendations work without vector store
+
+    return RecommendationService(price_service, user_repo, vector_store)
 
 
 async def get_observation_service(

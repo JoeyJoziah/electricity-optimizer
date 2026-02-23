@@ -9,14 +9,11 @@ asyncpg==0.29.0
 sqlalchemy[asyncio]==2.0.25
 alembic==1.13.1
 
-# Supabase
-supabase>=2.3,<3.0
-
 # Redis
 redis[hiredis]==5.0.1
 
-# HTTP Client (httpx version constrained by supabase)
-httpx>=0.24,<0.26
+# HTTP Client
+httpx>=0.24,<0.28
 aiohttp>=3.10,<4.0
 
 # Authentication & Security

@@ -220,7 +220,6 @@ class TestDatabaseManager:
         db_manager = DatabaseManager()
 
         assert db_manager is not None
-        assert db_manager.supabase_client is None  # Not initialized yet
         assert db_manager.timescale_pool is None  # Not initialized yet
         assert db_manager.redis_client is None  # Not initialized yet
 
@@ -232,13 +231,4 @@ class TestDatabaseManager:
         db_manager = DatabaseManager()
 
         result = await db_manager.get_redis_client()
-        assert result is None
-
-    def test_get_supabase_returns_none_if_not_initialized(self):
-        """Test get_supabase_client returns None if not initialized"""
-        from config.database import DatabaseManager
-
-        db_manager = DatabaseManager()
-
-        result = db_manager.get_supabase_client()
         assert result is None
