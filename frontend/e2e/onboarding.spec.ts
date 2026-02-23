@@ -1,36 +1,10 @@
 import { test, expect } from '@playwright/test'
+import { mockBetterAuth } from './helpers/auth'
 
 test.describe('User Onboarding Flow', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock API endpoints
-    await page.route('**/api/v1/auth/signup', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          message: 'Verification email sent',
-          userId: 'user_123',
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/auth/verify', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          access_token: 'mock_jwt_token',
-          refresh_token: 'mock_refresh_token',
-          user: {
-            id: 'user_123',
-            email: 'newuser@example.com',
-            onboarding_completed: false,
-          },
-        }),
-      })
-    })
+    // Mock Better Auth API routes (replaces old /api/v1/auth/* mocks)
+    await mockBetterAuth(page)
 
     await page.route('**/api/v1/user/onboarding', async (route) => {
       await route.fulfill({
@@ -95,7 +69,7 @@ test.describe('User Onboarding Flow', () => {
     })
   })
 
-  // TODO: signup form uses Supabase client directly, not mockable via route interception
+  // TODO: signup form uses Better Auth client directly, not mockable via route interception
   test.skip('new user can complete signup form', async ({ page }) => {
     await page.goto('/auth/signup')
     await expect(page.getByRole('heading', { name: /sign up/i })).toBeVisible()
@@ -107,14 +81,14 @@ test.describe('User Onboarding Flow', () => {
     await expect(page.getByText(/check your email/i)).toBeVisible()
   })
 
-  // TODO: signup form uses Supabase client directly
+  // TODO: signup form uses Better Auth client directly
   test.skip('shows password requirements', async ({ page }) => {
     await page.goto('/auth/signup')
     await page.fill('#password', 'weak')
     await expect(page.getByText(/at least 8 characters/i)).toBeVisible()
   })
 
-  // TODO: signup form uses Supabase client directly
+  // TODO: signup form uses Better Auth client directly
   test.skip('validates matching passwords', async ({ page }) => {
     await page.goto('/auth/signup')
     await page.fill('#email', 'newuser@example.com')
@@ -125,7 +99,7 @@ test.describe('User Onboarding Flow', () => {
     await expect(page.getByText(/passwords do not match/i)).toBeVisible()
   })
 
-  // TODO: signup form uses Supabase client directly
+  // TODO: signup form uses Better Auth client directly
   test.skip('requires terms acceptance', async ({ page }) => {
     await page.goto('/auth/signup')
     await page.fill('#email', 'newuser@example.com')

@@ -1,40 +1,10 @@
 import { test, expect } from '@playwright/test'
+import { mockBetterAuth } from './helpers/auth'
 
 test.describe('Full User Journey - Signup to Billing', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock auth signup endpoint
-    await page.route('**/api/v1/auth/signup', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          access_token: 'mock_jwt_token_new_user',
-          refresh_token: 'mock_refresh_token',
-          user: {
-            id: 'user_new_456',
-            email: 'newuser@example.com',
-            onboarding_completed: false,
-          },
-        }),
-      })
-    })
-
-    // Mock auth signin endpoint
-    await page.route('**/api/v1/auth/signin', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          access_token: 'mock_jwt_token',
-          refresh_token: 'mock_refresh_token',
-          user: {
-            id: 'user_new_456',
-            email: 'newuser@example.com',
-            onboarding_completed: true,
-          },
-        }),
-      })
-    })
+    // Mock Better Auth API routes (replaces old /api/v1/auth/* mocks)
+    await mockBetterAuth(page)
 
     // Mock prices current endpoint
     await page.route('**/api/v1/prices/current**', async (route) => {
@@ -181,15 +151,6 @@ test.describe('Full User Journey - Signup to Billing', () => {
       })
     })
 
-    // Mock auth signout endpoint
-    await page.route('**/api/v1/auth/signout', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
-      })
-    })
-
     // Mock SSE stream endpoint
     await page.route('**/api/v1/prices/stream**', async (route) => {
       await route.fulfill({
@@ -261,7 +222,7 @@ test.describe('Full User Journey - Signup to Billing', () => {
     await expect(page.getByRole('heading', { name: 'Weather-Aware' })).toBeVisible()
   })
 
-  // TODO: SignupForm uses Supabase client, not the mocked API endpoint
+  // TODO: SignupForm uses Better Auth client, not the mocked API endpoint
   test.skip('Step 2: Navigate to signup and fill the form', async ({ page }) => {
     await page.goto('/')
 
@@ -289,20 +250,8 @@ test.describe('Full User Journey - Signup to Billing', () => {
     await expect(page.getByText(/check your email|dashboard|onboarding/i)).toBeVisible()
   })
 
-  // TODO: SignupForm uses Supabase client, not the mocked API endpoint
+  // TODO: SignupForm uses Better Auth client — needs mockBetterAuth route interception
   test.skip('Step 3: Signup API responds correctly and user is redirected', async ({ page }) => {
-    // Mock signup to return user with onboarding_completed: false
-    await page.route('**/api/v1/auth/signup', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          message: 'Verification email sent',
-          userId: 'user_new_456',
-        }),
-      })
-    })
 
     await page.goto('/auth/signup')
 
@@ -693,13 +642,8 @@ test.describe('Full User Journey - Returning User Flow', () => {
       })
     })
 
-    await page.route('**/api/v1/auth/signout', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
-      })
-    })
+    // Better Auth sign-out mocked via mockBetterAuth in beforeAll
+    await mockBetterAuth(page)
   })
 
   test('returning user lands directly on dashboard', async ({ page }) => {
