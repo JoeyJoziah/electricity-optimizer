@@ -17,11 +17,11 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 
 | Layer          | Technologies                                                  |
 |----------------|---------------------------------------------------------------|
-| Backend        | FastAPI, Python 3.12 (3.11 in CI), Redis, Celery              |
+| Backend        | FastAPI, Python 3.12 (3.11 in CI), Redis                      |
 | Frontend       | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts      |
-| Database       | Neon PostgreSQL (production), TimescaleDB (local dev)          |
+| Database       | Neon PostgreSQL (serverless)                                   |
 | ML / Data      | TensorFlow, XGBoost, PuLP, scikit-learn                       |
-| Auth           | JWT with Redis-backed token revocation                         |
+| Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies      |
 | Payments       | Stripe (checkout, webhooks, customer portal)                   |
 | Infrastructure | Docker, Prometheus, Grafana                                    |
 | CI/CD          | GitHub Actions (Python 3.11, Node 20)                          |
@@ -33,7 +33,7 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 - Python 3.12+ (Homebrew recommended: `brew install python@3.12`)
 - Node.js 18+
 - Docker and Docker Compose (for full stack)
-- A Neon database URL (or use the Docker TimescaleDB for local dev)
+- A Neon database URL
 
 ### Option 1: Docker Compose (full stack)
 
@@ -41,7 +41,7 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 # Copy environment template and fill in values
 cp .env.example .env
 
-# Start all services (backend, frontend, redis, timescaledb, prometheus, grafana)
+# Start all services (backend, frontend, redis, prometheus, grafana)
 make up
 # Or: docker compose up -d
 ```
@@ -81,7 +81,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (491 tests)
+### Backend (603 tests)
 
 ```bash
 source .venv/bin/activate
@@ -91,7 +91,7 @@ pytest tests/ -v
 
 > **Important:** Always use the project venv at `.venv/`. System Python is missing required dependencies (fastapi, httpx, pydantic, pytest-asyncio).
 
-### Frontend (224 tests, 14 suites)
+### Frontend (346 tests, 17 suites)
 
 ```bash
 cd frontend
@@ -136,13 +136,15 @@ Copy `.env.example` to `.env` and configure. Key variables:
 
 | Variable | Purpose |
 |----------|---------|
-| `JWT_SECRET` | Auth signing key (generate with `openssl rand -hex 32`) |
-| `INTERNAL_API_KEY` | Service-to-service auth (price-sync workflow) |
 | `DATABASE_URL` | Neon PostgreSQL connection string |
-| `REDIS_URL` | Redis for caching and token revocation |
+| `REDIS_URL` | Redis for caching and session storage |
+| `BETTER_AUTH_SECRET` | Better Auth signing key |
+| `BETTER_AUTH_URL` | Better Auth base URL |
+| `INTERNAL_API_KEY` | Service-to-service auth (price-sync workflow) |
 | `STRIPE_SECRET_KEY` | Stripe payments integration |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |
 | `NREL_API_KEY` | NREL utility rate data (US) |
+| `EIA_API_KEY` | EIA energy data (gas, oil, propane) |
 | `OPENWEATHERMAP_API_KEY` | Weather data for demand forecasting |
 
 See `.env.example` and `backend/.env.example` for the complete list.
@@ -163,7 +165,9 @@ When the backend is running locally, interactive API docs are available at:
 | `/api/v1/prices/*` | GET/SSE | Price data, history, streaming updates |
 | `/api/v1/suppliers/*` | GET | Supplier listings and details |
 | `/api/v1/recommendations/*` | GET | Switching recommendations |
-| `/api/v1/auth/*` | POST | Registration, login, token refresh |
+| `/api/v1/auth/*` | GET/POST | User profile, password strength check |
+| `/api/v1/regulations/*` | GET | State deregulation and PUC data |
+| `/api/v1/internal/*` | POST | Observation loop, learning (API-key protected) |
 | `/api/v1/billing/*` | POST/GET | Stripe checkout, portal, subscriptions, webhooks |
 | `/api/v1/compliance/*` | GET/POST/DELETE | GDPR data export, consent, deletion |
 | `/api/v1/user/*` | GET/PATCH | User profile management |
@@ -207,7 +211,7 @@ electricity-optimizer/
 
 ## Database
 
-Production database is **Neon PostgreSQL** with 10 tables. All primary keys use UUID type.
+Production database is **Neon PostgreSQL** with 14 tables. All primary keys use UUID type.
 
 | Table | Purpose |
 |-------|---------|
@@ -221,6 +225,10 @@ Production database is **Neon PostgreSQL** with 10 tables. All primary keys use 
 | `auth_sessions` | Active user sessions |
 | `login_attempts` | Auth attempt tracking (rate limiting) |
 | `activity_logs` | User activity audit trail |
+| `forecast_observations` | Forecast vs actual price tracking (adaptive learning) |
+| `recommendation_outcomes` | Recommendation success tracking |
+| `supplier_registry` | Multi-state supplier catalog with utility types |
+| `state_regulations` | Deregulation status and PUC info for all 50 states + DC |
 
 ## Key Services
 
@@ -228,12 +236,15 @@ Production database is **Neon PostgreSQL** with 10 tables. All primary keys use 
 |---------|------|---------|
 | Stripe | `backend/services/stripe_service.py` | Checkout, portal, webhooks, subscription management |
 | Alerts | `backend/services/alert_service.py` | Price threshold alerts with email notifications |
-| Vector Store | `backend/services/vector_store.py` | Price pattern matching and similarity search |
+| HNSW Vector Store | `backend/services/hnsw_vector_store.py` | HNSW-indexed price pattern matching (singleton) |
+| Observations | `backend/services/observation_service.py` | Forecast vs actual tracking, accuracy metrics |
+| Learning | `backend/services/learning_service.py` | Nightly accuracy, bias detection, weight tuning |
 | Weather | `backend/integrations/weather_service.py` | OpenWeatherMap integration for demand forecasting |
 | Email | `backend/services/email_service.py` | SendGrid primary, SMTP fallback |
-| Analytics | `backend/services/analytics_service.py` | Usage and savings analytics |
-| SSE Streaming | `backend/api/v1/prices.py` | Real-time price update streaming |
+| Analytics | `backend/services/analytics_service.py` | Usage and savings analytics (with Redis caching) |
+| SSE Streaming | `backend/api/v1/prices.py` | Real-time price update streaming (auth required) |
 | Realtime Hook | `frontend/lib/hooks/useRealtime.ts` | SSE client-side consumption |
+| Neon Auth | `backend/auth/neon_auth.py` | Session validation via neon_auth schema |
 
 ## CI/CD
 
@@ -242,7 +253,9 @@ GitHub Actions workflows:
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `test.yml` | PR, push to main/develop | Backend, ML, frontend tests + security scan |
-| `price-sync.yml` | Scheduled | Automated price data refresh |
+| `price-sync.yml` | Scheduled (every 6h) | Automated price data refresh |
+| `observe-forecasts.yml` | Scheduled (30min after price-sync) | Backfill actuals into forecast observations |
+| `nightly-learning.yml` | Scheduled (4 AM UTC) | Adaptive learning: accuracy, bias, weight tuning |
 | `deploy-production.yml` | Manual/tag | Production deployment |
 | `deploy-staging.yml` | Push to develop | Staging deployment |
 | `e2e-tests.yml` | Scheduled (daily) | Playwright E2E + Lighthouse audits |
@@ -260,8 +273,10 @@ CI runs with **Python 3.11** and **Node 20** on `ubuntu-latest`.
 | [TESTING.md](docs/TESTING.md) | Test suites, coverage targets, CI integration |
 | [STRIPE_ARCHITECTURE.md](docs/STRIPE_ARCHITECTURE.md) | Stripe payment flow and webhook handling |
 | [CODEMAP_BACKEND.md](docs/CODEMAP_BACKEND.md) | Backend architecture and integration map |
+| [CODEMAP_FRONTEND.md](docs/CODEMAP_FRONTEND.md) | Frontend component and hook map |
 | [MVP_LAUNCH_CHECKLIST.md](docs/MVP_LAUNCH_CHECKLIST.md) | Pre-launch validation checklist |
 | [BETA_DEPLOYMENT_GUIDE.md](docs/BETA_DEPLOYMENT_GUIDE.md) | Beta deployment and user onboarding |
+| [LOKI_INTEGRATION.md](docs/LOKI_INTEGRATION.md) | Loki Mode orchestration architecture |
 
 ## License
 

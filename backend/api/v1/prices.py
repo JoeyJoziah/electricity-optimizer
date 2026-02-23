@@ -32,6 +32,7 @@ from services.analytics_service import AnalyticsService
 from api.dependencies import (
     get_price_service,
     get_analytics_service,
+    get_current_user,
     get_current_user_optional,
     verify_api_key,
     TokenData,
@@ -703,17 +704,29 @@ async def refresh_prices(
 # Server-Sent Events (SSE) Endpoint
 # =============================================================================
 
+import collections
+
+_sse_connections: dict[str, int] = collections.defaultdict(int)
+_SSE_MAX_CONNECTIONS_PER_USER = 3
+
 
 async def _price_event_generator(
-    region: str, interval_seconds: int = 30
+    region: str, interval_seconds: int = 30, request: Request = None,
 ) -> AsyncGenerator[str, None]:
     """
     Generate SSE events with latest price data.
 
-    Polls for price changes and emits events. In production with a DB,
-    this would use LISTEN/NOTIFY or a pub/sub mechanism.
+    Polls for price changes and emits events at each interval. Sends a
+    heartbeat comment every 15 seconds to keep proxies alive. Checks for
+    client disconnection promptly.
     """
+    heartbeat_interval = 15
+    elapsed_since_heartbeat = 0
+
     while True:
+        if request is not None and await request.is_disconnected():
+            break
+
         try:
             now = datetime.now(timezone.utc)
             mock = _generate_mock_prices(region, 1)
@@ -732,7 +745,19 @@ async def _price_event_generator(
             logger.warning("sse_event_error", error=str(e))
             yield f"event: error\ndata: {json.dumps({'error': 'Failed to fetch price'})}\n\n"
 
-        await asyncio.sleep(interval_seconds)
+        sleep_remaining = interval_seconds
+        while sleep_remaining > 0:
+            sleep_chunk = min(sleep_remaining, heartbeat_interval)
+            await asyncio.sleep(sleep_chunk)
+            sleep_remaining -= sleep_chunk
+            elapsed_since_heartbeat += sleep_chunk
+
+            if request is not None and await request.is_disconnected():
+                return
+
+            if elapsed_since_heartbeat >= heartbeat_interval:
+                yield ": heartbeat\n\n"
+                elapsed_since_heartbeat = 0
 
 
 @router.get(
@@ -743,32 +768,43 @@ async def _price_event_generator(
             "description": "Server-Sent Events stream of price updates",
             "content": {"text/event-stream": {}},
         },
+        401: {"description": "Authentication required"},
+        429: {"description": "Too many concurrent SSE connections"},
     },
 )
 async def stream_prices(
     request: Request,
     region: PriceRegion = Query(..., description="Price region"),
     interval: int = Query(30, ge=10, le=300, description="Update interval in seconds"),
+    current_user: TokenData = Depends(get_current_user),
 ):
     """
     Stream real-time electricity price updates via Server-Sent Events.
 
-    Clients can subscribe to receive automatic price updates without polling.
-    The stream sends a JSON price object at the configured interval.
-
-    Example client usage:
-        const source = new EventSource('/api/v1/prices/stream?region=us_ct');
-        source.onmessage = (event) => { console.log(JSON.parse(event.data)); };
+    Requires authentication. Max 3 concurrent connections per user.
     """
+    user_id = current_user.user_id
+
+    if _sse_connections[user_id] >= _SSE_MAX_CONNECTIONS_PER_USER:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Maximum of {_SSE_MAX_CONNECTIONS_PER_USER} concurrent SSE connections allowed",
+        )
+
+    _sse_connections[user_id] += 1
+    logger.info("sse_connection_opened", user_id=user_id, region=region.value)
 
     async def event_stream():
         try:
-            async for event in _price_event_generator(region.value, interval):
-                if await request.is_disconnected():
-                    break
+            async for event in _price_event_generator(region.value, interval, request):
                 yield event
         except asyncio.CancelledError:
             pass
+        finally:
+            _sse_connections[user_id] -= 1
+            if _sse_connections[user_id] <= 0:
+                del _sse_connections[user_id]
+            logger.info("sse_connection_closed", user_id=user_id, region=region.value)
 
     return StreamingResponse(
         event_stream(),

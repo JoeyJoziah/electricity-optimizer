@@ -365,43 +365,41 @@ class SupplierRegistryRepository:
             Tuple of (list of supplier dicts, total count)
         """
         try:
-            conditions = []
+            # Build WHERE clause from fixed literal fragments only (no f-string
+            # interpolation of variables) to prevent SQL injection (CWE-89).
+            count_sql = "SELECT COUNT(*) FROM supplier_registry WHERE 1=1"
+            data_sql = (
+                "SELECT id, name, utility_types, regions, website, phone,"
+                " api_available, rating, review_count, green_energy,"
+                " carbon_neutral, is_active, metadata"
+                " FROM supplier_registry WHERE 1=1"
+            )
             params: dict[str, Any] = {}
 
             if active_only:
-                conditions.append("is_active = TRUE")
+                count_sql += " AND is_active = TRUE"
+                data_sql += " AND is_active = TRUE"
             if region:
-                conditions.append(":region = ANY(regions)")
+                count_sql += " AND :region = ANY(regions)"
+                data_sql += " AND :region = ANY(regions)"
                 params["region"] = region.lower()
             if utility_type:
-                conditions.append(":utility_type::utility_type = ANY(utility_types)")
+                count_sql += " AND :utility_type::utility_type = ANY(utility_types)"
+                data_sql += " AND :utility_type::utility_type = ANY(utility_types)"
                 params["utility_type"] = utility_type
             if green_only:
-                conditions.append("green_energy = TRUE")
+                count_sql += " AND green_energy = TRUE"
+                data_sql += " AND green_energy = TRUE"
 
-            where_clause = " AND ".join(conditions) if conditions else "TRUE"
+            data_sql += " ORDER BY rating DESC NULLS LAST, name LIMIT :limit OFFSET :offset"
 
-            count_result = await self._db.execute(
-                text(f"SELECT COUNT(*) FROM supplier_registry WHERE {where_clause}"),
-                params,
-            )
+            count_result = await self._db.execute(text(count_sql), params)
             total = count_result.scalar() or 0
 
             offset = (page - 1) * page_size
             data_params = {**params, "limit": page_size, "offset": offset}
 
-            result = await self._db.execute(
-                text(f"""
-                    SELECT id, name, utility_types, regions, website, phone,
-                           api_available, rating, review_count, green_energy,
-                           carbon_neutral, is_active, metadata
-                    FROM supplier_registry
-                    WHERE {where_clause}
-                    ORDER BY rating DESC NULLS LAST, name
-                    LIMIT :limit OFFSET :offset
-                """),
-                data_params,
-            )
+            result = await self._db.execute(text(data_sql), data_params)
             rows = result.mappings().all()
 
             suppliers = [
@@ -500,28 +498,27 @@ class StateRegulationRepository:
     ) -> list[dict]:
         """List states matching deregulation criteria."""
         try:
-            conditions = []
+            # Build WHERE from fixed literal fragments only (no f-string
+            # interpolation) to prevent SQL injection (CWE-89).
+            sql = "SELECT * FROM state_regulations WHERE 1=1"
             params: dict[str, Any] = {}
 
             if electricity is not None:
-                conditions.append("electricity_deregulated = :elec")
+                sql += " AND electricity_deregulated = :elec"
                 params["elec"] = electricity
             if gas is not None:
-                conditions.append("gas_deregulated = :gas")
+                sql += " AND gas_deregulated = :gas"
                 params["gas"] = gas
             if oil is not None:
-                conditions.append("oil_competitive = :oil")
+                sql += " AND oil_competitive = :oil"
                 params["oil"] = oil
             if community_solar is not None:
-                conditions.append("community_solar_enabled = :solar")
+                sql += " AND community_solar_enabled = :solar"
                 params["solar"] = community_solar
 
-            where = " AND ".join(conditions) if conditions else "TRUE"
+            sql += " ORDER BY state_code"
 
-            result = await self._db.execute(
-                text(f"SELECT * FROM state_regulations WHERE {where} ORDER BY state_code"),
-                params,
-            )
+            result = await self._db.execute(text(sql), params)
             return [dict(row) for row in result.mappings().all()]
 
         except Exception as e:

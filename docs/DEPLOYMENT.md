@@ -27,12 +27,21 @@ This guide covers how to deploy the Electricity Optimizer platform in different 
 - **GitHub**: For CI/CD and container registry
 - **Render.com**: For backend and frontend hosting
 
+### Authentication
+
+Authentication uses **Neon Auth (Better Auth)** with session-based cookies:
+
+```
+BETTER_AUTH_SECRET=        # Signing key (openssl rand -hex 32)
+BETTER_AUTH_URL=           # Base URL for Better Auth (e.g., https://your-app.com)
+```
+
 ### API Keys
 
 Obtain API keys from the following providers:
 - Flatpeak API (UK/EU electricity prices)
 - NREL API (US utility rates)
-- IEA API (Global statistics)
+- IEA/EIA API (US energy data — gas, oil, propane)
 
 ```
 # Email Service (SendGrid primary, SMTP fallback)

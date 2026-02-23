@@ -33,23 +33,8 @@ T = TypeVar("T")
 # =============================================================================
 
 
-class PriceUnit(str, Enum):
-    """Standardized price units across all APIs"""
-
-    KWH = "kWh"  # Price per kilowatt-hour
-    MWH = "MWh"  # Price per megawatt-hour
-    GBP_KWH = "GBP/kWh"
-    EUR_KWH = "EUR/kWh"
-    USD_KWH = "USD/kWh"
-    CENTS_KWH = "cents/kWh"
-
-    # Gas units
-    THERM = "therm"      # 100,000 BTU (residential gas)
-    MCF = "Mcf"          # 1,000 cubic feet (gas)
-    MMBTU = "MMBtu"      # million BTU (wholesale gas)
-
-    # Oil & propane
-    GALLON = "gallon"    # gallon (heating oil, propane)
+# PriceUnit imported from canonical source in models.utility
+from models.utility import PriceUnit  # noqa: E402
 
 
 # Import unified Region as PricingRegion for backward compatibility.

@@ -194,7 +194,7 @@ class User(BaseModel):
 ### Security Measures
 
 1. **Webhook Verification**: All webhooks verified via signature
-2. **Authentication**: Checkout/portal require valid JWT
+2. **Authentication**: Checkout/portal require valid session (Neon Auth)
 3. **No PII in Logs**: Only IDs and tier names logged
 4. **Constant-Time Comparison**: Prevents timing attacks on secrets
 
@@ -223,7 +223,7 @@ STRIPE_PRICE_BUSINESS=price_live_xxx
 ### POST /api/v1/billing/checkout
 Create Stripe checkout session.
 
-**Auth**: Required (JWT)
+**Auth**: Required (session)
 
 **Request**:
 ```json
@@ -245,7 +245,7 @@ Create Stripe checkout session.
 ### GET /api/v1/billing/subscription
 Get current subscription status.
 
-**Auth**: Required (JWT)
+**Auth**: Required (session)
 
 **Response**:
 ```json
@@ -261,7 +261,7 @@ Get current subscription status.
 ### POST /api/v1/billing/portal
 Create customer portal session.
 
-**Auth**: Required (JWT)
+**Auth**: Required (session)
 
 **Request**:
 ```json

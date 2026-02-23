@@ -14,16 +14,10 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from models.region import Region
-from models.utility import UtilityType
+from models.utility import UtilityType, PriceUnit
 
 # Backward-compatible alias
 PriceRegion = Region
-
-
-class PriceUnit(str, Enum):
-    """Price unit types"""
-    KWH = "kwh"
-    MWH = "mwh"
 
 
 class EnergySource(str, Enum):

@@ -18,11 +18,21 @@ class UtilityType(str, Enum):
 
 
 class PriceUnit(str, Enum):
-    """Standardized price units across all utility types"""
+    """
+    Canonical price unit enum — single source of truth.
+
+    All modules must import PriceUnit from here. The lowercase values are
+    used for storage and internal comparison; display labels are in UNIT_LABELS.
+    """
     # Electricity
     KWH = "kwh"           # kilowatt-hour (electricity)
     MWH = "mwh"           # megawatt-hour (wholesale electricity)
     CENTS_KWH = "cents_kwh"  # cents per kWh (EIA format)
+
+    # Currency-qualified electricity (international APIs)
+    GBP_KWH = "gbp_kwh"  # GBP per kWh (UK)
+    EUR_KWH = "eur_kwh"  # EUR per kWh (EU)
+    USD_KWH = "usd_kwh"  # USD per kWh (US explicit)
 
     # Natural gas
     THERM = "therm"       # 100,000 BTU (residential gas)
@@ -59,6 +69,9 @@ UNIT_LABELS: dict[PriceUnit, str] = {
     PriceUnit.KWH: "$/kWh",
     PriceUnit.MWH: "$/MWh",
     PriceUnit.CENTS_KWH: "cents/kWh",
+    PriceUnit.GBP_KWH: "GBP/kWh",
+    PriceUnit.EUR_KWH: "EUR/kWh",
+    PriceUnit.USD_KWH: "USD/kWh",
     PriceUnit.THERM: "$/therm",
     PriceUnit.MCF: "$/Mcf",
     PriceUnit.MMBTU: "$/MMBtu",

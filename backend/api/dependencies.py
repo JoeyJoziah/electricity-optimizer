@@ -185,8 +185,8 @@ async def get_recommendation_service(
     # Wire HNSW vector store for pattern-based confidence adjustment
     vector_store = None
     try:
-        from services.hnsw_vector_store import HNSWVectorStore
-        vector_store = HNSWVectorStore()
+        from services.hnsw_vector_store import get_vector_store_singleton
+        vector_store = get_vector_store_singleton()
     except Exception:
         pass  # Graceful fallback — recommendations work without vector store
 
@@ -216,8 +216,8 @@ def get_hnsw_vector_store():
     Returns:
         HNSWVectorStore instance
     """
-    from services.hnsw_vector_store import HNSWVectorStore
-    return HNSWVectorStore()
+    from services.hnsw_vector_store import get_vector_store_singleton
+    return get_vector_store_singleton()
 
 
 async def get_learning_service(
@@ -235,11 +235,11 @@ async def get_learning_service(
         LearningService instance
     """
     from services.observation_service import ObservationService
-    from services.hnsw_vector_store import HNSWVectorStore
+    from services.hnsw_vector_store import get_vector_store_singleton
     from services.learning_service import LearningService
 
     obs = ObservationService(db)
-    vs = HNSWVectorStore()
+    vs = get_vector_store_singleton()
     return LearningService(obs, vs, redis)
 
 
@@ -261,4 +261,4 @@ async def get_analytics_service(
     from services.analytics_service import AnalyticsService
 
     repo = PriceRepository(db, redis)
-    return AnalyticsService(repo)
+    return AnalyticsService(repo, cache=redis)

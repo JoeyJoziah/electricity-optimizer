@@ -90,8 +90,8 @@ $ docker exec electricity-optimizer-timescaledb-1 psql -U postgres -d electricit
 All tables created
 
 #### Neon PostgreSQL Tables (Production)
-Production uses Neon PostgreSQL (project: holy-pine-81107663, branch: main) with 10 tables:
-- users, electricity_prices, suppliers, tariffs, consent_records, deletion_logs, beta_signups, auth_sessions, login_attempts, activity_logs
+Production uses Neon PostgreSQL (project: holy-pine-81107663, branch: main) with 14 tables:
+- users, electricity_prices, suppliers, tariffs, consent_records, deletion_logs, beta_signups, auth_sessions, login_attempts, activity_logs, forecast_observations, recommendation_outcomes, supplier_registry, state_regulations
 - All PKs use UUID type; GRANTs use neondb_owner role
 
 #### Hypertables (TimescaleDB, local dev only)
@@ -212,11 +212,11 @@ docker-compose up -d backend
 ### Notes
 
 1. Production database is Neon PostgreSQL (serverless); local development uses TimescaleDB via Docker for time-series features
-2. Frontend tested separately via Jest (224 tests) and Playwright E2E (805 tests across 5 browsers)
+2. Frontend tested separately via Jest (346 tests) and Playwright E2E (805 tests across 5 browsers)
 3. Data pipelines run via GitHub Actions workflows (Airflow was removed 2026-02-12)
 4. Monitoring stack (Prometheus/Grafana) configured via `monitoring/` directory
 
-> **All phases are now complete.** This report documents the initial Docker environment validation from Phase 2. See [TESTING.md](TESTING.md) for the full test suite overview (1520+ tests).
+> **All phases are now complete.** This report documents the initial Docker environment validation from Phase 2. See [TESTING.md](TESTING.md) for the full test suite overview (1960+ tests).
 
 ---
 

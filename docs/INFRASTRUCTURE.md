@@ -204,7 +204,7 @@ In production, the database is Neon PostgreSQL (serverless, accessed via connect
 |----------|-------|
 | Branch | `main` (br-broad-queen-aemirrrs) |
 | Compute Endpoint | `ep-withered-morning-aix83cfw` (us-east-1) |
-| Tables | 12 (see CODEMAP_BACKEND.md for full list) |
+| Tables | 14 (see CODEMAP_BACKEND.md for full list) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
@@ -234,7 +234,9 @@ In production, the database is Neon PostgreSQL (serverless, accessed via connect
 |----------|--------|-------|
 | `DATABASE_URL` | Neon | Must use `ep-withered-morning-aix83cfw` endpoint |
 | `REDIS_URL` | Redis provider | |
-| `JWT_SECRET` | Generated | 32+ chars |
+| `BETTER_AUTH_SECRET` | Generated | `openssl rand -hex 32` |
+| `BETTER_AUTH_URL` | App URL | Base URL for Better Auth |
+| `JWT_SECRET` | Generated | 32+ chars (internal API key validation only) |
 | `ENVIRONMENT` | `production` | |
 | `INTERNAL_API_KEY` | Generated | `openssl rand -hex 32` |
 
@@ -381,7 +383,7 @@ deploy:
 2. **Self-Host Where Possible**
    - Run Prometheus/Grafana locally
    - Use Redis as cache (no managed service)
-   - TimescaleDB for local dev only (Neon in production)
+   - Neon PostgreSQL free tier for database
 
 3. **Resource Optimization**
    - Aggressive caching (5-min TTL)
@@ -453,7 +455,8 @@ deploy:
 |------|----------|---------|
 | Neon PostgreSQL | Login | DATABASE_URL connection string |
 | Redis | Login | REDIS_URL connection string |
-| JWT Secret | Login | JWT_SECRET signing key |
+| JWT Secret | Login | JWT_SECRET (internal API validation only) |
+| Better Auth Secret | Login | BETTER_AUTH_SECRET signing key |
 | Internal API Key | Login | INTERNAL_API_KEY for service-to-service auth |
 | Stripe Keys | Login | stripe_secret_key, stripe_webhook_secret |
 | Render Deploy Hook | Login | Render deploy hook URL |
@@ -466,7 +469,8 @@ deploy:
 ### Access Control
 
 - Grafana behind VPN or IP whitelist
-- JWT authentication for API (PyJWT with Redis-backed token revocation)
+- Neon Auth (Better Auth) session-based authentication with httpOnly cookies
+- Internal API key authentication for service-to-service calls
 - Role-based access control
 - API documentation (Swagger/ReDoc) disabled in production
 - Price refresh endpoint requires API key authentication

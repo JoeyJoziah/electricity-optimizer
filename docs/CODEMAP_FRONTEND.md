@@ -210,6 +210,7 @@ Configured in `QueryProvider` with defaults: 1min stale time, 5min garbage colle
 
 - Base URL: `NEXT_PUBLIC_API_URL` (default: `http://localhost:8000/api/v1`)
 - Methods: `get<T>`, `post<T>`, `put<T>`, `delete<T>`
+- All 4 fetch methods include `credentials: 'include'` for cross-origin cookie support (Neon Auth sessions)
 - Error handling: throws `ApiClientError` with status, message, details
 - All requests include `Content-Type: application/json`
 

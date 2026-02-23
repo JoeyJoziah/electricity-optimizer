@@ -59,6 +59,7 @@ export const apiClient = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     })
 
     return handleResponse<T>(response)
@@ -70,6 +71,7 @@ export const apiClient = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
     })
 
@@ -82,6 +84,7 @@ export const apiClient = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
     })
 
@@ -94,6 +97,7 @@ export const apiClient = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     })
 
     return handleResponse<T>(response)

@@ -290,3 +290,14 @@ class HNSWVectorStore:
             self._next_label = 0
             self._build_index()
         return count
+
+
+_vector_store_singleton: Optional["HNSWVectorStore"] = None
+
+
+def get_vector_store_singleton() -> "HNSWVectorStore":
+    """Return a module-level singleton to avoid rebuilding the HNSW index per request."""
+    global _vector_store_singleton
+    if _vector_store_singleton is None:
+        _vector_store_singleton = HNSWVectorStore()
+    return _vector_store_singleton

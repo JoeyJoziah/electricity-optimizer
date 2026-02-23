@@ -26,7 +26,7 @@ This guide covers the complete beta deployment process, from infrastructure setu
 
 ### ✅ Application Readiness
 
-- [x] All tests passing (1520+)
+- [x] All tests passing (1960+)
 - [x] Security scan clean (0 vulnerabilities)
 - [x] Performance targets met
 - [x] Documentation complete
@@ -73,7 +73,7 @@ This guide covers the complete beta deployment process, from infrastructure setu
 # Visit https://dashboard.render.com → New → Blueprint → select repo
 
 # 3. Set environment variables in Render Dashboard
-# NEON_DATABASE_URL, JWT_SECRET, REDIS_URL, etc.
+# NEON_DATABASE_URL, BETTER_AUTH_SECRET, REDIS_URL, etc.
 # (see .env.example for full list)
 
 # 4. Deploy triggers automatically on push to main
@@ -107,7 +107,7 @@ fly postgres create --name electricity-db
 fly redis create --name electricity-cache
 
 # 6. Set secrets
-fly secrets set NEON_DATABASE_URL=xxx JWT_SECRET=xxx
+fly secrets set NEON_DATABASE_URL=xxx BETTER_AUTH_SECRET=xxx
 ```
 
 **Total**: Under $50/month target
@@ -125,16 +125,16 @@ Create `.env.production`:
 NEON_DATABASE_URL=postgresql://[user]:[password]@[host].neon.tech/neondb?sslmode=require
 # Project: holy-pine-81107663, Branch: main
 
-# JWT Authentication (with Redis-backed token revocation)
-JWT_SECRET=$(openssl rand -base64 32)
-JWT_ALGORITHM=HS256
+# Neon Auth (Better Auth) — session-based authentication
+BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+BETTER_AUTH_URL=https://your-app-url.com
 
 # External APIs (sign up for free tiers)
 FLATPEAK_API_KEY=[sign up at flatpeak.energy]
 NREL_API_KEY=[sign up at developer.nrel.gov]
 IEA_API_KEY=[sign up at iea.org]
 
-# Redis (use Redis Cloud free tier, also used for JWT token revocation)
+# Redis (use Redis Cloud free tier, used for caching and session store)
 REDIS_URL=redis://[username]:[password]@[host]:6379
 
 # Internal API Key (service-to-service auth, e.g. price-sync workflow)
@@ -162,10 +162,10 @@ ENVIRONMENT=beta
 # 3. Set environment variables in Render Dashboard
 # For each service, add the variables from .env.production:
 # - NEON_DATABASE_URL
-# - JWT_SECRET
+# - BETTER_AUTH_SECRET, BETTER_AUTH_URL
 # - REDIS_URL
 # - INTERNAL_API_KEY
-# - FLATPEAK_API_KEY, NREL_API_KEY, IEA_API_KEY
+# - FLATPEAK_API_KEY, NREL_API_KEY, EIA_API_KEY
 # (see .env.example for full list)
 
 # 4. Deploy triggers automatically when you push to main
@@ -184,9 +184,12 @@ The frontend is deployed as part of the Render.com Blueprint (Step 2). If you ne
 # In Render Dashboard → Frontend Service → Environment:
 # NEXT_PUBLIC_API_URL=https://[backend-service-url]
 # NEXT_PUBLIC_ENVIRONMENT=beta
+# BETTER_AUTH_SECRET=<same as backend>
+# BETTER_AUTH_URL=https://[frontend-service-url]
 
-# The frontend uses JWT-based auth (not a third-party auth provider)
-# JWT tokens are issued by the FastAPI backend and validated via Redis
+# Auth uses Neon Auth (Better Auth) with session-based cookies (httpOnly)
+# Sign-up/sign-in handled by Better Auth API routes in frontend
+# Backend validates sessions by querying neon_auth.session table
 ```
 
 ### Step 4: Configure GitHub Actions Workflows

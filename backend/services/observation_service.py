@@ -60,7 +60,7 @@ class ObservationService:
             rows.append({
                 "id": str(uuid4()),
                 "forecast_id": forecast_id,
-                "region": region,
+                "region": region.lower(),
                 "forecast_hour": hour,
                 "predicted_price": pred["predicted_price"],
                 "confidence_lower": pred.get("confidence_lower"),
@@ -117,7 +117,7 @@ class ObservationService:
                 observed_at = now()
             FROM electricity_prices ep
             WHERE fo.observed_at IS NULL
-              AND LOWER(fo.region) = LOWER(ep.region)
+              AND fo.region = ep.region
               AND fo.forecast_hour = EXTRACT(HOUR FROM ep.timestamp)
               AND ep.timestamp >= fo.created_at - INTERVAL '1 hour'
               AND ep.timestamp <= fo.created_at + INTERVAL '25 hours'
@@ -240,11 +240,11 @@ class ObservationService:
                 END) * 100 as coverage
             FROM forecast_observations
             WHERE observed_at IS NOT NULL
-              AND LOWER(region) = LOWER(:region)
+              AND region = :region
               AND created_at >= now() - make_interval(days => :days)
         """)
 
-        result = await self._db.execute(query, {"region": region, "days": days})
+        result = await self._db.execute(query, {"region": region.lower(), "days": days})
         row = result.fetchone()
 
         if not row or row.total == 0:
@@ -275,13 +275,13 @@ class ObservationService:
                 COUNT(*) as count
             FROM forecast_observations
             WHERE observed_at IS NOT NULL
-              AND LOWER(region) = LOWER(:region)
+              AND region = :region
               AND created_at >= now() - make_interval(days => :days)
             GROUP BY forecast_hour
             ORDER BY forecast_hour
         """)
 
-        result = await self._db.execute(query, {"region": region, "days": days})
+        result = await self._db.execute(query, {"region": region.lower(), "days": days})
         rows = result.fetchall()
 
         return [
@@ -312,14 +312,14 @@ class ObservationService:
                 SQRT(AVG(POWER(predicted_price - actual_price, 2))) as rmse
             FROM forecast_observations
             WHERE observed_at IS NOT NULL
-              AND LOWER(region) = LOWER(:region)
+              AND region = :region
               AND created_at >= now() - make_interval(days => :days)
               AND model_version IS NOT NULL
             GROUP BY model_version
             ORDER BY mape ASC
         """)
 
-        result = await self._db.execute(query, {"region": region, "days": days})
+        result = await self._db.execute(query, {"region": region.lower(), "days": days})
         rows = result.fetchall()
 
         return [

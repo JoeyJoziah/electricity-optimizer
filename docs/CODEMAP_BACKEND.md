@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-23 (Post-auth hardening: recommendations wired, test ordering fixed)
+> Last updated: 2026-02-23 (Security hardening: SSE auth, SQL injection fix, session caching, PriceUnit consolidation)
 
 ## Directory Structure
 
@@ -19,7 +19,7 @@ backend/
 ├── api/
 │   ├── dependencies.py              # FastAPI DI: auth, DB sessions, service factories
 │   └── v1/
-│       ├── prices.py                # Price endpoints (CRUD, SSE, refresh)
+│       ├── prices.py                # Price endpoints (CRUD, SSE auth+limit, refresh)
 │       ├── suppliers.py             # Supplier listing, comparison, tariffs (DB-backed via SupplierRegistryRepository)
 │       ├── regulations.py           # State regulation data (deregulation status, PUC info)
 │       ├── billing.py               # Stripe checkout, portal, webhook, subscription
@@ -34,17 +34,17 @@ backend/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
 │
 ├── models/
-│   ├── price.py                     # Price, PriceForecast, response schemas (utility_type field)
+│   ├── price.py                     # Price, PriceForecast, response schemas; PriceUnit imported from utility.py
 │   ├── supplier.py                  # Supplier, Tariff, TariffType, ContractLength (utility_types field)
 │   ├── user.py                      # User, UserPreferences, UserCreate/Update
-│   ├── utility.py                   # UtilityType enum, PriceUnit enum (multi-utility), labels/defaults
+│   ├── utility.py                   # UtilityType enum, PriceUnit enum (canonical, incl. GBP_KWH/EUR_KWH/USD_KWH), labels/defaults
 │   ├── region.py                    # Region enum (single source of truth, all 50 US states + intl)
 │   └── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
 │
 ├── repositories/
 │   ├── base.py                      # BaseRepository[T], CachedRepository, error classes
 │   ├── price_repository.py          # PriceRepository: CRUD, bulk_create, statistics (utility_type filter)
-│   ├── supplier_repository.py       # SupplierRegistryRepository + StateRegulationRepository (DB-backed)
+│   ├── supplier_repository.py       # SupplierRegistryRepository + StateRegulationRepository; SQL-injection-safe WHERE clauses
 │   └── user_repository.py           # UserRepository: by-email, preferences, consent
 │
 ├── services/
@@ -55,12 +55,12 @@ backend/
 │   ├── email_service.py             # SendGrid (primary) + SMTP (fallback) + Jinja2
 │   ├── stripe_service.py            # Checkout, portal, subscriptions, webhooks
 │   ├── vector_store.py              # SQLite-backed vector store for price pattern matching
-│   ├── hnsw_vector_store.py         # HNSW-indexed wrapper (O(log n) ANN, fallback to brute-force)
+│   ├── hnsw_vector_store.py         # HNSW-indexed wrapper (O(log n) ANN, fallback); get_vector_store_singleton()
 │   ├── observation_service.py       # Record forecasts, backfill actuals, track recommendation outcomes
 │   └── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
 │
 ├── auth/
-│   ├── neon_auth.py                 # Neon Auth session validation (queries neon_auth schema)
+│   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL)
 │   ├── jwt_handler.py               # JWT create/verify/revoke (Redis-backed blacklist, legacy)
 │   ├── middleware.py                 # get_current_user, require_permission dependencies
 │   └── password.py                  # Password validation, strength check, PBKDF2 hashing
@@ -72,7 +72,7 @@ backend/
 ├── integrations/
 │   ├── weather_service.py           # OpenWeatherMap integration
 │   └── pricing_apis/
-│       ├── base.py                  # PricingRegion (alias->Region), PriceData, APIError, RateLimitError
+│       ├── base.py                  # PricingRegion (alias->Region), PriceData, APIError, RateLimitError; PriceUnit imported from models/utility.py
 │       ├── service.py               # PricingService (unified multi-API interface)
 │       ├── nrel.py                  # NREL client (US regions, all 50 state ZIPs)
 │       ├── flatpeak.py              # Flatpeak client (UK/EU regions)
@@ -123,6 +123,8 @@ backend/
     ├── test_weather_service.py      # Weather service tests
     ├── test_gdpr_compliance.py      # GDPR compliance tests
     ├── test_multi_utility.py        # Multi-utility expansion tests (39 tests)
+    ├── test_observation_service.py  # ObservationService tests (31 tests)
+    ├── test_learning_service.py     # LearningService tests (32 tests)
     └── test_performance.py          # Performance tests (16 tests)
 ```
 
@@ -164,7 +166,7 @@ All routes use prefix `{settings.api_prefix}` (default `/api/v1`).
 | GET | `/trends` | None | Price trend analysis (direction, change %) |
 | GET | `/peak-hours` | None | Peak vs off-peak hour analysis |
 | POST | `/refresh` | X-API-Key | Trigger price sync from external APIs |
-| GET | `/stream` | None | SSE real-time price updates |
+| GET | `/stream` | Session | SSE real-time price updates (max 3 connections/user, heartbeat every 15s) |
 
 **Production behavior:** All GET endpoints return HTTP 503 on DB errors instead of
 mock data. The `source` field in responses indicates `"live"` or `"fallback"`.
@@ -344,6 +346,10 @@ for Neon; uses SQLAlchemy-only path.
 **HNSW fallback:** If `hnswlib` is not installed, `HNSWVectorStore` falls back to
 brute-force `VectorStore.search()` transparently. HNSW index rebuilt from SQLite on startup.
 
+**Singleton factory:** `get_vector_store_singleton()` returns a module-level `HNSWVectorStore`
+instance, avoiding repeated HNSW index rebuilds across requests. Used by `api/dependencies.py`
+for both `get_recommendation_service` and `get_learning_service`.
+
 **Domains:** `price_pattern`, `optimization`, `recommendation`, `bias_correction`.
 
 **Helper functions:**
@@ -356,8 +362,8 @@ brute-force `VectorStore.search()` transparently. HNSW index rebuilt from SQLite
 
 | Method | Purpose |
 |--------|---------|
-| `record_forecast()` | Batch INSERT forecast predictions into `forecast_observations` |
-| `observe_actuals_batch()` | Match unobserved forecasts to `electricity_prices` by region+hour |
+| `record_forecast()` | Batch INSERT forecast predictions into `forecast_observations` (region normalized to lowercase via `region.lower()`) |
+| `observe_actuals_batch()` | Match unobserved forecasts to `electricity_prices` by region+hour (uses parameterized SQL, no LOWER()) |
 | `record_recommendation()` | Record recommendation served to user |
 | `record_recommendation_response()` | Update outcome with user acceptance/savings |
 | `get_forecast_accuracy()` | MAPE, RMSE, coverage for a region/timeframe |
@@ -410,7 +416,10 @@ Constants: `DEREGULATED_ELECTRICITY_STATES` (18), `DEREGULATED_GAS_STATES` (16),
 
 5 utility types: `ELECTRICITY`, `NATURAL_GAS`, `HEATING_OIL`, `PROPANE`, `COMMUNITY_SOLAR`.
 
-`PriceUnit` enum: `KWH`, `MWH`, `CENTS_KWH`, `THERM`, `MCF`, `MMBTU`, `CCF`, `GALLON`, `CREDIT_KWH`.
+`PriceUnit` enum (canonical, single source of truth): `KWH`, `MWH`, `CENTS_KWH`, `GBP_KWH`, `EUR_KWH`, `USD_KWH`,
+`THERM`, `MCF`, `MMBTU`, `CCF`, `GALLON`, `CREDIT_KWH`.
+All modules import `PriceUnit` from `models/utility.py`; the former local definitions in
+`models/price.py` and `integrations/pricing_apis/base.py` have been removed.
 
 Lookup dicts: `UTILITY_DEFAULT_UNITS`, `UTILITY_LABELS`, `UNIT_LABELS`.
 
@@ -447,8 +456,8 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | Repository | Model | Key Methods |
 |------------|-------|-------------|
 | `PriceRepository` | `Price` | `get_current_prices` (filters by utility_type), `get_latest_by_supplier`, `get_historical_prices`, `bulk_create`, `get_price_statistics` |
-| `SupplierRegistryRepository` | `SupplierRegistry` | `list_suppliers` (paginated, filters: region/utility_type/green/active), `get_by_id`, `create`, `update` |
-| `StateRegulationRepository` | `StateRegulation` | `list_deregulated` (filters: electricity/gas/oil/community_solar), `get_by_state` |
+| `SupplierRegistryRepository` | `SupplierRegistry` | `list_suppliers` (paginated, filters: region/utility_type/green/active), `get_by_id`; WHERE clauses built from fixed literals only (no f-string interpolation — CWE-89 fix) |
+| `StateRegulationRepository` | `StateRegulation` | `list_deregulated` (filters: electricity/gas/oil/community_solar), `get_by_state`; WHERE clauses built from fixed literals only (CWE-89 fix) |
 | `UserRepository` | `User` | `get_by_email`, `update_preferences`, `update_last_login`, `record_consent` |
 | `ConsentRepository` | `ConsentRecord` | `get_by_user_and_purpose`, `get_latest_by_user_and_purpose`, `delete_by_user_id` |
 | `DeletionLogRepository` | `DeletionLog` | `create`, `get_by_user_id` (immutable -- no update/delete) |
@@ -461,7 +470,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | Service | Dependencies | Purpose |
 |---------|-------------|---------|
 | `PriceService` | PriceRepository, Redis | Price queries, comparison, forecast, optimal windows |
-| `AnalyticsService` | PriceRepository | Trends, volatility, peak hours, supplier comparison |
+| `AnalyticsService` | PriceRepository, Redis | Trends, volatility, peak hours, supplier comparison (cache=redis wired in dependencies.py) |
 | `RecommendationService` | PriceService, UserRepository, HNSWVectorStore | Switching + usage recommendations (with pattern-based confidence adjustment) |
 | `AlertService` | EmailService | Threshold checking + alert emails |
 | `EmailService` | Settings | SendGrid primary, SMTP fallback, Jinja2 templates |
@@ -496,7 +505,8 @@ Two auth mechanisms:
 1. **Neon Auth Session** (user auth):
    - `get_current_user` dependency in `auth/neon_auth.py` validates sessions
    - Checks `better-auth.session_token` cookie or `Authorization: Bearer <token>` header
-   - Queries `neon_auth.session` + `neon_auth.user` tables directly via raw SQL
+   - Checks Redis cache first (120s TTL, key=`session:<token[:16]>`) before DB query
+   - Queries `neon_auth.session` + `neon_auth.user` tables directly via raw SQL on cache miss
    - Returns `SessionData(user_id, email, name)` on success
    - Returns HTTP 401 if token invalid/expired, HTTP 503 if DB unavailable
    - `get_current_user_optional` returns `None` if missing/invalid
@@ -652,10 +662,14 @@ RecommendationService._compute_switching() / _compute_usage():
 
 ```
 Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
+  -> get_current_user (Session auth required -- HTTP 401 if missing)
+  -> Connection limit check: _SSE_MAX_CONNECTIONS_PER_USER = 3 (HTTP 429 if exceeded)
+  -> _sse_connections[user_id] incremented; decremented on disconnect (finally block)
   -> StreamingResponse(event_stream())
   -> _price_event_generator() polls every {interval} seconds
   -> Emits JSON price events via text/event-stream
-  -> Checks request.is_disconnected() to stop
+  -> Sends heartbeat comment (": heartbeat") every 15 seconds to keep proxies alive
+  -> Checks request.is_disconnected() between sleep chunks to stop promptly
 ```
 
 
@@ -690,7 +704,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 572 passing, 0 failures (as of 2026-02-23), 23 test files. Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
+**Test status:** 635 passing, 0 failures (as of 2026-02-23), 25 test files (+test_observation_service: 31 tests, +test_learning_service: 32 tests). Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation

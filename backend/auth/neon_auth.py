@@ -10,6 +10,7 @@ Session tokens arrive via:
 2. Header: 'Authorization: Bearer <session_token>' (API clients)
 """
 
+import json
 from typing import Optional
 from dataclasses import dataclass
 
@@ -20,7 +21,7 @@ from sqlalchemy import text
 
 import structlog
 
-from config.database import get_timescale_session
+from config.database import get_timescale_session, db_manager
 
 
 logger = structlog.get_logger()
@@ -44,15 +45,33 @@ class SessionData:
     role: Optional[str] = None
 
 
+_SESSION_CACHE_TTL = 120  # seconds
+
+
 async def _get_session_from_token(
     session_token: str,
     db: AsyncSession,
+    redis=None,
 ) -> Optional[SessionData]:
     """
     Query neon_auth.session + neon_auth.user for the given session token.
 
-    Returns SessionData if the token is valid and not expired, None otherwise.
+    Uses Redis as a short-lived cache (120s TTL) to avoid hitting the DB
+    on every authenticated request. Returns SessionData if the token is
+    valid and not expired, None otherwise.
     """
+    cache_key = f"session:{session_token[:16]}"
+
+    # Try Redis cache first
+    if redis is not None:
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                data = json.loads(cached)
+                return SessionData(**data)
+        except Exception:
+            pass  # Cache miss or error — fall through to DB
+
     query = text("""
         SELECT
             u.id AS user_id,
@@ -73,13 +92,32 @@ async def _get_session_from_token(
     if row is None:
         return None
 
-    return SessionData(
+    session_data = SessionData(
         user_id=str(row.user_id),
         email=row.email,
         name=row.name or "",
         email_verified=row.email_verified,
         role=row.role,
     )
+
+    # Cache in Redis for subsequent requests
+    if redis is not None:
+        try:
+            await redis.setex(
+                cache_key,
+                _SESSION_CACHE_TTL,
+                json.dumps({
+                    "user_id": session_data.user_id,
+                    "email": session_data.email,
+                    "name": session_data.name,
+                    "email_verified": session_data.email_verified,
+                    "role": session_data.role,
+                }),
+            )
+        except Exception:
+            pass  # Non-fatal — next request will just re-query
+
+    return session_data
 
 
 async def get_current_user(
@@ -125,8 +163,15 @@ async def get_current_user(
             detail="Database not available",
         )
 
+    # Fetch Redis for session caching
+    redis = None
+    try:
+        redis = await db_manager.get_redis_client()
+    except Exception:
+        pass
+
     # Validate session against neon_auth tables
-    session_data = await _get_session_from_token(session_token, db)
+    session_data = await _get_session_from_token(session_token, db, redis)
 
     if session_data is None:
         logger.warning("invalid_or_expired_session")
