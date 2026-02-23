@@ -135,7 +135,7 @@ NOTION_API = "https://api.notion.com/v1"
 def notion_headers(api_key: str) -> Dict[str, str]:
     return {
         "Authorization": f"Bearer {api_key}",
-        "Notion-Version": "2025-09-03",
+        "Notion-Version": "2022-06-28",
         "Content-Type": "application/json",
     }
 

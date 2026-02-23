@@ -76,7 +76,9 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 
 | Workflow | Schedule | Purpose |
 |----------|----------|---------|
-| price-sync.yml | Cron | Electricity price data ingestion |
+| price-sync.yml | `0 */6 * * *` | Electricity price data ingestion |
+| observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
+| nightly-learning.yml | `0 4 * * *` | Adaptive learning: accuracy, bias detection, weight tuning |
 | test.yml | On push/PR | Test suite (Python 3.11, Node 20, PostgreSQL 15, Redis 7) |
 | backend-ci.yml | On push/PR | Backend-specific tests and lint |
 | frontend-ci.yml | On push/PR | Frontend lint, test, build |
@@ -121,6 +123,37 @@ The board-sync system keeps GitHub Projects board #4 and the Notion roadmap in s
 **Setup after clone:** Run `scripts/install-hooks.sh` to install git hooks from templates.
 
 **Config:** GitHub project number and owner stored in `.notion_sync_config.json` under the `github_project` key.
+
+**Notion Database Schema:**
+
+The Notion roadmap database has 13 properties, provisioned by `scripts/notion_setup_schema.py`:
+
+| Property | Type | Notes |
+|----------|------|-------|
+| Title | title | Renamed from Notion default `Name` |
+| Status | select | Not Started, Planning, In Progress, Blocked, Review, Done |
+| Phase | select | Phase 1-5 (Backend, Frontend, Data/ML, Infrastructure, Security) |
+| Priority | select | Critical, High, Medium, Low |
+| Category | select | Backend, Frontend, Data/ML, Infrastructure, Security, Testing, Documentation |
+| Milestone | select | MVP, Beta, v1.0 |
+| Assignee | select | Dynamic |
+| Start Date | date | -- |
+| Due Date | date | -- |
+| Progress | number | Percent format |
+| Notes | rich_text | -- |
+| GitHub Issue | url | Links to GitHub issue |
+| Related PRs | url | Links to GitHub PR |
+
+**Sync Scripts:**
+
+| Script | Source | Trigger |
+|--------|--------|---------|
+| `scripts/notion_setup_schema.py` | -- | Manual (one-time setup, idempotent) |
+| `scripts/notion_sync.py --once` | TODO.md | Board-sync orchestrator / manual |
+| `scripts/github_notion_sync.py --mode full` | GitHub API | Scheduled (every 30 min) / manual |
+| `scripts/github_notion_sync.py --mode event` | GitHub webhook | `notion-sync.yml` on issue/PR events |
+
+**API Version:** All scripts use Notion API version `2022-06-28`. Version `2025-09-03` omits `properties` from database responses and must not be used.
 
 ### Monitoring Services
 

@@ -344,10 +344,7 @@ jobs:
             RESULT="failure"
           fi
 
-          if [ -f "scripts/notion_project_sync.py" ]; then
-            pip install requests
-            python scripts/notion_project_sync.py --status "$STATUS" --result "$RESULT" || true
-          fi
+          echo "Deployment status: $STATUS / $RESULT"
 
   # ===========================================================================
   # Notify Success

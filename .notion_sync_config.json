@@ -1,7 +1,6 @@
 {
   "notion": {
     "database_id": "24bcbe22-37de-449f-b694-3544f0d864e3",
-    "data_source_id": "b2195f7f-baf5-44db-a6ec-fa461715721a",
     "database_name": "Electricity Optimizer - Project Roadmap",
     "database_url": "https://www.notion.so/24bcbe2237de449fb6943544f0d864e3",
     "api_key_path": "~/.config/notion/api_key",

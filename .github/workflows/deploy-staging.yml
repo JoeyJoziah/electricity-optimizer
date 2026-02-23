@@ -234,13 +234,7 @@ jobs:
             RESULT="failure"
           fi
 
-          echo "Updating Notion with deployment status: $STATUS"
-
-          # Run the Notion sync script if it exists
-          if [ -f "scripts/notion_project_sync.py" ]; then
-            pip install requests
-            python scripts/notion_project_sync.py --status "$STATUS" --result "$RESULT" || true
-          fi
+          echo "Deployment status: $STATUS"
 
   # ===========================================================================
   # Notify

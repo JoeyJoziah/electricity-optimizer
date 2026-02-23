@@ -26,7 +26,8 @@ backend/
 │       ├── beta.py                  # Beta signup + welcome email
 │       ├── compliance.py            # GDPR consent, data export, data deletion
 │       ├── recommendations.py       # Switching & usage recommendations (stub)
-│       └── user.py                  # User preferences (stub)
+│       ├── user.py                  # User preferences (stub)
+│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats
 │
 ├── routers/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
@@ -50,7 +51,10 @@ backend/
 │   ├── alert_service.py             # Price threshold alerts + email notifications
 │   ├── email_service.py             # SendGrid (primary) + SMTP (fallback) + Jinja2
 │   ├── stripe_service.py            # Checkout, portal, subscriptions, webhooks
-│   └── vector_store.py              # SQLite-backed vector store for price pattern matching
+│   ├── vector_store.py              # SQLite-backed vector store for price pattern matching
+│   ├── hnsw_vector_store.py         # HNSW-indexed wrapper (O(log n) ANN, fallback to brute-force)
+│   ├── observation_service.py       # Record forecasts, backfill actuals, track recommendation outcomes
+│   └── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
 │
 ├── auth/
 │   ├── jwt_handler.py               # JWT create/verify/revoke (Redis-backed blacklist)
@@ -82,7 +86,9 @@ backend/
 │   ├── init_neon.sql                # Initial schema: users, electricity_prices, suppliers,
 │   │                                #   tariffs, consent_records, deletion_logs, beta_signups
 │   ├── 002_gdpr_auth_tables.sql     # GDPR tables: auth_sessions, login_attempts, activity_logs
-│   └── 003_reconcile_schema.sql     # Schema reconciliation for consent_records/deletion_logs
+│   ├── 003_reconcile_schema.sql     # Schema reconciliation for consent_records/deletion_logs
+│   ├── 004_performance_indexes.sql  # Compound + partial indexes for perf optimization
+│   └── 005_observation_tables.sql   # forecast_observations + recommendation_outcomes (adaptive learning)
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -225,6 +231,16 @@ against an allowlist of domains (localhost, electricity-optimizer.app/vercel.app
 | GET | `/signups/stats` | JWT | Signup stats (by supplier/source/bill) |
 | POST | `/verify-code` | None | Verify beta access code |
 
+### Internal (`/api/v1/internal`)
+
+All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/observe-forecasts` | Backfill actual prices into unobserved forecast rows |
+| POST | `/learn` | Run adaptive learning cycle (accuracy, bias, weight tuning, pruning) |
+| GET | `/observation-stats` | Forecast accuracy metrics and hourly bias |
+
 ### Other
 
 | Method | Path | Auth | Description |
@@ -289,23 +305,57 @@ for Neon; uses SQLAlchemy-only path.
 - **Fallback:** In-memory `Set[str]` when Redis unavailable (no cross-process revocation)
 - **clear_revoked_tokens():** Uses SCAN to delete `jwt:revoked:*` keys (test use)
 
-### services/vector_store.py
+### services/vector_store.py + hnsw_vector_store.py
 
 `VectorStore` -- AgentDB-inspired SQLite-backed vector database.
+`HNSWVectorStore` -- HNSW-accelerated wrapper (O(log n) ANN search).
 
-| Feature | Detail |
-|---------|--------|
-| Storage | SQLite at `.agentdb/electricity.db` |
-| Dimensions | 24 (default, configurable) |
-| Search | Cosine similarity with min_similarity threshold |
-| Cache | In-memory LRU (`OrderedDict`, 500 entries) |
-| Domains | `price_pattern`, `optimization`, `recommendation` |
-| Learning | `record_outcome(vector_id, success)` updates confidence via success_rate |
-| Pruning | `prune(min_confidence, min_usage)` removes low-quality vectors |
+| Feature | VectorStore | HNSWVectorStore |
+|---------|-------------|-----------------|
+| Storage | SQLite at `.agentdb/electricity.db` | SQLite (durable) + HNSW (in-memory) |
+| Dimensions | 24 (default) | 24 (default) |
+| Search | Brute-force cosine similarity | HNSW ANN (fallback to brute-force) |
+| Cache | In-memory LRU (500 entries) | HNSW index + SQLite metadata |
+| Config | -- | `max_elements=10000`, `ef_search=50`, `M=16` |
+| Learning | `record_outcome(vector_id, success)` | Delegates to VectorStore |
+| Pruning | `prune(min_confidence, min_usage)` | Prunes + rebuilds HNSW index |
+
+**HNSW fallback:** If `hnswlib` is not installed, `HNSWVectorStore` falls back to
+brute-force `VectorStore.search()` transparently. HNSW index rebuilt from SQLite on startup.
+
+**Domains:** `price_pattern`, `optimization`, `recommendation`, `bias_correction`.
 
 **Helper functions:**
 - `price_curve_to_vector(prices, target_dim=24)` -- resample + L2-normalize
 - `appliance_config_to_vector(appliances, target_dim=24)` -- encode power/duration/start
+
+### services/observation_service.py
+
+`ObservationService` -- closes the feedback gap between predictions and actuals.
+
+| Method | Purpose |
+|--------|---------|
+| `record_forecast()` | Batch INSERT forecast predictions into `forecast_observations` |
+| `observe_actuals_batch()` | Match unobserved forecasts to `electricity_prices` by region+hour |
+| `record_recommendation()` | Record recommendation served to user |
+| `record_recommendation_response()` | Update outcome with user acceptance/savings |
+| `get_forecast_accuracy()` | MAPE, RMSE, coverage for a region/timeframe |
+| `get_hourly_bias()` | Per-hour AVG(predicted - actual) for bias correction |
+| `get_model_accuracy_by_version()` | Accuracy breakdown by model version for weight tuning |
+
+### services/learning_service.py
+
+`LearningService` -- nightly adaptive learning cycle (inspired by AgentDB's NightlyLearner).
+
+| Step | Method | Action |
+|------|--------|--------|
+| 1 | `compute_rolling_accuracy()` | MAPE/RMSE per model from `forecast_observations` |
+| 2 | `detect_bias()` | Systematic over/under by hour-of-day |
+| 3 | `update_ensemble_weights()` | Inverse-MAPE weighting -> Redis `model:ensemble_weights` |
+| 4 | `store_bias_correction()` | Hourly correction vector -> vector store domain `bias_correction` |
+| 5 | `prune_stale_patterns()` | Remove low-confidence vectors |
+
+**Weight bounds:** 0.1 min, 0.8 max per model. Re-normalized after clamping.
 
 ### services/stripe_service.py
 
@@ -389,6 +439,9 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | `EmailService` | Settings | SendGrid primary, SMTP fallback, Jinja2 templates |
 | `StripeService` | Settings | Checkout, portal, subscriptions, webhooks |
 | `VectorStore` | SQLite, numpy | Price pattern matching, optimization caching |
+| `HNSWVectorStore` | VectorStore, hnswlib | HNSW-accelerated vector search (wraps VectorStore) |
+| `ObservationService` | AsyncSession | Record forecasts, backfill actuals, track outcomes |
+| `LearningService` | ObservationService, HNSWVectorStore, Redis | Nightly learning: accuracy, bias, weight tuning |
 | `GDPRComplianceService` | ConsentRepo, UserRepo | Consent, export, deletion, retention |
 
 
@@ -428,7 +481,7 @@ Two auth mechanisms:
 
 ## Database (Neon PostgreSQL)
 
-10 tables (init_neon.sql + 002_gdpr_auth_tables.sql):
+12 tables (init_neon.sql + 002 + 005):
 
 | Table | PK Type | Notes |
 |-------|---------|-------|
@@ -442,6 +495,8 @@ Two auth mechanisms:
 | `auth_sessions` | UUID | FK to users |
 | `login_attempts` | UUID | FK to users |
 | `activity_logs` | UUID | FK to users |
+| `forecast_observations` | UUID | predicted vs actual prices, partial index on unobserved |
+| `recommendation_outcomes` | UUID | user acceptance + actual savings tracking |
 
 
 ## Migrations
@@ -450,7 +505,9 @@ Two auth mechanisms:
 |------|---------|
 | `init_neon.sql` | Initial schema (7 tables, indexes, seed data) |
 | `002_gdpr_auth_tables.sql` | GDPR consent/deletion tables, auth sessions, activity logs |
-| `003_reconcile_schema.sql` | Reconcile column divergence between init and 002 (renames `metadata` -> `metadata_json`, `timestamp` -> `deleted_at`, `deleted_categories` -> `data_categories_deleted` with TEXT[] -> JSONB conversion, adds missing FK/indexes/columns) |
+| `003_reconcile_schema.sql` | Reconcile column divergence between init and 002 |
+| `004_performance_indexes.sql` | Compound index on `electricity_prices(region, supplier, timestamp DESC)`, partial index on `users(stripe_customer_id)` |
+| `005_observation_tables.sql` | `forecast_observations` + `recommendation_outcomes` tables with indexes for adaptive learning |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.
@@ -480,6 +537,8 @@ disables `tr_prevent_deletion_log_update` trigger for schema backfill operations
 | numpy | 1.26.3 | Numerical (ML, vector store) |
 | pandas | 2.1.4 | DataFrames (ML features) |
 | scikit-learn | 1.4.0 | ML models |
+| hnswlib | >=0.8.0 | HNSW vector index (optional, graceful fallback) |
+
 ### Dev/Test
 
 | Package | Purpose |
@@ -511,6 +570,41 @@ Client -> FastAPI (middleware: rate_limit -> security_headers -> CORS)
   -> Service layer (business logic)
   -> Repository (SQLAlchemy async + Redis cache)
   -> Neon PostgreSQL
+```
+
+### Adaptive Learning Loop (GitHub Actions, nightly)
+
+```
+Forecast Generation (POST /api/v1/ml/predict/price):
+  -> generate_price_forecast()
+  -> ObservationService.record_forecast()  (fire-and-forget)
+  -> forecast_observations table
+
+Observation Backfill (observe-forecasts.yml, every 6h + 30min):
+  -> POST /api/v1/internal/observe-forecasts (X-API-Key)
+  -> ObservationService.observe_actuals_batch()
+  -> JOIN forecast_observations <-> electricity_prices
+  -> SET actual_price, observed_at
+
+Nightly Learning (nightly-learning.yml, 4AM UTC):
+  -> POST /api/v1/internal/learn (X-API-Key)
+  -> LearningService.run_full_cycle()
+     1. compute_rolling_accuracy() -> MAPE/RMSE from observed forecasts
+     2. detect_bias() -> hourly over/under-prediction
+     3. update_ensemble_weights() -> inverse-MAPE -> Redis model:ensemble_weights
+     4. store_bias_correction() -> bias vector -> vector store domain=bias_correction
+     5. prune_stale_patterns() -> remove low-confidence vectors
+  -> EnsemblePredictor reads weights from Redis on next inference
+```
+
+### Recommendation Confidence Adjustment
+
+```
+RecommendationService._compute_switching() / _compute_usage():
+  -> price_curve_to_vector(prices)
+  -> HNSWVectorStore.search(vector, domain="recommendation", k=3)
+  -> If similar pattern found with high confidence: boost recommendation confidence
+  -> If similar pattern found with low confidence: reduce recommendation confidence
 ```
 
 ### SSE Price Stream
@@ -555,7 +649,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 500 passing (as of 2026-02-23), 17 test files.
+**Test status:** 516 passing (as of 2026-02-23), 17 test files. 23 known test-ordering failures (pass individually).
 
 
 ## Scripts & Automation
@@ -564,6 +658,8 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 
 | File | Purpose |
 |------|---------|
+| `notion_setup_schema.py` | Idempotent Notion database schema provisioning (13 properties). Supports `--dry-run` |
+| `notion_sync.py` | Syncs TODO.md tasks to Notion (`--once` or continuous). Uses `database_id` query endpoint |
 | `github_notion_sync.py` | Syncs GitHub issues/PRs to Notion roadmap (`--mode full` or `--mode event`) |
 | `install-hooks.sh` | Installs git hooks from `.claude/hooks/board-sync/` templates |
 
