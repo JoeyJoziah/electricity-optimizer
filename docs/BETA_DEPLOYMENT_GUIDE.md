@@ -2,7 +2,7 @@
 
 **Project**: Automated Electricity Supplier Price Optimizer
 **Deployment Type**: Beta (50+ users)
-**Infrastructure Budget**: $11/month (target: <$50/month)
+**Infrastructure Budget**: <$50/month (Render.com + Neon PostgreSQL)
 
 ---
 
@@ -45,41 +45,38 @@ This guide covers the complete beta deployment process, from infrastructure setu
 
 ## Deployment Options
 
-### Option 1: Railway (Recommended) - $10/month
+### Option 1: Render.com (Current) - <$50/month
 
 **Pros:**
-- Simple deployment
-- Built-in CI/CD
-- Free PostgreSQL (500MB)
+- Simple deployment via `render.yaml` (Infrastructure as Code)
+- Built-in CI/CD from GitHub
 - Automatic HTTPS
 - Easy scaling
+- Supports backend + frontend services
+
+**Current Setup:**
+
+- **Frontend**: Render.com (Next.js static site or web service)
+- **Backend**: Render.com (FastAPI web service)
+- **Database**: Neon PostgreSQL (serverless, free tier)
+- **Redis**: Redis Cloud (Free tier, 30MB) or Render Redis
+- **Scheduling**: GitHub Actions workflows (price-sync, CI/CD)
+- **Monitoring**: Prometheus + Grafana (self-hosted)
 
 **Setup:**
 
 ```bash
-# 1. Install Railway CLI
-npm install -g @railway/cli
+# 1. Push render.yaml to GitHub (already in repo root)
+# Render.com auto-detects services from render.yaml
 
-# 2. Login
-railway login
+# 2. Connect GitHub repo in Render Dashboard
+# Visit https://dashboard.render.com → New → Blueprint → select repo
 
-# 3. Create project
-railway init
-
-# 4. Add services
-railway add --template postgresql
-railway add --template redis
-
-# 5. Deploy backend
-railway up --service backend
-
-# 6. Deploy frontend
-railway up --service frontend
-
-# 7. Set environment variables
-railway variables set SUPABASE_URL=xxx
-railway variables set JWT_SECRET=xxx
+# 3. Set environment variables in Render Dashboard
+# NEON_DATABASE_URL, JWT_SECRET, REDIS_URL, etc.
 # (see .env.example for full list)
+
+# 4. Deploy triggers automatically on push to main
 ```
 
 ### Option 2: Fly.io - $5/month
@@ -110,37 +107,25 @@ fly postgres create --name electricity-db
 fly redis create --name electricity-cache
 
 # 6. Set secrets
-fly secrets set SUPABASE_URL=xxx JWT_SECRET=xxx
+fly secrets set NEON_DATABASE_URL=xxx JWT_SECRET=xxx
 ```
 
-### Option 3: Vercel + Supabase + Railway - $11/month
-
-**Current Setup** (Recommended for MVP):
-
-- **Frontend**: Vercel (Free hobby tier)
-- **Backend**: Railway ($5/month)
-- **ML/Airflow**: Railway ($5/month)
-- **Database**: Supabase (Free tier, 500MB)
-- **Redis**: Redis Cloud (Free tier, 30MB)
-- **Monitoring**: Self-hosted (Railway, $1/month)
-
-**Total**: $11/month (78% under budget!)
+**Total**: Under $50/month target
 
 ---
 
-## Step-by-Step Deployment (Vercel + Railway)
+## Step-by-Step Deployment (Render.com)
 
 ### Step 1: Prepare Environment Variables
 
 Create `.env.production`:
 
 ```bash
-# Supabase (already have account)
-SUPABASE_URL=https://[project-id].supabase.co
-SUPABASE_ANON_KEY=[anon-key]
-SUPABASE_SERVICE_KEY=[service-key]
+# Neon PostgreSQL (serverless database)
+NEON_DATABASE_URL=postgresql://[user]:[password]@[host].neon.tech/neondb?sslmode=require
+# Project: holy-pine-81107663, Branch: main
 
-# JWT (generate secure secrets)
+# JWT Authentication (with Redis-backed token revocation)
 JWT_SECRET=$(openssl rand -base64 32)
 JWT_ALGORITHM=HS256
 
@@ -149,11 +134,11 @@ FLATPEAK_API_KEY=[sign up at flatpeak.energy]
 NREL_API_KEY=[sign up at developer.nrel.gov]
 IEA_API_KEY=[sign up at iea.org]
 
-# Redis (use Redis Cloud free tier)
+# Redis (use Redis Cloud free tier, also used for JWT token revocation)
 REDIS_URL=redis://[username]:[password]@[host]:6379
 
-# Airflow
-AIRFLOW_FERNET_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+# Internal API Key (service-to-service auth, e.g. price-sync workflow)
+INTERNAL_API_KEY=$(openssl rand -base64 32)
 
 # Monitoring
 GRAFANA_PASSWORD=$(openssl rand -base64 16)
@@ -163,114 +148,102 @@ NODE_ENV=production
 ENVIRONMENT=beta
 ```
 
-### Step 2: Deploy Backend to Railway
+### Step 2: Deploy Backend + Frontend to Render.com
 
 ```bash
-# 1. Create Railway project
-cd ~/projects/electricity-optimizer
-railway init
+# 1. Ensure render.yaml is in repo root (already present)
+# render.yaml defines both backend and frontend services
 
-# 2. Create backend service
-railway add
+# 2. Connect to Render.com
+# Visit https://dashboard.render.com
+# New → Blueprint → Connect your GitHub repo
+# Render auto-detects services from render.yaml
 
-# 3. Link to GitHub (auto-deploy on push)
-railway link
+# 3. Set environment variables in Render Dashboard
+# For each service, add the variables from .env.production:
+# - NEON_DATABASE_URL
+# - JWT_SECRET
+# - REDIS_URL
+# - INTERNAL_API_KEY
+# - FLATPEAK_API_KEY, NREL_API_KEY, IEA_API_KEY
+# (see .env.example for full list)
 
-# 4. Add environment variables
-cat .env.production | while read line; do
-  key=$(echo $line | cut -d'=' -f1)
-  value=$(echo $line | cut -d'=' -f2)
-  railway variables set $key="$value"
-done
+# 4. Deploy triggers automatically when you push to main
+git push origin main
 
-# 5. Deploy
-git push railway main
-
-# 6. Get backend URL
-railway domain
-# Save this as BACKEND_URL for frontend
+# 5. Get service URLs from Render Dashboard
+# Backend: https://electricity-optimizer-api.onrender.com
+# Frontend: https://electricity-optimizer.onrender.com
 ```
 
-### Step 3: Deploy Frontend to Vercel
+### Step 3: Verify Frontend Configuration
+
+The frontend is deployed as part of the Render.com Blueprint (Step 2). If you need to configure additional environment variables:
 
 ```bash
-# 1. Install Vercel CLI
-npm i -g vercel
+# In Render Dashboard → Frontend Service → Environment:
+# NEXT_PUBLIC_API_URL=https://[backend-service-url]
+# NEXT_PUBLIC_ENVIRONMENT=beta
 
-# 2. Login
-vercel login
-
-# 3. Link project
-cd frontend
-vercel link
-
-# 4. Set environment variables
-vercel env add NEXT_PUBLIC_API_URL production
-# Enter: https://[backend-url]
-
-vercel env add NEXT_PUBLIC_SUPABASE_URL production
-vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production
-
-# 5. Deploy
-vercel --prod
-
-# 6. Get frontend URL
-vercel inspect [deployment-url]
+# The frontend uses JWT-based auth (not a third-party auth provider)
+# JWT tokens are issued by the FastAPI backend and validated via Redis
 ```
 
-### Step 4: Deploy ML/Airflow to Railway
+### Step 4: Configure GitHub Actions Workflows
+
+Scheduling and pipeline orchestration are handled by GitHub Actions (Airflow was removed 2026-02-12).
 
 ```bash
-# 1. Create ML service
-railway add --service ml
+# 1. Verify workflows exist in .github/workflows/
+ls .github/workflows/
 
-# 2. Deploy Airflow
-railway add --service airflow
+# 2. Set required GitHub Actions secrets
+# Go to: GitHub repo → Settings → Secrets and variables → Actions
+# Add:
+#   NEON_DATABASE_URL
+#   INTERNAL_API_KEY (for price-sync workflow)
+#   RENDER_API_KEY (for deploy triggers, if used)
 
-# 3. Set environment variables
-railway variables set --service airflow AIRFLOW_FERNET_KEY="$AIRFLOW_FERNET_KEY"
+# 3. Verify workflows are active
+gh workflow list
 
-# 4. Initialize Airflow database
-railway run --service airflow airflow db init
-railway run --service airflow airflow users create \
-    --username admin \
-    --password admin123 \
-    --firstname Admin \
-    --lastname User \
-    --role Admin \
-    --email admin@example.com
+# 4. Manually trigger price-sync to test
+gh workflow run price-sync.yml
 
-# 5. Start scheduler
-railway up --service airflow
+# 5. Check workflow run status
+gh run list --workflow=price-sync.yml
 ```
 
 ### Step 5: Set Up Monitoring
 
+Monitoring runs via the `monitoring/` directory with docker-compose for local dev, or self-hosted alongside the application.
+
 ```bash
-# 1. Create monitoring service on Railway
-railway add --service monitoring
+# 1. Start monitoring stack locally
+docker compose up -d prometheus grafana
 
-# 2. Deploy Prometheus + Grafana
-railway up --service monitoring
-
-# 3. Configure Grafana
-# Visit https://[monitoring-url]:3001
+# 2. Configure Grafana
+# Visit http://localhost:3001
 # Login: admin / [GRAFANA_PASSWORD from .env]
 
-# 4. Import dashboards
+# 3. Import dashboards
 # Dashboards → Import → monitoring/grafana/dashboards/overview.json
+
+# 4. For production, Prometheus + Grafana can be hosted on
+#    the same Render.com instance or a separate service
 ```
 
 ### Step 6: Configure Custom Domain (Optional)
 
 ```bash
-# Frontend (Vercel)
-vercel domains add electricity-optimizer.app
-# Follow DNS instructions
+# In Render Dashboard:
+# 1. Select Frontend service → Settings → Custom Domains
+#    Add: electricity-optimizer.app
+#    Follow DNS instructions (CNAME to .onrender.com)
 
-# Backend (Railway)
-railway domain add api.electricity-optimizer.app
-# Update frontend env: NEXT_PUBLIC_API_URL
+# 2. Select Backend service → Settings → Custom Domains
+#    Add: api.electricity-optimizer.app
+#    Update frontend env: NEXT_PUBLIC_API_URL=https://api.electricity-optimizer.app
 ```
 
 ### Step 7: Verify Deployment
@@ -281,15 +254,16 @@ curl https://api.electricity-optimizer.app/health
 curl https://electricity-optimizer.app
 
 # Test API endpoints
-curl https://api.electricity-optimizer.app/api/v1/prices/current?region=UK
+curl https://api.electricity-optimizer.app/api/v1/prices/current?region=US_CT
 
-# Check logs
-railway logs --service backend
-railway logs --service frontend
-railway logs --service airflow
+# Check logs (via Render Dashboard or CLI)
+# Render Dashboard → Service → Logs tab
+
+# Check GitHub Actions workflow status
+gh run list
 
 # Monitor metrics
-# Visit: https://[monitoring-url]:3001
+# Visit: http://localhost:3001 (Grafana)
 ```
 
 ---
@@ -500,9 +474,9 @@ Create Grafana dashboard showing:
 
 **Issue**: Forecast not loading
 **Fix**:
-1. Check Airflow DAG status
+1. Check GitHub Actions workflow status (`gh run list`)
 2. Verify ML model deployed
-3. Check TimescaleDB connection
+3. Check Neon PostgreSQL connection
 
 **Issue**: Supplier comparison shows no results
 **Fix**:
@@ -529,33 +503,34 @@ Create Grafana dashboard showing:
 
 - **Users**: 50-100 (beta)
 - **API**: 1000+ concurrent users
-- **Database**: 500MB (Supabase free tier)
+- **Database**: Neon PostgreSQL free tier (0.5 GB storage, serverless autoscaling)
 - **Redis**: 30MB (Redis Cloud free)
-- **Cost**: $11/month
+- **Hosting**: Render.com (render.yaml Blueprint)
+- **Cost**: <$50/month target
 
 ### Scaling Triggers
 
 **At 100 users**:
-- Monitor database size
+- Monitor Neon database compute usage
 - Watch Redis memory usage
 - Track API latency
 
 **At 500 users**:
-- Upgrade Supabase to Pro ($25/month)
+- Upgrade Neon to Launch plan ($19/month)
 - Upgrade Redis to paid tier ($5/month)
-- Add load balancer
-- **Estimated cost**: $41/month
+- Scale Render.com backend instances
+- **Estimated cost**: $50-60/month
 
 **At 1000 users**:
-- Scale Railway instances (2x)
-- Upgrade database to 2GB
+- Scale Render.com instances (2x backend)
+- Upgrade Neon compute
 - Implement CDN (Cloudflare)
-- **Estimated cost**: $75/month
+- **Estimated cost**: $75-100/month
 
 **At 5000 users**:
 - Multi-region deployment
-- Database read replicas
-- Auto-scaling groups
+- Neon database read replicas
+- Auto-scaling groups on Render.com
 - **Estimated cost**: $200-300/month
 
 ---
@@ -567,8 +542,9 @@ Create Grafana dashboard showing:
 **Immediate Response** (within 5 minutes):
 
 ```bash
-# 1. Stop accepting new traffic
-railway scale --service backend --replicas 0
+# 1. Rollback via Render Dashboard
+# Services → Backend → Deploys → select previous deploy → "Rollback"
+# (Render keeps deploy history for instant rollback)
 
 # 2. Notify users
 # Send status email: "We're experiencing issues, investigating..."
@@ -576,9 +552,10 @@ railway scale --service backend --replicas 0
 # 3. Check last known good version
 git log --oneline
 
-# 4. Rollback
-git checkout [previous-stable-commit]
-git push railway main --force
+# 4. Alternative: rollback via Git
+git revert HEAD
+git push origin main
+# Render auto-deploys on push to main
 
 # 5. Restore database if needed
 ./scripts/restore.sh [backup-timestamp]
@@ -587,10 +564,7 @@ git push railway main --force
 make health
 make smoke-test
 
-# 7. Resume traffic
-railway scale --service backend --replicas 2
-
-# 8. Send all-clear
+# 7. Send all-clear
 # Email: "Issue resolved, service restored"
 ```
 
@@ -656,25 +630,25 @@ railway scale --service backend --replicas 2
 ## Quick Reference Commands
 
 ```bash
-# Deploy to production
-make deploy-production
+# Deploy to production (push to main triggers Render.com auto-deploy)
+git push origin main
 
 # Check health
 make health
 
-# View logs
-railway logs --service backend
-railway logs --service frontend
-
-# Scale services
-railway scale --service backend --replicas 2
+# View logs (Render Dashboard or GitHub Actions)
+gh run list
+# Or: Render Dashboard → Service → Logs
 
 # Database backup
 ./scripts/backup.sh
 
-# Rollback
-git checkout [previous-commit]
-make deploy-production
+# Rollback (use Render Dashboard → Deploys → Rollback)
+# Or via Git:
+git revert HEAD && git push origin main
+
+# Trigger price-sync manually
+gh workflow run price-sync.yml
 
 # Monitor
 make grafana  # Open dashboards
@@ -692,7 +666,7 @@ make metrics  # View key metrics
 
 ---
 
-**Last Updated**: 2026-02-06
+**Last Updated**: 2026-02-23
 **Deployment Status**: Ready for beta
 **Current Users**: 0 (pre-launch)
 **Target Users**: 50+ (week 1)

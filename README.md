@@ -17,7 +17,7 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 
 | Layer          | Technologies                                                  |
 |----------------|---------------------------------------------------------------|
-| Backend        | FastAPI, Python 3.12, Redis, Celery                           |
+| Backend        | FastAPI, Python 3.12 (3.11 in CI), Redis, Celery              |
 | Frontend       | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts      |
 | Database       | Neon PostgreSQL (production), TimescaleDB (local dev)          |
 | ML / Data      | TensorFlow, XGBoost, PuLP, scikit-learn                       |
@@ -81,7 +81,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (338 tests)
+### Backend (491 tests)
 
 ```bash
 source .venv/bin/activate
@@ -91,7 +91,7 @@ pytest tests/ -v
 
 > **Important:** Always use the project venv at `.venv/`. System Python is missing required dependencies (fastapi, httpx, pydantic, pytest-asyncio).
 
-### Frontend (77 tests, 7 suites)
+### Frontend (224 tests, 14 suites)
 
 ```bash
 cd frontend

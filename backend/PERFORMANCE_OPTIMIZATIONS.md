@@ -134,10 +134,6 @@ gunicorn -c gunicorn_config.py main:app
    # Redis (optional but recommended)
    REDIS_URL=redis://...
 
-   # Supabase (optional)
-   SUPABASE_URL=https://...
-   SUPABASE_SERVICE_KEY=...
-
    # Auth
    JWT_SECRET=<strong-random-secret>
 

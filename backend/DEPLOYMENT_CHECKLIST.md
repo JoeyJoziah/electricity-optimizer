@@ -35,8 +35,6 @@
 
 ### 4. Environment Variables (Optional)
 
-- [ ] `SUPABASE_URL=https://...`
-- [ ] `SUPABASE_SERVICE_KEY=...`
 - [ ] `SENTRY_DSN=https://...` (skip to save 15MB RAM)
 
 ### 5. Health Check Configuration
@@ -56,7 +54,7 @@
 ### 2. Database Connectivity
 
 - [ ] Check ready endpoint: `curl https://your-app.onrender.com/health/ready`
-- [ ] Verify all database checks pass (redis, timescaledb, supabase)
+- [ ] Verify all database checks pass (redis, timescaledb, neon postgresql)
 
 ### 3. Performance Metrics
 

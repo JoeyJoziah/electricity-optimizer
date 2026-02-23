@@ -22,35 +22,31 @@ This document describes the infrastructure architecture, service dependencies, a
                               +--------+---------+
                                        |
                               +--------+---------+
-                              |    Load Balancer |
-                              |    (Nginx/Traefik)|
+                              |   Render.com     |
+                              |   (Hosting)      |
                               +--------+---------+
                                        |
                     +------------------+------------------+
                     |                                     |
            +--------+--------+                   +--------+--------+
            |    Frontend     |                   |    Backend API   |
-           |   (Next.js 14)  |                   |   (FastAPI)      |
+           |   (Next.js)     |                   |   (FastAPI)      |
            |   Port: 3000    |                   |   Port: 8000     |
            +--------+--------+                   +--------+--------+
                     |                                     |
                     |              +----------------------+
                     |              |                      |
            +--------+--------+    +--------+--------+    +--------+--------+
-           |    Supabase     |    |   TimescaleDB   |    |     Redis       |
-           |   (Managed)     |    |   Port: 5432    |    |   Port: 6379    |
-           +--------+--------+    +--------+--------+    +--------+--------+
-                                           |
-                              +------------+------------+
-                              |                         |
-                     +--------+--------+       +--------+--------+
-                     | Airflow Web     |       | Airflow         |
-                     | Port: 8080      |       | Scheduler       |
-                     +-----------------+       +-----------------+
-                              |
-                     +--------+--------+
-                     | Celery Workers  |
-                     +-----------------+
+           | Neon PostgreSQL |    |   TimescaleDB   |    |     Redis       |
+           |  (Serverless)   |    |  (local dev)    |    |   Port: 6379    |
+           +-----------------+    +--------+--------+    +--------+--------+
+
+           +-------------GitHub Actions------------------+
+           |                                              |
+           |  price-sync, CI/CD, scheduled workflows      |
+           |  (replaces Airflow -- removed 2026-02-12)    |
+           |                                              |
+           +----------------------------------------------+
 
            +------------------Monitoring------------------+
            |                                              |
@@ -75,19 +71,15 @@ This document describes the infrastructure architecture, service dependencies, a
 | redis | redis:7-alpine | 6379 | Caching and message queue |
 | timescaledb | timescale/timescaledb:pg15 | 5432 | Time-series database |
 
-### Airflow Services
+### Scheduling (GitHub Actions)
 
-| Service | Image | Port | Purpose |
-|---------|-------|------|---------|
-| airflow-webserver | custom (airflow) | 8080 | Airflow UI |
-| airflow-scheduler | custom (airflow) | - | DAG scheduling |
-| postgres-airflow | postgres:15-alpine | 5432 | Airflow metadata |
+Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflows/`), replacing the previously used Airflow setup (removed 2026-02-12).
 
-### Background Workers
-
-| Service | Image | Purpose |
-|---------|-------|---------|
-| celery-worker | custom (backend) | Async task processing |
+| Workflow | Schedule | Purpose |
+|----------|----------|---------|
+| price-sync.yml | Cron | Electricity price data ingestion |
+| ci.yml | On push/PR | Test suite (Python 3.11, Node 20, PostgreSQL 15, Redis 7) |
+| deploy.yml | On release | Production deployment to Render.com |
 
 ### Monitoring Services
 
@@ -118,7 +110,6 @@ All services communicate over the internal Docker bridge network. Only the follo
 |------|---------|--------|
 | 3000 | Frontend | Public |
 | 8000 | Backend API | Public |
-| 8080 | Airflow | Internal/VPN |
 | 3001 | Grafana | Internal/VPN |
 | 9090 | Prometheus | Internal only |
 
@@ -141,17 +132,15 @@ Services discover each other using Docker DNS:
 | frontend | 0.5 | 256MB | 0.1 | 128MB |
 | redis | 0.25 | 128MB | 0.1 | 64MB |
 | timescaledb | 1.0 | 1GB | 0.25 | 512MB |
-| airflow-webserver | 0.5 | 512MB | 0.1 | 256MB |
-| airflow-scheduler | 0.5 | 512MB | 0.1 | 256MB |
-| celery-worker | 0.5 | 256MB | 0.1 | 128MB |
 | prometheus | 0.25 | 256MB | 0.1 | 128MB |
 | grafana | 0.25 | 256MB | 0.1 | 128MB |
 
 ### Total Production Requirements
 
-- **Minimum**: 2 CPU cores, 4GB RAM
-- **Recommended**: 4 CPU cores, 8GB RAM
+- **Minimum**: 1 CPU core, 2GB RAM (scheduling offloaded to GitHub Actions)
+- **Recommended**: 2 CPU cores, 4GB RAM
 - **Storage**: 50GB SSD (for databases and logs)
+- **Database**: Neon PostgreSQL serverless (managed, no local resource cost in production)
 
 ---
 
@@ -220,12 +209,6 @@ Pre-configured dashboards:
 docker compose up -d --scale backend=3
 ```
 
-#### Celery Workers
-```bash
-# Scale workers for heavy workloads
-docker compose up -d --scale celery-worker=4
-```
-
 ### Vertical Scaling
 
 Update resource limits in `docker-compose.prod.yml`:
@@ -244,7 +227,6 @@ deploy:
 |-----------|--------|
 | API latency > 500ms sustained | Scale backend horizontally |
 | CPU > 80% sustained | Scale vertically or horizontally |
-| Queue backlog growing | Scale Celery workers |
 | DB connections > 80% | Increase connection pool |
 
 ---
@@ -257,22 +239,22 @@ deploy:
 
 | Component | Estimated Cost | Notes |
 |-----------|----------------|-------|
-| Supabase | $0 (free tier) | Up to 500MB storage |
-| Self-hosted (VPS) | $20-40 | 4GB RAM, 2 vCPU |
+| Neon PostgreSQL | $0 (free tier) | Serverless, 0.5 GB storage |
+| Render.com | $15-35 | Backend + frontend services (render.yaml) |
 | Domain + SSL | $0-10 | Let's Encrypt for SSL |
-| **Total** | **$20-50** | Under budget |
+| **Total** | **$15-45** | Under $50/month budget |
 
 ### Cost-Saving Strategies
 
 1. **Use Free Tiers**
-   - Supabase free tier for auth and database
-   - GitHub Actions free tier for CI/CD
+   - Neon PostgreSQL free tier for serverless database
+   - GitHub Actions free tier for CI/CD and scheduling
    - Let's Encrypt for SSL certificates
 
 2. **Self-Host Where Possible**
    - Run Prometheus/Grafana locally
    - Use Redis as cache (no managed service)
-   - TimescaleDB on same VPS
+   - TimescaleDB for local dev only (Neon in production)
 
 3. **Resource Optimization**
    - Aggressive caching (5-min TTL)
@@ -340,12 +322,12 @@ deploy:
 
 ### Access Control
 
-- Airflow/Grafana behind VPN or IP whitelist
-- JWT authentication for API
+- Grafana behind VPN or IP whitelist
+- JWT authentication for API (PyJWT with Redis-backed token revocation)
 - Role-based access control
 - API documentation (Swagger/ReDoc) disabled in production
 - Price refresh endpoint requires API key authentication
 
 ---
 
-**Last Updated**: 2026-02-10
+**Last Updated**: 2026-02-23

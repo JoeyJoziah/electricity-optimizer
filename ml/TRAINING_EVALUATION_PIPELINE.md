@@ -295,7 +295,7 @@ if backtest_results.overall_mape < 10.0:
 ### Complete End-to-End Flow
 
 ```
-1. Data Collection (Airflow)
+1. Data Collection (GitHub Actions)
    └─> electricity_price_ingestion.py (every 15 min)
         ├─> Fetch from Flatpeak, NREL, IEA
         ├─> Aggregate & clean
@@ -306,7 +306,7 @@ if backtest_results.overall_mape < 10.0:
         └─> Generate 73 features
 
 3. Model Training (Weekly/Monthly)
-   └─> model_retraining.py (Airflow DAG)
+   └─> model_retraining.py (GitHub Actions workflow)
         ├─> Load latest 2 years data
         ├─> Hyperparameter tuning (50 trials)
         ├─> Train best model
@@ -320,7 +320,7 @@ if backtest_results.overall_mape < 10.0:
         └─> /predict/savings → Cost estimation
 
 5. Performance Monitoring
-   └─> forecast_accuracy.py (Airflow DAG)
+   └─> forecast_accuracy.py (GitHub Actions workflow)
         ├─> Compare forecasts vs actuals
         ├─> Calculate MAPE, MAE, RMSE
         ├─> Alert if degradation detected

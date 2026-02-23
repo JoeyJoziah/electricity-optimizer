@@ -12,13 +12,13 @@ Clients (Next.js, GitHub Actions, Stripe)
   -> [API Layer] Routers + Pydantic models
   -> [Service Layer] PriceService, StripeService, AlertService, VectorStore
   -> [Repository Layer] SQLAlchemy ORM (async)
-  -> [Data Stores] Neon PostgreSQL | Redis | Supabase (optional) | SQLite (vectors)
+  -> [Data Stores] Neon PostgreSQL | Redis | SQLite (vectors)
 ```
 
 ### 1.2 Tech Stack
 
 FastAPI + Uvicorn, Python 3.10+, SQLAlchemy 2.x async + asyncpg, Pydantic v2,
-python-jose JWT (HS256), Neon PostgreSQL, Redis (aioredis), Stripe SDK, NumPy/Pandas
+PyJWT (HS256), Neon PostgreSQL, Redis (aioredis), Stripe SDK, NumPy/Pandas
 CNN-LSTM ensemble, Prometheus + Sentry + structlog, SendGrid/SMTP email.
 
 ### 1.3 Route Registration (main.py)
@@ -39,7 +39,7 @@ Auth: `none`=public, `jwt`=Bearer, `api-key`=X-API-Key header.
 |--------|------|------|---------|
 | GET | `/` | none | API metadata; hides `/docs` link in prod |
 | GET | `/health` | none | `{ status, version, environment, uptime_seconds, database_status }` |
-| GET | `/health/ready` | none | Checks Redis + TimescaleDB + Supabase; 503 if any fail |
+| GET | `/health/ready` | none | Checks Redis + TimescaleDB + Neon PostgreSQL; 503 if any fail |
 | GET | `/health/live` | none | `{ status: "alive" }` |
 | GET | `/metrics` | none | Prometheus ASGI sub-app |
 
@@ -219,7 +219,7 @@ require_scope(name): get_current_user -> check scope in scopes | 403
 | Category | Variables |
 |----------|----------|
 | App | `ENVIRONMENT`, `BACKEND_PORT`, `CORS_ORIGINS` |
-| Database | `DATABASE_URL` / `TIMESCALEDB_URL`, `SUPABASE_URL/ANON_KEY/SERVICE_KEY` |
+| Database | `DATABASE_URL` / `TIMESCALEDB_URL` |
 | Cache | `REDIS_URL`, `REDIS_PASSWORD` |
 | Auth | `JWT_SECRET` (min 32 chars prod), `JWT_ALGORITHM`, `INTERNAL_API_KEY` |
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO/BUSINESS` |

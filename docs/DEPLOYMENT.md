@@ -23,8 +23,9 @@ This guide covers how to deploy the Electricity Optimizer platform in different 
 
 ### Required Accounts
 
-- **Supabase**: For managed PostgreSQL and authentication
+- **Neon**: For serverless PostgreSQL (project: holy-pine-81107663)
 - **GitHub**: For CI/CD and container registry
+- **Render.com**: For backend and frontend hosting
 
 ### API Keys
 
@@ -85,7 +86,6 @@ make health
 | Frontend | http://localhost:3000 | - |
 | Backend API | http://localhost:8000 | - |
 | API Docs | http://localhost:8000/docs | Dev only (disabled in production) |
-| Airflow | http://localhost:8080 | admin/admin |
 | Grafana | http://localhost:3001 | admin/GRAFANA_PASSWORD |
 | Prometheus | http://localhost:9090 | - |
 
@@ -257,14 +257,17 @@ docker compose exec redis redis-cli -a $REDIS_PASSWORD ping
 docker compose exec redis redis-cli -a $REDIS_PASSWORD INFO memory
 ```
 
-#### Airflow DAGs Not Running
+#### GitHub Actions Workflows Not Running
 
 ```bash
-# Check scheduler logs
-docker compose logs airflow-scheduler
+# Check workflow status
+gh run list --workflow=price-sync.yml
 
-# Trigger DAG manually
-docker compose exec airflow-webserver airflow dags trigger electricity_price_ingestion
+# Trigger workflow manually
+gh workflow run price-sync.yml
+
+# View workflow logs
+gh run view [run-id] --log
 ```
 
 ### Performance Issues
@@ -323,7 +326,7 @@ open http://localhost:3001
 Run manual backup:
 ```bash
 make backup
-make backup-full  # Include Airflow
+make backup-full  # Full backup of all databases
 ```
 
 ---
@@ -350,4 +353,4 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 ---
 
-**Last Updated**: 2026-02-06
+**Last Updated**: 2026-02-23
