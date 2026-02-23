@@ -27,7 +27,7 @@ jobs:
 
     services:
       postgres:
-        image: timescale/timescaledb:latest-pg15
+        image: postgres:15-alpine
         env:
           POSTGRES_PASSWORD: testpassword
           POSTGRES_DB: test_electricity
@@ -69,10 +69,7 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL_TEST }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY_TEST }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY_TEST }}
-          TIMESCALEDB_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
           FLATPEAK_API_KEY: test_key
@@ -166,8 +163,6 @@ jobs:
 
       - name: Build application
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_API_URL: http://localhost:8000
         run: |
           cd frontend
@@ -264,8 +259,6 @@ jobs:
           cache-to: type=gha,mode=max
           target: production
           build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             NEXT_PUBLIC_API_URL=http://backend:8000
 
   # ===========================================================================

@@ -103,10 +103,6 @@ class Settings(BaseSettings):
     sentry_dsn: Optional[str] = Field(default=None, validation_alias="SENTRY_DSN")
     prometheus_port: int = Field(default=9090, validation_alias="PROMETHEUS_PORT")
 
-    # Celery
-    celery_broker_url: Optional[str] = None
-    celery_result_backend: Optional[str] = None
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -154,15 +150,6 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",")]
         return v
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        # Set Celery URLs based on Redis
-        if not self.celery_broker_url:
-            self.celery_broker_url = self.redis_url
-        if not self.celery_result_backend:
-            self.celery_result_backend = self.redis_url
 
     @property
     def is_production(self) -> bool:

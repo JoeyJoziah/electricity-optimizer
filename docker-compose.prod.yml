@@ -15,12 +15,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Supabase
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      # Databases
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
+      # Database
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/electricity
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       # API Keys
@@ -38,7 +34,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      timescaledb:
+      postgres:
         condition: service_healthy
     deploy:
       resources:
@@ -73,8 +69,6 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
         - NEXT_PUBLIC_API_URL=${API_URL:-http://backend:8000}
     ports:
       - "3000:3000"
@@ -109,8 +103,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # Port not exposed on host in production - access via internal network only
     command: >
       redis-server
       --requirepass ${REDIS_PASSWORD}
@@ -142,17 +135,18 @@ services:
         max-size: "5m"
         max-file: "2"
 
-  timescaledb:
-    image: timescale/timescaledb:latest-pg15
-    ports:
-      - "5432:5432"
+  postgres:
+    image: postgres:15-alpine
+    # Port not exposed on host in production - access via internal network only
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=electricity
     volumes:
-      - timescale-data:/var/lib/postgresql/data
-      - ./scripts/init_timescaledb.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/migrations/init_neon.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./backend/migrations/002_gdpr_auth_tables.sql:/docker-entrypoint-initdb.d/02-gdpr.sql:ro
+      - ./backend/migrations/003_reconcile_schema.sql:/docker-entrypoint-initdb.d/03-reconcile.sql:ro
     deploy:
       resources:
         limits:
@@ -177,50 +171,11 @@ services:
         max-file: "3"
 
   # =============================================================================
-  # Background Workers
-  # =============================================================================
-
-  celery-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: production
-    command: celery -A tasks worker --loglevel=warning --concurrency=2
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - JWT_SECRET=${JWT_SECRET}
-      - ENVIRONMENT=production
-    depends_on:
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-
-  # =============================================================================
   # Monitoring Services
   # =============================================================================
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.51.0
     ports:
       - "9090:9090"
     volumes:
@@ -250,7 +205,7 @@ services:
         max-file: "2"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.4.1
     ports:
       - "3001:3000"
     environment:
@@ -284,7 +239,7 @@ services:
 
   # Node exporter for system metrics
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.7.0
     ports:
       - "9100:9100"
     volumes:
@@ -306,7 +261,7 @@ services:
 
   # Redis exporter
   redis-exporter:
-    image: oliver006/redis_exporter:latest
+    image: oliver006/redis_exporter:v1.58.0
     ports:
       - "9121:9121"
     environment:
@@ -326,13 +281,13 @@ services:
 
   # PostgreSQL exporter
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.15.0
     ports:
       - "9187:9187"
     environment:
-      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/electricity?sslmode=disable
     depends_on:
-      timescaledb:
+      postgres:
         condition: service_healthy
     deploy:
       resources:
@@ -359,8 +314,8 @@ networks:
 volumes:
   redis-data:
     name: electricity-optimizer-redis-prod
-  timescale-data:
-    name: electricity-optimizer-timescale-prod
+  postgres-data:
+    name: electricity-optimizer-postgres-prod
   prometheus-data:
     name: electricity-optimizer-prometheus-prod
   grafana-data:

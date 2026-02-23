@@ -141,22 +141,6 @@ class TestSettings:
             assert settings.is_development is True
             assert settings.is_production is False
 
-    def test_celery_urls_default_to_redis(self):
-        """Test Celery URLs default to Redis URL"""
-        from config.settings import Settings
-
-        with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-            "REDIS_URL": "redis://custom-redis:6379"
-        }):
-            settings = Settings()
-
-            assert settings.celery_broker_url == "redis://custom-redis:6379"
-            assert settings.celery_result_backend == "redis://custom-redis:6379"
-
     def test_api_prefix_default(self):
         """Test API prefix has correct default"""
         from config.settings import Settings

@@ -1,40 +1,8 @@
 /**
- * Supabase Client Configuration
+ * Authentication Client
  *
- * Sets up Supabase client for authentication in the frontend.
+ * Auth utility functions using the custom backend JWT endpoints.
  */
-
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
-
-// Environment variables for Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-// Validate environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase environment variables not configured')
-}
-
-// Create Supabase client singleton
-let supabaseClient: SupabaseClient | null = null
-
-export function getSupabaseClient(): SupabaseClient {
-  if (!supabaseClient && supabaseUrl && supabaseAnonKey) {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      },
-    })
-  }
-
-  return supabaseClient as SupabaseClient
-}
-
-// Export singleton for convenience
-export const supabase = typeof window !== 'undefined' ? getSupabaseClient() : null
 
 // Auth helper types
 export interface AuthUser {

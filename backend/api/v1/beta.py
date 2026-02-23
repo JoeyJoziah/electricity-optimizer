@@ -11,7 +11,11 @@ import hmac
 import secrets
 import re
 
+import structlog
+
 from api.dependencies import get_current_user, TokenData
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/beta", tags=["beta"])
 
@@ -51,7 +55,7 @@ def generate_beta_code() -> str:
 
 async def send_welcome_email(email: str, name: str, beta_code: str):
     """Send welcome email to beta user using HTML template via EmailService."""
-    print(f"Sending welcome email to {email} (name={name}, beta_code={beta_code})")
+    logger.info("sending_welcome_email", recipient=email)
 
     try:
         from services.email_service import EmailService
@@ -67,13 +71,13 @@ async def send_welcome_email(email: str, name: str, beta_code: str):
         success = await service.send(to=email, subject=subject, html_body=html_body)
 
         if success:
-            print(f"Welcome email sent to {email}")
+            logger.info("welcome_email_sent", recipient=email)
         else:
-            print(f"Email send returned false for {email} (no provider configured)")
+            logger.warning("welcome_email_skipped", recipient=email, reason="no provider configured")
 
     except Exception as e:
         # Don't crash the signup flow if email fails
-        print(f"Failed to send welcome email to {email}: {e}")
+        logger.error("welcome_email_failed", recipient=email, error=str(e))
 
     return True
 

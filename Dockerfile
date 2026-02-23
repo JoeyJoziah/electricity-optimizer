@@ -1,5 +1,5 @@
 # Builder stage
-FROM python:3.9-slim as builder
+FROM python:3.11-slim as builder
 
 WORKDIR /app/backend
 
@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # Runtime stage
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app/backend
 

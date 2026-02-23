@@ -15,16 +15,12 @@ supabase>=2.3,<3.0
 # Redis
 redis[hiredis]==5.0.1
 
-# Task Queue
-celery[redis]==5.3.6  # NOTE: Not currently active - no tasks module defined
-
 # HTTP Client (httpx version constrained by supabase)
 httpx>=0.24,<0.26
 aiohttp>=3.10,<4.0
 
 # Authentication & Security
 PyJWT[crypto]>=2.8,<3.0
-passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 bcrypt==4.1.2
 

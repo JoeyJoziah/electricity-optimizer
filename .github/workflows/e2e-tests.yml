@@ -24,7 +24,7 @@ jobs:
 
     services:
       postgres:
-        image: timescale/timescaledb:latest-pg15
+        image: postgres:15-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -81,7 +81,9 @@ jobs:
 
       - name: Set up database
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f backend/db/schema.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f backend/migrations/init_neon.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f backend/migrations/002_gdpr_auth_tables.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f backend/migrations/003_reconcile_schema.sql
         env:
           PGHOST: localhost
 
@@ -94,7 +96,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/electricity_test
           REDIS_URL: redis://localhost:6379/0
           ENVIRONMENT: test
-          JWT_SECRET_KEY: test_secret_key_for_ci
+          JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
 
       - name: Start frontend server
         run: |
@@ -194,7 +196,7 @@ jobs:
 
     services:
       postgres:
-        image: timescale/timescaledb:latest-pg15
+        image: postgres:15-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -251,7 +253,7 @@ jobs:
 
     services:
       postgres:
-        image: timescale/timescaledb:latest-pg15
+        image: postgres:15-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -286,7 +288,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/electricity_test
           REDIS_URL: redis://localhost:6379/0
           ENVIRONMENT: test
-          JWT_SECRET_KEY: test_secret_key_for_ci
+          JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
 
       - name: Run security tests
         run: |

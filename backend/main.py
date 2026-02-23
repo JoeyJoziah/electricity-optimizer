@@ -15,7 +15,6 @@ from prometheus_client import make_asgi_app
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import structlog
-import sys
 import time
 
 from config.settings import settings
@@ -158,7 +157,11 @@ MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024  # 1 MB
 
 
 class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
-    """Reject requests with Content-Length exceeding the configured limit."""
+    """Reject requests exceeding the configured body size limit.
+
+    Checks Content-Length header first (fast path), then enforces the limit
+    on the actual body stream to handle chunked transfer encoding.
+    """
 
     async def dispatch(self, request: Request, call_next) -> Response:
         content_length = request.headers.get("content-length")
@@ -167,6 +170,17 @@ class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
                 status_code=413,
                 content={"detail": "Request body too large. Maximum size is 1 MB."},
             )
+
+        # For requests without Content-Length (chunked encoding), read and
+        # check the actual body size for methods that carry a body.
+        if request.method in ("POST", "PUT", "PATCH") and not content_length:
+            body = await request.body()
+            if len(body) > MAX_REQUEST_BODY_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large. Maximum size is 1 MB."},
+                )
+
         return await call_next(request)
 
 
@@ -212,7 +226,8 @@ async def add_process_time_header(request: Request, call_next):
 
     process_time = time.time() - start_time
     response.headers["X-Request-ID"] = request_id
-    response.headers["X-Process-Time"] = str(process_time)
+    if not settings.is_production:
+        response.headers["X-Process-Time"] = str(process_time)
 
     # Only log slow requests in production to reduce overhead
     if settings.is_production:
@@ -310,7 +325,6 @@ async def health_check():
         "version": settings.app_version,
         "environment": settings.environment,
         "uptime_seconds": round(uptime_seconds, 2),
-        "python_version": sys.version,
         "database_status": db_status,
     }
 
@@ -319,32 +333,25 @@ async def health_check():
 async def readiness_check():
     """Readiness check - verify all dependencies are available"""
     checks = {
+        "database": False,
         "redis": False,
-        "timescaledb": False,
-        "supabase": False
     }
+
+    # Check Database (Neon PostgreSQL)
+    try:
+        result = await db_manager._execute_raw_query("SELECT 1")
+        checks["database"] = len(result) > 0
+    except Exception as e:
+        logger.error("database_health_check_failed", error=str(e))
 
     # Check Redis
     try:
         redis = await db_manager.get_redis_client()
-        await redis.ping()
-        checks["redis"] = True
+        if redis:
+            await redis.ping()
+            checks["redis"] = True
     except Exception as e:
         logger.error("redis_health_check_failed", error=str(e))
-
-    # Check TimescaleDB
-    try:
-        result = await db_manager._execute_raw_query("SELECT 1")
-        checks["timescaledb"] = len(result) > 0
-    except Exception as e:
-        logger.error("timescaledb_health_check_failed", error=str(e))
-
-    # Check Supabase
-    try:
-        supabase = db_manager.get_supabase_client()
-        checks["supabase"] = supabase is not None
-    except Exception as e:
-        logger.error("supabase_health_check_failed", error=str(e))
 
     all_healthy = all(checks.values())
     status_code = status.HTTP_200_OK if all_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
@@ -368,8 +375,20 @@ async def liveness_check():
 # METRICS
 # ============================================================================
 
-# Mount Prometheus metrics endpoint
+# Mount Prometheus metrics behind API key auth
 metrics_app = make_asgi_app()
+
+
+@app.middleware("http")
+async def protect_metrics(request: Request, call_next):
+    """Require API key for /metrics endpoint to prevent information leakage."""
+    if request.url.path.startswith("/metrics"):
+        api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+        if settings.internal_api_key and api_key != settings.internal_api_key:
+            return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+    return await call_next(request)
+
+
 app.mount("/metrics", metrics_app)
 
 

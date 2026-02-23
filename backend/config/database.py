@@ -15,7 +15,11 @@ from supabase import create_client, Client
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
+import structlog
+
 from config.settings import settings
+
+logger = structlog.get_logger()
 
 
 # SQLAlchemy Base for ORM models
@@ -41,7 +45,7 @@ class DatabaseManager:
     async def _init_supabase(self):
         """Initialize Supabase client (optional for local dev)"""
         if not settings.supabase_url or not settings.supabase_service_key:
-            print("ℹ️  Supabase not configured - skipping (optional for local dev)")
+            logger.info("supabase_not_configured")
             return
 
         try:
@@ -49,18 +53,18 @@ class DatabaseManager:
                 settings.supabase_url,
                 settings.supabase_service_key
             )
-            print("✅ Supabase client initialized")
+            logger.info("supabase_initialized")
         except Exception as e:
-            print(f"⚠️  Failed to initialize Supabase: {e}")
+            logger.warning("supabase_init_failed", error=str(e))
             if settings.is_production:
                 raise
-            print("ℹ️  Continuing without Supabase (development mode)")
+            logger.info("continuing_without_supabase", environment=settings.environment)
 
     async def _init_timescaledb(self):
         """Initialize database connection pool (TimescaleDB or Neon PostgreSQL)"""
         db_url = settings.effective_database_url
         if not db_url:
-            print("Database not configured - skipping (set DATABASE_URL or TIMESCALEDB_URL)")
+            logger.info("database_not_configured")
             return
 
         try:
@@ -111,19 +115,19 @@ class DatabaseManager:
                         max_inactive_connection_lifetime=300  # Close idle connections after 5 min
                     )
                 except Exception as pool_err:
-                    print(f"asyncpg pool unavailable ({pool_err}), using SQLAlchemy only")
+                    logger.warning("asyncpg_pool_unavailable", error=str(pool_err))
 
-            print("Database connection pool initialized")
+            logger.info("database_pool_initialized")
         except Exception as e:
-            print(f"Failed to initialize database: {e}")
+            logger.error("database_init_failed", error=str(e))
             if settings.is_production:
                 raise
-            print("Continuing without database (development mode)")
+            logger.info("continuing_without_database", environment=settings.environment)
 
     async def _init_redis(self):
         """Initialize Redis connection"""
         if not settings.redis_url:
-            print("Redis not configured - skipping")
+            logger.info("redis_not_configured")
             return
 
         try:
@@ -142,27 +146,27 @@ class DatabaseManager:
             # Test connection
             await self.redis_client.ping()
 
-            print("Redis connection initialized")
+            logger.info("redis_initialized")
         except Exception as e:
-            print(f"Failed to initialize Redis: {e}")
+            logger.error("redis_init_failed", error=str(e))
             if settings.is_production:
                 raise
-            print("Continuing without Redis (development mode)")
+            logger.info("continuing_without_redis", environment=settings.environment)
             self.redis_client = None
 
     async def close(self):
         """Close all database connections"""
         if self.timescale_pool:
             await self.timescale_pool.close()
-            print("🔌 TimescaleDB pool closed")
+            logger.info("database_pool_closed")
 
         if self.timescale_engine:
             await self.timescale_engine.dispose()
-            print("🔌 TimescaleDB engine disposed")
+            logger.info("database_engine_disposed")
 
         if self.redis_client:
             await self.redis_client.close()
-            print("🔌 Redis connection closed")
+            logger.info("redis_connection_closed")
 
     @asynccontextmanager
     async def get_timescale_session(self):
