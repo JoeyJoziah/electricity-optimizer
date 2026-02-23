@@ -71,7 +71,7 @@
 - Model retraining via model-retrain.yml workflow
 - Weather-aware forecasting via WeatherService integration
 
-**Test Coverage**: 143 tests, 80%+ coverage, all passing ✅
+**Test Coverage**: 143 tests (included in the 491 backend test count), 80%+ coverage, all passing ✅
 
 ---
 

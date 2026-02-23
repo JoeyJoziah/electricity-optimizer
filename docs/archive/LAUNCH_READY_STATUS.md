@@ -1,3 +1,5 @@
+> **ARCHIVED** — This document is from 2026-02-08 and contains outdated information (test counts, technology references). For current status, see [FINAL_STATUS.md](../../FINAL_STATUS.md) and [PROJECT_COMPLETE.md](../../PROJECT_COMPLETE.md).
+
 # 🎉 LAUNCH READY: Electricity Optimizer MVP
 
 **Date**: 2026-02-08

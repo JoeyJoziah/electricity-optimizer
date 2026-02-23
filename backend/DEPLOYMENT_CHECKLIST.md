@@ -31,7 +31,7 @@
 ### 3. Environment Variables (Recommended)
 
 - [ ] `REDIS_URL=redis://...` (for caching - Upstash free tier works)
-- [ ] `CORS_ORIGINS=https://yourapp.vercel.app,https://yourdomain.com`
+- [ ] `CORS_ORIGINS=https://yourapp.onrender.com,https://yourdomain.com`
 
 ### 4. Environment Variables (Optional)
 
