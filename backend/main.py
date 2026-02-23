@@ -490,6 +490,15 @@ app.include_router(
     tags=["Billing"]
 )
 
+# Internal endpoints (observation + learning jobs, API-key protected)
+from api.v1 import internal as internal_v1
+
+app.include_router(
+    internal_v1.router,
+    prefix=f"{settings.api_prefix}/internal",
+    tags=["Internal"]
+)
+
 
 if __name__ == "__main__":
     import uvicorn

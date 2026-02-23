@@ -280,6 +280,56 @@ async def get_recommendation_service(
     return RecommendationService(price_service, user_repo)
 
 
+async def get_observation_service(
+    db=Depends(get_db_session),
+):
+    """
+    Get ObservationService instance.
+
+    Args:
+        db: Database session
+
+    Returns:
+        ObservationService instance
+    """
+    from services.observation_service import ObservationService
+    return ObservationService(db)
+
+
+def get_hnsw_vector_store():
+    """
+    Get HNSWVectorStore singleton instance.
+
+    Returns:
+        HNSWVectorStore instance
+    """
+    from services.hnsw_vector_store import HNSWVectorStore
+    return HNSWVectorStore()
+
+
+async def get_learning_service(
+    db=Depends(get_db_session),
+    redis=Depends(get_redis),
+):
+    """
+    Get LearningService instance.
+
+    Args:
+        db: Database session
+        redis: Redis client
+
+    Returns:
+        LearningService instance
+    """
+    from services.observation_service import ObservationService
+    from services.hnsw_vector_store import HNSWVectorStore
+    from services.learning_service import LearningService
+
+    obs = ObservationService(db)
+    vs = HNSWVectorStore()
+    return LearningService(obs, vs, redis)
+
+
 async def get_analytics_service(
     db=Depends(get_db_session),
     redis=Depends(get_redis)

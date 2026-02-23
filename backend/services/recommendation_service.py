@@ -13,6 +13,10 @@ from services.price_service import PriceService
 from repositories.user_repository import UserRepository
 from models.price import Price, PriceRegion
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 
 @dataclass
 class SwitchingRecommendation:
@@ -53,7 +57,8 @@ class RecommendationService:
     def __init__(
         self,
         price_service: PriceService,
-        user_repo: UserRepository
+        user_repo: UserRepository,
+        vector_store=None,
     ):
         """
         Initialize the recommendation service.
@@ -61,9 +66,11 @@ class RecommendationService:
         Args:
             price_service: Price service instance
             user_repo: User repository instance
+            vector_store: Optional HNSWVectorStore for pattern-based confidence
         """
         self._price_service = price_service
         self._user_repo = user_repo
+        self._vector_store = vector_store
 
     async def get_switching_recommendation(
         self,
@@ -338,6 +345,11 @@ class RecommendationService:
         if cheapest.price_per_kwh < current_price * Decimal("0.8"):
             reasons.append("Significant price difference detected")
 
+        confidence = 0.85 if potential_savings > Decimal("0.02") else 0.6
+
+        # Adjust confidence from historical patterns if vector store available
+        confidence = self._adjust_confidence_from_patterns(prices, confidence)
+
         return SwitchingRecommendation(
             user_id=user_id,
             current_supplier=current_supplier or "Unknown",
@@ -346,10 +358,40 @@ class RecommendationService:
             recommended_price=cheapest.price_per_kwh,
             potential_savings=potential_savings,
             savings_percentage=savings_percentage,
-            confidence=0.85 if potential_savings > Decimal("0.02") else 0.6,
+            confidence=confidence,
             reasons=reasons,
             generated_at=datetime.now(timezone.utc)
         )
+
+    def _adjust_confidence_from_patterns(
+        self,
+        prices: List[Price],
+        confidence: float,
+    ) -> float:
+        """Adjust recommendation confidence based on similar historical patterns."""
+        if not self._vector_store or not prices:
+            return confidence
+
+        try:
+            from services.vector_store import price_curve_to_vector
+            import numpy as np
+
+            price_values = [float(p.price_per_kwh) for p in prices[:24]]
+            price_vector = price_curve_to_vector(price_values)
+
+            similar = self._vector_store.search(
+                price_vector, domain="recommendation", k=3, min_similarity=0.7,
+            )
+
+            if similar and similar[0]["similarity"] > 0.9:
+                if similar[0]["confidence"] > 0.8:
+                    confidence = min(0.95, confidence + 0.1)
+                elif similar[0]["confidence"] < 0.4:
+                    confidence = max(0.3, confidence - 0.15)
+        except Exception as e:
+            _logger.debug("vector_confidence_adjustment_skipped", error=str(e))
+
+        return round(confidence, 2)
 
     def _compute_usage(
         self,

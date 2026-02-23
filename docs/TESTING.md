@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-23
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 500 (pytest)
+**Backend Tests**: 516 (pytest)
 **Frontend Tests**: 346 across 17 suites (Jest)
 **ML Tests**: 105 + 2 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
@@ -13,7 +13,7 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 500 | 85%+ | pytest |
+| **Backend Unit/Integration** | 516 | 85%+ | pytest |
 | **Frontend Component + Lib Tests** | 346 (17 suites) | 70%+ | Jest + RTL |
 | **ML Inference + Training** | 105 (+2 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
@@ -99,7 +99,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 500
+**Count**: 516
 **Coverage Target**: 85%+
 
 **Test Files**:

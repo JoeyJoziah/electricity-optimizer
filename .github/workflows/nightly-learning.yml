@@ -1,0 +1,19 @@
+name: Nightly Learning Cycle
+
+on:
+  schedule:
+    # Run daily at 4 AM UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run adaptive learning cycle
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"regions": ["US"], "days": 7}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/learn" || exit 1

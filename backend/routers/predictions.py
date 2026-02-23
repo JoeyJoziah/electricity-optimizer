@@ -18,6 +18,7 @@ import asyncio
 
 from config.database import get_redis, get_timescale_session
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import uuid4
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -321,6 +322,30 @@ async def generate_price_forecast(
                     await redis.set("model:last_updated", datetime.now(timezone.utc).isoformat())
             except Exception:
                 pass
+
+            # Record forecast observation (fire-and-forget)
+            try:
+                from services.observation_service import ObservationService
+                obs = ObservationService(session)
+                forecast_id = str(uuid4())
+                pred_dicts = [
+                    {
+                        "timestamp": p.timestamp,
+                        "predicted_price": p.predicted_price,
+                        "confidence_lower": p.confidence_lower,
+                        "confidence_upper": p.confidence_upper,
+                    }
+                    for p in predictions
+                ]
+                model_ver = getattr(model, "version", None) or "unknown"
+                await obs.record_forecast(
+                    forecast_id=forecast_id,
+                    region=region,
+                    predictions=pred_dicts,
+                    model_version=model_ver,
+                )
+            except Exception as obs_err:
+                logger.warning("forecast_observation_failed", error=str(obs_err))
 
             return predictions
 

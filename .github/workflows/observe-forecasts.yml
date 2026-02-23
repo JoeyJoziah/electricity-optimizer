@@ -1,0 +1,19 @@
+name: Observe Forecast Actuals
+
+on:
+  schedule:
+    # Run 30 minutes after price-sync (which runs at 0 */6 * * *)
+    - cron: "30 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backfill actual prices into forecast observations
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/observe-forecasts" || exit 1

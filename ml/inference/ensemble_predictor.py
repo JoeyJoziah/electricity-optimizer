@@ -66,7 +66,38 @@ class EnsemblePredictor:
         self._load_metadata()
 
     def _load_weights(self) -> Dict[str, Dict]:
-        """Load weights from metadata or use defaults."""
+        """Load weights from Redis (set by LearningService), metadata file, or defaults."""
+        # Try Redis first (dynamic weights from nightly learning)
+        try:
+            import json as _json
+            redis_weights = self._load_weights_from_redis()
+            if redis_weights:
+                logger.info("ensemble_weights_loaded_from_redis")
+                return redis_weights
+        except Exception:
+            pass
+
+        return self._load_weights_from_file()
+
+    @staticmethod
+    def _load_weights_from_redis() -> Optional[Dict[str, Dict]]:
+        """Try to load ensemble weights from Redis (sync, for startup)."""
+        try:
+            import redis as _redis
+            r = _redis.from_url(
+                os.environ.get("REDIS_URL", "redis://localhost:6379"),
+                decode_responses=True,
+            )
+            cached = r.get("model:ensemble_weights")
+            if cached:
+                import json as _json
+                return _json.loads(cached)
+        except Exception:
+            pass
+        return None
+
+    def _load_weights_from_file(self) -> Dict[str, Dict]:
+        """Load weights from metadata.yaml or use defaults."""
         metadata_path = os.path.join(self.model_path, "metadata.yaml")
 
         if os.path.exists(metadata_path):
