@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-23 (multi-utility expansion)
+> Last updated: 2026-02-23 (Post-auth hardening: recommendations wired, test ordering fixed)
 
 ## Directory Structure
 
@@ -23,10 +23,10 @@ backend/
 │       ├── suppliers.py             # Supplier listing, comparison, tariffs (DB-backed via SupplierRegistryRepository)
 │       ├── regulations.py           # State regulation data (deregulation status, PUC info)
 │       ├── billing.py               # Stripe checkout, portal, webhook, subscription
-│       ├── auth.py                  # Signup, signin, OAuth, magic link, token refresh
+│       ├── auth.py                  # GET /me + POST /password/check-strength (Neon Auth)
 │       ├── beta.py                  # Beta signup + welcome email
 │       ├── compliance.py            # GDPR consent, data export, data deletion
-│       ├── recommendations.py       # Switching & usage recommendations (stub)
+│       ├── recommendations.py       # Switching, usage, & daily recommendations (wired to RecommendationService)
 │       ├── user.py                  # User preferences (stub)
 │       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats
 │
@@ -60,10 +60,10 @@ backend/
 │   └── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
 │
 ├── auth/
-│   ├── jwt_handler.py               # JWT create/verify/revoke (Redis-backed blacklist)
+│   ├── neon_auth.py                 # Neon Auth session validation (queries neon_auth schema)
+│   ├── jwt_handler.py               # JWT create/verify/revoke (Redis-backed blacklist, legacy)
 │   ├── middleware.py                 # get_current_user, require_permission dependencies
-│   ├── password.py                  # Password validation, strength check, PBKDF2 hashing
-│   └── supabase_auth.py             # Supabase Auth: signup, signin, OAuth, magic link
+│   └── password.py                  # Password validation, strength check, PBKDF2 hashing
 │
 ├── compliance/
 │   ├── gdpr.py                      # GDPRComplianceService, DataRetentionService
@@ -100,7 +100,7 @@ backend/
 │   └── price_alert.html             # Jinja2 price alert notification
 │
 └── tests/
-    ├── conftest.py                  # Shared fixtures
+    ├── conftest.py                  # Shared fixtures (mock_sqlalchemy_select, reset_rate_limiter)
     ├── test_api.py                  # API endpoint tests
     ├── test_api_beta.py             # Beta API endpoint tests
     ├── test_api_billing.py          # Billing/Stripe endpoint tests (33 tests)
@@ -116,7 +116,7 @@ backend/
     ├── test_repositories.py         # Repository tests
     ├── test_integrations.py         # Pricing API integration tests
     ├── test_security.py             # Security hardening tests
-    ├── test_security_adversarial.py # Adversarial security tests (46 tests)
+    ├── test_security_adversarial.py # Adversarial security tests (42 tests)
     ├── test_alert_service.py        # Alert service tests
     ├── test_stripe_service.py       # Stripe service tests
     ├── test_vector_store.py         # Vector store tests (VectorStore + HNSWVectorStore)
@@ -211,25 +211,21 @@ status, PUC contact info, licensing requirements, and comparison tool URLs.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/signup` | None | Create account (12+ char password required) |
-| POST | `/signin` | None | Email/password sign-in (sets refresh_token cookie) |
-| POST | `/signin/oauth` | None | Initiate OAuth flow (google, github, apple...) |
-| POST | `/signin/magic-link` | None | Send passwordless magic link |
-| POST | `/signout` | JWT | Sign out + revoke tokens |
-| POST | `/refresh` | None | Refresh access token (body or cookie) |
-| GET | `/me` | JWT | Current user info |
+| GET | `/me` | Session | Current user info (Neon Auth session validation) |
 | POST | `/password/check-strength` | None | Password strength assessment |
 
-**Redirect URL validation:** OAuth and magic-link endpoints validate `redirect_url`
-against an allowlist of domains (localhost, electricity-optimizer.app/vercel.app).
+**Auth provider:** Neon Auth (Better Auth) — managed by the frontend via `/api/auth/[...all]`
+API route. Sign-up, sign-in, sign-out, OAuth (Google/GitHub), magic link, and password reset
+are all handled by the Better Auth SDK on the frontend. The backend only validates sessions
+by querying the `neon_auth.session` + `neon_auth.user` tables directly.
 
 ### Billing (`/api/v1/billing`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/checkout` | JWT | Create Stripe Checkout session (pro/business) |
-| POST | `/portal` | JWT | Create Stripe Customer Portal session |
-| GET | `/subscription` | JWT | Get current subscription status |
+| POST | `/checkout` | Session | Create Stripe Checkout session (pro/business) |
+| POST | `/portal` | Session | Create Stripe Customer Portal session |
+| GET | `/subscription` | Session | Get current subscription status |
 | POST | `/webhook` | Stripe sig | Handle Stripe webhook events |
 
 **Tiers:** Free ($0), Pro ($4.99/mo), Business ($14.99/mo).
@@ -239,20 +235,20 @@ against an allowlist of domains (localhost, electricity-optimizer.app/vercel.app
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/consent` | JWT | Record consent decision (GDPR Art. 6, 7) |
-| GET | `/gdpr/consents` | JWT | Get consent history |
-| GET | `/gdpr/consents/status` | JWT | Current consent status per purpose |
-| GET | `/gdpr/export` | JWT | Export all user data (GDPR Art. 15, 20) |
-| DELETE | `/gdpr/delete-my-data` | JWT | Delete all user data (GDPR Art. 17) |
-| POST | `/gdpr/withdraw-all-consents` | JWT | Withdraw all consents (GDPR Art. 21) |
+| POST | `/consent` | Session | Record consent decision (GDPR Art. 6, 7) |
+| GET | `/gdpr/consents` | Session | Get consent history |
+| GET | `/gdpr/consents/status` | Session | Current consent status per purpose |
+| GET | `/gdpr/export` | Session | Export all user data (GDPR Art. 15, 20) |
+| DELETE | `/gdpr/delete-my-data` | Session | Delete all user data (GDPR Art. 17) |
+| POST | `/gdpr/withdraw-all-consents` | Session | Withdraw all consents (GDPR Art. 21) |
 
 ### Beta (`/api/v1/beta`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/signup` | None | Beta registration + welcome email |
-| GET | `/signups/count` | JWT | Beta signup count vs target |
-| GET | `/signups/stats` | JWT | Signup stats (by supplier/source/bill) |
+| GET | `/signups/count` | Session | Beta signup count vs target |
+| GET | `/signups/stats` | Session | Signup stats (by supplier/source/bill) |
 | POST | `/verify-code` | None | Verify beta access code |
 
 ### Internal (`/api/v1/internal`)
@@ -269,10 +265,11 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/recommendations/switching` | JWT | Switching recommendation (stub) |
-| GET | `/recommendations/usage` | JWT | Usage timing recommendation (stub) |
-| GET | `/user/preferences` | JWT | Get user preferences (stub) |
-| POST | `/user/preferences` | JWT | Update user preferences (stub) |
+| GET | `/recommendations/switching` | Session | Switching recommendation (real RecommendationService) |
+| GET | `/recommendations/usage` | Session | Usage timing recommendation (real RecommendationService) |
+| GET | `/recommendations/daily` | Session | Daily combined recommendations (switching + usage) |
+| GET | `/user/preferences` | Session | Get user preferences (stub) |
+| POST | `/user/preferences` | Session | Update user preferences (stub) |
 
 ### Health / Meta (no prefix)
 
@@ -296,7 +293,7 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | App | `environment` (dev/staging/prod/test), `api_prefix`, `backend_port` |
 | Database | `database_url` |
 | Redis | `redis_url`, `redis_password` |
-| Auth | `jwt_secret` (validated: 32+ chars in prod), `jwt_algorithm` (HS256) |
+| Auth | `jwt_secret` (legacy, validated: 32+ chars in prod), `jwt_algorithm` (HS256). User auth via Neon Auth sessions |
 | API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `eia_api_key`, `openweathermap_api_key` |
 | Email | `sendgrid_api_key`, `smtp_host/port/username/password`, `email_from_address/name` |
 | Stripe | `stripe_secret_key`, `stripe_webhook_secret`, `stripe_price_pro`, `stripe_price_business` |
@@ -465,7 +462,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 |---------|-------------|---------|
 | `PriceService` | PriceRepository, Redis | Price queries, comparison, forecast, optimal windows |
 | `AnalyticsService` | PriceRepository | Trends, volatility, peak hours, supplier comparison |
-| `RecommendationService` | PriceService, UserRepository | Switching + usage recommendations |
+| `RecommendationService` | PriceService, UserRepository, HNSWVectorStore | Switching + usage recommendations (with pattern-based confidence adjustment) |
 | `AlertService` | EmailService | Threshold checking + alert emails |
 | `EmailService` | Settings | SendGrid primary, SMTP fallback, Jinja2 templates |
 | `StripeService` | Settings | Checkout, portal, subscriptions, webhooks |
@@ -496,18 +493,26 @@ Excluded from rate limiting: `/health`, `/health/live`, `/health/ready`, `/metri
 
 Two auth mechanisms:
 
-1. **JWT Bearer Token** (user auth):
-   - `get_current_user` dependency validates token via `jwt_handler.verify_token()`
-   - Checks revocation via Redis-backed JTI blacklist
+1. **Neon Auth Session** (user auth):
+   - `get_current_user` dependency in `auth/neon_auth.py` validates sessions
+   - Checks `better-auth.session_token` cookie or `Authorization: Bearer <token>` header
+   - Queries `neon_auth.session` + `neon_auth.user` tables directly via raw SQL
+   - Returns `SessionData(user_id, email, name)` on success
+   - Returns HTTP 401 if token invalid/expired, HTTP 503 if DB unavailable
    - `get_current_user_optional` returns `None` if missing/invalid
+   - `ensure_user_profile()` syncs new Neon Auth users to our `users` table on first API call
 
 2. **X-API-Key Header** (service-to-service):
    - `verify_api_key` dependency uses `hmac.compare_digest` (constant-time)
    - Validates against `settings.internal_api_key`
-   - Used by `/prices/refresh` endpoint (GitHub Actions)
+   - Used by `/prices/refresh` and `/internal/*` endpoints (GitHub Actions)
 
 **Authorization:** `require_permission(scope)`, `require_permissions([...])`,
 `require_any_permission([...])` factory functions for scope-based access control.
+
+**Legacy:** `jwt_handler.py` and `middleware.py` retained for backward compatibility
+but no longer used as primary auth. `TokenData` is aliased to `SessionData` in
+`api/dependencies.py`.
 
 
 ## Database (Neon PostgreSQL)
@@ -602,7 +607,7 @@ GitHub Actions -> POST /api/v1/prices/refresh (X-API-Key header)
 
 ```
 Client -> FastAPI (middleware: rate_limit -> security_headers -> CORS)
-  -> Router (JWT validation via get_current_user)
+  -> Router (Neon Auth session validation via get_current_user)
   -> Service layer (business logic)
   -> Repository (SQLAlchemy async + Redis cache)
   -> Neon PostgreSQL
@@ -658,7 +663,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 
 | Area | Implementation |
 |------|----------------|
-| JWT secrets | Validated in production (32+ chars, not default) |
+| Session auth | Neon Auth sessions validated via `neon_auth.session` table (httpOnly cookies) |
 | CORS | Origin regex scoped to `electricity-optimizer*` |
 | Rate limiting | Per-minute (100) + per-hour (1000), Redis sliding window |
 | Login lockout | 5 failed attempts -> 15 min lockout |
@@ -669,7 +674,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 | Validation errors | Input values stripped from 422 responses |
 | Production errors | Generic 500 messages (no stack traces) |
 | Headers | CSP, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy |
-| Token revocation | Redis JTI blacklist with auto-expiring TTL |
+| Token revocation | Neon Auth manages session expiry; Redis JTI blacklist retained for legacy |
 
 
 ## Test Commands
@@ -685,7 +690,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 555 passing (as of 2026-02-23), 23 test files. 23 known test-ordering failures (pass individually).
+**Test status:** 572 passing, 0 failures (as of 2026-02-23), 23 test files. Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation

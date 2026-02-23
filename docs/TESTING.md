@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-23
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 516 (pytest)
+**Backend Tests**: 572 (pytest)
 **Frontend Tests**: 346 across 17 suites (Jest)
 **ML Tests**: 105 + 2 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
@@ -13,7 +13,7 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 516 | 85%+ | pytest |
+| **Backend Unit/Integration** | 572 | 85%+ | pytest |
 | **Frontend Component + Lib Tests** | 346 (17 suites) | 70%+ | Jest + RTL |
 | **ML Inference + Training** | 105 (+2 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
@@ -70,7 +70,7 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (500 tests)
+# Backend tests (540 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
@@ -99,14 +99,14 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 516
+**Count**: 572
 **Coverage Target**: 85%+
 
 **Test Files**:
 - `test_api.py` - API endpoint tests
 - `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
 - `test_api_predictions.py` - ML prediction endpoint tests
-- `test_api_recommendations.py` - Recommendation endpoint tests
+- `test_api_recommendations.py` - Recommendation endpoint tests (20 tests)
 - `test_api_user.py` - User preference endpoint tests
 - `test_services.py` - Service layer tests
 - `test_repositories.py` - Data access tests
@@ -114,7 +114,7 @@ cd tests/load && ./run_load_test.sh quick
 - `test_integrations.py` - External API tests
 - `test_auth.py` - Authentication tests
 - `test_security.py` - Security tests
-- `test_security_adversarial.py` - Adversarial security tests (46 tests)
+- `test_security_adversarial.py` - Adversarial security tests (42 tests)
 - `test_gdpr_compliance.py` - GDPR compliance tests
 - `test_alert_service.py` - Alert service tests
 - `test_stripe_service.py` - Stripe service tests
@@ -194,7 +194,7 @@ npm run test:ci    # CI mode with coverage
 | Mobile Safari | iPhone 12 | 390x844 |
 
 **Skipped Tests**: ~75 per browser are skipped for unimplemented features:
-- Supabase auth (signIn/signUp use client directly, not mockable via route interception)
+- Better Auth (signIn/signUp use client directly, not mockable via route interception)
 - `/onboarding` page (not yet implemented)
 - Multi-step switching wizard testids (supplier-card-*, filter/sort testids)
 - Optimization testids (schedule-block-*, price-zone-*, optimization-score)
@@ -227,7 +227,7 @@ npx playwright show-report
 **Cross-Browser Notes**:
 - `isMobile` fixture is used to skip tests for mobile-hidden elements (e.g., realtime indicator has `hidden sm:flex`)
 - WebKit requires `click()` before `fill()` for React controlled inputs to trigger `onChange`
-- Mobile Safari has different error rendering for Supabase auth failures
+- Mobile Safari has different error rendering for auth failures
 
 ### 4. Load Tests
 
@@ -375,7 +375,7 @@ pytest tests/security/ -v
 | Python | 3.11 |
 | Node.js | 20 |
 | Runner | ubuntu-latest |
-| PostgreSQL | TimescaleDB on PG 15 |
+| PostgreSQL | PostgreSQL 15 |
 | Redis | 7 Alpine |
 
 ---
@@ -389,6 +389,8 @@ Backend fixtures are defined in `backend/tests/conftest.py`:
 - `mock_price_service` - Mocked price service
 - `sample_prices` - Sample price data
 - `auth_headers` - Authentication headers
+- `mock_sqlalchemy_select` (autouse) - Patches Pydantic model class attrs for SQLAlchemy expression compatibility. Uses manual `type.__setattr__` restoration to preserve FieldInfo descriptors
+- `reset_rate_limiter` (autouse) - Clears RateLimitMiddleware in-memory store between tests to prevent 429 accumulation
 
 ML fixtures are defined in `ml/tests/conftest.py`:
 - `sample_price_data` - Historical price data
@@ -397,8 +399,17 @@ ML fixtures are defined in `ml/tests/conftest.py`:
 
 ### Mock APIs
 
-E2E tests use Playwright's route mocking:
+E2E tests use Playwright's route mocking. Auth mocking uses a shared helper:
 ```typescript
+import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
+
+// Mock all Better Auth API routes (sign-in, get-session, sign-out, etc.)
+await mockBetterAuth(page, { signInShouldFail: false, sessionExpired: false })
+
+// Set authenticated cookie state directly
+await setAuthenticatedState(page)
+
+// Mock backend API routes
 await page.route('**/api/v1/prices/current**', async (route) => {
   await route.fulfill({
     status: 200,
@@ -511,7 +522,7 @@ open tests/load/reports/load_test_*.html
    - Verify: `which python` should show `.venv/bin/python`
 
 2. **Tests fail with database connection error**
-   - Ensure PostgreSQL is running: `docker compose up -d timescaledb`
+   - Ensure PostgreSQL is running: `docker compose up -d postgres`
    - Check DATABASE_URL environment variable
    - For local dev without a database, most tests use mocks
 
@@ -536,7 +547,7 @@ open tests/load/reports/load_test_*.html
 
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (555 backend, 346 frontend, 105 ML) remain unchanged with Loki Mode active. The pre-existing `test_model_info` ordering issue (23 tests that fail in full suite but pass individually) is also unaffected.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (572 backend, 346 frontend, 105 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 
@@ -579,7 +590,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 555 backend, 346 frontend, and 105 ML tests continue to pass with Loki Mode installed
+- All 572 backend, 346 frontend, and 105 ML tests continue to pass with Loki Mode installed
 
 ---
 

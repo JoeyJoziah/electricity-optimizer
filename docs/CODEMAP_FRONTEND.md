@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-23 (multi-utility expansion)
+**Last Updated:** 2026-02-23 (Post-auth hardening: E2E auth rewrite, Better Auth mocking)
 **Framework:** Next.js 14.1.0 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -12,6 +12,7 @@
 
 ```
 frontend/
+  middleware.ts                   # Route protection (redirects unauthenticated users)
   app/                          # Next.js App Router (pages + API routes)
     layout.tsx                  # Root layout: Inter font, QueryProvider, AuthProvider
     page.tsx                    # Landing page (/) - marketing, hero, features, pricing preview
@@ -26,6 +27,7 @@ frontend/
     privacy/page.tsx            # Privacy policy (/privacy)
     terms/page.tsx              # Terms of service (/terms)
     api/
+      auth/[...all]/route.ts    # Better Auth API handler (sign-in, sign-up, sign-out, OAuth, etc.)
       checkout/route.ts         # POST /api/checkout - proxies to backend billing/checkout
     (app)/                      # Route group: authenticated app pages (sidebar layout)
       layout.tsx                # App layout: Sidebar + flex main content
@@ -48,8 +50,8 @@ frontend/
     optimization/               # Empty directory (unused)
   components/
     auth/
-      LoginForm.tsx             # Email/password + OAuth (Google, GitHub) + magic link
-      SignupForm.tsx             # Registration form with OAuth options
+      LoginForm.tsx             # Email/password + OAuth (Google, GitHub) + magic link (legacy UI)
+      SignupForm.tsx             # Registration form with OAuth options (legacy UI)
     charts/
       ForecastChart.tsx         # ML forecast visualization (Recharts)
       PriceLineChart.tsx        # Price history line chart with time range selector
@@ -80,7 +82,8 @@ frontend/
       suppliers.ts              # Supplier API: getSuppliers, getRecommendation, compareSuppliers, initiateSwitch, getSwitchStatus
       optimization.ts           # Optimization API: getOptimalSchedule, saveAppliances, calculatePotentialSavings
     auth/
-      supabase.ts               # Auth utility functions (signIn, signUp, OAuth, magic link, token storage)
+      client.ts                 # Better Auth client (createAuthClient) — browser-side auth
+      server.ts                 # Better Auth server-side helpers
     hooks/
       useAuth.tsx               # AuthProvider context + useAuth, useRequireAuth, useAccessToken hooks
       usePrices.ts              # useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods, useRefreshPrices
@@ -111,6 +114,8 @@ frontend/
       format.test.ts            # Format utility tests (46 tests)
       calculations.test.ts      # Calculation utility tests (46 tests)
   e2e/                          # Playwright E2E tests (11 specs, 5 browser projects, 805 total)
+    helpers/
+      auth.ts                   # Better Auth mocking: mockBetterAuth, setAuthenticatedState, clearAuthState
   public/                       # Static assets (icons, etc.)
 ```
 
@@ -145,6 +150,7 @@ frontend/
 
 | Route | Method | File | Description |
 |-------|--------|------|-------------|
+| `/api/auth/*` | GET/POST | `app/api/auth/[...all]/route.ts` | Better Auth handler (sign-in, sign-up, sign-out, OAuth, session, etc.) |
 | `/api/checkout` | POST | `app/api/checkout/route.ts` | Proxy to backend Stripe checkout (requires auth header) |
 
 ### SEO / Meta
@@ -231,13 +237,8 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 | optimization | `/optimization/appliances` | GET/POST | Appliance management |
 | optimization | `/optimization/potential-savings` | POST | Optimize |
 | billing | `/billing/checkout` | POST | Checkout API route proxy |
-| auth | `/auth/signup` | POST | SignupForm |
-| auth | `/auth/signin` | POST | LoginForm |
-| auth | `/auth/signin/oauth` | POST | OAuth flow |
-| auth | `/auth/signin/magic-link` | POST | Magic link flow |
-| auth | `/auth/signout` | POST | Sign out |
-| auth | `/auth/refresh` | POST | Token refresh |
-| auth | `/auth/me` | GET | Get current user |
+| auth | `/api/auth/*` | GET/POST | Better Auth handles all auth flows (sign-in, sign-up, sign-out, OAuth, session) |
+| auth | `/auth/me` | GET | Get current user (backend) |
 
 ---
 
@@ -245,27 +246,29 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 
 ### Architecture
 
-- **Provider:** Custom JWT auth via backend API (`lib/auth/supabase.ts` utility functions)
-- **Context:** `AuthProvider` wraps the entire app in `app/layout.tsx`
-- **Token Storage:** localStorage (`auth_access_token`, `auth_refresh_token`)
-- **Auto-refresh:** On mount, attempts token validation then refresh if expired
+- **Provider:** Neon Auth (Better Auth) — managed auth via `@better-auth` SDK
+- **API Route:** `app/api/auth/[...all]/route.ts` handles all auth endpoints (sign-in, sign-up, sign-out, OAuth, session, etc.)
+- **Client:** `lib/auth/client.ts` — `createAuthClient()` from `better-auth/react`
+- **Server:** `lib/auth/server.ts` — server-side auth helpers
+- **Session Storage:** httpOnly cookies (`better-auth.session_token`) — no localStorage tokens
+- **Route Protection:** `middleware.ts` checks session cookie, redirects unauthenticated users to `/auth/login`
+- **Context:** `AuthProvider` wraps the entire app in `app/layout.tsx`, provides `useAuth()` hook
 
 ### Auth Methods
 
 | Method | Flow |
 |--------|------|
-| Email/Password | POST to `/auth/signin` or `/auth/signup`, store tokens, redirect to `/dashboard` |
-| Google OAuth | POST to `/auth/signin/oauth`, redirect to provider, callback at `/auth/callback` |
-| GitHub OAuth | Same as Google OAuth flow |
-| Magic Link | POST to `/auth/signin/magic-link`, user clicks email link, lands at `/auth/callback` |
+| Email/Password | Better Auth handles via `/api/auth/sign-in/email` and `/api/auth/sign-up/email` |
+| Google OAuth | `authClient.signIn.social({ provider: "google" })` → callback → session cookie |
+| GitHub OAuth | `authClient.signIn.social({ provider: "github" })` → callback → session cookie |
+| Magic Link | Better Auth magic link flow via `/api/auth/magic-link` |
 
 ### Hooks
 
 | Hook | Purpose |
 |------|---------|
-| `useAuth()` | Access user, isAuthenticated, signIn/signUp/signOut methods |
+| `useAuth()` | Access user, isAuthenticated, signIn/signUp/signOut/signInWithGoogle/signInWithGitHub methods |
 | `useRequireAuth()` | Same as useAuth but redirects to `/auth/login` if not authenticated |
-| `useAccessToken()` | Get current access token from localStorage |
 
 ---
 
@@ -322,8 +325,8 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 
 | Component | File | Description |
 |-----------|------|-------------|
-| `LoginForm` | `components/auth/LoginForm.tsx` | Email/password form + Google/GitHub OAuth buttons + magic link option |
-| `SignupForm` | `components/auth/SignupForm.tsx` | Registration form with name, email, password + OAuth |
+| `LoginForm` | `components/auth/LoginForm.tsx` | Email/password form + Google/GitHub OAuth buttons + magic link option (legacy, uses useAuth hook) |
+| `SignupForm` | `components/auth/SignupForm.tsx` | Registration form with name, email, password + OAuth (legacy, uses useAuth hook) |
 
 ---
 
@@ -420,8 +423,9 @@ Page Component (app/(app)/*)
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| next | 14.1.0 | Framework (App Router) |
+| next | 14.2.35 | Framework (App Router) |
 | react | ^18.2.0 | UI library |
+| better-auth | latest | Authentication (Neon Auth / Better Auth) |
 | @tanstack/react-query | ^5.17.15 | Server state management |
 | zustand | ^4.4.7 | Client state management |
 | recharts | ^2.10.3 | Charts and data visualization |
@@ -482,7 +486,7 @@ Page Component (app/(app)/*)
 
 | Spec File | Tests | Description |
 |-----------|-------|-------------|
-| authentication.spec.ts | 15 | Login, OAuth, magic link, security |
+| authentication.spec.ts | 15 | Login, OAuth, session persistence, rate limiting (10 active, 5 skipped) |
 | billing-flow.spec.ts | 9 | Stripe pricing, checkout flow |
 | dashboard.spec.ts | 11 | Widgets, navigation, error handling |
 | full-journey.spec.ts | 25 | Full user journey (landing -> optimize) |
@@ -514,6 +518,8 @@ npm run lint          # next lint
 |----------|----------|-------------|
 | `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL (default: `http://localhost:8000/api/v1`) |
 | `NEXT_PUBLIC_SITE_URL` | No | Site URL for SEO (default: `https://electricity-optimizer.vercel.app`) |
+| `BETTER_AUTH_SECRET` | Yes | Secret for Better Auth session encryption |
+| `BETTER_AUTH_URL` | Yes | App URL for auth callbacks (e.g., `http://localhost:3000`) |
 
 ---
 
@@ -528,7 +534,7 @@ npm run lint          # next lint
 7. **Stripe monetization** -- Checkout API route proxy at `/api/checkout`; tiers: Free, Pro ($4.99/mo), Business ($14.99/mo)
 8. **SEO metadata** -- Root layout includes OG tags, Twitter card, keywords; dedicated robots.ts and sitemap.ts
 9. **Error boundaries** -- Global error boundary + per-route boundaries for dashboard, prices, suppliers
-10. **Supabase SDK removed** -- `@supabase/supabase-js` dependency removed; auth functions use custom backend JWT
+10. **Neon Auth migration** -- Supabase SDK removed; auth now via Better Auth (`better-auth` package) with Neon Auth backend. Session cookies replace localStorage JWT tokens. Route protection via `middleware.ts`
 11. **CSP + HSTS headers** -- Content-Security-Policy and Strict-Transport-Security added to `next.config.js`
 12. **Frontend test expansion** -- 346 Jest tests across 17 suites covering components, lib/utils, lib/api
 13. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures

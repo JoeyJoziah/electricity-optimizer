@@ -401,6 +401,9 @@ class _ChainableMock(MagicMock):
         return self
 
 
+_SENTINEL = object()
+
+
 @pytest.fixture(autouse=True)
 def mock_sqlalchemy_select(monkeypatch):
     """
@@ -410,7 +413,13 @@ def mock_sqlalchemy_select(monkeypatch):
     The repositories use Pydantic BaseModel classes in select() calls
     with SQLAlchemy-style expressions (e.g., Price.region == value).
     Pydantic v2 required fields raise AttributeError at class level,
-    so we monkeypatch them as MagicMock to allow expression evaluation.
+    so we patch them with _ColumnMock to allow expression evaluation.
+
+    IMPORTANT: Pydantic v2 FieldInfo descriptors are NOT restored correctly
+    by monkeypatch.setattr (monkeypatch saves the descriptor object but
+    restores it as a plain attribute, breaking Pydantic's __get__). We
+    manually save and restore model class attributes to prevent state
+    leakage between tests.
     """
     def _mock_select(*args, **kwargs):
         return _ChainableMock()
@@ -452,20 +461,28 @@ def mock_sqlalchemy_select(monkeypatch):
     # Patch Pydantic model class attributes so they can be used in
     # SQLAlchemy-style expressions (e.g., Price.region == value).
     # Pydantic v2 required fields without defaults raise AttributeError
-    # at class level — monkeypatching them as MagicMock allows the
-    # expressions to evaluate without error.
+    # at class level — we set them to _ColumnMock instances.
+    #
+    # We do NOT use monkeypatch for model attrs because monkeypatch
+    # doesn't correctly restore Pydantic v2 FieldInfo descriptors
+    # (it saves the descriptor object but restores via setattr, which
+    # replaces the descriptor with a plain value). Instead, we manually
+    # save originals from the class __dict__ and restore them in teardown.
     model_attrs = {
         "models.price": {
             "Price": ["id", "region", "supplier", "price_per_kwh", "timestamp", "currency", "is_peak", "utility_type"],
         },
         "models.user": {
-            "User": ["id", "email", "name", "region", "created_at"],
+            "User": ["id", "email", "name", "region", "created_at", "is_active"],
         },
         "models.supplier": {
-            "Supplier": ["id", "name", "regions", "is_active"],
+            "Supplier": ["id", "name", "regions", "is_active", "average_renewable_percentage"],
             "Tariff": ["id", "name", "supplier_id", "is_available"],
         },
     }
+
+    # Save originals and apply patches
+    _saved = []  # list of (cls, attr, original_or_SENTINEL)
 
     for module_path, classes in model_attrs.items():
         try:
@@ -473,11 +490,68 @@ def mock_sqlalchemy_select(monkeypatch):
             for class_name, attrs in classes.items():
                 cls = getattr(module, class_name)
                 for attr in attrs:
-                    monkeypatch.setattr(cls, attr, _ColumnMock(), raising=False)
+                    # Save from class __dict__ to preserve descriptors
+                    original = cls.__dict__.get(attr, _SENTINEL)
+                    _saved.append((cls, attr, original))
+                    setattr(cls, attr, _ColumnMock())
         except (ImportError, AttributeError):
             pass
 
-    return _mock_select
+    yield _mock_select
+
+    # Restore originals — this is the critical fix for test ordering
+    for cls, attr, original in _saved:
+        if original is _SENTINEL:
+            # Attribute didn't exist before — remove it
+            try:
+                delattr(cls, attr)
+            except AttributeError:
+                pass
+        else:
+            # Restore the original descriptor/value directly into __dict__
+            # Using type.__setattr__ bypasses Pydantic's __setattr__ override
+            # and correctly restores FieldInfo descriptors
+            try:
+                type.__setattr__(cls, attr, original)
+            except (TypeError, AttributeError):
+                # Fallback to regular setattr
+                setattr(cls, attr, original)
+
+
+# =============================================================================
+# RATE LIMITER RESET
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """
+    Reset the rate limiter's in-memory store between tests.
+
+    The RateLimitMiddleware uses an in-memory dict when Redis is unavailable.
+    Without resetting, request counts accumulate across test functions and the
+    per-minute limit (100) gets hit mid-suite, causing unrelated tests to fail
+    with 429 Too Many Requests.
+    """
+    yield
+
+    # Walk the built middleware stack (built lazily on first request by
+    # Starlette/FastAPI). The stack is stored on app.middleware_stack after
+    # the first TestClient interaction.
+    try:
+        from main import app
+        from middleware.rate_limiter import RateLimitMiddleware
+
+        obj = getattr(app, 'middleware_stack', None) or app
+        seen = set()
+        while obj is not None and id(obj) not in seen:
+            seen.add(id(obj))
+            if isinstance(obj, RateLimitMiddleware):
+                obj.rate_limiter._memory_store.clear()
+                break
+            obj = getattr(obj, 'app', None)
+    except (ImportError, AttributeError):
+        pass
 
 
 # =============================================================================

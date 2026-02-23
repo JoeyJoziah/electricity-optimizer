@@ -131,13 +131,14 @@
   - [x] Consent withdrawal API
   - [x] Audit trail logging
 
-- [x] **Task #12**: JWT Authentication & Security
-  - [x] JWT Handler with RS256/HS256 support (PyJWT, migrated from python-jose)
-  - [x] JWT with Redis-backed token revocation
-  - [x] OAuth providers (Google, GitHub)
-  - [x] Magic link authentication
-  - [x] Token revocation support
+- [x] **Task #12**: Authentication & Security
+  - [x] Neon Auth (Better Auth) integration — managed auth with session cookies
+  - [x] OAuth providers (Google, GitHub) via Better Auth
+  - [x] Magic link authentication via Better Auth
+  - [x] Session validation via `neon_auth.session` table (backend)
+  - [x] Route protection middleware (frontend)
   - [x] Permission-based access control
+  - [x] Legacy JWT handler retained for backward compatibility
 
 ### Security Enhancements
 - [x] Secrets management (1Password integration)
@@ -397,7 +398,7 @@ make backup
 - Backend API (17+ endpoints, 491 tests passing)
 - ML Pipeline (CNN-LSTM, MILP, weather-aware)
 - Frontend Dashboard (5 pages, gamification, SSE streaming, 224 tests)
-- Security & Compliance (JWT with Redis-backed revocation, GDPR, API key auth, 144 security tests)
+- Security & Compliance (Neon Auth sessions, GDPR, API key auth, 144 security tests)
 - Infrastructure (Docker, GitHub Actions CI/CD, Monitoring)
 - Testing (1520+ tests, 100% passing, 80%+ coverage)
 - E2E (805 Playwright tests across 5 browsers, 0 failures)
@@ -406,9 +407,10 @@ make backup
 - P0-P5 innovations (alerts, weather, SSE, gamification)
 
 **Remaining**:
-1. Set Render/Vercel env vars with real API keys
+1. Set Render/Vercel env vars with real API keys (including BETTER_AUTH_SECRET, BETTER_AUTH_URL)
 2. DNS/domain setup
 3. Beta invites
+4. 1Password credential audit (add Neon Auth, Stripe, NREL, EIA, OpenWeatherMap, Sentry items)
 
 ---
 
