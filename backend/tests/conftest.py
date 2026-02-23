@@ -456,7 +456,7 @@ def mock_sqlalchemy_select(monkeypatch):
     # expressions to evaluate without error.
     model_attrs = {
         "models.price": {
-            "Price": ["id", "region", "supplier", "price_per_kwh", "timestamp", "currency", "is_peak"],
+            "Price": ["id", "region", "supplier", "price_per_kwh", "timestamp", "currency", "is_peak", "utility_type"],
         },
         "models.user": {
             "User": ["id", "email", "name", "region", "created_at"],

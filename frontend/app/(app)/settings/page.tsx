@@ -8,6 +8,7 @@ import { Input, Checkbox } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency } from '@/lib/utils/format'
+import type { UtilityType } from '@/lib/store/settings'
 import {
   User,
   MapPin,
@@ -19,17 +20,29 @@ import {
   Trash2,
   Save,
   CheckCircle,
+  Flame,
+  Sun,
 } from 'lucide-react'
+
+const UTILITY_TYPE_OPTIONS: { value: UtilityType; label: string }[] = [
+  { value: 'electricity', label: 'Electricity' },
+  { value: 'natural_gas', label: 'Natural Gas' },
+  { value: 'heating_oil', label: 'Heating Oil' },
+  { value: 'propane', label: 'Propane' },
+  { value: 'community_solar', label: 'Community Solar' },
+]
 
 export default function SettingsPage() {
   const {
     region,
+    utilityTypes,
     currentSupplier,
     annualUsageKwh,
     peakDemandKw,
     notificationPreferences,
     displayPreferences,
     setRegion,
+    setUtilityTypes,
     setAnnualUsage,
     setPeakDemand,
     setNotificationPreferences,
@@ -63,7 +76,7 @@ export default function SettingsPage() {
                 <div>
                   <p className="font-medium text-gray-900">Region</p>
                   <p className="text-sm text-gray-500">
-                    Your electricity market region
+                    Your energy market region
                   </p>
                 </div>
                 <select
@@ -71,11 +84,78 @@ export default function SettingsPage() {
                   onChange={(e) => setRegion(e.target.value)}
                   className="rounded-lg border border-gray-300 px-3 py-2"
                 >
-                  <option value="US_CT">Connecticut</option>
-                  <option value="US">United States (Other)</option>
-                  <option value="UK">United Kingdom</option>
-                  <option value="EU">Europe</option>
+                  <optgroup label="Northeast">
+                    <option value="us_ct">Connecticut</option>
+                    <option value="us_ma">Massachusetts</option>
+                    <option value="us_nh">New Hampshire</option>
+                    <option value="us_me">Maine</option>
+                    <option value="us_ri">Rhode Island</option>
+                    <option value="us_vt">Vermont</option>
+                    <option value="us_ny">New York</option>
+                    <option value="us_nj">New Jersey</option>
+                    <option value="us_pa">Pennsylvania</option>
+                    <option value="us_de">Delaware</option>
+                    <option value="us_md">Maryland</option>
+                    <option value="us_dc">District of Columbia</option>
+                  </optgroup>
+                  <optgroup label="Midwest">
+                    <option value="us_oh">Ohio</option>
+                    <option value="us_il">Illinois</option>
+                    <option value="us_mi">Michigan</option>
+                    <option value="us_in">Indiana</option>
+                  </optgroup>
+                  <optgroup label="South">
+                    <option value="us_tx">Texas</option>
+                    <option value="us_va">Virginia</option>
+                    <option value="us_ga">Georgia</option>
+                    <option value="us_fl">Florida</option>
+                    <option value="us_ky">Kentucky</option>
+                  </optgroup>
+                  <optgroup label="West">
+                    <option value="us_ca">California</option>
+                    <option value="us_or">Oregon</option>
+                    <option value="us_mt">Montana</option>
+                  </optgroup>
+                  <optgroup label="International">
+                    <option value="uk">United Kingdom</option>
+                    <option value="de">Germany</option>
+                    <option value="fr">France</option>
+                  </optgroup>
                 </select>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <p className="font-medium text-gray-900">Utility Types</p>
+                <p className="mb-3 text-sm text-gray-500">
+                  Select the energy types you want to compare
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {UTILITY_TYPE_OPTIONS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        utilityTypes.includes(opt.value)
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={utilityTypes.includes(opt.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setUtilityTypes([...utilityTypes, opt.value])
+                          } else {
+                            const next = utilityTypes.filter((t) => t !== opt.value)
+                            if (next.length > 0) setUtilityTypes(next)
+                          }
+                        }}
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="border-t border-gray-200 pt-4">

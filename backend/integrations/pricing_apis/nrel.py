@@ -32,34 +32,66 @@ from .cache import PricingCache
 logger = structlog.get_logger(__name__)
 
 
-# Region mapping: PricingRegion -> NREL state abbreviation
-NREL_REGION_MAP = {
-    PricingRegion.US_CA: "CA",
-    PricingRegion.US_TX: "TX",
-    PricingRegion.US_NY: "NY",
-    PricingRegion.US_FL: "FL",
-    PricingRegion.US_IL: "IL",
-    PricingRegion.US_PA: "PA",
-    PricingRegion.US_OH: "OH",
-    PricingRegion.US_GA: "GA",
-    PricingRegion.US_NC: "NC",
-    PricingRegion.US_MI: "MI",
-    PricingRegion.US_CT: "CT",
+# Build NREL_REGION_MAP dynamically for all US regions.
+# PricingRegion is aliased to models.region.Region (all 50 states + DC).
+NREL_REGION_MAP: dict[PricingRegion, str] = {
+    r: r.state_code for r in PricingRegion if r.is_us
 }
 
-# Representative ZIP codes for each state (for API calls)
-STATE_ZIP_CODES = {
+# Representative ZIP codes for each state (for API calls).
+# Capital / major-city ZIP used for rate lookups.
+STATE_ZIP_CODES: dict[str, str] = {
+    "AL": "35203",  # Birmingham
+    "AK": "99501",  # Anchorage
+    "AZ": "85001",  # Phoenix
+    "AR": "72201",  # Little Rock
     "CA": "90210",  # Los Angeles
-    "TX": "75201",  # Dallas
-    "NY": "10001",  # New York City
-    "FL": "33101",  # Miami
-    "IL": "60601",  # Chicago
-    "PA": "19101",  # Philadelphia
-    "OH": "43215",  # Columbus
-    "GA": "30301",  # Atlanta
-    "NC": "27601",  # Raleigh
-    "MI": "48201",  # Detroit
+    "CO": "80202",  # Denver
     "CT": "06510",  # New Haven
+    "DE": "19901",  # Dover
+    "DC": "20001",  # Washington
+    "FL": "33101",  # Miami
+    "GA": "30301",  # Atlanta
+    "HI": "96801",  # Honolulu
+    "ID": "83701",  # Boise
+    "IL": "60601",  # Chicago
+    "IN": "46201",  # Indianapolis
+    "IA": "50301",  # Des Moines
+    "KS": "66101",  # Kansas City
+    "KY": "40201",  # Louisville
+    "LA": "70112",  # New Orleans
+    "ME": "04101",  # Portland
+    "MD": "21201",  # Baltimore
+    "MA": "02101",  # Boston
+    "MI": "48201",  # Detroit
+    "MN": "55401",  # Minneapolis
+    "MS": "39201",  # Jackson
+    "MO": "63101",  # St. Louis
+    "MT": "59601",  # Helena
+    "NE": "68101",  # Omaha
+    "NV": "89101",  # Las Vegas
+    "NH": "03301",  # Concord
+    "NJ": "07101",  # Newark
+    "NM": "87101",  # Albuquerque
+    "NY": "10001",  # New York City
+    "NC": "27601",  # Raleigh
+    "ND": "58501",  # Bismarck
+    "OH": "43215",  # Columbus
+    "OK": "73101",  # Oklahoma City
+    "OR": "97201",  # Portland
+    "PA": "19101",  # Philadelphia
+    "RI": "02901",  # Providence
+    "SC": "29201",  # Columbia
+    "SD": "57101",  # Sioux Falls
+    "TN": "37201",  # Nashville
+    "TX": "75201",  # Dallas
+    "UT": "84101",  # Salt Lake City
+    "VT": "05601",  # Montpelier
+    "VA": "23219",  # Richmond
+    "WA": "98101",  # Seattle
+    "WV": "25301",  # Charleston
+    "WI": "53201",  # Milwaukee
+    "WY": "82001",  # Cheyenne
 }
 
 # Utility sector types

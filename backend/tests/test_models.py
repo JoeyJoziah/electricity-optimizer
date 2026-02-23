@@ -170,7 +170,7 @@ class TestPriceRegionEnum:
         from models.price import PriceRegion
 
         assert PriceRegion.UK.value == "uk"
-        assert PriceRegion.GERMANY.value == "germany"
+        assert PriceRegion.GERMANY.value == "de"
 
 
 class TestPriceForecastModel:

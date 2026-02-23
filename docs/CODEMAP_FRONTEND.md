@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-23 (multi-utility expansion)
 **Framework:** Next.js 14.1.0 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -166,15 +166,18 @@ Persisted to localStorage under key `electricity-optimizer-settings`.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `region` | string | `'us_ct'` | Pricing region (US_CT, US, UK, EU) |
-| `currentSupplier` | Supplier \| null | `null` | User's current electricity supplier |
+| `region` | string | `'us_ct'` | Pricing region (all US states + international) |
+| `utilityTypes` | UtilityType[] | `['electricity']` | Selected utility types for comparison |
+| `currentSupplier` | Supplier \| null | `null` | User's current energy supplier |
 | `annualUsageKwh` | number | `10500` | Annual electricity consumption (US average) |
 | `peakDemandKw` | number | `5` | Maximum power draw |
 | `appliances` | Appliance[] | `[]` | Configured appliances for optimization |
 | `notificationPreferences` | object | `{priceAlerts: true, optimalTimes: true, supplierUpdates: false}` | Notification toggles |
 | `displayPreferences` | object | `{currency: 'USD', theme: 'system', timeFormat: '12h'}` | Display settings |
 
-**Convenience selectors:** `useRegion`, `useCurrentSupplier`, `useAnnualUsage`, `useAppliances`, `useCurrency`, `useTheme`
+**UtilityType:** `'electricity' | 'natural_gas' | 'heating_oil' | 'propane' | 'community_solar'`
+
+**Convenience selectors:** `useRegion`, `useUtilityTypes`, `useCurrentSupplier`, `useAnnualUsage`, `useAppliances`, `useCurrency`, `useTheme`
 
 ### React Query (TanStack Query v5)
 
@@ -516,17 +519,19 @@ npm run lint          # next lint
 
 ## Recent Changes (as of 2026-02-23)
 
-1. **Region default changed from 'uk' to 'us_ct'** -- All API functions and hooks default to `'us_ct'`
-2. **Settings store defaults updated** -- region: `'us_ct'`, currency: `'USD'`, annualUsageKwh: `10500` (US average), timeFormat: `'12h'`
-3. **Landing page added at `/`** -- Full marketing page with hero, features, pricing preview, and footer
-4. **Route restructuring** -- Marketing pages at root layout without sidebar; app pages under `(app)` route group with sidebar
-5. **Stripe monetization** -- Checkout API route proxy at `/api/checkout`; tiers: Free, Pro ($4.99/mo), Business ($14.99/mo)
-6. **SEO metadata** -- Root layout includes OG tags, Twitter card, keywords; dedicated robots.ts and sitemap.ts
-7. **Error boundaries** -- Global error boundary + per-route boundaries for dashboard, prices, suppliers
-8. **Supabase SDK removed** -- `@supabase/supabase-js` dependency removed; auth functions use custom backend JWT
-9. **CSP + HSTS headers** -- Content-Security-Policy and Strict-Transport-Security added to `next.config.js`
-10. **Frontend test expansion** -- 346 Jest tests across 17 suites covering components, lib/utils, lib/api
-11. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures
+1. **Multi-utility support** -- Settings store includes `utilityTypes` field (array of UtilityType). Settings page has utility type checkboxes
+2. **Multi-state region selector** -- Settings page offers expanded region dropdown covering all 50 US states + international regions
+3. **Region default changed from 'uk' to 'us_ct'** -- All API functions and hooks default to `'us_ct'`
+4. **Settings store defaults updated** -- region: `'us_ct'`, utilityTypes: `['electricity']`, currency: `'USD'`, annualUsageKwh: `10500`, timeFormat: `'12h'`
+5. **Landing page added at `/`** -- Full marketing page with hero, features, pricing preview, and footer
+6. **Route restructuring** -- Marketing pages at root layout without sidebar; app pages under `(app)` route group with sidebar
+7. **Stripe monetization** -- Checkout API route proxy at `/api/checkout`; tiers: Free, Pro ($4.99/mo), Business ($14.99/mo)
+8. **SEO metadata** -- Root layout includes OG tags, Twitter card, keywords; dedicated robots.ts and sitemap.ts
+9. **Error boundaries** -- Global error boundary + per-route boundaries for dashboard, prices, suppliers
+10. **Supabase SDK removed** -- `@supabase/supabase-js` dependency removed; auth functions use custom backend JWT
+11. **CSP + HSTS headers** -- Content-Security-Policy and Strict-Transport-Security added to `next.config.js`
+12. **Frontend test expansion** -- 346 Jest tests across 17 suites covering components, lib/utils, lib/api
+13. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures
 
 ---
 

@@ -114,3 +114,5 @@ playwright-report/
 # OS
 .DS_Store
 Thumbs.db
+.claude-flow/
+.swarm/

@@ -2,13 +2,14 @@
 Supplier Repository
 
 Data access layer for supplier and tariff data.
-Implements the repository pattern with caching support.
+Includes the SupplierRegistryRepository (backed by supplier_registry table)
+and StateRegulationRepository (backed by state_regulations table).
 """
 
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from repositories.base import BaseRepository, RepositoryError, NotFoundError
@@ -329,3 +330,199 @@ class SupplierRepository(BaseRepository[Supplier]):
 
         except Exception as e:
             raise RepositoryError(f"Failed to get green suppliers: {str(e)}", e)
+
+
+# ==========================================================================
+# Supplier Registry (migration 006 — replaces mock data in API layer)
+# ==========================================================================
+
+
+class SupplierRegistryRepository:
+    """
+    Repository for the supplier_registry table.
+
+    This is the new source of truth for supplier data, replacing
+    the hardcoded MOCK_SUPPLIERS list in api/v1/suppliers.py.
+    Uses raw SQL since the table has no ORM model yet.
+    """
+
+    def __init__(self, db_session: AsyncSession):
+        self._db = db_session
+
+    async def list_suppliers(
+        self,
+        region: Optional[str] = None,
+        utility_type: Optional[str] = None,
+        green_only: bool = False,
+        active_only: bool = True,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[dict], int]:
+        """
+        List suppliers with optional filtering.
+
+        Returns:
+            Tuple of (list of supplier dicts, total count)
+        """
+        try:
+            conditions = []
+            params: dict[str, Any] = {}
+
+            if active_only:
+                conditions.append("is_active = TRUE")
+            if region:
+                conditions.append(":region = ANY(regions)")
+                params["region"] = region.lower()
+            if utility_type:
+                conditions.append(":utility_type::utility_type = ANY(utility_types)")
+                params["utility_type"] = utility_type
+            if green_only:
+                conditions.append("green_energy = TRUE")
+
+            where_clause = " AND ".join(conditions) if conditions else "TRUE"
+
+            count_result = await self._db.execute(
+                text(f"SELECT COUNT(*) FROM supplier_registry WHERE {where_clause}"),
+                params,
+            )
+            total = count_result.scalar() or 0
+
+            offset = (page - 1) * page_size
+            data_params = {**params, "limit": page_size, "offset": offset}
+
+            result = await self._db.execute(
+                text(f"""
+                    SELECT id, name, utility_types, regions, website, phone,
+                           api_available, rating, review_count, green_energy,
+                           carbon_neutral, is_active, metadata
+                    FROM supplier_registry
+                    WHERE {where_clause}
+                    ORDER BY rating DESC NULLS LAST, name
+                    LIMIT :limit OFFSET :offset
+                """),
+                data_params,
+            )
+            rows = result.mappings().all()
+
+            suppliers = [
+                {
+                    "id": str(row["id"]),
+                    "name": row["name"],
+                    "utility_types": list(row["utility_types"]),
+                    "regions": list(row["regions"]),
+                    "website": row["website"],
+                    "phone": row["phone"],
+                    "api_available": row["api_available"],
+                    "rating": float(row["rating"]) if row["rating"] else None,
+                    "review_count": row["review_count"] or 0,
+                    "green_energy_provider": row["green_energy"],
+                    "carbon_neutral": row["carbon_neutral"],
+                    "is_active": row["is_active"],
+                    "metadata": row["metadata"] or {},
+                    "tariff_types": ["fixed", "variable"],
+                }
+                for row in rows
+            ]
+
+            return suppliers, total
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to list suppliers: {str(e)}", e)
+
+    async def get_by_id(self, supplier_id: str) -> Optional[dict]:
+        """Get a single supplier by its UUID."""
+        try:
+            result = await self._db.execute(
+                text("""
+                    SELECT id, name, utility_types, regions, website, phone,
+                           api_available, rating, review_count, green_energy,
+                           carbon_neutral, is_active, metadata
+                    FROM supplier_registry WHERE id = :id
+                """),
+                {"id": supplier_id},
+            )
+            row = result.mappings().first()
+            if not row:
+                return None
+
+            return {
+                "id": str(row["id"]),
+                "name": row["name"],
+                "utility_types": list(row["utility_types"]),
+                "regions": list(row["regions"]),
+                "website": row["website"],
+                "phone": row["phone"],
+                "api_available": row["api_available"],
+                "rating": float(row["rating"]) if row["rating"] else None,
+                "review_count": row["review_count"] or 0,
+                "green_energy_provider": row["green_energy"],
+                "carbon_neutral": row["carbon_neutral"],
+                "is_active": row["is_active"],
+                "metadata": row["metadata"] or {},
+                "tariff_types": ["fixed", "variable"],
+            }
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get supplier: {str(e)}", e)
+
+
+# ==========================================================================
+# State Regulations
+# ==========================================================================
+
+
+class StateRegulationRepository:
+    """
+    Repository for state_regulations table (migration 006).
+    """
+
+    def __init__(self, db_session: AsyncSession):
+        self._db = db_session
+
+    async def get_by_state(self, state_code: str) -> Optional[dict]:
+        """Get regulation info for a US state."""
+        try:
+            result = await self._db.execute(
+                text("SELECT * FROM state_regulations WHERE state_code = :code"),
+                {"code": state_code.upper()},
+            )
+            row = result.mappings().first()
+            return dict(row) if row else None
+        except Exception as e:
+            raise RepositoryError(f"Failed to get state regulation: {str(e)}", e)
+
+    async def list_deregulated(
+        self,
+        electricity: Optional[bool] = None,
+        gas: Optional[bool] = None,
+        oil: Optional[bool] = None,
+        community_solar: Optional[bool] = None,
+    ) -> list[dict]:
+        """List states matching deregulation criteria."""
+        try:
+            conditions = []
+            params: dict[str, Any] = {}
+
+            if electricity is not None:
+                conditions.append("electricity_deregulated = :elec")
+                params["elec"] = electricity
+            if gas is not None:
+                conditions.append("gas_deregulated = :gas")
+                params["gas"] = gas
+            if oil is not None:
+                conditions.append("oil_competitive = :oil")
+                params["oil"] = oil
+            if community_solar is not None:
+                conditions.append("community_solar_enabled = :solar")
+                params["solar"] = community_solar
+
+            where = " AND ".join(conditions) if conditions else "TRUE"
+
+            result = await self._db.execute(
+                text(f"SELECT * FROM state_regulations WHERE {where} ORDER BY state_code"),
+                params,
+            )
+            return [dict(row) for row in result.mappings().all()]
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to list regulations: {str(e)}", e)

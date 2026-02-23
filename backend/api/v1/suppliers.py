@@ -1,11 +1,15 @@
 """
 Supplier API Endpoints
 
-REST endpoints for electricity supplier data.
+REST endpoints for energy supplier data.
+Supports multi-utility type filtering (electricity, gas, oil, propane, solar).
+Backed by the supplier_registry table (migration 006).
 """
 
+import re
 from datetime import datetime, timezone
 from typing import Optional, List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from pydantic import BaseModel
@@ -17,10 +21,35 @@ from models.supplier import (
     TariffResponse,
     TariffListResponse,
 )
+from models.utility import UtilityType
 from api.dependencies import get_db_session, get_current_user_optional, TokenData
+from repositories.supplier_repository import SupplierRegistryRepository
 
 
 router = APIRouter()
+
+# Regex for valid region codes (e.g. us_ct, uk, de, jp)
+_REGION_RE = re.compile(r"^[a-z]{2}(_[a-z]{2})?$")
+
+
+def _validate_uuid(value: str, label: str = "ID") -> None:
+    """Raise 404 if value is not a valid UUID."""
+    try:
+        UUID(value)
+    except (ValueError, AttributeError):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{label} '{value}' not found"
+        )
+
+
+def _validate_region_code(value: str) -> None:
+    """Raise 422 if value doesn't look like a valid region code."""
+    if not _REGION_RE.match(value):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid region code: '{value}'"
+        )
 
 
 # =============================================================================
@@ -35,6 +64,7 @@ class SuppliersResponse(BaseModel):
     page: int
     page_size: int
     region: Optional[str] = None
+    utility_type: Optional[str] = None
 
 
 class SupplierTariffsResponse(BaseModel):
@@ -46,45 +76,6 @@ class SupplierTariffsResponse(BaseModel):
 
 
 # =============================================================================
-# Mock Data (Replace with actual repository calls)
-# =============================================================================
-
-
-MOCK_SUPPLIERS = [
-    {
-        "id": "supplier_001",
-        "name": "Eversource Energy",
-        "regions": ["us_ct"],
-        "tariff_types": ["fixed", "time_of_use", "variable"],
-        "api_available": True,
-        "rating": 4.2,
-        "green_energy_provider": True,
-        "is_active": True,
-    },
-    {
-        "id": "supplier_002",
-        "name": "United Illuminating (UI)",
-        "regions": ["us_ct"],
-        "tariff_types": ["fixed", "variable"],
-        "api_available": True,
-        "rating": 3.8,
-        "green_energy_provider": False,
-        "is_active": True,
-    },
-    {
-        "id": "supplier_003",
-        "name": "NextEra Energy",
-        "regions": ["us_ct", "us_ny"],
-        "tariff_types": ["fixed", "variable", "green"],
-        "api_available": True,
-        "rating": 4.0,
-        "green_energy_provider": True,
-        "is_active": True,
-    },
-]
-
-
-# =============================================================================
 # Endpoints
 # =============================================================================
 
@@ -92,42 +83,37 @@ MOCK_SUPPLIERS = [
 @router.get(
     "",
     response_model=SuppliersResponse,
-    summary="List electricity suppliers",
+    summary="List energy suppliers",
     responses={
         200: {"description": "Suppliers retrieved successfully"},
     }
 )
 async def list_suppliers(
-    region: Optional[str] = Query(None, description="Filter by region"),
+    region: Optional[str] = Query(None, description="Filter by region (e.g., us_ct, us_ma)"),
+    utility_type: Optional[str] = Query(None, description="Filter by utility type (electricity, natural_gas, heating_oil, propane, community_solar)"),
     green_only: bool = Query(False, description="Filter for green energy providers"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db=Depends(get_db_session),
 ):
     """
-    List electricity suppliers with optional filtering.
+    List energy suppliers with optional filtering.
 
-    Returns paginated list of suppliers, optionally filtered by region
-    or green energy status.
+    Returns paginated list of suppliers, optionally filtered by region,
+    utility type, or green energy status. Data is sourced from the
+    supplier_registry table.
     """
-    # Filter suppliers
-    filtered = MOCK_SUPPLIERS
+    repo = SupplierRegistryRepository(db)
+    suppliers_data, total = await repo.list_suppliers(
+        region=region,
+        utility_type=utility_type,
+        green_only=green_only,
+        active_only=True,
+        page=page,
+        page_size=page_size,
+    )
 
-    if region:
-        filtered = [s for s in filtered if region.lower() in s["regions"]]
-
-    if green_only:
-        filtered = [s for s in filtered if s["green_energy_provider"]]
-
-    # Pagination
-    total = len(filtered)
-    start = (page - 1) * page_size
-    end = start + page_size
-    paginated = filtered[start:end]
-
-    suppliers = [
-        SupplierResponse(**s) for s in paginated
-    ]
+    suppliers = [SupplierResponse(**s) for s in suppliers_data]
 
     return SuppliersResponse(
         suppliers=suppliers,
@@ -135,6 +121,7 @@ async def list_suppliers(
         page=page,
         page_size=page_size,
         region=region,
+        utility_type=utility_type,
     )
 
 
@@ -156,11 +143,9 @@ async def get_supplier(
 
     Returns full supplier details including contact info and ratings.
     """
-    # Find supplier
-    supplier = next(
-        (s for s in MOCK_SUPPLIERS if s["id"] == supplier_id),
-        None
-    )
+    _validate_uuid(supplier_id, "Supplier")
+    repo = SupplierRegistryRepository(db)
+    supplier = await repo.get_by_id(supplier_id)
 
     if not supplier:
         raise HTTPException(
@@ -175,9 +160,9 @@ async def get_supplier(
         tariff_types=supplier["tariff_types"],
         api_available=supplier["api_available"],
         rating=supplier.get("rating"),
-        review_count=None,
+        review_count=supplier.get("review_count"),
         green_energy_provider=supplier["green_energy_provider"],
-        carbon_neutral=False,
+        carbon_neutral=supplier.get("carbon_neutral", False),
         average_renewable_percentage=None,
         description=None,
         logo_url=None,
@@ -196,6 +181,7 @@ async def get_supplier(
 )
 async def get_supplier_tariffs(
     supplier_id: str = Path(..., description="Supplier ID"),
+    utility_type: Optional[str] = Query(None, description="Filter by utility type"),
     available_only: bool = Query(True, description="Show only available tariffs"),
     db=Depends(get_db_session),
 ):
@@ -204,11 +190,9 @@ async def get_supplier_tariffs(
 
     Returns list of tariffs with pricing and contract details.
     """
-    # Find supplier
-    supplier = next(
-        (s for s in MOCK_SUPPLIERS if s["id"] == supplier_id),
-        None
-    )
+    _validate_uuid(supplier_id, "Supplier")
+    repo = SupplierRegistryRepository(db)
+    supplier = await repo.get_by_id(supplier_id)
 
     if not supplier:
         raise HTTPException(
@@ -216,7 +200,7 @@ async def get_supplier_tariffs(
             detail=f"Supplier with ID '{supplier_id}' not found"
         )
 
-    # Mock tariffs (replace with actual data)
+    # TODO: Replace with actual tariff query from DB once tariff data is populated.
     from decimal import Decimal
     from models.supplier import TariffType, ContractLength
 
@@ -265,7 +249,8 @@ async def get_supplier_tariffs(
     }
 )
 async def get_suppliers_by_region(
-    region: str = Path(..., description="Region code (e.g., uk, germany)"),
+    region: str = Path(..., description="Region code (e.g., us_ct, us_ma, us_tx)"),
+    utility_type: Optional[str] = Query(None, description="Filter by utility type"),
     green_only: bool = Query(False, description="Filter for green energy providers"),
     db=Depends(get_db_session),
 ):
@@ -274,19 +259,23 @@ async def get_suppliers_by_region(
 
     Convenience endpoint for region-based filtering.
     """
-    filtered = [s for s in MOCK_SUPPLIERS if region.lower() in s["regions"]]
+    _validate_region_code(region)
+    repo = SupplierRegistryRepository(db)
+    suppliers_data, total = await repo.list_suppliers(
+        region=region,
+        utility_type=utility_type,
+        green_only=green_only,
+    )
 
-    if green_only:
-        filtered = [s for s in filtered if s["green_energy_provider"]]
-
-    suppliers = [SupplierResponse(**s) for s in filtered]
+    suppliers = [SupplierResponse(**s) for s in suppliers_data]
 
     return SuppliersResponse(
         suppliers=suppliers,
-        total=len(suppliers),
+        total=total,
         page=1,
-        page_size=len(suppliers),
+        page_size=total or 20,
         region=region,
+        utility_type=utility_type,
     )
 
 
@@ -299,6 +288,7 @@ async def get_suppliers_by_region(
 )
 async def compare_suppliers(
     region: str = Path(..., description="Region code"),
+    utility_type: Optional[str] = Query("electricity", description="Utility type to compare"),
     tariff_type: Optional[str] = Query(None, description="Filter by tariff type"),
     db=Depends(get_db_session),
 ):
@@ -307,26 +297,30 @@ async def compare_suppliers(
 
     Returns suppliers sorted by their cheapest available tariff.
     """
-    filtered = [s for s in MOCK_SUPPLIERS if region.lower() in s["regions"]]
+    repo = SupplierRegistryRepository(db)
+    suppliers_data, _ = await repo.list_suppliers(
+        region=region,
+        utility_type=utility_type,
+    )
 
-    # In production, would fetch actual tariffs and sort by price
     comparison = []
-    for supplier in filtered:
+    for supplier in suppliers_data:
         comparison.append({
             "supplier_id": supplier["id"],
             "supplier_name": supplier["name"],
-            "cheapest_tariff": "Standard Variable",  # Mock
-            "unit_rate": "0.25",  # Mock
-            "standing_charge": "0.40",  # Mock
+            "utility_types": supplier["utility_types"],
+            "cheapest_tariff": "Standard Variable",
+            "unit_rate": "0.25",
+            "standing_charge": "0.40",
             "rating": supplier.get("rating"),
             "green_energy_provider": supplier["green_energy_provider"],
         })
 
-    # Sort by unit rate (mock - all same)
     comparison.sort(key=lambda x: float(x["unit_rate"]))
 
     return {
         "region": region,
+        "utility_type": utility_type,
         "suppliers": comparison,
         "total": len(comparison),
         "generated_at": datetime.now(timezone.utc).isoformat()

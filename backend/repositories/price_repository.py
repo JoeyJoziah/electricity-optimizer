@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.price import Price, PriceRegion
+from models.utility import UtilityType
 
 
 class PriceRepository(BaseRepository[Price]):
@@ -249,21 +250,23 @@ class PriceRepository(BaseRepository[Price]):
     async def get_current_prices(
         self,
         region: PriceRegion,
-        limit: int = 10
+        limit: int = 10,
+        utility_type: UtilityType = UtilityType.ELECTRICITY,
     ) -> List[Price]:
         """
-        Get current prices for a region.
+        Get current prices for a region and utility type.
 
         Args:
             region: Price region
             limit: Maximum number of results
+            utility_type: Type of utility (defaults to electricity)
 
         Returns:
             List of current prices
         """
         try:
             # Check cache first
-            cache_key = self._cache_key("current", region.value)
+            cache_key = self._cache_key("current", region.value, utility_type.value)
             cached = await self._get_from_cache(cache_key)
             if cached:
                 return [Price(**p) for p in cached]
@@ -271,7 +274,12 @@ class PriceRepository(BaseRepository[Price]):
             # Query database for latest prices
             query = (
                 select(Price)
-                .where(Price.region == region.value)
+                .where(
+                    and_(
+                        Price.region == region.value,
+                        Price.utility_type == utility_type.value,
+                    )
+                )
                 .order_by(desc(Price.timestamp))
                 .limit(limit)
             )
@@ -341,7 +349,8 @@ class PriceRepository(BaseRepository[Price]):
         region: PriceRegion,
         start_date: datetime,
         end_date: datetime,
-        supplier: Optional[str] = None
+        supplier: Optional[str] = None,
+        utility_type: UtilityType = UtilityType.ELECTRICITY,
     ) -> List[Price]:
         """
         Get historical prices for a date range.
@@ -351,6 +360,7 @@ class PriceRepository(BaseRepository[Price]):
             start_date: Start of date range
             end_date: End of date range
             supplier: Optional supplier filter
+            utility_type: Type of utility (defaults to electricity)
 
         Returns:
             List of historical prices
@@ -358,6 +368,7 @@ class PriceRepository(BaseRepository[Price]):
         try:
             conditions = [
                 Price.region == region.value,
+                Price.utility_type == utility_type.value,
                 Price.timestamp >= start_date,
                 Price.timestamp <= end_date
             ]
@@ -399,7 +410,8 @@ class PriceRepository(BaseRepository[Price]):
     async def get_price_statistics(
         self,
         region: PriceRegion,
-        days: int = 7
+        days: int = 7,
+        utility_type: UtilityType = UtilityType.ELECTRICITY,
     ) -> dict:
         """
         Get price statistics for a region.
@@ -426,6 +438,7 @@ class PriceRepository(BaseRepository[Price]):
                 .where(
                     and_(
                         Price.region == region.value,
+                        Price.utility_type == utility_type.value,
                         Price.timestamp >= start_date
                     )
                 )
@@ -439,7 +452,8 @@ class PriceRepository(BaseRepository[Price]):
                 "max_price": Decimal(str(row.max_price)) if row.max_price else None,
                 "avg_price": Decimal(str(row.avg_price)).quantize(Decimal("0.0001")) if row.avg_price else None,
                 "count": row.count,
-                "period_days": days
+                "period_days": days,
+                "utility_type": utility_type.value,
             }
 
         except Exception as e:

@@ -1,8 +1,12 @@
 """
 Data Models
 
-Pydantic models for the Electricity Optimizer API.
+Pydantic models for the Energy Optimizer API.
+Supports electricity, natural gas, heating oil, propane, and community solar.
 """
+
+from models.region import Region
+from models.utility import UtilityType
 
 from models.price import (
     Price,
@@ -40,6 +44,9 @@ from models.supplier import (
 )
 
 __all__ = [
+    # Region and utility types
+    "Region",
+    "UtilityType",
     # Price models
     "Price",
     "PriceRegion",

@@ -499,6 +499,15 @@ app.include_router(
     tags=["Internal"]
 )
 
+# State regulations endpoints
+from api.v1 import regulations as regulations_v1
+
+app.include_router(
+    regulations_v1.router,
+    prefix=f"{settings.api_prefix}/regulations",
+    tags=["Regulations"]
+)
+
 
 if __name__ == "__main__":
     import uvicorn

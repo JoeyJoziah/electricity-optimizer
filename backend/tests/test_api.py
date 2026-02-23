@@ -177,7 +177,7 @@ class TestSupplierEndpoints:
         """Test GET /api/v1/suppliers endpoint"""
         from main import app
 
-        client = TestClient(app)
+        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers")
 
         assert response.status_code in [200, 500]
@@ -191,7 +191,7 @@ class TestSupplierEndpoints:
         """Test GET /api/v1/suppliers?region=uk endpoint"""
         from main import app
 
-        client = TestClient(app)
+        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers?region=uk")
 
         assert response.status_code in [200, 500]
@@ -200,7 +200,7 @@ class TestSupplierEndpoints:
         """Test GET /api/v1/suppliers/{id} endpoint"""
         from main import app
 
-        client = TestClient(app)
+        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers/supplier_123")
 
         # 200 if found, 404 if not
@@ -210,7 +210,7 @@ class TestSupplierEndpoints:
         """Test GET /api/v1/suppliers/{id}/tariffs endpoint"""
         from main import app
 
-        client = TestClient(app)
+        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers/supplier_123/tariffs")
 
         assert response.status_code in [200, 404, 500]

@@ -1,7 +1,8 @@
 """
 Price Data Models
 
-Pydantic models for electricity price data with validation.
+Pydantic models for energy price data with validation.
+Supports electricity, natural gas, heating oil, propane, and community solar.
 """
 
 from datetime import datetime, timezone
@@ -12,23 +13,11 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
+from models.region import Region
+from models.utility import UtilityType
 
-class PriceRegion(str, Enum):
-    """Supported pricing regions"""
-    UK = "uk"
-    GERMANY = "germany"
-    FRANCE = "france"
-    SPAIN = "spain"
-    ITALY = "italy"
-    NETHERLANDS = "netherlands"
-    BELGIUM = "belgium"
-    US_CT = "us_ct"
-    US_CA = "us_ca"
-    US_TX = "us_tx"
-    US_NY = "us_ny"
-    US_FL = "us_fl"
-    AUSTRALIA = "australia"
-    JAPAN = "japan"
+# Backward-compatible alias
+PriceRegion = Region
 
 
 class PriceUnit(str, Enum):
@@ -65,6 +54,9 @@ class Price(BaseModel):
     price_per_kwh: Decimal = Field(..., ge=Decimal("0"))
     timestamp: datetime
     currency: str = Field(..., min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")
+
+    # Utility type (defaults to electricity for backward compatibility)
+    utility_type: UtilityType = Field(default=UtilityType.ELECTRICITY)
 
     # Optional fields
     unit: PriceUnit = Field(default=PriceUnit.KWH)

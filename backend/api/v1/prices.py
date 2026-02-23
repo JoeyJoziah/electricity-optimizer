@@ -645,14 +645,9 @@ async def refresh_prices(
             for region, price_data in comparison.items():
                 kwh_price = price_data.convert_to_kwh()
 
-                # Map PricingRegion to PriceRegion for DB storage
-                region_map = {
-                    "UK": "uk", "DE": "germany", "FR": "france",
-                    "ES": "spain", "IT": "italy", "NL": "netherlands",
-                    "US_CT": "us_ct", "US_CA": "us_ca", "US_NY": "us_ny",
-                    "US_TX": "us_tx", "US_FL": "us_fl",
-                }
-                db_region = region_map.get(region.value, region.value.lower())
+                # PricingRegion and PriceRegion are now unified (models.region.Region)
+                # so .value is already the correct lowercase DB string.
+                db_region = region.value
 
                 prices_to_store.append(Price(
                     region=db_region,

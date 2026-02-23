@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-23
+> Last updated: 2026-02-23 (multi-utility expansion)
 
 ## Directory Structure
 
@@ -20,7 +20,8 @@ backend/
 │   ├── dependencies.py              # FastAPI DI: auth, DB sessions, service factories
 │   └── v1/
 │       ├── prices.py                # Price endpoints (CRUD, SSE, refresh)
-│       ├── suppliers.py             # Supplier listing, comparison, tariffs
+│       ├── suppliers.py             # Supplier listing, comparison, tariffs (DB-backed via SupplierRegistryRepository)
+│       ├── regulations.py           # State regulation data (deregulation status, PUC info)
 │       ├── billing.py               # Stripe checkout, portal, webhook, subscription
 │       ├── auth.py                  # Signup, signin, OAuth, magic link, token refresh
 │       ├── beta.py                  # Beta signup + welcome email
@@ -33,15 +34,17 @@ backend/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
 │
 ├── models/
-│   ├── price.py                     # Price, PriceRegion, PriceForecast, response schemas
-│   ├── supplier.py                  # Supplier, Tariff, TariffType, ContractLength
+│   ├── price.py                     # Price, PriceForecast, response schemas (utility_type field)
+│   ├── supplier.py                  # Supplier, Tariff, TariffType, ContractLength (utility_types field)
 │   ├── user.py                      # User, UserPreferences, UserCreate/Update
+│   ├── utility.py                   # UtilityType enum, PriceUnit enum (multi-utility), labels/defaults
+│   ├── region.py                    # Region enum (single source of truth, all 50 US states + intl)
 │   └── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
 │
 ├── repositories/
 │   ├── base.py                      # BaseRepository[T], CachedRepository, error classes
-│   ├── price_repository.py          # PriceRepository: CRUD, bulk_create, statistics
-│   ├── supplier_repository.py       # SupplierRepository: by-region, tariffs, green filter
+│   ├── price_repository.py          # PriceRepository: CRUD, bulk_create, statistics (utility_type filter)
+│   ├── supplier_repository.py       # SupplierRegistryRepository + StateRegulationRepository (DB-backed)
 │   └── user_repository.py           # UserRepository: by-email, preferences, consent
 │
 ├── services/
@@ -69,11 +72,12 @@ backend/
 ├── integrations/
 │   ├── weather_service.py           # OpenWeatherMap integration
 │   └── pricing_apis/
-│       ├── base.py                  # PricingRegion enum, PriceData, APIError, RateLimitError
+│       ├── base.py                  # PricingRegion (alias->Region), PriceData, APIError, RateLimitError
 │       ├── service.py               # PricingService (unified multi-API interface)
-│       ├── nrel.py                  # NREL client (US regions, CT -> ZIP 06510)
+│       ├── nrel.py                  # NREL client (US regions, all 50 state ZIPs)
 │       ├── flatpeak.py              # Flatpeak client (UK/EU regions)
 │       ├── iea.py                   # IEA client (global fallback)
+│       ├── eia.py                   # EIA client (US: electricity, gas, heating oil, propane)
 │       ├── cache.py                 # PricingCache
 │       ├── rate_limiter.py          # API-level RateLimiter
 │       └── __init__.py              # create_pricing_service_from_settings()
@@ -88,7 +92,8 @@ backend/
 │   ├── 002_gdpr_auth_tables.sql     # GDPR tables: auth_sessions, login_attempts, activity_logs
 │   ├── 003_reconcile_schema.sql     # Schema reconciliation for consent_records/deletion_logs
 │   ├── 004_performance_indexes.sql  # Compound + partial indexes for perf optimization
-│   └── 005_observation_tables.sql   # forecast_observations + recommendation_outcomes (adaptive learning)
+│   ├── 005_observation_tables.sql   # forecast_observations + recommendation_outcomes (adaptive learning)
+│   └── 006_multi_utility_expansion.sql # utility_type enum, supplier_registry, state_regulations tables
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -112,7 +117,9 @@ backend/
     ├── test_alert_service.py        # Alert service tests
     ├── test_stripe_service.py       # Stripe service tests
     ├── test_weather_service.py      # Weather service tests
-    └── test_gdpr_compliance.py      # GDPR compliance tests
+    ├── test_gdpr_compliance.py      # GDPR compliance tests
+    ├── test_multi_utility.py        # Multi-utility expansion tests (39 tests)
+    └── test_performance.py          # Performance tests (16 tests)
 ```
 
 ## Application Lifecycle
@@ -175,13 +182,26 @@ Multi-region currency: UK/EU -> GBP/EUR, default -> USD.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/` | None | List suppliers (paginated, filterable) |
-| GET | `/{supplier_id}` | None | Supplier details |
-| GET | `/{supplier_id}/tariffs` | None | Supplier tariff list |
-| GET | `/region/{region}` | None | Suppliers by region |
+| GET | `/` | None | List suppliers (paginated, filterable by region/utility_type/green) |
+| GET | `/{supplier_id}` | None | Supplier details (UUID validated) |
+| GET | `/{supplier_id}/tariffs` | None | Supplier tariff list (UUID validated) |
+| GET | `/region/{region}` | None | Suppliers by region (region code validated) |
 | GET | `/compare/{region}` | None | Compare suppliers in region |
 
-**Note:** Currently uses mock data (Eversource, UI, NextEra for CT region).
+**Data source:** `supplier_registry` table via `SupplierRegistryRepository`. Supports filtering
+by `utility_type` (electricity, natural_gas, heating_oil, propane, community_solar), `green_only`,
+and region. Input validation (`_validate_uuid`, `_validate_region_code`) rejects invalid IDs/regions
+before DB access.
+
+### State Regulations (`/api/v1/regulations`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | None | List state regulations (filterable by electricity/gas/oil/community_solar) |
+| GET | `/{state_code}` | None | Get regulation details for a specific state |
+
+**Data source:** `state_regulations` table via `StateRegulationRepository`. Returns deregulation
+status, PUC contact info, licensing requirements, and comparison tool URLs.
 
 ### Authentication (`/api/v1/auth`)
 
@@ -270,10 +290,10 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | Category | Notable Fields |
 |----------|---------------|
 | App | `environment` (dev/staging/prod/test), `api_prefix`, `backend_port` |
-| Database | `database_url`, `timescaledb_url` (legacy alias) |
+| Database | `database_url` |
 | Redis | `redis_url`, `redis_password` |
 | Auth | `jwt_secret` (validated: 32+ chars in prod), `jwt_algorithm` (HS256) |
-| API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `openweathermap_api_key` |
+| API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `eia_api_key`, `openweathermap_api_key` |
 | Email | `sendgrid_api_key`, `smtp_host/port/username/password`, `email_from_address/name` |
 | Stripe | `stripe_secret_key`, `stripe_webhook_secret`, `stripe_price_pro`, `stripe_price_business` |
 | ML | `model_path`, `model_forecast_hours` (24), `model_accuracy_threshold_mape` (10.0) |
@@ -372,26 +392,32 @@ brute-force `VectorStore.search()` transparently. HNSW index rebuilt from SQLite
 
 ## Models
 
-### PriceRegion enum (models/price.py)
+### Region enum (models/region.py) -- Single Source of Truth
 
-14 regions: `uk`, `germany`, `france`, `spain`, `italy`, `netherlands`, `belgium`,
-`us_ct`, `us_ca`, `us_tx`, `us_ny`, `us_fl`, `australia`, `japan`
+All 50 US states + DC + 16 international regions. Replaces the former duplicate
+`PriceRegion` (price.py) and `PricingRegion` (base.py) enums.
 
-### PricingRegion enum (integrations/pricing_apis/base.py)
+US format: `us_XX` (e.g., `us_ct`, `us_tx`). International: ISO codes (`uk`, `de`, `fr`).
+Backward-compatible aliases: `PriceRegion = Region`, `PricingRegion = Region`.
 
-Used for external API routing:
+Helper properties: `is_us`, `state_code`, `from_state_code()`, `us_regions()`.
 
-| PricingRegion | API Client | Fallback |
-|---------------|-----------|----------|
-| US_CT, US_CA, US_NY | NREL | IEA |
-| UK, GERMANY, FRANCE | Flatpeak | IEA |
-| Other | IEA | -- |
+Constants: `DEREGULATED_ELECTRICITY_STATES` (18), `DEREGULATED_GAS_STATES` (16),
+`HEATING_OIL_STATES` (9), `COMMUNITY_SOLAR_STATES` (28).
+
+### UtilityType enum (models/utility.py)
+
+5 utility types: `ELECTRICITY`, `NATURAL_GAS`, `HEATING_OIL`, `PROPANE`, `COMMUNITY_SOLAR`.
+
+`PriceUnit` enum: `KWH`, `MWH`, `CENTS_KWH`, `THERM`, `MCF`, `MMBTU`, `CCF`, `GALLON`, `CREDIT_KWH`.
+
+Lookup dicts: `UTILITY_DEFAULT_UNITS`, `UTILITY_LABELS`, `UNIT_LABELS`.
 
 ### Price model
 
 Core fields: `id`, `region`, `supplier`, `price_per_kwh` (Decimal), `timestamp`,
 `currency` (3-letter uppercase), `unit` (kWh/MWh), `is_peak`, `carbon_intensity`,
-`energy_source`, `source_api`.
+`energy_source`, `source_api`, `utility_type` (UtilityType, default: ELECTRICITY).
 
 Response models: `PriceResponse`, `PriceListResponse`, `PriceHistoryResponse`,
 `PriceForecastResponse`, `PriceComparisonResponse` -- all include `source: Optional[str]`.
@@ -419,8 +445,9 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 
 | Repository | Model | Key Methods |
 |------------|-------|-------------|
-| `PriceRepository` | `Price` | `get_current_prices`, `get_latest_by_supplier`, `get_historical_prices`, `bulk_create`, `get_price_statistics` |
-| `SupplierRepository` | `Supplier` | `list_by_region`, `get_tariffs`, `create_tariff`, `get_green_suppliers` |
+| `PriceRepository` | `Price` | `get_current_prices` (filters by utility_type), `get_latest_by_supplier`, `get_historical_prices`, `bulk_create`, `get_price_statistics` |
+| `SupplierRegistryRepository` | `SupplierRegistry` | `list_suppliers` (paginated, filters: region/utility_type/green/active), `get_by_id`, `create`, `update` |
+| `StateRegulationRepository` | `StateRegulation` | `list_deregulated` (filters: electricity/gas/oil/community_solar), `get_by_state` |
 | `UserRepository` | `User` | `get_by_email`, `update_preferences`, `update_last_login`, `record_consent` |
 | `ConsentRepository` | `ConsentRecord` | `get_by_user_and_purpose`, `get_latest_by_user_and_purpose`, `delete_by_user_id` |
 | `DeletionLogRepository` | `DeletionLog` | `create`, `get_by_user_id` (immutable -- no update/delete) |
@@ -481,14 +508,16 @@ Two auth mechanisms:
 
 ## Database (Neon PostgreSQL)
 
-12 tables (init_neon.sql + 002 + 005):
+14 tables (init_neon.sql + 002 + 005 + 006):
 
 | Table | PK Type | Notes |
 |-------|---------|-------|
 | `users` | UUID | email UNIQUE, region indexed |
-| `electricity_prices` | UUID | region + timestamp indexed |
-| `suppliers` | UUID | name UNIQUE |
-| `tariffs` | UUID | FK to suppliers |
+| `electricity_prices` | UUID | region + timestamp indexed, utility_type column (default: electricity) |
+| `suppliers` | UUID | name UNIQUE, utility_types array column |
+| `tariffs` | UUID | FK to suppliers, utility_type column |
+| `supplier_registry` | UUID | DB-backed supplier data (replaces mock data). Columns: utility_types[], regions[], rating, green_energy_provider, metadata JSONB |
+| `state_regulations` | VARCHAR(2) PK | Deregulation flags, PUC info, licensing requirements |
 | `consent_records` | UUID | FK to users (ON DELETE CASCADE) |
 | `deletion_logs` | UUID | Immutable (trigger blocks UPDATE/DELETE) |
 | `beta_signups` | UUID | email UNIQUE |
@@ -497,6 +526,8 @@ Two auth mechanisms:
 | `activity_logs` | UUID | FK to users |
 | `forecast_observations` | UUID | predicted vs actual prices, partial index on unobserved |
 | `recommendation_outcomes` | UUID | user acceptance + actual savings tracking |
+
+**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar).
 
 
 ## Migrations
@@ -508,6 +539,7 @@ Two auth mechanisms:
 | `003_reconcile_schema.sql` | Reconcile column divergence between init and 002 |
 | `004_performance_indexes.sql` | Compound index on `electricity_prices(region, supplier, timestamp DESC)`, partial index on `users(stripe_customer_id)` |
 | `005_observation_tables.sql` | `forecast_observations` + `recommendation_outcomes` tables with indexes for adaptive learning |
+| `006_multi_utility_expansion.sql` | `utility_type` enum, `utility_type` columns on prices/suppliers/tariffs, `supplier_registry` table, `state_regulations` table, CT seed data |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.
@@ -556,8 +588,8 @@ disables `tr_prevent_deletion_log_update` trigger for schema backfill operations
 GitHub Actions -> POST /api/v1/prices/refresh (X-API-Key header)
   -> create_pricing_service_from_settings()
   -> PricingService.compare_prices([US_CT, US_NY, US_CA, UK, DE, FR])
-       -> NREL (US regions) / Flatpeak (EU) -> IEA (fallback)
-  -> Map PricingRegion -> PriceRegion (db_region)
+       -> NREL (US regions) / Flatpeak (EU) / EIA (gas/oil/propane) -> IEA (fallback)
+  -> Region enum (single source of truth)
   -> PriceRepository.bulk_create(prices)
   -> AlertService.check_thresholds() (planned)
 ```
@@ -649,7 +681,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 516 passing (as of 2026-02-23), 17 test files. 23 known test-ordering failures (pass individually).
+**Test status:** 555 passing (as of 2026-02-23), 19 test files. 23 known test-ordering failures (pass individually).
 
 
 ## Scripts & Automation

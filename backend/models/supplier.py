@@ -1,7 +1,8 @@
 """
 Supplier Data Models
 
-Pydantic models for electricity supplier data with validation.
+Pydantic models for energy supplier data with validation.
+Supports multi-utility types and multi-region suppliers.
 """
 
 from datetime import datetime, timezone
@@ -11,6 +12,8 @@ from typing import Optional, List
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, HttpUrl, EmailStr, ConfigDict
+
+from models.utility import UtilityType
 
 
 class TariffType(str, Enum):
@@ -61,6 +64,7 @@ class Tariff(BaseModel):
     supplier_id: str
     name: str = Field(..., min_length=1, max_length=200)
     type: TariffType
+    utility_type: UtilityType = Field(default=UtilityType.ELECTRICITY)
 
     # Pricing
     base_rate: Decimal = Field(..., ge=Decimal("0"))
@@ -111,6 +115,7 @@ class Supplier(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     regions: List[str] = Field(..., min_length=1)
     tariff_types: List[str] = Field(..., min_length=1)
+    utility_types: List[UtilityType] = Field(default_factory=lambda: [UtilityType.ELECTRICITY])
 
     # API integration
     api_available: bool = False

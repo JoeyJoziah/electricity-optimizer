@@ -43,45 +43,20 @@ class PriceUnit(str, Enum):
     USD_KWH = "USD/kWh"
     CENTS_KWH = "cents/kWh"
 
+    # Gas units
+    THERM = "therm"      # 100,000 BTU (residential gas)
+    MCF = "Mcf"          # 1,000 cubic feet (gas)
+    MMBTU = "MMBtu"      # million BTU (wholesale gas)
 
-class PricingRegion(str, Enum):
-    """Supported regions across all pricing APIs"""
+    # Oil & propane
+    GALLON = "gallon"    # gallon (heating oil, propane)
 
-    # UK
-    UK = "UK"
-    UK_SCOTLAND = "UK_SCOTLAND"
-    UK_WALES = "UK_WALES"
 
-    # EU
-    IRELAND = "IE"
-    GERMANY = "DE"
-    FRANCE = "FR"
-    SPAIN = "ES"
-    ITALY = "IT"
-    NETHERLANDS = "NL"
-    BELGIUM = "BE"
-    AUSTRIA = "AT"
-
-    # US (selected states)
-    US_CA = "US_CA"  # California
-    US_TX = "US_TX"  # Texas
-    US_NY = "US_NY"  # New York
-    US_FL = "US_FL"  # Florida
-    US_IL = "US_IL"  # Illinois
-    US_PA = "US_PA"  # Pennsylvania
-    US_OH = "US_OH"  # Ohio
-    US_GA = "US_GA"  # Georgia
-    US_NC = "US_NC"  # North Carolina
-    US_MI = "US_MI"  # Michigan
-    US_CT = "US_CT"  # Connecticut
-
-    # Global/Other
-    JAPAN = "JP"
-    AUSTRALIA = "AU"
-    CANADA = "CA"
-    CHINA = "CN"
-    INDIA = "IN"
-    BRAZIL = "BR"
+# Import unified Region as PricingRegion for backward compatibility.
+# The canonical definition lives in models.region; all new code should
+# import from there.  Existing pricing-API code continues to work via
+# this alias.
+from models.region import Region as PricingRegion  # noqa: E402
 
 
 class CircuitState(str, Enum):

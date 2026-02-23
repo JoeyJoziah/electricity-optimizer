@@ -4,9 +4,12 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Appliance, Supplier, UserSettings } from '@/types'
 
+export type UtilityType = 'electricity' | 'natural_gas' | 'heating_oil' | 'propane' | 'community_solar'
+
 interface SettingsState {
   // User settings
   region: string
+  utilityTypes: UtilityType[]
   currentSupplier: Supplier | null
   annualUsageKwh: number
   peakDemandKw: number
@@ -28,6 +31,7 @@ interface SettingsState {
 
   // Actions
   setRegion: (region: string) => void
+  setUtilityTypes: (types: UtilityType[]) => void
   setCurrentSupplier: (supplier: Supplier | null) => void
   setAnnualUsage: (usage: number) => void
   setPeakDemand: (demand: number) => void
@@ -47,6 +51,7 @@ interface SettingsState {
 const defaultSettings: Omit<
   SettingsState,
   | 'setRegion'
+  | 'setUtilityTypes'
   | 'setCurrentSupplier'
   | 'setAnnualUsage'
   | 'setPeakDemand'
@@ -59,6 +64,7 @@ const defaultSettings: Omit<
   | 'resetSettings'
 > = {
   region: 'us_ct',
+  utilityTypes: ['electricity'] as UtilityType[],
   currentSupplier: null,
   annualUsageKwh: 10500, // US average
   peakDemandKw: 5,
@@ -81,6 +87,8 @@ export const useSettingsStore = create<SettingsState>()(
       ...defaultSettings,
 
       setRegion: (region) => set({ region }),
+
+      setUtilityTypes: (types) => set({ utilityTypes: types }),
 
       setCurrentSupplier: (supplier) => set({ currentSupplier: supplier }),
 
@@ -130,6 +138,7 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         region: state.region,
+        utilityTypes: state.utilityTypes,
         currentSupplier: state.currentSupplier,
         annualUsageKwh: state.annualUsageKwh,
         peakDemandKw: state.peakDemandKw,
@@ -143,6 +152,7 @@ export const useSettingsStore = create<SettingsState>()(
 
 // Selector hooks for specific parts of state
 export const useRegion = () => useSettingsStore((s) => s.region)
+export const useUtilityTypes = () => useSettingsStore((s) => s.utilityTypes)
 export const useCurrentSupplier = () => useSettingsStore((s) => s.currentSupplier)
 export const useAnnualUsage = () => useSettingsStore((s) => s.annualUsageKwh)
 export const useAppliances = () => useSettingsStore((s) => s.appliances)
