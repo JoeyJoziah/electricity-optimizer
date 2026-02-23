@@ -116,3 +116,4 @@ playwright-report/
 Thumbs.db
 .claude-flow/
 .swarm/
+.loki/

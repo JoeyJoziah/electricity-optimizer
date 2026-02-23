@@ -11,6 +11,7 @@ This document describes the infrastructure architecture, service dependencies, a
 5. [Monitoring Setup](#monitoring-setup)
 6. [Scaling Guidelines](#scaling-guidelines)
 7. [Cost Optimization](#cost-optimization)
+8. [Loki Mode Orchestration](#loki-mode-orchestration)
 
 ---
 
@@ -469,6 +470,65 @@ deploy:
 - Role-based access control
 - API documentation (Swagger/ReDoc) disabled in production
 - Price refresh endpoint requires API key authentication
+
+---
+
+## Loki Mode Orchestration
+
+Loki Mode is an agent orchestration layer that manages session lifecycle, memory persistence, and event-driven coordination for Claude Code sessions in this project.
+
+**Version:** v5.53.0 (npm global install + skill at `~/.claude/skills/loki-mode/`)
+
+### MCP Server Registration
+
+Loki Mode is registered as an MCP server in the project's `.mcp.json`. This allows Claude Code to invoke Loki capabilities (memory, events, orchestration commands) through the standard MCP tool interface.
+
+### Session Lifecycle Hooks
+
+| Hook Type | Script | Purpose |
+|-----------|--------|---------|
+| `PreToolUse` | `activate-orchestration.sh` | Auto-initializes Loki Mode at the start of each Claude Code session. Creates `/tmp/claude-orchestration-active` marker to prevent re-initialization. |
+| `Stop` | `session-end-orchestration.sh` | Graceful shutdown: persists session state, flushes memory, cleans up the orchestration marker. |
+
+**Logs:**
+- Initialization: `.claude/logs/orchestration-init.log`
+- Shutdown: `.claude/logs/orchestration-shutdown.log`
+
+### Event Bus
+
+Loki Mode uses a file-based event bus at `.loki/events/` for inter-component communication.
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| Event directory | `.loki/events/` | Stores event payloads as JSON files |
+| Event bridge | `loki-event-sync.sh` | Bridges Loki events to external consumers (supports `--dry-run` for testing) |
+
+Events are produced by Loki Mode during orchestration (e.g., session start, memory writes, task completions) and consumed by the sync bridge for integration with other tooling.
+
+### Memory Layer
+
+Loki Mode provides an IndexLayer memory system that persists knowledge across sessions.
+
+| Property | Value |
+|----------|-------|
+| Namespace | `electricity-optimizer` |
+| Backend | IndexLayer (embedded vector index) |
+| Persistence | Survives session restarts via Loki's memory store |
+| Access | `mcp__loki__memory_store`, `mcp__loki__memory_retrieve` (via MCP) |
+
+Memory is used to store learned patterns, session context, and cross-session state that supplements the project's MEMORY.md file.
+
+### Dashboard
+
+Loki Mode includes an optional web dashboard for inspecting orchestration state, memory contents, and event history.
+
+| Property | Value |
+|----------|-------|
+| Port | 57374 |
+| Start | Manual (`loki dashboard` or equivalent) |
+| URL | `http://localhost:57374` |
+
+The dashboard is not started automatically. It is intended for debugging and inspection during development, not for production use.
 
 ---
 

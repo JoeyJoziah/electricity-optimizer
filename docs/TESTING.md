@@ -534,6 +534,55 @@ open tests/load/reports/load_test_*.html
 
 ---
 
+## Loki Mode Testing
+
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (555 backend, 346 frontend, 105 ML) remain unchanged with Loki Mode active. The pre-existing `test_model_info` ordering issue (23 tests that fail in full suite but pass individually) is also unaffected.
+
+### Event Bus Dry Run
+
+Test event processing without side effects using the `--dry-run` flag:
+
+```bash
+loki-event-sync.sh --dry-run
+```
+
+This reads and validates events from `.loki/events/` but does not execute any sync actions or modify state. Use this to verify that events are being produced correctly during development.
+
+### Activation Hook Test
+
+To verify that the `PreToolUse` auto-initialization hook works correctly:
+
+```bash
+# Remove the orchestration marker to simulate a fresh session
+rm -f /tmp/claude-orchestration-active
+
+# Run the activation script manually
+.claude/hooks/activate-orchestration.sh
+
+# Verify the marker was created
+ls -la /tmp/claude-orchestration-active
+```
+
+If the marker file exists after running the script, initialization succeeded. Check `.claude/logs/orchestration-init.log` for detailed output.
+
+### Memory Verification
+
+Query Loki Mode's IndexLayer memory to verify stored data:
+
+```bash
+PYTHONPATH="$HOME/.claude/skills/loki-mode" loki memory retrieve "query"
+```
+
+Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"session patterns"`). This performs a vector similarity search against the `electricity-optimizer` namespace and returns matching memory entries.
+
+### Compatibility Notes
+
+- Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
+- The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
+- All 555 backend, 346 frontend, and 105 ML tests continue to pass with Loki Mode installed
+
+---
+
 ## Maintenance
 
 ### Updating Test Dependencies

@@ -102,12 +102,15 @@ backend/
 └── tests/
     ├── conftest.py                  # Shared fixtures
     ├── test_api.py                  # API endpoint tests
+    ├── test_api_beta.py             # Beta API endpoint tests
     ├── test_api_billing.py          # Billing/Stripe endpoint tests (33 tests)
+    ├── test_api_compliance.py       # Compliance API endpoint tests
     ├── test_api_predictions.py      # ML prediction endpoint tests
     ├── test_api_recommendations.py  # Recommendation endpoint tests
     ├── test_api_user.py             # User preference endpoint tests
     ├── test_auth.py                 # Authentication tests
     ├── test_config.py               # Settings validation tests
+    ├── test_email_service.py        # Email service tests (SendGrid + SMTP)
     ├── test_models.py               # Pydantic model tests
     ├── test_services.py             # Service layer tests
     ├── test_repositories.py         # Repository tests
@@ -116,6 +119,7 @@ backend/
     ├── test_security_adversarial.py # Adversarial security tests (46 tests)
     ├── test_alert_service.py        # Alert service tests
     ├── test_stripe_service.py       # Stripe service tests
+    ├── test_vector_store.py         # Vector store tests (VectorStore + HNSWVectorStore)
     ├── test_weather_service.py      # Weather service tests
     ├── test_gdpr_compliance.py      # GDPR compliance tests
     ├── test_multi_utility.py        # Multi-utility expansion tests (39 tests)
@@ -681,7 +685,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 555 passing (as of 2026-02-23), 19 test files. 23 known test-ordering failures (pass individually).
+**Test status:** 555 passing (as of 2026-02-23), 23 test files. 23 known test-ordering failures (pass individually).
 
 
 ## Scripts & Automation
