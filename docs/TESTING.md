@@ -1,9 +1,10 @@
 # Testing Guide
 
-**Last Updated**: 2026-02-22
+**Last Updated**: 2026-02-23
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 338 (pytest)
-**Frontend Tests**: 77 across 7 suites (Jest)
+**Backend Tests**: 491 (pytest)
+**Frontend Tests**: 224 across 14 suites (Jest)
+**E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
 
 ---
 
@@ -11,9 +12,9 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 338 | 85%+ | pytest |
-| **Frontend Component Tests** | 77 (7 suites) | 70%+ | Jest + RTL |
-| **E2E Tests** | 100+ | Critical flows | Playwright |
+| **Backend Unit/Integration** | 491 | 85%+ | pytest |
+| **Frontend Component Tests** | 224 (14 suites) | 70%+ | Jest + RTL |
+| **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
 | **Security Tests** | 144 | 90%+ | pytest |
 | **Load Tests** | N/A | 1000+ users | Locust |
 | **Performance Tests** | 20+ | API/ML | pytest |
@@ -96,7 +97,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 338
+**Count**: 491
 **Coverage Target**: 85%+
 
 **Test Files**:
@@ -108,6 +109,10 @@ cd tests/load && ./run_load_test.sh quick
 - `test_auth.py` - Authentication tests
 - `test_security.py` - Security tests
 - `test_gdpr_compliance.py` - GDPR compliance tests
+- `test_alert_service.py` - Alert service tests
+- `test_stripe_service.py` - Stripe service tests
+- `test_weather_service.py` - Weather service tests
+- `test_config.py` - Settings validation tests
 
 **Running**:
 ```bash
@@ -119,14 +124,24 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component Tests
 
 **Location**: `frontend/__tests__/`
-**Count**: 77 tests across 7 suites
+**Count**: 224 tests across 14 suites
 **Coverage Target**: 70%+
 
-**Test Files**:
-- `components/PriceLineChart.test.tsx` - Price chart tests
-- `components/SupplierCard.test.tsx` - Supplier card tests
-- `components/SwitchWizard.test.tsx` - Switching wizard tests (known flaky)
-- `components/ComparisonTable.test.tsx` - Comparison table tests
+**Test Suites**:
+- `components/ComparisonTable.test.tsx` - Supplier comparison table
+- `components/PriceLineChart.test.tsx` - Price chart rendering
+- `components/SavingsDonut.test.tsx` - Savings donut chart
+- `components/ScheduleTimeline.test.tsx` - Schedule timeline
+- `components/SupplierCard.test.tsx` - Supplier card
+- `components/SwitchWizard.test.tsx` - Switching wizard (known flaky)
+- `components/auth/LoginForm.test.tsx` - Login form
+- `components/auth/SignupForm.test.tsx` - Signup form
+- `components/charts/ForecastChart.test.tsx` - Forecast chart
+- `components/gamification/SavingsTracker.test.tsx` - Savings tracker
+- `components/layout/Header.test.tsx` - Header layout
+- `components/layout/Sidebar.test.tsx` - Sidebar layout
+- `components/ui/*.test.tsx` - UI primitives (Badge, Button, Card, Input, Skeleton)
+- `integration/dashboard.test.tsx` - Dashboard integration
 
 **Running**:
 ```bash
@@ -141,29 +156,54 @@ npm run test:ci    # CI mode with coverage
 ### 3. E2E Tests
 
 **Location**: `frontend/e2e/`
+**Count**: 161 tests per browser x 5 browser projects = 805 total
+**Last Run**: 431 passed, 374 skipped, 0 failed (2026-02-23)
 
-**Test Files**:
-- `onboarding.spec.ts` - User onboarding flow
+**Test Files** (11 specs):
 - `authentication.spec.ts` - Auth flows (login, OAuth, magic link)
-- `dashboard.spec.ts` - Dashboard interactions
-- `supplier-switching.spec.ts` - Full switching flow with GDPR
-- `load-optimization.spec.ts` - Appliance scheduling
-- `gdpr-compliance.spec.ts` - Data export and deletion
-- `switching.spec.ts` - Supplier switching scenarios
-- `optimization.spec.ts` - Load optimization scenarios
+- `billing-flow.spec.ts` - Stripe checkout, pricing tiers
+- `dashboard.spec.ts` - Dashboard widgets, navigation, error handling
+- `full-journey.spec.ts` - End-to-end user journey (landing -> dashboard -> optimize)
+- `gdpr-compliance.spec.ts` - Cookie consent, data export/deletion
+- `load-optimization.spec.ts` - Appliance scheduling, savings projections
+- `onboarding.spec.ts` - Signup navigation, post-onboarding dashboard
+- `optimization.spec.ts` - Quick add, custom appliance, flexibility toggle
+- `sse-streaming.spec.ts` - SSE connection, price updates, error recovery
+- `supplier-switching.spec.ts` - Supplier comparison, switching wizard
+- `switching.spec.ts` - Switching wizard GDPR consent flow
+
+**Browser Projects** (5):
+| Project | Device | Viewport |
+|---------|--------|----------|
+| chromium | Desktop Chrome | 1280x720 |
+| firefox | Desktop Firefox | 1280x720 |
+| webkit | Desktop Safari | 1280x720 |
+| Mobile Chrome | Pixel 5 | 393x851 |
+| Mobile Safari | iPhone 12 | 390x844 |
+
+**Skipped Tests**: ~75 per browser are skipped for unimplemented features:
+- Supabase auth (signIn/signUp use client directly, not mockable via route interception)
+- `/onboarding` page (not yet implemented)
+- Multi-step switching wizard testids (supplier-card-*, filter/sort testids)
+- Optimization testids (schedule-block-*, price-zone-*, optimization-score)
+- Cookie banner interactions (not visible on Chromium)
+- Recurring schedule and smart notification UIs
 
 **Running**:
 ```bash
 cd frontend
 
-# Run all E2E tests
+# Run all E2E tests (5 browsers)
 npx playwright test
 
-# Run with UI mode
-npx playwright test --ui
+# Run single browser
+npx playwright test --project=chromium
 
 # Run specific test file
 npx playwright test e2e/authentication.spec.ts
+
+# Run with UI mode
+npx playwright test --ui
 
 # Run in headed mode
 npx playwright test --headed
@@ -172,7 +212,10 @@ npx playwright test --headed
 npx playwright show-report
 ```
 
-**Browser Coverage**: Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari
+**Cross-Browser Notes**:
+- `isMobile` fixture is used to skip tests for mobile-hidden elements (e.g., realtime indicator has `hidden sm:flex`)
+- WebKit requires `click()` before `fill()` for React controlled inputs to trigger `onChange`
+- Mobile Safari has different error rendering for Supabase auth failures
 
 ### 4. Load Tests
 

@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-22
+> Last updated: 2026-02-23
 
 ## Directory Structure
 
@@ -465,7 +465,7 @@ disables `tr_prevent_deletion_log_update` trigger for schema backfill operations
 | supabase | >=2.3,<3.0 | Supabase client |
 | redis[hiredis] | 5.0.1 | Redis client |
 | stripe | >=7.0,<8.0 | Payment processing |
-| python-jose | 3.3.0 | JWT tokens |
+| PyJWT | >=2.8,<3.0 | JWT tokens |
 | sendgrid | >=6.0,<7.0 | Email (primary) |
 | aiosmtplib | >=3.0,<4.0 | Email (fallback) |
 | jinja2 | >=3.0 | Email templates |
@@ -552,4 +552,4 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 338 passing (as of 2026-02-12), 13 test files.
+**Test status:** 491 passing (as of 2026-02-23), 13 test files.

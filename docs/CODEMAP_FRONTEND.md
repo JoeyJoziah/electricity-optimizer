@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-22
+**Last Updated:** 2026-02-23
 **Framework:** Next.js 14.1.0 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -99,9 +99,15 @@ frontend/
   hooks/                        # Empty directory (unused, hooks live in lib/hooks/)
   store/                        # Empty directory (unused, store lives in lib/store/)
   __tests__/
-    components/                 # Unit tests: ComparisonTable, PriceLineChart, SavingsDonut, ScheduleTimeline, SupplierCard, SwitchWizard
+    components/                 # Unit tests (14 suites, 224 tests)
+      auth/                     #   LoginForm, SignupForm
+      charts/                   #   ForecastChart
+      gamification/             #   SavingsTracker
+      layout/                   #   Header, Sidebar
+      ui/                       #   Badge, Button, Card, Input, Skeleton
+      ComparisonTable, PriceLineChart, SavingsDonut, ScheduleTimeline, SupplierCard, SwitchWizard
     integration/                # Integration test: dashboard
-  e2e/                          # Playwright E2E tests: authentication, dashboard, gdpr-compliance, load-optimization, onboarding, optimization, supplier-switching, switching
+  e2e/                          # Playwright E2E tests (11 specs, 5 browser projects, 805 total)
   public/                       # Static assets (icons, etc.)
 ```
 
@@ -435,7 +441,7 @@ Page Component (app/(app)/*)
 
 ### Unit Tests (`__tests__/`)
 
-6 component tests + 1 integration test:
+14 test suites, 224 tests total:
 
 | Test File | Covers |
 |-----------|--------|
@@ -445,18 +451,42 @@ Page Component (app/(app)/*)
 | ScheduleTimeline.test.tsx | Timeline with schedules and price zones |
 | SupplierCard.test.tsx | Card rendering, savings badge, selection |
 | SwitchWizard.test.tsx | Multi-step wizard flow (note: flaky) |
-| dashboard.test.tsx | Dashboard integration: data loading, display, interactions |
+| auth/LoginForm.test.tsx | Login form: email/password, OAuth, magic link, error states |
+| auth/SignupForm.test.tsx | Signup form: registration, password validation, OAuth |
+| charts/ForecastChart.test.tsx | Forecast chart: data rendering, empty state, confidence |
+| gamification/SavingsTracker.test.tsx | Streak tiers, progress bar, formatCurrency |
+| layout/Header.test.tsx | Header: title, nav, active state |
+| layout/Sidebar.test.tsx | Sidebar: nav links, responsive |
+| ui/*.test.tsx | UI primitives: Badge, Button, Card, Input, Skeleton |
+| integration/dashboard.test.tsx | Dashboard integration: data loading, display, interactions |
 
 ### E2E Tests (`e2e/`)
 
-8 Playwright spec files: authentication, dashboard, gdpr-compliance, load-optimization, onboarding, optimization, supplier-switching, switching.
+11 Playwright spec files x 5 browser projects = 805 total tests.
+**Last run:** 431 passed, 374 skipped, 0 failed (2026-02-23).
+
+| Spec File | Tests | Description |
+|-----------|-------|-------------|
+| authentication.spec.ts | 15 | Login, OAuth, magic link, security |
+| billing-flow.spec.ts | 9 | Stripe pricing, checkout flow |
+| dashboard.spec.ts | 11 | Widgets, navigation, error handling |
+| full-journey.spec.ts | 25 | Full user journey (landing -> optimize) |
+| gdpr-compliance.spec.ts | 14 | Cookie consent, data export/deletion |
+| load-optimization.spec.ts | 18 | Appliance scheduling, savings |
+| onboarding.spec.ts | 11 | Signup navigation, dashboard access |
+| optimization.spec.ts | 12 | Quick add, custom appliance, flexibility |
+| sse-streaming.spec.ts | 11 | SSE connection, error recovery |
+| supplier-switching.spec.ts | 18 | Supplier comparison, switch wizard |
+| switching.spec.ts | 17 | Switching wizard GDPR consent |
+
+**Browser projects:** Chromium, Firefox, WebKit, Mobile Chrome (Pixel 5), Mobile Safari (iPhone 12)
 
 ### Commands
 
 ```bash
 npm run test          # Jest watch mode
 npm run test:ci       # Jest with coverage
-npm run test:e2e      # Playwright E2E
+npm run test:e2e      # Playwright E2E (all 5 browsers)
 npm run type-check    # tsc --noEmit
 npm run lint          # next lint
 ```
@@ -474,15 +504,17 @@ npm run lint          # next lint
 
 ---
 
-## Recent Changes (as of 2026-02-22)
+## Recent Changes (as of 2026-02-23)
 
-1. **Region default changed from 'uk' to 'us_ct'** -- All API functions (`prices.ts`, `suppliers.ts`, `optimization.ts`) and hooks (`usePrices.ts`, `useSuppliers.ts`, `useOptimization.ts`, `useRealtime.ts`) now default to `'us_ct'`
+1. **Region default changed from 'uk' to 'us_ct'** -- All API functions and hooks default to `'us_ct'`
 2. **Settings store defaults updated** -- region: `'us_ct'`, currency: `'USD'`, annualUsageKwh: `10500` (US average), timeFormat: `'12h'`
-3. **Landing page added at `/`** -- Previously redirected to `/dashboard`; now shows full marketing page with hero, features, pricing preview, and footer
-4. **Route restructuring** -- Marketing pages (/, /pricing, /privacy, /terms) at root layout without sidebar; app pages under `(app)` route group with sidebar
+3. **Landing page added at `/`** -- Full marketing page with hero, features, pricing preview, and footer
+4. **Route restructuring** -- Marketing pages at root layout without sidebar; app pages under `(app)` route group with sidebar
 5. **Stripe monetization** -- Checkout API route proxy at `/api/checkout`; tiers: Free, Pro ($4.99/mo), Business ($14.99/mo)
 6. **SEO metadata** -- Root layout includes OG tags, Twitter card, keywords; dedicated robots.ts and sitemap.ts
 7. **Error boundaries** -- Global error boundary + per-route boundaries for dashboard, prices, suppliers
+8. **Frontend test expansion** -- 224 Jest tests (up from 77) across 14 suites covering auth, charts, gamification, layout, and UI primitives
+9. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures. Includes `isMobile` skip guards and WebKit-specific input handling
 
 ---
 
