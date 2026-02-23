@@ -6,6 +6,7 @@ WORKDIR /app/backend
 # Install system dependencies required for building Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies to /install prefix
