@@ -94,7 +94,10 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     })
   })
 
-  test('dashboard shows realtime indicator', async ({ page }) => {
+  // Realtime indicator has class "hidden sm:flex" — not visible on mobile viewports
+  test('dashboard shows realtime indicator', async ({ page, isMobile }) => {
+    test.skip(isMobile === true, 'Realtime indicator is hidden on mobile (sm:flex)')
+
     // Mock SSE endpoint to simulate a successful connection
     await page.route('**/api/v1/prices/stream**', async (route) => {
       await route.fulfill({
@@ -133,11 +136,11 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await page.goto('/dashboard')
 
     // Current price should display
-    await expect(page.getByTestId('current-price')).toBeVisible()
-    await expect(page.getByTestId('current-price')).toContainText('0.25')
+    await expect(page.getByTestId('current-price').first()).toBeVisible()
+    await expect(page.getByTestId('current-price').first()).toContainText('0.25')
 
     // Price trend indicator should be visible
-    await expect(page.getByTestId('price-trend')).toBeVisible()
+    await expect(page.getByTestId('price-trend').first()).toBeVisible()
   })
 
   test('handles SSE connection failure gracefully', async ({ page }) => {
@@ -154,7 +157,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
 
     // Dashboard should still load with data from REST endpoints
     await expect(page.getByText('Current Price').first()).toBeVisible()
-    await expect(page.getByTestId('current-price')).toBeVisible()
+    await expect(page.getByTestId('current-price').first()).toBeVisible()
 
     // The page should not crash even when SSE fails
     await expect(page.getByText('Price History')).toBeVisible()
@@ -172,9 +175,9 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await expect(page.getByText('Current Price').first()).toBeVisible()
     await expect(page.getByText('Total Saved')).toBeVisible()
     await expect(page.getByText('Optimal Times')).toBeVisible()
-    await expect(page.getByText('Suppliers')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Top Suppliers' })).toBeVisible()
     await expect(page.getByText('Price History')).toBeVisible()
-    await expect(page.getByText('24-Hour Forecast')).toBeVisible()
+    await expect(page.getByText('24-Hour Forecast').first()).toBeVisible()
     await expect(page.getByText('Top Suppliers')).toBeVisible()
   })
 
@@ -205,7 +208,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await page.goto('/dashboard')
 
     // Dashboard should render price data
-    await expect(page.getByTestId('current-price')).toBeVisible()
+    await expect(page.getByTestId('current-price').first()).toBeVisible()
   })
 
   test('multiple price updates do not break the dashboard', async ({ page }) => {
@@ -236,9 +239,9 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await page.goto('/dashboard')
 
     // Dashboard should handle multiple updates without errors
-    await expect(page.getByTestId('current-price')).toBeVisible()
+    await expect(page.getByTestId('current-price').first()).toBeVisible()
     await expect(page.getByText('Price History')).toBeVisible()
-    await expect(page.getByText('24-Hour Forecast')).toBeVisible()
+    await expect(page.getByText('24-Hour Forecast').first()).toBeVisible()
 
     // No error states should appear
     await expect(page.getByText(/failed to load/i)).not.toBeVisible()
@@ -359,7 +362,7 @@ test.describe('SSE Streaming - Error Recovery', () => {
 
     // Dashboard should still function from REST data
     await expect(page.getByText('Current Price').first()).toBeVisible()
-    await expect(page.getByTestId('current-price')).toContainText('0.25')
+    await expect(page.getByTestId('current-price').first()).toContainText('0.25')
     await expect(page.getByText('Price History')).toBeVisible()
   })
 
@@ -381,7 +384,7 @@ test.describe('SSE Streaming - Error Recovery', () => {
 
     // Dashboard should handle parse errors gracefully
     await expect(page.getByText('Current Price').first()).toBeVisible()
-    await expect(page.getByTestId('current-price')).toBeVisible()
+    await expect(page.getByTestId('current-price').first()).toBeVisible()
 
     // No crash - page remains interactive
     await expect(page.getByText('Price History')).toBeVisible()

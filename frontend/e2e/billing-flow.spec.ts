@@ -402,7 +402,7 @@ test.describe('Billing Flow - Upgrade Journey', () => {
     // Step 1: Visit landing page
     await page.goto('/')
     await expect(page.getByText('Save Money on')).toBeVisible()
-    await expect(page.getByText('Connecticut Electricity')).toBeVisible()
+    await expect(page.getByText('Connecticut Electricity', { exact: true })).toBeVisible()
 
     // Step 2: Navigate to pricing page via nav link
     await page.getByRole('link', { name: 'Pricing' }).first().click()
@@ -433,6 +433,6 @@ test.describe('Billing Flow - Upgrade Journey', () => {
 
     // Verify Pro features in landing preview
     await expect(page.getByText('Unlimited price alerts')).toBeVisible()
-    await expect(page.getByText('ML-powered forecasts')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'ML-Powered Forecasts' })).toBeVisible()
   })
 })
