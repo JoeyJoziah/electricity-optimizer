@@ -36,10 +36,10 @@ This document describes the infrastructure architecture, service dependencies, a
                     |                                     |
                     |              +----------------------+
                     |              |                      |
-           +--------+--------+    +--------+--------+    +--------+--------+
-           | Neon PostgreSQL |    |   TimescaleDB   |    |     Redis       |
-           |  (Serverless)   |    |  (local dev)    |    |   Port: 6379    |
-           +-----------------+    +--------+--------+    +--------+--------+
+           +--------+--------+                           +--------+--------+
+           | Neon PostgreSQL |                           |     Redis       |
+           |  (Serverless)   |                           |   Port: 6379    |
+           +-----------------+                           +--------+--------+
 
            +-------------GitHub Actions------------------+
            |                                              |
@@ -69,7 +69,6 @@ This document describes the infrastructure architecture, service dependencies, a
 | backend | custom | 8000 | FastAPI REST API |
 | frontend | custom | 3000 | Next.js web application |
 | redis | redis:7-alpine | 6379 | Caching and message queue |
-| timescaledb | timescale/timescaledb:pg15 | 5432 | Time-series database |
 
 ### Scheduling (GitHub Actions)
 
@@ -78,18 +77,22 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | Workflow | Schedule | Purpose |
 |----------|----------|---------|
 | price-sync.yml | Cron | Electricity price data ingestion |
-| ci.yml | On push/PR | Test suite (Python 3.11, Node 20, PostgreSQL 15, Redis 7) |
-| deploy.yml | On release | Production deployment to Render.com |
+| test.yml | On push/PR | Test suite (Python 3.11, Node 20, PostgreSQL 15, Redis 7) |
+| backend-ci.yml | On push/PR | Backend-specific tests and lint |
+| frontend-ci.yml | On push/PR | Frontend lint, test, build |
+| e2e-tests.yml | Daily + on demand | Playwright E2E + Lighthouse audits |
+| deploy-staging.yml | On merge to develop | Staging deployment to Render.com |
+| deploy-production.yml | On release | Production deployment to Render.com |
 
 ### Monitoring Services
 
 | Service | Image | Port | Purpose |
 |---------|-------|------|---------|
-| prometheus | prom/prometheus | 9090 | Metrics collection |
-| grafana | grafana/grafana | 3001 | Dashboards and alerting |
-| node-exporter | prom/node-exporter | 9100 | System metrics |
-| redis-exporter | oliver006/redis_exporter | 9121 | Redis metrics |
-| postgres-exporter | prometheuscommunity/postgres-exporter | 9187 | PostgreSQL metrics |
+| prometheus | prom/prometheus:v2.51.0 | 9090 | Metrics collection |
+| grafana | grafana/grafana:10.3.1 | 3001 | Dashboards and alerting |
+| node-exporter | prom/node-exporter:v1.7.0 | 9100 | System metrics |
+| redis-exporter | oliver006/redis_exporter:v1.58.0 | 9121 | Redis metrics |
+| postgres-exporter | prometheuscommunity/postgres-exporter:v0.15.0 | 9187 | PostgreSQL metrics |
 
 ---
 
@@ -117,8 +120,9 @@ All services communicate over the internal Docker bridge network. Only the follo
 
 Services discover each other using Docker DNS:
 - `http://backend:8000` - Backend API
-- `postgresql://timescaledb:5432` - TimescaleDB
 - `redis://redis:6379` - Redis
+
+In production, the database is Neon PostgreSQL (serverless, accessed via connection string — no local container).
 
 ---
 
@@ -131,7 +135,6 @@ Services discover each other using Docker DNS:
 | backend | 1.0 | 512MB | 0.25 | 256MB |
 | frontend | 0.5 | 256MB | 0.1 | 128MB |
 | redis | 0.25 | 128MB | 0.1 | 64MB |
-| timescaledb | 1.0 | 1GB | 0.25 | 512MB |
 | prometheus | 0.25 | 256MB | 0.1 | 128MB |
 | grafana | 0.25 | 256MB | 0.1 | 128MB |
 
@@ -148,6 +151,8 @@ Services discover each other using Docker DNS:
 
 ### Metrics Collection
 
+The `/metrics` endpoint requires an `X-API-Key` header (or `api_key` query param) matching `INTERNAL_API_KEY` to prevent information leakage.
+
 Prometheus scrapes metrics from all services:
 
 ```yaml
@@ -159,7 +164,7 @@ scrape_configs:
   - job_name: 'redis'
     targets: ['redis-exporter:9121']
 
-  - job_name: 'timescaledb'
+  - job_name: 'postgres'
     targets: ['postgres-exporter:9187']
 ```
 
@@ -193,7 +198,7 @@ Pre-configured dashboards:
 
 1. **Overview** - High-level service health
 2. **API Performance** - Request rates, latency, errors
-3. **Database** - TimescaleDB performance
+3. **Database** - PostgreSQL performance
 4. **ML Models** - Forecast accuracy and inference times
 5. **System Resources** - CPU, memory, disk
 
@@ -284,7 +289,7 @@ deploy:
 |-----------|-----|-----|
 | Frontend | 5 min | 0 |
 | Backend API | 15 min | 0 |
-| TimescaleDB | 30 min | 1 hour |
+| Neon PostgreSQL | N/A (managed) | Point-in-time (managed by Neon) |
 | Redis | 15 min | 24 hours |
 
 ### Backup Strategy

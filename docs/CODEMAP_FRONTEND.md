@@ -80,7 +80,7 @@ frontend/
       suppliers.ts              # Supplier API: getSuppliers, getRecommendation, compareSuppliers, initiateSwitch, getSwitchStatus
       optimization.ts           # Optimization API: getOptimalSchedule, saveAppliances, calculatePotentialSavings
     auth/
-      supabase.ts               # Supabase client + auth functions (signIn, signUp, OAuth, magic link, token storage)
+      supabase.ts               # Auth utility functions (signIn, signUp, OAuth, magic link, token storage)
     hooks/
       useAuth.tsx               # AuthProvider context + useAuth, useRequireAuth, useAccessToken hooks
       usePrices.ts              # useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods, useRefreshPrices
@@ -93,13 +93,10 @@ frontend/
       calculations.ts           # calculatePriceTrend, findOptimalPeriods, calculateAnnualSavings, calculatePaybackMonths, etc.
       cn.ts                     # cn() - Tailwind class merge utility (clsx + tailwind-merge)
       format.ts                 # formatCurrency, formatPricePerKwh, formatDateTime, formatTime, formatDuration, formatEnergy, etc.
-    query/                      # Empty directory (unused)
   types/
     index.ts                    # All TypeScript interfaces (PriceDataPoint, Supplier, Appliance, etc.)
-  hooks/                        # Empty directory (unused, hooks live in lib/hooks/)
-  store/                        # Empty directory (unused, store lives in lib/store/)
   __tests__/
-    components/                 # Unit tests (14 suites, 224 tests)
+    components/                 # Component unit tests (14 suites)
       auth/                     #   LoginForm, SignupForm
       charts/                   #   ForecastChart
       gamification/             #   SavingsTracker
@@ -107,6 +104,12 @@ frontend/
       ui/                       #   Badge, Button, Card, Input, Skeleton
       ComparisonTable, PriceLineChart, SavingsDonut, ScheduleTimeline, SupplierCard, SwitchWizard
     integration/                # Integration test: dashboard
+  lib/
+    api/__tests__/
+      client.test.ts            # API client unit tests (30 tests)
+    utils/__tests__/
+      format.test.ts            # Format utility tests (46 tests)
+      calculations.test.ts      # Calculation utility tests (46 tests)
   e2e/                          # Playwright E2E tests (11 specs, 5 browser projects, 805 total)
   public/                       # Static assets (icons, etc.)
 ```
@@ -239,7 +242,7 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 
 ### Architecture
 
-- **Provider:** Supabase client (`lib/auth/supabase.ts`) configured with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- **Provider:** Custom JWT auth via backend API (`lib/auth/supabase.ts` utility functions)
 - **Context:** `AuthProvider` wraps the entire app in `app/layout.tsx`
 - **Token Storage:** localStorage (`auth_access_token`, `auth_refresh_token`)
 - **Auto-refresh:** On mount, attempts token validation then refresh if expired
@@ -419,7 +422,6 @@ Page Component (app/(app)/*)
 | @tanstack/react-query | ^5.17.15 | Server state management |
 | zustand | ^4.4.7 | Client state management |
 | recharts | ^2.10.3 | Charts and data visualization |
-| @supabase/supabase-js | ^2.39.0 | Authentication client |
 | lucide-react | ^0.309.0 | Icon library |
 | tailwindcss | ^3.4.1 | Utility-first CSS |
 | tailwind-merge | ^2.2.0 | Tailwind class deduplication |
@@ -439,9 +441,11 @@ Page Component (app/(app)/*)
 
 ## Testing
 
-### Unit Tests (`__tests__/`)
+### Unit Tests
 
-14 test suites, 224 tests total:
+17 test suites, 346 tests total:
+
+**Component tests** (`__tests__/`):
 
 | Test File | Covers |
 |-----------|--------|
@@ -459,6 +463,14 @@ Page Component (app/(app)/*)
 | layout/Sidebar.test.tsx | Sidebar: nav links, responsive |
 | ui/*.test.tsx | UI primitives: Badge, Button, Card, Input, Skeleton |
 | integration/dashboard.test.tsx | Dashboard integration: data loading, display, interactions |
+
+**Library tests** (`lib/`):
+
+| Test File | Tests | Covers |
+|-----------|-------|--------|
+| lib/utils/\_\_tests\_\_/format.test.ts | 46 | All 9 format functions (currency, date, time, energy, etc.) |
+| lib/utils/\_\_tests\_\_/calculations.test.ts | 46 | All 8 calculation functions (trend, optimal periods, savings, etc.) |
+| lib/api/\_\_tests\_\_/client.test.ts | 30 | API client (GET/POST/PUT/DELETE), ApiClientError class |
 
 ### E2E Tests (`e2e/`)
 
@@ -498,8 +510,6 @@ npm run lint          # next lint
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL (default: `http://localhost:8000/api/v1`) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `NEXT_PUBLIC_SITE_URL` | No | Site URL for SEO (default: `https://electricity-optimizer.vercel.app`) |
 
 ---
@@ -513,8 +523,10 @@ npm run lint          # next lint
 5. **Stripe monetization** -- Checkout API route proxy at `/api/checkout`; tiers: Free, Pro ($4.99/mo), Business ($14.99/mo)
 6. **SEO metadata** -- Root layout includes OG tags, Twitter card, keywords; dedicated robots.ts and sitemap.ts
 7. **Error boundaries** -- Global error boundary + per-route boundaries for dashboard, prices, suppliers
-8. **Frontend test expansion** -- 224 Jest tests (up from 77) across 14 suites covering auth, charts, gamification, layout, and UI primitives
-9. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures. Includes `isMobile` skip guards and WebKit-specific input handling
+8. **Supabase SDK removed** -- `@supabase/supabase-js` dependency removed; auth functions use custom backend JWT
+9. **CSP + HSTS headers** -- Content-Security-Policy and Strict-Transport-Security added to `next.config.js`
+10. **Frontend test expansion** -- 346 Jest tests across 17 suites covering components, lib/utils, lib/api
+11. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures
 
 ---
 

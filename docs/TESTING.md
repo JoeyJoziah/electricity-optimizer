@@ -2,8 +2,9 @@
 
 **Last Updated**: 2026-02-23
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 491 (pytest)
-**Frontend Tests**: 224 across 14 suites (Jest)
+**Backend Tests**: 500 (pytest)
+**Frontend Tests**: 346 across 17 suites (Jest)
+**ML Tests**: 105 + 2 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
 
 ---
@@ -12,8 +13,9 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 491 | 85%+ | pytest |
-| **Frontend Component Tests** | 224 (14 suites) | 70%+ | Jest + RTL |
+| **Backend Unit/Integration** | 500 | 85%+ | pytest |
+| **Frontend Component + Lib Tests** | 346 (17 suites) | 70%+ | Jest + RTL |
+| **ML Inference + Training** | 105 (+2 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
 | **Security Tests** | 144 | 90%+ | pytest |
 | **Load Tests** | N/A | 1000+ users | Locust |
@@ -68,11 +70,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (491 tests)
+# Backend tests (500 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (224 tests)
+# Frontend unit tests (346 tests across 17 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -97,17 +99,22 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 491
+**Count**: 500
 **Coverage Target**: 85%+
 
 **Test Files**:
 - `test_api.py` - API endpoint tests
+- `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
+- `test_api_predictions.py` - ML prediction endpoint tests
+- `test_api_recommendations.py` - Recommendation endpoint tests
+- `test_api_user.py` - User preference endpoint tests
 - `test_services.py` - Service layer tests
 - `test_repositories.py` - Data access tests
 - `test_models.py` - Data model tests
 - `test_integrations.py` - External API tests
 - `test_auth.py` - Authentication tests
 - `test_security.py` - Security tests
+- `test_security_adversarial.py` - Adversarial security tests (46 tests)
 - `test_gdpr_compliance.py` - GDPR compliance tests
 - `test_alert_service.py` - Alert service tests
 - `test_stripe_service.py` - Stripe service tests
@@ -121,13 +128,13 @@ cd backend
 pytest tests/ -v --cov=. --cov-report=html
 ```
 
-### 2. Frontend Component Tests
+### 2. Frontend Component + Library Tests
 
-**Location**: `frontend/__tests__/`
-**Count**: 224 tests across 14 suites
+**Location**: `frontend/__tests__/` and `frontend/lib/`
+**Count**: 346 tests across 17 suites
 **Coverage Target**: 70%+
 
-**Test Suites**:
+**Component Test Suites** (`__tests__/`):
 - `components/ComparisonTable.test.tsx` - Supplier comparison table
 - `components/PriceLineChart.test.tsx` - Price chart rendering
 - `components/SavingsDonut.test.tsx` - Savings donut chart
@@ -142,6 +149,11 @@ pytest tests/ -v --cov=. --cov-report=html
 - `components/layout/Sidebar.test.tsx` - Sidebar layout
 - `components/ui/*.test.tsx` - UI primitives (Badge, Button, Card, Input, Skeleton)
 - `integration/dashboard.test.tsx` - Dashboard integration
+
+**Library Test Suites** (`lib/`):
+- `lib/utils/__tests__/format.test.ts` - 46 tests for all 9 format utility functions
+- `lib/utils/__tests__/calculations.test.ts` - 46 tests for all 8 calculation functions
+- `lib/api/__tests__/client.test.ts` - 30 tests for API client + ApiClientError
 
 **Running**:
 ```bash

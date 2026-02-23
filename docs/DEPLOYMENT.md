@@ -213,8 +213,12 @@ docker compose -f docker-compose.prod.yml up -d
 ### Database Rollback
 
 ```bash
-# Restore database from backup
-./scripts/restore.sh /backups/timescaledb_YYYYMMDD.sql.gz
+# Neon PostgreSQL supports point-in-time recovery and branching.
+# Create a branch from a past point for recovery:
+# See https://neon.tech/docs/manage/branches
+
+# For local dev, restore from a pg_dump backup:
+psql "$DATABASE_URL" < /backups/neon_YYYYMMDD.sql
 ```
 
 ---
@@ -240,11 +244,11 @@ docker compose restart backend
 #### Database Connection Issues
 
 ```bash
-# Test database connection
-docker compose exec timescaledb pg_isready -U postgres
+# Test Neon PostgreSQL connection from backend
+docker compose exec backend python -c "from config.database import db_manager; print('OK')"
 
-# Check connection from backend
-docker compose exec backend python -c "from config.database import engine; print('OK')"
+# Or verify directly with psql (requires DATABASE_URL env var)
+psql "$DATABASE_URL" -c "SELECT 1"
 ```
 
 #### Redis Connection Issues
@@ -319,9 +323,8 @@ open http://localhost:3001
 
 | Backup Type | Frequency | Retention |
 |-------------|-----------|-----------|
-| TimescaleDB | Daily | 7 days |
+| Neon PostgreSQL | Continuous (managed) | Point-in-time via Neon branching |
 | Redis | Daily | 7 days |
-| Full (all databases) | Weekly | 30 days |
 
 Run manual backup:
 ```bash

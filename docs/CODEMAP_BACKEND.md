@@ -13,7 +13,7 @@ backend/
 │
 ├── config/
 │   ├── settings.py                  # Pydantic-settings config (env vars), get_settings() DI
-│   ├── database.py                  # DatabaseManager: Supabase, Neon PostgreSQL, Redis
+│   ├── database.py                  # DatabaseManager: Neon PostgreSQL, Redis
 │   └── secrets.py                   # SecretsManager: 1Password (prod) / env vars (dev)
 │
 ├── api/
@@ -91,6 +91,10 @@ backend/
 └── tests/
     ├── conftest.py                  # Shared fixtures
     ├── test_api.py                  # API endpoint tests
+    ├── test_api_billing.py          # Billing/Stripe endpoint tests (33 tests)
+    ├── test_api_predictions.py      # ML prediction endpoint tests
+    ├── test_api_recommendations.py  # Recommendation endpoint tests
+    ├── test_api_user.py             # User preference endpoint tests
     ├── test_auth.py                 # Authentication tests
     ├── test_config.py               # Settings validation tests
     ├── test_models.py               # Pydantic model tests
@@ -98,6 +102,7 @@ backend/
     ├── test_repositories.py         # Repository tests
     ├── test_integrations.py         # Pricing API integration tests
     ├── test_security.py             # Security hardening tests
+    ├── test_security_adversarial.py # Adversarial security tests (46 tests)
     ├── test_alert_service.py        # Alert service tests
     ├── test_stripe_service.py       # Stripe service tests
     ├── test_weather_service.py      # Weather service tests
@@ -110,9 +115,10 @@ backend/
 
 ```
 Startup:
-  1. db_manager.initialize()  -- Supabase, Neon PostgreSQL, Redis (graceful degradation)
+  1. db_manager.initialize()  -- Neon PostgreSQL, Redis (graceful degradation)
   2. Sentry SDK init (lazy import, if SENTRY_DSN configured)
-  3. Mount middleware: CORS, GZip, SecurityHeaders, RateLimiting, request-id/timing
+  3. Mount middleware: CORS, GZip, SecurityHeaders, RateLimiting, BodySizeLimit,
+     RequestTimeout, request-id/timing
   4. Mount routers (see API Routes below)
 
 Shutdown:
@@ -234,9 +240,9 @@ against an allowlist of domains (localhost, electricity-optimizer.app/vercel.app
 |--------|------|-------------|
 | GET | `/` | API info (name, version, env) |
 | GET | `/health` | Health check (uptime, DB status) |
-| GET | `/health/ready` | Readiness (Redis, TimescaleDB, Supabase) |
+| GET | `/health/ready` | Readiness (Database, Redis) |
 | GET | `/health/live` | Liveness probe |
-| GET | `/metrics` | Prometheus metrics (ASGI mount) |
+| GET | `/metrics` | Prometheus metrics (API key required) |
 
 
 ## Key Modules
@@ -248,7 +254,7 @@ against an allowlist of domains (localhost, electricity-optimizer.app/vercel.app
 | Category | Notable Fields |
 |----------|---------------|
 | App | `environment` (dev/staging/prod/test), `api_prefix`, `backend_port` |
-| Database | `supabase_url`, `supabase_service_key`, `database_url`, `timescaledb_url` |
+| Database | `database_url`, `timescaledb_url` (legacy alias) |
 | Redis | `redis_url`, `redis_password` |
 | Auth | `jwt_secret` (validated: 32+ chars in prod), `jwt_algorithm` (HS256) |
 | API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `openweathermap_api_key` |
@@ -257,17 +263,14 @@ against an allowlist of domains (localhost, electricity-optimizer.app/vercel.app
 | ML | `model_path`, `model_forecast_hours` (24), `model_accuracy_threshold_mape` (10.0) |
 | GDPR | `data_retention_days` (730), `consent_required`, `data_residency` |
 | Features | `enable_auto_switching`, `enable_load_optimization`, `enable_real_time_updates` |
-| Celery | `celery_broker_url`, `celery_result_backend` (auto-set from `redis_url`; **inactive**) |
-
 **Properties:** `is_production`, `is_development`, `effective_database_url`.
 
 ### config/database.py
 
-`DatabaseManager` manages three backends:
+`DatabaseManager` manages two backends:
 
 | Backend | Client | Pool Config |
 |---------|--------|-------------|
-| Supabase | `supabase.Client` | Single client via `create_client()` |
 | Neon PostgreSQL | SQLAlchemy `AsyncEngine` + optional `asyncpg.Pool` | pool_size=2, max_overflow=3, pool_recycle=300 |
 | Redis | `redis.asyncio.Redis` | max_connections=10, socket_keepalive=True |
 
@@ -393,11 +396,14 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 
 Applied in reverse order (last added = first executed):
 
-1. **Request ID + Timing** -- UUID per request, X-Process-Time header
-2. **RateLimitMiddleware** -- Per-user/IP sliding window (Redis or in-memory fallback)
-3. **SecurityHeadersMiddleware** -- CSP, HSTS, X-Frame-Options, Permissions-Policy
-4. **GZipMiddleware** -- Compress responses > 1000 bytes
-5. **CORSMiddleware** -- Origin regex restricted to `electricity-optimizer*.(vercel|onrender)`
+1. **Request ID + Timing** -- UUID per request, X-Process-Time header (dev only)
+2. **Metrics Auth** -- API key required for `/metrics` endpoint
+3. **RequestTimeoutMiddleware** -- 30s timeout per request (SSE excluded)
+4. **RequestBodySizeLimitMiddleware** -- 1 MB limit (Content-Length + chunked encoding)
+5. **RateLimitMiddleware** -- Per-user/IP sliding window (Redis or in-memory fallback)
+6. **SecurityHeadersMiddleware** -- CSP, HSTS, X-Frame-Options, Permissions-Policy
+7. **GZipMiddleware** -- Compress responses > 1000 bytes
+8. **CORSMiddleware** -- Origin regex restricted to `electricity-optimizer*.(vercel|onrender)`
 
 Excluded from rate limiting: `/health`, `/health/live`, `/health/ready`, `/metrics`.
 
@@ -462,7 +468,6 @@ disables `tr_prevent_deletion_log_update` trigger for schema backfill operations
 | pydantic-settings | 2.1.0 | Env-based config |
 | asyncpg | 0.29.0 | PostgreSQL async driver |
 | sqlalchemy[asyncio] | 2.0.25 | ORM |
-| supabase | >=2.3,<3.0 | Supabase client |
 | redis[hiredis] | 5.0.1 | Redis client |
 | stripe | >=7.0,<8.0 | Payment processing |
 | PyJWT | >=2.8,<3.0 | JWT tokens |
@@ -475,8 +480,6 @@ disables `tr_prevent_deletion_log_update` trigger for schema backfill operations
 | numpy | 1.26.3 | Numerical (ML, vector store) |
 | pandas | 2.1.4 | DataFrames (ML features) |
 | scikit-learn | 1.4.0 | ML models |
-| celery[redis] | 5.3.6 | **Inactive** -- no tasks module defined |
-
 ### Dev/Test
 
 | Package | Purpose |
@@ -552,4 +555,4 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 491 passing (as of 2026-02-23), 13 test files.
+**Test status:** 500 passing (as of 2026-02-23), 17 test files.
