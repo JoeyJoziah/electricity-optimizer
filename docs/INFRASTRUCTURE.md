@@ -195,6 +195,56 @@ Services discover each other using Docker DNS:
 
 In production, the database is Neon PostgreSQL (serverless, accessed via connection string — no local container).
 
+### Neon PostgreSQL (Production Database)
+
+**Project ID:** `holy-pine-81107663`
+
+| Property | Value |
+|----------|-------|
+| Branch | `main` (br-broad-queen-aemirrrs) |
+| Compute Endpoint | `ep-withered-morning-aix83cfw` (us-east-1) |
+| Tables | 12 (see CODEMAP_BACKEND.md for full list) |
+| PK Type | UUID (all tables) |
+| App Role | `neondb_owner` |
+
+**CRITICAL:** The Neon project has multiple compute endpoints. The app's `DATABASE_URL` uses `ep-withered-morning-aix83cfw` (us-east-1). The Neon MCP tool may connect to a different endpoint (`ep-lingering-forest-aebmj5t0`, us-east-2). Always verify which endpoint you're targeting when running migrations. Use the app's `DATABASE_URL` directly for production migrations.
+
+### Render Deployment
+
+**Service:** `electricity-optimizer-api`
+
+| Property | Value |
+|----------|-------|
+| Dockerfile | `./Dockerfile` (root, not backend/) |
+| Python | 3.11-slim (multi-stage build) |
+| User | `appuser` (non-root, UID 1000) |
+| Health Check | `curl -f http://localhost:${PORT:-8000}/health` |
+| Auto-deploy | On push to `main` |
+| Deploy Hook | Stored in 1Password |
+
+**Dockerfile Notes:**
+- Builder stage requires both `gcc` and `g++` for hnswlib C++ compilation
+- Runtime stage only needs `curl` (for health checks)
+- HNSW vector store uses ephemeral filesystem on Render; repopulated by nightly learning
+
+**Required Environment Variables (Render):**
+
+| Variable | Source | Notes |
+|----------|--------|-------|
+| `DATABASE_URL` | Neon | Must use `ep-withered-morning-aix83cfw` endpoint |
+| `REDIS_URL` | Redis provider | |
+| `JWT_SECRET` | Generated | 32+ chars |
+| `ENVIRONMENT` | `production` | |
+| `INTERNAL_API_KEY` | Generated | `openssl rand -hex 32` |
+
+**Render CLI:**
+```bash
+brew install render    # Install
+render login           # Authenticate (opens browser)
+render services list   # List services
+render deploys list    # List recent deploys
+```
+
 ---
 
 ## Resource Limits
@@ -392,9 +442,25 @@ deploy:
 ### Secrets Management
 
 - Environment variables for non-sensitive config
-- 1Password for production secrets
+- 1Password for production secrets (vault: "Electricity Optimizer")
 - Never commit secrets to Git
-- INTERNAL_API_KEY for service-to-service authentication
+- INTERNAL_API_KEY for service-to-service authentication (GitHub Actions + Render)
+
+**1Password Vault** ("Electricity Optimizer"):
+
+| Item | Category | Purpose |
+|------|----------|---------|
+| Neon PostgreSQL | Login | DATABASE_URL connection string |
+| Redis | Login | REDIS_URL connection string |
+| JWT Secret | Login | JWT_SECRET signing key |
+| Internal API Key | Login | INTERNAL_API_KEY for service-to-service auth |
+| Stripe Keys | Login | stripe_secret_key, stripe_webhook_secret |
+| Render Deploy Hook | Login | Render deploy hook URL |
+| Notion API Key | Login | Notion integration API key |
+
+**GitHub Actions Secrets** (required for adaptive learning workflows):
+- `INTERNAL_API_KEY` — same key as Render env var
+- `BACKEND_URL` — production API URL (no trailing slash)
 
 ### Access Control
 
