@@ -90,6 +90,12 @@ models/saved/
 # Notion sync state
 .notion_sync_state.json
 
+# Board sync state
+.claude/.board-sync.lock
+.claude/.board-sync.last
+.claude/.board-sync-queue
+.claude/logs/
+
 # Temporary files
 tmp/
 temp/
