@@ -17,7 +17,7 @@ Clients (Next.js, GitHub Actions, Stripe)
 
 ### 1.2 Tech Stack
 
-FastAPI + Uvicorn, Python 3.10+, SQLAlchemy 2.x async + asyncpg, Pydantic v2,
+FastAPI + Uvicorn, Python 3.12 (3.11 in CI), SQLAlchemy 2.x async + asyncpg, Pydantic v2,
 PyJWT (HS256), Neon PostgreSQL, Redis (aioredis), Stripe SDK, NumPy/Pandas
 CNN-LSTM ensemble, Prometheus + Sentry + structlog, SendGrid/SMTP email.
 

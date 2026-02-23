@@ -68,11 +68,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (338 tests)
+# Backend tests (491 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (77 tests)
+# Frontend unit tests (224 tests)
 cd frontend && npm test
 
 # E2E tests
@@ -548,4 +548,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-02-22
+**Last Updated**: 2026-02-23

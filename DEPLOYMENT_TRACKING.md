@@ -14,7 +14,7 @@
 - [x] Render account (render.yaml in repo root)
 
 ### Accounts Needed
-- [ ] Neon PostgreSQL account (free tier) - https://neon.tech
+- [x] Neon PostgreSQL account (free tier) - https://neon.tech
 - [ ] Render account (paid) - https://render.com
 - [ ] Flatpeak API key (UK prices) - https://flatpeak.com
 - [ ] NREL API key (US prices) - https://developer.nrel.gov
