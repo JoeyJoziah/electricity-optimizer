@@ -360,18 +360,17 @@ class TestAnalyticsService:
         from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
 
-        # Create 24 hours of price data
-        base_time = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0)
-        prices = []
+        # Mock SQL-aggregated hourly averages (peak prices 16:00-20:00)
+        hourly_rows = []
         for hour in range(24):
-            # Peak prices 16:00-20:00
             price = Decimal("0.35") if 16 <= hour <= 20 else Decimal("0.15")
-            prices.append(MagicMock(
-                price_per_kwh=price,
-                timestamp=base_time.replace(hour=hour)
-            ))
+            hourly_rows.append({
+                "hour": hour,
+                "avg_price": price,
+                "count": 10,
+            })
 
-        mock_price_repo.get_historical_prices.return_value = prices
+        mock_price_repo.get_hourly_price_averages = AsyncMock(return_value=hourly_rows)
 
         service = AnalyticsService(mock_price_repo)
         analysis = await service.get_peak_hours_analysis(

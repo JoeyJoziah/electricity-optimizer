@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Optional, List, Any
 
-from sqlalchemy import select, and_, desc
+from sqlalchemy import select, and_, desc, func, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from repositories.base import BaseRepository, RepositoryError, NotFoundError
@@ -444,3 +444,114 @@ class PriceRepository(BaseRepository[Price]):
 
         except Exception as e:
             raise RepositoryError(f"Failed to get price statistics: {str(e)}", e)
+
+    async def get_hourly_price_averages(
+        self,
+        region: PriceRegion,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> List[dict]:
+        """
+        Get average prices grouped by hour of day using SQL aggregation.
+
+        Returns at most 24 rows instead of fetching all price records.
+
+        Args:
+            region: Price region
+            start_date: Start of date range
+            end_date: End of date range
+
+        Returns:
+            List of dicts with 'hour', 'avg_price', 'count' keys
+        """
+        try:
+            hour_col = extract("hour", Price.timestamp).label("hour")
+            query = (
+                select(
+                    hour_col,
+                    func.avg(Price.price_per_kwh).label("avg_price"),
+                    func.count(Price.id).label("count"),
+                )
+                .where(
+                    and_(
+                        Price.region == region.value,
+                        Price.timestamp >= start_date,
+                        Price.timestamp <= end_date,
+                    )
+                )
+                .group_by(hour_col)
+                .order_by(hour_col)
+            )
+
+            result = await self._db.execute(query)
+            rows = result.all()
+
+            return [
+                {
+                    "hour": int(row.hour),
+                    "avg_price": Decimal(str(row.avg_price)).quantize(Decimal("0.0001")),
+                    "count": row.count,
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get hourly averages: {str(e)}", e)
+
+    async def get_supplier_price_stats(
+        self,
+        region: PriceRegion,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> List[dict]:
+        """
+        Get price statistics grouped by supplier using SQL aggregation.
+
+        Returns one row per supplier instead of fetching all price records.
+
+        Args:
+            region: Price region
+            start_date: Start of date range
+            end_date: End of date range
+
+        Returns:
+            List of dicts with supplier stats (avg, min, max, stddev, count)
+        """
+        try:
+            query = (
+                select(
+                    Price.supplier,
+                    func.avg(Price.price_per_kwh).label("avg_price"),
+                    func.min(Price.price_per_kwh).label("min_price"),
+                    func.max(Price.price_per_kwh).label("max_price"),
+                    func.stddev(Price.price_per_kwh).label("stddev_price"),
+                    func.count(Price.id).label("count"),
+                )
+                .where(
+                    and_(
+                        Price.region == region.value,
+                        Price.timestamp >= start_date,
+                        Price.timestamp <= end_date,
+                    )
+                )
+                .group_by(Price.supplier)
+                .order_by(func.avg(Price.price_per_kwh))
+            )
+
+            result = await self._db.execute(query)
+            rows = result.all()
+
+            return [
+                {
+                    "supplier": row.supplier,
+                    "avg_price": Decimal(str(row.avg_price)).quantize(Decimal("0.0001")),
+                    "min_price": Decimal(str(row.min_price)).quantize(Decimal("0.0001")),
+                    "max_price": Decimal(str(row.max_price)).quantize(Decimal("0.0001")),
+                    "volatility": Decimal(str(row.stddev_price)).quantize(Decimal("0.0001")) if row.stddev_price else Decimal("0"),
+                    "count": row.count,
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get supplier stats: {str(e)}", e)

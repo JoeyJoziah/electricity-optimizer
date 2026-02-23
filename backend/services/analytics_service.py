@@ -4,9 +4,10 @@ Analytics Service
 Business logic for price analytics and aggregation.
 """
 
+import json
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from statistics import stdev
 
 from repositories.price_repository import PriceRepository
@@ -21,14 +22,39 @@ class AnalyticsService:
     trend detection for electricity prices.
     """
 
-    def __init__(self, price_repo: PriceRepository):
+    def __init__(self, price_repo: PriceRepository, cache: Any = None):
         """
         Initialize the analytics service.
 
         Args:
             price_repo: Price repository instance
+            cache: Optional Redis cache client
         """
         self._repo = price_repo
+        self._cache = cache
+
+    async def _get_cached(self, key: str) -> Optional[Dict]:
+        """Get value from Redis cache."""
+        if self._cache:
+            try:
+                cached = await self._cache.get(key)
+                if cached:
+                    return json.loads(cached)
+            except Exception:
+                pass
+        return None
+
+    async def _set_cached(self, key: str, value: Dict, ttl: int) -> None:
+        """Set value in Redis cache with TTL."""
+        if self._cache:
+            try:
+                await self._cache.set(
+                    key,
+                    json.dumps(value, default=str),
+                    ex=ttl,
+                )
+            except Exception:
+                pass
 
     async def calculate_average_price(
         self,
@@ -110,6 +136,14 @@ class AnalyticsService:
         Returns:
             Trend analysis with direction and change percentage
         """
+        cache_key = f"analytics:price_trend:{region.value}:{days}"
+        cached = await self._get_cached(cache_key)
+        if cached:
+            for k in ('change_percent', 'start_price', 'end_price'):
+                if k in cached:
+                    cached[k] = Decimal(cached[k])
+            return cached
+
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
@@ -153,13 +187,16 @@ class AnalyticsService:
         else:
             direction = "stable"
 
-        return {
+        result = {
             'direction': direction,
             'change_percent': change_percent.quantize(Decimal("0.01")),
             'start_price': first_third_avg.quantize(Decimal("0.0001")),
             'end_price': last_third_avg.quantize(Decimal("0.0001")),
             'data_points': len(prices)
         }
+
+        await self._set_cached(cache_key, result, ttl=900)  # 15 min
+        return result
 
     async def get_peak_hours_analysis(
         self,
@@ -169,6 +206,9 @@ class AnalyticsService:
         """
         Analyze peak and off-peak hours based on pricing.
 
+        Uses SQL GROUP BY for aggregation (returns 24 rows max)
+        instead of fetching all price records into memory.
+
         Args:
             region: Price region
             days: Number of days to analyze
@@ -176,60 +216,67 @@ class AnalyticsService:
         Returns:
             Analysis with peak and off-peak hour identification
         """
+        cache_key = f"analytics:peak_hours:{region.value}:{days}"
+        cached = await self._get_cached(cache_key)
+        if cached:
+            # Restore Decimal types from cached strings
+            cached['average_by_hour'] = {int(k): Decimal(v) for k, v in cached['average_by_hour'].items()}
+            cached['overall_average'] = Decimal(cached['overall_average'])
+            cached['peak_premium_percent'] = Decimal(cached['peak_premium_percent'])
+            return cached
+
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
-        prices = await self._repo.get_historical_prices(
+        hourly_rows = await self._repo.get_hourly_price_averages(
             region=region,
             start_date=start,
-            end_date=end
+            end_date=end,
         )
 
-        if not prices:
+        if not hourly_rows:
             return {
                 'peak_hours': [],
                 'off_peak_hours': [],
                 'average_by_hour': {}
             }
 
-        # Group prices by hour
-        hourly_prices: Dict[int, List[Decimal]] = {h: [] for h in range(24)}
+        # Build hourly avg map (fill missing hours with 0)
+        hourly_avg: Dict[int, Decimal] = {h: Decimal("0") for h in range(24)}
+        total_weighted = Decimal("0")
+        total_count = 0
+        for row in hourly_rows:
+            hourly_avg[row["hour"]] = row["avg_price"]
+            total_weighted += row["avg_price"] * row["count"]
+            total_count += row["count"]
 
-        for price in prices:
-            hour = price.timestamp.hour
-            hourly_prices[hour].append(price.price_per_kwh)
-
-        # Calculate average for each hour
-        hourly_avg = {}
-        for hour, hour_prices in hourly_prices.items():
-            if hour_prices:
-                hourly_avg[hour] = (sum(hour_prices) / len(hour_prices)).quantize(Decimal("0.0001"))
-            else:
-                hourly_avg[hour] = Decimal("0")
-
-        # Calculate overall average
-        all_prices = [p.price_per_kwh for p in prices]
-        overall_avg = sum(all_prices) / len(all_prices)
+        overall_avg = (total_weighted / total_count).quantize(Decimal("0.0001")) if total_count else Decimal("0")
 
         # Identify peak and off-peak hours
         peak_hours = []
         off_peak_hours = []
 
         for hour, avg in hourly_avg.items():
-            if avg > overall_avg * Decimal("1.1"):  # 10% above average
+            if avg > overall_avg * Decimal("1.1"):
                 peak_hours.append(hour)
-            elif avg < overall_avg * Decimal("0.9"):  # 10% below average
+            elif avg < overall_avg * Decimal("0.9"):
                 off_peak_hours.append(hour)
 
-        return {
+        non_zero_avgs = [v for v in hourly_avg.values() if v > 0]
+        max_avg = max(non_zero_avgs) if non_zero_avgs else Decimal("0")
+
+        result = {
             'peak_hours': sorted(peak_hours),
             'off_peak_hours': sorted(off_peak_hours),
             'average_by_hour': hourly_avg,
-            'overall_average': overall_avg.quantize(Decimal("0.0001")),
+            'overall_average': overall_avg,
             'peak_premium_percent': (
-                (max(hourly_avg.values()) / overall_avg - 1) * 100
+                (max_avg / overall_avg - 1) * 100
             ).quantize(Decimal("0.1")) if overall_avg > 0 else Decimal("0")
         }
+
+        await self._set_cached(cache_key, result, ttl=900)  # 15 min
+        return result
 
     async def get_supplier_comparison_analytics(
         self,
@@ -239,6 +286,9 @@ class AnalyticsService:
         """
         Get detailed supplier comparison analytics.
 
+        Uses SQL GROUP BY for aggregation (one row per supplier)
+        instead of fetching all price records into memory.
+
         Args:
             region: Price region
             days: Number of days to analyze
@@ -246,55 +296,47 @@ class AnalyticsService:
         Returns:
             Comparison analytics by supplier
         """
+        cache_key = f"analytics:supplier_comparison:{region.value}:{days}"
+        cached = await self._get_cached(cache_key)
+        if cached:
+            # Restore Decimal types from cached strings
+            for s in cached.get('suppliers', []):
+                for k in ('average_price', 'min_price', 'max_price', 'volatility'):
+                    if k in s:
+                        s[k] = Decimal(s[k])
+            return cached
+
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
-        prices = await self._repo.get_historical_prices(
+        supplier_rows = await self._repo.get_supplier_price_stats(
             region=region,
             start_date=start,
-            end_date=end
+            end_date=end,
         )
 
-        if not prices:
+        if not supplier_rows:
             return {'suppliers': []}
 
-        # Group by supplier
-        supplier_prices: Dict[str, List[Decimal]] = {}
+        supplier_stats = [
+            {
+                'supplier': row['supplier'],
+                'average_price': row['avg_price'],
+                'min_price': row['min_price'],
+                'max_price': row['max_price'],
+                'volatility': row['volatility'],
+                'data_points': row['count'],
+            }
+            for row in supplier_rows
+        ]
 
-        for price in prices:
-            if price.supplier not in supplier_prices:
-                supplier_prices[price.supplier] = []
-            supplier_prices[price.supplier].append(price.price_per_kwh)
-
-        # Calculate statistics for each supplier
-        supplier_stats = []
-
-        for supplier, sp_prices in supplier_prices.items():
-            avg = sum(sp_prices) / len(sp_prices)
-            min_price = min(sp_prices)
-            max_price = max(sp_prices)
-
-            try:
-                volatility = Decimal(str(stdev([float(p) for p in sp_prices])))
-            except Exception:
-                volatility = Decimal("0")
-
-            supplier_stats.append({
-                'supplier': supplier,
-                'average_price': avg.quantize(Decimal("0.0001")),
-                'min_price': min_price.quantize(Decimal("0.0001")),
-                'max_price': max_price.quantize(Decimal("0.0001")),
-                'volatility': volatility.quantize(Decimal("0.0001")),
-                'data_points': len(sp_prices)
-            })
-
-        # Sort by average price
-        supplier_stats.sort(key=lambda s: s['average_price'])
-
-        return {
+        result = {
             'region': region.value,
             'period_days': days,
             'suppliers': supplier_stats,
             'cheapest_supplier': supplier_stats[0]['supplier'] if supplier_stats else None,
             'most_stable': min(supplier_stats, key=lambda s: s['volatility'])['supplier'] if supplier_stats else None
         }
+
+        await self._set_cached(cache_key, result, ttl=3600)  # 1 hour
+        return result

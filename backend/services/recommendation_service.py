@@ -6,12 +6,12 @@ Business logic for generating user recommendations.
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 
 from services.price_service import PriceService
 from repositories.user_repository import UserRepository
-from models.price import PriceRegion
+from models.price import Price, PriceRegion
 
 
 @dataclass
@@ -238,23 +238,49 @@ class RecommendationService:
         """
         Generate all daily recommendations for a user.
 
+        Prefetches user, price comparison, and current prices once,
+        then delegates to pure computation helpers. Reduces DB queries
+        from ~11 to 3.
+
         Args:
             user_id: User ID
 
         Returns:
             Dictionary with all recommendations
         """
-        switching = await self.get_switching_recommendation(user_id)
+        # Prefetch: 1 query
+        user = await self._user_repo.get_by_id(user_id)
+        if not user:
+            return {
+                'user_id': user_id,
+                'generated_at': datetime.now(timezone.utc).isoformat(),
+                'switching_recommendation': None,
+                'usage_recommendations': []
+            }
 
-        # Get usage recommendations for common appliances
+        region = PriceRegion(user.region)
+
+        # Prefetch: 1 query (price comparison, sorted by price)
+        prices = await self._price_service.get_price_comparison(region)
+
+        # Prefetch: 1 query (optimal usage windows for max duration we need)
+        windows = await self._price_service.get_optimal_usage_windows(
+            region=region,
+            duration_hours=2,
+            within_hours=24
+        )
+
+        # Pure computation — no DB calls
+        switching = self._compute_switching(user_id, user, prices)
+
+        # Compute usage recommendations using prefetched data
         appliances = ["washing_machine", "dishwasher", "electric_vehicle"]
-        usage_recommendations = []
+        peak_price = max(p.price_per_kwh for p in prices) if prices else Decimal("0")
 
+        usage_recommendations = []
         for appliance in appliances:
-            rec = await self.get_usage_recommendation(
-                user_id,
-                appliance,
-                duration_hours=2
+            rec = self._compute_usage(
+                user_id, appliance, 2, windows, prices, peak_price
             )
             if rec:
                 usage_recommendations.append(rec)
@@ -264,4 +290,100 @@ class RecommendationService:
             'generated_at': datetime.now(timezone.utc).isoformat(),
             'switching_recommendation': switching.__dict__ if switching else None,
             'usage_recommendations': usage_recommendations
+        }
+
+    def _compute_switching(
+        self,
+        user_id: str,
+        user: Any,
+        prices: List[Price],
+    ) -> Optional[SwitchingRecommendation]:
+        """Compute switching recommendation from prefetched data (no DB calls)."""
+        if not prices:
+            return None
+
+        current_supplier = user.current_supplier
+
+        # Find current supplier price
+        current_price = None
+        for p in prices:
+            if p.supplier == current_supplier:
+                current_price = p.price_per_kwh
+                break
+
+        if current_price is None:
+            current_price = prices[-1].price_per_kwh
+
+        cheapest = prices[0]
+
+        preferences = user.preferences or {}
+        green_only = preferences.get("green_energy_only", False)
+
+        if green_only:
+            green_prices = [p for p in prices if getattr(p, "green_energy_percentage", 0) >= 50]
+            if green_prices:
+                cheapest = green_prices[0]
+
+        potential_savings = current_price - cheapest.price_per_kwh
+        if current_price > 0:
+            savings_percentage = (potential_savings / current_price) * Decimal("100")
+        else:
+            savings_percentage = Decimal("0")
+
+        reasons = []
+        if potential_savings > Decimal("0.05"):
+            reasons.append(f"Save up to {savings_percentage:.1f}% on electricity costs")
+        if green_only:
+            reasons.append("Recommended supplier meets your green energy preference")
+        if cheapest.price_per_kwh < current_price * Decimal("0.8"):
+            reasons.append("Significant price difference detected")
+
+        return SwitchingRecommendation(
+            user_id=user_id,
+            current_supplier=current_supplier or "Unknown",
+            recommended_supplier=cheapest.supplier,
+            current_price=current_price,
+            recommended_price=cheapest.price_per_kwh,
+            potential_savings=potential_savings,
+            savings_percentage=savings_percentage,
+            confidence=0.85 if potential_savings > Decimal("0.02") else 0.6,
+            reasons=reasons,
+            generated_at=datetime.now(timezone.utc)
+        )
+
+    def _compute_usage(
+        self,
+        user_id: str,
+        appliance: str,
+        duration_hours: int,
+        windows: List[Dict[str, Any]],
+        prices: List[Price],
+        peak_price: Decimal,
+    ) -> Optional[Dict[str, Any]]:
+        """Compute usage recommendation from prefetched data (no DB calls)."""
+        if not windows:
+            return None
+
+        best_window = windows[0]
+
+        appliance_kwh = self._get_appliance_consumption(appliance, duration_hours)
+        estimated_cost = appliance_kwh * best_window['avg_price']
+
+        effective_peak = peak_price if peak_price > 0 else best_window['avg_price']
+        cost_at_peak = appliance_kwh * effective_peak
+
+        reasons = []
+        if best_window['avg_price'] < effective_peak * Decimal("0.7"):
+            reasons.append("Running during off-peak hours saves significantly")
+        reasons.append(f"Optimal window has average price of {best_window['avg_price']:.4f}/kWh")
+
+        return {
+            'user_id': user_id,
+            'appliance': appliance,
+            'optimal_start_time': best_window['start'],
+            'optimal_end_time': best_window['end'],
+            'estimated_cost': estimated_cost.quantize(Decimal("0.01")),
+            'cost_vs_peak': (cost_at_peak - estimated_cost).quantize(Decimal("0.01")),
+            'reasons': reasons,
+            'generated_at': datetime.now(timezone.utc)
         }

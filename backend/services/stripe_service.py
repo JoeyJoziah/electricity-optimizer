@@ -4,6 +4,7 @@ Stripe Monetization Service
 Handles subscription lifecycle, checkout sessions, webhooks, and customer portal.
 """
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import structlog
@@ -107,8 +108,9 @@ class StripeService:
             else:
                 customer_params["customer_email"] = email
 
-            # Create checkout session
-            session = stripe.checkout.Session.create(
+            # Create checkout session (run in thread to avoid blocking event loop)
+            session = await asyncio.to_thread(
+                stripe.checkout.Session.create,
                 **customer_params,
                 mode="subscription",
                 line_items=[
@@ -177,7 +179,8 @@ class StripeService:
         self._ensure_configured()
 
         try:
-            session = stripe.billing_portal.Session.create(
+            session = await asyncio.to_thread(
+                stripe.billing_portal.Session.create,
                 customer=customer_id,
                 return_url=return_url,
             )
@@ -224,7 +227,8 @@ class StripeService:
         self._ensure_configured()
 
         try:
-            subscriptions = stripe.Subscription.list(
+            subscriptions = await asyncio.to_thread(
+                stripe.Subscription.list,
                 customer=customer_id,
                 status="all",
                 limit=1,
@@ -279,13 +283,16 @@ class StripeService:
 
         try:
             if cancel_immediately:
-                subscription = stripe.Subscription.cancel(subscription_id)
+                subscription = await asyncio.to_thread(
+                    stripe.Subscription.cancel, subscription_id
+                )
                 logger.info(
                     "subscription_canceled_immediately",
                     subscription_id=subscription_id,
                 )
             else:
-                subscription = stripe.Subscription.modify(
+                subscription = await asyncio.to_thread(
+                    stripe.Subscription.modify,
                     subscription_id,
                     cancel_at_period_end=True,
                 )
