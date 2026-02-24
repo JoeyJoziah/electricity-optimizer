@@ -58,14 +58,18 @@ const nextConfig = {
     ]
   },
 
-  // API proxy rewrites
+  // API proxy rewrites — use fallback so Next.js API routes (/api/auth/*) are checked first
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/:path*`,
-      },
-    ]
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/:path*`,
+        },
+      ],
+    }
   },
 
   // Redirects
