@@ -1,3 +1,5 @@
+> **ARCHIVED** — This document is from 2026-02-08. Test counts and technology references are outdated. For current status, see [TODO.md](../../TODO.md) and [TESTING.md](../TESTING.md).
+
 # Electricity Optimizer - Project Status Report
 
 **Last Updated**: 2026-02-08

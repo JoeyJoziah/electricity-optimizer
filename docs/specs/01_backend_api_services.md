@@ -1,6 +1,8 @@
 # Backend API & Services Specification
 
 > SPARC Phase: Specification | Version: 1.0.0 | Updated: 2026-02-22
+>
+> **Note (2026-02-24):** This spec predates the refactoring roadmap (2026-02-23). Key changes since: `jwt_handler.py` deleted (replaced by Neon Auth sessions), TimescaleDB replaced by Neon PostgreSQL only, health/ready checks updated. See [REFACTORING_ROADMAP.md](REFACTORING_ROADMAP.md).
 
 ## 1. System Overview
 

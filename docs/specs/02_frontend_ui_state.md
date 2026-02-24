@@ -2,6 +2,8 @@
 
 > SPARC Phase: Specification | Layer: Frontend (Next.js 14 App Router + TypeScript)
 > Last updated: 2026-02-22
+>
+> **Note (2026-02-24):** This spec predates the refactoring roadmap (2026-02-23). Key changes since: Supabase auth fully replaced by Neon Auth (Better Auth), SSE upgraded to `@microsoft/fetch-event-source` for cookie-based auth, Next.js upgraded to 14.2.35. See [REFACTORING_ROADMAP.md](../REFACTORING_ROADMAP.md).
 
 ---
 

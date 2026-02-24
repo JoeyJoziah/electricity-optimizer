@@ -1,3 +1,5 @@
+> **ARCHIVED** — This document is from 2026-02-06 (Phase 3 completion). For current ML pipeline details, see [CODEMAP_BACKEND.md](../CODEMAP_BACKEND.md).
+
 # Phase 3: ML/Data Pipeline - COMPLETE ✅
 
 ## Executive Summary

@@ -1,3 +1,5 @@
+> **ARCHIVED** — This document was last updated 2026-02-23 but contains outdated test counts (1520+). Current totals: 694 backend, 346 frontend, 105 ML, 805 E2E. See [TESTING.md](../TESTING.md) for current numbers.
+
 # Electricity Optimizer - Progress Report
 
 **Last Updated**: 2026-02-23

@@ -1,3 +1,5 @@
+> **ARCHIVED** — This document is a historical snapshot from 2026-02-06 (project initialization). Test counts and technology references are outdated. For current status, see [TODO.md](../../TODO.md) and [TESTING.md](../TESTING.md).
+
 # 🐝 Hive Mind Status Report
 **Project**: Automated Electricity Supplier Price Optimizer  
 **Hive ID**: electricity-optimizer-hive-001  

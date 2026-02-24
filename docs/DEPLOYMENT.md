@@ -365,4 +365,4 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 ---
 
-**Last Updated**: 2026-02-23
+**Last Updated**: 2026-02-24

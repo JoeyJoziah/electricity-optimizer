@@ -1,3 +1,5 @@
+> **ARCHIVED** — This document is from 2026-02-07. Test counts and technology references are outdated. For current status, see [TODO.md](../../TODO.md) and [TESTING.md](../TESTING.md).
+
 # PROJECT COMPLETE - Electricity Optimizer MVP
 
 **Date**: 2026-02-07

@@ -1,6 +1,8 @@
 # Specification 04: Data, Infrastructure, and Security Layer
 
 > SPARC Phase: Specification | Version: 1.0 | Date: 2026-02-22
+>
+> **Note (2026-02-24):** This spec predates the refactoring roadmap (2026-02-23). Key changes since: Celery removed, TimescaleDB replaced by Neon PostgreSQL, JWT auth replaced by Neon Auth (Better Auth sessions), `ci.yml`/`deploy.yml` workflows deleted, session cache key upgraded to SHA-256. See [REFACTORING_ROADMAP.md](REFACTORING_ROADMAP.md) for the full change log.
 
 ## 1. Infrastructure Overview
 

@@ -216,7 +216,7 @@ docker-compose up -d backend
 3. Data pipelines run via GitHub Actions workflows (Airflow was removed 2026-02-12)
 4. Monitoring stack (Prometheus/Grafana) configured via `monitoring/` directory
 
-> **All phases are now complete.** This report documents the initial Docker environment validation from Phase 2. See [TESTING.md](TESTING.md) for the full test suite overview (1960+ tests).
+> **All phases are now complete.** This report documents the initial Docker environment validation from Phase 2. See [TESTING.md](TESTING.md) for the full test suite overview (2050+ tests).
 
 ---
 

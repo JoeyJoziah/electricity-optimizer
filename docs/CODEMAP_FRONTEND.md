@@ -1,7 +1,7 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-23 (Post-auth hardening: E2E auth rewrite, Better Auth mocking)
-**Framework:** Next.js 14.1.0 (App Router) + React 18 + TypeScript
+**Last Updated:** 2026-02-24 (SSE auth upgrade: fetch-event-source, route splitting, 45-item refactoring complete)
+**Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
@@ -89,7 +89,7 @@ frontend/
       usePrices.ts              # useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods, useRefreshPrices
       useSuppliers.ts           # useSuppliers, useSupplier, useSupplierRecommendation, useCompareSuppliers, useInitiateSwitch, useSwitchStatus
       useOptimization.ts        # useOptimalSchedule, useOptimizationResult, useAppliances, useSaveAppliances, usePotentialSavings
-      useRealtime.ts            # useRealtimePrices (SSE), useRealtimeOptimization, useRealtimeSubscription, useRealtimeBroadcast
+      useRealtime.ts            # useRealtimePrices (SSE via fetch-event-source), useRealtimeOptimization, useRealtimeSubscription, useRealtimeBroadcast
     store/
       settings.ts               # Zustand store: region, supplier, usage, appliances, notifications, display prefs
     utils/
@@ -277,9 +277,13 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 
 ### SSE Price Stream (`useRealtimePrices`)
 
-- Connects to `/prices/stream?region={region}&interval={interval}` via `EventSource`
-- On message: parses `PriceUpdate`, invalidates `['prices', 'current']` and `['prices', 'history']` queries
-- Auto-reconnects on error (native EventSource behavior)
+- Connects to `/prices/stream?region={region}&interval={interval}` via `@microsoft/fetch-event-source`
+- Uses `credentials: 'include'` to send Better Auth session cookies (native `EventSource` cannot)
+- Auth failure detection: 401/403 in `onopen` throws to stop retrying
+- `onerror` returns retry delay (ms) or throws for auth failures; exponential backoff (1s -> 2s -> 4s, max 30s)
+- `openWhenHidden: true` keeps streaming in background tabs
+- Cleanup via `AbortController.abort()` (not `EventSource.close()`)
+- On message: parses `PriceUpdate` (with optional `source` field: `"live"` or `"fallback"`), invalidates `['prices', 'current']` and `['prices', 'history']` queries
 - Returns: `{ isConnected, lastPrice, disconnect }`
 
 ### Polling Fallbacks
@@ -424,7 +428,7 @@ Page Component (app/(app)/*)
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| next | 14.2.35 | Framework (App Router) |
+| next | 14.2.35 | Framework (App Router, fixes CVE-2025-29927/CVE-2024-46982/CVE-2024-34351) |
 | react | ^18.2.0 | UI library |
 | better-auth | latest | Authentication (Neon Auth / Better Auth) |
 | @tanstack/react-query | ^5.17.15 | Server state management |
@@ -434,6 +438,7 @@ Page Component (app/(app)/*)
 | tailwindcss | ^3.4.1 | Utility-first CSS |
 | tailwind-merge | ^2.2.0 | Tailwind class deduplication |
 | clsx | ^2.1.0 | Conditional class names |
+| @microsoft/fetch-event-source | ^2.0.1 | SSE with auth (replaces native EventSource) |
 | date-fns | ^3.2.0 | Date formatting |
 
 ### Dev Dependencies
@@ -524,7 +529,7 @@ npm run lint          # next lint
 
 ---
 
-## Recent Changes (as of 2026-02-23)
+## Recent Changes (as of 2026-02-24)
 
 1. **Multi-utility support** -- Settings store includes `utilityTypes` field (array of UtilityType). Settings page has utility type checkboxes
 2. **Multi-state region selector** -- Settings page offers expanded region dropdown covering all 50 US states + international regions
@@ -539,6 +544,8 @@ npm run lint          # next lint
 11. **CSP + HSTS headers** -- Content-Security-Policy and Strict-Transport-Security added to `next.config.js`
 12. **Frontend test expansion** -- 346 Jest tests across 17 suites covering components, lib/utils, lib/api
 13. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures
+14. **SSE auth upgrade** -- Replaced native `EventSource` with `@microsoft/fetch-event-source` for cookie-based session auth. Enables `credentials: 'include'`, auth failure detection, and exponential backoff retry
+15. **Backend route splitting** -- `prices.py` split into `prices.py` (CRUD), `prices_analytics.py` (statistics), `prices_sse.py` (streaming with real DB data via PriceService)
 
 ---
 
