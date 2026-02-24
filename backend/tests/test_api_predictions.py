@@ -55,11 +55,11 @@ class TestPredictPrice:
         """Valid request should return a forecast with predictions."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
-            json={"region": "US", "hours_ahead": 6, "include_confidence": True},
+            json={"region": "us_ct", "hours_ahead": 6, "include_confidence": True},
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["region"] == "US"
+        assert data["region"] == "us_ct"
         assert "predictions" in data
         assert len(data["predictions"]) == 6
         assert data["model_version"] == "v1.0.0"
@@ -69,7 +69,7 @@ class TestPredictPrice:
         """Omitting hours_ahead should default to 24."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
-            json={"region": "UK"},
+            json={"region": "uk"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -93,21 +93,31 @@ class TestPredictPrice:
 
     @patch("routers.predictions._load_model", return_value=None)
     def test_predict_price_currency_mapping(self, _mock_model, predictions_client):
-        """UK region should use GBP, EU region should use EUR."""
+        """UK region should use GBP."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
-            json={"region": "UK", "hours_ahead": 1},
+            json={"region": "uk", "hours_ahead": 1},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["predictions"][0]["currency"] == "GBP"
 
     @patch("routers.predictions._load_model", return_value=None)
-    def test_predict_price_us_uses_usd(self, _mock_model, predictions_client):
-        """US region should use USD."""
+    def test_predict_price_eu_uses_eur(self, _mock_model, predictions_client):
+        """Germany region should use EUR."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
-            json={"region": "US", "hours_ahead": 1},
+            json={"region": "de", "hours_ahead": 1},
+        )
+        assert response.status_code == 200
+        assert response.json()["predictions"][0]["currency"] == "EUR"
+
+    @patch("routers.predictions._load_model", return_value=None)
+    def test_predict_price_us_uses_usd(self, _mock_model, predictions_client):
+        """US state region should use USD."""
+        response = predictions_client.post(
+            "/api/v1/ml/predict/price",
+            json={"region": "us_ct", "hours_ahead": 1},
         )
         assert response.status_code == 200
         assert response.json()["predictions"][0]["currency"] == "USD"
@@ -117,7 +127,7 @@ class TestPredictPrice:
         """Each prediction should include confidence_lower and confidence_upper."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
-            json={"region": "US", "hours_ahead": 3, "include_confidence": True},
+            json={"region": "us_ct", "hours_ahead": 3, "include_confidence": True},
         )
         assert response.status_code == 200
         for pred in response.json()["predictions"]:
@@ -141,14 +151,14 @@ class TestOptimalTimes:
         response = predictions_client.post(
             "/api/v1/ml/predict/optimal-times",
             json={
-                "region": "US",
+                "region": "us_ct",
                 "duration_hours": 2.0,
                 "num_slots": 3,
             },
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["region"] == "US"
+        assert data["region"] == "us_ct"
         assert data["requested_duration_hours"] == 2.0
         assert len(data["optimal_slots"]) <= 3
         assert "potential_savings_percent" in data
@@ -158,7 +168,7 @@ class TestOptimalTimes:
         """Returned slots should have ascending rank values."""
         response = predictions_client.post(
             "/api/v1/ml/predict/optimal-times",
-            json={"region": "EU", "duration_hours": 1.0, "num_slots": 3},
+            json={"region": "de", "duration_hours": 1.0, "num_slots": 3},
         )
         assert response.status_code == 200
         slots = response.json()["optimal_slots"]
@@ -171,7 +181,7 @@ class TestOptimalTimes:
         """Duration below minimum (0.25) should return 422."""
         response = predictions_client.post(
             "/api/v1/ml/predict/optimal-times",
-            json={"region": "US", "duration_hours": 0.1},
+            json={"region": "us_ct", "duration_hours": 0.1},
         )
         assert response.status_code == 422
 
@@ -193,7 +203,7 @@ class TestSavingsEstimate:
         response = predictions_client.post(
             "/api/v1/ml/predict/savings",
             json={
-                "region": "UK",
+                "region": "uk",
                 "appliances": [
                     {
                         "name": "Dishwasher",
@@ -208,7 +218,7 @@ class TestSavingsEstimate:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["region"] == "UK"
+        assert data["region"] == "uk"
         assert data["currency"] == "GBP"
         assert "unoptimized_cost" in data
         assert "optimized_cost" in data
@@ -220,7 +230,7 @@ class TestSavingsEstimate:
         """Empty appliances list should return 422 (list must be non-empty via Pydantic)."""
         response = predictions_client.post(
             "/api/v1/ml/predict/savings",
-            json={"region": "US", "appliances": []},
+            json={"region": "us_ct", "appliances": []},
         )
         # An empty list is technically valid at Pydantic level but may fail in logic.
         # The endpoint should still respond without a 500.
@@ -231,7 +241,7 @@ class TestSavingsEstimate:
         response = predictions_client.post(
             "/api/v1/ml/predict/savings",
             json={
-                "region": "US",
+                "region": "us_ct",
                 "appliances": [{"name": "Washer"}],
             },
         )

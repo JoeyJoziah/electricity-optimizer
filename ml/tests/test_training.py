@@ -18,59 +18,51 @@ import os
 import json
 
 
+@pytest.mark.requires_tf
 class TestTrainingConfiguration:
     """Tests for training configuration management."""
 
     def test_default_training_config(self):
         """Test default training configuration values."""
-        try:
-            from ml.models.price_forecaster import ModelConfig
+        from ml.models.price_forecaster import ModelConfig
 
-            config = ModelConfig()
+        config = ModelConfig()
 
-            assert config.epochs == 200  # Default epochs
-            assert config.batch_size == 32  # Default batch size
-            assert config.learning_rate == 0.001  # Default learning rate
-        except ImportError:
-            pytest.skip("Training module not available")
+        assert config.epochs == 200  # Default epochs
+        assert config.batch_size == 32  # Default batch size
+        assert config.learning_rate == 0.001  # Default learning rate
 
     def test_custom_training_config(self):
         """Test custom training configuration."""
-        try:
-            from ml.models.price_forecaster import ModelConfig
+        from ml.models.price_forecaster import ModelConfig
 
-            config = ModelConfig(
-                epochs=100,
-                batch_size=64,
-                learning_rate=0.0001
-            )
+        config = ModelConfig(
+            epochs=100,
+            batch_size=64,
+            learning_rate=0.0001
+        )
 
-            assert config.epochs == 100
-            assert config.batch_size == 64
-            assert config.learning_rate == 0.0001
-        except ImportError:
-            pytest.skip("Training module not available")
+        assert config.epochs == 100
+        assert config.batch_size == 64
+        assert config.learning_rate == 0.0001
 
     def test_config_serialization(self):
         """Test configuration can be serialized to dict."""
-        try:
-            from ml.models.price_forecaster import ModelConfig
-            from dataclasses import asdict
+        from ml.models.price_forecaster import ModelConfig
+        from dataclasses import asdict
 
-            config = ModelConfig(
-                sequence_length=120,
-                num_features=10,
-                epochs=50
-            )
+        config = ModelConfig(
+            sequence_length=120,
+            num_features=10,
+            epochs=50
+        )
 
-            config_dict = asdict(config)
+        config_dict = asdict(config)
 
-            assert isinstance(config_dict, dict)
-            assert config_dict['sequence_length'] == 120
-            assert config_dict['num_features'] == 10
-            assert config_dict['epochs'] == 50
-        except ImportError:
-            pytest.skip("Training module not available")
+        assert isinstance(config_dict, dict)
+        assert config_dict['sequence_length'] == 120
+        assert config_dict['num_features'] == 10
+        assert config_dict['epochs'] == 50
 
 
 class TestTrainingCallbacks:
@@ -364,17 +356,15 @@ class TestTrainingReproducibility:
 class TestModelRegistry:
     """Tests for model versioning and registry."""
 
+    @pytest.mark.requires_tf
     def test_model_versioning(self, tmp_model_dir):
         """Test model version tracking."""
-        try:
-            from ml.models.price_forecaster import ModelConfig
+        from ml.models.price_forecaster import ModelConfig
 
-            config = ModelConfig()
+        config = ModelConfig()
 
-            assert hasattr(config, 'name') or hasattr(config, 'version')
-            # Model should have identifiable version
-        except ImportError:
-            pytest.skip("Model config not available")
+        assert hasattr(config, 'name') or hasattr(config, 'version')
+        # Model should have identifiable version
 
     @pytest.mark.requires_tf
     def test_save_config_with_model(self, sample_training_data, tmp_model_dir):

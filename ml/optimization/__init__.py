@@ -52,9 +52,18 @@ from ml.optimization.appliance_models import (
     PriceProfile,
     OptimizationConfig,
 )
-from ml.optimization.load_shifter import MILPOptimizer
-from ml.optimization.scheduler import ApplianceScheduler
-from ml.optimization.visualization import ScheduleVisualizer
+
+# Guard PuLP-dependent imports so the ML package is importable without pulp
+try:
+    from ml.optimization.load_shifter import MILPOptimizer
+    from ml.optimization.scheduler import ApplianceScheduler
+    from ml.optimization.visualization import ScheduleVisualizer
+    _HAS_PULP = True
+except ImportError:
+    MILPOptimizer = None  # type: ignore[assignment,misc]
+    ApplianceScheduler = None  # type: ignore[assignment,misc]
+    ScheduleVisualizer = None  # type: ignore[assignment,misc]
+    _HAS_PULP = False
 
 __all__ = [
     "Appliance",

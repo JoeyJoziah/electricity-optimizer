@@ -349,11 +349,13 @@ class TestModelBacktester:
 
         config = BacktestConfig(
             min_train_size=200,
-            test_size=50,
-            step_size=25,
+            test_size=200,
+            step_size=100,
+            sequence_length=168,
+            forecast_horizon=24,
             target_mape=10.0,
             target_coverage=0.9,
-            retrain_frequency=1000,
+            retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
             output_dir=tmp_results_dir
@@ -386,8 +388,10 @@ class TestBacktestWithExtendedData:
         config = BacktestConfig(
             window_type="expanding",
             min_train_size=1000,  # ~42 days minimum training
-            test_size=168,  # 1 week test
-            step_size=168,  # Weekly steps
+            test_size=300,  # Must be >= sequence_length + forecast_horizon (192)
+            step_size=200,
+            sequence_length=168,
+            forecast_horizon=24,
             retrain_frequency=10000,  # Don't retrain
             generate_plots=False,
             save_predictions=False,
@@ -415,8 +419,10 @@ class TestBacktestWithExtendedData:
         config = BacktestConfig(
             window_type="rolling",
             min_train_size=720,  # 30 days training window
-            test_size=168,
-            step_size=168,
+            test_size=300,  # Must be >= sequence_length + forecast_horizon (192)
+            step_size=200,
+            sequence_length=168,
+            forecast_horizon=24,
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
@@ -475,9 +481,11 @@ class TestBacktestResultsPersistence:
 
         config = BacktestConfig(
             min_train_size=200,
-            test_size=50,
-            step_size=25,
-            retrain_frequency=1000,
+            test_size=200,
+            step_size=100,
+            sequence_length=168,
+            forecast_horizon=24,
+            retrain_frequency=10000,
             generate_plots=False,
             save_predictions=True,
             output_dir=tmp_results_dir

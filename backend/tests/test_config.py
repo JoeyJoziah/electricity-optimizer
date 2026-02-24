@@ -28,7 +28,7 @@ class TestSettings:
 
         # Create settings with test environment
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -36,7 +36,7 @@ class TestSettings:
         }):
             settings = Settings()
 
-            assert settings.timescaledb_url == "postgresql://test:test@localhost:5432/test"
+            assert settings.database_url == "postgresql://test:test@localhost:5432/test"
             assert settings.jwt_secret == "test-secret-key"
             assert settings.environment == "test"
 
@@ -46,7 +46,7 @@ class TestSettings:
         from pydantic import ValidationError
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -60,7 +60,7 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -71,7 +71,7 @@ class TestSettings:
             with patch.dict(os.environ, env, clear=True):
                 # Force required fields
                 with patch.dict(os.environ, {
-                    "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+                    "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
                     "JWT_SECRET": "test-secret-key",
                     "FLATPEAK_API_KEY": "test-flatpeak",
                     "NREL_API_KEY": "test-nrel",
@@ -84,20 +84,20 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://user:pass@host:5432/db",
+            "DATABASE_URL": "postgresql://user:pass@host:5432/db",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
         }):
             settings = Settings()
-            assert settings.timescaledb_url.startswith("postgresql://")
+            assert settings.database_url.startswith("postgresql://")
 
     def test_cors_origins_parsing(self):
         """Test CORS origins can be parsed from JSON string"""
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -114,7 +114,7 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key-that-is-at-least-32-chars-long-for-production",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -130,7 +130,7 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -146,7 +146,7 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -160,7 +160,7 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -175,7 +175,7 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
@@ -191,7 +191,7 @@ class TestSettings:
         from config.settings import Settings
 
         with patch.dict(os.environ, {
-            "TIMESCALEDB_URL": "postgresql://test:test@localhost:5432/test",
+            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "JWT_SECRET": "test-secret-key",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",

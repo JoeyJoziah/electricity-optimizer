@@ -17,10 +17,11 @@ import pandas as pd
 import pytest
 import yaml
 
-# Check for optional torch dependency
+# Check for optional torch dependency (guard against MagicMock in sys.modules)
+import types as _types
 try:
     import torch as _torch  # noqa: F401
-    HAS_TORCH = True
+    HAS_TORCH = isinstance(_torch, _types.ModuleType)
 except ImportError:
     HAS_TORCH = False
 

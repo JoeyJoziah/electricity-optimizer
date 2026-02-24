@@ -34,8 +34,6 @@ except ImportError:
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.multioutput import MultiOutputRegressor
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -674,73 +672,3 @@ class EnsembleForecaster:
 
         self.is_fitted = True
         logger.info(f"Ensemble loaded from {path}")
-
-
-def test_ensemble():
-    """Test ensemble model with dummy data."""
-    print("Testing Ensemble Forecaster...")
-
-    # Create dummy data
-    np.random.seed(42)
-    n_samples = 500
-    sequence_length = 168
-    num_features = 15
-    forecast_horizon = 24
-
-    X = np.random.randn(n_samples, sequence_length, num_features)
-    y = np.random.randn(n_samples, forecast_horizon) * 10 + 50
-
-    # Split
-    train_size = int(0.8 * n_samples)
-    X_train, X_test = X[:train_size], X[train_size:]
-    y_train, y_test = y[:train_size], y[train_size:]
-
-    # Test XGBoost forecaster
-    if HAS_XGBOOST:
-        print("\nTesting XGBoost Forecaster...")
-        xgb_model = XGBoostForecaster(
-            config=XGBoostConfig(n_estimators=50),  # Quick test
-            forecast_horizon=forecast_horizon
-        )
-        xgb_model.fit(X_train, y_train)
-        xgb_pred = xgb_model.predict(X_test)
-        xgb_mape = np.mean(np.abs((y_test - xgb_pred) / (y_test + 1e-8))) * 100
-        print(f"XGBoost MAPE: {xgb_mape:.2f}%")
-
-    # Test LightGBM forecaster
-    if HAS_LIGHTGBM:
-        print("\nTesting LightGBM Forecaster...")
-        lgb_model = LightGBMForecaster(
-            config=LightGBMConfig(n_estimators=50),  # Quick test
-            forecast_horizon=forecast_horizon
-        )
-        lgb_model.fit(X_train, y_train)
-        lgb_pred = lgb_model.predict(X_test)
-        lgb_mape = np.mean(np.abs((y_test - lgb_pred) / (y_test + 1e-8))) * 100
-        print(f"LightGBM MAPE: {lgb_mape:.2f}%")
-
-    # Test ensemble (without CNN-LSTM for quick test)
-    print("\nTesting Ensemble (GBM only)...")
-    config = EnsembleConfig(
-        cnn_lstm_weight=0.0,
-        xgboost_weight=0.5 if HAS_XGBOOST else 0.0,
-        lightgbm_weight=0.5 if HAS_LIGHTGBM else 0.0,
-        forecast_horizon=forecast_horizon
-    )
-
-    ensemble = EnsembleForecaster(config=config)
-    ensemble.fit(X_train, y_train, fit_cnn_lstm=False)
-
-    # Evaluate
-    results = ensemble.evaluate(X_test, y_test)
-    print(f"\nEnsemble results: {results}")
-
-    # Test prediction with confidence
-    forecast, lower, upper = ensemble.predict_with_confidence(X_test[:5])
-    print(f"\nConfidence interval shape: {forecast.shape}, {lower.shape}, {upper.shape}")
-
-    print("\nEnsemble tests passed!")
-
-
-if __name__ == "__main__":
-    test_ensemble()

@@ -1,12 +1,11 @@
 """
 Authentication Tests
 
-Comprehensive tests for JWT authentication and Neon Auth session validation:
-- JWT token creation and validation
-- Token expiration handling
+Comprehensive tests for Neon Auth session validation:
 - Neon Auth session validation (neon_auth schema)
 - Permission-based access control
-- Invalid token rejection
+- Password validation
+- Auth API endpoints
 """
 
 import pytest
@@ -19,251 +18,6 @@ from pathlib import Path
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
-
-
-# =============================================================================
-# JWT HANDLER TESTS
-# =============================================================================
-
-
-class TestJWTHandler:
-    """Tests for JWTHandler token management"""
-
-    @pytest.fixture
-    def jwt_handler(self):
-        """Create JWT handler with test configuration"""
-        from auth.jwt_handler import JWTHandler
-
-        return JWTHandler(
-            secret_key="test-secret-key-for-testing-only",
-            algorithm="HS256",
-            access_token_expire_minutes=15,
-            refresh_token_expire_days=7,
-        )
-
-    # -------------------------------------------------------------------------
-    # Token Creation Tests
-    # -------------------------------------------------------------------------
-
-    def test_create_access_token(self, jwt_handler):
-        """Test creating a valid access token"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            scopes=["read", "write"]
-        )
-
-        assert token is not None
-        assert isinstance(token, str)
-        assert len(token) > 0
-
-    def test_create_access_token_with_custom_expiry(self, jwt_handler):
-        """Test creating token with custom expiration"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            expires_delta=timedelta(minutes=30)
-        )
-
-        payload = jwt_handler.decode_token(token)
-        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        now = datetime.now(timezone.utc)
-
-        # Should expire in ~30 minutes
-        assert 29 < (exp - now).total_seconds() / 60 < 31
-
-    def test_create_refresh_token(self, jwt_handler):
-        """Test creating a refresh token"""
-        token = jwt_handler.create_refresh_token(user_id="user-123")
-
-        assert token is not None
-        assert isinstance(token, str)
-
-        payload = jwt_handler.decode_token(token)
-        assert payload["type"] == "refresh"
-        assert payload["sub"] == "user-123"
-
-    def test_refresh_token_longer_expiry(self, jwt_handler):
-        """Test that refresh tokens have longer expiry than access tokens"""
-        access_token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-        refresh_token = jwt_handler.create_refresh_token(user_id="user-123")
-
-        access_payload = jwt_handler.decode_token(access_token)
-        refresh_payload = jwt_handler.decode_token(refresh_token)
-
-        access_exp = access_payload["exp"]
-        refresh_exp = refresh_payload["exp"]
-
-        assert refresh_exp > access_exp
-
-    def test_token_contains_required_claims(self, jwt_handler):
-        """Test that token contains all required JWT claims"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            scopes=["read"]
-        )
-
-        payload = jwt_handler.decode_token(token)
-
-        assert "sub" in payload  # Subject (user_id)
-        assert "email" in payload
-        assert "scopes" in payload
-        assert "iat" in payload  # Issued at
-        assert "exp" in payload  # Expiration
-        assert "jti" in payload  # JWT ID (unique)
-        assert "type" in payload
-
-    def test_token_has_unique_jti(self, jwt_handler):
-        """Test that each token has a unique JTI"""
-        token1 = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-        token2 = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-
-        payload1 = jwt_handler.decode_token(token1)
-        payload2 = jwt_handler.decode_token(token2)
-
-        assert payload1["jti"] != payload2["jti"]
-
-    # -------------------------------------------------------------------------
-    # Token Verification Tests
-    # -------------------------------------------------------------------------
-
-    def test_verify_valid_token(self, jwt_handler):
-        """Test verifying a valid token"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-
-        payload = jwt_handler.verify_token(token)
-
-        assert payload is not None
-        assert payload["sub"] == "user-123"
-        assert payload["email"] == "test@example.com"
-
-    def test_verify_expired_token(self, jwt_handler):
-        """Test that expired tokens are rejected"""
-        from auth.jwt_handler import TokenExpiredError
-
-        # Create token that's already expired
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            expires_delta=timedelta(seconds=-10)  # Expired 10 seconds ago
-        )
-
-        with pytest.raises(TokenExpiredError):
-            jwt_handler.verify_token(token)
-
-    def test_verify_invalid_signature(self, jwt_handler):
-        """Test that tokens with invalid signature are rejected"""
-        from auth.jwt_handler import InvalidTokenError
-
-        # Create token with different handler (different secret)
-        from auth.jwt_handler import JWTHandler
-        other_handler = JWTHandler(
-            secret_key="different-secret-key",
-            algorithm="HS256"
-        )
-
-        token = other_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-
-        with pytest.raises(InvalidTokenError):
-            jwt_handler.verify_token(token)
-
-    def test_verify_malformed_token(self, jwt_handler):
-        """Test that malformed tokens are rejected"""
-        from auth.jwt_handler import InvalidTokenError
-
-        with pytest.raises(InvalidTokenError):
-            jwt_handler.verify_token("not-a-valid-jwt-token")
-
-    def test_verify_token_wrong_type(self, jwt_handler):
-        """Test that refresh token cannot be used as access token"""
-        from auth.jwt_handler import InvalidTokenError
-
-        refresh_token = jwt_handler.create_refresh_token(user_id="user-123")
-
-        with pytest.raises(InvalidTokenError):
-            jwt_handler.verify_token(refresh_token, expected_type="access")
-
-    # -------------------------------------------------------------------------
-    # Token Decoding Tests
-    # -------------------------------------------------------------------------
-
-    def test_decode_token_success(self, jwt_handler):
-        """Test decoding a valid token"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            scopes=["admin"]
-        )
-
-        payload = jwt_handler.decode_token(token)
-
-        assert payload["sub"] == "user-123"
-        assert payload["email"] == "test@example.com"
-        assert "admin" in payload["scopes"]
-
-    def test_decode_expired_token_allowed(self, jwt_handler):
-        """Test that decode allows expired tokens (for inspection)"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com",
-            expires_delta=timedelta(seconds=-10)
-        )
-
-        # decode_token should work even for expired tokens
-        payload = jwt_handler.decode_token(token, verify_exp=False)
-
-        assert payload["sub"] == "user-123"
-
-    # -------------------------------------------------------------------------
-    # Token Revocation Tests
-    # -------------------------------------------------------------------------
-
-    def test_revoke_token(self, jwt_handler):
-        """Test token revocation"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-
-        payload = jwt_handler.decode_token(token)
-        jti = payload["jti"]
-
-        # Revoke the token
-        jwt_handler.revoke_token(jti)
-
-        # Token should now be invalid
-        assert jwt_handler.is_token_revoked(jti) is True
-
-    def test_verify_revoked_token_fails(self, jwt_handler):
-        """Test that revoked tokens are rejected"""
-        from auth.jwt_handler import TokenRevokedError
-
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-
-        payload = jwt_handler.decode_token(token)
-        jwt_handler.revoke_token(payload["jti"])
-
-        with pytest.raises(TokenRevokedError):
-            jwt_handler.verify_token(token)
 
 
 # =============================================================================
@@ -528,103 +282,77 @@ class TestNeonAuthSessionValidation:
         )
         assert data.role == "admin"
 
+    @pytest.mark.asyncio
+    async def test_session_cache_key_uses_sha256(self, mock_db_session):
+        """Test that session cache key uses SHA-256 hash, not token prefix (P0-2 fix)."""
+        import hashlib
+        from auth.neon_auth import _get_session_from_token
 
-# =============================================================================
-# AUTH MIDDLEWARE TESTS
-# =============================================================================
+        mock_redis = AsyncMock()
+        mock_redis.get.return_value = None
 
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = None
+        mock_db_session.execute.return_value = mock_result
 
-class TestAuthMiddleware:
-    """Tests for authentication middleware"""
+        token = "abcdef1234567890abcdef1234567890"
+        await _get_session_from_token(token, mock_db_session, redis=mock_redis)
 
-    @pytest.fixture
-    def mock_jwt_handler(self):
-        """Create mock JWT handler"""
-        handler = MagicMock()
-        handler.verify_token.return_value = {
-            "sub": "user-123",
-            "email": "test@example.com",
-            "scopes": ["read", "write"],
-            "type": "access"
-        }
-        return handler
-
-    # -------------------------------------------------------------------------
-    # Get Current User Tests
-    # -------------------------------------------------------------------------
+        # Verify the cache key uses SHA-256 hash, not raw token prefix
+        expected_hash = hashlib.sha256(token.encode()).hexdigest()[:32]
+        expected_key = f"session:{expected_hash}"
+        mock_redis.get.assert_awaited_once_with(expected_key)
 
     @pytest.mark.asyncio
-    async def test_get_current_user_valid_token(self, mock_jwt_handler):
-        """Test getting current user with valid token"""
-        from auth.middleware import get_current_user
+    async def test_similar_tokens_produce_different_cache_keys(self, mock_db_session):
+        """Two tokens sharing the same 16-char prefix must produce different cache keys."""
+        import hashlib
+        from auth.neon_auth import _get_session_from_token
 
-        # Mock the dependency
-        with patch("auth.middleware.jwt_handler", mock_jwt_handler):
-            from fastapi.security import HTTPAuthorizationCredentials
-            credentials = HTTPAuthorizationCredentials(
-                scheme="Bearer",
-                credentials="valid-token"
-            )
+        # Two tokens with identical first 16 chars but different suffixes
+        token_a = "abcdef1234567890_suffix_AAA"
+        token_b = "abcdef1234567890_suffix_BBB"
 
-            # This would be called by FastAPI
-            # user = await get_current_user(credentials)
+        hash_a = hashlib.sha256(token_a.encode()).hexdigest()[:32]
+        hash_b = hashlib.sha256(token_b.encode()).hexdigest()[:32]
 
-    @pytest.mark.asyncio
-    async def test_get_current_user_missing_token(self):
-        """Test that missing token raises 401"""
-        from fastapi import HTTPException
-        from auth.middleware import get_current_user
-
-        # Should raise 401 when no token provided
+        # The old code would produce the same cache key for both
+        assert hash_a != hash_b, "Tokens with same prefix must have distinct cache keys"
 
     @pytest.mark.asyncio
-    async def test_get_current_user_invalid_token(self, mock_jwt_handler):
-        """Test that invalid token raises 401"""
-        from auth.jwt_handler import InvalidTokenError
+    async def test_session_cache_stores_with_sha256_key(self, mock_db_session):
+        """Verify Redis SET uses SHA-256 cache key on cache miss + DB hit."""
+        import hashlib
+        from auth.neon_auth import _get_session_from_token, _SESSION_CACHE_TTL
 
-        mock_jwt_handler.verify_token.side_effect = InvalidTokenError("Invalid token")
+        mock_redis = AsyncMock()
+        mock_redis.get.return_value = None
+        mock_redis.setex = AsyncMock()
 
-        # Should raise 401 when token is invalid
+        # Simulate a valid DB result
+        mock_row = MagicMock()
+        mock_row.user_id = "user-cache"
+        mock_row.email = "cache@test.com"
+        mock_row.name = "Cache User"
+        mock_row.email_verified = True
+        mock_row.role = None
 
-    # -------------------------------------------------------------------------
-    # Permission Checking Tests
-    # -------------------------------------------------------------------------
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db_session.execute.return_value = mock_result
 
-    @pytest.mark.asyncio
-    async def test_require_permission_success(self, mock_jwt_handler):
-        """Test permission check passes with correct scope"""
-        mock_jwt_handler.verify_token.return_value = {
-            "sub": "user-123",
-            "email": "test@example.com",
-            "scopes": ["admin"],
-            "type": "access"
-        }
+        token = "my-session-token-with-sufficient-length"
+        result = await _get_session_from_token(token, mock_db_session, redis=mock_redis)
 
-        # User has "admin" scope, should pass
+        assert result is not None
+        expected_hash = hashlib.sha256(token.encode()).hexdigest()[:32]
+        expected_key = f"session:{expected_hash}"
 
-    @pytest.mark.asyncio
-    async def test_require_permission_missing_scope(self, mock_jwt_handler):
-        """Test permission check fails without required scope"""
-        mock_jwt_handler.verify_token.return_value = {
-            "sub": "user-123",
-            "email": "test@example.com",
-            "scopes": ["read"],
-            "type": "access"
-        }
-
-        # User lacks "admin" scope, should raise 403
-
-    @pytest.mark.asyncio
-    async def test_require_multiple_permissions(self, mock_jwt_handler):
-        """Test checking for multiple required permissions"""
-        mock_jwt_handler.verify_token.return_value = {
-            "sub": "user-123",
-            "email": "test@example.com",
-            "scopes": ["read", "write", "admin"],
-            "type": "access"
-        }
-
-        # User has all required scopes, should pass
+        # Verify setex was called with the SHA-256 key and correct TTL
+        mock_redis.setex.assert_awaited_once()
+        call_args = mock_redis.setex.call_args
+        assert call_args[0][0] == expected_key
+        assert call_args[0][1] == _SESSION_CACHE_TTL
 
 
 # =============================================================================

@@ -413,55 +413,6 @@ class TestSecretsManager:
 
 
 # =============================================================================
-# JWT TOKEN REVOCATION TESTS
-# =============================================================================
-
-
-class TestTokenRevocation:
-    """Tests for JWT token revocation"""
-
-    @pytest.fixture
-    def jwt_handler(self):
-        """Create JWT handler for testing"""
-        from auth.jwt_handler import JWTHandler
-
-        return JWTHandler(
-            secret_key="test-secret",
-            algorithm="HS256",
-            access_token_expire_minutes=15,
-        )
-
-    def test_token_revocation(self, jwt_handler):
-        """Test token can be revoked"""
-        token = jwt_handler.create_access_token(
-            user_id="user-123",
-            email="test@example.com"
-        )
-
-        payload = jwt_handler.decode_token(token)
-        jti = payload["jti"]
-
-        # Token should work before revocation
-        jwt_handler.verify_token(token)
-
-        # Revoke
-        jwt_handler.revoke_token(jti)
-
-        # Token should fail after revocation
-        from auth.jwt_handler import TokenRevokedError
-        with pytest.raises(TokenRevokedError):
-            jwt_handler.verify_token(token)
-
-    def test_is_token_revoked(self, jwt_handler):
-        """Test checking if token is revoked"""
-        assert jwt_handler.is_token_revoked("random-jti") is False
-
-        jwt_handler.revoke_token("random-jti")
-
-        assert jwt_handler.is_token_revoked("random-jti") is True
-
-
-# =============================================================================
 # INTEGRATION TESTS
 # =============================================================================
 

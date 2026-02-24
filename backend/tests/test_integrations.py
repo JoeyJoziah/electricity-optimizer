@@ -23,7 +23,8 @@ import pytest
 from integrations.pricing_apis.base import (
     BasePricingClient,
     PriceData,
-    PriceForecast,
+    ForecastData,
+    ForecastData as PriceForecast,  # backward-compat alias used in tests below
     PricingRegion,
     PriceUnit,
     APIError,

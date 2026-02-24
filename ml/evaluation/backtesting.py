@@ -30,8 +30,6 @@ try:
 except ImportError:
     HAS_MATPLOTLIB = False
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

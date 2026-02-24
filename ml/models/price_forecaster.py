@@ -32,8 +32,6 @@ from tensorflow.keras.callbacks import (
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import Loss
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

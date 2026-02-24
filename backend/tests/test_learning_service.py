@@ -36,10 +36,12 @@ def mock_obs():
 
 @pytest.fixture
 def mock_vs():
-    """Mock HNSWVectorStore with sync methods."""
+    """Mock HNSWVectorStore with sync and async methods."""
     vs = MagicMock()
     vs.insert = MagicMock(return_value="vec-123")
     vs.prune = MagicMock(return_value=0)
+    vs.async_insert = AsyncMock(return_value="vec-123")
+    vs.async_prune = AsyncMock(return_value=0)
     return vs
 
 
@@ -315,9 +317,9 @@ class TestStoreBiasCorrection:
         result = await service.store_bias_correction("US", days=14)
 
         assert result == "vec-123"
-        mock_vs.insert.assert_called_once()
+        mock_vs.async_insert.assert_called_once()
 
-        call_kwargs = mock_vs.insert.call_args
+        call_kwargs = mock_vs.async_insert.call_args
         assert call_kwargs[1]["domain"] == "bias_correction"
         assert call_kwargs[1]["confidence"] == 1.0
         # Metadata should contain region and raw_bias
@@ -337,7 +339,7 @@ class TestStoreBiasCorrection:
 
         await service.store_bias_correction("US")
 
-        call_kwargs = mock_vs.insert.call_args
+        call_kwargs = mock_vs.async_insert.call_args
         raw_bias = call_kwargs[1]["metadata"]["raw_bias"]
         assert raw_bias[5] == pytest.approx(0.01, abs=1e-6)
         assert raw_bias[23] == pytest.approx(-0.02, abs=1e-6)
@@ -354,7 +356,7 @@ class TestStoreBiasCorrection:
 
         await service.store_bias_correction("US")
 
-        call_kwargs = mock_vs.insert.call_args
+        call_kwargs = mock_vs.async_insert.call_args
         vector = call_kwargs[1]["vector"]
         assert isinstance(vector, np.ndarray)
         assert vector.shape == (24,)
@@ -370,7 +372,7 @@ class TestStoreBiasCorrection:
 
         await service.store_bias_correction("US")
 
-        call_kwargs = mock_vs.insert.call_args
+        call_kwargs = mock_vs.async_insert.call_args
         raw_bias = call_kwargs[1]["metadata"]["raw_bias"]
         # Only hour 12 should have a non-zero value
         assert raw_bias[12] == pytest.approx(0.01, abs=1e-6)
@@ -389,26 +391,26 @@ class TestPruneStalePatterns:
     @pytest.mark.asyncio
     async def test_delegates_to_vector_store(self, service, mock_vs):
         """Should call vector_store.prune with correct args."""
-        mock_vs.prune.return_value = 5
+        mock_vs.async_prune.return_value = 5
 
         result = await service.prune_stale_patterns(min_confidence=0.5, min_usage=2)
 
-        mock_vs.prune.assert_called_once_with(0.5, 2)
+        mock_vs.async_prune.assert_called_once_with(0.5, 2)
         assert result == 5
 
     @pytest.mark.asyncio
     async def test_default_params(self, service, mock_vs):
         """Should use default min_confidence=0.3 and min_usage=0."""
-        mock_vs.prune.return_value = 0
+        mock_vs.async_prune.return_value = 0
 
         await service.prune_stale_patterns()
 
-        mock_vs.prune.assert_called_once_with(0.3, 0)
+        mock_vs.async_prune.assert_called_once_with(0.3, 0)
 
     @pytest.mark.asyncio
     async def test_zero_pruned(self, service, mock_vs):
         """Should return 0 when nothing is pruned."""
-        mock_vs.prune.return_value = 0
+        mock_vs.async_prune.return_value = 0
 
         result = await service.prune_stale_patterns()
 
@@ -494,11 +496,11 @@ class TestRunFullCycle:
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
-        mock_vs.prune.return_value = 3
+        mock_vs.async_prune.return_value = 3
 
         result = await service.run_full_cycle(regions=["US", "UK"])
 
-        mock_vs.prune.assert_called_once()
+        mock_vs.async_prune.assert_called_once()
         assert result["pruned"] == 3
 
     @pytest.mark.asyncio

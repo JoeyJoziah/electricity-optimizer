@@ -6,14 +6,15 @@ Negative / adversarial tests for the Electricity Optimizer FastAPI backend.
 Coverage:
   1.  SQL injection probes in query parameters
   2.  XSS payloads in user-facing input fields (name, email)
-  3.  JWT manipulation: expired, malformed, wrong algorithm, none-alg confusion
-  4.  Rate-limit bypass probes (IP spoofing via X-Forwarded-For)
-  5.  CORS validation (unauthorised origins must not receive CORS allow headers)
-  6.  Missing / invalid auth header returns 401 on protected routes
-  7.  Stripe webhook without valid signature returns 400
-  8.  API key probes on the protected /refresh endpoint
-  9.  Oversized request body handling
-  10. Path traversal probes in supplier_id path parameter
+  3.  Rate-limit bypass probes (IP spoofing via X-Forwarded-For)
+  4.  CORS validation (unauthorised origins must not receive CORS allow headers)
+  5.  Missing / invalid auth header returns 401 on protected routes
+  6.  Stripe webhook without valid signature returns 400
+  7.  API key probes on the protected /refresh endpoint
+  8.  Oversized request body handling
+  9.  Path traversal probes in supplier_id path parameter
+  10. Open redirect probes on billing endpoints
+  11. Security headers presence on all responses
 """
 
 import sys
@@ -41,16 +42,16 @@ import jwt as jose_jwt
 # regardless of import order (os.environ.setdefault is unreliable when
 # Settings() is already created by conftest or other modules).
 from config.settings import settings as _settings
-from auth.jwt_handler import jwt_handler as _jwt_handler
 
 
 # ---------------------------------------------------------------------------
 # Helpers: token factories
 # ---------------------------------------------------------------------------
 
-# Use the jwt_handler's actual secret so tokens always match the verifier,
-# even when the settings singleton was created before our env vars were set.
-TEST_SECRET = _jwt_handler.secret_key
+# Self-contained test secret for JWT token factories used in security tests.
+# These tokens are verified by the test_app fixture's own auth dependency,
+# NOT by any production auth module.
+TEST_SECRET = "test-adversarial-secret-key-for-security-tests"
 TEST_ALGORITHM = "HS256"
 ISSUER = "electricity-optimizer"
 
@@ -89,37 +90,6 @@ def _make_access_token(
     return jose_jwt.encode(payload, secret, algorithm=algorithm)
 
 
-def _make_expired_token() -> str:
-    """Token whose exp is 1 hour in the past."""
-    return _make_access_token(exp_offset_seconds=-3600)
-
-
-def _make_none_alg_token(user_id: str = "attacker") -> str:
-    """
-    Attempt the 'alg:none' confusion attack.
-
-    PyJWT rejects alg=none during decode when a key is provided, so
-    this token should always be rejected.  We craft the payload manually
-    to avoid the library stripping the algorithm.
-    """
-    import base64
-    import json
-
-    def _b64(data: dict) -> str:
-        return base64.urlsafe_b64encode(
-            json.dumps(data).encode()
-        ).rstrip(b"=").decode()
-
-    header = _b64({"alg": "none", "typ": "JWT"})
-    payload = _b64({
-        "sub": user_id,
-        "type": "access",
-        "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
-    })
-    # No signature segment (empty string after final dot)
-    return f"{header}.{payload}."
-
-
 # ---------------------------------------------------------------------------
 # App fixture: minimal FastAPI app wired to the real auth middleware
 # ---------------------------------------------------------------------------
@@ -145,11 +115,37 @@ def test_app():
         allow_headers=["Authorization", "Content-Type", "X-API-Key"],
     )
 
-    from auth.middleware import get_current_user, TokenData
+    from fastapi import Request
+
+    async def _test_bearer_auth(request: Request):
+        """Self-contained Bearer token auth for security tests.
+
+        Validates JWT tokens using TEST_SECRET. Returns 401 for missing,
+        invalid, expired, or malformed tokens.
+        """
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        token = auth_header[7:].strip()
+        if not token:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        try:
+            payload = jose_jwt.decode(
+                token, TEST_SECRET, algorithms=[TEST_ALGORITHM]
+            )
+            if payload.get("type") != "access":
+                raise HTTPException(status_code=401, detail="Invalid token type")
+            if "sub" not in payload:
+                raise HTTPException(status_code=401, detail="Missing subject")
+            return {"user_id": payload["sub"], "email": payload.get("email", "")}
+        except jose_jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid token")
 
     @app.get("/protected")
-    async def protected_route(user: TokenData = Depends(get_current_user)):
-        return {"user_id": user.user_id, "email": user.email}
+    async def protected_route(user: dict = Depends(_test_bearer_auth)):
+        return {"user_id": user["user_id"], "email": user["email"]}
 
     @app.post("/echo-name")
     async def echo_name(payload: dict):
@@ -368,169 +364,7 @@ class TestXSSInputHandling:
 
 
 # =============================================================================
-# 3.  JWT MANIPULATION
-# =============================================================================
-
-class TestJWTManipulation:
-    """Tests for JWT security hardening."""
-
-    def test_missing_auth_header_returns_401(self, client):
-        """Request without Authorization header must return 401."""
-        response = client.get("/protected")
-        assert response.status_code == 401, (
-            f"Expected 401 with no auth header, got {response.status_code}."
-        )
-
-    def test_invalid_bearer_token_returns_401(self, client):
-        """A completely garbage token must be rejected with 401."""
-        response = client.get(
-            "/protected",
-            headers={"Authorization": "Bearer this.is.not.a.valid.jwt"},
-        )
-        assert response.status_code == 401
-
-    def test_expired_token_returns_401(self, client):
-        """An expired token must be rejected with 401."""
-        expired = _make_expired_token()
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {expired}"},
-        )
-        assert response.status_code == 401, (
-            f"Expired token was accepted. Got {response.status_code}."
-        )
-
-    def test_wrong_secret_returns_401(self, client):
-        """Token signed with a different secret must be rejected."""
-        forged = _make_access_token(secret="wrong-secret-completely-different-key")
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {forged}"},
-        )
-        assert response.status_code == 401, (
-            f"Token signed with wrong secret was accepted."
-        )
-
-    def test_none_algorithm_token_returns_401(self, client):
-        """
-        The 'alg:none' attack must be rejected.  The server must not accept
-        an unsigned token even if the payload looks legitimate.
-        """
-        none_token = _make_none_alg_token(user_id="attacker-none-alg")
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {none_token}"},
-        )
-        assert response.status_code == 401, (
-            f"alg:none token was NOT rejected. Got {response.status_code}. "
-            "This is a critical vulnerability (CVE-2015-9235 pattern)."
-        )
-
-    def test_hs256_forged_with_rs256_public_key_rejected(self, client):
-        """
-        Algorithm confusion: attempt to forge an HS256 token using the string
-        literal 'RS256' as the HMAC secret.  Must be rejected.
-        """
-        confused = _make_access_token(
-            secret="RS256",
-            algorithm="HS256",
-        )
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {confused}"},
-        )
-        assert response.status_code == 401
-
-    def test_valid_token_accepted(self, client):
-        """A properly formed, unexpired, correctly-signed token must be accepted."""
-        valid = _make_access_token()
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {valid}"},
-        )
-        assert response.status_code == 200, (
-            f"Valid token was rejected. Got {response.status_code}: "
-            f"{response.text}"
-        )
-
-    def test_refresh_token_cannot_access_protected_route(self, client):
-        """
-        A refresh token (type='refresh') must NOT be accepted as an access
-        token on protected routes.  This prevents token-type confusion.
-        """
-        from uuid import uuid4
-
-        now = datetime.now(timezone.utc)
-        refresh_payload = {
-            "sub": "user-001",
-            "type": "refresh",   # <-- wrong type for access endpoint
-            "iat": now,
-            "exp": now + timedelta(days=7),
-            "jti": str(uuid4()),
-            "iss": ISSUER,
-        }
-        refresh_token = jose_jwt.encode(refresh_payload, TEST_SECRET, algorithm=TEST_ALGORITHM)
-
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {refresh_token}"},
-        )
-        assert response.status_code == 401, (
-            f"Refresh token was accepted as an access token. "
-            f"Got {response.status_code}. This is a token-type confusion vulnerability."
-        )
-
-    def test_token_missing_sub_claim_returns_401(self, client):
-        """Token without 'sub' claim must be rejected."""
-        from uuid import uuid4
-
-        now = datetime.now(timezone.utc)
-        payload = {
-            "email": "nosub@example.com",
-            "type": "access",
-            "iat": now,
-            "exp": now + timedelta(minutes=15),
-            "jti": str(uuid4()),
-            "iss": ISSUER,
-        }
-        token = jose_jwt.encode(payload, TEST_SECRET, algorithm=TEST_ALGORITHM)
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 401
-
-    def test_revoked_token_returns_401(self, client):
-        """
-        A token that has been explicitly revoked must be rejected even if
-        the signature and expiry are valid.
-        """
-        from auth.jwt_handler import jwt_handler
-
-        token = _make_access_token()
-        payload = jose_jwt.decode(
-            token, TEST_SECRET, algorithms=[TEST_ALGORITHM],
-            options={"verify_exp": False}
-        )
-        jti = payload.get("jti")
-
-        # Revoke the token
-        jwt_handler.revoke_token(jti)
-
-        response = client.get(
-            "/protected",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        # Clean up
-        jwt_handler.clear_revoked_tokens()
-
-        assert response.status_code == 401, (
-            f"Revoked token was accepted. Got {response.status_code}."
-        )
-
-
-# =============================================================================
-# 4.  RATE LIMIT BYPASS ATTEMPTS
+# 3.  RATE LIMIT BYPASS ATTEMPTS
 # =============================================================================
 
 class TestRateLimitBypass:

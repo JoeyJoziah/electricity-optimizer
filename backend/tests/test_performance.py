@@ -199,10 +199,13 @@ class TestAnalyticsCaching:
         service = AnalyticsService(mock_repo, cache=mock_cache)
         await service.get_peak_hours_analysis(PriceRegion.US_CT, days=7)
 
-        # Should have called cache.set with 900s TTL
-        mock_cache.set.assert_called_once()
-        call_args = mock_cache.set.call_args
-        assert call_args.kwargs.get("ex") == 900 or call_args[1].get("ex") == 900
+        # Should have called cache.set for lock + data + lock release
+        # Find the data caching call (the one with ex=900)
+        data_calls = [
+            c for c in mock_cache.set.call_args_list
+            if c.kwargs.get("ex") == 900 or (len(c.args) > 1 and c.kwargs.get("ex") == 900)
+        ]
+        assert len(data_calls) == 1
 
     @pytest.mark.asyncio
     async def test_peak_hours_returns_cached_on_hit(self, mock_repo, mock_cache):
@@ -236,9 +239,12 @@ class TestAnalyticsCaching:
         service = AnalyticsService(mock_repo, cache=mock_cache)
         await service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
 
-        mock_cache.set.assert_called_once()
-        call_args = mock_cache.set.call_args
-        assert call_args.kwargs.get("ex") == 3600 or call_args[1].get("ex") == 3600
+        # Find the data caching call (the one with ex=3600)
+        data_calls = [
+            c for c in mock_cache.set.call_args_list
+            if c.kwargs.get("ex") == 3600
+        ]
+        assert len(data_calls) == 1
 
     @pytest.mark.asyncio
     async def test_price_trend_caches_result(self, mock_repo, mock_cache):
@@ -256,9 +262,12 @@ class TestAnalyticsCaching:
         service = AnalyticsService(mock_repo, cache=mock_cache)
         await service.get_price_trend(PriceRegion.US_CT, days=7)
 
-        mock_cache.set.assert_called_once()
-        call_args = mock_cache.set.call_args
-        assert call_args.kwargs.get("ex") == 900 or call_args[1].get("ex") == 900
+        # Find the data caching call (the one with ex=900)
+        data_calls = [
+            c for c in mock_cache.set.call_args_list
+            if c.kwargs.get("ex") == 900
+        ]
+        assert len(data_calls) == 1
 
     @pytest.mark.asyncio
     async def test_no_cache_still_works(self, mock_repo):

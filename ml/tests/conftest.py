@@ -391,14 +391,18 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Skip tests based on available dependencies."""
+    import types as _types
+
     skip_tf = pytest.mark.skip(reason="TensorFlow not installed")
     skip_gpu = pytest.mark.skip(reason="GPU not available")
 
     try:
         import tensorflow as tf
-        has_tf = True
-        has_gpu = len(tf.config.list_physical_devices('GPU')) > 0
-    except ImportError:
+        # Guard against MagicMock injected into sys.modules by other test files
+        # (e.g. test_hyperparameter_tuning.py).  A real tensorflow is a module.
+        has_tf = isinstance(tf, _types.ModuleType)
+        has_gpu = has_tf and len(tf.config.list_physical_devices('GPU')) > 0
+    except (ImportError, Exception):
         has_tf = False
         has_gpu = False
 
