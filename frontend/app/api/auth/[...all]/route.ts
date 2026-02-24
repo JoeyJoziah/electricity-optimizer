@@ -21,26 +21,46 @@ export const dynamic = "force-dynamic"
 
 const handler = toNextJsHandler(auth)
 
-export async function GET(req: NextRequest) {
+async function wrapHandler(
+  method: "GET" | "POST",
+  handlerFn: (req: NextRequest) => Promise<Response>,
+  req: NextRequest
+): Promise<Response> {
   try {
-    return await handler.GET(req)
+    const response = await handlerFn(req)
+    // On 500 errors, intercept and add debug info
+    if (response.status >= 500) {
+      const body = await response.text()
+      console.error(`[Auth ${method} ${response.status}]`, body || "(empty body)")
+      // During debugging: return error details in response
+      return NextResponse.json(
+        {
+          error: "Better Auth internal error",
+          status: response.status,
+          body: body || null,
+          headers: Object.fromEntries(response.headers.entries()),
+        },
+        { status: response.status }
+      )
+    }
+    return response
   } catch (error) {
-    console.error("[Auth GET Error]", error)
+    console.error(`[Auth ${method} Exception]`, error)
     return NextResponse.json(
-      { error: "Internal auth error", message: String(error) },
+      {
+        error: "Auth handler exception",
+        message: String(error),
+        stack: (error as Error)?.stack?.split("\n").slice(0, 5),
+      },
       { status: 500 }
     )
   }
 }
 
+export async function GET(req: NextRequest) {
+  return wrapHandler("GET", handler.GET, req)
+}
+
 export async function POST(req: NextRequest) {
-  try {
-    return await handler.POST(req)
-  } catch (error) {
-    console.error("[Auth POST Error]", error)
-    return NextResponse.json(
-      { error: "Internal auth error", message: String(error) },
-      { status: 500 }
-    )
-  }
+  return wrapHandler("POST", handler.POST, req)
 }
