@@ -67,6 +67,7 @@ export const auth = betterAuth({
 
   // Generate UUID IDs to match neon_auth schema (uuid columns, not text)
   advanced: {
+    // @ts-expect-error - generateId exists at runtime but missing from types in v1.4.x
     generateId: () => randomUUID(),
   },
 })
