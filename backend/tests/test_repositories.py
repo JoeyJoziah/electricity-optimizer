@@ -49,17 +49,22 @@ class TestPriceRepository:
         from repositories.price_repository import PriceRepository
         from models.price import Price, PriceRegion
 
-        # Setup mock to return price data
+        # Setup mock to return price data as dict rows (raw SQL pattern)
         mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [
-            MagicMock(
-                id="price_1",
-                region="us_ct",
-                supplier="Eversource Energy",
-                price_per_kwh=Decimal("0.26"),
-                timestamp=datetime.now(timezone.utc),
-                currency="USD"
-            )
+        mock_result.mappings.return_value.all.return_value = [
+            {
+                "id": "price_1",
+                "region": "us_ct",
+                "supplier": "Eversource Energy",
+                "price_per_kwh": Decimal("0.26"),
+                "timestamp": datetime.now(timezone.utc),
+                "currency": "USD",
+                "is_peak": False,
+                "source_api": None,
+                "created_at": datetime.now(timezone.utc),
+                "carbon_intensity": None,
+                "utility_type": "electricity",
+            }
         ]
         mock_db_session.execute.return_value = mock_result
 
@@ -76,7 +81,7 @@ class TestPriceRepository:
         from models.price import PriceRegion
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = []
+        mock_result.mappings.return_value.all.return_value = []
         mock_db_session.execute.return_value = mock_result
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -91,14 +96,19 @@ class TestPriceRepository:
         from repositories.price_repository import PriceRepository
 
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = MagicMock(
-            id="price_123",
-            region="us_ct",
-            supplier="Test",
-            price_per_kwh=Decimal("0.25"),
-            timestamp=datetime.now(timezone.utc),
-            currency="USD"
-        )
+        mock_result.mappings.return_value.first.return_value = {
+            "id": "price_123",
+            "region": "us_ct",
+            "supplier": "Test",
+            "price_per_kwh": Decimal("0.25"),
+            "timestamp": datetime.now(timezone.utc),
+            "currency": "USD",
+            "is_peak": None,
+            "source_api": None,
+            "created_at": datetime.now(timezone.utc),
+            "carbon_intensity": None,
+            "utility_type": "electricity",
+        }
         mock_db_session.execute.return_value = mock_result
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -112,7 +122,7 @@ class TestPriceRepository:
         from repositories.price_repository import PriceRepository
 
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.mappings.return_value.first.return_value = None
         mock_db_session.execute.return_value = mock_result
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -147,7 +157,7 @@ class TestPriceRepository:
         from models.price import PriceRegion
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = []
+        mock_result.mappings.return_value.all.return_value = []
         mock_db_session.execute.return_value = mock_result
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -171,14 +181,19 @@ class TestPriceRepository:
         from models.price import PriceRegion
 
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = MagicMock(
-            id="price_latest",
-            region="us_ct",
-            supplier="Eversource Energy",
-            price_per_kwh=Decimal("0.26"),
-            timestamp=datetime.now(timezone.utc),
-            currency="USD"
-        )
+        mock_result.mappings.return_value.first.return_value = {
+            "id": "price_latest",
+            "region": "us_ct",
+            "supplier": "Eversource Energy",
+            "price_per_kwh": Decimal("0.26"),
+            "timestamp": datetime.now(timezone.utc),
+            "currency": "USD",
+            "is_peak": True,
+            "source_api": "nrel",
+            "created_at": datetime.now(timezone.utc),
+            "carbon_intensity": None,
+            "utility_type": "electricity",
+        }
         mock_db_session.execute.return_value = mock_result
 
         repo = PriceRepository(mock_db_session, mock_redis)

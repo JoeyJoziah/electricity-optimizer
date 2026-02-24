@@ -3,6 +3,7 @@ Price Repository
 
 Data access layer for electricity price data.
 Implements the repository pattern with caching support.
+Uses raw SQL (text()) since Price is a Pydantic model, not a SQLAlchemy ORM model.
 """
 
 import asyncio
@@ -11,20 +12,43 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Optional, List, Any
 
-from sqlalchemy import select, and_, desc, func, extract
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.price import Price, PriceRegion
 from models.utility import UtilityType
 
+# Columns that exist in the electricity_prices table
+_PRICE_COLUMNS = (
+    "id, region, supplier, price_per_kwh, currency, timestamp, "
+    "is_peak, source_api, created_at, carbon_intensity, utility_type"
+)
+
+
+def _row_to_price(row: dict) -> Price:
+    """Convert a DB row mapping to a Price Pydantic model."""
+    return Price(
+        id=str(row["id"]),
+        region=row["region"],
+        supplier=row["supplier"],
+        price_per_kwh=row["price_per_kwh"],
+        currency=row["currency"],
+        timestamp=row["timestamp"],
+        is_peak=row.get("is_peak"),
+        source_api=row.get("source_api"),
+        created_at=row.get("created_at", datetime.now(timezone.utc)),
+        carbon_intensity=float(row["carbon_intensity"]) if row.get("carbon_intensity") is not None else None,
+        utility_type=row.get("utility_type", "electricity"),
+    )
+
 
 class PriceRepository(BaseRepository[Price]):
     """
     Repository for managing electricity price data.
 
-    Provides data access methods for prices with caching support
-    and TimescaleDB optimizations.
+    Provides data access methods for prices with caching support.
+    Uses raw SQL queries against the electricity_prices table.
     """
 
     def __init__(self, db_session: AsyncSession, cache: Any = None, cache_ttl: int = 60):
@@ -95,16 +119,18 @@ class PriceRepository(BaseRepository[Price]):
                 return Price(**cached)
 
             # Query database
-            from models.price import Price as PriceModel
             result = await self._db.execute(
-                select(PriceModel).where(PriceModel.id == id)
+                text(f"SELECT {_PRICE_COLUMNS} FROM electricity_prices WHERE id = :id"),
+                {"id": id},
             )
-            price = result.scalar_one_or_none()
+            row = result.mappings().first()
 
-            if price:
+            if row:
+                price = _row_to_price(row)
                 await self._set_in_cache(cache_key, price.model_dump())
+                return price
 
-            return price
+            return None
 
         except Exception as e:
             raise RepositoryError(f"Failed to get price by ID: {str(e)}", e)
@@ -120,9 +146,30 @@ class PriceRepository(BaseRepository[Price]):
             Created price record
         """
         try:
-            self._db.add(entity)
+            await self._db.execute(
+                text("""
+                    INSERT INTO electricity_prices
+                        (id, region, supplier, price_per_kwh, currency, timestamp,
+                         is_peak, source_api, created_at, carbon_intensity, utility_type)
+                    VALUES
+                        (:id, :region, :supplier, :price_per_kwh, :currency, :timestamp,
+                         :is_peak, :source_api, :created_at, :carbon_intensity, :utility_type)
+                """),
+                {
+                    "id": entity.id,
+                    "region": entity.region if isinstance(entity.region, str) else entity.region.value,
+                    "supplier": entity.supplier,
+                    "price_per_kwh": entity.price_per_kwh,
+                    "currency": entity.currency,
+                    "timestamp": entity.timestamp,
+                    "is_peak": entity.is_peak,
+                    "source_api": entity.source_api,
+                    "created_at": entity.created_at,
+                    "carbon_intensity": entity.carbon_intensity,
+                    "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
+                },
+            )
             await self._db.commit()
-            await self._db.refresh(entity)
             return entity
 
         except Exception as e:
@@ -145,19 +192,37 @@ class PriceRepository(BaseRepository[Price]):
             if not existing:
                 return None
 
-            # Update fields
-            for field, value in entity.model_dump(exclude_unset=True).items():
-                setattr(existing, field, value)
-
+            await self._db.execute(
+                text("""
+                    UPDATE electricity_prices SET
+                        region = :region, supplier = :supplier,
+                        price_per_kwh = :price_per_kwh, currency = :currency,
+                        timestamp = :timestamp, is_peak = :is_peak,
+                        source_api = :source_api, carbon_intensity = :carbon_intensity,
+                        utility_type = :utility_type
+                    WHERE id = :id
+                """),
+                {
+                    "id": id,
+                    "region": entity.region if isinstance(entity.region, str) else entity.region.value,
+                    "supplier": entity.supplier,
+                    "price_per_kwh": entity.price_per_kwh,
+                    "currency": entity.currency,
+                    "timestamp": entity.timestamp,
+                    "is_peak": entity.is_peak,
+                    "source_api": entity.source_api,
+                    "carbon_intensity": entity.carbon_intensity,
+                    "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
+                },
+            )
             await self._db.commit()
-            await self._db.refresh(existing)
 
             # Invalidate cache
             cache_key = self._cache_key("id", id)
             if self._cache:
                 await self._cache.delete(cache_key)
 
-            return existing
+            return await self.get_by_id(id)
 
         except Exception as e:
             await self._db.rollback()
@@ -174,19 +239,19 @@ class PriceRepository(BaseRepository[Price]):
             True if deleted, False if not found
         """
         try:
-            existing = await self.get_by_id(id)
-            if not existing:
-                return False
-
-            await self._db.delete(existing)
+            result = await self._db.execute(
+                text("DELETE FROM electricity_prices WHERE id = :id"),
+                {"id": id},
+            )
             await self._db.commit()
 
-            # Invalidate cache
-            cache_key = self._cache_key("id", id)
-            if self._cache:
+            deleted = result.rowcount > 0
+
+            if deleted and self._cache:
+                cache_key = self._cache_key("id", id)
                 await self._cache.delete(cache_key)
 
-            return True
+            return deleted
 
         except Exception as e:
             await self._db.rollback()
@@ -212,18 +277,23 @@ class PriceRepository(BaseRepository[Price]):
         try:
             offset = (page - 1) * page_size
 
-            query = select(Price).offset(offset).limit(page_size)
+            sql = f"SELECT {_PRICE_COLUMNS} FROM electricity_prices WHERE 1=1"
+            params: dict[str, Any] = {}
 
-            # Apply filters
             if "region" in filters:
-                query = query.where(Price.region == filters["region"].value)
+                sql += " AND region = :region"
+                params["region"] = filters["region"].value if hasattr(filters["region"], "value") else filters["region"]
             if "supplier" in filters:
-                query = query.where(Price.supplier == filters["supplier"])
+                sql += " AND supplier = :supplier"
+                params["supplier"] = filters["supplier"]
 
-            query = query.order_by(desc(Price.timestamp))
+            sql += " ORDER BY timestamp DESC LIMIT :limit OFFSET :offset"
+            params["limit"] = page_size
+            params["offset"] = offset
 
-            result = await self._db.execute(query)
-            return list(result.scalars().all())
+            result = await self._db.execute(text(sql), params)
+            rows = result.mappings().all()
+            return [_row_to_price(row) for row in rows]
 
         except Exception as e:
             raise RepositoryError(f"Failed to list prices: {str(e)}", e)
@@ -239,16 +309,17 @@ class PriceRepository(BaseRepository[Price]):
             Count of matching prices
         """
         try:
-            from sqlalchemy import func
-
-            query = select(func.count()).select_from(Price)
+            sql = "SELECT COUNT(*) FROM electricity_prices WHERE 1=1"
+            params: dict[str, Any] = {}
 
             if "region" in filters:
-                query = query.where(Price.region == filters["region"].value)
+                sql += " AND region = :region"
+                params["region"] = filters["region"].value if hasattr(filters["region"], "value") else filters["region"]
             if "supplier" in filters:
-                query = query.where(Price.supplier == filters["supplier"])
+                sql += " AND supplier = :supplier"
+                params["supplier"] = filters["supplier"]
 
-            result = await self._db.execute(query)
+            result = await self._db.execute(text(sql), params)
             return result.scalar() or 0
 
         except Exception as e:
@@ -276,8 +347,11 @@ class PriceRepository(BaseRepository[Price]):
             List of current prices
         """
         try:
+            region_val = region.value if hasattr(region, "value") else region
+            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+
             # Check cache first
-            cache_key = self._cache_key("current", region.value, utility_type.value)
+            cache_key = self._cache_key("current", region_val, ut_val)
             cached = await self._get_from_cache(cache_key)
             if cached:
                 return [Price(**p) for p in cached]
@@ -290,20 +364,18 @@ class PriceRepository(BaseRepository[Price]):
                     return [Price(**p) for p in cached]
 
             # Query database for latest prices
-            query = (
-                select(Price)
-                .where(
-                    and_(
-                        Price.region == region.value,
-                        Price.utility_type == utility_type.value,
-                    )
-                )
-                .order_by(desc(Price.timestamp))
-                .limit(limit)
+            result = await self._db.execute(
+                text(f"""
+                    SELECT {_PRICE_COLUMNS}
+                    FROM electricity_prices
+                    WHERE region = :region AND utility_type = :utility_type
+                    ORDER BY timestamp DESC
+                    LIMIT :limit
+                """),
+                {"region": region_val, "utility_type": ut_val, "limit": limit},
             )
-
-            result = await self._db.execute(query)
-            prices = list(result.scalars().all())
+            rows = result.mappings().all()
+            prices = [_row_to_price(row) for row in rows]
 
             # Cache results
             if prices:
@@ -334,30 +406,31 @@ class PriceRepository(BaseRepository[Price]):
             Latest price if found
         """
         try:
-            cache_key = self._cache_key("latest", region.value, supplier)
+            region_val = region.value if hasattr(region, "value") else region
+
+            cache_key = self._cache_key("latest", region_val, supplier)
             cached = await self._get_from_cache(cache_key)
             if cached:
                 return Price(**cached)
 
-            query = (
-                select(Price)
-                .where(
-                    and_(
-                        Price.region == region.value,
-                        Price.supplier == supplier
-                    )
-                )
-                .order_by(desc(Price.timestamp))
-                .limit(1)
+            result = await self._db.execute(
+                text(f"""
+                    SELECT {_PRICE_COLUMNS}
+                    FROM electricity_prices
+                    WHERE region = :region AND supplier = :supplier
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                """),
+                {"region": region_val, "supplier": supplier},
             )
+            row = result.mappings().first()
 
-            result = await self._db.execute(query)
-            price = result.scalar_one_or_none()
-
-            if price:
+            if row:
+                price = _row_to_price(row)
                 await self._set_in_cache(cache_key, price.model_dump())
+                return price
 
-            return price
+            return None
 
         except Exception as e:
             raise RepositoryError(f"Failed to get latest price: {str(e)}", e)
@@ -386,25 +459,34 @@ class PriceRepository(BaseRepository[Price]):
             List of historical prices
         """
         try:
-            conditions = [
-                Price.region == region.value,
-                Price.utility_type == utility_type.value,
-                Price.timestamp >= start_date,
-                Price.timestamp <= end_date
-            ]
+            region_val = region.value if hasattr(region, "value") else region
+            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+
+            sql = f"""
+                SELECT {_PRICE_COLUMNS}
+                FROM electricity_prices
+                WHERE region = :region
+                  AND utility_type = :utility_type
+                  AND timestamp >= :start_date
+                  AND timestamp <= :end_date
+            """
+            params: dict[str, Any] = {
+                "region": region_val,
+                "utility_type": ut_val,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
 
             if supplier:
-                conditions.append(Price.supplier == supplier)
+                sql += " AND supplier = :supplier"
+                params["supplier"] = supplier
 
-            query = (
-                select(Price)
-                .where(and_(*conditions))
-                .order_by(Price.timestamp)
-                .limit(limit)
-            )
+            sql += " ORDER BY timestamp LIMIT :limit"
+            params["limit"] = limit
 
-            result = await self._db.execute(query)
-            return list(result.scalars().all())
+            result = await self._db.execute(text(sql), params)
+            rows = result.mappings().all()
+            return [_row_to_price(row) for row in rows]
 
         except Exception as e:
             raise RepositoryError(f"Failed to get historical prices: {str(e)}", e)
@@ -420,7 +502,30 @@ class PriceRepository(BaseRepository[Price]):
             Number of records created
         """
         try:
-            self._db.add_all(prices)
+            for entity in prices:
+                await self._db.execute(
+                    text("""
+                        INSERT INTO electricity_prices
+                            (id, region, supplier, price_per_kwh, currency, timestamp,
+                             is_peak, source_api, created_at, carbon_intensity, utility_type)
+                        VALUES
+                            (:id, :region, :supplier, :price_per_kwh, :currency, :timestamp,
+                             :is_peak, :source_api, :created_at, :carbon_intensity, :utility_type)
+                    """),
+                    {
+                        "id": entity.id,
+                        "region": entity.region if isinstance(entity.region, str) else entity.region.value,
+                        "supplier": entity.supplier,
+                        "price_per_kwh": entity.price_per_kwh,
+                        "currency": entity.currency,
+                        "timestamp": entity.timestamp,
+                        "is_peak": entity.is_peak,
+                        "source_api": entity.source_api,
+                        "created_at": entity.created_at,
+                        "carbon_intensity": entity.carbon_intensity,
+                        "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
+                    },
+                )
             await self._db.commit()
             return len(prices)
 
@@ -445,36 +550,33 @@ class PriceRepository(BaseRepository[Price]):
             Dictionary with min, max, avg prices
         """
         try:
-            from sqlalchemy import func
-
+            region_val = region.value if hasattr(region, "value") else region
+            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
             start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-            query = (
-                select(
-                    func.min(Price.price_per_kwh).label("min_price"),
-                    func.max(Price.price_per_kwh).label("max_price"),
-                    func.avg(Price.price_per_kwh).label("avg_price"),
-                    func.count(Price.id).label("count")
-                )
-                .where(
-                    and_(
-                        Price.region == region.value,
-                        Price.utility_type == utility_type.value,
-                        Price.timestamp >= start_date
-                    )
-                )
+            result = await self._db.execute(
+                text("""
+                    SELECT
+                        MIN(price_per_kwh) AS min_price,
+                        MAX(price_per_kwh) AS max_price,
+                        AVG(price_per_kwh) AS avg_price,
+                        COUNT(id) AS count
+                    FROM electricity_prices
+                    WHERE region = :region
+                      AND utility_type = :utility_type
+                      AND timestamp >= :start_date
+                """),
+                {"region": region_val, "utility_type": ut_val, "start_date": start_date},
             )
-
-            result = await self._db.execute(query)
-            row = result.one()
+            row = result.mappings().first()
 
             return {
-                "min_price": Decimal(str(row.min_price)) if row.min_price else None,
-                "max_price": Decimal(str(row.max_price)) if row.max_price else None,
-                "avg_price": Decimal(str(row.avg_price)).quantize(Decimal("0.0001")) if row.avg_price else None,
-                "count": row.count,
+                "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
+                "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
+                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")) if row["avg_price"] else None,
+                "count": row["count"],
                 "period_days": days,
-                "utility_type": utility_type.value,
+                "utility_type": ut_val,
             }
 
         except Exception as e:
@@ -500,32 +602,30 @@ class PriceRepository(BaseRepository[Price]):
             List of dicts with 'hour', 'avg_price', 'count' keys
         """
         try:
-            hour_col = extract("hour", Price.timestamp).label("hour")
-            query = (
-                select(
-                    hour_col,
-                    func.avg(Price.price_per_kwh).label("avg_price"),
-                    func.count(Price.id).label("count"),
-                )
-                .where(
-                    and_(
-                        Price.region == region.value,
-                        Price.timestamp >= start_date,
-                        Price.timestamp <= end_date,
-                    )
-                )
-                .group_by(hour_col)
-                .order_by(hour_col)
-            )
+            region_val = region.value if hasattr(region, "value") else region
 
-            result = await self._db.execute(query)
-            rows = result.all()
+            result = await self._db.execute(
+                text("""
+                    SELECT
+                        EXTRACT(HOUR FROM timestamp) AS hour,
+                        AVG(price_per_kwh) AS avg_price,
+                        COUNT(id) AS count
+                    FROM electricity_prices
+                    WHERE region = :region
+                      AND timestamp >= :start_date
+                      AND timestamp <= :end_date
+                    GROUP BY EXTRACT(HOUR FROM timestamp)
+                    ORDER BY EXTRACT(HOUR FROM timestamp)
+                """),
+                {"region": region_val, "start_date": start_date, "end_date": end_date},
+            )
+            rows = result.mappings().all()
 
             return [
                 {
-                    "hour": int(row.hour),
-                    "avg_price": Decimal(str(row.avg_price)).quantize(Decimal("0.0001")),
-                    "count": row.count,
+                    "hour": int(row["hour"]),
+                    "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")),
+                    "count": row["count"],
                 }
                 for row in rows
             ]
@@ -553,37 +653,36 @@ class PriceRepository(BaseRepository[Price]):
             List of dicts with supplier stats (avg, min, max, stddev, count)
         """
         try:
-            query = (
-                select(
-                    Price.supplier,
-                    func.avg(Price.price_per_kwh).label("avg_price"),
-                    func.min(Price.price_per_kwh).label("min_price"),
-                    func.max(Price.price_per_kwh).label("max_price"),
-                    func.stddev(Price.price_per_kwh).label("stddev_price"),
-                    func.count(Price.id).label("count"),
-                )
-                .where(
-                    and_(
-                        Price.region == region.value,
-                        Price.timestamp >= start_date,
-                        Price.timestamp <= end_date,
-                    )
-                )
-                .group_by(Price.supplier)
-                .order_by(func.avg(Price.price_per_kwh))
-            )
+            region_val = region.value if hasattr(region, "value") else region
 
-            result = await self._db.execute(query)
-            rows = result.all()
+            result = await self._db.execute(
+                text("""
+                    SELECT
+                        supplier,
+                        AVG(price_per_kwh) AS avg_price,
+                        MIN(price_per_kwh) AS min_price,
+                        MAX(price_per_kwh) AS max_price,
+                        STDDEV(price_per_kwh) AS stddev_price,
+                        COUNT(id) AS count
+                    FROM electricity_prices
+                    WHERE region = :region
+                      AND timestamp >= :start_date
+                      AND timestamp <= :end_date
+                    GROUP BY supplier
+                    ORDER BY AVG(price_per_kwh)
+                """),
+                {"region": region_val, "start_date": start_date, "end_date": end_date},
+            )
+            rows = result.mappings().all()
 
             return [
                 {
-                    "supplier": row.supplier,
-                    "avg_price": Decimal(str(row.avg_price)).quantize(Decimal("0.0001")),
-                    "min_price": Decimal(str(row.min_price)).quantize(Decimal("0.0001")),
-                    "max_price": Decimal(str(row.max_price)).quantize(Decimal("0.0001")),
-                    "volatility": Decimal(str(row.stddev_price)).quantize(Decimal("0.0001")) if row.stddev_price else Decimal("0"),
-                    "count": row.count,
+                    "supplier": row["supplier"],
+                    "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")),
+                    "min_price": Decimal(str(row["min_price"])).quantize(Decimal("0.0001")),
+                    "max_price": Decimal(str(row["max_price"])).quantize(Decimal("0.0001")),
+                    "volatility": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001")) if row["stddev_price"] else Decimal("0"),
+                    "count": row["count"],
                 }
                 for row in rows
             ]
