@@ -1,6 +1,7 @@
 # Docker Compose - Electricity Optimizer Platform
 # Development configuration with hot reload
 # For production, use docker-compose.prod.yml
+# Database: Neon PostgreSQL (external) -- no local DB container needed
 
 services:
   # =============================================================================
@@ -15,8 +16,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Databases
-      - TIMESCALEDB_URL=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity
+      # Database (Neon PostgreSQL -- set in .env)
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       # API Keys
@@ -25,16 +26,11 @@ services:
       - IEA_API_KEY=${IEA_API_KEY}
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
-      # Authentication
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
       # Environment
       - ENVIRONMENT=development
       - DEBUG=true
     depends_on:
       redis:
-        condition: service_healthy
-      timescaledb:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -91,27 +87,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-
-  timescaledb:
-    image: timescale/timescaledb:latest-pg15
-    ports:
-      - "5433:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=electricity
-    volumes:
-      - timescale-data:/var/lib/postgresql/data
-      - ./scripts/init_timescaledb.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   # =============================================================================
   # Monitoring Services
@@ -186,20 +161,6 @@ services:
       - electricity-optimizer
     restart: unless-stopped
 
-  # PostgreSQL exporter for database metrics
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    ports:
-      - "9187:9187"
-    environment:
-      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD}@timescaledb:5432/electricity?sslmode=disable
-    depends_on:
-      timescaledb:
-        condition: service_healthy
-    networks:
-      - electricity-optimizer
-    restart: unless-stopped
-
 # =============================================================================
 # Networks
 # =============================================================================
@@ -216,8 +177,6 @@ networks:
 volumes:
   redis-data:
     name: electricity-optimizer-redis
-  timescale-data:
-    name: electricity-optimizer-timescale
   prometheus-data:
     name: electricity-optimizer-prometheus
   grafana-data:

@@ -718,22 +718,22 @@ test.describe('Full User Journey - Returning User Flow', () => {
 })
 
 test.describe('Full User Journey - Unauthenticated Guard', () => {
-  // TODO: implement authentication redirect
-  test.skip('unauthenticated user is redirected to login from dashboard', async ({ page }) => {
-    await page.route('**/api/v1/prices/current**', async (route) => {
+  test('unauthenticated user is redirected to login from dashboard', async ({ page }) => {
+    // Ensure no session cookie — middleware should redirect
+    await page.context().clearCookies()
+
+    await page.route('**/api/auth/get-session', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [{ region: 'US_CT', price: 0.25, timestamp: new Date().toISOString() }],
-        }),
+        body: JSON.stringify(null),
       })
     })
 
     await page.goto('/dashboard')
 
     // Should redirect to login
-    await page.waitForURL(/\/auth\/login/)
+    await page.waitForURL(/\/auth\/login/, { timeout: 10000 })
   })
 
   test('landing page is accessible without authentication', async ({ page }) => {

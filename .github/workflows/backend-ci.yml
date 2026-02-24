@@ -110,6 +110,18 @@ jobs:
           cd backend
           pytest --cov=. --cov-report=xml --cov-report=term-missing
 
+      - name: Run load tests
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test_secret_key_for_ci
+          FLATPEAK_API_KEY: test_key
+          NREL_API_KEY: test_key
+          ENVIRONMENT: test
+        run: |
+          cd backend
+          pytest tests/test_load.py -v --tb=short
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-23
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 603 (pytest)
+**Backend Tests**: 687 (pytest)
 **Frontend Tests**: 346 across 17 suites (Jest)
 **ML Tests**: 105 + 2 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
@@ -13,7 +13,7 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 603 | 85%+ | pytest |
+| **Backend Unit/Integration** | 687 | 85%+ | pytest |
 | **Frontend Component + Lib Tests** | 346 (17 suites) | 70%+ | Jest + RTL |
 | **ML Inference + Training** | 105 (+2 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
@@ -70,7 +70,7 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (603 tests)
+# Backend tests (657 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
@@ -99,7 +99,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 603
+**Count**: 657
 **Coverage Target**: 85%+
 
 **Test Files**:
@@ -592,7 +592,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 603 backend, 346 frontend, and 105 ML tests continue to pass with Loki Mode installed
+- All 657 backend, 346 frontend, and 257 ML tests continue to pass with Loki Mode installed
 
 ---
 

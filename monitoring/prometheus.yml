@@ -37,18 +37,6 @@ scrape_configs:
         replacement: 'backend'
 
   # ===========================================================================
-  # TimescaleDB Metrics (via postgres-exporter)
-  # ===========================================================================
-  - job_name: 'timescaledb'
-    static_configs:
-      - targets: ['postgres-exporter:9187']
-    scrape_interval: 30s
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'timescaledb'
-
-  # ===========================================================================
   # Redis Metrics (via redis-exporter)
   # ===========================================================================
   - job_name: 'redis'
@@ -80,14 +68,3 @@ scrape_configs:
       - targets: ['localhost:9090']
     scrape_interval: 30s
 
-  # ===========================================================================
-  # Celery Worker Metrics (if exposed)
-  # ===========================================================================
-  - job_name: 'celery'
-    static_configs:
-      - targets: ['celery-worker:9808']
-    scrape_interval: 30s
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'celery'

@@ -5,9 +5,17 @@ import { Header } from '@/components/layout/Header'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { PriceLineChart } from '@/components/charts/PriceLineChart'
-import { ForecastChart } from '@/components/charts/ForecastChart'
+import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
+import dynamic from 'next/dynamic'
+
+const PriceLineChart = dynamic(
+  () => import('@/components/charts/PriceLineChart').then((m) => m.PriceLineChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
+const ForecastChart = dynamic(
+  () => import('@/components/charts/ForecastChart').then((m) => m.ForecastChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
 import { useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods } from '@/lib/hooks/usePrices'
 import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency, formatTime } from '@/lib/utils/format'

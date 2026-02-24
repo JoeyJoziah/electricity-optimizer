@@ -7,8 +7,16 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
-import { PriceLineChart } from '@/components/charts/PriceLineChart'
-import { ForecastChart } from '@/components/charts/ForecastChart'
+import dynamic from 'next/dynamic'
+
+const PriceLineChart = dynamic(
+  () => import('@/components/charts/PriceLineChart').then((m) => m.PriceLineChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
+const ForecastChart = dynamic(
+  () => import('@/components/charts/ForecastChart').then((m) => m.ForecastChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+)
 import { ScheduleTimeline } from '@/components/charts/ScheduleTimeline'
 import { SupplierCard } from '@/components/suppliers/SupplierCard'
 import { useCurrentPrices, usePriceHistory, usePriceForecast } from '@/lib/hooks/usePrices'
@@ -27,6 +35,15 @@ import {
   Clock,
 } from 'lucide-react'
 import type { TimeRange } from '@/types'
+
+// Map time range labels to hours for API calls
+const TIME_RANGE_HOURS: Record<TimeRange, number> = {
+  '6h': 6,
+  '12h': 12,
+  '24h': 24,
+  '48h': 48,
+  '7d': 168,
+}
 
 // Static data hoisted to module scope to prevent re-renders
 const SAVINGS_DATA = {
@@ -67,7 +84,7 @@ export default function DashboardPage() {
   } = useCurrentPrices(region)
   const { data: historyData, isLoading: historyLoading } = usePriceHistory(
     region,
-    parseInt(timeRange)
+    TIME_RANGE_HOURS[timeRange]
   )
   const { data: forecastData, isLoading: forecastLoading } = usePriceForecast(
     region,

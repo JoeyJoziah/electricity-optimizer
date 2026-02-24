@@ -81,7 +81,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (603 tests)
+### Backend (657 tests)
 
 ```bash
 source .venv/bin/activate

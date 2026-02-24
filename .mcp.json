@@ -2,7 +2,10 @@
   "mcpServers": {
     "loki-mode": {
       "command": "python3",
-      "args": ["-m", "mcp.server"],
+      "args": [
+        "-m",
+        "mcp.server"
+      ],
       "cwd": "/Users/devinmcgrath/.claude/skills/loki-mode",
       "env": {
         "LOKI_PROVIDER": "claude",
@@ -12,6 +15,92 @@
         "LOKI_AUTO_PR": "true",
         "LOKI_TELEMETRY_DISABLED": "true"
       }
+    },
+    "chroma-mcp": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "chroma_mcp"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/devinmcgrath/.claude/repos/chroma-mcp"
+      }
+    },
+    "mcp-server": {
+      "command": "python3",
+      "args": [
+        "/Users/devinmcgrath/.claude/repos/mcp-server/server.py"
+      ]
+    },
+    "octagon-mcp-server": {
+      "command": "node",
+      "args": [
+        "/Users/devinmcgrath/.claude/repos/octagon-mcp-server/dist/index.js"
+      ]
+    },
+    "greptimedb-mcp-server": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "greptimedb_mcp_server"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/devinmcgrath/.claude/repos/greptimedb-mcp-server"
+      }
+    },
+    "mcp-clickhouse": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "mcp_clickhouse"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/devinmcgrath/.claude/repos/mcp-clickhouse"
+      }
+    },
+    "inspector": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/inspector"
+      ]
+    },
+    "mcp-for-api": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "mcp_for_api"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/devinmcgrath/.claude/repos/mcp-for-api"
+      }
+    },
+    "google_workspace_mcp": {
+      "command": "python3",
+      "args": [
+        "/Users/devinmcgrath/.claude/repos/google_workspace_mcp/main.py"
+      ]
+    },
+    "par-mcp-inspector-tui": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "par_mcp_inspector_tui"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/devinmcgrath/.claude/repos/par-mcp-inspector-tui"
+      }
+    },
+    "servers": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/servers"
+      ]
+    },
+    "dev-inspector-mcp": {
+      "command": "npx",
+      "args": [
+        "unplugin-dev-inspector-monorepo"
+      ]
     }
   }
 }
