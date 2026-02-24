@@ -7,6 +7,7 @@
 
 import { betterAuth } from "better-auth"
 import { Pool } from "@neondatabase/serverless"
+import { randomUUID } from "crypto"
 
 // Connection to Neon PostgreSQL, using the neon_auth schema
 // Set search_path so better-auth finds its tables in the neon_auth schema
@@ -63,6 +64,11 @@ export const auth = betterAuth({
     "http://localhost:3001",
     ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
   ],
+
+  // Generate UUID IDs to match neon_auth schema (uuid columns, not text)
+  advanced: {
+    generateId: () => randomUUID(),
+  },
 })
 
 export type Session = typeof auth.$Infer.Session
