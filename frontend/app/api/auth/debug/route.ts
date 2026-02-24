@@ -12,6 +12,9 @@ export async function GET() {
     ? baseUrl
     : `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}options=-csearch_path%3Dneon_auth,public`
 
+  // Dump all available env var keys (not values) to diagnose injection
+  const allEnvKeys = Object.keys(process.env).sort()
+
   const diagnostics: Record<string, unknown> = {
     hasDbUrl: !!baseUrl,
     dbUrlLength: baseUrl.length,
@@ -19,6 +22,11 @@ export async function GET() {
     hasBetterAuthUrl: !!process.env.BETTER_AUTH_URL,
     betterAuthUrl: process.env.BETTER_AUTH_URL,
     connectionStringLength: connectionString.length,
+    allEnvKeyCount: allEnvKeys.length,
+    allEnvKeys,
+    nodeEnv: process.env.NODE_ENV,
+    port: process.env.PORT,
+    hostname: process.env.HOSTNAME,
   }
 
   try {
