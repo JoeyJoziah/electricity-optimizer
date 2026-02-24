@@ -5,6 +5,7 @@ Data access layer for electricity price data.
 Implements the repository pattern with caching support.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -54,8 +55,17 @@ class PriceRepository(BaseRepository[Price]):
                 pass
         return None
 
+    async def _acquire_cache_lock(self, key: str, ttl_ms: int = 5000) -> bool:
+        """Try to acquire a compute lock for a cache key (prevents stampede)."""
+        if not self._cache:
+            return True
+        try:
+            return bool(await self._cache.set(f"{key}:lock", "1", px=ttl_ms, nx=True))
+        except Exception:
+            return True  # On error, allow the computation
+
     async def _set_in_cache(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """Set value in cache"""
+        """Set value in cache and release compute lock."""
         if self._cache:
             try:
                 await self._cache.set(
@@ -63,6 +73,7 @@ class PriceRepository(BaseRepository[Price]):
                     json.dumps(value, default=str),
                     ex=ttl or self._cache_ttl
                 )
+                await self._cache.delete(f"{key}:lock")
             except Exception:
                 pass
 
@@ -271,6 +282,13 @@ class PriceRepository(BaseRepository[Price]):
             if cached:
                 return [Price(**p) for p in cached]
 
+            # Stampede prevention: acquire lock before DB query
+            if not await self._acquire_cache_lock(cache_key):
+                await asyncio.sleep(0.1)
+                cached = await self._get_from_cache(cache_key)
+                if cached:
+                    return [Price(**p) for p in cached]
+
             # Query database for latest prices
             query = (
                 select(Price)
@@ -351,6 +369,7 @@ class PriceRepository(BaseRepository[Price]):
         end_date: datetime,
         supplier: Optional[str] = None,
         utility_type: UtilityType = UtilityType.ELECTRICITY,
+        limit: int = 5000,
     ) -> List[Price]:
         """
         Get historical prices for a date range.
@@ -361,6 +380,7 @@ class PriceRepository(BaseRepository[Price]):
             end_date: End of date range
             supplier: Optional supplier filter
             utility_type: Type of utility (defaults to electricity)
+            limit: Maximum number of rows to return (safety cap, default 5000)
 
         Returns:
             List of historical prices
@@ -380,6 +400,7 @@ class PriceRepository(BaseRepository[Price]):
                 select(Price)
                 .where(and_(*conditions))
                 .order_by(Price.timestamp)
+                .limit(limit)
             )
 
             result = await self._db.execute(query)

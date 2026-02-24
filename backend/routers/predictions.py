@@ -12,11 +12,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 import numpy as np
 import asyncio
 
 from config.database import get_redis, get_timescale_session
+from models.region import Region
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
 import structlog
@@ -25,19 +25,24 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
+# Currency mapping for international regions (US states default to USD)
+_REGION_CURRENCY: Dict[str, str] = {
+    "uk": "GBP", "uk_scotland": "GBP", "uk_wales": "GBP", "ie": "EUR",
+    "de": "EUR", "fr": "EUR", "es": "EUR", "it": "EUR",
+    "nl": "EUR", "be": "EUR", "at": "EUR",
+    "jp": "JPY", "au": "AUD", "ca": "CAD", "cn": "CNY",
+    "in": "INR", "br": "BRL",
+}
+
+
+def _get_currency(region_value: str) -> str:
+    """Get currency code for a region value. US states default to USD."""
+    return _REGION_CURRENCY.get(region_value, "USD")
+
 
 # ============================================================================
 # REQUEST/RESPONSE MODELS
 # ============================================================================
-
-class Region(str, Enum):
-    """Supported regions for price forecasting"""
-    UK = "UK"
-    US = "US"
-    EU = "EU"
-    GERMANY = "GERMANY"
-    FRANCE = "FRANCE"
-    SPAIN = "SPAIN"
 
 
 class PriceForecastRequest(BaseModel):
@@ -247,7 +252,7 @@ def _simulate_forecast(region: str, hours_ahead: int) -> List[PricePrediction]:
             predicted_price=round(predicted_price, 4),
             confidence_lower=round(confidence_lower, 4),
             confidence_upper=round(confidence_upper, 4),
-            currency={"UK": "GBP", "EU": "EUR", "GERMANY": "EUR", "FRANCE": "EUR", "SPAIN": "EUR"}.get(region, "USD")
+            currency=_get_currency(region),
         ))
 
     return predictions
@@ -277,7 +282,7 @@ async def generate_price_forecast(
                 from models.price import Price
                 result = await session.execute(
                     select(Price)
-                    .where(Price.region == region.lower())
+                    .where(Price.region == region)
                     .order_by(desc(Price.timestamp))
                     .limit(168)
                 )
@@ -309,7 +314,7 @@ async def generate_price_forecast(
                     predicted_price=round(float(point[i]), 4),
                     confidence_lower=round(float(lower[i]), 4),
                     confidence_upper=round(float(upper[i]), 4),
-                    currency={"UK": "GBP", "EU": "EUR", "GERMANY": "EUR", "FRANCE": "EUR", "SPAIN": "EUR"}.get(region, "USD")
+                    currency=_get_currency(region)
                 ))
 
             logger.info("ml_inference_success", region=region, predictions=len(predictions))
@@ -608,7 +613,7 @@ async def estimate_savings(
             optimized_cost=round(optimized_cost, 4),
             savings_amount=round(savings_amount, 4),
             savings_percent=round(savings_percent, 2),
-            currency={"UK": "GBP", "EU": "EUR", "GERMANY": "EUR", "FRANCE": "EUR", "SPAIN": "EUR"}.get(request.region.value, "USD"),
+            currency=_get_currency(request.region.value),
             optimized_schedule=optimized_schedule
         )
 

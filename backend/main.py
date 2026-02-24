@@ -73,6 +73,15 @@ async def lifespan(app: FastAPI):
             raise
         logger.warning("continuing_without_full_db", environment=settings.environment)
 
+    # Wire Redis into rate limiter for distributed rate limiting
+    try:
+        redis = await db_manager.get_redis_client()
+        if redis:
+            _app_rate_limiter.redis = redis
+            logger.info("rate_limiter_redis_wired")
+    except Exception as e:
+        logger.warning("rate_limiter_redis_wire_failed", error=str(e))
+
     # Initialize Sentry if configured (lazy import to reduce startup time)
     if settings.sentry_dsn:
         try:
@@ -126,13 +135,11 @@ app = FastAPI(
 # ============================================================================
 
 # CORS -- restrict origin regex to only the project's own subdomains.
-# The previous regex r"https://.*\.(vercel\.app|onrender\.com)" was too broad
-# and would allow any attacker-controlled Vercel/Render deployment to make
-# credentialed cross-origin requests.
+# CORS: Use explicit origin allowlist (settings.cors_origins) instead of regex.
+# Production origins should be set via CORS_ORIGINS env var.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://electricity-optimizer[a-z0-9\-]*\.(vercel\.app|onrender\.com)",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key"],
@@ -145,10 +152,12 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 from middleware.security_headers import SecurityHeadersMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Rate Limiting
-from middleware.rate_limiter import RateLimitMiddleware
+# Rate Limiting — Redis wired in lifespan() for distributed rate limiting
+from middleware.rate_limiter import RateLimitMiddleware, UserRateLimiter
+_app_rate_limiter = UserRateLimiter()
 app.add_middleware(
     RateLimitMiddleware,
+    rate_limiter=_app_rate_limiter,
     exclude_paths=["/health", "/health/live", "/health/ready", "/metrics"],
 )
 
@@ -165,11 +174,14 @@ class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
-            return JSONResponse(
-                status_code=413,
-                content={"detail": "Request body too large. Maximum size is 1 MB."},
-            )
+        try:
+            if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large. Maximum size is 1 MB."},
+                )
+        except (ValueError, TypeError):
+            pass
 
         # For requests without Content-Length (chunked encoding), read and
         # check the actual body size for methods that carry a body.
@@ -194,7 +206,7 @@ class RequestTimeoutMiddleware(BaseHTTPMiddleware):
     """Enforce a per-request timeout. SSE streaming endpoints are excluded."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        if "/stream" in request.url.path:
+        if request.url.path.endswith("/prices/stream"):
             return await call_next(request)
         try:
             return await asyncio.wait_for(
@@ -422,11 +434,24 @@ app.include_router(
     tags=["ML Predictions"]
 )
 
-# Price endpoints
+# Price endpoints (split into CRUD, analytics, and SSE modules)
+from api.v1 import prices_analytics as prices_analytics_v1
+from api.v1 import prices_sse as prices_sse_v1
+
 app.include_router(
     prices_v1.router,
     prefix=f"{settings.api_prefix}/prices",
     tags=["Prices"]
+)
+app.include_router(
+    prices_analytics_v1.router,
+    prefix=f"{settings.api_prefix}/prices",
+    tags=["Price Analytics"]
+)
+app.include_router(
+    prices_sse_v1.router,
+    prefix=f"{settings.api_prefix}/prices",
+    tags=["Price Streaming"]
 )
 
 # Supplier endpoints

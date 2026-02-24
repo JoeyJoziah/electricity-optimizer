@@ -469,3 +469,53 @@ class StripeService:
             logger.info("webhook_event_ignored", event_type=event_type)
 
         return result
+
+
+
+async def apply_webhook_action(
+    result: Dict[str, Any],
+    user_repo: Any,
+) -> bool:
+    """
+    Apply a webhook action to the user's subscription in the database.
+
+    Args:
+        result: Dict returned by StripeService.handle_webhook_event.
+        user_repo: UserRepository instance for DB access.
+
+    Returns:
+        True if a DB update was applied, False otherwise.
+    """
+    if not result.get("handled") or not result.get("user_id"):
+        return False
+
+    action = result["action"]
+    user_id = result["user_id"]
+    tier = result.get("tier")
+    customer_id = result.get("customer_id")
+
+    user = await user_repo.get_by_id(user_id)
+    if not user:
+        logger.warning("webhook_user_not_found", user_id=user_id, action=action)
+        return False
+
+    if action == "activate_subscription":
+        user.subscription_tier = tier or "pro"
+        user.stripe_customer_id = customer_id
+        await user_repo.update(user_id, user)
+    elif action == "update_subscription":
+        user.subscription_tier = tier or user.subscription_tier
+        await user_repo.update(user_id, user)
+    elif action == "deactivate_subscription":
+        user.subscription_tier = "free"
+        await user_repo.update(user_id, user)
+    elif action == "payment_failed":
+        logger.warning(
+            "payment_failed_notification",
+            user_id=user_id,
+            customer_id=customer_id,
+        )
+    else:
+        return False
+
+    return True

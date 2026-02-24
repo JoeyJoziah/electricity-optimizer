@@ -14,7 +14,7 @@ import stripe
 
 from api.dependencies import get_current_user, get_db_session, TokenData
 from repositories.user_repository import UserRepository
-from services.stripe_service import StripeService
+from services.stripe_service import StripeService, apply_webhook_action
 
 logger = structlog.get_logger(__name__)
 
@@ -359,40 +359,17 @@ async def handle_stripe_webhook(
         result = await stripe_service.handle_webhook_event(event)
 
         if result["handled"]:
-            action = result["action"]
-            user_id = result.get("user_id")
-            tier = result.get("tier")
-            customer_id = result.get("customer_id")
-
             logger.info(
                 "webhook_processed",
                 event_id=event["id"],
-                action=action,
-                user_id=user_id,
-                tier=tier,
-                customer_id=customer_id,
+                action=result["action"],
+                user_id=result.get("user_id"),
+                tier=result.get("tier"),
+                customer_id=result.get("customer_id"),
             )
 
-            if user_id:
-                user_repo = UserRepository(db)
-                user = await user_repo.get_by_id(user_id)
-                if user:
-                    if action == "activate_subscription":
-                        user.subscription_tier = tier or "pro"
-                        user.stripe_customer_id = customer_id
-                        await user_repo.update(user_id, user)
-                    elif action == "update_subscription":
-                        user.subscription_tier = tier or user.subscription_tier
-                        await user_repo.update(user_id, user)
-                    elif action == "deactivate_subscription":
-                        user.subscription_tier = "free"
-                        await user_repo.update(user_id, user)
-                    elif action == "payment_failed":
-                        logger.warning(
-                            "payment_failed_notification",
-                            user_id=user_id,
-                            customer_id=customer_id,
-                        )
+            user_repo = UserRepository(db)
+            await apply_webhook_action(result, user_repo)
 
         return WebhookEventResponse(
             received=True,

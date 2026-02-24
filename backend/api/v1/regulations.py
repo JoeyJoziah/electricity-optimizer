@@ -8,44 +8,16 @@ Provides state-level energy regulation data including:
 - Licensing and bond requirements
 """
 
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
-from pydantic import BaseModel
 
 from api.dependencies import get_db_session
+from models.regulation import StateRegulationResponse, StateRegulationListResponse
 from repositories.supplier_repository import StateRegulationRepository
 
 
 router = APIRouter()
-
-
-# =============================================================================
-# Response Models
-# =============================================================================
-
-
-class StateRegulationResponse(BaseModel):
-    """Response for a single state's regulation data"""
-    state_code: str
-    state_name: str
-    electricity_deregulated: bool
-    gas_deregulated: bool
-    oil_competitive: bool
-    community_solar_enabled: bool
-    licensing_required: bool
-    bond_required: bool
-    bond_amount: Optional[float] = None
-    puc_name: Optional[str] = None
-    puc_website: Optional[str] = None
-    comparison_tool_url: Optional[str] = None
-    notes: Optional[str] = None
-
-
-class StateRegulationListResponse(BaseModel):
-    """Response for list of state regulations"""
-    states: List[StateRegulationResponse]
-    total: int
 
 
 # =============================================================================

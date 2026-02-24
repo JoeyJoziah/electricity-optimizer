@@ -216,9 +216,12 @@ class PriceData:
 
 
 @dataclass
-class PriceForecast:
+class ForecastData:
     """
-    Price forecast data with confidence intervals.
+    Raw price forecast data from external API sources.
+
+    This is the integration-layer forecast type (dataclass). For the API
+    response model, see ``models.price.PriceForecast`` (Pydantic BaseModel).
     """
 
     region: PricingRegion
@@ -252,7 +255,7 @@ class PriceForecast:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "PriceForecast":
+    def from_dict(cls, data: dict) -> "ForecastData":
         """Create from dictionary"""
         return cls(
             region=PricingRegion(data["region"]),
@@ -265,6 +268,10 @@ class PriceForecast:
             lower_bound=[Decimal(b) for b in data["lower_bound"]] if data.get("lower_bound") else None,
             upper_bound=[Decimal(b) for b in data["upper_bound"]] if data.get("upper_bound") else None,
         )
+
+
+# Backward-compatible alias
+PriceForecast = ForecastData
 
 
 # =============================================================================
@@ -710,7 +717,7 @@ class BasePricingClient(ABC):
         self,
         region: PricingRegion,
         hours: int = 24,
-    ) -> PriceForecast:
+    ) -> ForecastData:
         """Get price forecast for a region"""
         pass
 

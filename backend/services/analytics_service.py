@@ -4,6 +4,7 @@ Analytics Service
 Business logic for price analytics and aggregation.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -44,6 +45,15 @@ class AnalyticsService:
                 pass
         return None
 
+    async def _acquire_cache_lock(self, key: str, ttl_ms: int = 5000) -> bool:
+        """Try to acquire a compute lock for a cache key (prevents stampede)."""
+        if not self._cache:
+            return True
+        try:
+            return bool(await self._cache.set(f"{key}:lock", "1", px=ttl_ms, nx=True))
+        except Exception:
+            return True
+
     async def _set_cached(self, key: str, value: Dict, ttl: int) -> None:
         """Set value in Redis cache with TTL."""
         if self._cache:
@@ -53,6 +63,7 @@ class AnalyticsService:
                     json.dumps(value, default=str),
                     ex=ttl,
                 )
+                await self._cache.delete(f"{key}:lock")
             except Exception:
                 pass
 
@@ -144,6 +155,15 @@ class AnalyticsService:
                     cached[k] = Decimal(cached[k])
             return cached
 
+        if not await self._acquire_cache_lock(cache_key):
+            await asyncio.sleep(0.1)
+            cached = await self._get_cached(cache_key)
+            if cached:
+                for k in ('change_percent', 'start_price', 'end_price'):
+                    if k in cached:
+                        cached[k] = Decimal(cached[k])
+                return cached
+
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
@@ -225,6 +245,15 @@ class AnalyticsService:
             cached['peak_premium_percent'] = Decimal(cached['peak_premium_percent'])
             return cached
 
+        if not await self._acquire_cache_lock(cache_key):
+            await asyncio.sleep(0.1)
+            cached = await self._get_cached(cache_key)
+            if cached:
+                cached['average_by_hour'] = {int(k): Decimal(v) for k, v in cached['average_by_hour'].items()}
+                cached['overall_average'] = Decimal(cached['overall_average'])
+                cached['peak_premium_percent'] = Decimal(cached['peak_premium_percent'])
+                return cached
+
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
@@ -305,6 +334,16 @@ class AnalyticsService:
                     if k in s:
                         s[k] = Decimal(s[k])
             return cached
+
+        if not await self._acquire_cache_lock(cache_key):
+            await asyncio.sleep(0.1)
+            cached = await self._get_cached(cache_key)
+            if cached:
+                for s in cached.get('suppliers', []):
+                    for k in ('average_price', 'min_price', 'max_price', 'volatility'):
+                        if k in s:
+                            s[k] = Decimal(s[k])
+                return cached
 
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)

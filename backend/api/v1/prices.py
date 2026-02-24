@@ -1,25 +1,22 @@
 """
 Price API Endpoints
 
-REST endpoints for electricity price data, including SSE streaming.
+CRUD endpoints for electricity price data: current, history, forecast, compare, refresh.
+Analytics and SSE streaming live in prices_analytics.py and prices_sse.py respectively.
 """
 
-import asyncio
-import json
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Optional, List, AsyncGenerator
+from typing import Optional, List
 import numpy as np
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from models.price import (
     Price,
     PriceRegion,
     PriceResponse,
-    PriceListResponse,
     PriceHistoryResponse,
     PriceForecastResponse,
     PriceForecast,
@@ -28,24 +25,12 @@ from models.price import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.price_service import PriceService
-from services.analytics_service import AnalyticsService
 from api.dependencies import (
     get_price_service,
-    get_analytics_service,
-    get_current_user,
-    get_current_user_optional,
     verify_api_key,
-    TokenData,
 )
 from config.database import get_timescale_session
 from config.settings import get_settings
-from integrations.pricing_apis.service import create_pricing_service_from_settings
-from integrations.pricing_apis.base import (
-    PriceData as APIPriceData,
-    PricingRegion,
-    APIError,
-    RateLimitError,
-)
 
 import structlog
 
@@ -86,17 +71,6 @@ class CurrentPriceResponse(BaseModel):
     prices: Optional[List[PriceResponse]] = None
     region: str
     timestamp: datetime
-    source: Optional[str] = None
-
-
-class PriceStatisticsResponse(BaseModel):
-    """Response for price statistics"""
-    region: str
-    period_days: int
-    min_price: Optional[Decimal]
-    max_price: Optional[Decimal]
-    avg_price: Optional[Decimal]
-    count: int
     source: Optional[str] = None
 
 
@@ -413,198 +387,6 @@ async def compare_prices(
         )
 
 
-@router.get(
-    "/statistics",
-    response_model=PriceStatisticsResponse,
-    summary="Get price statistics",
-    responses={
-        200: {"description": "Statistics retrieved successfully"},
-    }
-)
-async def get_price_statistics(
-    region: PriceRegion = Query(..., description="Price region"),
-    days: int = Query(7, ge=1, le=365, description="Number of days to analyze"),
-    price_service: PriceService = Depends(get_price_service),
-):
-    """
-    Get price statistics for a region over a time period.
-
-    Returns min, max, and average prices along with data point count.
-    """
-    try:
-        stats = await price_service.get_price_statistics(region, days)
-        return PriceStatisticsResponse(
-            region=region.value,
-            period_days=days,
-            min_price=stats.get("min_price"),
-            max_price=stats.get("max_price"),
-            avg_price=stats.get("avg_price"),
-            count=stats.get("count", 0),
-            source="live",
-        )
-    except Exception as e:
-        logger.error("using_mock_statistics", reason=str(e))
-        if settings.environment == "production":
-            raise HTTPException(
-                status_code=503,
-                detail="Price service temporarily unavailable",
-            )
-        return PriceStatisticsResponse(
-            region=region.value,
-            period_days=days,
-            min_price=Decimal("0.1500"),
-            max_price=Decimal("0.2800"),
-            avg_price=Decimal("0.2100"),
-            count=days * 24,
-            source="fallback",
-        )
-
-
-@router.get(
-    "/optimal-windows",
-    summary="Get optimal usage windows",
-    responses={
-        200: {"description": "Optimal windows retrieved successfully"},
-    }
-)
-async def get_optimal_usage_windows(
-    region: PriceRegion = Query(..., description="Price region"),
-    duration_hours: int = Query(2, ge=1, le=12, description="Required usage duration"),
-    within_hours: int = Query(24, ge=1, le=48, description="Time window to search"),
-    supplier: Optional[str] = Query(None, description="Filter by supplier"),
-    price_service: PriceService = Depends(get_price_service),
-):
-    """
-    Find optimal low-price windows for appliance usage.
-
-    Returns the best times to run appliances based on price forecasts.
-    """
-    try:
-        windows = await price_service.get_optimal_usage_windows(
-            region=region,
-            duration_hours=duration_hours,
-            within_hours=within_hours,
-            supplier=supplier
-        )
-        return {
-            "region": region.value,
-            "duration_hours": duration_hours,
-            "within_hours": within_hours,
-            "windows": windows,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "source": "live",
-        }
-    except Exception as e:
-        logger.error("using_mock_windows", reason=str(e))
-        if settings.environment == "production":
-            raise HTTPException(
-                status_code=503,
-                detail="Price service temporarily unavailable",
-            )
-        now = datetime.now(timezone.utc)
-        return {
-            "region": region.value,
-            "duration_hours": duration_hours,
-            "within_hours": within_hours,
-            "windows": [
-                {"start": (now + timedelta(hours=2)).isoformat(), "end": (now + timedelta(hours=2 + duration_hours)).isoformat(), "avg_price": 0.16, "rank": 1},
-                {"start": (now + timedelta(hours=14)).isoformat(), "end": (now + timedelta(hours=14 + duration_hours)).isoformat(), "avg_price": 0.18, "rank": 2},
-            ],
-            "generated_at": now.isoformat(),
-            "source": "fallback",
-        }
-
-
-@router.get(
-    "/trends",
-    summary="Get price trends",
-    responses={
-        200: {"description": "Trends retrieved successfully"},
-    }
-)
-async def get_price_trends(
-    region: PriceRegion = Query(..., description="Price region"),
-    days: int = Query(7, ge=1, le=90, description="Number of days to analyze"),
-    analytics_service: AnalyticsService = Depends(get_analytics_service),
-):
-    """
-    Get price trend analysis for a region.
-
-    Returns trend direction, percentage change, and detailed analytics.
-    """
-    try:
-        trend = await analytics_service.get_price_trend(region, days)
-        return {
-            "region": region.value,
-            "period_days": days,
-            **trend,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "source": "live",
-        }
-    except Exception as e:
-        logger.error("using_mock_trends", reason=str(e))
-        if settings.environment == "production":
-            raise HTTPException(
-                status_code=503,
-                detail="Price service temporarily unavailable",
-            )
-        return {
-            "region": region.value,
-            "period_days": days,
-            "direction": "down",
-            "change_percent": -2.3,
-            "current_avg": 0.21,
-            "previous_avg": 0.215,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "source": "fallback",
-        }
-
-
-@router.get(
-    "/peak-hours",
-    summary="Get peak hours analysis",
-    responses={
-        200: {"description": "Peak hours analysis retrieved successfully"},
-    }
-)
-async def get_peak_hours_analysis(
-    region: PriceRegion = Query(..., description="Price region"),
-    days: int = Query(7, ge=1, le=30, description="Number of days to analyze"),
-    analytics_service: AnalyticsService = Depends(get_analytics_service),
-):
-    """
-    Analyze peak and off-peak hours based on pricing.
-
-    Returns identified peak/off-peak hours and hourly price averages.
-    """
-    try:
-        analysis = await analytics_service.get_peak_hours_analysis(region, days)
-        return {
-            "region": region.value,
-            "period_days": days,
-            **analysis,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "source": "live",
-        }
-    except Exception as e:
-        logger.error("using_mock_peak_hours", reason=str(e))
-        if settings.environment == "production":
-            raise HTTPException(
-                status_code=503,
-                detail="Price service temporarily unavailable",
-            )
-        return {
-            "region": region.value,
-            "period_days": days,
-            "peak_hours": list(range(7, 20)),
-            "off_peak_hours": list(range(0, 7)) + list(range(20, 24)),
-            "peak_avg_price": 0.25,
-            "off_peak_avg_price": 0.16,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "source": "fallback",
-        }
-
-
 @router.post(
     "/refresh",
     summary="Trigger price data refresh",
@@ -622,196 +404,7 @@ async def refresh_prices(
     Called by the GitHub Actions price-sync workflow (every 6 hours)
     to keep cached price data up to date.
     """
+    from services.price_sync_service import sync_prices
+
     logger.info("price_refresh_triggered")
-
-    default_regions = [
-        PricingRegion.US_CT,
-        PricingRegion.US_NY,
-        PricingRegion.US_CA,
-        PricingRegion.UK,
-        PricingRegion.GERMANY,
-        PricingRegion.FRANCE,
-    ]
-
-    synced_count = 0
-    regions_covered = []
-    errors = []
-    prices_to_store = []
-
-    pricing_service = create_pricing_service_from_settings()
-
-    try:
-        async with pricing_service:
-            comparison = await pricing_service.compare_prices(default_regions)
-            for region, price_data in comparison.items():
-                kwh_price = price_data.convert_to_kwh()
-
-                # PricingRegion and PriceRegion are now unified (models.region.Region)
-                # so .value is already the correct lowercase DB string.
-                db_region = region.value
-
-                prices_to_store.append(Price(
-                    region=db_region,
-                    supplier=kwh_price.supplier or "Unknown",
-                    price_per_kwh=kwh_price.price,
-                    timestamp=kwh_price.timestamp,
-                    currency=kwh_price.currency,
-                    is_peak=kwh_price.is_peak,
-                    carbon_intensity=kwh_price.carbon_intensity,
-                    source_api=kwh_price.source_api,
-                ))
-                regions_covered.append(region.value)
-
-            if prices_to_store and session:
-                from repositories.price_repository import PriceRepository
-                repo = PriceRepository(session)
-                synced_count = await repo.bulk_create(prices_to_store)
-
-    except RateLimitError as e:
-        logger.warning("price_refresh_rate_limited", error=str(e), retry_after=e.retry_after)
-        errors.append(f"Rate limited: {e}")
-    except APIError as e:
-        logger.warning("price_refresh_api_error", error=str(e))
-        errors.append(f"API error: {e}")
-    except Exception as e:
-        logger.error("price_refresh_failed", error=str(e))
-        errors.append(f"Unexpected error: {e}")
-
-    # Check price alerts after successful refresh
-    alerts_sent = 0
-    if synced_count > 0 and prices_to_store:
-        try:
-            from services.alert_service import AlertService
-            alert_service = AlertService()
-            # In production, thresholds would be loaded from DB.
-            # For now, log that alert checking is available.
-            logger.info("alert_check_ready", prices_count=len(prices_to_store))
-        except Exception as alert_err:
-            logger.warning("alert_check_skipped", error=str(alert_err))
-
-    return {
-        "status": "refreshed" if synced_count > 0 else "partial",
-        "message": f"Synced {synced_count} price records from {len(regions_covered)} regions",
-        "synced_records": synced_count,
-        "regions_covered": regions_covered,
-        "alerts_sent": alerts_sent,
-        "errors": errors if errors else None,
-        "triggered_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-# =============================================================================
-# Server-Sent Events (SSE) Endpoint
-# =============================================================================
-
-import collections
-
-_sse_connections: dict[str, int] = collections.defaultdict(int)
-_SSE_MAX_CONNECTIONS_PER_USER = 3
-
-
-async def _price_event_generator(
-    region: str, interval_seconds: int = 30, request: Request = None,
-) -> AsyncGenerator[str, None]:
-    """
-    Generate SSE events with latest price data.
-
-    Polls for price changes and emits events at each interval. Sends a
-    heartbeat comment every 15 seconds to keep proxies alive. Checks for
-    client disconnection promptly.
-    """
-    heartbeat_interval = 15
-    elapsed_since_heartbeat = 0
-
-    while True:
-        if request is not None and await request.is_disconnected():
-            break
-
-        try:
-            now = datetime.now(timezone.utc)
-            mock = _generate_mock_prices(region, 1)
-            if mock:
-                price = mock[0]
-                data = {
-                    "region": region,
-                    "supplier": price.supplier,
-                    "price_per_kwh": str(price.price_per_kwh),
-                    "currency": price.currency,
-                    "is_peak": price.is_peak,
-                    "timestamp": now.isoformat(),
-                }
-                yield f"data: {json.dumps(data)}\n\n"
-        except Exception as e:
-            logger.warning("sse_event_error", error=str(e))
-            yield f"event: error\ndata: {json.dumps({'error': 'Failed to fetch price'})}\n\n"
-
-        sleep_remaining = interval_seconds
-        while sleep_remaining > 0:
-            sleep_chunk = min(sleep_remaining, heartbeat_interval)
-            await asyncio.sleep(sleep_chunk)
-            sleep_remaining -= sleep_chunk
-            elapsed_since_heartbeat += sleep_chunk
-
-            if request is not None and await request.is_disconnected():
-                return
-
-            if elapsed_since_heartbeat >= heartbeat_interval:
-                yield ": heartbeat\n\n"
-                elapsed_since_heartbeat = 0
-
-
-@router.get(
-    "/stream",
-    summary="Stream real-time price updates (SSE)",
-    responses={
-        200: {
-            "description": "Server-Sent Events stream of price updates",
-            "content": {"text/event-stream": {}},
-        },
-        401: {"description": "Authentication required"},
-        429: {"description": "Too many concurrent SSE connections"},
-    },
-)
-async def stream_prices(
-    request: Request,
-    region: PriceRegion = Query(..., description="Price region"),
-    interval: int = Query(30, ge=10, le=300, description="Update interval in seconds"),
-    current_user: TokenData = Depends(get_current_user),
-):
-    """
-    Stream real-time electricity price updates via Server-Sent Events.
-
-    Requires authentication. Max 3 concurrent connections per user.
-    """
-    user_id = current_user.user_id
-
-    if _sse_connections[user_id] >= _SSE_MAX_CONNECTIONS_PER_USER:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Maximum of {_SSE_MAX_CONNECTIONS_PER_USER} concurrent SSE connections allowed",
-        )
-
-    _sse_connections[user_id] += 1
-    logger.info("sse_connection_opened", user_id=user_id, region=region.value)
-
-    async def event_stream():
-        try:
-            async for event in _price_event_generator(region.value, interval, request):
-                yield event
-        except asyncio.CancelledError:
-            pass
-        finally:
-            _sse_connections[user_id] -= 1
-            if _sse_connections[user_id] <= 0:
-                del _sse_connections[user_id]
-            logger.info("sse_connection_closed", user_id=user_id, region=region.value)
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return await sync_prices(session)

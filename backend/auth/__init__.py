@@ -1,16 +1,11 @@
 """
 Authentication Module
 
-Provides JWT token management, Neon Auth session validation,
-and authentication middleware for the Electricity Optimizer API.
+Provides Neon Auth session validation and password utilities
+for the Electricity Optimizer API.
 """
 
-# Use lazy imports to avoid circular dependencies and settings validation during testing
 __all__ = [
-    "JWTHandler",
-    "InvalidTokenError",
-    "TokenExpiredError",
-    "TokenRevokedError",
     "SessionData",
     "get_current_user",
     "get_current_user_optional",
@@ -20,10 +15,7 @@ __all__ = [
 
 def __getattr__(name):
     """Lazy load submodules to avoid import issues during testing"""
-    if name in ("JWTHandler", "InvalidTokenError", "TokenExpiredError", "TokenRevokedError"):
-        from auth.jwt_handler import JWTHandler, InvalidTokenError, TokenExpiredError, TokenRevokedError
-        return locals()[name]
-    elif name in ("SessionData", "get_current_user", "get_current_user_optional"):
+    if name in ("SessionData", "get_current_user", "get_current_user_optional"):
         from auth.neon_auth import SessionData, get_current_user, get_current_user_optional
         return locals()[name]
     elif name == "validate_password":

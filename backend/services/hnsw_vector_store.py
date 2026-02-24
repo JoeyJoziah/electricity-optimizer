@@ -8,6 +8,7 @@ is an in-memory acceleration layer rebuilt from SQLite on startup.
 Falls back to brute-force VectorStore.search() if hnswlib is not installed.
 """
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -149,10 +150,10 @@ class HNSWVectorStore:
                 elif v.shape[0] > self._dimension:
                     v = v[:self._dimension]
 
-                # Resize index if needed
+                # Resize index if needed (geometric doubling amortizes O(1) per insert)
                 if self._next_label >= self._index.get_max_elements():
                     self._index.resize_index(
-                        self._index.get_max_elements() + 1000
+                        self._index.get_max_elements() * 2
                     )
 
                 label = self._next_label
@@ -205,34 +206,40 @@ class HNSWVectorStore:
             fetch_k = min(k * 3, self._index.get_current_count())
             labels, distances = self._index.knn_query(q.reshape(1, -1), k=fetch_k)
 
-            # Convert cosine distances to similarities
-            # hnswlib cosine distance = 1 - cosine_similarity
-            results = []
+            # Collect candidates from HNSW results
+            candidate_ids = []
+            candidate_similarities = []
             for label, dist in zip(labels[0], distances[0]):
                 vec_id = self._label_to_id.get(int(label))
                 if not vec_id:
                     continue
-
                 similarity = 1.0 - float(dist)
                 if similarity < min_similarity:
                     continue
+                candidate_ids.append(vec_id)
+                candidate_similarities.append(similarity)
 
-                # Get metadata from SQLite
-                with sqlite3.connect(self._store._db_path) as conn:
-                    row = conn.execute(
-                        "SELECT domain, metadata, confidence FROM vectors WHERE id = ?",
-                        (vec_id,),
-                    ).fetchone()
+            if not candidate_ids:
+                return []
 
+            # Batch metadata lookup (single connection instead of per-result)
+            with sqlite3.connect(self._store._db_path) as conn:
+                placeholders = ",".join("?" for _ in candidate_ids)
+                rows = conn.execute(
+                    f"SELECT id, domain, metadata, confidence FROM vectors WHERE id IN ({placeholders})",
+                    candidate_ids,
+                ).fetchall()
+
+            metadata_map = {row[0]: row for row in rows}
+
+            results = []
+            for vec_id, similarity in zip(candidate_ids, candidate_similarities):
+                row = metadata_map.get(vec_id)
                 if not row:
                     continue
-
-                vec_domain, meta_json, confidence = row
-
-                # Apply domain filter
+                _, vec_domain, meta_json, confidence = row
                 if domain and vec_domain != domain:
                     continue
-
                 results.append({
                     "id": vec_id,
                     "domain": vec_domain,
@@ -240,11 +247,10 @@ class HNSWVectorStore:
                     "confidence": confidence,
                     "metadata": json.loads(meta_json),
                 })
-
                 if len(results) >= k:
                     break
 
-            # Update usage counts
+            # Batch usage count update (single connection)
             if results:
                 from datetime import datetime, timezone
                 now = datetime.now(timezone.utc).isoformat()
@@ -290,6 +296,45 @@ class HNSWVectorStore:
             self._next_label = 0
             self._build_index()
         return count
+
+    # --- Async wrappers (run sync SQLite I/O in a thread) ---
+
+    async def async_insert(
+        self,
+        domain: str,
+        vector: np.ndarray,
+        metadata: Optional[Dict[str, Any]] = None,
+        confidence: float = 1.0,
+        vector_id: Optional[str] = None,
+    ) -> str:
+        """Async wrapper for insert — runs SQLite I/O in a thread."""
+        return await asyncio.to_thread(
+            self.insert, domain, vector, metadata, confidence, vector_id,
+        )
+
+    async def async_search(
+        self,
+        query_vector: np.ndarray,
+        domain: Optional[str] = None,
+        k: int = 5,
+        min_similarity: float = 0.7,
+    ) -> List[Dict[str, Any]]:
+        """Async wrapper for search — runs SQLite I/O in a thread."""
+        return await asyncio.to_thread(
+            self.search, query_vector, domain, k, min_similarity,
+        )
+
+    async def async_record_outcome(self, vector_id: str, success: bool) -> None:
+        """Async wrapper for record_outcome."""
+        await asyncio.to_thread(self.record_outcome, vector_id, success)
+
+    async def async_get_stats(self, domain: Optional[str] = None) -> Dict[str, Any]:
+        """Async wrapper for get_stats."""
+        return await asyncio.to_thread(self.get_stats, domain)
+
+    async def async_prune(self, min_confidence: float = 0.3, min_usage: int = 0) -> int:
+        """Async wrapper for prune."""
+        return await asyncio.to_thread(self.prune, min_confidence, min_usage)
 
 
 _vector_store_singleton: Optional["HNSWVectorStore"] = None

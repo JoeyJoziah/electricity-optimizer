@@ -166,7 +166,7 @@ class LearningService:
         # Normalize for cosine similarity storage
         norm_vector = price_curve_to_vector(bias_vector.tolist(), target_dim=24)
 
-        vec_id = self._vs.insert(
+        vec_id = await self._vs.async_insert(
             domain="bias_correction",
             vector=norm_vector,
             metadata={
@@ -196,7 +196,7 @@ class LearningService:
         Returns:
             Number of vectors pruned.
         """
-        count = self._vs.prune(min_confidence, min_usage)
+        count = await self._vs.async_prune(min_confidence, min_usage)
         logger.info("stale_patterns_pruned", count=count)
         return count
 

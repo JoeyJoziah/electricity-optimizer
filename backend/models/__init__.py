@@ -43,6 +43,19 @@ from models.supplier import (
     ContractLength,
 )
 
+from models.regulation import (
+    StateRegulation,
+    StateRegulationResponse,
+    StateRegulationListResponse,
+)
+
+from models.observation import (
+    ForecastObservation,
+    RecommendationOutcome,
+    AccuracyMetrics,
+    HourlyBias,
+)
+
 __all__ = [
     # Region and utility types
     "Region",

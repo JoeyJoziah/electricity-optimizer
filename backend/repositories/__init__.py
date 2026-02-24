@@ -6,7 +6,6 @@ Data access layer for the Electricity Optimizer API.
 
 from repositories.base import (
     BaseRepository,
-    CachedRepository,
     RepositoryError,
     NotFoundError,
     DuplicateError,
@@ -16,11 +15,11 @@ from repositories.base import (
 from repositories.price_repository import PriceRepository
 from repositories.user_repository import UserRepository
 from repositories.supplier_repository import SupplierRepository
+from repositories.forecast_observation_repository import ForecastObservationRepository
 
 __all__ = [
     # Base classes and exceptions
     "BaseRepository",
-    "CachedRepository",
     "RepositoryError",
     "NotFoundError",
     "DuplicateError",
@@ -29,4 +28,5 @@ __all__ = [
     "PriceRepository",
     "UserRepository",
     "SupplierRepository",
+    "ForecastObservationRepository",
 ]

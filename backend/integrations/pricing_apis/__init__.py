@@ -19,7 +19,8 @@ Features:
 from .base import (
     BasePricingClient,
     PriceData,
-    PriceForecast,
+    ForecastData,
+    PriceForecast,  # backward-compat alias for ForecastData
     PricingRegion,
     PriceUnit,
     APIError,
@@ -38,7 +39,8 @@ __all__ = [
     # Base classes and models
     "BasePricingClient",
     "PriceData",
-    "PriceForecast",
+    "ForecastData",
+    "PriceForecast",  # backward-compat alias
     "PricingRegion",
     "PriceUnit",
     # Errors

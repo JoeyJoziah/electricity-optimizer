@@ -41,10 +41,8 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")
     redis_password: Optional[str] = Field(default=None, validation_alias="REDIS_PASSWORD")
 
-    # Authentication
+    # Internal API Key (HMAC signing for service-to-service auth)
     jwt_secret: str = Field(default="dev-secret-change-in-production", validation_alias="JWT_SECRET")
-    jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
-    jwt_expiration_hours: int = Field(default=24, validation_alias="JWT_EXPIRATION_HOURS")
 
     # Service-to-service API key (must NOT be the same as jwt_secret)
     internal_api_key: Optional[str] = Field(default=None, validation_alias="INTERNAL_API_KEY")

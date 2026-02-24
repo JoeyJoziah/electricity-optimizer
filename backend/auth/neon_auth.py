@@ -10,6 +10,7 @@ Session tokens arrive via:
 2. Header: 'Authorization: Bearer <session_token>' (API clients)
 """
 
+import hashlib
 import json
 from typing import Optional
 from dataclasses import dataclass
@@ -45,7 +46,7 @@ class SessionData:
     role: Optional[str] = None
 
 
-_SESSION_CACHE_TTL = 120  # seconds
+_SESSION_CACHE_TTL = 30  # seconds — kept short to limit access window after logout/ban
 
 
 async def _get_session_from_token(
@@ -60,7 +61,7 @@ async def _get_session_from_token(
     on every authenticated request. Returns SessionData if the token is
     valid and not expired, None otherwise.
     """
-    cache_key = f"session:{session_token[:16]}"
+    cache_key = f"session:{hashlib.sha256(session_token.encode()).hexdigest()[:32]}"
 
     # Try Redis cache first
     if redis is not None:
@@ -118,6 +119,23 @@ async def _get_session_from_token(
             pass  # Non-fatal — next request will just re-query
 
     return session_data
+
+
+async def invalidate_session_cache(session_token: str, redis=None) -> bool:
+    """
+    Remove a session from Redis cache, forcing re-validation on next request.
+
+    Called on logout to immediately revoke cached access.
+    Returns True if a cache entry was deleted, False otherwise.
+    """
+    if redis is None:
+        return False
+    cache_key = f"session:{hashlib.sha256(session_token.encode()).hexdigest()[:32]}"
+    try:
+        deleted = await redis.delete(cache_key)
+        return deleted > 0
+    except Exception:
+        return False
 
 
 async def get_current_user(
