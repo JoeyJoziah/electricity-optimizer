@@ -16,6 +16,9 @@ import { auth } from "@/lib/auth/server"
 import { toNextJsHandler } from "better-auth/next-js"
 import { NextRequest, NextResponse } from "next/server"
 
+// Force dynamic — prevent Next.js from evaluating at build time
+export const dynamic = "force-dynamic"
+
 const handler = toNextJsHandler(auth)
 
 export async function GET(req: NextRequest) {
