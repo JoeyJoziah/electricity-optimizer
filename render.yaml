@@ -47,6 +47,8 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
+      - key: CORS_ORIGINS
+        sync: false
       - key: SENTRY_DSN
         sync: false
 

@@ -17,7 +17,7 @@ const ForecastChart = dynamic(
   { ssr: false, loading: () => <ChartSkeleton /> }
 )
 import { useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods } from '@/lib/hooks/usePrices'
-import { useSettingsStore } from '@/lib/store/settings'
+import { useSettingsStore, type PriceAlert } from '@/lib/store/settings'
 import { formatCurrency, formatTime } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
 import {
@@ -34,6 +34,21 @@ import type { TimeRange } from '@/types'
 export default function PricesPage() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>('24h')
   const region = useSettingsStore((s) => s.region)
+  const priceAlerts = useSettingsStore((s) => s.priceAlerts)
+  const addPriceAlert = useSettingsStore((s) => s.addPriceAlert)
+  const removePriceAlert = useSettingsStore((s) => s.removePriceAlert)
+
+  const handleToggleAlert = (type: 'below' | 'above', threshold: number) => {
+    const existing = priceAlerts.find((a) => a.type === type && a.threshold === threshold)
+    if (existing) {
+      removePriceAlert(existing.id)
+    } else {
+      addPriceAlert({ id: Date.now().toString(), type, threshold, enabled: true })
+    }
+  }
+
+  const hasAlert = (type: 'below' | 'above', threshold: number) =>
+    priceAlerts.some((a) => a.type === type && a.threshold === threshold && a.enabled)
 
   // Fetch data
   const { data: pricesData, isLoading: pricesLoading } = useCurrentPrices(region)
@@ -294,15 +309,19 @@ export default function PricesPage() {
                     <AlertCircle className="h-5 w-5 text-warning-500" />
                     <div>
                       <p className="font-medium text-gray-900">
-                        Price below 20p
+                        Price below $0.20
                       </p>
                       <p className="text-sm text-gray-500">
                         Get notified when prices drop
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Set Alert
+                  <Button
+                    variant={hasAlert('below', 0.20) ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => handleToggleAlert('below', 0.20)}
+                  >
+                    {hasAlert('below', 0.20) ? 'Active' : 'Set Alert'}
                   </Button>
                 </div>
 
@@ -311,15 +330,19 @@ export default function PricesPage() {
                     <AlertCircle className="h-5 w-5 text-danger-500" />
                     <div>
                       <p className="font-medium text-gray-900">
-                        Price above 30p
+                        Price above $0.30
                       </p>
                       <p className="text-sm text-gray-500">
                         Get warned about peak prices
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Set Alert
+                  <Button
+                    variant={hasAlert('above', 0.30) ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => handleToggleAlert('above', 0.30)}
+                  >
+                    {hasAlert('above', 0.30) ? 'Active' : 'Set Alert'}
                   </Button>
                 </div>
 

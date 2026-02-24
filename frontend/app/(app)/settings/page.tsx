@@ -51,10 +51,36 @@ export default function SettingsPage() {
   } = useSettingsStore()
 
   const [saved, setSaved] = React.useState(false)
+  const [exporting, setExporting] = React.useState(false)
 
   const handleSave = () => {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      const response = await fetch(`${apiUrl}/compliance/gdpr/export`, {
+        credentials: 'include',
+      })
+      if (!response.ok) throw new Error('Export failed')
+      const data = await response.json()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `electricity-optimizer-data-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // Silently fail — user will notice the button didn't produce a download
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -345,9 +371,15 @@ export default function SettingsPage() {
                     Download all your data as JSON
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={exporting}
+                  loading={exporting}
+                >
                   <Download className="mr-2 h-4 w-4" />
-                  Export
+                  {exporting ? 'Exporting...' : 'Export'}
                 </Button>
               </div>
 

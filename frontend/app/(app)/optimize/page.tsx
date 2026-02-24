@@ -23,6 +23,9 @@ import {
   Play,
   Calendar,
   AlertCircle,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react'
 import type { Appliance } from '@/types'
 
@@ -36,6 +39,10 @@ const DEFAULT_APPLIANCES: Partial<Appliance>[] = [
 
 export default function OptimizePage() {
   const [isEditing, setIsEditing] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ name: string; powerKw: number; typicalDurationHours: number }>({
+    name: '', powerKw: 1, typicalDurationHours: 1,
+  })
   const [newAppliance, setNewAppliance] = useState<Partial<Appliance>>({
     name: '',
     powerKw: 1.0,
@@ -59,6 +66,26 @@ export default function OptimizePage() {
     })
 
   const { data: savingsData } = usePotentialSavings(appliances, region)
+
+  const startEdit = (appliance: Appliance) => {
+    setEditingId(appliance.id)
+    setEditForm({
+      name: appliance.name,
+      powerKw: appliance.powerKw,
+      typicalDurationHours: appliance.typicalDurationHours,
+    })
+  }
+
+  const saveEdit = () => {
+    if (editingId && editForm.name) {
+      updateAppliance(editingId, editForm)
+      setEditingId(null)
+    }
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+  }
 
   // Handle adding new appliance
   const handleAddAppliance = () => {
@@ -202,51 +229,96 @@ export default function OptimizePage() {
                     {appliances.map((appliance) => (
                       <div
                         key={appliance.id}
-                        className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
+                        className="rounded-lg border border-gray-200 p-3"
                       >
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            label=""
-                            checked={appliance.isFlexible}
-                            onChange={(e) =>
-                              updateAppliance(appliance.id, {
-                                isFlexible: e.target.checked,
-                              })
-                            }
-                          />
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {appliance.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {appliance.powerKw}kW -{' '}
-                              {formatDuration(appliance.typicalDurationHours)}
-                            </p>
+                        {editingId === appliance.id ? (
+                          <div className="space-y-2">
+                            <Input
+                              value={editForm.name}
+                              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                              placeholder="Name"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                type="number"
+                                step="0.1"
+                                value={editForm.powerKw}
+                                onChange={(e) => setEditForm((f) => ({ ...f, powerKw: parseFloat(e.target.value) || 0 }))}
+                                placeholder="kW"
+                              />
+                              <Input
+                                type="number"
+                                step="0.5"
+                                value={editForm.typicalDurationHours}
+                                onChange={(e) => setEditForm((f) => ({ ...f, typicalDurationHours: parseFloat(e.target.value) || 0 }))}
+                                placeholder="Hours"
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                              <Button variant="primary" size="sm" onClick={saveEdit}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              appliance.priority === 'high'
-                                ? 'danger'
-                                : appliance.priority === 'medium'
-                                  ? 'warning'
-                                  : 'default'
-                            }
-                            size="sm"
-                          >
-                            {appliance.priority}
-                          </Badge>
-                          {isEditing && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeAppliance(appliance.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-danger-500" />
-                            </Button>
-                          )}
-                        </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Checkbox
+                                label=""
+                                checked={appliance.isFlexible}
+                                onChange={(e) =>
+                                  updateAppliance(appliance.id, {
+                                    isFlexible: e.target.checked,
+                                  })
+                                }
+                              />
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {appliance.name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {appliance.powerKw}kW -{' '}
+                                  {formatDuration(appliance.typicalDurationHours)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  appliance.priority === 'high'
+                                    ? 'danger'
+                                    : appliance.priority === 'medium'
+                                      ? 'warning'
+                                      : 'default'
+                                }
+                                size="sm"
+                              >
+                                {appliance.priority}
+                              </Badge>
+                              {isEditing && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => startEdit(appliance)}
+                                  >
+                                    <Pencil className="h-4 w-4 text-gray-500" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeAppliance(appliance.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-danger-500" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

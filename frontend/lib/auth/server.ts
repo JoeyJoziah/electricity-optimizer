@@ -9,20 +9,16 @@ import { betterAuth } from "better-auth"
 import { Pool } from "@neondatabase/serverless"
 
 // Connection to Neon PostgreSQL, using the neon_auth schema
-// The search_path ensures better-auth finds its tables in the neon_auth schema
-const connectionString = process.env.DATABASE_URL || ""
+// Set search_path so better-auth finds its tables in the neon_auth schema
+const baseUrl = process.env.DATABASE_URL || ""
+const connectionString = baseUrl.includes("options=")
+  ? baseUrl
+  : `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}options=-csearch_path%3Dneon_auth,public`
 
 export const auth = betterAuth({
   database: new Pool({
     connectionString,
   }),
-
-  // Use the neon_auth schema for all auth tables
-  advanced: {
-    database: {
-      schema: "neon_auth",
-    },
-  },
 
   // Email + password authentication
   emailAndPassword: {
