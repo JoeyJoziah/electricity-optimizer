@@ -96,12 +96,5 @@ export function getAuth() {
   return _auth
 }
 
-// For backward compatibility — proxy that lazily delegates to the real auth
-// This ensures `auth.handler` and `auth.$Infer` work at import time for types
-export const auth = new Proxy({} as ReturnType<typeof createAuth>, {
-  get(_target, prop) {
-    return getAuth()[prop as keyof ReturnType<typeof createAuth>]
-  },
-})
-
-export type Session = typeof auth.$Infer.Session
+// Type helper — extract Session type from Better Auth
+export type Session = ReturnType<typeof createAuth>["$Infer"]["Session"]

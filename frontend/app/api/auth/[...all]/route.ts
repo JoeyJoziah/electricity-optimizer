@@ -1,22 +1,33 @@
 /**
  * Better Auth API Route Handler
+ *
+ * Handler is lazily created on first request to ensure runtime env vars
+ * are available (Next.js standalone evaluates module-level code at build).
  */
 
-import { auth } from "@/lib/auth/server"
+import { getAuth } from "@/lib/auth/server"
 import { toNextJsHandler } from "better-auth/next-js"
 import { NextRequest, NextResponse } from "next/server"
 
 // Force dynamic — prevent Next.js from evaluating at build time
 export const dynamic = "force-dynamic"
 
-const handler = toNextJsHandler(auth)
+// Lazy handler — created on first request
+let _handler: ReturnType<typeof toNextJsHandler> | null = null
+function getHandler() {
+  if (!_handler) {
+    _handler = toNextJsHandler(getAuth())
+  }
+  return _handler
+}
 
 async function wrapHandler(
   method: "GET" | "POST",
-  handlerFn: (req: NextRequest) => Promise<Response>,
   req: NextRequest
 ): Promise<Response> {
   try {
+    const handler = getHandler()
+    const handlerFn = method === "GET" ? handler.GET : handler.POST
     const response = await handlerFn(req)
     if (response.status >= 500) {
       let body: string | null = null
@@ -55,9 +66,9 @@ async function wrapHandler(
 }
 
 export async function GET(req: NextRequest) {
-  return wrapHandler("GET", handler.GET, req)
+  return wrapHandler("GET", req)
 }
 
 export async function POST(req: NextRequest) {
-  return wrapHandler("POST", handler.POST, req)
+  return wrapHandler("POST", req)
 }
