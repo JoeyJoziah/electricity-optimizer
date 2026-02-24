@@ -1,15 +1,5 @@
 /**
  * Better Auth API Route Handler
- *
- * Handles all auth endpoints:
- * - /api/auth/sign-in/email
- * - /api/auth/sign-up/email
- * - /api/auth/sign-out
- * - /api/auth/get-session
- * - /api/auth/sign-in/social
- * - /api/auth/forget-password
- * - /api/auth/reset-password
- * - /api/auth/callback/*
  */
 
 import { auth } from "@/lib/auth/server"
@@ -28,17 +18,24 @@ async function wrapHandler(
 ): Promise<Response> {
   try {
     const response = await handlerFn(req)
-    // On 500 errors, intercept and add debug info
     if (response.status >= 500) {
-      const body = await response.text()
-      console.error(`[Auth ${method} ${response.status}]`, body || "(empty body)")
-      // During debugging: return error details in response
+      let body: string | null = null
+      try {
+        body = await response.text()
+      } catch { /* empty */ }
+      console.error(`[Auth ${method} ${response.status}]`, {
+        body,
+        url: req.url,
+        hasDb: !!process.env.DATABASE_URL,
+        hasSecret: !!process.env.BETTER_AUTH_SECRET,
+      })
       return NextResponse.json(
         {
           error: "Better Auth internal error",
           status: response.status,
-          body: body || null,
-          headers: Object.fromEntries(response.headers.entries()),
+          body,
+          dbUrlLen: (process.env.DATABASE_URL || "").length,
+          hasSecret: !!process.env.BETTER_AUTH_SECRET,
         },
         { status: response.status }
       )
@@ -50,7 +47,7 @@ async function wrapHandler(
       {
         error: "Auth handler exception",
         message: String(error),
-        stack: (error as Error)?.stack?.split("\n").slice(0, 5),
+        stack: (error as Error)?.stack?.split("\n").slice(0, 8),
       },
       { status: 500 }
     )
