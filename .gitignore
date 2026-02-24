@@ -114,6 +114,9 @@ playwright-report/
 # OS
 .DS_Store
 Thumbs.db
+
+# Agent/tool state
 .claude-flow/
 .swarm/
 .loki/
+.mcp.backup_*.json

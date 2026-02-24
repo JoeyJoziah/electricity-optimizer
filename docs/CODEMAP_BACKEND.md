@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-23 (Security hardening: SSE auth, SQL injection fix, session caching, PriceUnit consolidation)
+> Last updated: 2026-02-24 (45-item refactoring roadmap complete: auth cleanup, route splitting, SSE real data, ML wiring, test expansion)
 
 ## Directory Structure
 
@@ -9,6 +9,7 @@ backend/
 ├── main.py                          # FastAPI app entry point, middleware, health checks
 ├── gunicorn_config.py               # Production WSGI config (Render free tier optimized)
 ├── requirements.txt                 # Python dependencies
+├── requirements.lock                # Pinned lockfile for reproducible builds
 ├── pyproject.toml                   # Project metadata
 │
 ├── config/
@@ -19,7 +20,9 @@ backend/
 ├── api/
 │   ├── dependencies.py              # FastAPI DI: auth, DB sessions, service factories
 │   └── v1/
-│       ├── prices.py                # Price endpoints (CRUD, SSE auth+limit, refresh)
+│       ├── prices.py                # Price CRUD endpoints (current, history, forecast, compare, refresh)
+│       ├── prices_analytics.py      # Price analytics (statistics, optimal-windows, trends, peak-hours)
+│       ├── prices_sse.py            # SSE streaming (real DB prices via PriceService, connection tracking)
 │       ├── suppliers.py             # Supplier listing, comparison, tariffs (DB-backed via SupplierRegistryRepository)
 │       ├── regulations.py           # State regulation data (deregulation status, PUC info)
 │       ├── billing.py               # Stripe checkout, portal, webhook, subscription
@@ -39,12 +42,15 @@ backend/
 │   ├── user.py                      # User, UserPreferences, UserCreate/Update
 │   ├── utility.py                   # UtilityType enum, PriceUnit enum (canonical, incl. GBP_KWH/EUR_KWH/USD_KWH), labels/defaults
 │   ├── region.py                    # Region enum (single source of truth, all 50 US states + intl)
+│   ├── observation.py               # ForecastObservation, RecommendationOutcome, AccuracyMetrics, HourlyBias
+│   ├── regulation.py                # StateRegulation, StateRegulationResponse, StateRegulationListResponse
 │   └── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
 │
 ├── repositories/
-│   ├── base.py                      # BaseRepository[T], CachedRepository, error classes
+│   ├── base.py                      # BaseRepository[T], error classes
 │   ├── price_repository.py          # PriceRepository: CRUD, bulk_create, statistics (utility_type filter)
 │   ├── supplier_repository.py       # SupplierRegistryRepository + StateRegulationRepository; SQL-injection-safe WHERE clauses
+│   ├── forecast_observation_repository.py  # ForecastObservationRepository: observation queries
 │   └── user_repository.py           # UserRepository: by-email, preferences, consent
 │
 ├── services/
@@ -60,10 +66,8 @@ backend/
 │   └── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
 │
 ├── auth/
-│   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL)
-│   ├── jwt_handler.py               # JWT create/verify/revoke (Redis-backed blacklist, legacy)
-│   ├── middleware.py                 # get_current_user, require_permission dependencies
-│   └── password.py                  # Password validation, strength check, PBKDF2 hashing
+│   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
+│   └── password.py                  # Password validation, strength check
 │
 ├── compliance/
 │   ├── gdpr.py                      # GDPRComplianceService, DataRetentionService
@@ -119,13 +123,17 @@ backend/
     ├── test_security_adversarial.py # Adversarial security tests (42 tests)
     ├── test_alert_service.py        # Alert service tests
     ├── test_stripe_service.py       # Stripe service tests
-    ├── test_vector_store.py         # Vector store tests (VectorStore + HNSWVectorStore)
+    ├── test_vector_store.py         # Vector store tests (VectorStore)
+    ├── test_hnsw_vector_store.py    # HNSW vector store tests (HNSWVectorStore)
     ├── test_weather_service.py      # Weather service tests
     ├── test_gdpr_compliance.py      # GDPR compliance tests
     ├── test_multi_utility.py        # Multi-utility expansion tests (39 tests)
     ├── test_observation_service.py  # ObservationService tests (31 tests)
     ├── test_learning_service.py     # LearningService tests (32 tests)
-    └── test_performance.py          # Performance tests (16 tests)
+    ├── test_performance.py          # Performance tests (16 tests)
+    ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn)
+    ├── test_api_regulations.py      # State regulation API tests
+    └── test_load.py                 # Load/stress test helpers
 ```
 
 ## Application Lifecycle
@@ -295,7 +303,7 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | App | `environment` (dev/staging/prod/test), `api_prefix`, `backend_port` |
 | Database | `database_url` |
 | Redis | `redis_url`, `redis_password` |
-| Auth | `jwt_secret` (legacy, validated: 32+ chars in prod), `jwt_algorithm` (HS256). User auth via Neon Auth sessions |
+| Auth | `jwt_secret` (used only for internal API key validation), `jwt_algorithm` (HS256). User auth via Neon Auth sessions |
 | API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `eia_api_key`, `openweathermap_api_key` |
 | Email | `sendgrid_api_key`, `smtp_host/port/username/password`, `email_from_address/name` |
 | Stripe | `stripe_secret_key`, `stripe_webhook_secret`, `stripe_price_pro`, `stripe_price_business` |
@@ -316,17 +324,6 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 **Neon handling:** SSL auto-required for `neon.tech` URLs; `sslmode`/`channel_binding`
 params stripped from URL (asyncpg uses connect_args). Raw-query asyncpg pool skipped
 for Neon; uses SQLAlchemy-only path.
-
-### auth/jwt_handler.py
-
-`JWTHandler` with Redis-backed JTI blacklist.
-
-- **Access tokens:** 15 min expiry, includes `sub`, `email`, `scopes`, `type`, `jti`, `iss`
-- **Refresh tokens:** 7 day expiry
-- **Revocation:** `revoke_token(jti, ttl_seconds)` writes `jwt:revoked:<jti>` to Redis
-  with TTL matching token remaining lifetime; auto-expires
-- **Fallback:** In-memory `Set[str]` when Redis unavailable (no cross-process revocation)
-- **clear_revoked_tokens():** Uses SCAN to delete `jwt:revoked:*` keys (test use)
 
 ### services/vector_store.py + hnsw_vector_store.py
 
@@ -469,7 +466,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 
 | Service | Dependencies | Purpose |
 |---------|-------------|---------|
-| `PriceService` | PriceRepository, Redis | Price queries, comparison, forecast, optimal windows |
+| `PriceService` | PriceRepository, Redis, ML EnsemblePredictor | Price queries, comparison, forecast (ML-first with simulation fallback), optimal windows |
 | `AnalyticsService` | PriceRepository, Redis | Trends, volatility, peak hours, supplier comparison (cache=redis wired in dependencies.py) |
 | `RecommendationService` | PriceService, UserRepository, HNSWVectorStore | Switching + usage recommendations (with pattern-based confidence adjustment) |
 | `AlertService` | EmailService | Threshold checking + alert emails |
@@ -505,7 +502,7 @@ Two auth mechanisms:
 1. **Neon Auth Session** (user auth):
    - `get_current_user` dependency in `auth/neon_auth.py` validates sessions
    - Checks `better-auth.session_token` cookie or `Authorization: Bearer <token>` header
-   - Checks Redis cache first (120s TTL, key=`session:<token[:16]>`) before DB query
+   - Checks Redis cache first (120s TTL, key=`session:<sha256(token)[:32]>`) before DB query
    - Queries `neon_auth.session` + `neon_auth.user` tables directly via raw SQL on cache miss
    - Returns `SessionData(user_id, email, name)` on success
    - Returns HTTP 401 if token invalid/expired, HTTP 503 if DB unavailable
@@ -520,9 +517,8 @@ Two auth mechanisms:
 **Authorization:** `require_permission(scope)`, `require_permissions([...])`,
 `require_any_permission([...])` factory functions for scope-based access control.
 
-**Legacy:** `jwt_handler.py` and `middleware.py` retained for backward compatibility
-but no longer used as primary auth. `TokenData` is aliased to `SessionData` in
-`api/dependencies.py`.
+**Legacy cleanup:** `jwt_handler.py` and `middleware.py` have been deleted.
+`TokenData` is aliased to `SessionData` in `api/dependencies.py` for backward compat.
 
 
 ## Database (Neon PostgreSQL)
@@ -666,18 +662,23 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
   -> Connection limit check: _SSE_MAX_CONNECTIONS_PER_USER = 3 (HTTP 429 if exceeded)
   -> _sse_connections[user_id] incremented; decremented on disconnect (finally block)
   -> StreamingResponse(event_stream())
-  -> _price_event_generator() polls every {interval} seconds
-  -> Emits JSON price events via text/event-stream
+  -> _price_event_generator(region, price_service, interval, request):
+     -> PriceService.get_current_prices(region, limit=3) for real DB data
+     -> Falls back to _generate_mock_prices() if DB returns empty or errors
+     -> Each event includes "source": "live" or "source": "fallback"
   -> Sends heartbeat comment (": heartbeat") every 15 seconds to keep proxies alive
   -> Checks request.is_disconnected() between sleep chunks to stop promptly
 ```
+
+**Frontend client:** `@microsoft/fetch-event-source` (replaces native `EventSource`)
+with `credentials: 'include'` for cookie-based session auth.
 
 
 ## Security
 
 | Area | Implementation |
 |------|----------------|
-| Session auth | Neon Auth sessions validated via `neon_auth.session` table (httpOnly cookies) |
+| Session auth | Neon Auth sessions validated via `neon_auth.session` table (httpOnly cookies, SHA-256 cache key) |
 | CORS | Origin regex scoped to `electricity-optimizer*` |
 | Rate limiting | Per-minute (100) + per-hour (1000), Redis sliding window |
 | Login lockout | 5 failed attempts -> 15 min lockout |
@@ -688,7 +689,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 | Validation errors | Input values stripped from 422 responses |
 | Production errors | Generic 500 messages (no stack traces) |
 | Headers | CSP, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy |
-| Token revocation | Neon Auth manages session expiry; Redis JTI blacklist retained for legacy |
+| Token revocation | Neon Auth manages session expiry; legacy JWT system removed |
 
 
 ## Test Commands
@@ -704,7 +705,7 @@ Client -> GET /api/v1/prices/stream?region=us_ct&interval=30
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 635 passing, 0 failures (as of 2026-02-23), 25 test files (+test_observation_service: 31 tests, +test_learning_service: 32 tests). Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
+**Test status:** 694 passing, 0 failures (as of 2026-02-24), 29 test files. Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation
