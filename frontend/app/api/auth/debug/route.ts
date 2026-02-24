@@ -6,6 +6,9 @@
 import { Pool } from "@neondatabase/serverless"
 import { NextResponse } from "next/server"
 
+// Force dynamic rendering — prevent Next.js from caching build-time response
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   const baseUrl = process.env.DATABASE_URL || ""
   const connectionString = baseUrl.includes("options=")
