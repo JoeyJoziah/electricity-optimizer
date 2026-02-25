@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-24 (SSE auth upgrade: fetch-event-source, route splitting, 45-item refactoring complete)
+**Last Updated:** 2026-02-25 (claude-flow MCP + CI integration, test count update)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -456,7 +456,7 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-17 test suites, 346 tests total:
+22 test suites, 392 tests total:
 
 **Component tests** (`__tests__/`):
 
@@ -542,7 +542,7 @@ npm run lint          # next lint
 9. **Error boundaries** -- Global error boundary + per-route boundaries for dashboard, prices, suppliers
 10. **Neon Auth migration** -- Supabase SDK removed; auth now via Better Auth (`better-auth` package) with Neon Auth backend. Session cookies replace localStorage JWT tokens. Route protection via `middleware.ts`
 11. **CSP + HSTS headers** -- Content-Security-Policy and Strict-Transport-Security added to `next.config.js`
-12. **Frontend test expansion** -- 346 Jest tests across 17 suites covering components, lib/utils, lib/api
+12. **Frontend test expansion** -- 392 Jest tests across 22 suites covering components, lib/utils, lib/api
 13. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures
 14. **SSE auth upgrade** -- Replaced native `EventSource` with `@microsoft/fetch-event-source` for cookie-based session auth. Enables `credentials: 'include'`, auth failure detection, and exponential backoff retry
 15. **Backend route splitting** -- `prices.py` split into `prices.py` (CRUD), `prices_analytics.py` (statistics), `prices_sse.py` (streaming with real DB data via PriceService)

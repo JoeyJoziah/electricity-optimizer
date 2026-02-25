@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-24 (45-item refactoring roadmap complete: auth cleanup, route splitting, SSE real data, ML wiring, test expansion)
+> Last updated: 2026-02-25 (claude-flow MCP + CI integration, test count update)
 
 ## Directory Structure
 
@@ -705,7 +705,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 694 passing, 0 failures (as of 2026-02-24), 29 test files. Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
+**Test status:** 737 passing, 0 failures (as of 2026-02-25). Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation
@@ -726,6 +726,8 @@ Local board-sync infrastructure. See [Infrastructure](./INFRASTRUCTURE.md#board-
 | File | Purpose |
 |------|---------|
 | `sync-boards.sh` | Central orchestrator (lock, debounce, queue, GitHub + Notion sync) |
+| `activate-orchestration.sh` | Claude PreToolUse hook — Claude Flow MCP detect + Loki init + hooks pretrain |
+| `session-end-orchestration.sh` | Claude Stop hook — state persist + SONA metrics export + marker cleanup |
 | `post-edit-sync.sh` | Claude PostToolUse hook — queues sync on Edit/Write/MultiEdit |
 | `post-task-sync.sh` | Claude PostToolUse hook — drains queue on TaskUpdate |
 | `session-end-sync.sh` | Claude Stop hook — foreground forced sync |

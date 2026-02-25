@@ -536,4 +536,64 @@ The dashboard is not started automatically. It is intended for debugging and ins
 
 ---
 
-**Last Updated**: 2026-02-24
+## Claude Flow Orchestration
+
+Claude Flow is a multi-agent orchestration platform that provides MCP tools, code analysis, and session lifecycle intelligence.
+
+**Version:** v3.1.0-alpha.44 (npm global install, `npx claude-flow`)
+
+### MCP Server Registration
+
+Registered in `.mcp.json` as `claude-flow`. Starts via `npx claude-flow mcp start` (stdio mode). Exposes 221 MCP tools across categories: agents, swarms, memory, hooks, neural, security, config.
+
+| Property | Value |
+|----------|-------|
+| Package | `claude-flow@3.1.0-alpha.44` |
+| MCP Transport | stdio |
+| Shared State | `.swarm/memory.db` (sql.js + HNSW, 384-dim vectors) |
+| Config Dir | `.claude-flow/` (gitignored) |
+
+### Session Lifecycle Integration
+
+The activation and shutdown hooks coordinate Claude Flow alongside Loki Mode:
+
+| Hook | Script | Claude Flow Actions |
+|------|--------|---------------------|
+| `PreToolUse` | `activate-orchestration.sh` | Detect MCP server (skip CLI daemon if active), verify memory, bootstrap hooks intelligence (one-time pretrain) |
+| `Stop` | `session-end-orchestration.sh` | Persist state, export SONA metrics to `.claude-flow/logs/sona-metrics-*.json`, sync Loki learnings |
+
+**MCP vs CLI fallback:** If the MCP server is running (detected via `npx claude-flow mcp status`), the activation hook skips CLI daemon startup. Otherwise, it falls back to `npx claude-flow hooks session-start` for environments where MCP isn't available.
+
+### CI Integration
+
+Two GitHub Actions workflows use Claude Flow for code analysis:
+
+| Workflow | Trigger | Analysis |
+|----------|---------|----------|
+| `code-analysis.yml` | PRs to `main` | Diff risk, complexity (threshold 15), circular deps, security scan |
+| `backend-ci.yml` | Push/PR to `main`/`develop` (backend paths) | Security scan + dependency audit (added to existing security-scan job) |
+
+All analysis steps use `continue-on-error: true` to prevent blocking CI on tool failures. Reports are uploaded as JSON artifacts with 30-day retention.
+
+### Workflow Templates
+
+Local orchestration templates in `.claude-flow/workflows/` (gitignored):
+
+| Template | Chain | Schedule |
+|----------|-------|----------|
+| `price-pipeline.yaml` | price-sync -> observe-forecasts -> verify-accuracy | Every 6 hours |
+| `nightly-learning.yaml` | run-learning -> validate-weights -> persist-memory + update-vectors | 4 AM UTC |
+
+### Hooks Intelligence
+
+One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates the ReasoningBank from repo history. Marker file `.claude-flow/.hooks-pretrained` prevents re-running.
+
+### Key Caveats
+
+- **GitHub tools are stubs:** `github_workflow`, `github_repo_analyze`, etc. generate local mock data. Use `gh` CLI for real GitHub operations.
+- **Package name:** Always use `claude-flow`, NOT `@claude-flow/cli@v3alpha` (doesn't exist on npm).
+- **Permissions:** 5 MCP tool permissions pre-granted in `settings.local.json`; remaining 216 prompt on first use.
+
+---
+
+**Last Updated**: 2026-02-25
