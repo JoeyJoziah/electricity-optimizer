@@ -4,6 +4,7 @@ Application Settings and Configuration Management
 Uses pydantic-settings for type-safe configuration from environment variables.
 """
 
+import json as _json
 import os
 from typing import Optional, List
 from pydantic import Field, field_validator, model_validator
@@ -23,15 +24,26 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     backend_port: int = Field(default=8000, validation_alias="BACKEND_PORT")
 
-    # CORS
-    cors_origins: List[str] = Field(
-        default=[
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:8000",
-        ],
+    # CORS — stored as str to avoid pydantic-settings JSON-parse failures on
+    # comma-separated env var values.  Parsed into a list via the property.
+    cors_origins_raw: str = Field(
+        default='["http://localhost:3000","http://localhost:3001","http://localhost:8000"]',
         validation_alias="CORS_ORIGINS"
     )
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """Parse CORS origins from JSON array or comma-separated string."""
+        raw = self.cors_origins_raw
+        if not raw:
+            return ["http://localhost:3000"]
+        raw = raw.strip()
+        if raw.startswith("["):
+            try:
+                return _json.loads(raw)
+            except _json.JSONDecodeError:
+                pass
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
     # Database - Neon PostgreSQL
     timescaledb_url: Optional[str] = Field(default=None, validation_alias="TIMESCALEDB_URL")
@@ -136,13 +148,9 @@ class Settings(BaseSettings):
             )
         return v
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from string or list"""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    # NOTE: cors_origins parsing is handled by the cors_origins property above.
+    # The cors_origins_raw field stores the raw env var string to avoid
+    # pydantic-settings JSON-parse errors on comma-separated values.
 
     @property
     def is_production(self) -> bool:

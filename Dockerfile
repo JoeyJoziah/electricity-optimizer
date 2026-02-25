@@ -50,5 +50,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port (Render uses PORT env var, default 10000)
 EXPOSE ${PORT:-10000}
 
-# Run uvicorn with startup diagnostics
-CMD python -c "import sys,os; print(f'Python {sys.version}'); print(f'PORT={os.environ.get(\"PORT\",\"unset\")}'); print(f'ENV={os.environ.get(\"ENVIRONMENT\",\"unset\")}'); print(f'DB_URL_LEN={len(os.environ.get(\"DATABASE_URL\",\"\"))}'); print(f'REDIS_LEN={len(os.environ.get(\"REDIS_URL\",\"\"))}'); print('Importing app...'); from config.settings import settings; print(f'Settings OK: env={settings.environment}'); print('Starting uvicorn...')" && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
+# Run uvicorn
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
