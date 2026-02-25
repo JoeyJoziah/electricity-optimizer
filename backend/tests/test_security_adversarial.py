@@ -174,7 +174,7 @@ def client(test_app):
 # Fixture: full app client (for webhook / billing / supplier endpoint tests)
 # ---------------------------------------------------------------------------
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def full_app_client():
     """
     TestClient for the real FastAPI application defined in main.py.
@@ -183,7 +183,8 @@ def full_app_client():
     are fully offline.  Settings attributes that were not in the environment
     when the singleton was created are patched directly on the object.
 
-    Function-scoped to avoid stale state accumulation across test ordering.
+    Module-scoped: all 42 tests are read-only security probes — no state mutation.
+    Eliminates 42 importlib.reload(main) calls (~1s each on CI).
     """
     # Patch settings that the test expectations depend on.
     _originals = {}

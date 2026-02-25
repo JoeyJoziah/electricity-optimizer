@@ -19,6 +19,19 @@ from httpx import AsyncClient
 
 
 # =============================================================================
+# MODULE-SCOPED CLIENT FIXTURE
+# =============================================================================
+
+
+@pytest.fixture(scope="module")
+def client():
+    """Module-scoped TestClient — avoids 28 redundant ASGI lifespan startups."""
+    from main import app
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
+
+
+# =============================================================================
 # HEALTH CHECK TESTS
 # =============================================================================
 
@@ -26,11 +39,8 @@ from httpx import AsyncClient
 class TestHealthEndpoints:
     """Tests for health check endpoints"""
 
-    def test_health_check_returns_healthy(self):
+    def test_health_check_returns_healthy(self, client):
         """Test /health endpoint returns healthy status"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/health")
 
         assert response.status_code == 200
@@ -38,22 +48,15 @@ class TestHealthEndpoints:
         assert data["status"] == "healthy"
         assert "version" in data
 
-    def test_liveness_check(self):
+    def test_liveness_check(self, client):
         """Test /health/live endpoint"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/health/live")
 
         assert response.status_code == 200
         assert response.json()["status"] == "alive"
 
-    def test_readiness_check_structure(self):
+    def test_readiness_check_structure(self, client):
         """Test /health/ready endpoint returns correct structure"""
-        from main import app
-
-        client = TestClient(app)
-
         # Note: This may fail in test env without real DB connections
         # but we test the structure is correct
         response = client.get("/health/ready")
@@ -79,11 +82,8 @@ class TestPriceEndpoints:
         service = AsyncMock()
         return service
 
-    def test_get_current_prices(self):
+    def test_get_current_prices(self, client):
         """Test GET /api/v1/prices/current endpoint"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/api/v1/prices/current?region=uk")
 
         # Should return 200 or appropriate error
@@ -93,30 +93,21 @@ class TestPriceEndpoints:
             data = response.json()
             assert "prices" in data or "price" in data
 
-    def test_get_current_prices_requires_region(self):
+    def test_get_current_prices_requires_region(self, client):
         """Test GET /api/v1/prices/current requires region parameter"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/api/v1/prices/current")
 
         # Should require region
         assert response.status_code == 422  # Validation error
 
-    def test_get_prices_invalid_region(self):
+    def test_get_prices_invalid_region(self, client):
         """Test API returns error for invalid region"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/api/v1/prices/current?region=INVALID_REGION")
 
         assert response.status_code in [400, 422]
 
-    def test_get_price_history(self):
+    def test_get_price_history(self, client):
         """Test GET /api/v1/prices/history endpoint"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get(
             "/api/v1/prices/history",
             params={
@@ -132,11 +123,8 @@ class TestPriceEndpoints:
             assert "prices" in data
             assert isinstance(data["prices"], list)
 
-    def test_get_price_forecast(self):
+    def test_get_price_forecast(self, client):
         """Test GET /api/v1/prices/forecast endpoint"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get(
             "/api/v1/prices/forecast",
             params={
@@ -151,11 +139,8 @@ class TestPriceEndpoints:
             data = response.json()
             assert "forecast" in data or "prices" in data
 
-    def test_get_price_comparison(self):
+    def test_get_price_comparison(self, client):
         """Test GET /api/v1/prices/compare endpoint"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/api/v1/prices/compare?region=uk")
 
         assert response.status_code in [200, 404, 500]
@@ -173,11 +158,8 @@ class TestPriceEndpoints:
 class TestSupplierEndpoints:
     """Tests for supplier API endpoints"""
 
-    def test_list_suppliers(self):
+    def test_list_suppliers(self, client):
         """Test GET /api/v1/suppliers endpoint"""
-        from main import app
-
-        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers")
 
         assert response.status_code in [200, 500]
@@ -187,30 +169,21 @@ class TestSupplierEndpoints:
             assert "suppliers" in data
             assert isinstance(data["suppliers"], list)
 
-    def test_list_suppliers_by_region(self):
+    def test_list_suppliers_by_region(self, client):
         """Test GET /api/v1/suppliers?region=uk endpoint"""
-        from main import app
-
-        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers?region=uk")
 
         assert response.status_code in [200, 500]
 
-    def test_get_supplier_by_id(self):
+    def test_get_supplier_by_id(self, client):
         """Test GET /api/v1/suppliers/{id} endpoint"""
-        from main import app
-
-        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers/supplier_123")
 
         # 200 if found, 404 if not
         assert response.status_code in [200, 404, 500]
 
-    def test_get_supplier_tariffs(self):
+    def test_get_supplier_tariffs(self, client):
         """Test GET /api/v1/suppliers/{id}/tariffs endpoint"""
-        from main import app
-
-        client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/suppliers/supplier_123/tariffs")
 
         assert response.status_code in [200, 404, 500]
@@ -224,23 +197,15 @@ class TestSupplierEndpoints:
 class TestAuthenticationEndpoints:
     """Tests for authentication and protected endpoints"""
 
-    def test_protected_endpoint_requires_auth(self):
+    def test_protected_endpoint_requires_auth(self, client):
         """Test protected endpoints require authentication"""
-        from main import app
-
-        client = TestClient(app)
-
         # Try to access protected endpoint without token
         response = client.get("/api/v1/user/preferences")
 
         assert response.status_code == 401
 
-    def test_protected_endpoint_with_invalid_token(self):
+    def test_protected_endpoint_with_invalid_token(self, client):
         """Test protected endpoints reject invalid tokens"""
-        from main import app
-
-        client = TestClient(app)
-
         response = client.get(
             "/api/v1/user/preferences",
             headers={"Authorization": "Bearer invalid_token"}
@@ -251,12 +216,8 @@ class TestAuthenticationEndpoints:
         # Both indicate the request was properly rejected.
         assert response.status_code in (401, 503)
 
-    def test_user_preferences_endpoint(self):
+    def test_user_preferences_endpoint(self, client):
         """Test POST /api/v1/user/preferences requires auth"""
-        from main import app
-
-        client = TestClient(app)
-
         response = client.post(
             "/api/v1/user/preferences",
             json={"notification_enabled": True}
@@ -273,22 +234,14 @@ class TestAuthenticationEndpoints:
 class TestRecommendationEndpoints:
     """Tests for recommendation endpoints"""
 
-    def test_get_switching_recommendation_requires_auth(self):
+    def test_get_switching_recommendation_requires_auth(self, client):
         """Test recommendation endpoint requires authentication"""
-        from main import app
-
-        client = TestClient(app)
-
         response = client.get("/api/v1/recommendations/switching")
 
         assert response.status_code == 401
 
-    def test_get_usage_recommendation_requires_auth(self):
+    def test_get_usage_recommendation_requires_auth(self, client):
         """Test usage recommendation endpoint requires authentication"""
-        from main import app
-
-        client = TestClient(app)
-
         response = client.get(
             "/api/v1/recommendations/usage",
             params={"appliance": "washing_machine", "duration_hours": 2}
@@ -305,33 +258,22 @@ class TestRecommendationEndpoints:
 class TestErrorHandling:
     """Tests for API error handling"""
 
-    def test_not_found_returns_404(self):
+    def test_not_found_returns_404(self, client):
         """Test non-existent endpoint returns 404"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/api/v1/nonexistent")
 
         assert response.status_code == 404
 
-    def test_validation_error_returns_422(self):
+    def test_validation_error_returns_422(self, client):
         """Test validation errors return 422"""
-        from main import app
-
-        client = TestClient(app)
-
         # Invalid data type for region (if endpoint validates)
         response = client.get("/api/v1/prices/current?region=123")
 
         # Should be validation error or bad request
         assert response.status_code in [400, 422]
 
-    def test_method_not_allowed_returns_405(self):
+    def test_method_not_allowed_returns_405(self, client):
         """Test wrong HTTP method returns 405"""
-        from main import app
-
-        client = TestClient(app)
-
         # POST to GET-only endpoint
         response = client.post("/health")
 
@@ -346,11 +288,8 @@ class TestErrorHandling:
 class TestRateLimiting:
     """Tests for API rate limiting"""
 
-    def test_rate_limit_headers_present(self):
+    def test_rate_limit_headers_present(self, client):
         """Test rate limit headers are present in response"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/health")
 
         # Rate limit headers should be present (if implemented)
@@ -367,11 +306,8 @@ class TestRateLimiting:
 class TestCORS:
     """Tests for CORS configuration"""
 
-    def test_cors_headers_on_options(self):
+    def test_cors_headers_on_options(self, client):
         """Test CORS headers are returned on OPTIONS request"""
-        from main import app
-
-        client = TestClient(app)
         response = client.options(
             "/api/v1/prices/current",
             headers={
@@ -384,11 +320,8 @@ class TestCORS:
         # (405 if CORS middleware doesn't intercept, still valid config)
         assert response.status_code in [200, 204, 405]
 
-    def test_cors_allows_configured_origins(self):
+    def test_cors_allows_configured_origins(self, client):
         """Test CORS allows configured origins"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get(
             "/health",
             headers={"Origin": "http://localhost:3000"}
@@ -407,11 +340,8 @@ class TestCORS:
 class TestResponseFormat:
     """Tests for consistent API response format"""
 
-    def test_success_response_format(self):
+    def test_success_response_format(self, client):
         """Test successful responses have consistent format"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/health")
 
         assert response.status_code == 200
@@ -420,11 +350,8 @@ class TestResponseFormat:
         # Should have standard fields
         assert isinstance(data, dict)
 
-    def test_error_response_format(self):
+    def test_error_response_format(self, client):
         """Test error responses have consistent format"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/api/v1/prices/current")  # Missing required param
 
         assert response.status_code == 422
@@ -433,21 +360,15 @@ class TestResponseFormat:
         # Should have detail field for errors
         assert "detail" in data
 
-    def test_request_id_header(self):
+    def test_request_id_header(self, client):
         """Test X-Request-ID header is returned"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/health")
 
         assert response.status_code == 200
         assert "x-request-id" in response.headers
 
-    def test_process_time_header(self):
+    def test_process_time_header(self, client):
         """Test X-Process-Time header is returned"""
-        from main import app
-
-        client = TestClient(app)
         response = client.get("/health")
 
         assert response.status_code == 200

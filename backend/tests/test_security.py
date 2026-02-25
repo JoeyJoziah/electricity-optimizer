@@ -28,9 +28,9 @@ sys.path.insert(0, str(backend_dir))
 class TestSecurityHeaders:
     """Tests for security headers middleware"""
 
-    @pytest.mark.asyncio
-    async def test_xframe_options_header(self):
-        """Test X-Frame-Options header is DENY"""
+    @pytest.fixture(scope="class")
+    def security_app(self):
+        """Class-scoped SecurityHeaders test app — avoids 7 redundant constructions."""
         from middleware.security_headers import SecurityHeadersMiddleware
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
@@ -42,128 +42,58 @@ class TestSecurityHeaders:
         async def test_endpoint():
             return {"status": "ok"}
 
-        client = TestClient(app)
-        response = client.get("/test")
+        @app.get("/api/test")
+        async def api_endpoint():
+            return {"status": "ok"}
 
+        with TestClient(app) as client:
+            yield client
+
+    @pytest.mark.asyncio
+    async def test_xframe_options_header(self, security_app):
+        """Test X-Frame-Options header is DENY"""
+        response = security_app.get("/test")
         assert response.headers.get("X-Frame-Options") == "DENY"
 
     @pytest.mark.asyncio
-    async def test_xcontent_type_options_header(self):
+    async def test_xcontent_type_options_header(self, security_app):
         """Test X-Content-Type-Options header is nosniff"""
-        from middleware.security_headers import SecurityHeadersMiddleware
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/test")
-        async def test_endpoint():
-            return {"status": "ok"}
-
-        client = TestClient(app)
-        response = client.get("/test")
-
+        response = security_app.get("/test")
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
 
     @pytest.mark.asyncio
-    async def test_xss_protection_header(self):
+    async def test_xss_protection_header(self, security_app):
         """Test X-XSS-Protection header"""
-        from middleware.security_headers import SecurityHeadersMiddleware
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/test")
-        async def test_endpoint():
-            return {"status": "ok"}
-
-        client = TestClient(app)
-        response = client.get("/test")
-
+        response = security_app.get("/test")
         assert response.headers.get("X-XSS-Protection") == "1; mode=block"
 
     @pytest.mark.asyncio
-    async def test_csp_header_present(self):
+    async def test_csp_header_present(self, security_app):
         """Test Content-Security-Policy header is set"""
-        from middleware.security_headers import SecurityHeadersMiddleware
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/test")
-        async def test_endpoint():
-            return {"status": "ok"}
-
-        client = TestClient(app)
-        response = client.get("/test")
-
+        response = security_app.get("/test")
         csp = response.headers.get("Content-Security-Policy")
         assert csp is not None
         assert "default-src" in csp
 
     @pytest.mark.asyncio
-    async def test_referrer_policy_header(self):
+    async def test_referrer_policy_header(self, security_app):
         """Test Referrer-Policy header"""
-        from middleware.security_headers import SecurityHeadersMiddleware
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/test")
-        async def test_endpoint():
-            return {"status": "ok"}
-
-        client = TestClient(app)
-        response = client.get("/test")
-
+        response = security_app.get("/test")
         assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
 
     @pytest.mark.asyncio
-    async def test_permissions_policy_header(self):
+    async def test_permissions_policy_header(self, security_app):
         """Test Permissions-Policy header"""
-        from middleware.security_headers import SecurityHeadersMiddleware
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/test")
-        async def test_endpoint():
-            return {"status": "ok"}
-
-        client = TestClient(app)
-        response = client.get("/test")
-
+        response = security_app.get("/test")
         permissions = response.headers.get("Permissions-Policy")
         assert permissions is not None
         assert "camera=()" in permissions
         assert "microphone=()" in permissions
 
     @pytest.mark.asyncio
-    async def test_api_cache_control_headers(self):
+    async def test_api_cache_control_headers(self, security_app):
         """Test cache control headers for API endpoints"""
-        from middleware.security_headers import SecurityHeadersMiddleware
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/api/test")
-        async def test_endpoint():
-            return {"status": "ok"}
-
-        client = TestClient(app)
-        response = client.get("/api/test")
-
+        response = security_app.get("/api/test")
         cache_control = response.headers.get("Cache-Control")
         assert cache_control is not None
         assert "no-store" in cache_control
