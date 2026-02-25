@@ -1,8 +1,8 @@
 # Electricity Optimizer - Project TODO
 
 **Last Updated**: 2026-02-25
-**Status**: Code complete - All phases done, deployment configuration ready
-**Overall Progress**: All features complete, 2050+ tests passing, production deployment ready
+**Status**: Live in production on Render
+**Overall Progress**: All features complete, 2200+ tests passing, deployed to production
 
 ---
 
@@ -116,7 +116,7 @@
 - [x] Security testing (auth, SQL injection, rate limiting)
 - [x] Lighthouse CI for accessibility and performance
 
-**Testing Total**: 2100+ tests, 80%+ coverage
+**Testing Total**: 2200+ tests, 80%+ coverage
 
 ---
 
@@ -334,9 +334,9 @@
 - **Documentation**: 15+ comprehensive docs
 
 ### Test Coverage
-- **Total Tests**: 2100+
+- **Total Tests**: 2200+
 - **Test Success Rate**: 100%
-- **Backend Tests**: 694 passing (pytest, 29 test files, 0 failures)
+- **Backend Tests**: 741 passing (pytest, 29 test files, 0 failures)
 - **Frontend Unit Tests**: 445 passing (Jest, 32 suites)
 - **E2E Tests**: 805 (Playwright, 11 specs x 5 browsers: 431 passed, 374 skipped, 0 failed)
 - **Security Tests**: 144 (included in backend count)
@@ -404,14 +404,14 @@ make backup
 
 ---
 
-**Current Status**: Code complete -- all phases done, production deployment ready
+**Current Status**: Live in production on Render
 **Completed**:
-- Backend API (17+ endpoints, 694 tests passing, 0 failures)
+- Backend API (17+ endpoints, 741 tests passing, 0 failures)
 - ML Pipeline (CNN-LSTM, MILP, weather-aware, 105 tests)
-- Frontend Dashboard (5 pages, gamification, SSE streaming, 346 tests)
+- Frontend Dashboard (5 pages, gamification, SSE streaming, 445 tests)
 - Security & Compliance (Neon Auth sessions, GDPR, API key auth, 144 security tests)
 - Infrastructure (Docker, GitHub Actions CI/CD, Monitoring)
-- Testing (2050+ tests, 100% passing, 80%+ coverage)
+- Testing (2200+ tests, 100% passing, 80%+ coverage)
 - Adaptive Learning (observation loop, nightly learning, HNSW vector store)
 - Multi-Utility (electricity, natural gas, heating oil, propane, community solar)
 - E2E (805 Playwright tests across 5 browsers, 0 failures)
@@ -421,16 +421,20 @@ make backup
 - Dev-only Excalidraw architecture diagrams (53 tests, triple dev-gated)
 
 **Remaining**:
-1. Set Render/Vercel env vars with real API keys (including BETTER_AUTH_SECRET, BETTER_AUTH_URL)
-2. DNS/domain setup
-3. Beta invites
-4. 1Password credential audit (add Neon Auth, Stripe, NREL, EIA, OpenWeatherMap, Sentry items)
+1. DNS/custom domain setup
+2. Beta invites
+3. 1Password credential audit (add Neon Auth, Stripe, NREL, EIA, OpenWeatherMap, Sentry items)
+
+**Production (Live on Render)**:
+- Backend: https://electricity-optimizer.onrender.com
+- Frontend: https://electricity-optimizer-frontend.onrender.com
+- Auto-deploy on push to `main`
 
 ---
 
 **Statistics**:
 - 30,000+ lines of production code
-- 2100+ tests (100% passing)
+- 2200+ tests (100% passing)
 - 0 security vulnerabilities (SQL injection hardened, SSE auth, session SHA-256 cache keys)
 - 18x faster than traditional development
 - 78% under budget ($11/month vs $50/month)

@@ -81,7 +81,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (694 tests)
+### Backend (741 tests)
 
 ```bash
 source .venv/bin/activate
@@ -91,7 +91,7 @@ pytest tests/ -v
 
 > **Important:** Always use the project venv at `.venv/`. System Python is missing required dependencies (fastapi, httpx, pydantic, pytest-asyncio).
 
-### Frontend (346 tests, 17 suites)
+### Frontend (445 tests, 32 suites)
 
 ```bash
 cd frontend
@@ -118,13 +118,12 @@ The repository includes load, performance, and security tests under `tests/`. Se
 | Service  | Platform |
 |----------|----------|
 | Backend  | Render   |
-| Frontend | Vercel   |
+| Frontend | Render   |
 | Database | Neon     |
 
 Configuration files:
 
 - `render.yaml` -- Render service definitions (backend + frontend)
-- `frontend/vercel.json` -- Vercel project settings
 - `docker-compose.prod.yml` -- Production Docker Compose
 - `scripts/deploy.sh` / `scripts/production-deploy.sh` -- Deployment scripts
 

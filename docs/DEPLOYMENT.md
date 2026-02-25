@@ -365,4 +365,21 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 ---
 
-**Last Updated**: 2026-02-24
+**Last Updated**: 2026-02-25
+
+## Production Services (Live)
+
+| Service | URL | Platform |
+|---------|-----|----------|
+| Backend API | https://electricity-optimizer.onrender.com | Render |
+| Frontend | https://electricity-optimizer-frontend.onrender.com | Render |
+| Database | Neon PostgreSQL (holy-pine-81107663) | Neon |
+
+Both Render services auto-deploy on push to `main`. Backend build takes ~2 minutes, frontend ~4 minutes.
+
+### Authentication in Production
+
+- Neon Auth (Better Auth) with session-based httpOnly cookies
+- On HTTPS, cookies are auto-prefixed with `__Secure-` by Better Auth
+- Backend and frontend both check for `better-auth.session_token` and `__Secure-better-auth.session_token`
+- `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` must match between backend and frontend env vars
