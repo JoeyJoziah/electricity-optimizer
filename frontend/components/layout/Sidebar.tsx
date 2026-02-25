@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   TrendingUp,
   Building2,
+  Link2,
   Calendar,
   Settings,
   Zap,
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Prices', href: '/prices', icon: TrendingUp },
   { name: 'Suppliers', href: '/suppliers', icon: Building2 },
+  { name: 'Connections', href: '/connections', icon: Link2 },
   { name: 'Optimize', href: '/optimize', icon: Calendar },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]

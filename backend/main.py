@@ -171,12 +171,18 @@ class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Allow larger uploads for bill upload endpoint (10 MB)
+        max_bytes = MAX_REQUEST_BODY_BYTES
+        if request.url.path.endswith("/connections/upload"):
+            max_bytes = 10 * 1024 * 1024  # 10 MB for bill uploads
+
         content_length = request.headers.get("content-length")
         try:
-            if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+            if content_length and int(content_length) > max_bytes:
+                max_mb = max_bytes // (1024 * 1024)
                 return JSONResponse(
                     status_code=413,
-                    content={"detail": "Request body too large. Maximum size is 1 MB."},
+                    content={"detail": f"Request body too large. Maximum size is {max_mb} MB."},
                 )
         except (ValueError, TypeError):
             pass
@@ -185,10 +191,11 @@ class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
         # check the actual body size for methods that carry a body.
         if request.method in ("POST", "PUT", "PATCH") and not content_length:
             body = await request.body()
-            if len(body) > MAX_REQUEST_BODY_BYTES:
+            if len(body) > max_bytes:
+                max_mb = max_bytes // (1024 * 1024)
                 return JSONResponse(
                     status_code=413,
-                    content={"detail": "Request body too large. Maximum size is 1 MB."},
+                    content={"detail": f"Request body too large. Maximum size is {max_mb} MB."},
                 )
 
         return await call_next(request)
@@ -548,6 +555,16 @@ app.include_router(
     webhooks_v1.router,
     prefix=f"{settings.api_prefix}/webhooks",
     tags=["Webhooks"]
+)
+
+
+# Connection feature endpoints (paid-tier gate enforced inside router)
+from api.v1 import connections as connections_v1
+
+app.include_router(
+    connections_v1.router,
+    prefix=f"{settings.api_prefix}/connections",
+    tags=["Connections"]
 )
 
 

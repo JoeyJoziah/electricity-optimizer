@@ -133,6 +133,34 @@ def require_admin():
     return require_scope("admin")
 
 
+def require_paid_tier():
+    """
+    Require Pro or Business subscription for premium features.
+
+    Returns:
+        Dependency function that checks for a paid subscription tier
+    """
+    async def check_tier(
+        current_user: TokenData = Depends(get_current_user),
+        db=Depends(get_db_session),
+    ) -> TokenData:
+        from sqlalchemy import text
+
+        result = await db.execute(
+            text("SELECT subscription_tier FROM public.users WHERE id = :id"),
+            {"id": current_user.user_id},
+        )
+        tier = result.scalar_one_or_none()
+        if tier not in ("pro", "business"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This feature requires a Pro or Business subscription",
+            )
+        return current_user
+
+    return check_tier
+
+
 # =============================================================================
 # Service Dependencies
 # =============================================================================
