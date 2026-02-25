@@ -189,7 +189,7 @@ export function BillUploadForm({
 
         try {
           const res = await fetch(
-            `${API_BASE}/api/v1/connections/${connectionId}/uploads/${uploadId}/status`,
+            `${API_BASE}/api/v1/connections/${connectionId}/uploads/${uploadId}`,
             { credentials: 'include' }
           )
 

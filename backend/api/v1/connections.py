@@ -1093,6 +1093,54 @@ async def list_bill_uploads(
 
 
 # ---------------------------------------------------------------------------
+# GET /connections/{connection_id}/uploads/{upload_id}  —  single upload status
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{connection_id}/uploads/{upload_id}",
+    response_model=BillUploadResponse,
+    summary="Get single bill upload status",
+)
+async def get_bill_upload(
+    connection_id: str,
+    upload_id: str,
+    current_user: TokenData = Depends(require_paid_tier),
+    db: AsyncSession = Depends(get_db_session),
+) -> BillUploadResponse:
+    """Return a single bill upload record (for polling parse status)."""
+    result = await db.execute(
+        text("""
+            SELECT bu.id, bu.connection_id, bu.file_name, bu.file_type,
+                   bu.file_size_bytes, bu.parse_status, bu.detected_supplier,
+                   bu.detected_rate_per_kwh, bu.detected_billing_period_start,
+                   bu.detected_billing_period_end, bu.detected_total_kwh,
+                   bu.detected_total_amount, bu.parse_error, bu.created_at
+            FROM bill_uploads bu
+            JOIN user_connections uc ON bu.connection_id = uc.id
+            WHERE bu.id = :uid AND bu.connection_id = :cid AND uc.user_id = :user_id
+        """),
+        {"uid": upload_id, "cid": connection_id, "user_id": current_user.user_id},
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    row_dict = dict(row)
+    # Cast date fields to string for Pydantic
+    for date_col in ("detected_billing_period_start", "detected_billing_period_end"):
+        val = row_dict.get(date_col)
+        if val is not None:
+            row_dict[date_col] = str(val)
+    # Cast Decimal fields to float
+    for num_col in ("detected_rate_per_kwh", "detected_total_kwh", "detected_total_amount"):
+        val = row_dict.get(num_col)
+        if val is not None:
+            row_dict[num_col] = float(val)
+    return BillUploadResponse(**row_dict)
+
+
+# ---------------------------------------------------------------------------
 # POST /connections/{connection_id}/uploads/{upload_id}/reparse
 # ---------------------------------------------------------------------------
 

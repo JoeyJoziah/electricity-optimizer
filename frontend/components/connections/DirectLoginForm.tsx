@@ -110,7 +110,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
   const fetchSyncStatus = useCallback(async (connId: string) => {
     try {
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/${connId}/sync/status`,
+        `${API_BASE}/api/v1/connections/${connId}/sync-status`,
         { credentials: 'include' }
       )
       if (res.ok) {

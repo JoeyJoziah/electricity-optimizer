@@ -80,7 +80,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: selectedProvider }),
+        body: JSON.stringify({ provider: selectedProvider, consent_given: true }),
       })
 
       if (res.ok) {

@@ -165,7 +165,7 @@ class TestGetRateComparisonService:
         rate_row = _DictRow({
             "rate_per_kwh": 0.2500,
             "supplier_name": "Eversource",
-            "extracted_at": now,
+            "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
         })
@@ -248,7 +248,7 @@ class TestGetRateComparisonService:
         rate_row = _DictRow({
             "rate_per_kwh": 0.1500,
             "supplier_name": "UI",
-            "extracted_at": now,
+            "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
         })
@@ -294,9 +294,8 @@ class TestGetRateHistoryService:
             _DictRow({
                 "rate_per_kwh": 0.21,
                 "supplier_name": "Eversource",
-                "extracted_at": now - timedelta(days=10),
-                "billing_period_start": None,
-                "billing_period_end": None,
+                "effective_date": now - timedelta(days=10),
+                "source": "bill_parse",
                 "connection_id": TEST_CONNECTION_ID,
                 "connection_type": "direct",
                 "label": "Home",
@@ -304,9 +303,8 @@ class TestGetRateHistoryService:
             _DictRow({
                 "rate_per_kwh": 0.23,
                 "supplier_name": "Eversource",
-                "extracted_at": now,
-                "billing_period_start": None,
-                "billing_period_end": None,
+                "effective_date": now,
+                "source": "bill_parse",
                 "connection_id": TEST_CONNECTION_ID,
                 "connection_type": "direct",
                 "label": "Home",
@@ -569,7 +567,7 @@ class TestDetectRateChangesService:
             _DictRow({
                 "rate_per_kwh": 0.2700,
                 "supplier_name": "Eversource",
-                "extracted_at": now,
+                "effective_date": now,
                 "connection_id": TEST_CONNECTION_ID,
                 "label": "Home",
                 "prev_rate": 0.2400,  # 12.5% increase
@@ -600,7 +598,7 @@ class TestDetectRateChangesService:
             _DictRow({
                 "rate_per_kwh": 0.2510,
                 "supplier_name": "Eversource",
-                "extracted_at": now,
+                "effective_date": now,
                 "connection_id": TEST_CONNECTION_ID,
                 "label": "Home",
                 "prev_rate": 0.2500,  # 0.4% change — below threshold
@@ -627,7 +625,7 @@ class TestDetectRateChangesService:
             _DictRow({
                 "rate_per_kwh": 0.25,
                 "supplier_name": "Eversource",
-                "extracted_at": now,
+                "effective_date": now,
                 "connection_id": TEST_CONNECTION_ID,
                 "label": "Home",
                 "prev_rate": None,  # No previous rate
@@ -654,7 +652,7 @@ class TestDetectRateChangesService:
             _DictRow({
                 "rate_per_kwh": 0.2000,
                 "supplier_name": "UI",
-                "extracted_at": now,
+                "effective_date": now,
                 "connection_id": TEST_CONNECTION_ID,
                 "label": "Office",
                 "prev_rate": 0.2500,  # 20% decrease
@@ -704,7 +702,7 @@ class TestAnalyticsComparisonEndpoint:
         rate_row = _DictRow({
             "rate_per_kwh": 0.25,
             "supplier_name": "Eversource",
-            "extracted_at": now,
+            "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
         })
@@ -791,9 +789,8 @@ class TestAnalyticsHistoryEndpoint:
             _DictRow({
                 "rate_per_kwh": 0.22,
                 "supplier_name": "Eversource",
-                "extracted_at": now - timedelta(days=5),
-                "billing_period_start": None,
-                "billing_period_end": None,
+                "effective_date": now - timedelta(days=5),
+                "source": "bill_parse",
                 "connection_id": TEST_CONNECTION_ID,
                 "connection_type": "direct",
                 "label": "Home",
@@ -863,7 +860,7 @@ class TestAnalyticsSavingsEndpoint:
         rate_row = _DictRow({
             "rate_per_kwh": 0.25,
             "supplier_name": "Eversource",
-            "extracted_at": now,
+            "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
         })
@@ -947,7 +944,7 @@ class TestAnalyticsHealthEndpoint:
             _DictRow({
                 "rate_per_kwh": 0.27,
                 "supplier_name": "Eversource",
-                "extracted_at": datetime.now(timezone.utc),
+                "effective_date": datetime.now(timezone.utc),
                 "connection_id": TEST_CONNECTION_ID,
                 "label": "Home",
                 "prev_rate": 0.24,

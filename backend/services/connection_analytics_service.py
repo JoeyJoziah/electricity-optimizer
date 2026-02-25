@@ -5,7 +5,6 @@ Provides analytics endpoints for comparing user's extracted rates against market
 prices, historical rate trends, and estimated savings calculations.
 """
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy import text
@@ -30,8 +29,10 @@ class ConnectionAnalyticsService:
         delta, and percentage difference.
         """
         # Get user's latest extracted rate
+        # NOTE: connection_extracted_rates has effective_date (not extracted_at)
+        # and supplier_name lives on user_connections (not on extracted_rates)
         query = """
-            SELECT cer.rate_per_kwh, cer.supplier_name, cer.extracted_at,
+            SELECT cer.rate_per_kwh, uc.supplier_name, cer.effective_date,
                    uc.id as connection_id, uc.connection_type
             FROM connection_extracted_rates cer
             JOIN user_connections uc ON cer.connection_id = uc.id
@@ -41,7 +42,7 @@ class ConnectionAnalyticsService:
         if connection_id:
             query += " AND uc.id = :cid"
             params["cid"] = connection_id
-        query += " ORDER BY cer.extracted_at DESC LIMIT 1"
+        query += " ORDER BY cer.effective_date DESC LIMIT 1"
 
         result = await self.db.execute(text(query), params)
         user_rate_row = result.mappings().first()
@@ -110,20 +111,22 @@ class ConnectionAnalyticsService:
 
         Returns time-series of extracted rates per connection.
         """
+        # NOTE: connection_extracted_rates has effective_date and raw_label;
+        # supplier_name is on user_connections; no billing_period columns.
         query = """
-            SELECT cer.rate_per_kwh, cer.supplier_name, cer.extracted_at,
-                   cer.billing_period_start, cer.billing_period_end,
+            SELECT cer.rate_per_kwh, uc.supplier_name, cer.effective_date,
+                   cer.raw_label, cer.source,
                    uc.id as connection_id, uc.connection_type, uc.label
             FROM connection_extracted_rates cer
             JOIN user_connections uc ON cer.connection_id = uc.id
             WHERE uc.user_id = :uid
-              AND cer.extracted_at >= NOW() - make_interval(days => :days)
+              AND cer.effective_date >= NOW() - make_interval(days => :days)
         """
         params: Dict[str, Any] = {"uid": user_id, "days": days}
         if connection_id:
             query += " AND uc.id = :cid"
             params["cid"] = connection_id
-        query += " ORDER BY cer.extracted_at ASC"
+        query += " ORDER BY cer.effective_date ASC"
 
         result = await self.db.execute(text(query), params)
         rows = result.mappings().all()
@@ -131,13 +134,12 @@ class ConnectionAnalyticsService:
         data_points = []
         for row in rows:
             data_points.append({
-                "date": row["extracted_at"].isoformat() if row["extracted_at"] else None,
+                "date": row["effective_date"].isoformat() if row["effective_date"] else None,
                 "rate": float(row["rate_per_kwh"]) if row["rate_per_kwh"] else None,
                 "supplier": row["supplier_name"],
                 "connection_id": row["connection_id"],
                 "connection_label": row["label"],
-                "billing_start": row["billing_period_start"].isoformat() if row.get("billing_period_start") else None,
-                "billing_end": row["billing_period_end"].isoformat() if row.get("billing_period_end") else None,
+                "source": row["source"],
             })
 
         return {
@@ -237,15 +239,15 @@ class ConnectionAnalyticsService:
         """Detect significant rate changes (>threshold%) between consecutive extractions."""
         result = await self.db.execute(
             text("""
-                SELECT cer.rate_per_kwh, cer.supplier_name, cer.extracted_at,
+                SELECT cer.rate_per_kwh, uc.supplier_name, cer.effective_date,
                        uc.id as connection_id, uc.label,
                        LAG(cer.rate_per_kwh) OVER (
-                           PARTITION BY cer.connection_id ORDER BY cer.extracted_at
+                           PARTITION BY cer.connection_id ORDER BY cer.effective_date
                        ) as prev_rate
                 FROM connection_extracted_rates cer
                 JOIN user_connections uc ON cer.connection_id = uc.id
                 WHERE uc.user_id = :uid
-                ORDER BY cer.connection_id, cer.extracted_at DESC
+                ORDER BY cer.connection_id, cer.effective_date DESC
             """),
             {"uid": user_id},
         )
@@ -269,7 +271,7 @@ class ConnectionAnalyticsService:
                     "current_rate": round(current, 4),
                     "change_percentage": round(change_pct, 2),
                     "direction": "increase" if current > previous else "decrease",
-                    "detected_at": row["extracted_at"].isoformat() if row["extracted_at"] else None,
+                    "detected_at": row["effective_date"].isoformat() if row["effective_date"] else None,
                 })
 
         return alerts
