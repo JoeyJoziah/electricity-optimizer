@@ -173,6 +173,30 @@ class TestNeonAuthSessionValidation:
         assert result.email == "cookie@example.com"
 
     @pytest.mark.asyncio
+    async def test_get_current_user_from_secure_cookie(self, mock_db_session, mock_request):
+        """Test extracting session token from __Secure- prefixed cookie (HTTPS/production)"""
+        from auth.neon_auth import get_current_user, SESSION_COOKIE_NAME_SECURE
+
+        mock_request.cookies = {SESSION_COOKIE_NAME_SECURE: "secure-session-token"}
+
+        mock_row = MagicMock()
+        mock_row.user_id = "user-secure"
+        mock_row.email = "secure@example.com"
+        mock_row.name = "Secure User"
+        mock_row.email_verified = True
+        mock_row.role = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db_session.execute.return_value = mock_result
+
+        result = await get_current_user(mock_request, None, mock_db_session)
+
+        assert result.user_id == "user-secure"
+        assert result.email == "secure@example.com"
+        assert result.email_verified is True
+
+    @pytest.mark.asyncio
     async def test_get_current_user_no_token_raises_401(self, mock_db_session, mock_request):
         """Test missing session token raises 401"""
         from auth.neon_auth import get_current_user
@@ -353,6 +377,42 @@ class TestNeonAuthSessionValidation:
         call_args = mock_redis.setex.call_args
         assert call_args[0][0] == expected_key
         assert call_args[0][1] == _SESSION_CACHE_TTL
+
+    @pytest.mark.asyncio
+    async def test_invalidate_session_cache_deletes_key(self):
+        """Test invalidate_session_cache deletes the Redis entry."""
+        import hashlib
+        from auth.neon_auth import invalidate_session_cache
+
+        mock_redis = AsyncMock()
+        mock_redis.delete.return_value = 1  # 1 key deleted
+
+        token = "session-to-invalidate"
+        result = await invalidate_session_cache(token, redis=mock_redis)
+
+        assert result is True
+        expected_hash = hashlib.sha256(token.encode()).hexdigest()[:32]
+        expected_key = f"session:{expected_hash}"
+        mock_redis.delete.assert_awaited_once_with(expected_key)
+
+    @pytest.mark.asyncio
+    async def test_invalidate_session_cache_no_redis(self):
+        """Test invalidate_session_cache returns False when Redis is None."""
+        from auth.neon_auth import invalidate_session_cache
+
+        result = await invalidate_session_cache("some-token", redis=None)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_invalidate_session_cache_miss(self):
+        """Test invalidate_session_cache returns False when key not in cache."""
+        from auth.neon_auth import invalidate_session_cache
+
+        mock_redis = AsyncMock()
+        mock_redis.delete.return_value = 0  # No key deleted
+
+        result = await invalidate_session_cache("nonexistent-token", redis=mock_redis)
+        assert result is False
 
 
 # =============================================================================

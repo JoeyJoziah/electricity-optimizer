@@ -103,10 +103,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         })
       }
 
+      // Honor callbackUrl if the middleware set one, otherwise go to dashboard.
+      // Validate that it's a safe relative path (not //evil.com or javascript:).
+      const params = new URLSearchParams(window.location.search)
+      const callback = params.get('callbackUrl') || '/dashboard'
+      const destination =
+        callback.startsWith('/') && !callback.startsWith('//') ? callback : '/dashboard'
+
       // Full-page navigation ensures middleware evaluates with the fresh
       // session cookie (router.push uses cached prefetch that may predate
       // the cookie being set).
-      window.location.href = '/dashboard'
+      window.location.href = destination
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in'
       setError(message)
@@ -159,8 +166,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = useCallback(async () => {
     setIsLoading(true)
 
+    // Invalidate backend Redis session cache first (best-effort).
+    // Without this, the cached session remains valid for up to 30s
+    // after Better Auth deletes it from the neon_auth.session table.
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+      await fetch(`${baseUrl}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch {
+      // Best-effort — frontend logout proceeds regardless
+    }
+
     try {
       await authClient.signOut()
+    } catch {
+      // Swallow signOut errors — always clear local state
     } finally {
       setUser(null)
       setIsLoading(false)
