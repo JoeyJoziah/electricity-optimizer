@@ -5,13 +5,14 @@ Provides per-user and per-IP rate limiting using Redis-backed sliding window.
 """
 
 import hashlib
+import json
 import time
-from typing import Optional, Callable
+from typing import Optional
 from datetime import datetime, timezone
 
-from fastapi import Request, Response, HTTPException, status
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from fastapi import HTTPException, status
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 from redis import asyncio as aioredis
 
 import structlog
@@ -255,9 +256,9 @@ class UserRateLimiter:
         return False, 0
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
+class RateLimitMiddleware:
     """
-    FastAPI middleware for rate limiting.
+    Pure ASGI middleware for rate limiting.
 
     Applies per-user and per-IP rate limits to all requests.
     """
@@ -276,22 +277,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             rate_limiter: UserRateLimiter instance
             exclude_paths: Paths to exclude from rate limiting
         """
-        super().__init__(app)
+        self.app = app
         self.rate_limiter = rate_limiter or UserRateLimiter()
         self.exclude_paths = exclude_paths or ["/health", "/metrics"]
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable,
-    ) -> Response:
-        """Apply rate limiting to request"""
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Apply rate limiting to request."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path: str = scope.get("path", "")
+
         # Skip rate limiting for excluded paths
-        if any(request.url.path.startswith(p) for p in self.exclude_paths):
-            return await call_next(request)
+        if any(path.startswith(p) for p in self.exclude_paths):
+            await self.app(scope, receive, send)
+            return
 
         # Get identifier (user ID from token or IP address)
-        identifier = self._get_identifier(request)
+        identifier = self._get_identifier(scope)
 
         # Check per-minute limit
         allowed, remaining = await self.rate_limiter.check_rate_limit(
@@ -299,7 +303,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         )
 
         if not allowed:
-            raise RateLimitExceeded(retry_after=60, limit_type="per_minute")
+            await self._send_429(send, retry_after=60)
+            return
 
         # Check per-hour limit
         allowed, _ = await self.rate_limiter.check_rate_limit(
@@ -307,30 +312,55 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         )
 
         if not allowed:
-            raise RateLimitExceeded(retry_after=3600, limit_type="per_hour")
+            await self._send_429(send, retry_after=3600)
+            return
 
-        # Process request
-        response = await call_next(request)
+        # Process request, injecting rate-limit headers into the response
+        limit_str = str(self.rate_limiter.requests_per_minute).encode()
+        remaining_str = str(remaining).encode()
 
-        # Add rate limit headers
-        response.headers["X-RateLimit-Limit"] = str(self.rate_limiter.requests_per_minute)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        async def send_wrapper(message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-RateLimit-Limit"] = limit_str.decode()
+                headers["X-RateLimit-Remaining"] = remaining_str.decode()
+            await send(message)
 
-        return response
+        await self.app(scope, receive, send_wrapper)
 
-    def _get_identifier(self, request: Request) -> str:
-        """Get identifier for rate limiting (user ID or IP)"""
-        # Try to get user ID from Authorization header
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            # Hash the full token to get a unique per-user bucket
-            token_hash = hashlib.sha256(auth_header[7:].encode()).hexdigest()[:16]
-            return f"user:{token_hash}"
+    @staticmethod
+    async def _send_429(send: Send, retry_after: int) -> None:
+        """Send a 429 Too Many Requests response directly via raw ASGI messages."""
+        body = json.dumps(
+            {"detail": f"Rate limit exceeded. Retry after {retry_after} seconds."}
+        ).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 429,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"content-length", str(len(body)).encode()],
+                [b"retry-after", str(retry_after).encode()],
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+    def _get_identifier(self, scope: Scope) -> str:
+        """Get identifier for rate limiting (user ID or IP) from raw ASGI scope."""
+        # Headers in ASGI scope are list[tuple[bytes, bytes]]
+        headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
+        for header_name, header_value in headers:
+            if header_name == b"authorization":
+                auth = header_value.decode("latin-1")
+                if auth.startswith("Bearer "):
+                    token_hash = hashlib.sha256(auth[7:].encode()).hexdigest()[:16]
+                    return f"user:{token_hash}"
+                break
 
         # Fall back to IP address
-        client = request.client
+        client = scope.get("client")
         if client:
-            return f"ip:{client.host}"
+            return f"ip:{client[0]}"
 
         return "ip:unknown"
 

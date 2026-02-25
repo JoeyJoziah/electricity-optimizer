@@ -102,8 +102,8 @@ export function useRealtimePrices(region: string = 'us_ct', interval: number = 3
         setIsConnected(false)
       },
 
-      // Keep the connection open even when the browser tab is hidden
-      openWhenHidden: true,
+      // Pause SSE when browser tab is hidden to save bandwidth and server connections
+      openWhenHidden: false,
     }).catch(() => {
       // fetchEventSource promise rejects when we throw from onerror or abort
       if (mountedRef.current) setIsConnected(false)

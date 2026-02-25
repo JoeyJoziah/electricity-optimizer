@@ -57,11 +57,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter()
 
   // Initialize auth state from session cookie
+  // Fetch session and supplier data in parallel to avoid waterfall
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const { data: session } = await authClient.getSession()
-        if (session?.user) {
+        const [sessionResult, supplierResult] = await Promise.allSettled([
+          authClient.getSession(),
+          getUserSupplier(),
+        ])
+
+        if (sessionResult.status === 'fulfilled' && sessionResult.value.data?.user) {
+          const session = sessionResult.value.data
           setUser({
             id: session.user.id,
             email: session.user.email,
@@ -70,24 +76,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
             createdAt: session.user.createdAt?.toString() || '',
           })
 
-          // Sync current supplier from backend to Zustand store
-          try {
-            const { supplier } = await getUserSupplier()
-            if (supplier) {
-              const setCurrentSupplier = useSettingsStore.getState().setCurrentSupplier
-              setCurrentSupplier({
-                id: supplier.supplier_id,
-                name: supplier.supplier_name,
-                avgPricePerKwh: 0,
-                standingCharge: 0,
-                greenEnergy: supplier.green_energy,
-                rating: supplier.rating ?? 0,
-                estimatedAnnualCost: 0,
-                tariffType: 'variable',
-              })
-            }
-          } catch {
-            // Backend supplier sync failed — use whatever is in localStorage
+          // Sync supplier if fetched successfully
+          if (supplierResult.status === 'fulfilled' && supplierResult.value.supplier) {
+            const supplier = supplierResult.value.supplier
+            const setCurrentSupplier = useSettingsStore.getState().setCurrentSupplier
+            setCurrentSupplier({
+              id: supplier.supplier_id,
+              name: supplier.supplier_name,
+              avgPricePerKwh: 0,
+              standingCharge: 0,
+              greenEnergy: supplier.green_energy,
+              rating: supplier.rating ?? 0,
+              estimatedAnnualCost: 0,
+              tariffType: 'variable',
+            })
           }
         }
       } catch {

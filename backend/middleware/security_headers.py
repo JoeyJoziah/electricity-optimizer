@@ -4,18 +4,15 @@ Security Headers Middleware
 Adds security headers to all responses to protect against common web vulnerabilities.
 """
 
-from typing import Callable
-
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from config.settings import settings
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """
-    Middleware to add security headers to all responses.
+    Pure ASGI middleware to add security headers to all responses.
 
     Headers added:
     - Content-Security-Policy (CSP)
@@ -43,7 +40,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             hsts_max_age: HSTS max-age in seconds
             include_subdomains: Include subdomains in HSTS
         """
-        super().__init__(app)
+        self.app = app
         self.csp_policy = csp_policy or self._default_csp()
         self.hsts_max_age = hsts_max_age
         self.include_subdomains = include_subdomains
@@ -75,62 +72,69 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "base-uri 'self'"
             )
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable,
-    ) -> Response:
-        """Add security headers to response"""
-        response = await call_next(request)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Add security headers to response."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # X-Frame-Options: Prevent clickjacking
-        response.headers["X-Frame-Options"] = "DENY"
+        path: str = scope.get("path", "")
+        is_api_path = path.startswith("/api/")
 
-        # X-Content-Type-Options: Prevent MIME type sniffing
-        response.headers["X-Content-Type-Options"] = "nosniff"
+        async def send_wrapper(message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
 
-        # X-XSS-Protection: Enable browser XSS filtering
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+                # X-Frame-Options: Prevent clickjacking
+                headers["X-Frame-Options"] = "DENY"
 
-        # Content-Security-Policy
-        response.headers["Content-Security-Policy"] = self.csp_policy
+                # X-Content-Type-Options: Prevent MIME type sniffing
+                headers["X-Content-Type-Options"] = "nosniff"
 
-        # Referrer-Policy: Control referrer information
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                # X-XSS-Protection: Enable browser XSS filtering
+                headers["X-XSS-Protection"] = "1; mode=block"
 
-        # Permissions-Policy: Disable unnecessary browser features
-        response.headers["Permissions-Policy"] = (
-            "accelerometer=(), "
-            "camera=(), "
-            "geolocation=(), "
-            "gyroscope=(), "
-            "magnetometer=(), "
-            "microphone=(), "
-            "payment=(), "
-            "usb=()"
-        )
+                # Content-Security-Policy
+                headers["Content-Security-Policy"] = self.csp_policy
 
-        # Strict-Transport-Security (HSTS): Force HTTPS
-        # Only add in production (HTTPS required)
-        if settings.is_production:
-            hsts_value = f"max-age={self.hsts_max_age}"
-            if self.include_subdomains:
-                hsts_value += "; includeSubDomains"
-            hsts_value += "; preload"
-            response.headers["Strict-Transport-Security"] = hsts_value
+                # Referrer-Policy: Control referrer information
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-        # Cache-Control: Prevent caching of sensitive data
-        if request.url.path.startswith("/api/"):
-            response.headers["Cache-Control"] = (
-                "no-store, no-cache, must-revalidate, private"
-            )
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
+                # Permissions-Policy: Disable unnecessary browser features
+                headers["Permissions-Policy"] = (
+                    "accelerometer=(), "
+                    "camera=(), "
+                    "geolocation=(), "
+                    "gyroscope=(), "
+                    "magnetometer=(), "
+                    "microphone=(), "
+                    "payment=(), "
+                    "usb=()"
+                )
 
-        return response
+                # Strict-Transport-Security (HSTS): Force HTTPS
+                # Only add in production (HTTPS required)
+                if settings.is_production:
+                    hsts_value = f"max-age={self.hsts_max_age}"
+                    if self.include_subdomains:
+                        hsts_value += "; includeSubDomains"
+                    hsts_value += "; preload"
+                    headers["Strict-Transport-Security"] = hsts_value
+
+                # Cache-Control: Prevent caching of sensitive data
+                if is_api_path:
+                    headers["Cache-Control"] = (
+                        "no-store, no-cache, must-revalidate, private"
+                    )
+                    headers["Pragma"] = "no-cache"
+                    headers["Expires"] = "0"
+
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 
-def add_security_headers(response: Response) -> None:
+def add_security_headers(response) -> None:
     """
     Utility function to add security headers to a response.
 

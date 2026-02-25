@@ -5,6 +5,7 @@ Main application entry point with API endpoints, middleware, and lifecycle manag
 """
 
 import asyncio
+import json
 import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
@@ -13,8 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from prometheus_client import make_asgi_app
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 import structlog
 import time
 
@@ -166,42 +166,82 @@ app.add_middleware(
 MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024  # 1 MB
 
 
-class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
+class RequestBodySizeLimitMiddleware:
     """Reject requests exceeding the configured body size limit.
 
-    Checks Content-Length header first (fast path), then enforces the limit
-    on the actual body stream to handle chunked transfer encoding.
+    Pure ASGI middleware. Checks Content-Length header first (fast path),
+    then enforces the limit on the actual body stream to handle chunked
+    transfer encoding.
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path: str = scope.get("path", "")
+
         # Allow larger uploads for bill upload endpoint (10 MB)
         max_bytes = MAX_REQUEST_BODY_BYTES
-        if request.url.path.endswith("/connections/upload"):
+        if path.endswith("/connections/upload"):
             max_bytes = 10 * 1024 * 1024  # 10 MB for bill uploads
 
-        content_length = request.headers.get("content-length")
-        try:
-            if content_length and int(content_length) > max_bytes:
-                max_mb = max_bytes // (1024 * 1024)
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": f"Request body too large. Maximum size is {max_mb} MB."},
-                )
-        except (ValueError, TypeError):
-            pass
+        # Content-Length fast path: check declared size before reading body
+        headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
+        content_length_value: bytes | None = None
+        for header_name, header_value in headers:
+            if header_name == b"content-length":
+                content_length_value = header_value
+                break
 
-        # For requests without Content-Length (chunked encoding), read and
-        # check the actual body size for methods that carry a body.
-        if request.method in ("POST", "PUT", "PATCH") and not content_length:
-            body = await request.body()
-            if len(body) > max_bytes:
-                max_mb = max_bytes // (1024 * 1024)
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": f"Request body too large. Maximum size is {max_mb} MB."},
-                )
+        if content_length_value is not None:
+            try:
+                if int(content_length_value) > max_bytes:
+                    await self._send_413(send, max_bytes)
+                    return
+            except (ValueError, TypeError):
+                pass
 
-        return await call_next(request)
+        # Chunked encoding path: wrap receive to count bytes for body-bearing methods
+        method: str = scope.get("method", "")
+        if method in ("POST", "PUT", "PATCH") and content_length_value is None:
+            bytes_received = 0
+
+            async def counting_receive() -> dict:
+                nonlocal bytes_received
+                message = await receive()
+                if message.get("type") == "http.request":
+                    bytes_received += len(message.get("body", b""))
+                    if bytes_received > max_bytes:
+                        await self._send_413(send, max_bytes)
+                        # Return a terminal message so upstream stops reading
+                        return {"type": "http.request", "body": b"", "more_body": False}
+                return message
+
+            await self.app(scope, counting_receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _send_413(send: Send, max_bytes: int) -> None:
+        """Send a 413 Payload Too Large response via raw ASGI messages."""
+        max_mb = max_bytes // (1024 * 1024)
+        body = json.dumps(
+            {"detail": f"Request body too large. Maximum size is {max_mb} MB."}
+        ).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"content-length", str(len(body)).encode()],
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
 
 
 app.add_middleware(RequestBodySizeLimitMiddleware)
@@ -210,21 +250,44 @@ app.add_middleware(RequestBodySizeLimitMiddleware)
 REQUEST_TIMEOUT_SECONDS = 30
 
 
-class RequestTimeoutMiddleware(BaseHTTPMiddleware):
-    """Enforce a per-request timeout. SSE streaming endpoints are excluded."""
+class RequestTimeoutMiddleware:
+    """Enforce a per-request timeout. SSE streaming endpoints are excluded.
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        if request.url.path.endswith("/prices/stream"):
-            return await call_next(request)
+    Pure ASGI middleware — does not buffer responses, so it is safe alongside
+    SSE and other streaming endpoints.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path: str = scope.get("path", "")
+
+        # SSE endpoint must never be subject to a hard timeout
+        if path.endswith("/prices/stream"):
+            await self.app(scope, receive, send)
+            return
+
         try:
-            return await asyncio.wait_for(
-                call_next(request), timeout=REQUEST_TIMEOUT_SECONDS
+            await asyncio.wait_for(
+                self.app(scope, receive, send),
+                timeout=REQUEST_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
-            return JSONResponse(
-                status_code=504,
-                content={"detail": "Request timed out"},
-            )
+            body = json.dumps({"detail": "Request timed out"}).encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": 504,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(body)).encode()],
+                ],
+            })
+            await send({"type": "http.response.body", "body": body})
 
 
 app.add_middleware(RequestTimeoutMiddleware)
