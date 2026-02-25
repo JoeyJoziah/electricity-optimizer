@@ -84,6 +84,12 @@ function createAuth() {
       },
     },
 
+    // Re-throw API errors so our wrapper catches them with full detail
+    // (Better Auth's default onError silently swallows DB schema errors)
+    onAPIError: {
+      throw: true,
+    },
+
     // Enable verbose logging to diagnose internal errors
     logger: {
       level: "debug" as const,

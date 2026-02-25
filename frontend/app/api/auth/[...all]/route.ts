@@ -28,23 +28,48 @@ async function wrapHandler(
   try {
     const handler = getHandler()
     const handlerFn = method === "GET" ? handler.GET : handler.POST
+
+    // Log request details for debugging
+    const url = new URL(req.url)
+    console.log(`[Auth ${method}] ${url.pathname}`, {
+      hasDb: !!process.env.DATABASE_URL,
+      hasSecret: !!process.env.BETTER_AUTH_SECRET,
+    })
+
     const response = await handlerFn(req)
-    if (response.status >= 500) {
+
+    // Collect all response headers
+    const headers: Record<string, string> = {}
+    response.headers.forEach((v, k) => { headers[k] = v })
+
+    if (response.status >= 400) {
       let body: string | null = null
       try {
-        body = await response.text()
+        body = await response.clone().text()
       } catch { /* empty */ }
       console.error(`[Auth ${method} ${response.status}]`, {
         body,
+        headers,
         url: req.url,
-        hasDb: !!process.env.DATABASE_URL,
-        hasSecret: !!process.env.BETTER_AUTH_SECRET,
       })
+      // For 4xx, return the original response with extra debug info
+      if (response.status < 500) {
+        return NextResponse.json(
+          {
+            error: "Better Auth client error",
+            status: response.status,
+            body,
+            headers,
+          },
+          { status: response.status }
+        )
+      }
       return NextResponse.json(
         {
           error: "Better Auth internal error",
           status: response.status,
           body,
+          headers,
           dbUrlLen: (process.env.DATABASE_URL || "").length,
           hasSecret: !!process.env.BETTER_AUTH_SECRET,
         },
