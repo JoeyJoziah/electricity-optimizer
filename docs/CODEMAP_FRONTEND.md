@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-25 (Excalidraw dev-only architecture diagrams)
+**Last Updated:** 2026-02-25 (supplier selection & account linking components, test count update)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -70,7 +70,10 @@ frontend/
       QueryProvider.tsx         # TanStack React Query client (1min stale, 5min GC, 3 retries)
     suppliers/
       ComparisonTable.tsx       # Tabular supplier comparison with filters
+      SetSupplierDialog.tsx     # Modal dialog to select current supplier from list
+      SupplierAccountForm.tsx   # Account linking form (account number, meter, consent)
       SupplierCard.tsx          # Supplier card with pricing, rating, green badge
+      SupplierSelector.tsx      # Searchable dropdown to pick a supplier
       SwitchWizard.tsx          # Multi-step supplier switching flow with GDPR consent
     dev/                         # Dev-only components (never loaded in production)
       DevBanner.tsx              # "Development Mode" indicator banner
@@ -341,6 +344,9 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 |-----------|------|-------------|
 | `SupplierCard` | `components/suppliers/SupplierCard.tsx` | Card showing supplier name, price, rating, green badge, savings vs current |
 | `ComparisonTable` | `components/suppliers/ComparisonTable.tsx` | Full table with sortable columns and filters |
+| `SetSupplierDialog` | `components/suppliers/SetSupplierDialog.tsx` | Modal dialog listing available suppliers for selection |
+| `SupplierAccountForm` | `components/suppliers/SupplierAccountForm.tsx` | Utility account linking form with consent checkbox |
+| `SupplierSelector` | `components/suppliers/SupplierSelector.tsx` | Searchable dropdown with green/rating badges |
 | `SwitchWizard` | `components/suppliers/SwitchWizard.tsx` | Multi-step modal: review -> GDPR consent -> confirm -> complete |
 
 ### Gamification
@@ -480,7 +486,7 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-32 test suites, 445 tests total:
+35 test suites, 469 tests total:
 
 **Component tests** (`__tests__/`):
 
@@ -498,9 +504,15 @@ Page Component (app/(app)/*)
 | gamification/SavingsTracker.test.tsx | Streak tiers, progress bar, formatCurrency |
 | layout/Header.test.tsx | Header: title, nav, active state |
 | layout/Sidebar.test.tsx | Sidebar: nav links, responsive |
+| suppliers/SetSupplierDialog.test.tsx | Supplier selection dialog rendering and interaction |
+| suppliers/SupplierAccountForm.test.tsx | Account linking form validation and submission |
+| suppliers/SupplierSelector.test.tsx | Searchable supplier dropdown behavior |
 | ui/*.test.tsx | UI primitives: Badge, Button, Card, Input, Skeleton |
 | integration/dashboard.test.tsx | Dashboard integration: data loading, display, interactions |
+| pages/prices.test.tsx | Prices page rendering and interactions |
+| pages/suppliers.test.tsx | Suppliers page rendering and interactions |
 | hooks/useDiagrams.test.tsx | React Query diagram hooks |
+| hooks/usePrices.test.tsx | Price data fetching hooks |
 | utils/devGate.test.ts | isDevMode utility |
 | components/dev/DevBanner.test.tsx | DevBanner rendering |
 | components/dev/ExcalidrawWrapper.test.tsx | Excalidraw dynamic import wrapper |
@@ -518,6 +530,8 @@ Page Component (app/(app)/*)
 | lib/utils/\_\_tests\_\_/format.test.ts | 46 | All 9 format functions (currency, date, time, energy, etc.) |
 | lib/utils/\_\_tests\_\_/calculations.test.ts | 46 | All 8 calculation functions (trend, optimal periods, savings, etc.) |
 | lib/api/\_\_tests\_\_/client.test.ts | 30 | API client (GET/POST/PUT/DELETE), ApiClientError class |
+| lib/api/\_\_tests\_\_/prices.test.ts | -- | Price API function tests |
+| lib/api/\_\_tests\_\_/suppliers.test.ts | -- | Supplier API function tests |
 
 ### E2E Tests (`e2e/`)
 
@@ -563,7 +577,7 @@ npm run lint          # next lint
 
 ---
 
-## Recent Changes (as of 2026-02-24)
+## Recent Changes (as of 2026-02-25)
 
 1. **Multi-utility support** -- Settings store includes `utilityTypes` field (array of UtilityType). Settings page has utility type checkboxes
 2. **Multi-state region selector** -- Settings page offers expanded region dropdown covering all 50 US states + international regions
@@ -581,6 +595,7 @@ npm run lint          # next lint
 14. **SSE auth upgrade** -- Replaced native `EventSource` with `@microsoft/fetch-event-source` for cookie-based session auth. Enables `credentials: 'include'`, auth failure detection, and exponential backoff retry
 15. **Backend route splitting** -- `prices.py` split into `prices.py` (CRUD), `prices_analytics.py` (statistics), `prices_sse.py` (streaming with real DB data via PriceService)
 16. **Excalidraw architecture diagrams** -- Dev-only `/architecture` page for interactive `.excalidraw` diagrams stored in `docs/architecture/`. Triple-gated (middleware rewrite, layout notFound, API 404). Dynamic import keeps ~2MB bundle out of production. 53 new tests across 10 suites
+17. **Supplier selection & account linking** -- `SetSupplierDialog`, `SupplierAccountForm`, `SupplierSelector` components. Backend encrypts account/meter numbers with AES-256-GCM. 469 total frontend tests across 35 suites
 
 ---
 

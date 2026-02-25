@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-25 (claude-flow MCP + CI integration, test count update)
+> Last updated: 2026-02-25 (supplier selection, account linking, price sync service, encryption utils)
 
 ## Directory Structure
 
@@ -31,6 +31,7 @@ backend/
 │       ├── compliance.py            # GDPR consent, data export, data deletion
 │       ├── recommendations.py       # Switching, usage, & daily recommendations (wired to RecommendationService)
 │       ├── user.py                  # User preferences (stub)
+│       ├── user_supplier.py         # Supplier selection + account linking (AES-256-GCM encrypted fields)
 │       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats
 │
 ├── routers/
@@ -44,6 +45,7 @@ backend/
 │   ├── region.py                    # Region enum (single source of truth, all 50 US states + intl)
 │   ├── observation.py               # ForecastObservation, RecommendationOutcome, AccuracyMetrics, HourlyBias
 │   ├── regulation.py                # StateRegulation, StateRegulationResponse, StateRegulationListResponse
+│   ├── user_supplier.py             # SetSupplierRequest, LinkAccountRequest, UserSupplierResponse, LinkedAccountResponse
 │   └── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
 │
 ├── repositories/
@@ -63,7 +65,8 @@ backend/
 │   ├── vector_store.py              # SQLite-backed vector store for price pattern matching
 │   ├── hnsw_vector_store.py         # HNSW-indexed wrapper (O(log n) ANN, fallback); get_vector_store_singleton()
 │   ├── observation_service.py       # Record forecasts, backfill actuals, track recommendation outcomes
-│   └── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
+│   ├── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
+│   └── price_sync_service.py        # Orchestrate external API price fetch + persist via PriceRepository
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -86,8 +89,11 @@ backend/
 │       ├── rate_limiter.py          # API-level RateLimiter
 │       └── __init__.py              # create_pricing_service_from_settings()
 │
+├── utils/
+│   └── encryption.py                # AES-256-GCM field-level encryption (account numbers, meter numbers)
+│
 ├── middleware/
-│   ├── rate_limiter.py              # Redis-backed sliding window rate limiting
+│   ├── rate_limiter.py              # Redis-backed sliding window rate limiting + reset() for test isolation
 │   └── security_headers.py          # CSP, HSTS, X-Frame-Options, etc.
 │
 ├── migrations/
@@ -133,6 +139,12 @@ backend/
     ├── test_performance.py          # Performance tests (16 tests)
     ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn)
     ├── test_api_regulations.py      # State regulation API tests
+    ├── test_analytics_service.py    # AnalyticsService tests
+    ├── test_encryption.py           # AES-256-GCM encryption tests
+    ├── test_forecast_observation_repository.py  # ForecastObservationRepository tests
+    ├── test_price_sync_service.py   # PriceSyncService tests
+    ├── test_sse_streaming.py        # SSE streaming endpoint tests
+    ├── test_user_supplier.py        # Supplier selection + account linking tests
     └── test_load.py                 # Load/stress test helpers
 ```
 
@@ -270,6 +282,19 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | POST | `/observe-forecasts` | Backfill actual prices into unobserved forecast rows |
 | POST | `/learn` | Run adaptive learning cycle (accuracy, bias, weight tuning, pruning) |
 | GET | `/observation-stats` | Forecast accuracy metrics and hourly bias |
+
+### User Supplier (`/api/v1/user/supplier`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | Session | Get user's current supplier + linked accounts |
+| POST | `/set` | Session | Set current supplier (by supplier_id) |
+| POST | `/link-account` | Session | Link utility account (AES-256-GCM encrypted fields) |
+| DELETE | `/link-account/{account_id}` | Session | Unlink a utility account |
+
+**Security:** Account numbers and meter numbers encrypted at rest via AES-256-GCM
+(`utils/encryption.py`). Ciphertext format: nonce (12B) || ciphertext || tag (16B).
+Key from `FIELD_ENCRYPTION_KEY` env var (32-byte hex).
 
 ### Other
 
@@ -476,6 +501,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | `HNSWVectorStore` | VectorStore, hnswlib | HNSW-accelerated vector search (wraps VectorStore) |
 | `ObservationService` | AsyncSession | Record forecasts, backfill actuals, track outcomes |
 | `LearningService` | ObservationService, HNSWVectorStore, Redis | Nightly learning: accuracy, bias, weight tuning |
+| `PriceSyncService` | PricingService, PriceRepository | Orchestrate external API fetch + bulk persist (used by /prices/refresh) |
 | `GDPRComplianceService` | ConsentRepo, UserRepo | Consent, export, deletion, retention |
 
 
@@ -705,7 +731,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 737 passing, 0 failures (as of 2026-02-25). Test ordering bug resolved (rate limiter memory store + Pydantic descriptor restoration).
+**Test status:** 778 passing, 0 failures (as of 2026-02-25). 35 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation
