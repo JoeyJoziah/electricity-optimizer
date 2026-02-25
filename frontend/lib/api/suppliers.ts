@@ -95,3 +95,91 @@ export async function getSwitchStatus(
 }> {
   return apiClient.get(`/suppliers/switch/${referenceNumber}`)
 }
+
+// ============================================================================
+// User Supplier Management (backend: /api/v1/user/supplier)
+// ============================================================================
+
+export interface UserSupplierResponse {
+  supplier_id: string
+  supplier_name: string
+  regions: string[]
+  rating: number | null
+  green_energy: boolean
+  website: string | null
+}
+
+export interface LinkAccountRequest {
+  supplier_id: string
+  account_number: string
+  meter_number?: string
+  service_zip?: string
+  account_nickname?: string
+  consent_given: boolean
+}
+
+export interface LinkedAccountResponse {
+  supplier_id: string
+  supplier_name: string
+  account_number_masked: string | null
+  meter_number_masked: string | null
+  service_zip: string | null
+  account_nickname: string | null
+  is_primary: boolean
+  verified_at: string | null
+  created_at: string
+}
+
+/**
+ * Set the authenticated user's current supplier
+ */
+export async function setUserSupplier(
+  supplierId: string
+): Promise<UserSupplierResponse> {
+  return apiClient.put<UserSupplierResponse>('/user/supplier', {
+    supplier_id: supplierId,
+  })
+}
+
+/**
+ * Get the authenticated user's current supplier
+ */
+export async function getUserSupplier(): Promise<{
+  supplier: UserSupplierResponse | null
+}> {
+  return apiClient.get('/user/supplier')
+}
+
+/**
+ * Remove the authenticated user's current supplier
+ */
+export async function removeUserSupplier(): Promise<{ message: string }> {
+  return apiClient.delete('/user/supplier')
+}
+
+/**
+ * Link a utility account to a supplier
+ */
+export async function linkSupplierAccount(
+  data: LinkAccountRequest
+): Promise<LinkedAccountResponse> {
+  return apiClient.post<LinkedAccountResponse>('/user/supplier/link', data)
+}
+
+/**
+ * Get all linked supplier accounts (masked)
+ */
+export async function getUserSupplierAccounts(): Promise<{
+  accounts: LinkedAccountResponse[]
+}> {
+  return apiClient.get('/user/supplier/accounts')
+}
+
+/**
+ * Unlink a specific supplier account
+ */
+export async function unlinkSupplierAccount(
+  supplierId: string
+): Promise<{ message: string }> {
+  return apiClient.delete(`/user/supplier/accounts/${supplierId}`)
+}

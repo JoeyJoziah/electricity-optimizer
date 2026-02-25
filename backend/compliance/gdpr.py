@@ -143,6 +143,7 @@ class GDPRComplianceService:
         price_alert_repository=None,
         recommendation_repository=None,
         activity_log_repository=None,
+        db_session=None,
     ):
         """
         Initialize GDPR compliance service.
@@ -159,6 +160,7 @@ class GDPRComplianceService:
         self.price_alert_repo = price_alert_repository
         self.recommendation_repo = recommendation_repository
         self.activity_log_repo = activity_log_repository
+        self.db_session = db_session
 
     # -------------------------------------------------------------------------
     # Consent Management (Article 6, 7)
@@ -438,16 +440,64 @@ class GDPRComplianceService:
                     for l in logs
                 ]
 
+            # Get linked supplier accounts (if DB session available)
+            supplier_accounts = []
+            if self.db_session:
+                try:
+                    from sqlalchemy import text as sa_text
+                    from utils.encryption import decrypt_field, mask_account_number
+
+                    result = await self.db_session.execute(
+                        sa_text("""
+                            SELECT usa.supplier_id, sr.name AS supplier_name,
+                                   usa.account_number_encrypted, usa.meter_number_encrypted,
+                                   usa.service_zip, usa.account_nickname, usa.is_primary,
+                                   usa.created_at
+                            FROM user_supplier_accounts usa
+                            JOIN supplier_registry sr ON usa.supplier_id = sr.id
+                            WHERE usa.user_id = :user_id
+                        """),
+                        {"user_id": user_id},
+                    )
+                    for row in result.mappings().all():
+                        account_data = {
+                            "supplier_id": str(row["supplier_id"]),
+                            "supplier_name": row["supplier_name"],
+                            "service_zip": row["service_zip"],
+                            "account_nickname": row["account_nickname"],
+                            "is_primary": row["is_primary"],
+                            "created_at": str(row["created_at"]),
+                        }
+                        # For GDPR export, include decrypted account numbers
+                        if row["account_number_encrypted"]:
+                            try:
+                                account_data["account_number"] = decrypt_field(
+                                    bytes(row["account_number_encrypted"])
+                                )
+                            except Exception:
+                                account_data["account_number"] = "(decryption failed)"
+                        if row["meter_number_encrypted"]:
+                            try:
+                                account_data["meter_number"] = decrypt_field(
+                                    bytes(row["meter_number_encrypted"])
+                                )
+                            except Exception:
+                                account_data["meter_number"] = "(decryption failed)"
+                        supplier_accounts.append(account_data)
+                except Exception as e:
+                    logger.warning("supplier_accounts_export_failed", error=str(e))
+
             export = {
                 "user_id": user_id,
                 "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                "export_format_version": "1.0",
+                "export_format_version": "1.1",
                 "profile_data": profile_data,
                 "preferences_data": preferences_data,
                 "consent_history": consent_history,
                 "price_alerts": price_alerts,
                 "recommendations": recommendations,
                 "activity_logs": activity_logs,
+                "supplier_accounts": supplier_accounts,
             }
 
             logger.info(
@@ -536,6 +586,18 @@ class GDPRComplianceService:
                 else:
                     await self.activity_log_repo.delete_by_user_id(user_id)
                 deleted_categories.append("activity_logs")
+
+            # Delete linked supplier accounts (if DB session available)
+            if self.db_session:
+                try:
+                    from sqlalchemy import text as sa_text
+                    await self.db_session.execute(
+                        sa_text("DELETE FROM user_supplier_accounts WHERE user_id = :user_id"),
+                        {"user_id": user_id},
+                    )
+                    deleted_categories.append("supplier_accounts")
+                except Exception as e:
+                    logger.warning("supplier_accounts_deletion_failed", error=str(e))
 
             # Delete user profile
             await self.user_repo.delete(user_id)

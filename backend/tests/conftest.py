@@ -473,7 +473,7 @@ def mock_sqlalchemy_select(monkeypatch):
             "Price": ["id", "region", "supplier", "price_per_kwh", "timestamp", "currency", "is_peak", "utility_type"],
         },
         "models.user": {
-            "User": ["id", "email", "name", "region", "created_at", "is_active"],
+            "User": ["id", "email", "name", "region", "created_at", "is_active", "current_supplier_id"],
         },
         "models.supplier": {
             "Supplier": ["id", "name", "regions", "is_active", "average_renewable_percentage"],
@@ -528,28 +528,18 @@ def reset_rate_limiter():
     """
     Reset the rate limiter's in-memory store between tests.
 
-    The RateLimitMiddleware uses an in-memory dict when Redis is unavailable.
-    Without resetting, request counts accumulate across test functions and the
-    per-minute limit (100) gets hit mid-suite, causing unrelated tests to fail
-    with 429 Too Many Requests.
+    Direct import of the singleton from main — no fragile middleware walk.
+    Clears before AND after each test to prevent 429 accumulation.
     """
-    yield
-
-    # Walk the built middleware stack (built lazily on first request by
-    # Starlette/FastAPI). The stack is stored on app.middleware_stack after
-    # the first TestClient interaction.
     try:
-        from main import app
-        from middleware.rate_limiter import RateLimitMiddleware
-
-        obj = getattr(app, 'middleware_stack', None) or app
-        seen = set()
-        while obj is not None and id(obj) not in seen:
-            seen.add(id(obj))
-            if isinstance(obj, RateLimitMiddleware):
-                obj.rate_limiter._memory_store.clear()
-                break
-            obj = getattr(obj, 'app', None)
+        from main import _app_rate_limiter
+        _app_rate_limiter.reset()
+    except (ImportError, AttributeError):
+        pass
+    yield
+    try:
+        from main import _app_rate_limiter
+        _app_rate_limiter.reset()
     except (ImportError, AttributeError):
         pass
 

@@ -10,6 +10,8 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth/client'
+import { getUserSupplier } from '@/lib/api/suppliers'
+import { useSettingsStore } from '@/lib/store/settings'
 
 // Auth user type
 export interface AuthUser {
@@ -67,6 +69,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
             emailVerified: session.user.emailVerified,
             createdAt: session.user.createdAt?.toString() || '',
           })
+
+          // Sync current supplier from backend to Zustand store
+          try {
+            const { supplier } = await getUserSupplier()
+            if (supplier) {
+              const setCurrentSupplier = useSettingsStore.getState().setCurrentSupplier
+              setCurrentSupplier({
+                id: supplier.supplier_id,
+                name: supplier.supplier_name,
+                avgPricePerKwh: 0,
+                standingCharge: 0,
+                greenEnergy: supplier.green_energy,
+                rating: supplier.rating ?? 0,
+                estimatedAnnualCost: 0,
+                tariffType: 'variable',
+              })
+            }
+          } catch {
+            // Backend supplier sync failed — use whatever is in localStorage
+          }
         }
       } catch {
         // No valid session — user is not authenticated

@@ -531,6 +531,15 @@ app.include_router(
     tags=["Regulations"]
 )
 
+# User supplier management endpoints
+from api.v1 import user_supplier as user_supplier_v1
+
+app.include_router(
+    user_supplier_v1.router,
+    prefix=f"{settings.api_prefix}/user",
+    tags=["User Supplier"]
+)
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -51,6 +51,8 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false
 
   - type: web
     name: electricity-optimizer-frontend

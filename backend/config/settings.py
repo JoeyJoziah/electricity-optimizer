@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     stripe_price_pro: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_PRO")
     stripe_price_business: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_BUSINESS")
 
+    # Field-level encryption (AES-256-GCM for account numbers etc.)
+    field_encryption_key: Optional[str] = Field(default=None, validation_alias="FIELD_ENCRYPTION_KEY")
+
     # Feature Flags
     enable_auto_switching: bool = Field(default=False, validation_alias="ENABLE_AUTO_SWITCHING")
     enable_load_optimization: bool = Field(default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION")

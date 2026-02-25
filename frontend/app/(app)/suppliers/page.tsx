@@ -9,7 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ComparisonTable } from '@/components/suppliers/ComparisonTable'
 import { SupplierCard } from '@/components/suppliers/SupplierCard'
 import { SwitchWizard } from '@/components/suppliers/SwitchWizard'
-import { useSuppliers, useSupplierRecommendation, useInitiateSwitch } from '@/lib/hooks/useSuppliers'
+import { SetSupplierDialog } from '@/components/suppliers/SetSupplierDialog'
+import { useSuppliers, useSupplierRecommendation, useInitiateSwitch, useSetSupplier } from '@/lib/hooks/useSuppliers'
 import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency } from '@/lib/utils/format'
 import {
@@ -19,6 +20,7 @@ import {
   Award,
   Leaf,
   ArrowRight,
+  Zap,
 } from 'lucide-react'
 import type { Supplier, SupplierRecommendation } from '@/types'
 
@@ -28,6 +30,7 @@ export default function SuppliersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
   const [showWizard, setShowWizard] = useState(false)
+  const [showSetDialog, setShowSetDialog] = useState(false)
 
   const region = useSettingsStore((s) => s.region)
   const annualUsage = useSettingsStore((s) => s.annualUsageKwh)
@@ -46,6 +49,7 @@ export default function SuppliersPage() {
   )
 
   const initiateSwitch = useInitiateSwitch()
+  const setSupplierMutation = useSetSupplier()
 
   // Map backend supplier fields to frontend Supplier type
   const suppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: any) => ({
@@ -67,18 +71,47 @@ export default function SuppliersPage() {
   // Handle supplier selection
   const handleSelectSupplier = (supplier: Supplier) => {
     setSelectedSupplier(supplier)
-    setShowWizard(true)
+
+    if (!currentSupplier) {
+      // No current supplier — show simplified set dialog
+      setShowSetDialog(true)
+    } else {
+      // Has current supplier — show full switch wizard
+      setShowWizard(true)
+    }
   }
 
-  // Handle switch completion
+  // Handle first-time supplier set (from SetSupplierDialog)
+  const handleSetSupplier = async (supplier: Supplier) => {
+    try {
+      await setSupplierMutation.mutateAsync(supplier.id)
+    } catch {
+      // Backend save failed — still update local state for offline-first UX
+    }
+    setCurrentSupplierStore(supplier)
+    setShowSetDialog(false)
+    setSelectedSupplier(null)
+  }
+
+  // Handle switch completion (from SwitchWizard)
   const handleSwitchComplete = async () => {
     if (!selectedSupplier) return
 
-    await initiateSwitch.mutateAsync({
-      newSupplierId: selectedSupplier.id,
-      gdprConsent: true,
-      currentSupplierId: currentSupplier?.id,
-    })
+    try {
+      await setSupplierMutation.mutateAsync(selectedSupplier.id)
+    } catch {
+      // Backend save failed — still update local state
+    }
+
+    try {
+      await initiateSwitch.mutateAsync({
+        newSupplierId: selectedSupplier.id,
+        gdprConsent: true,
+        currentSupplierId: currentSupplier?.id,
+      })
+    } catch {
+      // Switch endpoint may not exist yet — that's OK, supplier was already set
+    }
 
     setCurrentSupplierStore(selectedSupplier)
     setShowWizard(false)
@@ -96,7 +129,7 @@ export default function SuppliersPage() {
     .filter((s) => s.greenEnergy)
     .sort((a, b) => a.estimatedAnnualCost - b.estimatedAnnualCost)[0]
 
-  // Wizard recommendation
+  // Wizard recommendation (only when switching from an existing supplier)
   const wizardRecommendation: SupplierRecommendation | null =
     selectedSupplier && currentSupplier
       ? {
@@ -202,15 +235,29 @@ export default function SuppliersPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Your Current</p>
-                <p className="font-semibold text-gray-900">
-                  {currentSupplier?.name || 'Not set'}
-                </p>
-                <p className="text-gray-600">
-                  {currentSupplier
-                    ? formatCurrency(currentSupplier.estimatedAnnualCost)
-                    : '--'}
-                  /year
-                </p>
+                {currentSupplier ? (
+                  <>
+                    <p className="font-semibold text-gray-900">
+                      {currentSupplier.name}
+                    </p>
+                    <p className="text-gray-600">
+                      {formatCurrency(currentSupplier.estimatedAnnualCost)}/year
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-gray-900">Not set</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1"
+                      onClick={() => setShowSetDialog(true)}
+                    >
+                      <Zap className="mr-1 h-3 w-3" />
+                      Select Supplier
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -268,7 +315,7 @@ export default function SuppliersPage() {
           />
         )}
 
-        {/* Switch wizard modal */}
+        {/* Switch wizard modal (when user has a current supplier) */}
         {showWizard && wizardRecommendation && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6">
@@ -279,6 +326,23 @@ export default function SuppliersPage() {
                   setShowWizard(false)
                   setSelectedSupplier(null)
                 }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Set supplier dialog (first-time selection, no current supplier) */}
+        {showSetDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6">
+              <SetSupplierDialog
+                suppliers={suppliers}
+                onSelect={handleSetSupplier}
+                onCancel={() => {
+                  setShowSetDialog(false)
+                  setSelectedSupplier(null)
+                }}
+                isLoading={setSupplierMutation.isPending}
               />
             </div>
           </div>

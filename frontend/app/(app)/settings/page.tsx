@@ -6,9 +6,13 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, Checkbox } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { SupplierSelector } from '@/components/suppliers/SupplierSelector'
+import { SupplierAccountForm } from '@/components/suppliers/SupplierAccountForm'
 import { useSettingsStore } from '@/lib/store/settings'
+import { useSuppliers, useSetSupplier, useLinkAccount, useUserSupplierAccounts } from '@/lib/hooks/useSuppliers'
 import { formatCurrency } from '@/lib/utils/format'
 import type { UtilityType } from '@/lib/store/settings'
+import type { Supplier } from '@/types'
 import {
   User,
   MapPin,
@@ -22,6 +26,8 @@ import {
   CheckCircle,
   Flame,
   Sun,
+  Link2,
+  X,
 } from 'lucide-react'
 
 const UTILITY_TYPE_OPTIONS: { value: UtilityType; label: string }[] = [
@@ -43,6 +49,7 @@ export default function SettingsPage() {
     displayPreferences,
     setRegion,
     setUtilityTypes,
+    setCurrentSupplier: setCurrentSupplierStore,
     setAnnualUsage,
     setPeakDemand,
     setNotificationPreferences,
@@ -52,6 +59,62 @@ export default function SettingsPage() {
 
   const [saved, setSaved] = React.useState(false)
   const [exporting, setExporting] = React.useState(false)
+  const [showSupplierPicker, setShowSupplierPicker] = React.useState(false)
+
+  // Fetch suppliers for the region
+  const { data: suppliersData } = useSuppliers(region, annualUsageKwh)
+  const setSupplierMutation = useSetSupplier()
+  const linkAccountMutation = useLinkAccount()
+  const { data: accountsData } = useUserSupplierAccounts()
+
+  // Map backend suppliers to frontend type
+  const availableSuppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    logo: s.logo || s.logo_url,
+    avgPricePerKwh: s.avgPricePerKwh ?? 0.22,
+    standingCharge: s.standingCharge ?? 0.40,
+    greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
+    rating: s.rating ?? 0,
+    estimatedAnnualCost: s.estimatedAnnualCost ?? Math.round((s.avgPricePerKwh ?? 0.22) * annualUsageKwh + 365 * 0.40),
+    tariffType: s.tariffType ?? (s.tariff_types?.[0] || 'variable'),
+    exitFee: s.exitFee ?? s.exit_fee,
+    contractLength: s.contractLength ?? s.contract_length,
+    features: s.features ?? s.tariff_types,
+  }))
+
+  const linkedAccounts = accountsData?.accounts || []
+
+  const handleSupplierChange = async (supplier: Supplier | null) => {
+    if (!supplier) return
+
+    try {
+      await setSupplierMutation.mutateAsync(supplier.id)
+    } catch {
+      // Backend save failed — still update local state
+    }
+
+    setCurrentSupplierStore(supplier)
+    setShowSupplierPicker(false)
+  }
+
+  const handleLinkAccount = async (data: {
+    supplierId: string
+    accountNumber: string
+    meterNumber?: string
+    serviceZip?: string
+    accountNickname?: string
+    consentGiven: boolean
+  }) => {
+    await linkAccountMutation.mutateAsync({
+      supplier_id: data.supplierId,
+      account_number: data.accountNumber,
+      meter_number: data.meterNumber,
+      service_zip: data.serviceZip,
+      account_nickname: data.accountNickname,
+      consent_given: data.consentGiven,
+    })
+  }
 
   const handleSave = () => {
     setSaved(true)
@@ -184,22 +247,88 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {/* Interactive Current Supplier section */}
               <div className="border-t border-gray-200 pt-4">
                 <p className="font-medium text-gray-900">Current Supplier</p>
-                {currentSupplier ? (
-                  <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 p-3">
-                    <div>
-                      <p className="font-medium">{currentSupplier.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {formatCurrency(currentSupplier.estimatedAnnualCost)}/year
-                      </p>
+                {currentSupplier && !showSupplierPicker ? (
+                  <div className="mt-2 space-y-3">
+                    <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                      <div>
+                        <p className="font-medium">{currentSupplier.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {formatCurrency(currentSupplier.estimatedAnnualCost)}/year
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="success">Connected</Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowSupplierPicker(true)}
+                        >
+                          Change
+                        </Button>
+                      </div>
                     </div>
-                    <Badge variant="success">Connected</Badge>
+
+                    {/* Linked account info */}
+                    {linkedAccounts.length > 0 && (
+                      <div className="space-y-2">
+                        {linkedAccounts.map((account: any) => (
+                          <div
+                            key={account.supplier_id}
+                            className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
+                          >
+                            <div>
+                              <span className="text-gray-500">Account: </span>
+                              <span className="font-mono">{account.account_number_masked || 'Linked'}</span>
+                              {account.account_nickname && (
+                                <span className="ml-2 text-gray-400">({account.account_nickname})</span>
+                              )}
+                            </div>
+                            <Badge variant="info" size="sm">
+                              <Link2 className="mr-1 h-3 w-3" />
+                              Linked
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Link account form */}
+                    <SupplierAccountForm
+                      supplierId={currentSupplier.id}
+                      supplierName={currentSupplier.name}
+                      onSubmit={handleLinkAccount}
+                      isLoading={linkAccountMutation.isPending}
+                    />
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-gray-500">
-                    No supplier connected. Visit the Suppliers page to set one.
-                  </p>
+                  <div className="mt-2">
+                    {showSupplierPicker && (
+                      <div className="mb-2 flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowSupplierPicker(false)}
+                        >
+                          <X className="mr-1 h-3 w-3" />
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                    <SupplierSelector
+                      suppliers={availableSuppliers}
+                      value={currentSupplier}
+                      onChange={handleSupplierChange}
+                      placeholder="Select your current supplier..."
+                    />
+                    {!currentSupplier && !showSupplierPicker && (
+                      <p className="mt-2 text-sm text-gray-500">
+                        Select your supplier to get personalized savings recommendations.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </CardContent>
