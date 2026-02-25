@@ -83,8 +83,12 @@ class TestSetCurrentSupplier:
 
     def test_set_supplier_success(self, client):
         """Setting a valid, active supplier should succeed."""
+        # Combined user check + region query (single round-trip)
         user_check_result = MagicMock()
-        user_check_result.scalar_one_or_none.return_value = "test-user-123"
+        user_check_result.mappings.return_value.first.return_value = {
+            "id": "test-user-123",
+            "region": "us_ct",
+        }
 
         supplier_result = MagicMock()
         supplier_result.mappings.return_value.first.return_value = {
@@ -97,15 +101,11 @@ class TestSetCurrentSupplier:
             "is_active": True,
         }
 
-        region_result = MagicMock()
-        region_result.scalar_one_or_none.return_value = "us_ct"
-
         update_result = MagicMock()
 
         self._db.execute = AsyncMock(side_effect=[
             user_check_result,
             supplier_result,
-            region_result,
             update_result,
         ])
 
@@ -122,7 +122,10 @@ class TestSetCurrentSupplier:
     def test_set_supplier_not_found(self, client):
         """Setting a non-existent supplier should return 404."""
         user_check_result = MagicMock()
-        user_check_result.scalar_one_or_none.return_value = "test-user-123"
+        user_check_result.mappings.return_value.first.return_value = {
+            "id": "test-user-123",
+            "region": "us_ct",
+        }
 
         supplier_result = MagicMock()
         supplier_result.mappings.return_value.first.return_value = None
@@ -139,7 +142,10 @@ class TestSetCurrentSupplier:
     def test_set_supplier_inactive(self, client):
         """Setting an inactive supplier should return 400."""
         user_check_result = MagicMock()
-        user_check_result.scalar_one_or_none.return_value = "test-user-123"
+        user_check_result.mappings.return_value.first.return_value = {
+            "id": "test-user-123",
+            "region": "us_ct",
+        }
 
         supplier_result = MagicMock()
         supplier_result.mappings.return_value.first.return_value = {
@@ -165,7 +171,10 @@ class TestSetCurrentSupplier:
     def test_set_supplier_wrong_region(self, client):
         """Setting a supplier not in user's region should return 400."""
         user_check_result = MagicMock()
-        user_check_result.scalar_one_or_none.return_value = "test-user-123"
+        user_check_result.mappings.return_value.first.return_value = {
+            "id": "test-user-123",
+            "region": "us_ct",
+        }
 
         supplier_result = MagicMock()
         supplier_result.mappings.return_value.first.return_value = {
@@ -178,11 +187,8 @@ class TestSetCurrentSupplier:
             "is_active": True,
         }
 
-        region_result = MagicMock()
-        region_result.scalar_one_or_none.return_value = "us_ct"
-
         self._db.execute = AsyncMock(side_effect=[
-            user_check_result, supplier_result, region_result,
+            user_check_result, supplier_result,
         ])
 
         response = client.put(

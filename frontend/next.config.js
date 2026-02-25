@@ -5,7 +5,7 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ['date-fns', 'lucide-react', 'recharts'],
+    optimizePackageImports: ['date-fns', 'lucide-react', 'recharts', 'better-auth'],
   },
 
   // Production optimizations

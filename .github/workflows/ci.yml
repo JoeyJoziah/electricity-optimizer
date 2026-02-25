@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
   NODE_VERSION: '20'
 
 jobs:
@@ -136,10 +136,26 @@ jobs:
           fail_ci_if_error: false
 
   # ===========================================================================
-  # Frontend: lint + tests + build
+  # Frontend: lint, tests, and build (parallel)
   # ===========================================================================
-  frontend-tests:
-    name: Frontend Tests
+  frontend-lint:
+    name: Frontend Lint
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node-env
+
+      - name: Lint with ESLint
+        run: cd frontend && npm run lint
+
+  frontend-test:
+    name: Frontend Test
     needs: changes
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
@@ -151,16 +167,8 @@ jobs:
       - name: Setup Node.js environment
         uses: ./.github/actions/setup-node-env
 
-      - name: Lint with ESLint
-        run: cd frontend && npm run lint
-
       - name: Run unit tests with coverage
         run: cd frontend && npm test -- --coverage --watchAll=false --passWithNoTests
-
-      - name: Build Next.js application
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
-        run: cd frontend && npm run build
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -170,6 +178,33 @@ jobs:
           flags: frontend
           name: frontend-coverage
           fail_ci_if_error: false
+
+  frontend-build:
+    name: Frontend Build
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node-env
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-
+            nextjs-${{ runner.os }}-
+
+      - name: Build Next.js application
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: cd frontend && npm run build
 
   # ===========================================================================
   # Security Scan (blocking — no continue-on-error)
@@ -225,12 +260,14 @@ jobs:
   # ===========================================================================
   docker-build:
     name: Docker Build Test
-    needs: [changes, backend-tests, frontend-tests]
+    needs: [changes, backend-tests, frontend-lint, frontend-test, frontend-build]
     if: |
       always() &&
       (needs.changes.outputs.docker == 'true' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true') &&
       (needs.backend-tests.result == 'success' || needs.backend-tests.result == 'skipped') &&
-      (needs.frontend-tests.result == 'success' || needs.frontend-tests.result == 'skipped')
+      (needs.frontend-lint.result == 'success' || needs.frontend-lint.result == 'skipped') &&
+      (needs.frontend-test.result == 'success' || needs.frontend-test.result == 'skipped') &&
+      (needs.frontend-build.result == 'success' || needs.frontend-build.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

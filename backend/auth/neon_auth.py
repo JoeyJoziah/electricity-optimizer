@@ -235,16 +235,14 @@ async def ensure_user_profile(
     Uses raw SQL because the User model is Pydantic (not SQLAlchemy ORM),
     so select(User) doesn't work outside of the test mock fixture.
     """
-    check = text("SELECT id FROM public.users WHERE id = :id")
-    result = await db.execute(check, {"id": neon_user_id})
-    if result.scalar_one_or_none() is not None:
-        return  # already synced
-
+    # Single upsert — ON CONFLICT DO NOTHING handles existing users atomically,
+    # eliminating the redundant SELECT round-trip on every request.
     insert = text("""
         INSERT INTO public.users (id, email, name, region, is_active, created_at, updated_at)
         VALUES (:id, :email, :name, 'us_ct', true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """)
-    await db.execute(insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""})
+    result = await db.execute(insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""})
     await db.commit()
-    logger.info("user_profile_synced", user_id=neon_user_id, email=email)
+    if result.rowcount > 0:
+        logger.info("user_profile_synced", user_id=neon_user_id, email=email)

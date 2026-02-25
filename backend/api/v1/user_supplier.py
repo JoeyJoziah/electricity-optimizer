@@ -71,7 +71,17 @@ async def set_current_supplier(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Set the authenticated user's current supplier."""
-    await _ensure_user_exists(db, current_user.user_id)
+    # Fetch user region and validate supplier in two queries (was three)
+    user_result = await db.execute(
+        text("SELECT id, region FROM public.users WHERE id = :id"),
+        {"id": current_user.user_id},
+    )
+    user_row = user_result.mappings().first()
+    if not user_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found. Please complete onboarding first.",
+        )
 
     supplier_id_str = str(body.supplier_id)
     supplier = await _get_supplier_by_id(db, supplier_id_str)
@@ -89,11 +99,7 @@ async def set_current_supplier(
         )
 
     # Validate user's region is in supplier's regions
-    user_result = await db.execute(
-        text("SELECT region FROM public.users WHERE id = :id"),
-        {"id": current_user.user_id},
-    )
-    user_region = user_result.scalar_one_or_none()
+    user_region = user_row["region"]
     if user_region and list(supplier["regions"]):
         if user_region.lower() not in [r.lower() for r in supplier["regions"]]:
             raise HTTPException(

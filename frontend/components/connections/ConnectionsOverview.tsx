@@ -7,6 +7,8 @@ import { DirectLoginForm } from './DirectLoginForm'
 import { EmailConnectionFlow } from './EmailConnectionFlow'
 import { ConnectionUploadFlow } from './ConnectionUploadFlow'
 import { ConnectionRates } from './ConnectionRates'
+import { ConnectionAnalytics } from './ConnectionAnalytics'
+import { cn } from '@/lib/utils/cn'
 import { Link2, ArrowLeft, Loader2 } from 'lucide-react'
 
 type View =
@@ -15,6 +17,8 @@ type View =
   | 'adding-email'
   | 'adding-upload'
   | 'viewing-rates'
+
+type Tab = 'connections' | 'analytics'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -32,6 +36,7 @@ interface Connection {
 
 export function ConnectionsOverview() {
   const [view, setView] = useState<View>('overview')
+  const [tab, setTab] = useState<Tab>('connections')
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -127,61 +132,116 @@ export function ConnectionsOverview() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-          <span className="ml-2 text-sm text-gray-500">
-            Loading connections...
-          </span>
-        </div>
-      )}
+    <div className="space-y-6">
+      {/* Tab navigation */}
+      <div className="flex border-b border-gray-200" role="tablist" aria-label="Connection views">
+        <button
+          role="tab"
+          aria-selected={tab === 'connections'}
+          aria-controls="panel-connections"
+          id="tab-connections"
+          onClick={() => setTab('connections')}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+            tab === 'connections'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          )}
+        >
+          Connections
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'analytics'}
+          aria-controls="panel-analytics"
+          id="tab-analytics"
+          onClick={() => setTab('analytics')}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+            tab === 'analytics'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          )}
+        >
+          Analytics
+        </button>
+      </div>
 
-      {/* Error state */}
-      {error && error !== 'upgrade' && (
-        <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-center">
-          <p className="text-sm text-danger-700">{error}</p>
-          <button
-            onClick={fetchConnections}
-            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
-          >
-            Try again
-          </button>
-        </div>
-      )}
+      {/* Connections tab panel */}
+      {tab === 'connections' && (
+        <div
+          role="tabpanel"
+          id="panel-connections"
+          aria-labelledby="tab-connections"
+          className="space-y-8"
+        >
+          {/* Loading state */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <span className="ml-2 text-sm text-gray-500">
+                Loading connections...
+              </span>
+            </div>
+          )}
 
-      {/* Existing connections */}
-      {!loading && connections.length > 0 && (
-        <div>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Active Connections
-          </h2>
-          <div className="space-y-3">
-            {connections.map((conn) => (
-              <ConnectionCard
-                key={conn.id}
-                connection={conn}
-                onDelete={fetchConnections}
-                onViewRates={handleViewRates}
-                onRefresh={fetchConnections}
+          {/* Error state */}
+          {error && error !== 'upgrade' && (
+            <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-center">
+              <p className="text-sm text-danger-700">{error}</p>
+              <button
+                onClick={fetchConnections}
+                className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {/* Existing connections */}
+          {!loading && connections.length > 0 && (
+            <div>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                Active Connections
+              </h2>
+              <div className="space-y-3">
+                {connections.map((conn) => (
+                  <ConnectionCard
+                    key={conn.id}
+                    connection={conn}
+                    onDelete={fetchConnections}
+                    onViewRates={handleViewRates}
+                    onRefresh={fetchConnections}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add new connection */}
+          {!loading && (
+            <div>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                {connections.length > 0 ? 'Add Another Connection' : 'Get Started'}
+              </h2>
+              <ConnectionMethodPicker
+                onSelectDirect={() => setView('adding-direct')}
+                onSelectEmail={() => setView('adding-email')}
+                onSelectUpload={() => setView('adding-upload')}
               />
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Add new connection */}
-      {!loading && (
-        <div>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            {connections.length > 0 ? 'Add Another Connection' : 'Get Started'}
-          </h2>
-          <ConnectionMethodPicker
-            onSelectDirect={() => setView('adding-direct')}
-            onSelectEmail={() => setView('adding-email')}
-            onSelectUpload={() => setView('adding-upload')}
-          />
+      {/* Analytics tab panel */}
+      {tab === 'analytics' && (
+        <div
+          role="tabpanel"
+          id="panel-analytics"
+          aria-labelledby="tab-analytics"
+        >
+          <ConnectionAnalytics />
         </div>
       )}
     </div>

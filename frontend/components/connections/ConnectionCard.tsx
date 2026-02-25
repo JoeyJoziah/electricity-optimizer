@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils/cn'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,10 @@ import {
   AlertTriangle,
   Zap,
   ChevronRight,
+  Pencil,
+  Check,
+  X,
+  Loader2,
 } from 'lucide-react'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -27,6 +31,7 @@ interface Connection {
   last_sync_error: string | null
   current_rate: number | null
   created_at: string
+  label?: string | null
 }
 
 interface ConnectionCardProps {
@@ -88,6 +93,14 @@ export function ConnectionCard({
   const [deleting, setDeleting] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
+  // Editable label state
+  const [editing, setEditing] = useState(false)
+  const [labelValue, setLabelValue] = useState(connection.label || '')
+  const [savingLabel, setSavingLabel] = useState(false)
+  const [labelError, setLabelError] = useState<string | null>(null)
+  const [currentLabel, setCurrentLabel] = useState(connection.label || null)
+  const labelInputRef = useRef<HTMLInputElement>(null)
+
   const Icon = methodIcons[connection.method] || KeyRound
   const methodLabel = methodLabels[connection.method] || connection.method
   const status = statusConfig[connection.status] || {
@@ -96,12 +109,69 @@ export function ConnectionCard({
   }
 
   const displayName =
-    connection.supplier_name || connection.email_provider || methodLabel
+    currentLabel || connection.supplier_name || connection.email_provider || methodLabel
 
   const canSync =
     connection.method === 'direct_login' || connection.method === 'email_scan'
   const hasRates = connection.current_rate !== null && connection.current_rate !== undefined
   const hasSyncError = !!connection.last_sync_error
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (editing && labelInputRef.current) {
+      labelInputRef.current.focus()
+      labelInputRef.current.select()
+    }
+  }, [editing])
+
+  const handleStartEditing = () => {
+    setLabelValue(currentLabel || '')
+    setLabelError(null)
+    setEditing(true)
+  }
+
+  const handleCancelEditing = () => {
+    setEditing(false)
+    setLabelValue(currentLabel || '')
+    setLabelError(null)
+  }
+
+  const handleSaveLabel = async () => {
+    const trimmed = labelValue.trim()
+    setSavingLabel(true)
+    setLabelError(null)
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/connections/${connection.id}`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: trimmed || null }),
+        }
+      )
+      if (res.ok) {
+        setCurrentLabel(trimmed || null)
+        setEditing(false)
+      } else {
+        setLabelError('Failed to save label')
+      }
+    } catch {
+      setLabelError('Failed to save label')
+    } finally {
+      setSavingLabel(false)
+    }
+  }
+
+  const handleLabelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveLabel()
+    } else if (e.key === 'Escape') {
+      handleCancelEditing()
+    }
+  }
 
   const handleDelete = async () => {
     if (!confirmDelete) {
@@ -173,11 +243,68 @@ export function ConnectionCard({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-medium text-gray-900 truncate">
-                {displayName}
-              </p>
+              {editing ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={labelInputRef}
+                    type="text"
+                    value={labelValue}
+                    onChange={(e) => setLabelValue(e.target.value)}
+                    onKeyDown={handleLabelKeyDown}
+                    placeholder={
+                      connection.supplier_name ||
+                      connection.email_provider ||
+                      methodLabel
+                    }
+                    maxLength={100}
+                    disabled={savingLabel}
+                    className="rounded border border-gray-300 px-2 py-0.5 text-sm font-medium text-gray-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:opacity-50 w-48"
+                    aria-label="Connection label"
+                    data-testid="label-input"
+                  />
+                  {savingLabel ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleSaveLabel}
+                        className="rounded p-0.5 text-success-600 hover:bg-success-50 transition-colors"
+                        aria-label="Save label"
+                        data-testid="save-label"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={handleCancelEditing}
+                        className="rounded p-0.5 text-gray-400 hover:bg-gray-100 transition-colors"
+                        aria-label="Cancel editing"
+                        data-testid="cancel-label"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <p className="font-medium text-gray-900 truncate">
+                    {displayName}
+                  </p>
+                  <button
+                    onClick={handleStartEditing}
+                    className="rounded p-0.5 text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors"
+                    aria-label="Edit label"
+                    data-testid="edit-label"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
               <Badge variant={status.variant}>{status.label}</Badge>
             </div>
+            {labelError && (
+              <p className="text-xs text-danger-600 mt-0.5">{labelError}</p>
+            )}
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <span>{methodLabel}</span>
               {connection.last_sync_at && (
