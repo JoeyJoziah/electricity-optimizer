@@ -20,7 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from auth.neon_auth import (
-    get_current_user, SessionData, invalidate_session_cache, SESSION_COOKIE_NAME,
+    get_current_user, SessionData, invalidate_session_cache,
+    SESSION_COOKIE_NAME, SESSION_COOKIE_NAME_SECURE,
 )
 from auth.password import check_password_strength
 from config.database import get_timescale_session, db_manager
@@ -119,7 +120,10 @@ async def logout(
     This endpoint clears our Redis session cache so the backend stops
     accepting the token immediately instead of waiting up to 30s.
     """
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    session_token = (
+        request.cookies.get(SESSION_COOKIE_NAME)
+        or request.cookies.get(SESSION_COOKIE_NAME_SECURE)
+    )
     if not session_token:
         # Fall back to Authorization header (already validated by get_current_user)
         auth_header = request.headers.get("Authorization", "")

@@ -34,6 +34,8 @@ security = HTTPBearer(auto_error=False)
 
 
 SESSION_COOKIE_NAME = "better-auth.session_token"
+# On HTTPS (production), Better Auth prefixes with __Secure-
+SESSION_COOKIE_NAME_SECURE = "__Secure-better-auth.session_token"
 
 
 @dataclass
@@ -168,7 +170,11 @@ async def get_current_user(
     if credentials and credentials.credentials:
         session_token = credentials.credentials
     else:
-        session_token = request.cookies.get(SESSION_COOKIE_NAME)
+        # Check both cookie names: plain (HTTP/dev) and __Secure- prefixed (HTTPS/prod)
+        session_token = (
+            request.cookies.get(SESSION_COOKIE_NAME)
+            or request.cookies.get(SESSION_COOKIE_NAME_SECURE)
+        )
 
     if not session_token:
         logger.warning("missing_session_token")
