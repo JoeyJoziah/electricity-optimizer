@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-25 (supplier selection, account linking, price sync service, encryption utils)
+> Last updated: 2026-02-25 (Connection Feature Phases 1-5: email OAuth, bill upload, direct login, UtilityAPI sync, analytics)
 
 ## Directory Structure
 
@@ -32,6 +32,7 @@ backend/
 │       ├── recommendations.py       # Switching, usage, & daily recommendations (wired to RecommendationService)
 │       ├── user.py                  # User preferences (stub)
 │       ├── user_supplier.py         # Supplier selection + account linking (AES-256-GCM encrypted fields)
+│       ├── connections.py           # Connection management: 4 methods (email OAuth, bill upload, direct login, UtilityAPI), analytics, health, labels
 │       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats
 │
 ├── routers/
@@ -46,6 +47,7 @@ backend/
 │   ├── observation.py               # ForecastObservation, RecommendationOutcome, AccuracyMetrics, HourlyBias
 │   ├── regulation.py                # StateRegulation, StateRegulationResponse, StateRegulationListResponse
 │   ├── user_supplier.py             # SetSupplierRequest, LinkAccountRequest, UserSupplierResponse, LinkedAccountResponse
+│   ├── connections.py               # CreateConnectionRequest (4 types), BillUploadResponse, ConnectionResponse, ConnectionAnalytics
 │   └── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
 │
 ├── repositories/
@@ -66,7 +68,13 @@ backend/
 │   ├── hnsw_vector_store.py         # HNSW-indexed wrapper (O(log n) ANN, fallback); get_vector_store_singleton()
 │   ├── observation_service.py       # Record forecasts, backfill actuals, track recommendation outcomes
 │   ├── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
-│   └── price_sync_service.py        # Orchestrate external API price fetch + persist via PriceRepository
+│   ├── price_sync_service.py        # Orchestrate external API price fetch + persist via PriceRepository
+│   ├── connection_service.py        # Core connection CRUD, status management
+│   ├── connection_sync_service.py   # UtilityAPI direct sync service (Phase 4)
+│   ├── connection_analytics_service.py # Rate comparison, history, savings estimates, stale detection, rate change alerts
+│   ├── email_oauth_service.py       # OAuth2 flows for Gmail + Outlook, HMAC-SHA256 state validation, token encryption
+│   ├── email_scanner_service.py     # Gmail REST API + Microsoft Graph API inbox scanning, rate extraction via regex
+│   └── bill_parser.py               # Bill document parsing (PDF/image OCR), rate extraction
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -103,7 +111,11 @@ backend/
 │   ├── 003_reconcile_schema.sql     # Schema reconciliation for consent_records/deletion_logs
 │   ├── 004_performance_indexes.sql  # Compound + partial indexes for perf optimization
 │   ├── 005_observation_tables.sql   # forecast_observations + recommendation_outcomes (adaptive learning)
-│   └── 006_multi_utility_expansion.sql # utility_type enum, supplier_registry, state_regulations tables
+│   ├── 006_multi_utility_expansion.sql # utility_type enum, supplier_registry, state_regulations tables
+│   ├── 007_user_supplier_accounts.sql # User supplier account tables
+│   ├── 008_connection_feature.sql   # Base connection tables: user_connections, bill_uploads, connection_extracted_rates
+│   ├── 009_email_oauth_tokens.sql   # OAuth token columns on user_connections
+│   └── 010_utilityapi_sync_columns.sql # UtilityAPI sync columns (last_sync_at, sync_frequency_hours, etc.)
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -145,6 +157,11 @@ backend/
     ├── test_price_sync_service.py   # PriceSyncService tests
     ├── test_sse_streaming.py        # SSE streaming endpoint tests
     ├── test_user_supplier.py        # Supplier selection + account linking tests
+    ├── test_connections.py          # Connection endpoint tests
+    ├── test_bill_upload.py          # Bill upload + parse tests
+    ├── test_email_oauth.py          # OAuth state gen/verify, consent URLs, token encryption, email scanning, endpoint tests (70 tests)
+    ├── test_connection_analytics.py # Analytics service tests (39 tests)
+    ├── test_middleware_asgi.py      # ASGI middleware compliance tests (178 lines)
     └── test_load.py                 # Load/stress test helpers
 ```
 
@@ -295,6 +312,38 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 **Security:** Account numbers and meter numbers encrypted at rest via AES-256-GCM
 (`utils/encryption.py`). Ciphertext format: nonce (12B) || ciphertext || tag (16B).
 Key from `FIELD_ENCRYPTION_KEY` env var (32-byte hex).
+
+### Connections (`/api/v1/connections`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/` | Paid tier | Create new connection (email_oauth, bill_upload, direct_login, utilityapi) |
+| GET | `/` | Paid tier | List user's connections |
+| GET | `/{connection_id}` | Paid tier | Get connection details |
+| DELETE | `/{connection_id}` | Paid tier | Delete connection |
+| PATCH | `/{connection_id}/label` | Paid tier | Update connection label |
+| GET | `/email/callback` | None | OAuth callback (Gmail/Outlook), HMAC state verification |
+| POST | `/email/{connection_id}/scan` | Paid tier | Trigger email inbox scan |
+| POST | `/{connection_id}/upload` | Paid tier | Upload bill document (PDF/image) |
+| GET | `/{connection_id}/uploads` | Paid tier | List uploads for connection |
+| GET | `/{connection_id}/uploads/{upload_id}` | Paid tier | Get single upload status (for polling) |
+| POST | `/{connection_id}/uploads/{upload_id}/reparse` | Paid tier | Re-parse an uploaded bill |
+| POST | `/{connection_id}/sync` | Paid tier | Trigger UtilityAPI sync |
+| GET | `/{connection_id}/sync-status` | Paid tier | Get sync status |
+| GET | `/{connection_id}/rates` | Paid tier | Get extracted rates for connection |
+| GET | `/analytics/comparison` | Paid tier | Rate comparison (user vs market) |
+| GET | `/analytics/history` | Paid tier | Rate history for charts |
+| GET | `/analytics/savings` | Paid tier | Estimated savings calculation |
+| GET | `/analytics/health` | Paid tier | Connection health (stale connections + rate changes) |
+
+**Connection types:** `email_oauth`, `bill_upload`, `direct_login`, `utilityapi`
+
+**Auth:** All endpoints require paid subscription tier (Pro or Business) via `require_paid_tier` dependency.
+
+**Route ordering:** Analytics routes registered before `/{connection_id}` to prevent path parameter capture.
+
+**Security:** OAuth tokens AES-256-GCM encrypted at rest. OAuth state HMAC-SHA256 signed with nonce
+for CSRF protection. Bill uploads: File type validation (PDF, PNG, JPG, JPEG, TIFF only), 10 MB max size.
 
 ### Other
 
@@ -502,6 +551,12 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | `ObservationService` | AsyncSession | Record forecasts, backfill actuals, track outcomes |
 | `LearningService` | ObservationService, HNSWVectorStore, Redis | Nightly learning: accuracy, bias, weight tuning |
 | `PriceSyncService` | PricingService, PriceRepository | Orchestrate external API fetch + bulk persist (used by /prices/refresh) |
+| `ConnectionService` | AsyncSession | Core connection CRUD and status management |
+| `ConnectionSyncService` | AsyncSession, encryption | UtilityAPI sync: fetch meters, bills, extract rates |
+| `ConnectionAnalyticsService` | AsyncSession | Rate comparison vs market, history, savings, stale detection, rate change alerts |
+| `EmailOAuthService` | Settings, encryption | OAuth2 for Gmail/Outlook: consent URLs, token exchange, refresh, HMAC state |
+| `EmailScannerService` | AsyncSession | Gmail/Outlook inbox scanning: keyword search, MIME traversal, regex rate extraction |
+| `BillParser` | -- | Document parsing: PDF text extraction, OCR for images, rate/supplier/amount detection |
 | `GDPRComplianceService` | ConsentRepo, UserRepo | Consent, export, deletion, retention |
 
 
@@ -549,7 +604,7 @@ Two auth mechanisms:
 
 ## Database (Neon PostgreSQL)
 
-14 tables (init_neon.sql + 002 + 005 + 006):
+17 tables (init_neon.sql + 002 + 005 + 006 + 007-010):
 
 | Table | PK Type | Notes |
 |-------|---------|-------|
@@ -567,8 +622,11 @@ Two auth mechanisms:
 | `activity_logs` | UUID | FK to users |
 | `forecast_observations` | UUID | predicted vs actual prices, partial index on unobserved |
 | `recommendation_outcomes` | UUID | user acceptance + actual savings tracking |
+| `user_connections` | UUID | FK to users, connection_type enum, status, supplier_name, OAuth tokens (encrypted), sync columns |
+| `bill_uploads` | UUID | FK to user_connections, file metadata, parse_status, detected rates/supplier/amounts |
+| `connection_extracted_rates` | UUID | FK to user_connections, rate_per_kwh, effective_date, source, raw_label |
 
-**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar).
+**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar). `connection_type` enum (email_oauth, bill_upload, direct_login, utilityapi).
 
 
 ## Migrations
@@ -581,6 +639,10 @@ Two auth mechanisms:
 | `004_performance_indexes.sql` | Compound index on `electricity_prices(region, supplier, timestamp DESC)`, partial index on `users(stripe_customer_id)` |
 | `005_observation_tables.sql` | `forecast_observations` + `recommendation_outcomes` tables with indexes for adaptive learning |
 | `006_multi_utility_expansion.sql` | `utility_type` enum, `utility_type` columns on prices/suppliers/tariffs, `supplier_registry` table, `state_regulations` table, CT seed data |
+| `007_user_supplier_accounts.sql` | User supplier account tables |
+| `008_connection_feature.sql` | Base connection tables: `user_connections`, `bill_uploads`, `connection_extracted_rates` |
+| `009_email_oauth_tokens.sql` | OAuth token columns on `user_connections` |
+| `010_utilityapi_sync_columns.sql` | UtilityAPI sync columns (`last_sync_at`, `sync_frequency_hours`, etc.) |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.
@@ -680,6 +742,33 @@ RecommendationService._compute_switching() / _compute_usage():
   -> If similar pattern found with low confidence: reduce recommendation confidence
 ```
 
+### Connection Import (4 methods)
+
+```
+1. Email OAuth (Gmail/Outlook):
+   POST /connections {type: email_oauth} -> create connection
+   -> redirect to Google/Outlook consent URL (HMAC-SHA256 state)
+   -> GET /connections/email/callback -> verify state, exchange code, encrypt tokens
+   -> POST /connections/email/{id}/scan -> search inbox for utility emails
+   -> extract rates via regex -> store in connection_extracted_rates
+
+2. Bill Upload:
+   POST /connections {type: bill_upload} -> create connection
+   -> POST /connections/{id}/upload (multipart) -> store file, queue parse
+   -> BillParser: PDF text extraction / OCR -> detect supplier, rates, amounts
+   -> GET /connections/{id}/uploads/{uid} -> poll parse status
+
+3. Direct Login:
+   POST /connections {type: direct_login} -> create connection + encrypted credentials
+   -> POST /connections/{id}/sync -> trigger UtilityAPI-style data fetch
+   -> GET /connections/{id}/sync-status -> poll sync status
+
+4. UtilityAPI:
+   POST /connections {type: utilityapi} -> create connection
+   -> POST /connections/{id}/sync -> UtilityAPI meters/bills endpoint
+   -> extract rates from bill data -> store in connection_extracted_rates
+```
+
 ### SSE Price Stream
 
 ```
@@ -716,6 +805,10 @@ with `credentials: 'include'` for cookie-based session auth.
 | Production errors | Generic 500 messages (no stack traces) |
 | Headers | CSP, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy |
 | Token revocation | Neon Auth manages session expiry; legacy JWT system removed |
+| OAuth tokens | AES-256-GCM encrypted at rest (base64-encoded for TEXT columns) |
+| OAuth state | HMAC-SHA256 signed with nonce for CSRF protection |
+| Connection endpoints | Paid tier required (subscription gating via `require_paid_tier` dependency) |
+| Bill uploads | File type validation (PDF, PNG, JPG, JPEG, TIFF only), 10 MB max size |
 
 
 ## Test Commands
@@ -731,7 +824,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 787 passing, 0 failures (as of 2026-02-25). 36 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
+**Test status:** 1033 passing, 0 failures (as of 2026-02-25). 42 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation

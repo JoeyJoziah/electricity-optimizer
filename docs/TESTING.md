@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-25
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 787 (pytest, 36 test files)
+**Backend Tests**: 1033 (pytest, 42 test files)
 **Frontend Tests**: 469 across 35 suites (Jest)
 **ML Tests**: 257 + 41 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
@@ -13,7 +13,7 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 787 | 85%+ | pytest |
+| **Backend Unit/Integration** | 1033 (1041 collected, 8 deselected) | 85%+ | pytest |
 | **Frontend Component + Lib Tests** | 469 (35 suites) | 70%+ | Jest + RTL |
 | **ML Inference + Training** | 257 (+41 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
@@ -70,7 +70,7 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (787 tests)
+# Backend tests (1033 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
@@ -99,10 +99,10 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 787
+**Count**: 1033
 **Coverage Target**: 85%+
 
-**Test Files**:
+**Test Files** (42 files):
 - `test_api.py` - API endpoint tests
 - `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
 - `test_api_predictions.py` - ML prediction endpoint tests
@@ -128,6 +128,11 @@ cd tests/load && ./run_load_test.sh quick
 - `test_load.py` - Load/stress test helpers
 - `test_multi_utility.py` - Multi-utility expansion tests (39 tests)
 - `test_performance.py` - Performance tests (query count, cache, async Stripe) (16 tests)
+- `test_connections.py` - Connection endpoint tests (create, list, delete, label update, rates)
+- `test_bill_upload.py` - Bill upload and parse tests (file validation, multipart upload, parse status)
+- `test_email_oauth.py` - Email OAuth tests: state gen/verify, consent URLs, token encryption, Gmail/Outlook scanning, callback flow, endpoint tests (70 tests across 13 classes)
+- `test_connection_analytics.py` - Analytics service tests: rate comparison, history, savings, stale connections, rate changes (39 tests across 8 classes)
+- `test_middleware_asgi.py` - ASGI middleware compliance tests (rate limiter, security headers)
 
 **Running**:
 ```bash
@@ -570,7 +575,7 @@ open tests/load/reports/load_test_*.html
 
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (787 backend, 469 frontend, 257 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1033 backend, 469 frontend, 257 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 
@@ -613,7 +618,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 787 backend, 469 frontend, and 257 ML tests continue to pass with Loki Mode installed
+- All 1033 backend, 469 frontend, and 257 ML tests continue to pass with Loki Mode installed
 
 ---
 

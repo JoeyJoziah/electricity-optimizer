@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-25 (supplier selection & account linking components, test count update)
+**Last Updated:** 2026-02-25 (connection feature phases 1-5, page component extraction)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -37,14 +37,19 @@ frontend/
         callback/page.tsx       # OAuth/magic-link callback (/auth/callback)
       beta-signup/page.tsx      # Beta signup form (/beta-signup) - CT suppliers
       dashboard/
-        page.tsx                # Dashboard (/dashboard) - stats, charts, gamification
+        page.tsx                # Dashboard (/dashboard) - imports DashboardContent
+        loading.tsx             # Dashboard loading skeleton
         error.tsx               # Dashboard error boundary
       prices/
-        page.tsx                # Prices (/prices) - history, forecast, optimal periods
+        page.tsx                # Prices (/prices) - imports PricesContent
+        loading.tsx             # Prices loading skeleton
         error.tsx               # Prices error boundary
       suppliers/
-        page.tsx                # Suppliers (/suppliers) - grid/table, compare, switch wizard
+        page.tsx                # Suppliers (/suppliers) - imports SuppliersContent
+        loading.tsx             # Suppliers loading skeleton
         error.tsx               # Suppliers error boundary
+      connections/
+        page.tsx                # Connections (/connections) - ConnectionsOverview with tabs
       optimize/page.tsx         # Optimization (/optimize) - appliances, schedule, savings
       settings/page.tsx         # Settings (/settings) - region, usage, notifications, display
     (dev)/                      # Route group: dev-only pages (triple-gated)
@@ -55,7 +60,9 @@ frontend/
   components/
     auth/
       LoginForm.tsx             # Email/password + OAuth (Google, GitHub) + magic link (legacy UI)
-      SignupForm.tsx             # Registration form with OAuth options (legacy UI)
+      SignupForm.tsx            # Registration form with OAuth options (legacy UI)
+    dashboard/
+      DashboardContent.tsx      # Extracted dashboard page content (client component)
     charts/
       ForecastChart.tsx         # ML forecast visualization (Recharts)
       PriceLineChart.tsx        # Price history line chart with time range selector
@@ -65,7 +72,9 @@ frontend/
       SavingsTracker.tsx        # Streak tracking, savings summary, optimization score
     layout/
       Header.tsx                # Sticky header: title, live indicator, refresh, notifications
-      Sidebar.tsx               # Fixed sidebar: logo + 5 nav links (Dashboard through Settings)
+      Sidebar.tsx               # Fixed sidebar: logo + 6 nav links (Dashboard, Prices, Suppliers, Connections, Optimize, Settings)
+    prices/
+      PricesContent.tsx         # Extracted prices page content (client component)
     providers/
       QueryProvider.tsx         # TanStack React Query client (1min stale, 5min GC, 3 retries)
     suppliers/
@@ -75,6 +84,17 @@ frontend/
       SupplierCard.tsx          # Supplier card with pricing, rating, green badge
       SupplierSelector.tsx      # Searchable dropdown to pick a supplier
       SwitchWizard.tsx          # Multi-step supplier switching flow with GDPR consent
+      SuppliersContent.tsx      # Extracted suppliers page content (client component)
+    connections/
+      ConnectionMethodPicker.tsx  # 4-method picker (Email, Bill Upload, Direct Login, UtilityAPI)
+      EmailConnectionFlow.tsx     # Gmail/Outlook OAuth redirect + inbox scan UI
+      BillUploadForm.tsx          # File upload (PDF/image), parse status polling
+      DirectLoginForm.tsx         # Credential form + sync status polling
+      ConnectionUploadFlow.tsx    # Upload workflow orchestration
+      ConnectionRates.tsx         # Extracted rates display
+      ConnectionCard.tsx          # Connection card with editable label, status, last sync
+      ConnectionsOverview.tsx     # Tab navigation: Connections | Analytics views
+      ConnectionAnalytics.tsx     # 4-card analytics dashboard (rate comparison, savings, history, health)
     dev/                         # Dev-only components (never loaded in production)
       DevBanner.tsx              # "Development Mode" indicator banner
       ExcalidrawWrapper.tsx      # Dynamic Excalidraw import (ssr: false)
@@ -153,6 +173,7 @@ frontend/
 | `/dashboard` | `app/(app)/dashboard/page.tsx` | Main dashboard: current price, savings, charts, forecast, schedule |
 | `/prices` | `app/(app)/prices/page.tsx` | Price detail: history chart, stats, 48h forecast, optimal periods, alerts |
 | `/suppliers` | `app/(app)/suppliers/page.tsx` | Supplier comparison: grid/table views, recommendation banner, switch wizard |
+| `/connections` | `app/(app)/connections/page.tsx` | Connection management: overview, analytics, 4 import methods |
 | `/optimize` | `app/(app)/optimize/page.tsx` | Load optimization: appliance config, schedule optimizer, savings calc |
 | `/settings` | `app/(app)/settings/page.tsx` | Settings: region, supplier, usage, notifications, display, privacy |
 | `/auth/login` | `app/(app)/auth/login/page.tsx` | Login form (force-dynamic) |
@@ -348,6 +369,20 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 | `SupplierAccountForm` | `components/suppliers/SupplierAccountForm.tsx` | Utility account linking form with consent checkbox |
 | `SupplierSelector` | `components/suppliers/SupplierSelector.tsx` | Searchable dropdown with green/rating badges |
 | `SwitchWizard` | `components/suppliers/SwitchWizard.tsx` | Multi-step modal: review -> GDPR consent -> confirm -> complete |
+
+### Connections
+
+| Component | File | Description |
+|-----------|------|-------------|
+| `ConnectionMethodPicker` | `components/connections/ConnectionMethodPicker.tsx` | Card grid: Email OAuth, Bill Upload, Direct Login, UtilityAPI |
+| `EmailConnectionFlow` | `components/connections/EmailConnectionFlow.tsx` | Provider selection (Gmail/Outlook), OAuth redirect, scan inbox UI |
+| `BillUploadForm` | `components/connections/BillUploadForm.tsx` | Drag-drop file upload, parse status polling, extracted data display |
+| `DirectLoginForm` | `components/connections/DirectLoginForm.tsx` | Utility credential form, sync trigger, sync-status polling |
+| `ConnectionCard` | `components/connections/ConnectionCard.tsx` | Connection card with inline editable label (pencil icon, Enter/Escape) |
+| `ConnectionsOverview` | `components/connections/ConnectionsOverview.tsx` | Tab navigation between "Connections" and "Analytics" views |
+| `ConnectionAnalytics` | `components/connections/ConnectionAnalytics.tsx` | 4-card dashboard: rate comparison, savings estimate, rate history, connection health |
+| `ConnectionRates` | `components/connections/ConnectionRates.tsx` | Table of extracted rates per connection |
+| `ConnectionUploadFlow` | `components/connections/ConnectionUploadFlow.tsx` | Bill upload workflow orchestrator |
 
 ### Gamification
 
@@ -596,6 +631,8 @@ npm run lint          # next lint
 15. **Backend route splitting** -- `prices.py` split into `prices.py` (CRUD), `prices_analytics.py` (statistics), `prices_sse.py` (streaming with real DB data via PriceService)
 16. **Excalidraw architecture diagrams** -- Dev-only `/architecture` page for interactive `.excalidraw` diagrams stored in `docs/architecture/`. Triple-gated (middleware rewrite, layout notFound, API 404). Dynamic import keeps ~2MB bundle out of production. 53 new tests across 10 suites
 17. **Supplier selection & account linking** -- `SetSupplierDialog`, `SupplierAccountForm`, `SupplierSelector` components. Backend encrypts account/meter numbers with AES-256-GCM. 469 total frontend tests across 35 suites
+18. **Connection feature (5 phases)** -- Full utility connection system: Email OAuth import (Gmail + Outlook with HMAC state), bill upload with OCR parsing, direct login, UtilityAPI sync. Analytics dashboard with rate comparison, savings estimates, rate history charts, and connection health monitoring. 9 new frontend components in `connections/` directory
+19. **Page component extraction** -- Dashboard, Prices, Suppliers page content extracted into dedicated `*Content.tsx` components. Added Next.js `loading.tsx` skeletons for all three routes. Improves streaming support and code organization
 
 ---
 
