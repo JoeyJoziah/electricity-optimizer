@@ -83,6 +83,11 @@ function createAuth() {
         generateId: "uuid",
       },
     },
+
+    // Enable verbose logging to diagnose internal errors
+    logger: {
+      level: "debug" as const,
+    },
   })
 }
 

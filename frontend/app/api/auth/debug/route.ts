@@ -4,6 +4,7 @@
  */
 
 import { Pool } from "@neondatabase/serverless"
+import { Kysely, PostgresDialect } from "kysely"
 import { NextResponse } from "next/server"
 
 // Force dynamic rendering — prevent Next.js from caching build-time response
@@ -15,25 +16,18 @@ export async function GET() {
     ? baseUrl
     : `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}options=-csearch_path%3Dneon_auth,public`
 
-  // Dump all available env var keys (not values) to diagnose injection
-  const allEnvKeys = Object.keys(process.env).sort()
-
   const diagnostics: Record<string, unknown> = {
     hasDbUrl: !!baseUrl,
     dbUrlLength: baseUrl.length,
     hasBetterAuthSecret: !!process.env.BETTER_AUTH_SECRET,
     hasBetterAuthUrl: !!process.env.BETTER_AUTH_URL,
     betterAuthUrl: process.env.BETTER_AUTH_URL,
-    connectionStringLength: connectionString.length,
-    allEnvKeyCount: allEnvKeys.length,
-    allEnvKeys,
     nodeEnv: process.env.NODE_ENV,
-    port: process.env.PORT,
-    hostname: process.env.HOSTNAME,
   }
 
+  const pool = new Pool({ connectionString })
+
   try {
-    const pool = new Pool({ connectionString })
     const client = await pool.connect()
     try {
       // Test basic query
@@ -41,30 +35,83 @@ export async function GET() {
       diagnostics.schema = res.rows[0]?.current_schema
       diagnostics.searchPath = res.rows[0]?.search_path
 
-      // Test neon_auth.user table
-      const userCount = await client.query('SELECT count(*) FROM neon_auth."user"')
-      diagnostics.userCount = userCount.rows[0]?.count
-
-      // Test table existence in search_path
-      const tables = await client.query(`
-        SELECT table_schema, table_name
-        FROM information_schema.tables
-        WHERE table_name IN ('user', 'session', 'account', 'verification')
-        AND table_schema IN ('neon_auth', 'public')
-        ORDER BY table_schema, table_name
+      // Show actual column names in neon_auth.user
+      const cols = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = 'neon_auth' AND table_name = 'user'
+        ORDER BY ordinal_position
       `)
-      diagnostics.tables = tables.rows
+      diagnostics.userColumns = cols.rows
 
-      diagnostics.status = "ok"
+      // Show actual column names in neon_auth.account
+      const acctCols = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = 'neon_auth' AND table_name = 'account'
+        ORDER BY ordinal_position
+      `)
+      diagnostics.accountColumns = acctCols.rows
+
+      // Show actual column names in neon_auth.session
+      const sessCols = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = 'neon_auth' AND table_name = 'session'
+        ORDER BY ordinal_position
+      `)
+      diagnostics.sessionColumns = sessCols.rows
+
+      diagnostics.rawDbStatus = "ok"
     } finally {
       client.release()
-      await pool.end()
     }
+
+    // Test Kysely with same Pool (how Better Auth uses it)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = new Kysely<any>({ dialect: new PostgresDialect({ pool }) })
+      // Try a simple SELECT through Kysely (matches Better Auth's access pattern)
+      const result = await db.selectFrom("user").selectAll().limit(1).execute()
+      diagnostics.kyselySelectStatus = "ok"
+      diagnostics.kyselySelectResult = result
+    } catch (error) {
+      diagnostics.kyselySelectStatus = "error"
+      diagnostics.kyselySelectError = String(error)
+    }
+
+    // Test Kysely INSERT (what signup does)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = new Kysely<any>({ dialect: new PostgresDialect({ pool }) })
+      const testId = crypto.randomUUID()
+      // Try insert then immediately delete — same pattern as Better Auth signup
+      await db.insertInto("user")
+        .values({
+          id: testId,
+          name: "test-debug-user",
+          email: `debug-${testId}@test.local`,
+          emailVerified: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .execute()
+      // Clean up
+      await db.deleteFrom("user").where("id", "=", testId).execute()
+      diagnostics.kyselyInsertStatus = "ok"
+    } catch (error) {
+      diagnostics.kyselyInsertStatus = "error"
+      diagnostics.kyselyInsertError = String(error)
+      diagnostics.kyselyInsertStack = (error as Error)?.stack?.split("\n").slice(0, 5)
+    }
+
+    diagnostics.status = "ok"
   } catch (error) {
     diagnostics.status = "error"
     diagnostics.error = String(error)
-    diagnostics.errorName = (error as Error)?.name
     diagnostics.errorStack = (error as Error)?.stack?.split("\n").slice(0, 5)
+  } finally {
+    await pool.end()
   }
 
   return NextResponse.json(diagnostics)
