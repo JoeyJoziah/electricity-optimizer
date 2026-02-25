@@ -744,6 +744,9 @@ with `credentials: 'include'` for cookie-based session auth.
 | `notion_sync.py` | Syncs TODO.md tasks to Notion (`--once` or continuous). Uses `database_id` query endpoint |
 | `github_notion_sync.py` | Syncs GitHub issues/PRs to Notion roadmap (`--mode full` or `--mode event`) |
 | `install-hooks.sh` | Installs git hooks from `.claude/hooks/board-sync/` templates |
+| `loki-feature.sh` | Automated feature pipeline: PRD → branch → RARV → verify → draft PR |
+| `loki-decompose.py` | Parse PRD markdown into JSON task list for RARV orchestrator |
+| `loki-verify.sh` | Verification gate: full/quick/backend-only test + lint, emits events |
 
 ### .claude/hooks/board-sync/
 

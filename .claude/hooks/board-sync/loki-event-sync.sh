@@ -231,6 +231,9 @@ process_event() {
         phase_change)
             handle_phase_change "$event_file"
             ;;
+        verification_pass)
+            log "verification_pass: $(json_payload_field "$event_file" "task") — $(json_payload_field "$event_file" "mode") mode"
+            ;;
         verification_fail)
             handle_verification_fail "$event_file"
             ;;

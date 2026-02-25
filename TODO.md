@@ -307,10 +307,15 @@
   - [x] Internal API: `/api/v1/internal/{observe-forecasts,learn,observation-stats}` (API-key protected)
   - [x] Migration: `005_observation_tables.sql` (forecast_observations + recommendation_outcomes)
 
-- [ ] **Task #18**: Autonomous Development Orchestrator
+- [x] **Task #18**: Autonomous Development Orchestrator — COMPLETED (2026-02-25)
   - [x] Loki Mode RARV orchestration (v5.53.0)
   - [x] Self-healing workflows via Claude Flow hooks
-  - [ ] Automated feature development from specs
+  - [x] Automated feature development from specs
+    - [x] PRD decomposer (`scripts/loki-decompose.py`) — parses PRD markdown into JSON task list
+    - [x] Feature pipeline (`scripts/loki-feature.sh`) — 5-stage orchestrator (decompose → branch → RARV → verify → PR)
+    - [x] Verification gate (`scripts/loki-verify.sh`) — full/quick/backend-only test + lint gates with event emission
+    - [x] Event integration — `verification_pass` event type added to `loki-event-sync.sh`
+    - [x] Sample PRD + dry-run validated end-to-end
 
 - [x] **Task #21**: Dev-Only Architecture Diagrams — COMPLETED (2026-02-25)
   - [x] Excalidraw integration for interactive `.excalidraw` diagrams in `docs/architecture/`
