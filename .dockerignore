@@ -1,0 +1,41 @@
+# Frontend (backend Dockerfile doesn't need it)
+frontend/
+.next/
+
+# Version control
+.git/
+.github/
+
+# Local development
+.venv/
+.env.test
+.loki/
+.claude/
+
+# Documentation
+docs/
+*.md
+!backend/README.md
+
+# ML training data
+ml/
+
+# Tests (not needed in production image)
+backend/tests/
+
+# IDE
+.vscode/
+.idea/
+
+# Node
+node_modules/
+
+# Docker
+docker-compose*.yml
+
+# Misc
+*.pyc
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+scripts/
