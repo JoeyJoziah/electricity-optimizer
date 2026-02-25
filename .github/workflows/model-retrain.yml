@@ -5,6 +5,10 @@ on:
     - cron: "0 2 * * 0"  # Sunday 2:00 AM UTC
   workflow_dispatch:
 
+concurrency:
+  group: model-retrain
+  cancel-in-progress: false
+
 jobs:
   retrain:
     runs-on: ubuntu-latest

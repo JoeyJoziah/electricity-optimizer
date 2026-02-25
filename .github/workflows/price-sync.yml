@@ -5,9 +5,14 @@ on:
     - cron: "0 */6 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: price-sync
+  cancel-in-progress: false
+
 jobs:
   refresh-prices:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Trigger price refresh
         run: |

@@ -50,29 +50,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+          working-directory: backend
+          install-dev: 'true'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install -r backend/requirements-dev.txt
-
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node-env
 
       - name: Install Playwright browsers
         run: |
@@ -91,27 +76,33 @@ jobs:
         run: |
           cd backend
           uvicorn main:app --host 0.0.0.0 --port 8000 &
-          sleep 10
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/electricity_test
           REDIS_URL: redis://localhost:6379/0
           ENVIRONMENT: test
           JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
 
+      - name: Wait for backend
+        uses: ./.github/actions/wait-for-service
+        with:
+          url: http://localhost:8000/health
+          timeout: '60'
+          interval: '3'
+
       - name: Start frontend server
         run: |
           cd frontend
           npm run build
           npm run start &
-          sleep 10
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
-      - name: Wait for services
-        run: |
-          ./scripts/health-check.sh || true
-          curl --retry 10 --retry-delay 2 --retry-all-errors http://localhost:8000/health
-          curl --retry 10 --retry-delay 2 --retry-all-errors http://localhost:3000
+      - name: Wait for frontend
+        uses: ./.github/actions/wait-for-service
+        with:
+          url: http://localhost:3000
+          timeout: '60'
+          interval: '3'
 
       - name: Run E2E tests
         run: |
@@ -147,23 +138,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node-env
 
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-          npm install -g @lhci/cli
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli
 
       - name: Build frontend
-        run: |
-          cd frontend
-          npm run build
+        run: cd frontend && npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
@@ -171,7 +153,13 @@ jobs:
         run: |
           cd frontend
           npm run start &
-          sleep 10
+
+      - name: Wait for frontend
+        uses: ./.github/actions/wait-for-service
+        with:
+          url: http://localhost:3000
+          timeout: '60'
+          interval: '3'
 
       - name: Run Lighthouse CI
         run: |
@@ -212,24 +200,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          working-directory: backend
 
-      - name: Install dependencies
-        run: |
-          pip install -r backend/requirements.txt
-          pip install locust aiohttp
+      - name: Install load test tools
+        run: pip install locust aiohttp
 
       - name: Start backend
         run: |
           cd backend
           uvicorn main:app --host 0.0.0.0 --port 8000 &
-          sleep 10
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/electricity_test
           REDIS_URL: redis://localhost:6379/0
+
+      - name: Wait for backend
+        uses: ./.github/actions/wait-for-service
+        with:
+          url: http://localhost:8000/health
+          timeout: '60'
+          interval: '3'
 
       - name: Run load tests
         run: |
@@ -269,26 +261,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install -r backend/requirements.txt
-          pip install -r backend/requirements-dev.txt
+          working-directory: backend
+          install-dev: 'true'
 
       - name: Start backend
         run: |
           cd backend
           uvicorn main:app --host 0.0.0.0 --port 8000 &
-          sleep 10
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/electricity_test
           REDIS_URL: redis://localhost:6379/0
           ENVIRONMENT: test
           JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
+
+      - name: Wait for backend
+        uses: ./.github/actions/wait-for-service
+        with:
+          url: http://localhost:8000/health
+          timeout: '60'
+          interval: '3'
 
       - name: Run security tests
         run: |

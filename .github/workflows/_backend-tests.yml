@@ -1,0 +1,87 @@
+name: Backend Tests (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      coverage:
+        description: 'Run with coverage reporting'
+        required: false
+        default: true
+        type: boolean
+      upload-codecov:
+        description: 'Upload coverage to Codecov'
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+
+jobs:
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: test_electricity
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          working-directory: backend
+
+      - name: Install test dependencies
+        run: pip install pytest pytest-asyncio pytest-cov
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
+          FLATPEAK_API_KEY: test_key
+          NREL_API_KEY: test_key
+          IEA_API_KEY: test_key
+          ENVIRONMENT: test
+        run: |
+          cd backend
+          if [ "${{ inputs.coverage }}" = "true" ]; then
+            pytest --cov=. --cov-report=xml --cov-report=term-missing -v
+          else
+            pytest -v --tb=short
+          fi
+
+      - name: Upload coverage to Codecov
+        if: inputs.upload-codecov && inputs.coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false

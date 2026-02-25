@@ -1,0 +1,47 @@
+name: 'Wait for Service'
+description: 'Polls a URL until it returns the expected HTTP status or times out'
+
+inputs:
+  url:
+    description: 'URL to poll'
+    required: true
+  timeout:
+    description: 'Maximum wait time in seconds'
+    required: false
+    default: '120'
+  interval:
+    description: 'Polling interval in seconds'
+    required: false
+    default: '5'
+  expected-status:
+    description: 'Expected HTTP status code'
+    required: false
+    default: '200'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Wait for ${{ inputs.url }}
+      shell: bash
+      run: |
+        URL="${{ inputs.url }}"
+        TIMEOUT=${{ inputs.timeout }}
+        INTERVAL=${{ inputs.interval }}
+        EXPECTED=${{ inputs.expected-status }}
+        ELAPSED=0
+
+        echo "Waiting for $URL (expected HTTP $EXPECTED, timeout ${TIMEOUT}s)..."
+
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" 2>/dev/null) || STATUS="000"
+          if [ "$STATUS" = "$EXPECTED" ]; then
+            echo "Service ready after ${ELAPSED}s (HTTP $STATUS)"
+            exit 0
+          fi
+          echo "  ${ELAPSED}s - HTTP $STATUS (waiting...)"
+          sleep $INTERVAL
+          ELAPSED=$((ELAPSED + INTERVAL))
+        done
+
+        echo "Timed out after ${TIMEOUT}s waiting for $URL (last status: $STATUS)"
+        exit 1

@@ -6,9 +6,14 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: nightly-learning
+  cancel-in-progress: false
+
 jobs:
   learn:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Run adaptive learning cycle
         run: |

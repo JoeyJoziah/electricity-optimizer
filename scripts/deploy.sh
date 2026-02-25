@@ -56,7 +56,7 @@ pre_deploy_checks() {
     # Check required variables
     source "$PROJECT_DIR/.env"
 
-    required_vars=("SUPABASE_URL" "SUPABASE_ANON_KEY" "JWT_SECRET" "POSTGRES_PASSWORD" "REDIS_PASSWORD")
+    required_vars=("DATABASE_URL" "REDIS_URL" "JWT_SECRET" "INTERNAL_API_KEY")
 
     for var in "${required_vars[@]}"; do
         if [ -z "${!var}" ]; then
@@ -215,9 +215,6 @@ main() {
     echo "  - Frontend:   http://localhost:3000"
     echo "  - Backend:    http://localhost:8000"
     echo "  - API Docs:   http://localhost:8000/docs"
-    echo "  - Airflow:    http://localhost:8080"
-    echo "  - Grafana:    http://localhost:3001"
-    echo "  - Prometheus: http://localhost:9090"
     echo ""
 }
 

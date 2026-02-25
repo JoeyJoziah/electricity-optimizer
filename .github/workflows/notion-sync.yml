@@ -9,10 +9,15 @@ on:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
+concurrency:
+  group: notion-sync-${{ github.event_name }}
+  cancel-in-progress: true
+
 jobs:
   sync-event:
     if: github.event_name == 'issues' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +37,7 @@ jobs:
   sync-full:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 

@@ -1,0 +1,88 @@
+name: Docker Build & Push (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      context:
+        description: 'Docker build context path'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to Dockerfile'
+        required: true
+        type: string
+      image-name:
+        description: 'Full image name (e.g. ghcr.io/owner/repo/backend)'
+        required: true
+        type: string
+      tags:
+        description: 'Docker metadata-action tag rules (newline-separated)'
+        required: true
+        type: string
+      build-args:
+        description: 'Docker build arguments (newline-separated KEY=VALUE)'
+        required: false
+        default: ''
+        type: string
+      target:
+        description: 'Docker build target stage'
+        required: false
+        default: 'production'
+        type: string
+      push:
+        description: 'Push image to registry'
+        required: false
+        default: true
+        type: boolean
+    outputs:
+      digest:
+        description: 'Image digest'
+        value: ${{ jobs.build-push.outputs.digest }}
+
+jobs:
+  build-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.image-name }}
+          tags: ${{ inputs.tags }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: ${{ inputs.target }}
+          build-args: ${{ inputs.build-args }}

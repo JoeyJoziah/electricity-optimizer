@@ -1,0 +1,24 @@
+name: 'Setup Node.js Environment'
+description: 'Sets up Node.js with npm cache and runs npm ci in frontend/'
+
+inputs:
+  node-version:
+    description: 'Node.js version to install'
+    required: false
+    default: '20'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js ${{ inputs.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      shell: bash
+      run: |
+        cd frontend
+        npm ci
