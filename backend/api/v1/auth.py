@@ -83,14 +83,17 @@ async def get_me(
     """
     logger.info("get_user_info", user_id=current_user.user_id)
 
-    # Ensure user profile exists in our app's users table
-    from auth.neon_auth import ensure_user_profile
-    await ensure_user_profile(
-        neon_user_id=current_user.user_id,
-        email=current_user.email,
-        name=current_user.name,
-        db=db,
-    )
+    # Ensure user profile exists in our app's users table (best-effort)
+    try:
+        from auth.neon_auth import ensure_user_profile
+        await ensure_user_profile(
+            neon_user_id=current_user.user_id,
+            email=current_user.email,
+            name=current_user.name,
+            db=db,
+        )
+    except Exception as e:
+        logger.warning("user_profile_sync_failed", user_id=current_user.user_id, error=str(e))
 
     return UserResponse(
         id=current_user.user_id,

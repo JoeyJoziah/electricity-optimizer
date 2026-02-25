@@ -225,19 +225,20 @@ async def ensure_user_profile(
 
     When a user signs up via Neon Auth, they exist in neon_auth.user but
     not in our public.users table. This syncs on first API call.
+
+    Uses raw SQL because the User model is Pydantic (not SQLAlchemy ORM),
+    so select(User) doesn't work outside of the test mock fixture.
     """
-    from repositories.user_repository import UserRepository
+    check = text("SELECT id FROM public.users WHERE id = :id")
+    result = await db.execute(check, {"id": neon_user_id})
+    if result.scalar_one_or_none() is not None:
+        return  # already synced
 
-    user_repo = UserRepository(db)
-    existing = await user_repo.get_by_id(neon_user_id)
-
-    if existing is None:
-        from models.user import User
-        new_user = User(
-            id=neon_user_id,
-            email=email,
-            name=name or "",
-            region="CT",
-        )
-        await user_repo.create(new_user)
-        logger.info("user_profile_synced", user_id=neon_user_id, email=email)
+    insert = text("""
+        INSERT INTO public.users (id, email, name, region, is_active, created_at, updated_at)
+        VALUES (:id, :email, :name, 'us_ct', true, NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING
+    """)
+    await db.execute(insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""})
+    await db.commit()
+    logger.info("user_profile_synced", user_id=neon_user_id, email=email)
