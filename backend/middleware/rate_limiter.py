@@ -4,6 +4,7 @@ Rate Limiting Middleware
 Provides per-user and per-IP rate limiting using Redis-backed sliding window.
 """
 
+import hashlib
 import time
 from typing import Optional, Callable
 from datetime import datetime, timezone
@@ -164,6 +165,11 @@ class UserRateLimiter:
             if t > window_start
         ]
 
+        # Evict empty keys to prevent unbounded memory growth
+        if not self._memory_store[key]:
+            del self._memory_store[key]
+            self._memory_store[key] = []
+
         # Add current request
         self._memory_store[key].append(now)
 
@@ -318,7 +324,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             # Hash the full token to get a unique per-user bucket
-            import hashlib
             token_hash = hashlib.sha256(auth_header[7:].encode()).hexdigest()[:16]
             return f"user:{token_hash}"
 

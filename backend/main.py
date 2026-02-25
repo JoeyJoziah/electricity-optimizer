@@ -5,6 +5,7 @@ Main application entry point with API endpoints, middleware, and lifecycle manag
 """
 
 import asyncio
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -233,7 +234,6 @@ app.add_middleware(RequestTimeoutMiddleware)
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     """Add request ID and processing time to response headers"""
-    import uuid
 
     request_id = str(uuid.uuid4())
     start_time = time.time()

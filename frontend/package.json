@@ -13,7 +13,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.0",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@neondatabase/serverless": "^1.0.2",
     "@tanstack/react-query": "^5.17.15",
@@ -29,6 +28,7 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@excalidraw/excalidraw": "^0.18.0",
     "@playwright/test": "^1.40.1",
     "@testing-library/jest-dom": "^6.2.0",
     "@testing-library/react": "^14.1.2",

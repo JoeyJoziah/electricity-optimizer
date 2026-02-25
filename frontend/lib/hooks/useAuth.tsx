@@ -7,7 +7,7 @@
  * Session management uses httpOnly cookies (no localStorage tokens).
  */
 
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, createContext, useContext, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth/client'
 import { getUserSupplier } from '@/lib/api/suppliers'
@@ -258,7 +258,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null)
   }, [])
 
-  const value: AuthContextType = {
+  const value = useMemo<AuthContextType>(() => ({
     user,
     isLoading,
     isAuthenticated: !!user,
@@ -270,7 +270,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signInWithGitHub,
     sendMagicLink,
     clearError,
-  }
+  }), [user, isLoading, error, signIn, signUp, signOut, signInWithGoogle, signInWithGitHub, sendMagicLink, clearError])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     # GitHub Webhook
     github_webhook_secret: Optional[str] = Field(default=None, validation_alias="GITHUB_WEBHOOK_SECRET")
 
+    # Email OAuth (Gmail + Outlook)
+    gmail_client_id: Optional[str] = Field(default=None, validation_alias="GMAIL_CLIENT_ID")
+    gmail_client_secret: Optional[str] = Field(default=None, validation_alias="GMAIL_CLIENT_SECRET")
+    outlook_client_id: Optional[str] = Field(default=None, validation_alias="OUTLOOK_CLIENT_ID")
+    outlook_client_secret: Optional[str] = Field(default=None, validation_alias="OUTLOOK_CLIENT_SECRET")
+    oauth_redirect_base_url: str = Field(default="http://localhost:8000", validation_alias="OAUTH_REDIRECT_BASE_URL")
+
     # Feature Flags
     enable_auto_switching: bool = Field(default=False, validation_alias="ENABLE_AUTO_SWITCHING")
     enable_load_optimization: bool = Field(default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION")

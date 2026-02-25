@@ -350,8 +350,8 @@ class PriceRepository(BaseRepository[Price]):
             region_val = region.value if hasattr(region, "value") else region
             ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
 
-            # Check cache first
-            cache_key = self._cache_key("current", region_val, ut_val)
+            # Check cache first (include limit in key to prevent stale data)
+            cache_key = self._cache_key("current", region_val, ut_val, limit)
             cached = await self._get_from_cache(cache_key)
             if cached:
                 return [Price(**p) for p in cached]

@@ -19,8 +19,11 @@ Phase 4 additions:
   - GET  /connections/{id}/sync-status   — last/next sync metadata
 """
 
+import asyncio
+import base64
 import hashlib
 import hmac
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
@@ -28,6 +31,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from starlette.responses import RedirectResponse
 
 import structlog
 
@@ -123,13 +127,8 @@ def verify_callback_state(state: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Email provider OAuth redirect stubs
+# Email OAuth redirect URLs are now generated dynamically by email_oauth_service
 # ---------------------------------------------------------------------------
-
-_EMAIL_REDIRECT_URLS = {
-    "gmail": "https://accounts.google.com/o/oauth2/auth?scope=https://www.googleapis.com/auth/gmail.readonly",
-    "outlook": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=https://outlook.office.com/mail.read",
-}
 
 
 # ---------------------------------------------------------------------------
@@ -306,12 +305,16 @@ async def create_email_connection(
 ) -> EmailConnectionInitResponse:
     """
     Initiate an email-import connection.
-
-    Creates a ``pending`` connection record and returns the OAuth redirect URL
-    for the given provider (gmail or outlook).
+    Creates a pending connection and returns the OAuth consent URL.
     """
+    from services.email_oauth_service import get_gmail_consent_url, get_outlook_consent_url
+
     connection_id = str(uuid4())
-    redirect_url = _EMAIL_REDIRECT_URLS[payload.provider]
+
+    if payload.provider == "gmail":
+        redirect_url = get_gmail_consent_url(connection_id)
+    else:
+        redirect_url = get_outlook_consent_url(connection_id)
 
     await db.execute(
         text("""
@@ -320,11 +323,7 @@ async def create_email_connection(
             VALUES
                 (:id, :uid, 'email_import', :provider, 'pending', NOW())
         """),
-        {
-            "id": connection_id,
-            "uid": current_user.user_id,
-            "provider": payload.provider,
-        },
+        {"id": connection_id, "uid": current_user.user_id, "provider": payload.provider},
     )
     await db.commit()
 
@@ -333,6 +332,199 @@ async def create_email_connection(
         redirect_url=redirect_url,
         provider=payload.provider,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /connections/email/callback  —  OAuth callback from Gmail/Outlook
+# ---------------------------------------------------------------------------
+
+# NOTE: This callback endpoint must be registered BEFORE /{connection_id}
+# routes so that FastAPI does not capture "email" as a connection_id.
+
+
+@router.get(
+    "/email/callback",
+    summary="OAuth callback for email providers",
+)
+async def email_oauth_callback(
+    code: str = Query(..., description="Authorization code from OAuth provider"),
+    state: str = Query(..., description="Signed state parameter"),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Handle OAuth redirect from Gmail/Outlook.
+    Exchanges code for tokens, encrypts and stores them,
+    then redirects to the frontend connections page.
+    """
+    from services.email_oauth_service import (
+        verify_oauth_state,
+        exchange_gmail_code,
+        exchange_outlook_code,
+        encrypt_tokens,
+    )
+    import httpx as _httpx
+
+    # Verify state
+    connection_id = verify_oauth_state(state)
+    if not connection_id:
+        raise HTTPException(status_code=400, detail="Invalid or tampered OAuth state")
+
+    # Look up connection
+    result = await db.execute(
+        text("SELECT id, email_provider, status FROM user_connections WHERE id = :cid"),
+        {"cid": connection_id},
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if row["status"] != "pending":
+        raise HTTPException(status_code=409, detail="Connection already processed")
+
+    provider = row["email_provider"]
+
+    try:
+        if provider == "gmail":
+            token_data = await exchange_gmail_code(code)
+        else:
+            token_data = await exchange_outlook_code(code)
+    except _httpx.HTTPStatusError:
+        await db.execute(
+            text("UPDATE user_connections SET status = 'error' WHERE id = :cid"),
+            {"cid": connection_id},
+        )
+        await db.commit()
+        raise HTTPException(status_code=502, detail="OAuth token exchange failed")
+
+    access_token = token_data.get("access_token", "")
+    refresh_token = token_data.get("refresh_token")
+    expires_in = token_data.get("expires_in", 3600)
+
+    # Encrypt tokens
+    enc_access, enc_refresh = encrypt_tokens(access_token, refresh_token)
+
+    # Store encrypted tokens (base64 for text column storage)
+    await db.execute(
+        text("""
+            UPDATE user_connections
+            SET status = 'active',
+                oauth_access_token = :access,
+                oauth_refresh_token = :refresh,
+                oauth_token_expires_at = NOW() + make_interval(secs => :expires),
+                updated_at = NOW()
+            WHERE id = :cid
+        """),
+        {
+            "cid": connection_id,
+            "access": base64.b64encode(enc_access).decode(),
+            "refresh": base64.b64encode(enc_refresh).decode() if enc_refresh else None,
+            "expires": expires_in,
+        },
+    )
+    await db.commit()
+
+    # Redirect to frontend connections page
+    frontend_url = settings.oauth_redirect_base_url.replace("localhost:8000", "localhost:3000")
+    return RedirectResponse(
+        url=f"{frontend_url}/connections?connected={connection_id}",
+        status_code=302,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /connections/email/{connection_id}/scan  —  trigger email scan
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/email/{connection_id}/scan",
+    summary="Trigger email inbox scan",
+)
+async def trigger_email_scan(
+    connection_id: str,
+    current_user: TokenData = Depends(require_paid_tier),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Trigger a scan of the connected email inbox for utility bills."""
+    from utils.encryption import decrypt_field as _decrypt_field
+    from services.email_scanner_service import scan_gmail_inbox, scan_outlook_inbox
+    import httpx as _httpx
+
+    result = await db.execute(
+        text("""
+            SELECT id, user_id, email_provider, status,
+                   oauth_access_token, oauth_refresh_token, oauth_token_expires_at
+            FROM user_connections
+            WHERE id = :cid AND user_id = :uid
+        """),
+        {"cid": connection_id, "uid": current_user.user_id},
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if row["status"] != "active":
+        raise HTTPException(status_code=409, detail="Connection is not active")
+
+    # Decrypt access token
+    enc_access = base64.b64decode(row["oauth_access_token"])
+    access_token = _decrypt_field(enc_access)
+
+    # Check if token expired and refresh if needed
+    if row["oauth_token_expires_at"] and row["oauth_token_expires_at"] < datetime.now(timezone.utc):
+        if row["oauth_refresh_token"]:
+            from services.email_oauth_service import refresh_gmail_token, refresh_outlook_token, encrypt_tokens
+            enc_refresh = base64.b64decode(row["oauth_refresh_token"])
+            try:
+                if row["email_provider"] == "gmail":
+                    new_tokens = await refresh_gmail_token(enc_refresh)
+                else:
+                    new_tokens = await refresh_outlook_token(enc_refresh)
+
+                access_token = new_tokens["access_token"]
+                new_enc_access, new_enc_refresh = encrypt_tokens(
+                    access_token,
+                    new_tokens.get("refresh_token"),
+                )
+                await db.execute(
+                    text("""
+                        UPDATE user_connections
+                        SET oauth_access_token = :access,
+                            oauth_refresh_token = COALESCE(:refresh, oauth_refresh_token),
+                            oauth_token_expires_at = NOW() + make_interval(secs => :expires),
+                            updated_at = NOW()
+                        WHERE id = :cid
+                    """),
+                    {
+                        "cid": connection_id,
+                        "access": base64.b64encode(new_enc_access).decode(),
+                        "refresh": base64.b64encode(new_enc_refresh).decode() if new_enc_refresh else None,
+                        "expires": new_tokens.get("expires_in", 3600),
+                    },
+                )
+                await db.commit()
+            except Exception:
+                raise HTTPException(status_code=502, detail="Token refresh failed")
+        else:
+            raise HTTPException(status_code=401, detail="Token expired and no refresh token available")
+
+    # Scan inbox
+    try:
+        if row["email_provider"] == "gmail":
+            scan_results = await scan_gmail_inbox(access_token)
+        else:
+            scan_results = await scan_outlook_inbox(access_token)
+    except _httpx.HTTPStatusError:
+        raise HTTPException(status_code=502, detail="Email provider API error")
+
+    # Filter to utility bills only
+    utility_bills = [r for r in scan_results if r.is_utility_bill]
+
+    return {
+        "connection_id": connection_id,
+        "provider": row["email_provider"],
+        "total_emails_scanned": len(scan_results),
+        "utility_bills_found": len(utility_bills),
+        "bills": [b.to_dict() for b in utility_bills[:20]],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -620,10 +812,10 @@ async def upload_bill_file(
     storage_key = build_storage_key(connection_id, upload_id, filename)
     dest = _UPLOADS_DIR / storage_key
 
-    # Persist file to local storage
+    # Persist file to local storage (async to avoid blocking the event loop)
     try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(data)
+        await asyncio.to_thread(dest.parent.mkdir, parents=True, exist_ok=True)
+        await asyncio.to_thread(dest.write_bytes, data)
     except OSError as exc:
         log.error("bill_upload_storage_error", error=str(exc))
         raise HTTPException(
