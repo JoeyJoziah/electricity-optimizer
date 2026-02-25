@@ -46,7 +46,7 @@ const nextConfig = {
               `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.electricity-optimizer.com",
-              "font-src 'self'",
+              `font-src 'self'${isDev ? ' data:' : ''}`,
               "connect-src 'self' https://*.electricity-optimizer.com https://*.onrender.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",

@@ -17,6 +17,11 @@ const authPaths = ['/auth/login', '/auth/signup', '/auth/sign-in', '/auth/sign-u
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Dev-only routes: rewrite to 404 in production
+  if (pathname.startsWith('/architecture') && process.env.NODE_ENV !== 'development') {
+    return NextResponse.rewrite(new URL('/404', request.url))
+  }
+
   // Better Auth sets a session token cookie.
   // On HTTPS (production), the cookie is prefixed with __Secure- automatically.
   const sessionToken =
@@ -47,6 +52,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/architecture/:path*',
     '/dashboard/:path*',
     '/prices/:path*',
     '/suppliers/:path*',
