@@ -1,6 +1,6 @@
 # Electricity Optimizer - Project TODO
 
-**Last Updated**: 2026-02-24
+**Last Updated**: 2026-02-25
 **Status**: Code complete - All phases done, deployment configuration ready
 **Overall Progress**: All features complete, 2050+ tests passing, production deployment ready
 
@@ -116,7 +116,7 @@
 - [x] Security testing (auth, SQL injection, rate limiting)
 - [x] Lighthouse CI for accessibility and performance
 
-**Testing Total**: 2050+ tests, 80%+ coverage
+**Testing Total**: 2100+ tests, 80%+ coverage
 
 ---
 
@@ -312,6 +312,14 @@
   - [x] Self-healing workflows via Claude Flow hooks
   - [ ] Automated feature development from specs
 
+- [x] **Task #21**: Dev-Only Architecture Diagrams — COMPLETED (2026-02-25)
+  - [x] Excalidraw integration for interactive `.excalidraw` diagrams in `docs/architecture/`
+  - [x] `/architecture` page with two-panel layout (diagram list + canvas)
+  - [x] Filesystem-backed API routes (list, create, read, save)
+  - [x] Triple dev-only gate (middleware rewrite, layout notFound, API 404)
+  - [x] React Query hooks + Ctrl+S save shortcut
+  - [x] 53 tests across 10 new test suites (445 frontend tests total)
+
 ---
 
 ## Project Statistics (Final)
@@ -326,10 +334,10 @@
 - **Documentation**: 15+ comprehensive docs
 
 ### Test Coverage
-- **Total Tests**: 2050+
+- **Total Tests**: 2100+
 - **Test Success Rate**: 100%
 - **Backend Tests**: 694 passing (pytest, 29 test files, 0 failures)
-- **Frontend Unit Tests**: 346 passing (Jest, 17 suites)
+- **Frontend Unit Tests**: 445 passing (Jest, 32 suites)
 - **E2E Tests**: 805 (Playwright, 11 specs x 5 browsers: 431 passed, 374 skipped, 0 failed)
 - **Security Tests**: 144 (included in backend count)
 - **ML Tests**: 105 passing (2 skipped)
@@ -410,6 +418,7 @@ make backup
 - Stripe monetization (Free/$4.99 Pro/$14.99 Business)
 - Landing page with SEO
 - P0-P5 innovations (alerts, weather, SSE, gamification)
+- Dev-only Excalidraw architecture diagrams (53 tests, triple dev-gated)
 
 **Remaining**:
 1. Set Render/Vercel env vars with real API keys (including BETTER_AUTH_SECRET, BETTER_AUTH_URL)
@@ -421,14 +430,14 @@ make backup
 
 **Statistics**:
 - 30,000+ lines of production code
-- 2050+ tests (100% passing)
+- 2100+ tests (100% passing)
 - 0 security vulnerabilities (SQL injection hardened, SSE auth, session SHA-256 cache keys)
 - 18x faster than traditional development
 - 78% under budget ($11/month vs $50/month)
 
 ---
 
-**Last Updated**: 2026-02-24
+**Last Updated**: 2026-02-25
 **Target Market**: Connecticut, USA (USD default, multi-currency support)
 **Prepared by**: Complete Hive Mind (All 6 Swarms)
 **Achievement**: Production-ready MVP in 22 hours

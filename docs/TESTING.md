@@ -3,7 +3,7 @@
 **Last Updated**: 2026-02-24
 **Overall Test Coverage**: 80%+
 **Backend Tests**: 694 (pytest, 29 test files)
-**Frontend Tests**: 346 across 17 suites (Jest)
+**Frontend Tests**: 445 across 32 suites (Jest)
 **ML Tests**: 105 + 2 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
 
@@ -14,7 +14,7 @@
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
 | **Backend Unit/Integration** | 694 | 85%+ | pytest |
-| **Frontend Component + Lib Tests** | 346 (17 suites) | 70%+ | Jest + RTL |
+| **Frontend Component + Lib Tests** | 445 (32 suites) | 70%+ | Jest + RTL |
 | **ML Inference + Training** | 105 (+2 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
 | **Security Tests** | 144 | 90%+ | pytest |
@@ -139,7 +139,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 346 tests across 17 suites
+**Count**: 445 tests across 32 suites
 **Coverage Target**: 70%+
 
 **Component Test Suites** (`__tests__/`):
@@ -157,6 +157,16 @@ pytest tests/ -v --cov=. --cov-report=html
 - `components/layout/Sidebar.test.tsx` - Sidebar layout
 - `components/ui/*.test.tsx` - UI primitives (Badge, Button, Card, Input, Skeleton)
 - `integration/dashboard.test.tsx` - Dashboard integration
+- `components/dev/DevBanner.test.tsx` - Dev mode banner rendering
+- `components/dev/ExcalidrawWrapper.test.tsx` - Excalidraw dynamic import wrapper
+- `components/dev/DiagramList.test.tsx` - Diagram sidebar list
+- `components/dev/DiagramEditor.test.tsx` - Canvas editor with save + Ctrl+S
+- `hooks/useDiagrams.test.tsx` - Diagram React Query hooks (list, get, save, create)
+- `utils/devGate.test.ts` - isDevMode utility
+- `api/dev/diagrams/route.test.ts` - Diagram list + create API routes
+- `api/dev/diagrams/name.route.test.ts` - Diagram read + save API routes
+- `app/dev/layout.test.tsx` - Dev layout gate (notFound in production)
+- `app/dev/architecture.test.tsx` - Architecture page integration
 
 **Library Test Suites** (`lib/`):
 - `lib/utils/__tests__/format.test.ts` - 46 tests for all 9 format utility functions
@@ -598,7 +608,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 694 backend, 346 frontend, and 105 ML tests continue to pass with Loki Mode installed
+- All 694 backend, 445 frontend, and 105 ML tests continue to pass with Loki Mode installed
 
 ---
 

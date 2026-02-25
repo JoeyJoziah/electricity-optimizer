@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-25 (claude-flow MCP + CI integration, test count update)
+**Last Updated:** 2026-02-25 (Excalidraw dev-only architecture diagrams)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -47,6 +47,10 @@ frontend/
         error.tsx               # Suppliers error boundary
       optimize/page.tsx         # Optimization (/optimize) - appliances, schedule, savings
       settings/page.tsx         # Settings (/settings) - region, usage, notifications, display
+    (dev)/                      # Route group: dev-only pages (triple-gated)
+      layout.tsx                # Dev gate (notFound if not development) + DevBanner
+      architecture/
+        page.tsx                # Excalidraw diagram editor (list + canvas)
     optimization/               # Empty directory (unused)
   components/
     auth/
@@ -68,6 +72,11 @@ frontend/
       ComparisonTable.tsx       # Tabular supplier comparison with filters
       SupplierCard.tsx          # Supplier card with pricing, rating, green badge
       SwitchWizard.tsx          # Multi-step supplier switching flow with GDPR consent
+    dev/                         # Dev-only components (never loaded in production)
+      DevBanner.tsx              # "Development Mode" indicator banner
+      ExcalidrawWrapper.tsx      # Dynamic Excalidraw import (ssr: false)
+      DiagramList.tsx            # Sidebar diagram list with create button
+      DiagramEditor.tsx          # Canvas editor with save toolbar + Ctrl+S
     ui/                         # Primitive UI components (badge, button, card, input, skeleton)
       badge.tsx                 # Badge with variants: default, success, warning, danger, info
       button.tsx                # Button with variants: primary, ghost, outline, danger + sizes
@@ -90,12 +99,14 @@ frontend/
       useSuppliers.ts           # useSuppliers, useSupplier, useSupplierRecommendation, useCompareSuppliers, useInitiateSwitch, useSwitchStatus
       useOptimization.ts        # useOptimalSchedule, useOptimizationResult, useAppliances, useSaveAppliances, usePotentialSavings
       useRealtime.ts            # useRealtimePrices (SSE via fetch-event-source), useRealtimeOptimization, useRealtimeSubscription, useRealtimeBroadcast
+      useDiagrams.ts            # useDiagramList, useDiagram, useSaveDiagram, useCreateDiagram
     store/
       settings.ts               # Zustand store: region, supplier, usage, appliances, notifications, display prefs
     utils/
       calculations.ts           # calculatePriceTrend, findOptimalPeriods, calculateAnnualSavings, calculatePaybackMonths, etc.
       cn.ts                     # cn() - Tailwind class merge utility (clsx + tailwind-merge)
       format.ts                 # formatCurrency, formatPricePerKwh, formatDateTime, formatTime, formatDuration, formatEnergy, etc.
+      devGate.ts                # isDevMode() — checks NODE_ENV === 'development'
   types/
     index.ts                    # All TypeScript interfaces (PriceDataPoint, Supplier, Appliance, etc.)
   __tests__/
@@ -146,12 +157,22 @@ frontend/
 | `/auth/callback` | `app/(app)/auth/callback/page.tsx` | OAuth/magic-link callback handler (force-dynamic) |
 | `/beta-signup` | `app/(app)/beta-signup/page.tsx` | Beta program signup form |
 
+### Dev Pages ((dev) route group - dev banner, no sidebar)
+
+| Route | File | Description |
+|-------|------|-------------|
+| `/architecture` | `app/(dev)/architecture/page.tsx` | Excalidraw diagram editor — list + canvas (dev-only, triple-gated) |
+
 ### API Routes
 
 | Route | Method | File | Description |
 |-------|--------|------|-------------|
 | `/api/auth/*` | GET/POST | `app/api/auth/[...all]/route.ts` | Better Auth handler (sign-in, sign-up, sign-out, OAuth, session, etc.) |
 | `/api/checkout` | POST | `app/api/checkout/route.ts` | Proxy to backend Stripe checkout (requires auth header) |
+| `/api/dev/diagrams` | GET | `app/api/dev/diagrams/route.ts` | List .excalidraw diagrams (dev-only) |
+| `/api/dev/diagrams` | POST | `app/api/dev/diagrams/route.ts` | Create new diagram (dev-only) |
+| `/api/dev/diagrams/[name]` | GET | `app/api/dev/diagrams/[name]/route.ts` | Read diagram data (dev-only) |
+| `/api/dev/diagrams/[name]` | PUT | `app/api/dev/diagrams/[name]/route.ts` | Save diagram data (dev-only) |
 
 ### SEO / Meta
 
@@ -201,6 +222,8 @@ Configured in `QueryProvider` with defaults: 1min stale time, 5min garbage colle
 | `['optimization', 'schedule', ...]` | `useOptimalSchedule` | -- | 180s |
 | `['potential-savings', ...]` | `usePotentialSavings` | -- | 300s |
 | `['appliances']` | `useAppliances` | -- | 300s |
+| `['diagrams', 'list']` | `useDiagramList` | -- | -- |
+| `['diagrams', 'detail', name]` | `useDiagram` | -- | -- |
 
 ---
 
@@ -440,6 +463,7 @@ Page Component (app/(app)/*)
 | clsx | ^2.1.0 | Conditional class names |
 | @microsoft/fetch-event-source | ^2.0.1 | SSE with auth (replaces native EventSource) |
 | date-fns | ^3.2.0 | Date formatting |
+| @excalidraw/excalidraw | latest | Interactive diagram editor (dev-only, dynamically imported) |
 
 ### Dev Dependencies
 
@@ -456,7 +480,7 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-22 test suites, 392 tests total:
+32 test suites, 445 tests total:
 
 **Component tests** (`__tests__/`):
 
@@ -476,6 +500,16 @@ Page Component (app/(app)/*)
 | layout/Sidebar.test.tsx | Sidebar: nav links, responsive |
 | ui/*.test.tsx | UI primitives: Badge, Button, Card, Input, Skeleton |
 | integration/dashboard.test.tsx | Dashboard integration: data loading, display, interactions |
+| hooks/useDiagrams.test.tsx | React Query diagram hooks |
+| utils/devGate.test.ts | isDevMode utility |
+| components/dev/DevBanner.test.tsx | DevBanner rendering |
+| components/dev/ExcalidrawWrapper.test.tsx | Excalidraw dynamic import wrapper |
+| components/dev/DiagramList.test.tsx | Diagram sidebar list |
+| components/dev/DiagramEditor.test.tsx | Canvas editor + save |
+| api/dev/diagrams/route.test.ts | List + create API routes |
+| api/dev/diagrams/name.route.test.ts | Read + save API routes |
+| app/dev/layout.test.tsx | Dev layout gate |
+| app/dev/architecture.test.tsx | Architecture page integration |
 
 **Library tests** (`lib/`):
 
@@ -546,6 +580,7 @@ npm run lint          # next lint
 13. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures
 14. **SSE auth upgrade** -- Replaced native `EventSource` with `@microsoft/fetch-event-source` for cookie-based session auth. Enables `credentials: 'include'`, auth failure detection, and exponential backoff retry
 15. **Backend route splitting** -- `prices.py` split into `prices.py` (CRUD), `prices_analytics.py` (statistics), `prices_sse.py` (streaming with real DB data via PriceService)
+16. **Excalidraw architecture diagrams** -- Dev-only `/architecture` page for interactive `.excalidraw` diagrams stored in `docs/architecture/`. Triple-gated (middleware rewrite, layout notFound, API 404). Dynamic import keeps ~2MB bundle out of production. 53 new tests across 10 suites
 
 ---
 
