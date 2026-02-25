@@ -55,6 +55,8 @@ services:
         sync: false
       - key: FIELD_ENCRYPTION_KEY
         sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
 
   - type: web
     name: electricity-optimizer-frontend

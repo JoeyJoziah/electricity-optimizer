@@ -61,6 +61,7 @@ class SecretsManager:
         # Security & monitoring
         "field_encryption_key": "Field Encryption.key",
         "sentry_dsn": "Monitoring.sentry_dsn",
+        "github_webhook_secret": "GitHub Repository.webhook_secret",
     }
 
     def __init__(self, use_1password: bool = None):

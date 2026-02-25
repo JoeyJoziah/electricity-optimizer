@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     # Field-level encryption (AES-256-GCM for account numbers etc.)
     field_encryption_key: Optional[str] = Field(default=None, validation_alias="FIELD_ENCRYPTION_KEY")
 
+    # GitHub Webhook
+    github_webhook_secret: Optional[str] = Field(default=None, validation_alias="GITHUB_WEBHOOK_SECRET")
+
     # Feature Flags
     enable_auto_switching: bool = Field(default=False, validation_alias="ENABLE_AUTO_SWITCHING")
     enable_load_optimization: bool = Field(default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION")

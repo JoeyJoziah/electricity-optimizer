@@ -541,6 +541,16 @@ app.include_router(
 )
 
 
+# GitHub webhook endpoint
+from api.v1 import webhooks as webhooks_v1
+
+app.include_router(
+    webhooks_v1.router,
+    prefix=f"{settings.api_prefix}/webhooks",
+    tags=["Webhooks"]
+)
+
+
 if __name__ == "__main__":
     import uvicorn
 
