@@ -166,23 +166,22 @@
 - [x] Non-root users for security
 - [x] Volume persistence for data
 
-### Task #14: CI/CD Pipeline - COMPLETED
-- [x] .github/workflows/test.yml - Run tests on every PR
-  - [x] Backend tests with PostgreSQL/Redis services
-  - [x] ML tests
-  - [x] Frontend tests with coverage
-  - [x] Security scanning (Bandit, Safety)
-  - [x] Docker build test
-- [x] .github/workflows/deploy-staging.yml
+### Task #14: CI/CD Pipeline - COMPLETED (consolidated in Task #22)
+- [x] `.github/workflows/ci.yml` — unified CI with `dorny/paths-filter` (replaces test.yml + backend-ci.yml + frontend-ci.yml)
+  - [x] Backend lint + tests via reusable `_backend-tests.yml` (PostgreSQL/Redis services)
+  - [x] ML tests (only when `ml/` changes)
+  - [x] Frontend tests (only when `frontend/` changes)
+  - [x] Security scanning (Bandit high-severity + npm audit critical, blocking)
+  - [x] Docker build verification
+- [x] `.github/workflows/deploy-staging.yml`
   - [x] Auto-deploy on merge to develop
-  - [x] Build and push to GHCR
-  - [x] Smoke tests
-  - [x] Notion status update
-- [x] .github/workflows/deploy-production.yml
+  - [x] Build and push to GHCR + Render deploy hooks
+  - [x] Self-healing smoke tests (300s timeout, auto-retry)
+- [x] `.github/workflows/deploy-production.yml`
   - [x] Deploy on release publish
-  - [x] Blue-green deployment support
-  - [x] Pre-deployment backup
-  - [x] Rollback on failure
+  - [x] Security gate (Bandit + npm audit, blocking)
+  - [x] Render deploy hooks + self-healing smoke tests
+  - [x] Auto-retry on smoke test failure
 
 ### Task #15: Monitoring & Alerting - COMPLETED
 - [x] monitoring/prometheus.yml - Scrape configuration
@@ -325,6 +324,19 @@
   - [x] React Query hooks + Ctrl+S save shortcut
   - [x] 53 tests across 10 new test suites (445 frontend tests total)
 
+- [x] **Task #22**: CI/CD Pipeline Consolidation + Render Deployment — COMPLETED (2026-02-25)
+  - [x] 3 composite actions: `setup-python-env`, `setup-node-env`, `wait-for-service`
+  - [x] 2 reusable workflows: `_backend-tests.yml`, `_docker-build-push.yml`
+  - [x] Unified CI (`ci.yml`) with `dorny/paths-filter` — replaced test.yml + backend-ci.yml + frontend-ci.yml
+  - [x] Render deploy hooks wired in deploy-production.yml + deploy-staging.yml
+  - [x] Security gate (Bandit high-severity + npm audit critical) blocks deploys
+  - [x] Self-healing smoke tests with auto-retry on failure (300s timeout, 15s interval)
+  - [x] Concurrency groups on all 11 workflows (prevents overlapping runs)
+  - [x] Timeouts on all jobs (2-30 min depending on type)
+  - [x] All `sleep` calls replaced with `wait-for-service` health-check polling
+  - [x] Scripts cleaned up: `deploy.sh` (removed Supabase vars), `health-check.sh` (removed Airflow/TimescaleDB)
+  - [x] Net reduction: 3 workflows deleted, 373 lines removed
+
 ---
 
 ## Project Statistics (Final)
@@ -341,7 +353,7 @@
 ### Test Coverage
 - **Total Tests**: 2300+
 - **Test Success Rate**: 100%
-- **Backend Tests**: 778 passing (pytest, 35 test files, 0 failures)
+- **Backend Tests**: 787 passing (pytest, 36 test files, 0 failures)
 - **Frontend Unit Tests**: 469 passing (Jest, 35 suites)
 - **E2E Tests**: 805 (Playwright, 11 specs x 5 browsers: 431 passed, 374 skipped, 0 failed)
 - **Security Tests**: 144 (included in backend count)
@@ -411,11 +423,11 @@ make backup
 
 **Current Status**: Live in production on Render
 **Completed**:
-- Backend API (17+ endpoints, 778 tests passing, 0 failures)
+- Backend API (17+ endpoints, 787 tests passing, 0 failures)
 - ML Pipeline (CNN-LSTM, MILP, weather-aware, 105 tests)
 - Frontend Dashboard (5 pages, gamification, SSE streaming, 469 tests)
 - Security & Compliance (Neon Auth sessions, GDPR, API key auth, 144 security tests)
-- Infrastructure (Docker, GitHub Actions CI/CD, Monitoring)
+- Infrastructure (Docker, consolidated GitHub Actions CI/CD, Render deploy hooks)
 - Testing (2200+ tests, 100% passing, 80%+ coverage)
 - Adaptive Learning (observation loop, nightly learning, HNSW vector store)
 - Multi-Utility (electricity, natural gas, heating oil, propane, community solar)
@@ -428,7 +440,6 @@ make backup
 **Remaining**:
 1. DNS/custom domain setup
 2. Beta invites
-3. 1Password credential audit (add Neon Auth, Stripe, NREL, EIA, OpenWeatherMap, Sentry items)
 
 **Production (Live on Render)**:
 - Backend: https://electricity-optimizer.onrender.com

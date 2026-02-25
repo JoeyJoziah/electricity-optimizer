@@ -731,7 +731,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 778 passing, 0 failures (as of 2026-02-25). 35 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
+**Test status:** 787 passing, 0 failures (as of 2026-02-25). 36 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation
@@ -740,6 +740,8 @@ with `credentials: 'include'` for cookie-based session auth.
 
 | File | Purpose |
 |------|---------|
+| `deploy.sh` | One-command deployment (validates `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `INTERNAL_API_KEY`) |
+| `health-check.sh` | Service health verification: Backend API, Frontend, Redis (configurable via `REDIS_HOST`/`REDIS_PORT`) |
 | `notion_setup_schema.py` | Idempotent Notion database schema provisioning (13 properties). Supports `--dry-run` |
 | `notion_sync.py` | Syncs TODO.md tasks to Notion (`--once` or continuous). Uses `database_id` query endpoint |
 | `github_notion_sync.py` | Syncs GitHub issues/PRs to Notion roadmap (`--mode full` or `--mode event`) |

@@ -77,15 +77,31 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 
 | Workflow | Schedule | Purpose |
 |----------|----------|---------|
+| ci.yml | On push/PR to main/develop | Unified CI: path-filtered backend/frontend/ML tests, security scan, Docker build |
+| e2e-tests.yml | Daily + on push/PR | Playwright E2E + Lighthouse audits + load/security tests |
+| deploy-production.yml | On release publish | Security gate + GHCR push + Render deploy hooks + self-healing smoke tests |
+| deploy-staging.yml | On push to develop | GHCR push + Render deploy hooks + smoke tests |
 | price-sync.yml | `0 */6 * * *` | Electricity price data ingestion |
 | observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
 | nightly-learning.yml | `0 4 * * *` | Adaptive learning: accuracy, bias detection, weight tuning |
-| test.yml | On push/PR | Test suite (Python 3.11, Node 20, PostgreSQL 15, Redis 7) |
-| backend-ci.yml | On push/PR | Backend-specific tests and lint |
-| frontend-ci.yml | On push/PR | Frontend lint, test, build |
-| e2e-tests.yml | Daily + on demand | Playwright E2E + Lighthouse audits |
-| deploy-staging.yml | On merge to develop | Staging deployment to Render.com |
-| deploy-production.yml | On release | Production deployment to Render.com |
+| model-retrain.yml | Weekly Sun 2AM UTC | ML model retraining pipeline |
+| notion-sync.yml | Events + every 30min | GitHub-Notion roadmap sync |
+| keepalive.yml | Every 14min | Render backend keep-alive ping |
+| code-analysis.yml | PRs to main | Claude Flow diff risk, complexity, security analysis |
+| _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
+| _docker-build-push.yml | (callable) | Reusable Docker build + GHCR push |
+
+**Composite Actions** (`.github/actions/`):
+
+| Action | Purpose |
+|--------|---------|
+| `setup-python-env` | Python + pip cache + requirements install (replaces duplicated setup across 5+ workflows) |
+| `setup-node-env` | Node.js + npm cache + `npm ci` in frontend/ |
+| `wait-for-service` | Health-check polling with configurable timeout/interval (replaces all `sleep` calls) |
+
+**Concurrency Controls**: All 11 workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
+
+**Render Deploy Hooks**: Production and staging deploy workflows trigger Render builds via deploy hook URLs stored in GitHub secrets (`RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`). Deploy workflows include self-healing smoke tests that auto-retry on failure.
 
 ### Board Sync (Local Automation)
 
@@ -570,14 +586,13 @@ The activation and shutdown hooks coordinate Claude Flow alongside Loki Mode:
 
 ### CI Integration
 
-Two GitHub Actions workflows use Claude Flow for code analysis:
+One GitHub Actions workflow uses Claude Flow for code analysis:
 
 | Workflow | Trigger | Analysis |
 |----------|---------|----------|
 | `code-analysis.yml` | PRs to `main` | Diff risk, complexity (threshold 15), circular deps, security scan |
-| `backend-ci.yml` | Push/PR to `main`/`develop` (backend paths) | Security scan + dependency audit (added to existing security-scan job) |
 
-All analysis steps use `continue-on-error: true` to prevent blocking CI on tool failures. Reports are uploaded as JSON artifacts with 30-day retention.
+Analysis steps use `continue-on-error: true` to prevent blocking CI on tool failures. Reports are uploaded as JSON artifacts with 30-day retention. The former `backend-ci.yml` Claude Flow integration was consolidated into `ci.yml`'s security-scan job.
 
 ### Workflow Templates
 

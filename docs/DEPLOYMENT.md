@@ -95,8 +95,6 @@ make health
 | Frontend | http://localhost:3000 | - |
 | Backend API | http://localhost:8000 | - |
 | API Docs | http://localhost:8000/docs | Dev only (disabled in production) |
-| Grafana | http://localhost:3001 | admin/GRAFANA_PASSWORD |
-| Prometheus | http://localhost:9090 | - |
 
 > **Note:** The backend includes a live email service at `backend/services/email_service.py` that handles welcome and notification emails via SendGrid (with SMTP fallback). Ensure the email environment variables above are configured before using email features.
 
@@ -184,14 +182,22 @@ Before deploying to production:
 - [ ] Rollback plan documented
 - [ ] Team notified
 
-### Blue-Green Deployment
+### Render Deploy Hooks
 
-The CI/CD pipeline supports blue-green deployment:
+The CI/CD pipeline triggers Render deployments via deploy hooks:
 
-1. New version deployed to "green" environment
-2. Health checks run on green
-3. Traffic switched from blue to green
-4. Blue kept for rollback
+1. `deploy-production.yml` runs a security gate (Bandit high-severity + npm audit critical)
+2. GHCR images built and pushed for archival
+3. Render deploy hooks triggered for both backend and frontend services
+4. Self-healing smoke tests poll health endpoints (300s timeout, 15s interval)
+5. On smoke test failure, deploy hooks are re-triggered once automatically
+6. All workflows have concurrency groups to prevent overlapping deploys
+
+**GitHub Secrets Required**:
+- `RENDER_DEPLOY_HOOK_BACKEND` — deploy hook URL for backend service
+- `RENDER_DEPLOY_HOOK_FRONTEND` — deploy hook URL for frontend service
+- `PROD_API_URL` — production backend URL for smoke tests
+- `PROD_FRONTEND_URL` — production frontend URL for smoke tests
 
 ---
 
@@ -289,17 +295,14 @@ gh run view [run-id] --log
 # Check resource usage
 docker stats
 
-# Check Prometheus metrics
-curl http://localhost:9090/api/v1/query?query=up
-
-# View Grafana dashboards
-open http://localhost:3001
+# Check Render logs
+render logs --service srv-d649uhur433s73d557cg
 ```
 
 ### Getting Help
 
-1. Check the logs: `make logs`
-2. Review Grafana dashboards
+1. Check the logs: `make logs` or `render logs`
+2. Check Sentry for error tracking
 3. Check GitHub Issues
 4. Contact the development team
 

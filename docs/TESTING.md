@@ -2,9 +2,9 @@
 
 **Last Updated**: 2026-02-25
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 741 (pytest, 29 test files)
-**Frontend Tests**: 445 across 32 suites (Jest)
-**ML Tests**: 105 + 2 skipped (pytest)
+**Backend Tests**: 787 (pytest, 36 test files)
+**Frontend Tests**: 469 across 35 suites (Jest)
+**ML Tests**: 257 + 41 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
 
 ---
@@ -13,9 +13,9 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 741 | 85%+ | pytest |
-| **Frontend Component + Lib Tests** | 445 (32 suites) | 70%+ | Jest + RTL |
-| **ML Inference + Training** | 105 (+2 skipped) | 80%+ | pytest |
+| **Backend Unit/Integration** | 787 | 85%+ | pytest |
+| **Frontend Component + Lib Tests** | 469 (35 suites) | 70%+ | Jest + RTL |
+| **ML Inference + Training** | 257 (+41 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
 | **Security Tests** | 144 | 90%+ | pytest |
 | **Load Tests** | N/A | 1000+ users | Locust |
@@ -70,11 +70,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (741 tests)
+# Backend tests (787 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (445 tests across 32 suites)
+# Frontend unit tests (469 tests across 35 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -99,7 +99,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 741
+**Count**: 787
 **Coverage Target**: 85%+
 
 **Test Files**:
@@ -139,7 +139,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 445 tests across 32 suites
+**Count**: 469 tests across 35 suites
 **Coverage Target**: 70%+
 
 **Component Test Suites** (`__tests__/`):
@@ -368,23 +368,28 @@ pytest tests/security/ -v
 
 ### GitHub Actions Workflows
 
-1. **Test Workflow** (`.github/workflows/test.yml`)
+1. **Unified CI** (`.github/workflows/ci.yml`)
    - Runs on every PR and push to main/develop
-   - Backend tests (Python 3.11, with PostgreSQL + Redis services)
-   - ML tests (Python 3.11)
-   - Frontend tests (Node 20) with lint, test, and build steps
-   - Security scan (Bandit + Safety)
-   - Docker build verification
-   - Enforces coverage reporting via Codecov
+   - Uses `dorny/paths-filter` for smart path-based job selection (only runs relevant tests)
+   - Backend lint (Black, isort, flake8, mypy) + tests via reusable `_backend-tests.yml`
+   - ML tests (Python 3.11) — only when `ml/` files change
+   - Frontend tests (lint + Jest + build) — only when `frontend/` files change
+   - Security scan (Bandit high-severity + npm audit critical) — blocks on findings
+   - Docker build verification — only after tests pass
+   - Concurrency: `ci-${{ github.ref }}`, cancel-in-progress: true
+   - Replaces the former `test.yml`, `backend-ci.yml`, and `frontend-ci.yml` (deleted)
 
 2. **E2E Test Workflow** (`.github/workflows/e2e-tests.yml`)
-   - Runs Playwright E2E tests
+   - Runs Playwright E2E tests with proper health-check polling (no sleep calls)
    - Runs Lighthouse audits
+   - Load tests (on-demand via label or workflow_dispatch)
+   - Security tests (Bandit + adversarial)
    - Daily scheduled runs at 2 AM UTC
+   - Uses composite actions: `setup-python-env`, `setup-node-env`, `wait-for-service`
 
-3. **Load Test Workflow** (On demand)
-   - Triggered by `load-test` label on PR
-   - Runs quick load test scenario
+3. **Reusable Workflows** (callable only)
+   - `_backend-tests.yml` — backend tests with postgres + redis services, optional coverage/Codecov
+   - `_docker-build-push.yml` — Docker build + GHCR push with metadata + GHA cache
 
 ### CI Environment
 
@@ -565,7 +570,7 @@ open tests/load/reports/load_test_*.html
 
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (741 backend, 445 frontend, 105 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (787 backend, 469 frontend, 257 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 
@@ -608,7 +613,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 741 backend, 445 frontend, and 105 ML tests continue to pass with Loki Mode installed
+- All 787 backend, 469 frontend, and 257 ML tests continue to pass with Loki Mode installed
 
 ---
 
