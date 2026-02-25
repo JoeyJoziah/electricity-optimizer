@@ -103,7 +103,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         })
       }
 
-      router.push('/dashboard')
+      // Full-page navigation ensures middleware evaluates with the fresh
+      // session cookie (router.push uses cached prefetch that may predate
+      // the cookie being set).
+      window.location.href = '/dashboard'
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in'
       setError(message)
@@ -111,7 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [router])
+  }, [])
 
   // Sign up with email/password
   const signUp = useCallback(async (email: string, password: string, name?: string) => {
@@ -139,7 +142,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         })
       }
 
-      router.push('/dashboard')
+      // Full-page navigation ensures middleware evaluates with the fresh
+      // session cookie (router.push uses cached prefetch that may predate
+      // the cookie being set).
+      window.location.href = '/dashboard'
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign up'
       setError(message)
@@ -147,7 +153,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [router])
+  }, [])
 
   // Sign out
   const signOut = useCallback(async () => {
