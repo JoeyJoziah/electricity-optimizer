@@ -71,6 +71,10 @@ class UserRateLimiter:
         # In-memory fallback for when Redis is not available
         self._memory_store: dict = {}
 
+    def reset(self):
+        """Clear all in-memory rate limit state."""
+        self._memory_store.clear()
+
     async def check_rate_limit(
         self,
         identifier: str,
