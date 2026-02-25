@@ -233,7 +233,7 @@ In production, the database is Neon PostgreSQL (serverless, accessed via connect
 | Property | Value |
 |----------|-------|
 | Dockerfile | `./Dockerfile` (root, not backend/) |
-| Python | 3.11-slim (multi-stage build) |
+| Python | 3.12-slim (multi-stage build) |
 | User | `appuser` (non-root, UID 1000) |
 | Health Check | `curl -f http://localhost:${PORT:-8000}/health` |
 | Auto-deploy | On push to `main` |

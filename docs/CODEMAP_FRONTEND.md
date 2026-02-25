@@ -328,7 +328,7 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 - Uses `credentials: 'include'` to send Better Auth session cookies (native `EventSource` cannot)
 - Auth failure detection: 401/403 in `onopen` throws to stop retrying
 - `onerror` returns retry delay (ms) or throws for auth failures; exponential backoff (1s -> 2s -> 4s, max 30s)
-- `openWhenHidden: true` keeps streaming in background tabs
+- `openWhenHidden: false` pauses streaming when the browser tab is hidden (saves bandwidth and server connections)
 - Cleanup via `AbortController.abort()` (not `EventSource.close()`)
 - On message: parses `PriceUpdate` (with optional `source` field: `"live"` or `"fallback"`), invalidates `['prices', 'current']` and `['prices', 'history']` queries
 - Returns: `{ isConnected, lastPrice, disconnect }`
@@ -632,7 +632,9 @@ npm run lint          # next lint
 16. **Excalidraw architecture diagrams** -- Dev-only `/architecture` page for interactive `.excalidraw` diagrams stored in `docs/architecture/`. Triple-gated (middleware rewrite, layout notFound, API 404). Dynamic import keeps ~2MB bundle out of production. 53 new tests across 10 suites
 17. **Supplier selection & account linking** -- `SetSupplierDialog`, `SupplierAccountForm`, `SupplierSelector` components. Backend encrypts account/meter numbers with AES-256-GCM. 469 total frontend tests across 35 suites
 18. **Connection feature (5 phases)** -- Full utility connection system: Email OAuth import (Gmail + Outlook with HMAC state), bill upload with OCR parsing, direct login, UtilityAPI sync. Analytics dashboard with rate comparison, savings estimates, rate history charts, and connection health monitoring. 9 new frontend components in `connections/` directory
-19. **Page component extraction** -- Dashboard, Prices, Suppliers page content extracted into dedicated `*Content.tsx` components. Added Next.js `loading.tsx` skeletons for all three routes. Improves streaming support and code organization
+19. **Page component extraction** -- Dashboard, Prices, Suppliers page content extracted into dedicated `*Content.tsx` components. Added Next.js `loading.tsx` skeletons for all three routes. Pages are now server components with `export const metadata` for SSR
+20. **Auth init waterfall fix** -- `useAuth.tsx` now uses `Promise.allSettled()` to fetch session and user-supplier data in parallel instead of sequentially
+21. **SSE background tab optimization** -- `openWhenHidden` changed from `true` to `false` in `useRealtimePrices` to pause SSE when tab is hidden
 
 ---
 

@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-25 (Connection Feature Phases 1-5: email OAuth, bill upload, direct login, UtilityAPI sync, analytics)
+> Last updated: 2026-02-25 (Phase 4 bottleneck optimization: pure ASGI middleware, Docker Python 3.12, utility_type index)
 
 ## Directory Structure
 
@@ -101,8 +101,8 @@ backend/
 │   └── encryption.py                # AES-256-GCM field-level encryption (account numbers, meter numbers)
 │
 ├── middleware/
-│   ├── rate_limiter.py              # Redis-backed sliding window rate limiting + reset() for test isolation
-│   └── security_headers.py          # CSP, HSTS, X-Frame-Options, etc.
+│   ├── rate_limiter.py              # Pure ASGI rate limiting (sliding window, Redis or in-memory) + reset() for test isolation
+│   └── security_headers.py          # Pure ASGI security headers (CSP, HSTS, X-Frame-Options, etc.)
 │
 ├── migrations/
 │   ├── init_neon.sql                # Initial schema: users, electricity_prices, suppliers,
@@ -562,14 +562,16 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 
 ## Middleware Stack
 
+All custom middleware uses the **pure ASGI protocol** (`__call__(scope, receive, send)`) instead of Starlette's `BaseHTTPMiddleware`. This avoids response buffering that would deadlock SSE streams. Headers are injected via `send_wrapper` intercepting `http.response.start` messages.
+
 Applied in reverse order (last added = first executed):
 
 1. **Request ID + Timing** -- UUID per request, X-Process-Time header (dev only)
 2. **Metrics Auth** -- API key required for `/metrics` endpoint
-3. **RequestTimeoutMiddleware** -- 30s timeout per request (SSE excluded)
-4. **RequestBodySizeLimitMiddleware** -- 1 MB limit (Content-Length + chunked encoding)
-5. **RateLimitMiddleware** -- Per-user/IP sliding window (Redis or in-memory fallback)
-6. **SecurityHeadersMiddleware** -- CSP, HSTS, X-Frame-Options, Permissions-Policy
+3. **RequestTimeoutMiddleware** -- 30s timeout per request (SSE `/prices/stream` excluded); pure ASGI with `asyncio.wait_for`
+4. **RequestBodySizeLimitMiddleware** -- 1 MB limit (10 MB for `/connections/upload`); pure ASGI with Content-Length fast path + chunked `counting_receive` wrapper
+5. **RateLimitMiddleware** -- Per-user/IP sliding window (Redis or in-memory fallback); pure ASGI, extracts identifier from raw `scope["headers"]`
+6. **SecurityHeadersMiddleware** -- CSP, HSTS, X-Frame-Options, Permissions-Policy, cache-control for `/api/*`; pure ASGI
 7. **GZipMiddleware** -- Compress responses > 1000 bytes
 8. **CORSMiddleware** -- Origin regex restricted to `electricity-optimizer*.(vercel|onrender)`
 
@@ -643,6 +645,7 @@ Two auth mechanisms:
 | `008_connection_feature.sql` | Base connection tables: `user_connections`, `bill_uploads`, `connection_extracted_rates` |
 | `009_email_oauth_tokens.sql` | OAuth token columns on `user_connections` |
 | `010_utilityapi_sync_columns.sql` | UtilityAPI sync columns (`last_sync_at`, `sync_frequency_hours`, etc.) |
+| `010_utility_type_index.sql` | Composite index on `electricity_prices(region, utility_type, timestamp DESC)` for multi-utility queries |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.
@@ -824,7 +827,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1033 passing, 0 failures (as of 2026-02-25). 42 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
+**Test status:** 1033 passing, 0 failures (as of 2026-02-25). 43 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation

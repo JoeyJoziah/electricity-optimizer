@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-25
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 1033 (pytest, 42 test files)
+**Backend Tests**: 1033 (pytest, 43 test files)
 **Frontend Tests**: 469 across 35 suites (Jest)
 **ML Tests**: 257 + 41 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
@@ -102,7 +102,7 @@ cd tests/load && ./run_load_test.sh quick
 **Count**: 1033
 **Coverage Target**: 85%+
 
-**Test Files** (42 files):
+**Test Files** (43 files):
 - `test_api.py` - API endpoint tests
 - `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
 - `test_api_predictions.py` - ML prediction endpoint tests
@@ -132,7 +132,7 @@ cd tests/load && ./run_load_test.sh quick
 - `test_bill_upload.py` - Bill upload and parse tests (file validation, multipart upload, parse status)
 - `test_email_oauth.py` - Email OAuth tests: state gen/verify, consent URLs, token encryption, Gmail/Outlook scanning, callback flow, endpoint tests (70 tests across 13 classes)
 - `test_connection_analytics.py` - Analytics service tests: rate comparison, history, savings, stale connections, rate changes (39 tests across 8 classes)
-- `test_middleware_asgi.py` - ASGI middleware compliance tests (rate limiter, security headers)
+- `test_middleware_asgi.py` - Pure ASGI middleware tests: security headers, rate limiting, body size limit, timeout exclusion, SSE streaming through full middleware stack (9 tests)
 
 **Running**:
 ```bash
