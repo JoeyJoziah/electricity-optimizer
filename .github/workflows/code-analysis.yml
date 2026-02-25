@@ -1,0 +1,59 @@
+name: Code Analysis
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  claude-flow-analysis:
+    name: Claude Flow Code Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install claude-flow
+        run: npm install -g claude-flow@3.1.0-alpha.44
+
+      - name: Analyze diff risk
+        run: |
+          claude-flow analyze diff --risk --format json > diff-risk.json || true
+          echo "## Diff Risk Analysis" >> $GITHUB_STEP_SUMMARY
+          cat diff-risk.json >> $GITHUB_STEP_SUMMARY || echo "No risk report generated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Analyze backend complexity
+        run: |
+          claude-flow analyze complexity backend/ --threshold 15 --format json > complexity.json || true
+          echo "## Complexity Analysis" >> $GITHUB_STEP_SUMMARY
+          cat complexity.json >> $GITHUB_STEP_SUMMARY || echo "No complexity report generated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check circular dependencies
+        run: |
+          claude-flow analyze circular backend/ --format json > circular.json || true
+          echo "## Circular Dependencies" >> $GITHUB_STEP_SUMMARY
+          cat circular.json >> $GITHUB_STEP_SUMMARY || echo "No circular dependency report generated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Security scan
+        run: |
+          claude-flow security scan --format json > security.json || true
+          echo "## Security Scan" >> $GITHUB_STEP_SUMMARY
+          cat security.json >> $GITHUB_STEP_SUMMARY || echo "No security report generated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload analysis reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: claude-flow-analysis
+          path: |
+            diff-risk.json
+            complexity.json
+            circular.json
+            security.json
+          retention-days: 30

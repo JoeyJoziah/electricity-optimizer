@@ -39,23 +39,31 @@ log "=== Session activation starting ==="
 # 1. Claude Flow daemon + memory
 # ---------------------------------------------------------------------------
 activate_claude_flow() {
-    if command -v npx &>/dev/null; then
-        # Start daemon if not running
+    if ! command -v npx &>/dev/null; then
+        log "WARN: npx not found, skipping Claude Flow"
+        return 0
+    fi
+
+    # If MCP server is registered and handling things, skip CLI daemon startup.
+    # The MCP server provides the same memory/hooks via tool calls, so a
+    # separate daemon process is redundant.
+    if npx claude-flow mcp status &>/dev/null 2>&1; then
+        log "Claude Flow MCP server active, skipping CLI daemon"
+    else
+        # Fallback: start daemon via CLI if MCP server isn't running
         npx claude-flow daemon status &>/dev/null || {
             npx claude-flow hooks session-start --startDaemon true --restoreLatest true &>/dev/null || true
-            log "Claude Flow daemon started"
+            log "Claude Flow daemon started (CLI fallback)"
         }
+    fi
 
-        # Verify memory
-        local entry_count
-        entry_count=$(npx claude-flow memory stats 2>/dev/null | grep "Total Entries" | grep -oE "[0-9]+" || echo "0")
-        if (( entry_count > 0 )); then
-            log "Claude Flow memory: OK ($entry_count entries)"
-        else
-            log "WARN: Claude Flow memory empty or unavailable"
-        fi
+    # Verify memory (works via both MCP and CLI paths)
+    local entry_count
+    entry_count=$(npx claude-flow memory stats 2>/dev/null | grep "Total Entries" | grep -oE "[0-9]+" || echo "0")
+    if (( entry_count > 0 )); then
+        log "Claude Flow memory: OK ($entry_count entries)"
     else
-        log "WARN: npx not found, skipping Claude Flow"
+        log "WARN: Claude Flow memory empty or unavailable"
     fi
 }
 
@@ -105,7 +113,29 @@ layer.update([])
 }
 
 # ---------------------------------------------------------------------------
-# 3. Board sync health check
+# 3. Hooks intelligence bootstrap (one-time per repo)
+# ---------------------------------------------------------------------------
+bootstrap_hooks_intelligence() {
+    if ! command -v npx &>/dev/null; then
+        return 0
+    fi
+
+    local pretrain_marker="$REPO_ROOT/.claude-flow/.hooks-pretrained"
+    if [[ -f "$pretrain_marker" ]]; then
+        log "Hooks intelligence: already bootstrapped"
+        return 0
+    fi
+
+    # One-time pretrain to populate the ReasoningBank from repo history
+    npx claude-flow hooks pretrain --directory "$REPO_ROOT" &>/dev/null && {
+        mkdir -p "$REPO_ROOT/.claude-flow"
+        touch "$pretrain_marker"
+        log "Hooks intelligence: bootstrapped (pretrain complete)"
+    } || log "WARN: Hooks pretrain failed (non-critical)"
+}
+
+# ---------------------------------------------------------------------------
+# 4. Board sync health check
 # ---------------------------------------------------------------------------
 check_board_sync() {
     local sync_script="$REPO_ROOT/.claude/hooks/board-sync/sync-boards.sh"
@@ -117,15 +147,16 @@ check_board_sync() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Report summary
+# 5. Report summary
 # ---------------------------------------------------------------------------
 report_summary() {
     local systems_ok=0
-    local systems_total=3
+    local systems_total=4
 
     command -v npx &>/dev/null && npx claude-flow memory stats &>/dev/null && systems_ok=$((systems_ok + 1))
     command -v loki &>/dev/null && systems_ok=$((systems_ok + 1))
     [[ -x "$REPO_ROOT/.claude/hooks/board-sync/sync-boards.sh" ]] && systems_ok=$((systems_ok + 1))
+    [[ -f "$REPO_ROOT/.claude-flow/.hooks-pretrained" ]] && systems_ok=$((systems_ok + 1))
 
     log "=== Activation complete: $systems_ok/$systems_total systems online ==="
 }
@@ -134,6 +165,7 @@ report_summary() {
 {
     activate_claude_flow
     activate_loki
+    bootstrap_hooks_intelligence
     check_board_sync
     report_summary
 } &

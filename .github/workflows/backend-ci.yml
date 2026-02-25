@@ -164,6 +164,33 @@ jobs:
           name: bandit-security-report
           path: backend/bandit-report.json
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install claude-flow
+        run: npm install -g claude-flow@3.1.0-alpha.44
+
+      - name: Claude Flow security scan
+        run: |
+          claude-flow security scan --format json > claude-flow-security.json || true
+        continue-on-error: true
+
+      - name: Claude Flow dependency audit
+        run: |
+          claude-flow analyze deps --security --format json > claude-flow-deps.json || true
+        continue-on-error: true
+
+      - name: Upload Claude Flow reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: claude-flow-security-report
+          path: |
+            claude-flow-security.json
+            claude-flow-deps.json
+
   build-docker:
     name: Build Docker Image
     runs-on: ubuntu-latest

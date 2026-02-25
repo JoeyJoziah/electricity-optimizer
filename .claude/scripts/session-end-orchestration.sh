@@ -40,11 +40,18 @@ if [[ -x "$event_sync" ]]; then
         log "WARN: Loki event drain failed"
 fi
 
-# 3. Claude Flow state persist
+# 3. Claude Flow state persist + SONA metrics export
 if command -v npx &>/dev/null; then
     npx claude-flow hooks session-end --saveState true --exportMetrics true 2>/dev/null && \
         log "Claude Flow state persisted" || \
         log "WARN: Claude Flow persist failed"
+
+    # Export hooks intelligence metrics (SONA: Self-Organizing Neural Architecture)
+    metrics_dir="$REPO_ROOT/.claude-flow/logs"
+    mkdir -p "$metrics_dir"
+    npx claude-flow hooks metrics --format json > "$metrics_dir/sona-metrics-$(date +%Y%m%d_%H%M%S).json" 2>/dev/null && \
+        log "SONA metrics exported" || \
+        log "WARN: SONA metrics export failed (non-critical)"
 fi
 
 # 4. Board sync final drain

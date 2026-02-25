@@ -1,5 +1,10 @@
 {
   "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": ["claude-flow", "mcp", "start"],
+      "env": {}
+    },
     "loki-mode": {
       "command": "python3",
       "args": [
