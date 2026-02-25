@@ -36,17 +36,31 @@ class SecretsManager:
     """
 
     # 1Password vault and item references
-    OP_VAULT = "electricity-optimizer"
+    OP_VAULT = "Electricity Optimizer"
 
     # Mapping of secret names to 1Password item.field paths
     SECRET_MAPPINGS = {
-        "jwt_secret": "api-secrets.jwt_secret",
-        "flatpeak_api_key": "pricing-apis.flatpeak",
-        "nrel_api_key": "pricing-apis.nrel",
-        "iea_api_key": "pricing-apis.iea",
-        "redis_password": "infrastructure.redis_password",
-        "postgres_password": "infrastructure.postgres_password",
-        "sentry_dsn": "monitoring.sentry_dsn",
+        # Authentication & API keys
+        "jwt_secret": "API Secrets.jwt_secret",
+        "internal_api_key": "API Secrets.internal_api_key",
+        "better_auth_secret": "Neon Auth.secret",
+        # Database & infrastructure
+        "postgres_password": "Neon PostgreSQL.database_url",
+        "redis_password": "Redis Upstash.redis_password",
+        # Pricing data providers
+        "flatpeak_api_key": "Pricing APIs.flatpeak",
+        "nrel_api_key": "Pricing APIs.nrel",
+        "iea_api_key": "Pricing APIs.iea",
+        "eia_api_key": "Pricing APIs.eia",
+        # External services
+        "openweathermap_api_key": "OpenWeatherMap.api_key",
+        "stripe_secret_key": "Stripe Keys.secret_key",
+        "stripe_webhook_secret": "Stripe Keys.webhook_secret",
+        "stripe_price_pro": "Stripe Keys.price_pro",
+        "stripe_price_business": "Stripe Keys.price_business",
+        # Security & monitoring
+        "field_encryption_key": "Field Encryption.key",
+        "sentry_dsn": "Monitoring.sentry_dsn",
     }
 
     def __init__(self, use_1password: bool = None):

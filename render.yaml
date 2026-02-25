@@ -17,6 +17,8 @@ services:
         sync: false
       - key: NREL_API_KEY
         sync: false
+      - key: EIA_API_KEY
+        sync: false
       - key: OPENWEATHERMAP_API_KEY
         sync: false
       - key: SENDGRID_API_KEY

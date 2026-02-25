@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     flatpeak_api_key: Optional[str] = Field(default=None, validation_alias="FLATPEAK_API_KEY")
     nrel_api_key: Optional[str] = Field(default=None, validation_alias="NREL_API_KEY")
     iea_api_key: Optional[str] = Field(default=None, validation_alias="IEA_API_KEY")
+    eia_api_key: Optional[str] = Field(default=None, validation_alias="EIA_API_KEY")
     utilityapi_key: Optional[str] = Field(default=None, validation_alias="UTILITYAPI_KEY")
     openvolt_api_key: Optional[str] = Field(default=None, validation_alias="OPENVOLT_API_KEY")
     openweathermap_api_key: Optional[str] = Field(default=None, validation_alias="OPENWEATHERMAP_API_KEY")

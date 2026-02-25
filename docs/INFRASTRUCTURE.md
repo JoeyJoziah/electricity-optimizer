@@ -449,18 +449,22 @@ deploy:
 - Never commit secrets to Git
 - INTERNAL_API_KEY for service-to-service authentication (GitHub Actions + Render)
 
-**1Password Vault** ("Electricity Optimizer"):
+**1Password Vault** ("Electricity Optimizer" — 12 items):
 
-| Item | Category | Purpose |
-|------|----------|---------|
-| Neon PostgreSQL | Login | DATABASE_URL connection string |
-| Redis | Login | REDIS_URL connection string |
-| JWT Secret | Login | JWT_SECRET (internal API validation only) |
-| Better Auth Secret | Login | BETTER_AUTH_SECRET signing key |
-| Internal API Key | Login | INTERNAL_API_KEY for service-to-service auth |
-| Stripe Keys | Login | stripe_secret_key, stripe_webhook_secret |
-| Render Deploy Hook | Login | Render deploy hook URL |
-| Notion API Key | Login | Notion integration API key |
+| Item | Category | Fields | Purpose |
+|------|----------|--------|---------|
+| Neon PostgreSQL | Login | `database_url` | DATABASE_URL connection string (ep-withered-morning endpoint) |
+| Redis Upstash | Login | `redis_url`, `redis_password` | Upstash Redis for caching, rate limiting, ensemble weights |
+| API Secrets | Login | `jwt_secret`, `internal_api_key` | JWT (internal validation only) + service-to-service API key |
+| Neon Auth | Login | `secret`, `url` | BETTER_AUTH_SECRET signing key + BETTER_AUTH_URL |
+| Stripe Keys | Login | `secret_key`, `webhook_secret`, `price_pro`, `price_business` | Stripe payment integration |
+| Pricing APIs | Login | `flatpeak`, `nrel`, `iea`, `eia` | API keys for FlatPeak, NREL, IEA, EIA pricing providers |
+| OpenWeatherMap | Login | `api_key` | Weather data API key (free tier: 1000 calls/day) |
+| Monitoring | Login | `sentry_dsn` | Sentry DSN for error tracking |
+| Field Encryption | Login | `key` | AES-256-GCM key for account/meter number encryption |
+| Render Deploy Hook | Login | `url` | Render.com deploy hook URL |
+| Render Service | Login | `service_id` | Render service metadata (srv-d649uhur433s73d557cg) |
+| GitHub Repository | Login | `token`, `webhook_secret` | GitHub token and webhook secret for CI/CD |
 
 **GitHub Actions Secrets** (required for adaptive learning workflows):
 - `INTERNAL_API_KEY` — same key as Render env var
