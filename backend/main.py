@@ -72,13 +72,15 @@ async def lifespan(app: FastAPI):
         logger.warning("continuing_without_full_db", environment=settings.environment)
 
     # Wire Redis into rate limiter for distributed rate limiting
-    try:
-        redis = await db_manager.get_redis_client()
-        if redis:
-            _app_rate_limiter.redis = redis
-            logger.info("rate_limiter_redis_wired")
-    except Exception as e:
-        logger.warning("rate_limiter_redis_wire_failed", error=str(e))
+    # Skip in test environment to prevent cross-test state leakage
+    if settings.environment != "test":
+        try:
+            redis = await db_manager.get_redis_client()
+            if redis:
+                _app_rate_limiter.redis = redis
+                logger.info("rate_limiter_redis_wired")
+        except Exception as e:
+            logger.warning("rate_limiter_redis_wire_failed", error=str(e))
 
     # Initialize Sentry if configured (lazy import to reduce startup time)
     if settings.sentry_dsn:

@@ -5,10 +5,16 @@ import { ConnectionMethodPicker } from './ConnectionMethodPicker'
 import { ConnectionCard } from './ConnectionCard'
 import { DirectLoginForm } from './DirectLoginForm'
 import { EmailConnectionFlow } from './EmailConnectionFlow'
-import { BillUploadForm } from './BillUploadForm'
+import { ConnectionUploadFlow } from './ConnectionUploadFlow'
+import { ConnectionRates } from './ConnectionRates'
 import { Link2, ArrowLeft, Loader2 } from 'lucide-react'
 
-type View = 'overview' | 'adding-direct' | 'adding-email' | 'adding-upload'
+type View =
+  | 'overview'
+  | 'adding-direct'
+  | 'adding-email'
+  | 'adding-upload'
+  | 'viewing-rates'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -19,6 +25,8 @@ interface Connection {
   supplier_name: string | null
   email_provider: string | null
   last_sync_at: string | null
+  last_sync_error: string | null
+  current_rate: number | null
   created_at: string
 }
 
@@ -27,6 +35,7 @@ export function ConnectionsOverview() {
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -54,46 +63,64 @@ export function ConnectionsOverview() {
     fetchConnections()
   }, [fetchConnections])
 
+  const handleViewRates = (connectionId: string) => {
+    setSelectedConnectionId(connectionId)
+    setView('viewing-rates')
+  }
+
+  const handleBackToOverview = () => {
+    setView('overview')
+    setSelectedConnectionId(null)
+    fetchConnections()
+  }
+
   if (error === 'upgrade') {
     return <PaidFeatureGate />
   }
 
-  if (view !== 'overview') {
+  // Rate viewing
+  if (view === 'viewing-rates' && selectedConnectionId) {
+    const conn = connections.find((c) => c.id === selectedConnectionId)
+    return (
+      <ConnectionRates
+        connectionId={selectedConnectionId}
+        connectionMethod={conn?.method || 'unknown'}
+        supplierName={conn?.supplier_name || null}
+        onBack={handleBackToOverview}
+        onUploadAnother={
+          conn?.method === 'bill_upload' || conn?.method === 'manual_upload'
+            ? () => {
+                setView('adding-upload')
+              }
+            : undefined
+        }
+      />
+    )
+  }
+
+  // Adding a connection
+  if (
+    view === 'adding-direct' ||
+    view === 'adding-email' ||
+    view === 'adding-upload'
+  ) {
     return (
       <div>
         <button
-          onClick={() => {
-            setView('overview')
-            fetchConnections()
-          }}
+          onClick={handleBackToOverview}
           className="mb-6 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to connections
         </button>
         {view === 'adding-direct' && (
-          <DirectLoginForm
-            onComplete={() => {
-              setView('overview')
-              fetchConnections()
-            }}
-          />
+          <DirectLoginForm onComplete={handleBackToOverview} />
         )}
         {view === 'adding-email' && (
-          <EmailConnectionFlow
-            onComplete={() => {
-              setView('overview')
-              fetchConnections()
-            }}
-          />
+          <EmailConnectionFlow onComplete={handleBackToOverview} />
         )}
         {view === 'adding-upload' && (
-          <BillUploadForm
-            onComplete={() => {
-              setView('overview')
-              fetchConnections()
-            }}
-          />
+          <ConnectionUploadFlow onComplete={handleBackToOverview} />
         )}
       </div>
     )
@@ -105,7 +132,9 @@ export function ConnectionsOverview() {
       {loading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-          <span className="ml-2 text-sm text-gray-500">Loading connections...</span>
+          <span className="ml-2 text-sm text-gray-500">
+            Loading connections...
+          </span>
         </div>
       )}
 
@@ -134,6 +163,8 @@ export function ConnectionsOverview() {
                 key={conn.id}
                 connection={conn}
                 onDelete={fetchConnections}
+                onViewRates={handleViewRates}
+                onRefresh={fetchConnections}
               />
             ))}
           </div>

@@ -4,6 +4,12 @@ Pytest Configuration and Shared Fixtures
 This module provides common fixtures and configuration for all tests.
 """
 
+import os
+
+# Set test environment BEFORE any app imports to prevent Redis wiring
+# in the rate limiter (avoids cross-test state leakage via Redis)
+os.environ.setdefault("ENVIRONMENT", "test")
+
 import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal

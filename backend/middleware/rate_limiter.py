@@ -72,8 +72,9 @@ class UserRateLimiter:
         self._memory_store: dict = {}
 
     def reset(self):
-        """Clear all in-memory rate limit state."""
+        """Clear all in-memory rate limit state and detach Redis."""
         self._memory_store.clear()
+        self.redis = None
 
     async def check_rate_limit(
         self,

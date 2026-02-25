@@ -137,3 +137,82 @@ class ExtractedRateResponse(BaseModel):
     effective_date: datetime
     source: str  # e.g. "bill_parse", "api_pull"
     raw_label: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Bill Upload Models (Phase 2)
+# ---------------------------------------------------------------------------
+
+ParseStatus = Literal["pending", "processing", "complete", "failed"]
+
+
+class BillUploadResponse(BaseModel):
+    """Serialised representation of a single bill upload record."""
+
+    id: str
+    connection_id: str
+    file_name: str
+    file_type: str
+    file_size_bytes: int
+    parse_status: ParseStatus = "pending"
+    detected_supplier: Optional[str] = None
+    detected_rate_per_kwh: Optional[float] = None
+    detected_billing_period_start: Optional[str] = None
+    detected_billing_period_end: Optional[str] = None
+    detected_total_kwh: Optional[float] = None
+    detected_total_amount: Optional[float] = None
+    parse_error: Optional[str] = None
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class BillUploadListResponse(BaseModel):
+    """List of bill uploads for a connection."""
+
+    uploads: List[BillUploadResponse]
+    total: int
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: UtilityAPI Direct Sync Models
+# ---------------------------------------------------------------------------
+
+
+class SyncStatusResponse(BaseModel):
+    """
+    Current sync health and scheduling information for a connection.
+
+    Returned by GET /connections/{id}/sync-status.
+    """
+
+    connection_id: str
+    last_sync_at: Optional[datetime] = None
+    last_sync_error: Optional[str] = None
+    next_sync_at: Optional[datetime] = None
+    sync_frequency_hours: int = 24
+
+
+class SyncResultResponse(BaseModel):
+    """
+    Result of a triggered sync operation.
+
+    Returned by POST /connections/{id}/sync.
+    """
+
+    connection_id: str
+    success: bool
+    new_rates_found: int = 0
+    error: Optional[str] = None
+    synced_at: datetime
+
+
+class AuthorizationCallbackResponse(BaseModel):
+    """
+    Response returned by GET /connections/direct/callback after a successful
+    UtilityAPI authorization callback has been processed.
+    """
+
+    connection_id: str
+    status: str  # 'active' | 'error'
+    message: str

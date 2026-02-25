@@ -40,9 +40,9 @@ def _mock_db():
 # across the full test suite.
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def client():
-    """Module-scoped TestClient so the middleware event loop stays healthy."""
+    """Function-scoped TestClient so the rate limiter resets cleanly between tests."""
     from main import app
     with TestClient(app) as c:
         yield c
