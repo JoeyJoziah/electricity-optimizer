@@ -64,13 +64,11 @@ async def lifespan(app: FastAPI):
     logger.info("application_starting", environment=settings.environment)
 
     try:
-        # Initialize database connections (graceful degradation in dev)
+        # Initialize database connections (graceful degradation — app starts even if DB unavailable)
         await db_manager.initialize()
         logger.info("database_connections_initialized")
     except Exception as e:
         logger.error("database_init_failed", error=str(e))
-        if settings.is_production:
-            raise
         logger.warning("continuing_without_full_db", environment=settings.environment)
 
     # Wire Redis into rate limiter for distributed rate limiting

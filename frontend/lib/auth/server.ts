@@ -90,9 +90,9 @@ function createAuth() {
       throw: true,
     },
 
-    // Enable verbose logging to diagnose internal errors
+    // Log warnings and errors (debug logging removed after auth fix)
     logger: {
-      level: "debug" as const,
+      level: "warn" as const,
     },
   })
 }

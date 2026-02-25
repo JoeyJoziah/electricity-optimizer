@@ -98,9 +98,7 @@ class DatabaseManager:
             logger.info("database_pool_initialized")
         except Exception as e:
             logger.error("database_init_failed", error=str(e))
-            if settings.is_production:
-                raise
-            logger.info("continuing_without_database", environment=settings.environment)
+            logger.warning("continuing_without_database", environment=settings.environment)
 
     async def _init_redis(self):
         """Initialize Redis connection"""
@@ -127,9 +125,7 @@ class DatabaseManager:
             logger.info("redis_initialized")
         except Exception as e:
             logger.error("redis_init_failed", error=str(e))
-            if settings.is_production:
-                raise
-            logger.info("continuing_without_redis", environment=settings.environment)
+            logger.warning("continuing_without_redis", environment=settings.environment)
             self.redis_client = None
 
     async def close(self):
