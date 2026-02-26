@@ -34,7 +34,7 @@ class AlertThreshold:
         price_below: Optional[Decimal] = None,
         price_above: Optional[Decimal] = None,
         notify_optimal_windows: bool = True,
-        region: str = "us_ct",
+        region: str = "",
         currency: str = "USD",
     ):
         self.user_id = user_id
@@ -388,7 +388,7 @@ class AlertService:
         self,
         user_id: str,
         db: AsyncSession,
-        region: str = "us_ct",
+        region: str,
         currency: str = "USD",
         price_below: Optional[Decimal] = None,
         price_above: Optional[Decimal] = None,

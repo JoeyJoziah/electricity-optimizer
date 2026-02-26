@@ -21,9 +21,30 @@ from repositories.price_repository import PriceRepository
 logger = logging.getLogger(__name__)
 
 DEFAULT_REGIONS = [
+    # Deregulated electricity states (highest priority — users can switch suppliers)
     PricingRegion.US_CT,
+    PricingRegion.US_TX,
+    PricingRegion.US_OH,
+    PricingRegion.US_PA,
+    PricingRegion.US_IL,
     PricingRegion.US_NY,
+    PricingRegion.US_NJ,
+    PricingRegion.US_MA,
+    PricingRegion.US_MD,
+    PricingRegion.US_RI,
+    PricingRegion.US_NH,
+    PricingRegion.US_ME,
+    PricingRegion.US_DE,
+    PricingRegion.US_MI,
+    PricingRegion.US_VA,
+    PricingRegion.US_DC,
+    PricingRegion.US_OR,
+    PricingRegion.US_MT,
+    # Large regulated states (high user demand)
     PricingRegion.US_CA,
+    PricingRegion.US_FL,
+    PricingRegion.US_GA,
+    # International
     PricingRegion.UK,
     PricingRegion.GERMANY,
     PricingRegion.FRANCE,

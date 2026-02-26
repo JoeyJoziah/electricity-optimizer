@@ -21,7 +21,7 @@ import type { LinkAccountRequest as LinkAccountRequestType } from '@/lib/api/sup
 /**
  * Hook for fetching available suppliers
  */
-export function useSuppliers(region: string = 'us_ct', annualUsage?: number) {
+export function useSuppliers(region: string, annualUsage?: number) {
   return useQuery({
     queryKey: ['suppliers', region, annualUsage],
     queryFn: () => getSuppliers(region, annualUsage),
@@ -47,7 +47,7 @@ export function useSupplier(supplierId: string) {
 export function useSupplierRecommendation(
   currentSupplierId: string,
   annualUsage: number,
-  region: string = 'us_ct'
+  region: string
 ) {
   return useQuery({
     queryKey: ['recommendation', currentSupplierId, annualUsage, region],

@@ -9,21 +9,21 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: {
-    default: 'Electricity Optimizer - Save on CT Electricity Bills',
+    default: 'Electricity Optimizer - Save on Your Electricity Bills',
     template: '%s | Electricity Optimizer',
   },
-  description: 'AI-powered electricity price optimization for Connecticut residents. Compare rates, get smart alerts, and save money with ML-powered forecasting.',
-  keywords: ['electricity', 'Connecticut', 'energy savings', 'price comparison', 'CT electricity rates'],
+  description: 'AI-powered electricity price optimization for Americans in all 50 states. Compare rates, get smart alerts, and save money with ML-powered forecasting.',
+  keywords: ['electricity', 'energy savings', 'price comparison', 'electricity rates', 'nationwide', 'all states'],
   openGraph: {
     title: 'Electricity Optimizer',
-    description: 'Save money on Connecticut electricity with AI-powered optimization',
+    description: 'Save money on electricity with AI-powered optimization — all 50 states',
     type: 'website',
     locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Electricity Optimizer',
-    description: 'AI-powered electricity savings for CT residents',
+    description: 'AI-powered electricity savings for all 50 states',
   },
   robots: {
     index: true,

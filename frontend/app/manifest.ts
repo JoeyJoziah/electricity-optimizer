@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Electricity Optimizer',
     short_name: 'ElecOpt',
     description:
-      'AI-powered electricity price optimization for Connecticut residents',
+      'AI-powered electricity price optimization for US consumers',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: '#ffffff',

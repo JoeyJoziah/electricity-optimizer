@@ -123,10 +123,10 @@ describe('useSuppliers', () => {
     mockGetSuppliers.mockResolvedValue(mockSuppliersData)
   })
 
-  it('fetches suppliers with default region', async () => {
+  it('fetches suppliers with explicit region', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useSuppliers(), { wrapper })
+    const { result } = renderHook(() => useSuppliers('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
@@ -175,7 +175,7 @@ describe('useSuppliers', () => {
 
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useSuppliers(), { wrapper })
+    const { result } = renderHook(() => useSuppliers('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true)
@@ -283,7 +283,7 @@ describe('useSupplierRecommendation', () => {
     const { wrapper } = createWrapper()
 
     const { result } = renderHook(
-      () => useSupplierRecommendation('', 10500),
+      () => useSupplierRecommendation('', 10500, 'us_ct'),
       { wrapper }
     )
 
@@ -295,7 +295,7 @@ describe('useSupplierRecommendation', () => {
     const { wrapper } = createWrapper()
 
     const { result } = renderHook(
-      () => useSupplierRecommendation('sup-1', 0),
+      () => useSupplierRecommendation('sup-1', 0, 'us_ct'),
       { wrapper }
     )
 
@@ -303,16 +303,16 @@ describe('useSupplierRecommendation', () => {
     expect(mockGetRecommendation).not.toHaveBeenCalled()
   })
 
-  it('uses default region us_ct', async () => {
+  it('passes region explicitly', async () => {
     const { wrapper } = createWrapper()
 
-    renderHook(() => useSupplierRecommendation('sup-1', 10000), { wrapper })
+    renderHook(() => useSupplierRecommendation('sup-1', 10000, 'us_ny'), { wrapper })
 
     await waitFor(() => {
       expect(mockGetRecommendation).toHaveBeenCalledWith(
         'sup-1',
         10000,
-        'us_ct'
+        'us_ny'
       )
     })
   })

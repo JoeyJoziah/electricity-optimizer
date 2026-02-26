@@ -33,8 +33,8 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold text-gray-900 mt-8">2. Service Description</h2>
           <p className="mt-3 text-gray-600">
             Electricity Optimizer provides AI-powered electricity price monitoring, forecasting,
-            and optimization tools for Connecticut residents. Our service uses data from NREL
-            and other sources to help users make informed decisions about electricity usage.
+            and optimization tools for US consumers across all 50 states. Our service uses data from NREL,
+            EIA, and other sources to help users make informed decisions about electricity usage.
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">3. Disclaimer</h2>

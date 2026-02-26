@@ -15,7 +15,7 @@ interface PriceAlert {
 
 interface SettingsState {
   // User settings
-  region: string
+  region: string | null
   utilityTypes: UtilityType[]
   currentSupplier: Supplier | null
   annualUsageKwh: number
@@ -38,7 +38,7 @@ interface SettingsState {
   }
 
   // Actions
-  setRegion: (region: string) => void
+  setRegion: (region: string | null) => void
   setUtilityTypes: (types: UtilityType[]) => void
   setCurrentSupplier: (supplier: Supplier | null) => void
   setAnnualUsage: (usage: number) => void
@@ -77,7 +77,7 @@ const defaultSettings: Omit<
   | 'setDisplayPreferences'
   | 'resetSettings'
 > = {
-  region: 'us_ct',
+  region: null,
   utilityTypes: ['electricity'] as UtilityType[],
   currentSupplier: null,
   annualUsageKwh: 10500, // US average

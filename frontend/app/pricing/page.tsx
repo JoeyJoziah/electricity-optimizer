@@ -4,7 +4,7 @@ import { Zap, Check } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Pricing',
-  description: 'Electricity Optimizer pricing plans - Free, Pro, and Business tiers for CT residents.',
+  description: 'Electricity Optimizer pricing plans - Free, Pro, and Business tiers for US consumers.',
 }
 
 const tiers = [
@@ -14,10 +14,10 @@ const tiers = [
     period: '',
     description: 'Get started with basic price monitoring',
     features: [
-      'Real-time CT electricity prices',
+      'Real-time electricity prices',
       '1 price alert',
       'Manual schedule optimization',
-      'Eversource, UI, NextEra comparison',
+      'Local supplier comparison',
       'Basic dashboard',
     ],
     limitations: ['No ML forecasts', 'No weather integration', 'No email notifications'],
@@ -181,8 +181,8 @@ export default function PricingPage() {
             <div>
               <dt className="font-semibold text-gray-900">Where does the price data come from?</dt>
               <dd className="mt-2 text-sm text-gray-600">
-                We use official NREL (National Renewable Energy Laboratory) data combined with real-time
-                supplier feeds from Connecticut&apos;s major electricity providers.
+                We use official NREL (National Renewable Energy Laboratory) and EIA data combined with real-time
+                supplier feeds from utility providers across all 50 states.
               </dd>
             </div>
           </dl>

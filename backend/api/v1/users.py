@@ -44,6 +44,7 @@ class UserProfileUpdate(BaseModel):
     utility_types: Optional[List[str]] = None
     current_supplier_id: Optional[str] = None
     annual_usage_kwh: Optional[int] = Field(None, ge=0, le=1000000)
+    onboarding_completed: Optional[bool] = None
 
 
 # =============================================================================
@@ -119,6 +120,8 @@ async def update_profile(
         updates["current_supplier_id"] = update.current_supplier_id
     if update.annual_usage_kwh is not None:
         updates["annual_usage_kwh"] = update.annual_usage_kwh
+    if update.onboarding_completed is not None:
+        updates["onboarding_completed"] = update.onboarding_completed
 
     if not updates:
         raise HTTPException(

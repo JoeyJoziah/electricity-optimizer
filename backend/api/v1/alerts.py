@@ -38,7 +38,7 @@ router = APIRouter(prefix="/alerts", tags=["Alerts"])
 class CreateAlertRequest(BaseModel):
     """Body for POST /alerts."""
 
-    region: str = Field(default="us_ct", description="Region code (e.g. 'us_ct')")
+    region: str = Field(description="Region code (e.g. 'us_ct')")
     currency: str = Field(default="USD", max_length=10, description="ISO 4217 currency code")
     price_below: Optional[float] = Field(
         default=None, gt=0, description="Alert when price drops to/below this value ($/kWh)"

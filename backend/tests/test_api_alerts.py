@@ -389,6 +389,7 @@ class TestAlertServiceDBMethods:
         config = await self.service.create_alert(
             user_id=TEST_USER_ID,
             db=self.db,
+            region="us_ct",
             price_below=Decimal("0.20"),
         )
         assert config["user_id"] == TEST_USER_ID
@@ -401,6 +402,7 @@ class TestAlertServiceDBMethods:
             await self.service.create_alert(
                 user_id=TEST_USER_ID,
                 db=self.db,
+                region="us_ct",
                 price_below=None,
                 price_above=None,
                 notify_optimal_windows=False,
@@ -563,7 +565,7 @@ class TestCreateAlert:
     def test_create_alert_price_above(self, auth_client):
         response = auth_client.post(
             "/api/v1/alerts",
-            json={"price_above": 0.35},
+            json={"price_above": 0.35, "region": "us_ct"},
         )
         assert response.status_code == 201
         data = response.json()
@@ -572,7 +574,7 @@ class TestCreateAlert:
     def test_create_alert_optimal_windows_only(self, auth_client):
         response = auth_client.post(
             "/api/v1/alerts",
-            json={"notify_optimal_windows": True},
+            json={"notify_optimal_windows": True, "region": "us_ct"},
         )
         assert response.status_code == 201
         data = response.json()
@@ -595,28 +597,28 @@ class TestCreateAlert:
         """price_below=None, price_above=None, notify_optimal_windows=False -> 422."""
         response = auth_client.post(
             "/api/v1/alerts",
-            json={"notify_optimal_windows": False},
+            json={"notify_optimal_windows": False, "region": "us_ct"},
         )
         assert response.status_code == 422
 
     def test_create_alert_requires_auth(self, unauth_client):
         response = unauth_client.post(
             "/api/v1/alerts",
-            json={"price_below": 0.20},
+            json={"price_below": 0.20, "region": "us_ct"},
         )
         assert response.status_code in (401, 503)
 
     def test_create_alert_negative_price_rejected(self, auth_client):
         response = auth_client.post(
             "/api/v1/alerts",
-            json={"price_below": -0.10},
+            json={"price_below": -0.10, "region": "us_ct"},
         )
         assert response.status_code == 422
 
     def test_create_alert_user_id_set_from_token(self, auth_client):
         response = auth_client.post(
             "/api/v1/alerts",
-            json={"price_below": 0.20},
+            json={"price_below": 0.20, "region": "us_ct"},
         )
         assert response.status_code == 201
         assert response.json()["user_id"] == TEST_USER_ID

@@ -239,7 +239,7 @@ async def ensure_user_profile(
     # eliminating the redundant SELECT round-trip on every request.
     insert = text("""
         INSERT INTO public.users (id, email, name, region, is_active, created_at, updated_at)
-        VALUES (:id, :email, :name, 'us_ct', true, NOW(), NOW())
+        VALUES (:id, :email, :name, NULL, true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """)
     result = await db.execute(insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""})

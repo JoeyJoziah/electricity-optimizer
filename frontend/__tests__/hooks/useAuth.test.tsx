@@ -31,6 +31,12 @@ jest.mock('@/lib/api/suppliers', () => ({
   getUserSupplier: (...args: unknown[]) => mockGetUserSupplier(...args),
 }))
 
+// Mock profile API
+const mockGetUserProfile = jest.fn()
+jest.mock('@/lib/api/profile', () => ({
+  getUserProfile: (...args: unknown[]) => mockGetUserProfile(...args),
+}))
+
 // Mock settings store
 const mockSetCurrentSupplier = jest.fn()
 jest.mock('@/lib/store/settings', () => ({
@@ -69,9 +75,10 @@ describe('useAuth hook', () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
-    // Default: no session, no supplier
+    // Default: no session, no supplier, no profile
     mockGetSession.mockResolvedValue({ data: null, error: null })
     mockGetUserSupplier.mockResolvedValue({ supplier: null })
+    mockGetUserProfile.mockResolvedValue({ region: null, onboarding_completed: false })
 
     // Reset window.location for tests that check redirect
     // Use a writable descriptor so tests can assign window.location.href
@@ -391,7 +398,7 @@ describe('useAuth hook', () => {
   // -------------------------------------------------------------------------
   // signUp
   // -------------------------------------------------------------------------
-  it('signUp sets user on success and redirects to dashboard', async () => {
+  it('signUp sets user on success and redirects to onboarding', async () => {
     mockSignUpEmail.mockResolvedValue({
       data: {
         user: {
@@ -422,7 +429,7 @@ describe('useAuth hook', () => {
       name: 'New User',
     })
     expect(result.current.user?.id).toBe('user-new')
-    expect(window.location.href).toBe('/dashboard')
+    expect(window.location.href).toBe('/onboarding')
   })
 
   it('signUp sets error on failure', async () => {
@@ -601,7 +608,7 @@ describe('useAuth hook', () => {
 
     expect(mockSignInSocial).toHaveBeenCalledWith({
       provider: 'google',
-      callbackURL: '/dashboard',
+      callbackURL: '/onboarding',
     })
   })
 
@@ -621,7 +628,7 @@ describe('useAuth hook', () => {
 
     expect(mockSignInSocial).toHaveBeenCalledWith({
       provider: 'github',
-      callbackURL: '/dashboard',
+      callbackURL: '/onboarding',
     })
   })
 
@@ -762,6 +769,7 @@ describe('useRequireAuth hook', () => {
     jest.clearAllMocks()
     mockGetSession.mockResolvedValue({ data: null, error: null })
     mockGetUserSupplier.mockResolvedValue({ supplier: null })
+    mockGetUserProfile.mockResolvedValue({ region: null, onboarding_completed: false })
     ;(global.fetch as jest.Mock).mockResolvedValue({ ok: true })
   })
 

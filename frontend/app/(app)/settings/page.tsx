@@ -10,7 +10,9 @@ import { SupplierSelector } from '@/components/suppliers/SupplierSelector'
 import { SupplierAccountForm } from '@/components/suppliers/SupplierAccountForm'
 import { useSettingsStore } from '@/lib/store/settings'
 import { useSuppliers, useSetSupplier, useLinkAccount, useUserSupplierAccounts } from '@/lib/hooks/useSuppliers'
+import { useUpdateProfile } from '@/lib/hooks/useProfile'
 import { formatCurrency } from '@/lib/utils/format'
+import { US_REGIONS, DEREGULATED_ELECTRICITY_STATES } from '@/lib/constants/regions'
 import type { UtilityType } from '@/lib/store/settings'
 import type { Supplier, RawSupplierRecord } from '@/types'
 import type { LinkedAccountResponse } from '@/lib/api/suppliers'
@@ -62,8 +64,10 @@ export default function SettingsPage() {
   const [exporting, setExporting] = React.useState(false)
   const [showSupplierPicker, setShowSupplierPicker] = React.useState(false)
 
+  const updateProfileMutation = useUpdateProfile()
+
   // Fetch suppliers for the region
-  const { data: suppliersData } = useSuppliers(region, annualUsageKwh)
+  const { data: suppliersData } = useSuppliers(region || '', annualUsageKwh)
   const setSupplierMutation = useSetSupplier()
   const linkAccountMutation = useLinkAccount()
   const { data: accountsData } = useUserSupplierAccounts()
@@ -117,9 +121,16 @@ export default function SettingsPage() {
     })
   }
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  const handleSave = async () => {
+    try {
+      if (region) {
+        await updateProfileMutation.mutateAsync({ region })
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      toastError('Save failed', 'Could not save settings to server.')
+    }
   }
 
   const handleExportData = async () => {
@@ -179,47 +190,21 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <select
-                  value={region}
+                  value={region || ''}
                   onChange={(e) => setRegion(e.target.value)}
                   className="rounded-lg border border-gray-300 px-3 py-2"
                 >
-                  <optgroup label="Northeast">
-                    <option value="us_ct">Connecticut</option>
-                    <option value="us_ma">Massachusetts</option>
-                    <option value="us_nh">New Hampshire</option>
-                    <option value="us_me">Maine</option>
-                    <option value="us_ri">Rhode Island</option>
-                    <option value="us_vt">Vermont</option>
-                    <option value="us_ny">New York</option>
-                    <option value="us_nj">New Jersey</option>
-                    <option value="us_pa">Pennsylvania</option>
-                    <option value="us_de">Delaware</option>
-                    <option value="us_md">Maryland</option>
-                    <option value="us_dc">District of Columbia</option>
-                  </optgroup>
-                  <optgroup label="Midwest">
-                    <option value="us_oh">Ohio</option>
-                    <option value="us_il">Illinois</option>
-                    <option value="us_mi">Michigan</option>
-                    <option value="us_in">Indiana</option>
-                  </optgroup>
-                  <optgroup label="South">
-                    <option value="us_tx">Texas</option>
-                    <option value="us_va">Virginia</option>
-                    <option value="us_ga">Georgia</option>
-                    <option value="us_fl">Florida</option>
-                    <option value="us_ky">Kentucky</option>
-                  </optgroup>
-                  <optgroup label="West">
-                    <option value="us_ca">California</option>
-                    <option value="us_or">Oregon</option>
-                    <option value="us_mt">Montana</option>
-                  </optgroup>
-                  <optgroup label="International">
-                    <option value="uk">United Kingdom</option>
-                    <option value="de">Germany</option>
-                    <option value="fr">France</option>
-                  </optgroup>
+                  <option value="" disabled>Select your state...</option>
+                  {US_REGIONS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.states.map((state) => (
+                        <option key={state.value} value={state.value}>
+                          {state.label}
+                          {DEREGULATED_ELECTRICITY_STATES.has(state.abbr) ? ' *' : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
 

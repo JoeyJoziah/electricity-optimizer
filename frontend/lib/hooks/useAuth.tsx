@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, useMemo, createContext, useContext, R
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth/client'
 import { getUserSupplier } from '@/lib/api/suppliers'
+import { getUserProfile } from '@/lib/api/profile'
 import { useSettingsStore } from '@/lib/store/settings'
 
 // Auth user type
@@ -57,13 +58,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter()
 
   // Initialize auth state from session cookie
-  // Fetch session and supplier data in parallel to avoid waterfall
+  // Fetch session, supplier, and profile data in parallel to avoid waterfall
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const [sessionResult, supplierResult] = await Promise.allSettled([
+        const [sessionResult, supplierResult, profileResult] = await Promise.allSettled([
           authClient.getSession(),
           getUserSupplier(),
+          getUserProfile(),
         ])
 
         if (sessionResult.status === 'fulfilled' && sessionResult.value.data?.user) {
@@ -90,6 +92,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
               estimatedAnnualCost: 0,
               tariffType: 'variable',
             })
+          }
+
+          // Sync region from profile if available
+          if (profileResult.status === 'fulfilled' && profileResult.value.region) {
+            useSettingsStore.getState().setRegion(profileResult.value.region)
+          }
+
+          // Redirect to onboarding if user hasn't completed it yet
+          if (profileResult.status === 'fulfilled') {
+            const profile = profileResult.value
+            if (!profile.onboarding_completed || !profile.region) {
+              const path = window.location.pathname
+              // Only redirect if we're on an app page (not already on onboarding or auth)
+              if (path.startsWith('/dashboard') || path.startsWith('/prices') || path.startsWith('/suppliers') || path.startsWith('/optimize') || path.startsWith('/connections')) {
+                window.location.href = '/onboarding'
+                return
+              }
+            }
           }
         }
       } catch {
@@ -173,10 +193,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         })
       }
 
-      // Full-page navigation ensures middleware evaluates with the fresh
-      // session cookie (router.push uses cached prefetch that may predate
-      // the cookie being set).
-      window.location.href = '/dashboard'
+      // New users go to onboarding to select their state
+      window.location.href = '/onboarding'
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign up'
       setError(message)
@@ -222,7 +240,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/dashboard',
+        callbackURL: '/onboarding',
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in with Google'
@@ -240,7 +258,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await authClient.signIn.social({
         provider: 'github',
-        callbackURL: '/dashboard',
+        callbackURL: '/onboarding',
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in with GitHub'

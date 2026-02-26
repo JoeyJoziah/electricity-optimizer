@@ -5,7 +5,7 @@ const features = [
   {
     icon: TrendingDown,
     title: 'Real-Time Price Tracking',
-    description: 'Monitor Connecticut electricity rates across Eversource, UI, and NextEra in real time.',
+    description: 'Monitor electricity rates from local utility providers across all 50 states in real time.',
   },
   {
     icon: Bell,
@@ -40,7 +40,7 @@ const tiers = [
     price: '$0',
     period: '',
     description: 'Get started with basic price monitoring',
-    features: ['Basic price view', '1 price alert', 'Manual scheduling', 'CT supplier comparison'],
+    features: ['Basic price view', '1 price alert', 'Manual scheduling', 'Local supplier comparison'],
     cta: 'Get Started',
     href: '/auth/signup',
     highlighted: false,
@@ -113,12 +113,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
             Save Money on{' '}
-            <span className="text-blue-600">Connecticut Electricity</span>
+            <span className="text-blue-600">Your Electricity Bills</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">
-            AI-powered price optimization that tracks real-time rates from Eversource, United
-            Illuminating, and NextEra Energy. Get smart alerts and ML forecasts to cut your
-            electricity bill.
+            AI-powered price optimization that tracks real-time rates from local utility providers
+            across all 50 states. Get smart alerts and ML forecasts to cut your electricity bill.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link

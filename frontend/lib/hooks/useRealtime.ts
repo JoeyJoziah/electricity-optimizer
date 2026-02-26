@@ -32,7 +32,7 @@ export interface PriceUpdate {
  * Connects to the SSE endpoint and invalidates React Query caches
  * when new price data arrives.
  */
-export function useRealtimePrices(region: string = 'us_ct', interval: number = 30) {
+export function useRealtimePrices(region: string, interval: number = 30) {
   const queryClient = useQueryClient()
   const [isConnected, setIsConnected] = useState(false)
   const [lastPrice, setLastPrice] = useState<PriceUpdate | null>(null)

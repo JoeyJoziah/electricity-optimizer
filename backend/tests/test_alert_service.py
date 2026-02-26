@@ -34,7 +34,7 @@ class TestAlertThreshold:
         t = AlertThreshold(user_id="u1", email="a@b.com")
         assert t.price_below is None
         assert t.price_above is None
-        assert t.region == "us_ct"
+        assert t.region == ""
         assert t.currency == "USD"
 
 

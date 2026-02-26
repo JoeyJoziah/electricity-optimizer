@@ -204,15 +204,15 @@ describe('useOptimizationResult', () => {
     )
   })
 
-  it('uses default region us_ct', async () => {
+  it('passes region explicitly', async () => {
     const { wrapper } = createWrapper()
 
-    renderHook(() => useOptimizationResult('2026-02-25'), { wrapper })
+    renderHook(() => useOptimizationResult('2026-02-25', 'us_ny'), { wrapper })
 
     await waitFor(() => {
       expect(mockGetOptimizationResult).toHaveBeenCalledWith(
         '2026-02-25',
-        'us_ct'
+        'us_ny'
       )
     })
   })
@@ -367,15 +367,15 @@ describe('usePotentialSavings', () => {
     )
   })
 
-  it('uses default region us_ct', async () => {
+  it('passes region explicitly', async () => {
     const { wrapper } = createWrapper()
 
-    renderHook(() => usePotentialSavings([mockAppliance]), { wrapper })
+    renderHook(() => usePotentialSavings([mockAppliance], 'us_ny'), { wrapper })
 
     await waitFor(() => {
       expect(mockCalculatePotentialSavings).toHaveBeenCalledWith(
         [mockAppliance],
-        'us_ct'
+        'us_ny'
       )
     })
   })
@@ -383,7 +383,7 @@ describe('usePotentialSavings', () => {
   it('is disabled when appliances array is empty', () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => usePotentialSavings([]), { wrapper })
+    const { result } = renderHook(() => usePotentialSavings([], 'us_ct'), { wrapper })
 
     expect(result.current.fetchStatus).toBe('idle')
     expect(mockCalculatePotentialSavings).not.toHaveBeenCalled()
@@ -413,7 +413,7 @@ describe('usePotentialSavings', () => {
     const { wrapper } = createWrapper()
 
     const { result } = renderHook(
-      () => usePotentialSavings([mockAppliance]),
+      () => usePotentialSavings([mockAppliance], 'us_ct'),
       { wrapper }
     )
 

@@ -21,7 +21,7 @@ export interface GetPriceForecastResponse {
  * Get current electricity prices for a region
  */
 export async function getCurrentPrices(
-  region: string = 'us_ct'
+  region: string
 ): Promise<GetCurrentPricesResponse> {
   return apiClient.get<GetCurrentPricesResponse>('/prices/current', { region })
 }
@@ -30,7 +30,7 @@ export async function getCurrentPrices(
  * Get historical price data
  */
 export async function getPriceHistory(
-  region: string = 'us_ct',
+  region: string,
   hours: number = 24
 ): Promise<GetPriceHistoryResponse> {
   return apiClient.get<GetPriceHistoryResponse>('/prices/history', {
@@ -43,7 +43,7 @@ export async function getPriceHistory(
  * Get price forecast for the next N hours
  */
 export async function getPriceForecast(
-  region: string = 'us_ct',
+  region: string,
   hours: number = 24
 ): Promise<GetPriceForecastResponse> {
   return apiClient.get<GetPriceForecastResponse>('/prices/forecast', {
@@ -56,7 +56,7 @@ export async function getPriceForecast(
  * Get optimal time periods for energy usage
  */
 export async function getOptimalPeriods(
-  region: string = 'us_ct',
+  region: string,
   hours: number = 24
 ): Promise<{ periods: { start: string; end: string; avgPrice: number }[] }> {
   return apiClient.get('/prices/optimal-periods', {
