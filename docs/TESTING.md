@@ -1,9 +1,9 @@
 # Testing Guide
 
-**Last Updated**: 2026-02-25
+**Last Updated**: 2026-02-26
 **Overall Test Coverage**: 80%+
-**Backend Tests**: 1033 (pytest, 43 test files)
-**Frontend Tests**: 469 across 35 suites (Jest)
+**Backend Tests**: 1253 (pytest, 51+ test files)
+**Frontend Tests**: 834 across 52 suites (Jest)
 **ML Tests**: 257 + 41 skipped (pytest)
 **E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
 
@@ -13,8 +13,8 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1033 (1041 collected, 8 deselected) | 85%+ | pytest |
-| **Frontend Component + Lib Tests** | 469 (35 suites) | 70%+ | Jest + RTL |
+| **Backend Unit/Integration** | 1253 (1261 collected, 8 deselected) | 85%+ | pytest |
+| **Frontend Component + Lib Tests** | 834 (52 suites) | 75%+ | Jest + RTL |
 | **ML Inference + Training** | 257 (+41 skipped) | 80%+ | pytest |
 | **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
 | **Security Tests** | 144 | 90%+ | pytest |
@@ -70,11 +70,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1033 tests)
+# Backend tests (1253 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (469 tests across 35 suites)
+# Frontend unit tests (834 tests across 52 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -99,10 +99,10 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 1033
+**Count**: 1253
 **Coverage Target**: 85%+
 
-**Test Files** (43 files):
+**Test Files** (51+ files):
 - `test_api.py` - API endpoint tests
 - `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
 - `test_api_predictions.py` - ML prediction endpoint tests
@@ -133,6 +133,15 @@ cd tests/load && ./run_load_test.sh quick
 - `test_email_oauth.py` - Email OAuth tests: state gen/verify, consent URLs, token encryption, Gmail/Outlook scanning, callback flow, endpoint tests (70 tests across 13 classes)
 - `test_connection_analytics.py` - Analytics service tests: rate comparison, history, savings, stale connections, rate changes (39 tests across 8 classes)
 - `test_middleware_asgi.py` - Pure ASGI middleware tests: security headers, rate limiting, body size limit, timeout exclusion, SSE streaming through full middleware stack (9 tests)
+- `test_api_alerts.py` - Alert endpoint tests (create, list, delete, trigger)
+- `test_api_health.py` - Health endpoint tests (DB/Redis/service checks)
+- `test_api_prices_analytics.py` - Price analytics endpoint tests
+- `test_feature_flags.py` - Feature flag service tests
+- `test_maintenance_service.py` - Maintenance service tests (21 tests: activity log cleanup, upload cleanup with FK cascade, file removal, OSError suppression, endpoint integration)
+- `test_migrations.py` - Migration file validation tests
+- `test_notifications.py` - Notification service tests
+- `test_resilience.py` - Resilience and error recovery tests
+- `test_savings.py` - Savings tracking service tests
 
 **Running**:
 ```bash
@@ -144,8 +153,8 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 469 tests across 35 suites
-**Coverage Target**: 70%+
+**Count**: 834 tests across 52 suites
+**Coverage Target**: 75%+
 
 **Component Test Suites** (`__tests__/`):
 - `components/ComparisonTable.test.tsx` - Supplier comparison table
@@ -177,6 +186,23 @@ pytest tests/ -v --cov=. --cov-report=html
 - `lib/utils/__tests__/format.test.ts` - 46 tests for all 9 format utility functions
 - `lib/utils/__tests__/calculations.test.ts` - 46 tests for all 8 calculation functions
 - `lib/api/__tests__/client.test.ts` - 30 tests for API client + ApiClientError
+- `components/connections/BillUploadForm.test.tsx` - Bill upload form
+- `components/connections/ConnectionAnalytics.test.tsx` - Analytics dashboard
+- `components/connections/ConnectionCard.test.tsx` - Connection card
+- `components/connections/ConnectionMethodPicker.test.tsx` - Method picker
+- `components/connections/ConnectionRates.test.tsx` - Rate display
+- `components/connections/ConnectionUploadFlow.test.tsx` - Upload workflow
+- `components/connections/ConnectionsOverview.test.tsx` - Overview tabs
+- `components/connections/DirectLoginForm.test.tsx` - Direct login
+- `components/connections/EmailConnectionFlow.test.tsx` - Email OAuth flow
+- `components/prices/PricesContent.test.tsx` - Prices page content
+- `components/suppliers/SuppliersContent.test.tsx` - Suppliers page content
+- `contracts/api-schemas.test.ts` - API contract validation
+- `hooks/useAuth.test.tsx` - Auth hooks
+- `hooks/useOptimization.test.ts` - Optimization hooks
+- `hooks/useRealtime.test.ts` - Realtime/SSE hooks
+- `hooks/useSuppliers.test.ts` - Supplier hooks
+- `store/settings.test.ts` - Zustand settings store
 
 **Running**:
 ```bash
@@ -618,7 +644,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1033 backend, 469 frontend, and 257 ML tests continue to pass with Loki Mode installed
+- All 1253 backend, 834 frontend, and 257 ML tests continue to pass with Loki Mode installed
 
 ---
 
@@ -648,4 +674,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-02-25
+**Last Updated**: 2026-02-26

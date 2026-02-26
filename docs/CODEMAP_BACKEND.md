@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-02-25 (Phase 4 bottleneck optimization: pure ASGI middleware, Docker Python 3.12, utility_type index)
+> Last updated: 2026-02-26 (7-phase gap remediation: security, product, UX, testing, infra)
 
 ## Directory Structure
 
@@ -33,6 +33,11 @@ backend/
 │       ├── user.py                  # User preferences (stub)
 │       ├── user_supplier.py         # Supplier selection + account linking (AES-256-GCM encrypted fields)
 │       ├── connections.py           # Connection management: 4 methods (email OAuth, bill upload, direct login, UtilityAPI), analytics, health, labels
+│       ├── alerts.py                # Price alert CRUD endpoints (create, list, delete, trigger check)
+│       ├── health.py                # Enhanced health endpoint (DB/Redis/service checks)
+│       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
+│       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
+│       ├── users.py                 # User profile management (get, update, delete account)
 │       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats
 │
 ├── routers/
@@ -74,7 +79,11 @@ backend/
 │   ├── connection_analytics_service.py # Rate comparison, history, savings estimates, stale detection, rate change alerts
 │   ├── email_oauth_service.py       # OAuth2 flows for Gmail + Outlook, HMAC-SHA256 state validation, token encryption
 │   ├── email_scanner_service.py     # Gmail REST API + Microsoft Graph API inbox scanning, rate extraction via regex
-│   └── bill_parser.py               # Bill document parsing (PDF/image OCR), rate extraction
+│   ├── bill_parser.py               # Bill document parsing (PDF/image OCR), rate extraction
+│   ├── maintenance_service.py       # Data retention cleanup (activity logs 365d, uploads 730d, parameterized SQL)
+│   ├── notification_service.py      # Notification creation, delivery, preference management
+│   ├── savings_service.py           # Savings calculation and tracking
+│   └── feature_flag_service.py      # Feature flag evaluation and management
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -102,7 +111,8 @@ backend/
 │
 ├── middleware/
 │   ├── rate_limiter.py              # Pure ASGI rate limiting (sliding window, Redis or in-memory) + reset() for test isolation
-│   └── security_headers.py          # Pure ASGI security headers (CSP, HSTS, X-Frame-Options, etc.)
+│   ├── security_headers.py          # Pure ASGI security headers (CSP, HSTS, X-Frame-Options, etc.)
+│   └── tracing.py                   # Request tracing middleware (correlation IDs, timing)
 │
 ├── migrations/
 │   ├── init_neon.sql                # Initial schema: users, electricity_prices, suppliers,
@@ -115,7 +125,14 @@ backend/
 │   ├── 007_user_supplier_accounts.sql # User supplier account tables
 │   ├── 008_connection_feature.sql   # Base connection tables: user_connections, bill_uploads, connection_extracted_rates
 │   ├── 009_email_oauth_tokens.sql   # OAuth token columns on user_connections
-│   └── 010_utilityapi_sync_columns.sql # UtilityAPI sync columns (last_sync_at, sync_frequency_hours, etc.)
+│   ├── 010_utilityapi_sync_columns.sql # UtilityAPI sync columns (last_sync_at, sync_frequency_hours, etc.)
+│   ├── 011_utilityapi_sync_columns.sql # (renumbered from 010)
+│   ├── 012_user_savings.sql         # Savings tracking tables
+│   ├── 013_user_profile_columns.sql # Additional user profile fields
+│   ├── 014_alert_tables.sql         # Alert configuration and history tables
+│   ├── 015_notifications.sql        # Notification tables
+│   ├── 016_feature_flags.sql        # Feature flag tables
+│   └── 017_additional_indexes.sql   # Performance indexes
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -162,6 +179,15 @@ backend/
     ├── test_email_oauth.py          # OAuth state gen/verify, consent URLs, token encryption, email scanning, endpoint tests (70 tests)
     ├── test_connection_analytics.py # Analytics service tests (39 tests)
     ├── test_middleware_asgi.py      # ASGI middleware compliance tests (178 lines)
+    ├── test_api_alerts.py           # Alert endpoint tests
+    ├── test_api_health.py           # Health endpoint tests
+    ├── test_api_prices_analytics.py # Analytics endpoint tests
+    ├── test_feature_flags.py        # Feature flag service tests
+    ├── test_maintenance_service.py  # Maintenance service tests (21 tests: cleanup_activity_logs, cleanup_expired_uploads, endpoint integration)
+    ├── test_migrations.py           # Migration validation tests
+    ├── test_notifications.py        # Notification service tests
+    ├── test_resilience.py           # Resilience/circuit breaker tests
+    ├── test_savings.py              # Savings service tests
     └── test_load.py                 # Load/stress test helpers
 ```
 
@@ -344,6 +370,52 @@ Key from `FIELD_ENCRYPTION_KEY` env var (32-byte hex).
 
 **Security:** OAuth tokens AES-256-GCM encrypted at rest. OAuth state HMAC-SHA256 signed with nonce
 for CSRF protection. Bill uploads: File type validation (PDF, PNG, JPG, JPEG, TIFF only), 10 MB max size.
+
+### Alerts (`/api/v1/alerts`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/` | Session | Create price alert (threshold + region) |
+| GET | `/` | Session | List user's alerts |
+| DELETE | `/{alert_id}` | Session | Delete alert |
+| POST | `/{alert_id}/check` | Session | Trigger threshold check |
+
+**Trigger:** AlertService checks hourly via GitHub Actions, sends email via EmailService.
+
+### Notifications (`/api/v1/notifications`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | Session | List user notifications (paginated) |
+| PATCH | `/{notification_id}/read` | Session | Mark notification as read |
+| DELETE | `/{notification_id}` | Session | Delete notification |
+| GET | `/preferences` | Session | Get notification preferences |
+| PATCH | `/preferences` | Session | Update notification preferences |
+
+**Types:** price_alert, recommendation, savings_milestone, connection_health.
+
+### Savings (`/api/v1/savings`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/summary` | Session | Total savings + time period breakdown |
+| GET | `/history` | Session | Monthly savings history (chart data) |
+| GET | `/goals` | Session | User savings goals + progress |
+| POST | `/goals` | Session | Create/update savings goal |
+
+**Calculation:** Actual spend (connections) vs estimated spend (supplier rates).
+
+### Users (`/api/v1/users`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/profile` | Session | Get user profile (email, name, region, preferences) |
+| PATCH | `/profile` | Session | Update profile fields |
+| DELETE | `/account` | Session | Schedule account deletion (GDPR Art. 17) |
+| GET | `/settings` | Session | Get user settings (privacy, notifications, language) |
+| PATCH | `/settings` | Session | Update user settings |
+
+**Profile fields:** email, name, region, phone, address, notification preferences, language.
 
 ### Other
 
@@ -558,6 +630,10 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | `EmailScannerService` | AsyncSession | Gmail/Outlook inbox scanning: keyword search, MIME traversal, regex rate extraction |
 | `BillParser` | -- | Document parsing: PDF text extraction, OCR for images, rate/supplier/amount detection |
 | `GDPRComplianceService` | ConsentRepo, UserRepo | Consent, export, deletion, retention |
+| `MaintenanceService` | AsyncSession | Data retention cleanup: activity logs (365d), bill uploads (730d), parameterized SQL queries |
+| `NotificationService` | AsyncSession, EmailService | Create/deliver notifications, manage preferences |
+| `SavingsService` | AsyncSession, ConnectionService | Calculate/track savings, manage goals |
+| `FeatureFlagService` | Redis | Evaluate feature flags, manage user toggles |
 
 
 ## Middleware Stack
@@ -566,14 +642,15 @@ All custom middleware uses the **pure ASGI protocol** (`__call__(scope, receive,
 
 Applied in reverse order (last added = first executed):
 
-1. **Request ID + Timing** -- UUID per request, X-Process-Time header (dev only)
-2. **Metrics Auth** -- API key required for `/metrics` endpoint
-3. **RequestTimeoutMiddleware** -- 30s timeout per request (SSE `/prices/stream` excluded); pure ASGI with `asyncio.wait_for`
-4. **RequestBodySizeLimitMiddleware** -- 1 MB limit (10 MB for `/connections/upload`); pure ASGI with Content-Length fast path + chunked `counting_receive` wrapper
-5. **RateLimitMiddleware** -- Per-user/IP sliding window (Redis or in-memory fallback); pure ASGI, extracts identifier from raw `scope["headers"]`
-6. **SecurityHeadersMiddleware** -- CSP, HSTS, X-Frame-Options, Permissions-Policy, cache-control for `/api/*`; pure ASGI
-7. **GZipMiddleware** -- Compress responses > 1000 bytes
-8. **CORSMiddleware** -- Origin regex restricted to `electricity-optimizer*.(vercel|onrender)`
+1. **TracingMiddleware** -- Request tracing with correlation IDs, timing, structured logging
+2. **Request ID + Timing** -- UUID per request, X-Process-Time header (dev only)
+3. **Metrics Auth** -- API key required for `/metrics` endpoint
+4. **RequestTimeoutMiddleware** -- 30s timeout per request (SSE `/prices/stream` excluded); pure ASGI with `asyncio.wait_for`
+5. **RequestBodySizeLimitMiddleware** -- 1 MB limit (10 MB for `/connections/upload`); pure ASGI with Content-Length fast path + chunked `counting_receive` wrapper
+6. **RateLimitMiddleware** -- Per-user/IP sliding window (Redis or in-memory fallback); pure ASGI, extracts identifier from raw `scope["headers"]`
+7. **SecurityHeadersMiddleware** -- CSP, HSTS, X-Frame-Options, Permissions-Policy, cache-control for `/api/*`; pure ASGI
+8. **GZipMiddleware** -- Compress responses > 1000 bytes
+9. **CORSMiddleware** -- Origin regex restricted to `electricity-optimizer*.(vercel|onrender)`
 
 Excluded from rate limiting: `/health`, `/health/live`, `/health/ready`, `/metrics`.
 
@@ -606,7 +683,7 @@ Two auth mechanisms:
 
 ## Database (Neon PostgreSQL)
 
-17 tables (init_neon.sql + 002 + 005 + 006 + 007-010):
+28 tables (init_neon.sql + 002-009, 011-017):
 
 | Table | PK Type | Notes |
 |-------|---------|-------|
@@ -627,8 +704,16 @@ Two auth mechanisms:
 | `user_connections` | UUID | FK to users, connection_type enum, status, supplier_name, OAuth tokens (encrypted), sync columns |
 | `bill_uploads` | UUID | FK to user_connections, file metadata, parse_status, detected rates/supplier/amounts |
 | `connection_extracted_rates` | UUID | FK to user_connections, rate_per_kwh, effective_date, source, raw_label |
+| `user_alerts` | UUID | FK to users, price threshold, region, status, trigger_count |
+| `alert_history` | UUID | FK to user_alerts, triggered_at, actual_price, sent status |
+| `user_savings` | UUID | FK to users, period (month), savings_amount, projected savings |
+| `savings_goals` | UUID | FK to users, target_amount, target_date, category, progress |
+| `user_notifications` | UUID | FK to users, type, title, body, read, created_at |
+| `notification_preferences` | UUID | FK to users, price_alerts, recommendations, savings, connections |
+| `feature_flags` | UUID | flag_name, enabled, rollout_percentage |
+| `user_feature_toggles` | UUID | FK to users, FK to feature_flags, user_enabled |
 
-**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar). `connection_type` enum (email_oauth, bill_upload, direct_login, utilityapi).
+**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar). `connection_type` enum (email_oauth, bill_upload, direct_login, utilityapi). `notification_type` enum (price_alert, recommendation, savings_milestone, connection_health).
 
 
 ## Migrations
@@ -644,8 +729,13 @@ Two auth mechanisms:
 | `007_user_supplier_accounts.sql` | User supplier account tables |
 | `008_connection_feature.sql` | Base connection tables: `user_connections`, `bill_uploads`, `connection_extracted_rates` |
 | `009_email_oauth_tokens.sql` | OAuth token columns on `user_connections` |
-| `010_utilityapi_sync_columns.sql` | UtilityAPI sync columns (`last_sync_at`, `sync_frequency_hours`, etc.) |
-| `010_utility_type_index.sql` | Composite index on `electricity_prices(region, utility_type, timestamp DESC)` for multi-utility queries |
+| `011_utilityapi_sync_columns.sql` | UtilityAPI sync columns (`last_sync_at`, `sync_frequency_hours`, etc.) |
+| `012_user_savings.sql` | Savings tracking tables for user analytics |
+| `013_user_profile_columns.sql` | Additional profile fields: phone, address, notification preferences |
+| `014_alert_tables.sql` | Alert configuration, history, and delivery logs |
+| `015_notifications.sql` | User notification storage and preference tracking |
+| `016_feature_flags.sql` | Feature flag storage and user feature toggles |
+| `017_additional_indexes.sql` | Performance indexes for alerts, notifications, savings queries |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.
@@ -827,7 +917,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1033 passing, 0 failures (as of 2026-02-25). 43 test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
+**Test status:** 1253 passing, 0 failures (as of 2026-02-26). 51+ test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
 
 
 ## Scripts & Automation

@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-25 (connection feature phases 1-5, page component extraction)
+**Last Updated:** 2026-02-26 (7-phase gap remediation: error boundaries, toast/sidebar contexts, new test suites)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -35,6 +35,9 @@ frontend/
         login/page.tsx          # Login page (/auth/login) - renders LoginForm
         signup/page.tsx         # Signup page (/auth/signup) - renders SignupForm
         callback/page.tsx       # OAuth/magic-link callback (/auth/callback)
+        forgot-password/page.tsx # Forgot password page (/auth/forgot-password) - password reset request
+        reset-password/page.tsx # Reset password page (/auth/reset-password) - set new password with token
+        verify-email/page.tsx   # Email verification page (/auth/verify-email) - verify email token
       beta-signup/page.tsx      # Beta signup form (/beta-signup) - CT suppliers
       dashboard/
         page.tsx                # Dashboard (/dashboard) - imports DashboardContent
@@ -50,8 +53,15 @@ frontend/
         error.tsx               # Suppliers error boundary
       connections/
         page.tsx                # Connections (/connections) - ConnectionsOverview with tabs
-      optimize/page.tsx         # Optimization (/optimize) - appliances, schedule, savings
-      settings/page.tsx         # Settings (/settings) - region, usage, notifications, display
+        error.tsx               # Connections error boundary
+        loading.tsx             # Connections loading skeleton
+      optimize/
+        page.tsx                # Optimization (/optimize) - appliances, schedule, savings
+        error.tsx               # Optimize error boundary
+        loading.tsx             # Optimize loading skeleton
+      settings/
+        page.tsx                # Settings (/settings) - region, usage, notifications, display
+        error.tsx               # Settings error boundary
     (dev)/                      # Route group: dev-only pages (triple-gated)
       layout.tsx                # Dev gate (notFound if not development) + DevBanner
       architecture/
@@ -73,6 +83,7 @@ frontend/
     layout/
       Header.tsx                # Sticky header: title, live indicator, refresh, notifications
       Sidebar.tsx               # Fixed sidebar: logo + 6 nav links (Dashboard, Prices, Suppliers, Connections, Optimize, Settings)
+      NotificationBell.tsx      # Notification bell with unread count badge, dropdown panel
     prices/
       PricesContent.tsx         # Extracted prices page content (client component)
     providers/
@@ -106,6 +117,8 @@ frontend/
       card.tsx                  # Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription
       input.tsx                 # Input with label/helperText + Checkbox component
       skeleton.tsx              # Skeleton + ChartSkeleton loading placeholders
+      modal.tsx                 # Reusable modal/dialog component with backdrop, close button, accessibility
+      toast.tsx                 # Toast notification component with variants (success, error, warning, info)
     optimize/                   # Empty directory (unused)
   lib/
     api/
@@ -123,8 +136,12 @@ frontend/
       useOptimization.ts        # useOptimalSchedule, useOptimizationResult, useAppliances, useSaveAppliances, usePotentialSavings
       useRealtime.ts            # useRealtimePrices (SSE via fetch-event-source), useRealtimeOptimization, useRealtimeSubscription, useRealtimeBroadcast
       useDiagrams.ts            # useDiagramList, useDiagram, useSaveDiagram, useCreateDiagram
+      useSavings.ts             # Savings data fetching hook
     store/
       settings.ts               # Zustand store: region, supplier, usage, appliances, notifications, display prefs
+    contexts/
+      sidebar-context.tsx       # SidebarProvider + useSidebar hook (isOpen, toggle, close)
+      toast-context.tsx         # ToastProvider + useToast hook (toast, success, error, warning, info methods, auto-dismiss timers)
     utils/
       calculations.ts           # calculatePriceTrend, findOptimalPeriods, calculateAnnualSavings, calculatePaybackMonths, etc.
       cn.ts                     # cn() - Tailwind class merge utility (clsx + tailwind-merge)
@@ -481,9 +498,11 @@ Page Component (app/(app)/*)
 ## Error Handling
 
 - **Root level:** `app/error.tsx` catches page-level errors, `app/global-error.tsx` catches layout-level errors
-- **Per-route:** Dashboard, Prices, and Suppliers each have dedicated `error.tsx` boundaries with retry buttons
+- **Per-route:** Dashboard, Prices, Suppliers, Connections, Optimize, and Settings each have dedicated `error.tsx` boundaries with retry buttons
+- **Loading states:** Connections and Optimize routes have `loading.tsx` Suspense skeletons for better UX
 - **API layer:** `ApiClientError` class with status code, message, and details
 - **Auth:** `AuthError` class with optional error code
+- **Toast notifications:** `ToastProvider` + `useToast` hook for error/warning/success messages with auto-dismiss timers
 - **404:** Custom `app/not-found.tsx` with link back to dashboard
 
 ---
@@ -521,7 +540,7 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-35 test suites, 469 tests total:
+52 test suites, 834 tests total:
 
 **Component tests** (`__tests__/`):
 
@@ -557,6 +576,38 @@ Page Component (app/(app)/*)
 | api/dev/diagrams/name.route.test.ts | Read + save API routes |
 | app/dev/layout.test.tsx | Dev layout gate |
 | app/dev/architecture.test.tsx | Architecture page integration |
+| connections/BillUploadForm.test.tsx | Bill upload form: file selection, parsing, status |
+| connections/ConnectionAnalytics.test.tsx | Analytics dashboard: rate comparison, savings, health |
+| connections/ConnectionCard.test.tsx | Connection card: label editing, status display, sync |
+| connections/ConnectionMethodPicker.test.tsx | Method picker: email, upload, direct login, UtilityAPI |
+| connections/ConnectionRates.test.tsx | Extracted rates table rendering and filtering |
+| connections/ConnectionUploadFlow.test.tsx | Upload workflow: file selection, parsing, results |
+| connections/ConnectionsOverview.test.tsx | Tab navigation and connection management |
+| connections/DirectLoginForm.test.tsx | Credential form: input validation, submission, sync |
+| connections/EmailConnectionFlow.test.tsx | Email OAuth: provider selection, redirect, scanning |
+| prices/PricesContent.test.tsx | Prices page content component |
+| suppliers/SuppliersContent.test.tsx | Suppliers page content component |
+
+**Hook tests** (`lib/hooks/`):
+
+| Test File | Covers |
+|-----------|--------|
+| useAuth.test.tsx | Auth state, sign-in/out, session persistence |
+| useOptimization.test.ts | Schedule fetching, result caching, appliance management |
+| useRealtime.test.ts | SSE connection, price streaming, error recovery |
+| useSuppliers.test.ts | Supplier fetching, recommendations, comparisons |
+
+**API contract tests** (`__tests__/contracts/`):
+
+| Test File | Covers |
+|-----------|--------|
+| api-schemas.test.ts | Request/response schema validation, type safety |
+
+**Store tests** (`lib/store/`):
+
+| Test File | Covers |
+|-----------|--------|
+| settings.test.ts | Zustand persistence, selectors, state updates |
 
 **Library tests** (`lib/`):
 
@@ -635,6 +686,9 @@ npm run lint          # next lint
 19. **Page component extraction** -- Dashboard, Prices, Suppliers page content extracted into dedicated `*Content.tsx` components. Added Next.js `loading.tsx` skeletons for all three routes. Pages are now server components with `export const metadata` for SSR
 20. **Auth init waterfall fix** -- `useAuth.tsx` now uses `Promise.allSettled()` to fetch session and user-supplier data in parallel instead of sequentially
 21. **SSE background tab optimization** -- `openWhenHidden` changed from `true` to `false` in `useRealtimePrices` to pause SSE when tab is hidden
+22. **Gap remediation Phase 3 (UX)** -- Toast notification system (`ToastProvider` + `useToast`), sidebar context (`SidebarProvider` + `useSidebar`), NotificationBell component, modal component, error boundaries for all routes (Connections, Optimize, Settings), loading skeletons for connections/optimize
+23. **Gap remediation Phase 4 (Testing)** -- 365 new tests: connection component tests (9 suites), hook tests (useAuth, useOptimization, useRealtime, useSuppliers), API contract tests, store tests, prices/suppliers content tests. Total: 834 tests across 52 suites
+24. **Gap remediation Phase 7 (Standards)** -- Timer cleanup on unmount in toast context, accessible button variants, password reset flow (forgot-password, reset-password, verify-email pages), improved mobile form accessibility
 
 ---
 

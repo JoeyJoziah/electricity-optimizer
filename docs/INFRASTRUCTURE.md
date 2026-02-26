@@ -79,7 +79,7 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 |----------|----------|---------|
 | ci.yml | On push/PR to main/develop | Unified CI: path-filtered backend/frontend/ML tests, security scan, Docker build |
 | e2e-tests.yml | Daily + on push/PR | Playwright E2E + Lighthouse audits + load/security tests |
-| deploy-production.yml | On release publish | Security gate + GHCR push + Render deploy hooks + self-healing smoke tests |
+| deploy-production.yml | On release publish | Multi-stage security gate (Bandit + npm audit + OWASP) + GHCR multi-platform builds (linux/amd64 + linux/arm64) + parallel backend/frontend deploy hooks + progressive retry (15s/30s/60s) + Slack/webhook notification + rollback automation |
 | deploy-staging.yml | On push to develop | GHCR push + Render deploy hooks + smoke tests |
 | price-sync.yml | `0 */6 * * *` | Electricity price data ingestion |
 | observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
@@ -220,7 +220,7 @@ In production, the database is Neon PostgreSQL (serverless, accessed via connect
 |----------|-------|
 | Branch | `main` (br-broad-queen-aemirrrs) |
 | Compute Endpoint | `ep-withered-morning-aix83cfw` (us-east-1) |
-| Tables | 14 (see CODEMAP_BACKEND.md for full list) |
+| Tables | 17 (see CODEMAP_BACKEND.md for full list) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
@@ -465,7 +465,7 @@ deploy:
 - Never commit secrets to Git
 - INTERNAL_API_KEY for service-to-service authentication (GitHub Actions + Render)
 
-**1Password Vault** ("Electricity Optimizer" — 12 items):
+**1Password Vault** ("Electricity Optimizer" — 15 items, 34 credential fields):
 
 | Item | Category | Fields | Purpose |
 |------|----------|--------|---------|
@@ -481,6 +481,9 @@ deploy:
 | Render Deploy Hook | Login | `url` | Render.com deploy hook URL |
 | Render Service | Login | `service_id` | Render service metadata (srv-d649uhur433s73d557cg) |
 | GitHub Repository | Login | `token`, `webhook_secret` | GitHub token and webhook secret for CI/CD |
+| Neon Auth | Login | `secret`, `auth_url`, `auth_database_url` | Better Auth signing key, auth endpoint, and database URL |
+| Codecov | Login | `token` | Code coverage tracking |
+| Notion Integration | Login | `api_token`, `database_id` | Notion API credentials for roadmap sync |
 
 **GitHub Actions Secrets** (required for adaptive learning workflows):
 - `INTERNAL_API_KEY` — same key as Render env var
@@ -494,6 +497,27 @@ deploy:
 - Role-based access control
 - API documentation (Swagger/ReDoc) disabled in production
 - Price refresh endpoint requires API key authentication
+
+### Request Tracing & Correlation
+
+- **Tracing middleware** (`backend/middleware/tracing.py`) adds unique correlation IDs to all requests
+- Correlation IDs propagated through logs, metrics, and error reports for end-to-end request tracking
+- Enables faster debugging and performance analysis across distributed operations
+
+### Feature Flags & Gradual Rollout
+
+- Feature flags service for gradual rollout control of new functionality
+- Enables A/B testing and safe feature validation in production without full deployment
+- Flags stored in environment config, evaluated per-request with caching
+
+### Data Retention & Maintenance
+
+- **Maintenance service** automated data lifecycle management:
+  - Activity logs: 365-day retention (auto-delete older records)
+  - Bill uploads: 730-day retention (audit trail for billing disputes)
+  - Connection sync records: Pruned based on user account lifecycle
+- Scheduled purge jobs run nightly to enforce retention policies
+- Ensures compliance with data minimization principles and reduces storage costs
 
 ---
 
@@ -615,4 +639,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-02-25
+**Last Updated**: 2026-02-26
