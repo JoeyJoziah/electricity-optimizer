@@ -106,15 +106,13 @@ describe('ConnectionsOverview', () => {
     render(<ConnectionsOverview />)
 
     await waitFor(() => {
-      expect(screen.getByText('Upgrade to Connect')).toBeInTheDocument()
+      expect(screen.getByText('Unlock Utility Connections')).toBeInTheDocument()
     })
 
     expect(
-      screen.getByText(
-        /utility connections are available on pro and business plans/i
-      )
+      screen.getByText(/connect your utility account/i)
     ).toBeInTheDocument()
-    expect(screen.getByText('View Plans')).toBeInTheDocument()
+    expect(screen.getByText('View Plans & Pricing')).toBeInTheDocument()
   })
 
   it('renders connection list when connections exist', async () => {
