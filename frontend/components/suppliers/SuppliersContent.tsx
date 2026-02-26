@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ import {
   Leaf,
   ArrowRight,
   Zap,
+  Link2,
 } from 'lucide-react'
 import type { Supplier, SupplierRecommendation, RawSupplierRecord } from '@/types'
 
@@ -318,6 +320,29 @@ export default function SuppliersContent() {
               showFilters
               onSelect={handleSelectSupplier}
             />
+          </div>
+        )}
+
+        {/* Next step prompt — visible when user has a supplier set */}
+        {currentSupplier && (
+          <div className="mt-6 rounded-lg border border-primary-200 bg-primary-50 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Link2 className="h-5 w-5 text-primary-600" />
+                <div>
+                  <p className="font-medium text-gray-900">Next: Connect your utility account</p>
+                  <p className="text-sm text-gray-500">
+                    Link your {currentSupplier.name} account for automatic rate tracking.
+                  </p>
+                </div>
+              </div>
+              <Link href="/connections">
+                <Button variant="primary" size="sm">
+                  Set up Connection
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
 

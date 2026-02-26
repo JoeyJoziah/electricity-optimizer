@@ -253,22 +253,90 @@ export function ConnectionsOverview() {
 }
 
 function PaidFeatureGate() {
+  const features = [
+    { label: 'Auto-sync utility rates', description: 'Connect directly to your utility for live rate updates' },
+    { label: 'Email bill scanning', description: 'Forward bills and we extract rates automatically' },
+    { label: 'Rate analytics & history', description: 'Track how your rates change over time' },
+    { label: 'Savings recommendations', description: 'Personalized tips based on your actual usage' },
+  ]
+
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
-      <Link2 className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-      <h3 className="mt-4 text-lg font-semibold text-gray-900">
-        Upgrade to Connect
-      </h3>
-      <p className="mt-2 text-sm text-gray-500">
-        Utility connections are available on Pro and Business plans. Sync your
-        rates automatically.
-      </p>
-      <a
-        href="/pricing"
-        className="mt-6 inline-block rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-      >
-        View Plans
-      </a>
+    <div className="space-y-8">
+      {/* Main upgrade card */}
+      <div className="rounded-xl border border-primary-200 bg-gradient-to-br from-primary-50 to-blue-50 p-8">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-100">
+            <Link2 className="h-8 w-8 text-primary-600" aria-hidden="true" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">
+            Unlock Utility Connections
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-gray-600">
+            Connect your utility account to get real-time rates, automated bill tracking,
+            and personalized savings recommendations.
+          </p>
+        </div>
+
+        {/* Feature list */}
+        <div className="mx-auto mt-8 max-w-lg space-y-4">
+          {features.map((feature) => (
+            <div key={feature.label} className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600">
+                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">{feature.label}</p>
+                <p className="text-sm text-gray-500">{feature.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pricing */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">Starting at</p>
+          <p className="text-3xl font-bold text-gray-900">
+            $4.99<span className="text-base font-normal text-gray-500">/mo</span>
+          </p>
+          <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <a
+              href="/pricing"
+              className="inline-flex items-center justify-center rounded-lg bg-primary-600 px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            >
+              View Plans & Pricing
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* What you can do now */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <h4 className="font-semibold text-gray-900">What you can do now (free)</h4>
+        <ul className="mt-3 space-y-2">
+          <li className="flex items-center gap-2 text-sm text-gray-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
+            Compare suppliers in your state
+          </li>
+          <li className="flex items-center gap-2 text-sm text-gray-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
+            View live electricity prices
+          </li>
+          <li className="flex items-center gap-2 text-sm text-gray-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
+            Get price forecasts and optimal time recommendations
+          </li>
+        </ul>
+        <div className="mt-4">
+          <a
+            href="/suppliers"
+            className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            Browse free supplier comparisons &rarr;
+          </a>
+        </div>
+      </div>
     </div>
   )
 }

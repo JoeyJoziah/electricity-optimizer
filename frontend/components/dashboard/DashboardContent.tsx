@@ -23,6 +23,7 @@ import { useSuppliers } from '@/lib/hooks/useSuppliers'
 import { useRealtimePrices } from '@/lib/hooks/useRealtime'
 import { useSavingsSummary } from '@/lib/hooks/useSavings'
 import { SavingsTracker } from '@/components/gamification/SavingsTracker'
+import { SetupChecklist } from '@/components/dashboard/SetupChecklist'
 import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
@@ -196,6 +197,11 @@ export default function DashboardContent() {
       )}
 
       <div className="p-6">
+        {/* Setup checklist for incomplete profiles */}
+        <div className="mb-6">
+          <SetupChecklist />
+        </div>
+
         {/* Quick stats row */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {/* Current Price */}

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils/cn'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useSidebar } from '@/lib/contexts/sidebar-context'
+import { useSettingsStore } from '@/lib/store/settings'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -31,6 +32,12 @@ const navigation = [
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { user, isAuthenticated, signOut } = useAuth()
+  const currentSupplier = useSettingsStore((s) => s.currentSupplier)
+
+  // Setup completion status for nav items
+  const setupComplete: Record<string, boolean> = {
+    '/suppliers': !!currentSupplier,
+  }
 
   return (
     <>
@@ -65,6 +72,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 )}
               />
               {item.name}
+              {setupComplete[item.href] && (
+                <span className="ml-auto h-2 w-2 rounded-full bg-success-500" title="Set up" />
+              )}
             </Link>
           )
         })}
