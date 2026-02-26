@@ -119,12 +119,12 @@ test.describe('User Onboarding Flow', () => {
     await page.waitForURL(/\/auth\/login/)
   })
 
-  test('CT is default region for new users', async ({ page }) => {
+  test('new users have no default region', async ({ page }) => {
     await setAuthenticatedState(page)
     await page.goto('/settings')
 
-    // The settings page region selector should default to Connecticut
+    // New users should not have a pre-selected region
     const regionSelect = page.locator('select').first()
-    await expect(regionSelect).toHaveValue('us_ct')
+    await expect(regionSelect).toHaveValue('')
   })
 })

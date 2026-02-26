@@ -195,7 +195,7 @@ test.describe('Full User Journey - Signup to Billing', () => {
 
     // Hero section
     await expect(page.getByText('Save Money on')).toBeVisible()
-    await expect(page.getByText('Connecticut Electricity', { exact: true })).toBeVisible()
+    await expect(page.getByText('Your Electricity Bills', { exact: true })).toBeVisible()
 
     // Description text
     await expect(page.getByText(/AI-powered price optimization/)).toBeVisible()
@@ -302,7 +302,7 @@ test.describe('Full User Journey - Signup to Billing', () => {
     await expect(page.getByText('24-Hour Forecast').first()).toBeVisible()
   })
 
-  test('Step 5: Suppliers page shows CT suppliers', async ({ page }) => {
+  test('Step 5: Suppliers page shows supplier comparison', async ({ page }) => {
     // Set up authenticated state
     await page.addInitScript(() => {
       localStorage.setItem('auth_token', 'mock_jwt_token')
@@ -317,11 +317,6 @@ test.describe('Full User Journey - Signup to Billing', () => {
 
     // Supplier comparison heading
     await expect(page.getByRole('heading', { name: /compare suppliers/i })).toBeVisible()
-
-    // CT suppliers should be listed
-    await expect(page.getByRole('heading', { name: 'Eversource Energy' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'NextEra Energy' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'United Illuminating (UI)' })).toBeVisible()
   })
 
   test('Step 6: Optimize page shows optimization recommendations', async ({ page }) => {
@@ -741,7 +736,7 @@ test.describe('Full User Journey - Unauthenticated Guard', () => {
 
     // Landing page should render fully
     await expect(page.getByText('Save Money on')).toBeVisible()
-    await expect(page.getByText('Connecticut Electricity', { exact: true })).toBeVisible()
+    await expect(page.getByText('Your Electricity Bills', { exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Start Saving Today' })).toBeVisible()
   })
 

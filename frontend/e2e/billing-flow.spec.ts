@@ -345,13 +345,13 @@ test.describe('Billing Flow - Subscribed User', () => {
     await expect(page.getByRole('heading', { name: 'Privacy & Data' })).toBeVisible()
   })
 
-  test('settings page shows subscription region as Connecticut', async ({ page }) => {
+  test('settings page shows subscription region', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem(
         'electricity-optimizer-settings',
         JSON.stringify({
           state: {
-            region: 'US_CT',
+            region: 'us_ct',
             annualUsageKwh: 10500,
             peakDemandKw: 3,
           },
@@ -361,8 +361,8 @@ test.describe('Billing Flow - Subscribed User', () => {
 
     await page.goto('/settings')
 
-    // Region selector should show Connecticut (US_CT value)
-    await expect(page.locator('select').first()).toHaveValue('US_CT')
+    // Region selector should show the user's stored region
+    await expect(page.locator('select').first()).toHaveValue('us_ct')
   })
 
   test('customer portal link works for subscribed users', async ({ page }) => {
@@ -402,7 +402,7 @@ test.describe('Billing Flow - Upgrade Journey', () => {
     // Step 1: Visit landing page
     await page.goto('/')
     await expect(page.getByText('Save Money on')).toBeVisible()
-    await expect(page.getByText('Connecticut Electricity', { exact: true })).toBeVisible()
+    await expect(page.getByText('Your Electricity Bills', { exact: true })).toBeVisible()
 
     // Step 2: Navigate to pricing page via nav link
     await page.getByRole('link', { name: 'Pricing' }).first().click()

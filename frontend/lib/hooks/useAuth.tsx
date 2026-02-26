@@ -105,7 +105,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (!profile.onboarding_completed || !profile.region) {
               const path = window.location.pathname
               // Only redirect if we're on an app page (not already on onboarding or auth)
-              if (path.startsWith('/dashboard') || path.startsWith('/prices') || path.startsWith('/suppliers') || path.startsWith('/optimize') || path.startsWith('/connections')) {
+              if (path.startsWith('/dashboard') || path.startsWith('/prices') || path.startsWith('/suppliers') || path.startsWith('/optimize') || path.startsWith('/connections') || path.startsWith('/settings')) {
                 window.location.href = '/onboarding'
                 return
               }
@@ -148,11 +148,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       // Honor callbackUrl if the middleware set one, otherwise go to dashboard.
-      // Validate that it's a safe relative path (not //evil.com or javascript:).
+      // Validate that it resolves to the same origin (blocks //evil.com, /\evil.com, javascript:, etc).
       const params = new URLSearchParams(window.location.search)
       const callback = params.get('callbackUrl') || '/dashboard'
-      const destination =
-        callback.startsWith('/') && !callback.startsWith('//') ? callback : '/dashboard'
+      let destination = '/dashboard'
+      try {
+        const parsed = new URL(callback, window.location.origin)
+        if (parsed.origin === window.location.origin && parsed.pathname.startsWith('/')) {
+          destination = parsed.pathname + parsed.search + parsed.hash
+        }
+      } catch {
+        // Malformed URL — fall back to dashboard
+      }
 
       // Full-page navigation ensures middleware evaluates with the fresh
       // session cookie (router.push uses cached prefetch that may predate

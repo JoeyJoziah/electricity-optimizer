@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Routes that require authentication
-const protectedPaths = ['/dashboard', '/prices', '/suppliers', '/connections', '/optimize', '/settings']
+const protectedPaths = ['/dashboard', '/prices', '/suppliers', '/connections', '/optimize', '/settings', '/onboarding']
 
 // Auth routes that authenticated users should be redirected away from
 const authPaths = ['/auth/login', '/auth/signup', '/auth/sign-in', '/auth/sign-up']
@@ -59,6 +59,7 @@ export const config = {
     '/connections/:path*',
     '/optimize/:path*',
     '/settings/:path*',
+    '/onboarding/:path*',
     '/auth/:path*',
   ],
 }
