@@ -421,6 +421,36 @@ class PriceService:
         windows.sort(key=lambda w: w['avg_price'])
         return windows[:5]
 
+    async def get_historical_prices(
+        self,
+        region: PriceRegion,
+        start_date: datetime,
+        end_date: datetime,
+        supplier: Optional[str] = None,
+    ) -> List[Price]:
+        """
+        Get historical prices for an explicit date range, with optional supplier filter.
+
+        Delegates directly to the repository's get_historical_prices method so
+        that parameterized SQL WHERE clauses handle the filtering rather than
+        in-memory post-processing.
+
+        Args:
+            region: Price region
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+            supplier: Optional supplier name to filter by
+
+        Returns:
+            List of Price objects matching the criteria
+        """
+        return await self._repo.get_historical_prices(
+            region=region,
+            start_date=start_date,
+            end_date=end_date,
+            supplier=supplier,
+        )
+
     async def get_price_statistics(
         self,
         region: PriceRegion,

@@ -48,7 +48,7 @@ class SessionData:
     role: Optional[str] = None
 
 
-_SESSION_CACHE_TTL = 30  # seconds — kept short to limit access window after logout/ban
+_SESSION_CACHE_TTL = 10  # seconds — kept short to limit access window after logout/ban
 
 
 async def _get_session_from_token(

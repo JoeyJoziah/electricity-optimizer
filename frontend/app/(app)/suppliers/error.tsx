@@ -1,35 +1,26 @@
 'use client'
 
-import { useEffect } from 'react'
-import { Header } from '@/components/layout/Header'
+import { Button } from '@/components/ui/button'
 
-export default function SuppliersError({
+export default function Error({
   error,
   reset,
 }: {
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    console.error('Suppliers error:', error)
-  }, [error])
-
   return (
-    <div>
-      <Header title="Suppliers" />
-      <div className="flex h-96 items-center justify-center p-6">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-gray-900">Supplier Data Error</h2>
-          <p className="mt-2 text-gray-600">
-            Failed to load supplier data. Please try again.
-          </p>
-          <button
-            onClick={reset}
-            className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-white hover:bg-primary-700"
-          >
-            Reload Suppliers
-          </button>
-        </div>
+    <div className="flex h-96 items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-lg font-semibold text-gray-900">
+          Something went wrong loading suppliers
+        </h2>
+        <p className="mt-2 text-sm text-gray-500">
+          {error.message || 'An unexpected error occurred'}
+        </p>
+        <Button onClick={reset} className="mt-4">
+          Try again
+        </Button>
       </div>
     </div>
   )

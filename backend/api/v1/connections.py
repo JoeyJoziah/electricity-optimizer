@@ -85,36 +85,42 @@ def _get_hmac_key() -> bytes:
     return key.encode("utf-8")
 
 
-def sign_callback_state(connection_id: str) -> str:
+def sign_callback_state(connection_id: str, user_id: str) -> str:
     """
-    Produce a signed state value: ``{connection_id}:{hex_hmac}``.
+    Produce a signed state value: ``{connection_id}:{user_id}:{timestamp}:{hex_hmac}``.
 
-    The HMAC is computed over the connection_id using INTERNAL_API_KEY as the
-    key with SHA-256.  The callback endpoint verifies this signature before
-    trusting the connection_id.
+    The HMAC is computed over ``{connection_id}:{user_id}:{timestamp}`` using
+    INTERNAL_API_KEY as the key with SHA-256.  The callback endpoint verifies
+    this signature and the user_id before trusting the connection_id.
     """
+    import time as _time
+
+    timestamp = str(int(_time.time()))
     key = _get_hmac_key()
-    sig = hmac.new(key, connection_id.encode("utf-8"), hashlib.sha256).hexdigest()
-    return f"{connection_id}:{sig}"
+    payload = f"{connection_id}:{user_id}:{timestamp}"
+    sig = hmac.new(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}:{sig}"
 
 
-def verify_callback_state(state: str) -> str:
+def verify_callback_state(state: str) -> tuple:
     """
-    Verify a signed state value and return the connection_id.
+    Verify a signed state value and return ``(connection_id, user_id)``.
 
     Raises HTTPException(400) if the state is malformed or the HMAC is invalid.
     """
-    if ":" not in state:
+    parts = state.split(":")
+    if len(parts) != 4:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid callback state: missing HMAC signature.",
+            detail="Invalid callback state: expected 4 colon-separated parts.",
         )
 
-    connection_id, received_sig = state.rsplit(":", 1)
+    connection_id, user_id, timestamp, received_sig = parts
 
     key = _get_hmac_key()
+    payload = f"{connection_id}:{user_id}:{timestamp}"
     expected_sig = hmac.new(
-        key, connection_id.encode("utf-8"), hashlib.sha256
+        key, payload.encode("utf-8"), hashlib.sha256
     ).hexdigest()
 
     if not hmac.compare_digest(received_sig, expected_sig):
@@ -123,7 +129,7 @@ def verify_callback_state(state: str) -> str:
             detail="Invalid callback state: HMAC verification failed.",
         )
 
-    return connection_id
+    return connection_id, user_id
 
 
 # ---------------------------------------------------------------------------
@@ -1277,14 +1283,14 @@ async def utilityapi_callback(
     from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
     from services.connection_sync_service import ConnectionSyncService
 
-    connection_id = verify_callback_state(state)
+    connection_id, state_user_id = verify_callback_state(state)
     log = logger.bind(connection_id=connection_id, authorization_uid=authorization_uid)
     log.info("utilityapi_callback_received")
 
     # 1. Verify connection exists and is still pending
     conn_result = await db.execute(
         text("""
-            SELECT id, status FROM user_connections
+            SELECT id, user_id, status FROM user_connections
             WHERE id = :cid AND connection_type = 'direct'
         """),
         {"cid": connection_id},
@@ -1295,6 +1301,18 @@ async def utilityapi_callback(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Connection not found.",
+        )
+
+    # 2. Verify the user_id embedded in the state matches the connection owner
+    if str(row["user_id"]) != state_user_id:
+        log.warning(
+            "utilityapi_callback_user_mismatch",
+            state_user_id=state_user_id,
+            connection_user_id=str(row["user_id"]),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Callback state user does not match connection owner.",
         )
 
     if row["status"] == "disconnected":

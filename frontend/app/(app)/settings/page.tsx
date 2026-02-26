@@ -12,7 +12,9 @@ import { useSettingsStore } from '@/lib/store/settings'
 import { useSuppliers, useSetSupplier, useLinkAccount, useUserSupplierAccounts } from '@/lib/hooks/useSuppliers'
 import { formatCurrency } from '@/lib/utils/format'
 import type { UtilityType } from '@/lib/store/settings'
-import type { Supplier } from '@/types'
+import type { Supplier, RawSupplierRecord } from '@/types'
+import type { LinkedAccountResponse } from '@/lib/api/suppliers'
+import { useToast } from '@/lib/contexts/toast-context'
 import {
   User,
   MapPin,
@@ -24,8 +26,6 @@ import {
   Trash2,
   Save,
   CheckCircle,
-  Flame,
-  Sun,
   Link2,
   X,
 } from 'lucide-react'
@@ -57,6 +57,7 @@ export default function SettingsPage() {
     resetSettings,
   } = useSettingsStore()
 
+  const { success: toastSuccess, error: toastError } = useToast()
   const [saved, setSaved] = React.useState(false)
   const [exporting, setExporting] = React.useState(false)
   const [showSupplierPicker, setShowSupplierPicker] = React.useState(false)
@@ -68,7 +69,7 @@ export default function SettingsPage() {
   const { data: accountsData } = useUserSupplierAccounts()
 
   // Map backend suppliers to frontend type
-  const availableSuppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: any) => ({
+  const availableSuppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: RawSupplierRecord) => ({
     id: s.id,
     name: s.name,
     logo: s.logo || s.logo_url,
@@ -77,7 +78,7 @@ export default function SettingsPage() {
     greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
     rating: s.rating ?? 0,
     estimatedAnnualCost: s.estimatedAnnualCost ?? Math.round((s.avgPricePerKwh ?? 0.22) * annualUsageKwh + 365 * 0.40),
-    tariffType: s.tariffType ?? (s.tariff_types?.[0] || 'variable'),
+    tariffType: (s.tariffType ?? (s.tariff_types?.[0] || 'variable')) as Supplier['tariffType'],
     exitFee: s.exitFee ?? s.exit_fee,
     contractLength: s.contractLength ?? s.contract_length,
     features: s.features ?? s.tariff_types,
@@ -121,28 +122,37 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const handleExport = async () => {
+  const handleExportData = async () => {
     setExporting(true)
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
-      const response = await fetch(`${apiUrl}/compliance/gdpr/export`, {
-        credentials: 'include',
-      })
-      if (!response.ok) throw new Error('Export failed')
-      const data = await response.json()
+      const res = await fetch('/api/v1/compliance/gdpr/export', { credentials: 'include' })
+      if (!res.ok) throw new Error('Export failed')
+      const data = await res.json()
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `electricity-optimizer-data-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(a)
+      a.download = `my-data-${new Date().toISOString().split('T')[0]}.json`
       a.click()
-      document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch {
-      // Silently fail — user will notice the button didn't produce a download
+      toastError('Export failed', 'Please try again later.')
     } finally {
       setExporting(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account? This action is irreversible and will permanently delete all your data.'
+    )
+    if (!confirmed) return
+    try {
+      const res = await fetch('/api/v1/compliance/gdpr/delete', { method: 'DELETE', credentials: 'include' })
+      if (!res.ok) throw new Error('Delete failed')
+      window.location.href = '/'
+    } catch {
+      toastError('Delete failed', 'Please try again later.')
     }
   }
 
@@ -274,7 +284,7 @@ export default function SettingsPage() {
                     {/* Linked account info */}
                     {linkedAccounts.length > 0 && (
                       <div className="space-y-2">
-                        {linkedAccounts.map((account: any) => (
+                        {linkedAccounts.map((account: LinkedAccountResponse) => (
                           <div
                             key={account.supplier_id}
                             className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
@@ -495,25 +505,6 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-gray-900">Export Data</p>
-                  <p className="text-sm text-gray-500">
-                    Download all your data as JSON
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExport}
-                  disabled={exporting}
-                  loading={exporting}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {exporting ? 'Exporting...' : 'Export'}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-                <div>
                   <p className="font-medium text-danger-600">Reset Settings</p>
                   <p className="text-sm text-gray-500">
                     Reset all settings to default
@@ -530,6 +521,26 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Data & Privacy (GDPR) */}
+          <div className="mt-8 border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900">Data & Privacy</h3>
+            <p className="mt-1 text-sm text-gray-500">Manage your personal data in accordance with GDPR regulations.</p>
+            <div className="mt-4 flex gap-3">
+              <Button variant="outline" onClick={handleExportData} disabled={exporting}>
+                <Download className="mr-2 h-4 w-4" />
+                {exporting ? 'Preparing...' : 'Download My Data'}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteAccount}
+                className="border-danger-300 text-danger-600 hover:bg-danger-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete My Account
+              </Button>
+            </div>
+          </div>
 
           {/* Save button */}
           <div className="flex justify-end gap-4">

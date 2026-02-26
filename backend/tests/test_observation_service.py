@@ -9,6 +9,8 @@ Covers all public methods:
 - get_forecast_accuracy: null metrics on empty, MAPE/RMSE/coverage calculation
 - get_hourly_bias: 24-hour grouping, empty result
 - get_model_accuracy_by_version: multi-version ranking
+- archive_old_observations: count-before-delete, no-op on empty, commit
+- get_observation_summary: total/oldest/newest, empty table handling
 """
 
 import json
@@ -650,3 +652,200 @@ class TestGetModelAccuracyByVersion:
 
         assert result[0]["mape"] == 3.46
         assert result[0]["rmse"] == 0.012346
+
+
+# =============================================================================
+# TestArchiveOldObservations
+# =============================================================================
+
+
+class TestArchiveOldObservations:
+    """Tests for ObservationService.archive_old_observations"""
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def service(self, db):
+        from services.observation_service import ObservationService
+        return ObservationService(db)
+
+    @pytest.mark.asyncio
+    async def test_returns_no_op_when_count_is_zero(self, service, db):
+        """Should return archived=0 with a message when there is nothing to delete."""
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        db.execute = AsyncMock(return_value=count_result)
+
+        result = await service.archive_old_observations(days=90)
+
+        assert result["archived"] == 0
+        assert "message" in result
+        # Only the COUNT query should be issued — no DELETE
+        db.execute.assert_awaited_once()
+        db.commit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_returns_archived_count_when_rows_exist(self, service, db):
+        """Should issue DELETE and return the count of archived observations."""
+        count_result = MagicMock()
+        count_result.scalar.return_value = 15
+        delete_result = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[count_result, delete_result])
+
+        result = await service.archive_old_observations(days=90)
+
+        assert result["archived"] == 15
+        assert result["cutoff_days"] == 90
+
+    @pytest.mark.asyncio
+    async def test_commit_called_after_delete(self, service, db):
+        """Should commit the DELETE transaction."""
+        count_result = MagicMock()
+        count_result.scalar.return_value = 5
+        delete_result = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[count_result, delete_result])
+
+        await service.archive_old_observations()
+
+        db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_issues_two_queries_when_rows_present(self, service, db):
+        """Should run COUNT then DELETE when there are observations to archive."""
+        count_result = MagicMock()
+        count_result.scalar.return_value = 7
+        delete_result = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[count_result, delete_result])
+
+        await service.archive_old_observations(days=30)
+
+        assert db.execute.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_default_days_is_90(self, service, db):
+        """Default archival window should be 90 days."""
+        count_result = MagicMock()
+        count_result.scalar.return_value = 3
+        delete_result = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[count_result, delete_result])
+
+        result = await service.archive_old_observations()
+
+        assert result["cutoff_days"] == 90
+
+    @pytest.mark.asyncio
+    async def test_scalar_none_treated_as_zero(self, service, db):
+        """If the COUNT scalar returns None, it should be treated as 0 (no-op)."""
+        count_result = MagicMock()
+        count_result.scalar.return_value = None
+        db.execute = AsyncMock(return_value=count_result)
+
+        result = await service.archive_old_observations()
+
+        assert result["archived"] == 0
+        db.commit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cutoff_passed_to_queries(self, service, db):
+        """Both queries should receive the same :cutoff datetime parameter."""
+        from datetime import timedelta
+
+        count_result = MagicMock()
+        count_result.scalar.return_value = 2
+        delete_result = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[count_result, delete_result])
+
+        before = datetime.utcnow() - timedelta(days=90)
+        await service.archive_old_observations(days=90)
+        after = datetime.utcnow() - timedelta(days=90)
+
+        for call_args in db.execute.call_args_list:
+            params = call_args[0][1]
+            assert "cutoff" in params
+            assert before <= params["cutoff"] <= after + timedelta(seconds=2)
+
+
+# =============================================================================
+# TestGetObservationSummary
+# =============================================================================
+
+
+class TestGetObservationSummary:
+    """Tests for ObservationService.get_observation_summary"""
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def service(self, db):
+        from services.observation_service import ObservationService
+        return ObservationService(db)
+
+    @pytest.mark.asyncio
+    async def test_empty_table_returns_zero_and_nones(self, service, db):
+        """Should return total=0 and None dates when the table is empty."""
+        row = MagicMock()
+        row.__getitem__ = lambda self, i: (0, None, None)[i]
+        result_mock = MagicMock()
+        result_mock.fetchone.return_value = row
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.get_observation_summary()
+
+        assert result["total"] == 0
+        assert result["oldest"] is None
+        assert result["newest"] is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_fetchone_is_none(self, service, db):
+        """Should handle a None fetchone result gracefully."""
+        result_mock = MagicMock()
+        result_mock.fetchone.return_value = None
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.get_observation_summary()
+
+        assert result["total"] == 0
+        assert result["oldest"] is None
+        assert result["newest"] is None
+
+    @pytest.mark.asyncio
+    async def test_returns_summary_with_data(self, service, db):
+        """Should return total, oldest, and newest as strings when data exists."""
+        oldest_dt = datetime(2026, 1, 1, 0, 0, 0)
+        newest_dt = datetime(2026, 2, 25, 12, 30, 0)
+        row = MagicMock()
+        row.__getitem__ = lambda self, i: (250, oldest_dt, newest_dt)[i]
+        result_mock = MagicMock()
+        result_mock.fetchone.return_value = row
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.get_observation_summary()
+
+        assert result["total"] == 250
+        assert "2026-01-01" in result["oldest"]
+        assert "2026-02-25" in result["newest"]
+
+    @pytest.mark.asyncio
+    async def test_issues_single_query(self, service, db):
+        """Should execute exactly one SELECT query."""
+        row = MagicMock()
+        row.__getitem__ = lambda self, i: (0, None, None)[i]
+        result_mock = MagicMock()
+        result_mock.fetchone.return_value = row
+        db.execute = AsyncMock(return_value=result_mock)
+
+        await service.get_observation_summary()
+
+        db.execute.assert_awaited_once()

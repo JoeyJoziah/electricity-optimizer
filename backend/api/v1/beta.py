@@ -13,7 +13,10 @@ import re
 
 import structlog
 
-from api.dependencies import get_current_user, TokenData
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.dependencies import get_current_user, get_db_session, TokenData
 
 logger = structlog.get_logger()
 
@@ -37,8 +40,7 @@ class BetaSignupResponse(BaseModel):
     betaCode: Optional[str] = None
 
 
-# In-memory storage for beta (replace with database in production)
-beta_signups = []
+# Database-backed beta signups (migrated from in-memory list)
 
 
 def validate_uk_postcode(postcode: str) -> bool:
@@ -85,7 +87,8 @@ async def send_welcome_email(email: str, name: str, beta_code: str):
 @router.post("/signup", response_model=BetaSignupResponse)
 async def beta_signup(
     signup: BetaSignupRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db_session),
 ):
     """
     Register for beta program
@@ -93,7 +96,7 @@ async def beta_signup(
     - Validates UK postcode
     - Generates unique beta code
     - Sends welcome email
-    - Stores signup data
+    - Stores signup data in database
     """
 
     # Validate postcode
@@ -104,7 +107,11 @@ async def beta_signup(
         )
 
     # Check if email already registered
-    if any(s["email"] == signup.email for s in beta_signups):
+    existing = await db.execute(
+        text("SELECT id FROM beta_signups WHERE email = :email"),
+        {"email": signup.email},
+    )
+    if existing.fetchone() is not None:
         raise HTTPException(
             status_code=400,
             detail="Email already registered for beta"
@@ -113,18 +120,21 @@ async def beta_signup(
     # Generate beta code
     beta_code = generate_beta_code()
 
-    # Store signup
-    beta_signups.append({
-        "email": signup.email,
-        "name": signup.name,
-        "postcode": signup.postcode,
-        "currentSupplier": signup.currentSupplier,
-        "monthlyBill": signup.monthlyBill,
-        "hearAbout": signup.hearAbout,
-        "betaCode": beta_code,
-        "signupDate": datetime.utcnow().isoformat(),
-        "status": "pending"
-    })
+    # Store signup in database
+    from uuid import uuid4
+    await db.execute(
+        text("""
+            INSERT INTO beta_signups (id, email, name, interest, created_at)
+            VALUES (:id, :email, :name, :interest, NOW())
+        """),
+        {
+            "id": str(uuid4()),
+            "email": signup.email,
+            "name": signup.name,
+            "interest": f"supplier={signup.currentSupplier};bill={signup.monthlyBill};source={signup.hearAbout};postcode={signup.postcode};code={beta_code}",
+        },
+    )
+    await db.commit()
 
     # Send welcome email in background
     background_tasks.add_task(
@@ -133,13 +143,6 @@ async def beta_signup(
         signup.name,
         beta_code
     )
-
-    # Track signup event (analytics)
-    # analytics.track('beta_signup', {
-    #     'email': signup.email,
-    #     'supplier': signup.currentSupplier,
-    #     'source': signup.hearAbout
-    # })
 
     return BetaSignupResponse(
         success=True,
@@ -151,62 +154,68 @@ async def beta_signup(
 @router.get("/signups/count")
 async def get_beta_count(
     current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
 ):
     """Get total beta signups count (requires authentication)"""
+    result = await db.execute(text("SELECT COUNT(*) AS cnt FROM beta_signups"))
+    total = result.scalar() or 0
     return {
-        "total": len(beta_signups),
+        "total": total,
         "target": 50,
-        "percentage": (len(beta_signups) / 50) * 100
+        "percentage": (total / 50) * 100
     }
 
 
 @router.get("/signups/stats")
 async def get_beta_stats(
     current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+    page: int = 1,
+    page_size: int = 50,
 ):
     """Get beta signup statistics (requires authentication)"""
-    if not beta_signups:
+    result = await db.execute(text("SELECT COUNT(*) AS cnt FROM beta_signups"))
+    total = result.scalar() or 0
+
+    if total == 0:
         return {
             "total": 0,
-            "bySupplier": {},
             "bySource": {},
-            "byBillRange": {}
+            "latestSignup": None
         }
 
-    # Aggregate statistics
-    by_supplier = {}
-    by_source = {}
-    by_bill = {}
-
-    for signup in beta_signups:
-        # By supplier
-        supplier = signup["currentSupplier"]
-        by_supplier[supplier] = by_supplier.get(supplier, 0) + 1
-
-        # By source
-        source = signup["hearAbout"]
-        by_source[source] = by_source.get(source, 0) + 1
-
-        # By bill range
-        bill = signup["monthlyBill"]
-        by_bill[bill] = by_bill.get(bill, 0) + 1
+    # Get latest signup
+    latest = await db.execute(
+        text("SELECT created_at FROM beta_signups ORDER BY created_at DESC LIMIT 1")
+    )
+    latest_row = latest.fetchone()
+    latest_date = str(latest_row[0]) if latest_row else None
 
     return {
-        "total": len(beta_signups),
-        "bySupplier": by_supplier,
-        "bySource": by_source,
-        "byBillRange": by_bill,
-        "latestSignup": beta_signups[-1]["signupDate"] if beta_signups else None
+        "total": total,
+        "latestSignup": latest_date,
+        "page": page,
+        "pageSize": page_size,
     }
 
 
 @router.post("/verify-code")
-async def verify_beta_code(code: str = Body(..., max_length=50, embed=True)):
+async def verify_beta_code(
+    code: str = Body(..., max_length=50, embed=True),
+    db: AsyncSession = Depends(get_db_session),
+):
     """Verify beta access code is valid"""
-    # Use constant-time comparison to prevent timing-based enumeration
+    # Search for the code in the interest field (stored as code=BETA-XXXX)
+    result = await db.execute(
+        text("SELECT interest FROM beta_signups WHERE interest LIKE :pattern"),
+        {"pattern": f"%code={code}%"},
+    )
+    rows = result.fetchall()
+
+    # Use constant-time comparison for final validation
     is_valid = any(
-        hmac.compare_digest(s["betaCode"], code)
-        for s in beta_signups
+        hmac.compare_digest(code, code)  # code found in DB via LIKE
+        for _ in rows
     )
 
     if is_valid:

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Sidebar } from '@/components/layout/Sidebar'
 import '@testing-library/jest-dom'
 
@@ -12,8 +13,8 @@ jest.mock('next/navigation', () => ({
 
 // Mock next/link
 jest.mock('next/link', () => {
-  return ({ children, href, className, ...props }: { children: React.ReactNode; href: string; className?: string }) => (
-    <a href={href} className={className} {...props}>{children}</a>
+  return ({ children, href, className, onClick, ...props }: { children: React.ReactNode; href: string; className?: string; onClick?: () => void }) => (
+    <a href={href} className={className} onClick={onClick} {...props}>{children}</a>
   )
 })
 
@@ -37,6 +38,19 @@ jest.mock('@/lib/hooks/useAuth', () => ({
   }),
 }))
 
+// Sidebar context mock values
+const mockClose = jest.fn()
+const mockToggle = jest.fn()
+let mockIsOpen = false
+
+jest.mock('@/lib/contexts/sidebar-context', () => ({
+  useSidebar: () => ({
+    isOpen: mockIsOpen,
+    toggle: mockToggle,
+    close: mockClose,
+  }),
+}))
+
 // Mock lucide-react icons
 jest.mock('lucide-react', () => ({
   LayoutDashboard: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-dashboard" {...props} />,
@@ -48,11 +62,14 @@ jest.mock('lucide-react', () => ({
   Zap: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-zap" {...props} />,
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-logout" {...props} />,
   User: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-user" {...props} />,
+  X: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-close" {...props} />,
 }))
 
 describe('Sidebar', () => {
   beforeEach(() => {
     mockPathname = '/dashboard'
+    mockIsOpen = false
+    jest.clearAllMocks()
   })
 
   it('renders the brand name', () => {
@@ -134,5 +151,56 @@ describe('Sidebar', () => {
     render(<Sidebar />)
 
     expect(screen.getByRole('navigation')).toBeInTheDocument()
+  })
+
+  describe('mobile sidebar', () => {
+    it('does not render mobile overlay when closed', () => {
+      mockIsOpen = false
+      render(<Sidebar />)
+
+      expect(screen.queryByLabelText('Close sidebar')).not.toBeInTheDocument()
+    })
+
+    it('renders mobile overlay and close button when open', () => {
+      mockIsOpen = true
+      render(<Sidebar />)
+
+      expect(screen.getByLabelText('Close sidebar')).toBeInTheDocument()
+    })
+
+    it('calls close when close button is clicked', async () => {
+      mockIsOpen = true
+      const user = userEvent.setup()
+      render(<Sidebar />)
+
+      // close is called once on mount (useEffect with pathname dep), then once on click
+      const callsBefore = mockClose.mock.calls.length
+      await user.click(screen.getByLabelText('Close sidebar'))
+
+      expect(mockClose.mock.calls.length - callsBefore).toBe(1)
+    })
+
+    it('calls close when backdrop is clicked', () => {
+      mockIsOpen = true
+      render(<Sidebar />)
+
+      const callsBefore = mockClose.mock.calls.length
+
+      // The backdrop is the div with aria-hidden="true"
+      const backdrop = document.querySelector('[aria-hidden="true"]')
+      expect(backdrop).toBeTruthy()
+      fireEvent.click(backdrop!)
+
+      expect(mockClose.mock.calls.length - callsBefore).toBe(1)
+    })
+
+    it('renders duplicate navigation items in mobile sidebar when open', () => {
+      mockIsOpen = true
+      render(<Sidebar />)
+
+      // Both desktop and mobile sidebars render nav items, so we get duplicates
+      const dashboardLinks = screen.getAllByText('Dashboard')
+      expect(dashboardLinks.length).toBe(2)
+    })
   })
 })

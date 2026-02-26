@@ -1,7 +1,7 @@
 /**
  * Base API client for making HTTP requests to the backend.
  * Includes automatic retry with backoff for 5xx/network errors
- * and 401 redirect to login.
+ * and 401 redirect to login with callback URL preservation.
  */
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
@@ -28,9 +28,14 @@ export class ApiClientError extends Error {
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    // On 401, redirect to login (session expired)
+    // On 401, preserve current URL and redirect to login
     if (response.status === 401 && typeof window !== 'undefined') {
-      window.location.href = '/auth/login'
+      const currentPath = window.location.pathname + window.location.search
+      sessionStorage.setItem('auth_redirect', currentPath)
+      console.warn(
+        '[auth] Session expired or unauthorized. Redirecting to login.'
+      )
+      window.location.href = `/auth/login?callbackUrl=${encodeURIComponent(currentPath)}`
     }
 
     let errorMessage = 'An error occurred'

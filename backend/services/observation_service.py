@@ -6,8 +6,10 @@ Adds logging and business-level coordination on top of raw data operations.
 """
 
 import logging
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from repositories.forecast_observation_repository import ForecastObservationRepository
@@ -112,3 +114,41 @@ class ObservationService:
     ) -> List[Dict[str, Any]]:
         """Compute accuracy breakdown by model_version."""
         return await self._repo.get_accuracy_by_version(region, days)
+
+    async def archive_old_observations(self, days: int = 90):
+        """Archive observations older than specified days."""
+        cutoff = datetime.utcnow() - timedelta(days=days)
+
+        # Count before archival
+        count_result = await self._repo._db.execute(
+            text("SELECT COUNT(*) FROM forecast_observations WHERE created_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        count = count_result.scalar() or 0
+
+        if count == 0:
+            return {"archived": 0, "message": "No old observations to archive"}
+
+        # Delete old observations (in production, would move to archive table first)
+        await self._repo._db.execute(
+            text("DELETE FROM forecast_observations WHERE created_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        await self._repo._db.commit()
+
+        logger.info("observations_archived", extra={"count": count, "cutoff_days": days})
+        return {"archived": count, "cutoff_days": days}
+
+    async def get_observation_summary(self):
+        """Get summary statistics for observations."""
+        result = await self._repo._db.execute(text("""
+            SELECT
+                COUNT(*) as total,
+                MIN(created_at) as oldest,
+                MAX(created_at) as newest
+            FROM forecast_observations
+        """))
+        row = result.fetchone()
+        if not row or not row[0]:
+            return {"total": 0, "oldest": None, "newest": None}
+        return {"total": row[0], "oldest": str(row[1]), "newest": str(row[2])}

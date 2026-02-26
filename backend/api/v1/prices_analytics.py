@@ -106,6 +106,8 @@ async def get_optimal_usage_windows(
     duration_hours: int = Query(2, ge=1, le=12, description="Required usage duration"),
     within_hours: int = Query(24, ge=1, le=48, description="Time window to search"),
     supplier: Optional[str] = Query(None, description="Filter by supplier"),
+    page: int = Query(default=1, ge=1, description="Page number"),
+    page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     price_service: PriceService = Depends(get_price_service),
 ):
     """
@@ -120,11 +122,17 @@ async def get_optimal_usage_windows(
             within_hours=within_hours,
             supplier=supplier
         )
+        total = len(windows)
+        offset = (page - 1) * page_size
+        paginated_windows = windows[offset: offset + page_size]
         return {
             "region": region.value,
             "duration_hours": duration_hours,
             "within_hours": within_hours,
-            "windows": windows,
+            "windows": paginated_windows,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "source": "live",
         }
@@ -136,14 +144,21 @@ async def get_optimal_usage_windows(
                 detail="Price service temporarily unavailable",
             )
         now = datetime.now(timezone.utc)
+        all_windows = [
+            {"start": (now + timedelta(hours=2)).isoformat(), "end": (now + timedelta(hours=2 + duration_hours)).isoformat(), "avg_price": 0.16, "rank": 1},
+            {"start": (now + timedelta(hours=14)).isoformat(), "end": (now + timedelta(hours=14 + duration_hours)).isoformat(), "avg_price": 0.18, "rank": 2},
+        ]
+        total = len(all_windows)
+        offset = (page - 1) * page_size
+        paginated_windows = all_windows[offset: offset + page_size]
         return {
             "region": region.value,
             "duration_hours": duration_hours,
             "within_hours": within_hours,
-            "windows": [
-                {"start": (now + timedelta(hours=2)).isoformat(), "end": (now + timedelta(hours=2 + duration_hours)).isoformat(), "avg_price": 0.16, "rank": 1},
-                {"start": (now + timedelta(hours=14)).isoformat(), "end": (now + timedelta(hours=14 + duration_hours)).isoformat(), "avg_price": 0.18, "rank": 2},
-            ],
+            "windows": paginated_windows,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
             "generated_at": now.isoformat(),
             "source": "fallback",
         }

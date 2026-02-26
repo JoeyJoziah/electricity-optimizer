@@ -22,7 +22,7 @@ import {
   ArrowRight,
   Zap,
 } from 'lucide-react'
-import type { Supplier, SupplierRecommendation } from '@/types'
+import type { Supplier, SupplierRecommendation, RawSupplierRecord } from '@/types'
 
 type ViewMode = 'grid' | 'table'
 
@@ -52,7 +52,7 @@ export default function SuppliersContent() {
   const setSupplierMutation = useSetSupplier()
 
   // Map backend supplier fields to frontend Supplier type
-  const suppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: any) => ({
+  const suppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: RawSupplierRecord) => ({
     id: s.id,
     name: s.name,
     logo: s.logo || s.logo_url,
@@ -61,7 +61,7 @@ export default function SuppliersContent() {
     greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
     rating: s.rating ?? 0,
     estimatedAnnualCost: s.estimatedAnnualCost ?? Math.round((s.avgPricePerKwh ?? 0.22) * annualUsage + 365 * 0.40),
-    tariffType: s.tariffType ?? (s.tariff_types?.[0] || 'variable'),
+    tariffType: (s.tariffType ?? (s.tariff_types?.[0] || 'variable')) as Supplier['tariffType'],
     exitFee: s.exitFee ?? s.exit_fee,
     contractLength: s.contractLength ?? s.contract_length,
     features: s.features ?? s.tariff_types,
@@ -162,7 +162,7 @@ export default function SuppliersContent() {
             <CardContent className="p-4">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-4">
-                  <Award className="h-10 w-10 text-success-600" />
+                  <Award className="h-10 w-10 text-success-600" aria-hidden="true" />
                   <div>
                     <p className="font-semibold text-gray-900">
                       We found you a better deal!
@@ -194,7 +194,7 @@ export default function SuppliersContent() {
           <Card>
             <CardContent className="flex items-center gap-4 p-4">
               <div className="rounded-full bg-success-100 p-3">
-                <TrendingDown className="h-6 w-6 text-success-600" />
+                <TrendingDown className="h-6 w-6 text-success-600" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Cheapest Option</p>
@@ -215,7 +215,7 @@ export default function SuppliersContent() {
           <Card>
             <CardContent className="flex items-center gap-4 p-4">
               <div className="rounded-full bg-success-100 p-3">
-                <Leaf className="h-6 w-6 text-success-600" />
+                <Leaf className="h-6 w-6 text-success-600" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Greenest Option</p>
@@ -231,7 +231,7 @@ export default function SuppliersContent() {
           <Card>
             <CardContent className="flex items-center gap-4 p-4">
               <div className="rounded-full bg-primary-100 p-3">
-                <Award className="h-6 w-6 text-primary-600" />
+                <Award className="h-6 w-6 text-primary-600" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Your Current</p>
@@ -268,11 +268,13 @@ export default function SuppliersContent() {
           <h2 className="text-lg font-semibold text-gray-900">
             {suppliers.length} Suppliers Available
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" role="group" aria-label="View mode">
             <Button
               variant={viewMode === 'grid' ? 'primary' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
             >
               <Grid className="h-4 w-4" />
             </Button>
@@ -280,6 +282,8 @@ export default function SuppliersContent() {
               variant={viewMode === 'table' ? 'primary' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('table')}
+              aria-label="Table view"
+              aria-pressed={viewMode === 'table'}
             >
               <List className="h-4 w-4" />
             </Button>
@@ -294,7 +298,7 @@ export default function SuppliersContent() {
             ))}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" aria-live="polite">
             {suppliers.map((supplier) => (
               <SupplierCard
                 key={supplier.id}
@@ -307,17 +311,19 @@ export default function SuppliersContent() {
             ))}
           </div>
         ) : (
-          <ComparisonTable
-            suppliers={suppliers}
-            currentSupplierId={currentSupplier?.id}
-            showFilters
-            onSelect={handleSelectSupplier}
-          />
+          <div aria-live="polite">
+            <ComparisonTable
+              suppliers={suppliers}
+              currentSupplierId={currentSupplier?.id}
+              showFilters
+              onSelect={handleSelectSupplier}
+            />
+          </div>
         )}
 
         {/* Switch wizard modal (when user has a current supplier) */}
         {showWizard && wizardRecommendation && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-label="Switch supplier">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6">
               <SwitchWizard
                 recommendation={wizardRecommendation}
@@ -333,7 +339,7 @@ export default function SuppliersContent() {
 
         {/* Set supplier dialog (first-time selection, no current supplier) */}
         {showSetDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-label="Set your current supplier">
             <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6">
               <SetSupplierDialog
                 suppliers={suppliers}

@@ -13,6 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from models.supplier import (
     SupplierResponse,
@@ -200,43 +201,61 @@ async def get_supplier_tariffs(
             detail=f"Supplier with ID '{supplier_id}' not found"
         )
 
-    # TODO: Replace with actual tariff query from DB once tariff data is populated.
-    from decimal import Decimal
     from models.supplier import TariffType, ContractLength
 
-    mock_tariffs = [
-        TariffResponse(
-            id=f"tariff_{supplier_id}_001",
-            supplier_id=supplier_id,
-            name="Standard Variable",
-            type=TariffType.VARIABLE,
-            unit_rate=Decimal("0.25"),
-            standing_charge=Decimal("0.40"),
-            green_energy_percentage=0,
-            contract_length=ContractLength.ROLLING,
-            is_available=True,
-        ),
-        TariffResponse(
-            id=f"tariff_{supplier_id}_002",
-            supplier_id=supplier_id,
-            name="Fixed 12 Month",
-            type=TariffType.FIXED,
-            unit_rate=Decimal("0.22"),
-            standing_charge=Decimal("0.45"),
-            green_energy_percentage=50,
-            contract_length=ContractLength.ANNUAL,
-            is_available=True,
-        ),
-    ]
+    # Build WHERE clause incrementally so we keep one parameterised query string
+    where_clauses = ["supplier_id = :supplier_id"]
+    params: dict = {"supplier_id": supplier_id}
+
+    if utility_type:
+        where_clauses.append("utility_type = :utility_type")
+        params["utility_type"] = utility_type
 
     if available_only:
-        mock_tariffs = [t for t in mock_tariffs if t.is_available]
+        where_clauses.append("is_available = TRUE")
+
+    where_sql = " AND ".join(where_clauses)
+    query = text(f"""
+        SELECT id, supplier_id, name, price_per_kwh, standing_charge,
+               is_available, tariff_type, utility_type
+        FROM tariffs
+        WHERE {where_sql}
+        ORDER BY name
+    """)
+
+    result = await db.execute(query, params)
+    rows = result.fetchall()
+
+    # Map DB columns → TariffResponse fields.
+    # DB tariff_type values are expected to match TariffType enum members
+    # (fixed, variable, time_of_use, prepaid, green, agile).  Unknown values
+    # fall back to VARIABLE so the endpoint never hard-crashes on stale data.
+    tariffs: List[TariffResponse] = []
+    for row in rows:
+        try:
+            tariff_type_value = TariffType(row.tariff_type)
+        except ValueError:
+            tariff_type_value = TariffType.VARIABLE
+
+        tariffs.append(
+            TariffResponse(
+                id=str(row.id),
+                supplier_id=str(row.supplier_id),
+                name=row.name,
+                type=tariff_type_value,
+                unit_rate=row.price_per_kwh,
+                standing_charge=row.standing_charge,
+                green_energy_percentage=0,
+                contract_length=ContractLength.ROLLING,
+                is_available=row.is_available,
+            )
+        )
 
     return SupplierTariffsResponse(
         supplier_id=supplier_id,
         supplier_name=supplier["name"],
-        tariffs=mock_tariffs,
-        total=len(mock_tariffs),
+        tariffs=tariffs,
+        total=len(tariffs),
     )
 
 

@@ -816,11 +816,13 @@ class TestEmailOAuthCallback:
         """Tampered or malformed state returns 400."""
         self._install_callback_db()
 
-        response = client.get(
-            f"{BASE}/email/callback",
-            params={"code": "auth_code_123", "state": "bad:state:here"},
-            follow_redirects=False,
-        )
+        with patch("services.email_oauth_service.settings") as mock_settings:
+            mock_settings.internal_api_key = "test-key"
+            response = client.get(
+                f"{BASE}/email/callback",
+                params={"code": "auth_code_123", "state": "bad:state:here"},
+                follow_redirects=False,
+            )
         assert response.status_code == 400
 
     def test_missing_state_returns_422(self, client):

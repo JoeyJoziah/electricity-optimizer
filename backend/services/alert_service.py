@@ -3,13 +3,21 @@ Price Alert Service
 
 Monitors electricity prices and sends notifications when prices
 drop below user-defined thresholds or enter optimal usage windows.
+
+DB-backed methods (get_user_alerts, get_alert_history, create_alert,
+update_alert, delete_alert, record_triggered_alert) persist alert
+configurations to ``price_alert_configs`` and trigger events to
+``alert_history`` (migration 014).
 """
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 import structlog
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.email_service import EmailService
 
@@ -288,3 +296,366 @@ class AlertService:
         <p>Region: {alert.region} | Supplier: {alert.supplier}</p>
         <p>Time: {alert.timestamp.strftime('%B %d, %Y at %I:%M %p UTC')}</p>
         """
+
+    # =========================================================================
+    # DB-backed CRUD methods (require db: AsyncSession)
+    # =========================================================================
+
+    async def get_user_alerts(
+        self,
+        user_id: str,
+        db: AsyncSession,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return all price alert configurations for a user (active and inactive).
+
+        Args:
+            user_id: UUID string of the authenticated user.
+            db:      Async SQLAlchemy session.
+
+        Returns:
+            List of alert config dicts ordered by created_at DESC.
+        """
+        result = await db.execute(
+            text("""
+                SELECT id, user_id, region, currency,
+                       price_below, price_above, notify_optimal_windows,
+                       is_active, created_at, updated_at
+                FROM price_alert_configs
+                WHERE user_id = :user_id
+                ORDER BY created_at DESC
+            """),
+            {"user_id": user_id},
+        )
+        rows = result.mappings().all()
+        return [self._config_row_to_dict(row) for row in rows]
+
+    async def get_alert_history(
+        self,
+        user_id: str,
+        db: AsyncSession,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Dict[str, Any]:
+        """
+        Return a paginated list of alert trigger history for a user.
+
+        Args:
+            user_id:   UUID string of the authenticated user.
+            db:        Async SQLAlchemy session.
+            page:      1-based page number.
+            page_size: Records per page (clamped 1-100).
+
+        Returns:
+            Dict with keys items, total, page, page_size, pages.
+        """
+        page = max(1, page)
+        page_size = max(1, min(100, page_size))
+        offset = (page - 1) * page_size
+
+        count_result = await db.execute(
+            text("SELECT COUNT(*) FROM alert_history WHERE user_id = :user_id"),
+            {"user_id": user_id},
+        )
+        total = count_result.scalar() or 0
+
+        rows_result = await db.execute(
+            text("""
+                SELECT id, user_id, alert_config_id, alert_type,
+                       current_price, threshold, region, supplier, currency,
+                       optimal_window_start, optimal_window_end, estimated_savings,
+                       triggered_at, email_sent
+                FROM alert_history
+                WHERE user_id = :user_id
+                ORDER BY triggered_at DESC
+                LIMIT :limit OFFSET :offset
+            """),
+            {"user_id": user_id, "limit": page_size, "offset": offset},
+        )
+        rows = rows_result.mappings().all()
+        items = [self._history_row_to_dict(row) for row in rows]
+        pages = max(1, (total + page_size - 1) // page_size)
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": pages,
+        }
+
+    async def create_alert(
+        self,
+        user_id: str,
+        db: AsyncSession,
+        region: str = "us_ct",
+        currency: str = "USD",
+        price_below: Optional[Decimal] = None,
+        price_above: Optional[Decimal] = None,
+        notify_optimal_windows: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Insert a new price alert configuration and return it.
+
+        Args:
+            user_id:                UUID string of the user.
+            db:                     Async SQLAlchemy session.
+            region:                 Region code (default 'us_ct').
+            currency:               ISO 4217 currency code (default 'USD').
+            price_below:            Alert threshold for price drops.
+            price_above:            Alert threshold for price spikes.
+            notify_optimal_windows: Whether to notify about optimal usage windows.
+
+        Returns:
+            Dict representation of the created config row.
+
+        Raises:
+            ValueError: If neither price_below nor price_above nor
+                        notify_optimal_windows is specified.
+        """
+        if price_below is None and price_above is None and not notify_optimal_windows:
+            raise ValueError(
+                "At least one of price_below, price_above, or notify_optimal_windows "
+                "must be specified."
+            )
+
+        result = await db.execute(
+            text("""
+                INSERT INTO price_alert_configs
+                    (id, user_id, region, currency,
+                     price_below, price_above, notify_optimal_windows)
+                VALUES
+                    (:id, :user_id, :region, :currency,
+                     :price_below, :price_above, :notify_optimal_windows)
+                RETURNING id, user_id, region, currency,
+                          price_below, price_above, notify_optimal_windows,
+                          is_active, created_at, updated_at
+            """),
+            {
+                "id": str(uuid4()),
+                "user_id": user_id,
+                "region": region,
+                "currency": currency,
+                "price_below": str(price_below) if price_below is not None else None,
+                "price_above": str(price_above) if price_above is not None else None,
+                "notify_optimal_windows": notify_optimal_windows,
+            },
+        )
+        await db.commit()
+        row = result.mappings().first()
+        logger.info("alert_created", user_id=user_id, alert_id=str(row["id"]))
+        return self._config_row_to_dict(row)
+
+    async def update_alert(
+        self,
+        user_id: str,
+        alert_id: str,
+        db: AsyncSession,
+        updates: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update an existing alert configuration owned by the user.
+
+        Permitted update keys: region, currency, price_below, price_above,
+        notify_optimal_windows, is_active.  Unknown keys are ignored.
+
+        Args:
+            user_id:  UUID string of the authenticated user (ownership check).
+            alert_id: UUID string of the alert config to update.
+            db:       Async SQLAlchemy session.
+            updates:  Dict of field->value pairs to update.
+
+        Returns:
+            Updated alert dict, or None if the alert was not found / not owned.
+        """
+        allowed_fields = {
+            "region", "currency", "price_below", "price_above",
+            "notify_optimal_windows", "is_active",
+        }
+        filtered = {k: v for k, v in updates.items() if k in allowed_fields}
+        if not filtered:
+            # No valid fields to update — return existing record unchanged
+            rows = await db.execute(
+                text("""
+                    SELECT id, user_id, region, currency,
+                           price_below, price_above, notify_optimal_windows,
+                           is_active, created_at, updated_at
+                    FROM price_alert_configs
+                    WHERE id = :id AND user_id = :user_id
+                """),
+                {"id": alert_id, "user_id": user_id},
+            )
+            row = rows.mappings().first()
+            return self._config_row_to_dict(row) if row else None
+
+        set_clauses = ", ".join(f"{k} = :{k}" for k in filtered)
+        params: Dict[str, Any] = {**filtered, "id": alert_id, "user_id": user_id}
+
+        # Normalise Decimal values to strings for asyncpg
+        for key in ("price_below", "price_above"):
+            if key in params and params[key] is not None:
+                params[key] = str(params[key])
+
+        result = await db.execute(
+            text(f"""
+                UPDATE price_alert_configs
+                SET {set_clauses}, updated_at = NOW()
+                WHERE id = :id AND user_id = :user_id
+                RETURNING id, user_id, region, currency,
+                          price_below, price_above, notify_optimal_windows,
+                          is_active, created_at, updated_at
+            """),
+            params,
+        )
+        await db.commit()
+        row = result.mappings().first()
+        if row:
+            logger.info("alert_updated", user_id=user_id, alert_id=alert_id)
+        return self._config_row_to_dict(row) if row else None
+
+    async def delete_alert(
+        self,
+        user_id: str,
+        alert_id: str,
+        db: AsyncSession,
+    ) -> bool:
+        """
+        Delete a price alert configuration owned by the user.
+
+        Args:
+            user_id:  UUID string of the authenticated user (ownership check).
+            alert_id: UUID string of the alert config to delete.
+            db:       Async SQLAlchemy session.
+
+        Returns:
+            True if the alert was deleted, False if it was not found.
+        """
+        result = await db.execute(
+            text("""
+                DELETE FROM price_alert_configs
+                WHERE id = :id AND user_id = :user_id
+            """),
+            {"id": alert_id, "user_id": user_id},
+        )
+        await db.commit()
+        deleted = result.rowcount > 0
+        if deleted:
+            logger.info("alert_deleted", user_id=user_id, alert_id=alert_id)
+        return deleted
+
+    async def record_triggered_alert(
+        self,
+        user_id: str,
+        alert: "PriceAlert",
+        db: AsyncSession,
+        alert_config_id: Optional[str] = None,
+        email_sent: bool = False,
+        currency: str = "USD",
+    ) -> Dict[str, Any]:
+        """
+        Persist a triggered alert event to alert_history.
+
+        Args:
+            user_id:         UUID string of the user.
+            alert:           The PriceAlert that fired.
+            db:              Async SQLAlchemy session.
+            alert_config_id: Optional UUID of the originating config row.
+            email_sent:      Whether the notification email was sent successfully.
+            currency:        Currency code for the record (default 'USD').
+
+        Returns:
+            Dict representation of the inserted history row.
+        """
+        result = await db.execute(
+            text("""
+                INSERT INTO alert_history
+                    (id, user_id, alert_config_id, alert_type,
+                     current_price, threshold, region, supplier, currency,
+                     optimal_window_start, optimal_window_end, estimated_savings,
+                     triggered_at, email_sent)
+                VALUES
+                    (:id, :user_id, :alert_config_id, :alert_type,
+                     :current_price, :threshold, :region, :supplier, :currency,
+                     :optimal_window_start, :optimal_window_end, :estimated_savings,
+                     :triggered_at, :email_sent)
+                RETURNING id, user_id, alert_config_id, alert_type,
+                          current_price, threshold, region, supplier, currency,
+                          optimal_window_start, optimal_window_end, estimated_savings,
+                          triggered_at, email_sent
+            """),
+            {
+                "id": str(uuid4()),
+                "user_id": user_id,
+                "alert_config_id": alert_config_id,
+                "alert_type": alert.alert_type,
+                "current_price": str(alert.current_price),
+                "threshold": str(alert.threshold) if alert.threshold is not None else None,
+                "region": alert.region,
+                "supplier": alert.supplier,
+                "currency": currency,
+                "optimal_window_start": alert.optimal_window_start,
+                "optimal_window_end": alert.optimal_window_end,
+                "estimated_savings": (
+                    str(alert.estimated_savings) if alert.estimated_savings is not None else None
+                ),
+                "triggered_at": alert.timestamp,
+                "email_sent": email_sent,
+            },
+        )
+        await db.commit()
+        row = result.mappings().first()
+        return self._history_row_to_dict(row)
+
+    # =========================================================================
+    # Private serialisation helpers
+    # =========================================================================
+
+    @staticmethod
+    def _config_row_to_dict(row) -> Dict[str, Any]:
+        """Serialise a price_alert_configs row mapping to a plain dict."""
+        return {
+            "id": str(row["id"]),
+            "user_id": str(row["user_id"]),
+            "region": row["region"],
+            "currency": row["currency"],
+            "price_below": float(row["price_below"]) if row["price_below"] is not None else None,
+            "price_above": float(row["price_above"]) if row["price_above"] is not None else None,
+            "notify_optimal_windows": row["notify_optimal_windows"],
+            "is_active": row["is_active"],
+            "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+            "updated_at": row["updated_at"].isoformat() if row.get("updated_at") else None,
+        }
+
+    @staticmethod
+    def _history_row_to_dict(row) -> Dict[str, Any]:
+        """Serialise an alert_history row mapping to a plain dict."""
+        return {
+            "id": str(row["id"]),
+            "user_id": str(row["user_id"]),
+            "alert_config_id": (
+                str(row["alert_config_id"]) if row["alert_config_id"] else None
+            ),
+            "alert_type": row["alert_type"],
+            "current_price": float(row["current_price"]),
+            "threshold": float(row["threshold"]) if row["threshold"] is not None else None,
+            "region": row["region"],
+            "supplier": row["supplier"],
+            "currency": row["currency"],
+            "optimal_window_start": (
+                row["optimal_window_start"].isoformat()
+                if row.get("optimal_window_start")
+                else None
+            ),
+            "optimal_window_end": (
+                row["optimal_window_end"].isoformat()
+                if row.get("optimal_window_end")
+                else None
+            ),
+            "estimated_savings": (
+                float(row["estimated_savings"]) if row["estimated_savings"] is not None else None
+            ),
+            "triggered_at": (
+                row["triggered_at"].isoformat() if row.get("triggered_at") else None
+            ),
+            "email_sent": row["email_sent"],
+        }

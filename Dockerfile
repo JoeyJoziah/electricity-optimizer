@@ -1,5 +1,5 @@
 # Builder stage
-FROM python:3.11-slim as builder
+FROM python:3.12-slim as builder
 
 WORKDIR /app/backend
 
@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # Runtime stage
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app/backend
 
@@ -51,4 +51,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE ${PORT:-10000}
 
 # Run uvicorn
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --timeout-graceful-shutdown 30"]

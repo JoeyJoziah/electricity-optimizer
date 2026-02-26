@@ -40,7 +40,9 @@ def generate_oauth_state(connection_id: str) -> str:
     """
     nonce = secrets.token_hex(16)
     payload = f"{connection_id}:{nonce}"
-    key = (settings.internal_api_key or settings.jwt_secret).encode()
+    if not settings.internal_api_key:
+        raise RuntimeError("INTERNAL_API_KEY must be set for OAuth HMAC signing")
+    key = settings.internal_api_key.encode()
     mac = hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}:{mac}"
 
@@ -52,7 +54,9 @@ def verify_oauth_state(state: str) -> Optional[str]:
         return None
     connection_id, nonce, received_mac = parts
     payload = f"{connection_id}:{nonce}"
-    key = (settings.internal_api_key or settings.jwt_secret).encode()
+    if not settings.internal_api_key:
+        raise RuntimeError("INTERNAL_API_KEY must be set for OAuth HMAC signing")
+    key = settings.internal_api_key.encode()
     expected_mac = hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(received_mac, expected_mac):
         return None

@@ -487,10 +487,83 @@ class GDPRComplianceService:
                 except Exception as e:
                     logger.warning("supplier_accounts_export_failed", error=str(e))
 
+            # Get connection data (user_connections, bill_uploads, extracted_rates)
+            connections_data = []
+            bill_uploads_data = []
+            extracted_rates_data = []
+            if self.db_session:
+                try:
+                    from sqlalchemy import text as sa_text
+
+                    # User connections
+                    conn_result = await self.db_session.execute(
+                        sa_text("""
+                            SELECT id, connection_type, connection_method, supplier_name,
+                                   label, status, created_at, updated_at
+                            FROM user_connections WHERE user_id = :user_id
+                        """),
+                        {"user_id": user_id},
+                    )
+                    for row in conn_result.mappings().all():
+                        connections_data.append({
+                            "id": str(row["id"]),
+                            "connection_type": row["connection_type"],
+                            "connection_method": row.get("connection_method"),
+                            "supplier_name": row.get("supplier_name"),
+                            "label": row.get("label"),
+                            "status": row["status"],
+                            "created_at": str(row["created_at"]),
+                            "updated_at": str(row.get("updated_at")),
+                        })
+
+                    # Bill uploads
+                    bill_result = await self.db_session.execute(
+                        sa_text("""
+                            SELECT id, connection_id, filename, file_size, status,
+                                   created_at
+                            FROM bill_uploads WHERE connection_id IN (
+                                SELECT id FROM user_connections WHERE user_id = :user_id
+                            )
+                        """),
+                        {"user_id": user_id},
+                    )
+                    for row in bill_result.mappings().all():
+                        bill_uploads_data.append({
+                            "id": str(row["id"]),
+                            "connection_id": str(row["connection_id"]),
+                            "filename": row["filename"],
+                            "file_size": row.get("file_size"),
+                            "status": row["status"],
+                            "created_at": str(row["created_at"]),
+                        })
+
+                    # Extracted rates
+                    rates_result = await self.db_session.execute(
+                        sa_text("""
+                            SELECT id, connection_id, rate_amount, rate_unit,
+                                   effective_date, utility_type
+                            FROM connection_extracted_rates WHERE connection_id IN (
+                                SELECT id FROM user_connections WHERE user_id = :user_id
+                            )
+                        """),
+                        {"user_id": user_id},
+                    )
+                    for row in rates_result.mappings().all():
+                        extracted_rates_data.append({
+                            "id": str(row["id"]),
+                            "connection_id": str(row["connection_id"]),
+                            "rate_amount": str(row.get("rate_amount")),
+                            "rate_unit": row.get("rate_unit"),
+                            "effective_date": str(row.get("effective_date")),
+                            "utility_type": row.get("utility_type"),
+                        })
+                except Exception as e:
+                    logger.warning("connection_data_export_failed", error=str(e))
+
             export = {
                 "user_id": user_id,
                 "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                "export_format_version": "1.1",
+                "export_format_version": "1.2",
                 "profile_data": profile_data,
                 "preferences_data": preferences_data,
                 "consent_history": consent_history,
@@ -498,6 +571,9 @@ class GDPRComplianceService:
                 "recommendations": recommendations,
                 "activity_logs": activity_logs,
                 "supplier_accounts": supplier_accounts,
+                "connections": connections_data,
+                "bill_uploads": bill_uploads_data,
+                "extracted_rates": extracted_rates_data,
             }
 
             logger.info(
@@ -587,17 +663,68 @@ class GDPRComplianceService:
                     await self.activity_log_repo.delete_by_user_id(user_id)
                 deleted_categories.append("activity_logs")
 
-            # Delete linked supplier accounts (if DB session available)
+            # Delete linked supplier accounts and connection data (if DB session available)
             if self.db_session:
                 try:
                     from sqlalchemy import text as sa_text
+
+                    # Delete extracted rates (child of connections)
+                    await self.db_session.execute(
+                        sa_text("""
+                            DELETE FROM connection_extracted_rates
+                            WHERE connection_id IN (
+                                SELECT id FROM user_connections WHERE user_id = :user_id
+                            )
+                        """),
+                        {"user_id": user_id},
+                    )
+                    deleted_categories.append("extracted_rates")
+
+                    # Delete bill uploads and their files
+                    bill_result = await self.db_session.execute(
+                        sa_text("""
+                            SELECT id, filename FROM bill_uploads
+                            WHERE connection_id IN (
+                                SELECT id FROM user_connections WHERE user_id = :user_id
+                            )
+                        """),
+                        {"user_id": user_id},
+                    )
+                    for row in bill_result.mappings().all():
+                        try:
+                            import os
+                            upload_path = os.path.join("uploads", str(row["id"]))
+                            if os.path.exists(upload_path):
+                                os.remove(upload_path)
+                        except Exception:
+                            pass  # Best-effort file cleanup
+
+                    await self.db_session.execute(
+                        sa_text("""
+                            DELETE FROM bill_uploads
+                            WHERE connection_id IN (
+                                SELECT id FROM user_connections WHERE user_id = :user_id
+                            )
+                        """),
+                        {"user_id": user_id},
+                    )
+                    deleted_categories.append("bill_uploads")
+
+                    # Delete user connections
+                    await self.db_session.execute(
+                        sa_text("DELETE FROM user_connections WHERE user_id = :user_id"),
+                        {"user_id": user_id},
+                    )
+                    deleted_categories.append("connections")
+
+                    # Delete supplier accounts
                     await self.db_session.execute(
                         sa_text("DELETE FROM user_supplier_accounts WHERE user_id = :user_id"),
                         {"user_id": user_id},
                     )
                     deleted_categories.append("supplier_accounts")
                 except Exception as e:
-                    logger.warning("supplier_accounts_deletion_failed", error=str(e))
+                    logger.warning("connection_data_deletion_failed", error=str(e))
 
             # Delete user profile
             await self.user_repo.delete(user_id)

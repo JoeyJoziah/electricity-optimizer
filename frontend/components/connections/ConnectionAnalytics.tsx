@@ -123,23 +123,24 @@ function RateComparisonCard({
   return (
     <Card data-testid="rate-comparison-card">
       <div className="flex items-center gap-2 mb-4">
-        <BarChart3 className="h-5 w-5 text-primary-600" />
+        <BarChart3 className="h-5 w-5 text-primary-600" aria-hidden="true" />
         <h3 className="text-lg font-semibold text-gray-900">Rate Comparison</h3>
       </div>
 
       {state === 'loading' && (
-        <div className="flex items-center justify-center py-8" data-testid="rate-comparison-loading">
+        <div className="flex items-center justify-center py-8" data-testid="rate-comparison-loading" role="status">
           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
           <span className="ml-2 text-sm text-gray-500">Loading comparison...</span>
         </div>
       )}
 
       {state === 'error' && (
-        <div className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center">
+        <div className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center" role="alert">
           <p className="text-sm text-danger-700">{error}</p>
           <button
             onClick={load}
-            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
+            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
+            aria-label="Retry loading rate comparison"
           >
             Try again
           </button>
@@ -173,9 +174,9 @@ function RateComparisonCard({
           >
             <div className="flex items-center gap-2">
               {data.is_above_average ? (
-                <TrendingUp className="h-5 w-5 text-danger-500" />
+                <TrendingUp className="h-5 w-5 text-danger-500" aria-hidden="true" />
               ) : (
-                <TrendingDown className="h-5 w-5 text-success-500" />
+                <TrendingDown className="h-5 w-5 text-success-500" aria-hidden="true" />
               )}
               <span
                 className={cn(
@@ -255,23 +256,24 @@ function SavingsEstimateCard({
   return (
     <Card data-testid="savings-estimate-card">
       <div className="flex items-center gap-2 mb-4">
-        <DollarSign className="h-5 w-5 text-success-600" />
+        <DollarSign className="h-5 w-5 text-success-600" aria-hidden="true" />
         <h3 className="text-lg font-semibold text-gray-900">Savings Estimate</h3>
       </div>
 
       {state === 'loading' && (
-        <div className="flex items-center justify-center py-8" data-testid="savings-estimate-loading">
+        <div className="flex items-center justify-center py-8" data-testid="savings-estimate-loading" role="status">
           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
           <span className="ml-2 text-sm text-gray-500">Calculating savings...</span>
         </div>
       )}
 
       {state === 'error' && (
-        <div className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center">
+        <div className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center" role="alert">
           <p className="text-sm text-danger-700">{error}</p>
           <button
             onClick={load}
-            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
+            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
+            aria-label="Retry loading savings estimate"
           >
             Try again
           </button>
@@ -332,7 +334,7 @@ function SavingsEstimateCard({
               max={99999}
               value={inputValue}
               onChange={handleKwhChange}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none"
               aria-label="Monthly electricity usage in kilowatt hours"
             />
           </div>
@@ -378,23 +380,24 @@ function RateHistoryCard({
   return (
     <Card data-testid="rate-history-card" padding="none">
       <div className="flex items-center gap-2 p-4 pb-0">
-        <TrendingUp className="h-5 w-5 text-primary-600" />
+        <TrendingUp className="h-5 w-5 text-primary-600" aria-hidden="true" />
         <h3 className="text-lg font-semibold text-gray-900">Rate History</h3>
       </div>
 
       {state === 'loading' && (
-        <div className="flex items-center justify-center py-8" data-testid="rate-history-loading">
+        <div className="flex items-center justify-center py-8" data-testid="rate-history-loading" role="status">
           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
           <span className="ml-2 text-sm text-gray-500">Loading history...</span>
         </div>
       )}
 
       {state === 'error' && (
-        <div className="m-4 rounded-lg bg-danger-50 border border-danger-200 p-4 text-center">
+        <div className="m-4 rounded-lg bg-danger-50 border border-danger-200 p-4 text-center" role="alert">
           <p className="text-sm text-danger-700">{error}</p>
           <button
             onClick={load}
-            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
+            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
+            aria-label="Retry loading rate history"
           >
             Try again
           </button>
@@ -457,9 +460,9 @@ function RateHistoryCard({
                                 )}
                               >
                                 {change > 0 ? (
-                                  <TrendingUp className="h-3.5 w-3.5" />
+                                  <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
                                 ) : change < 0 ? (
-                                  <TrendingDown className="h-3.5 w-3.5" />
+                                  <TrendingDown className="h-3.5 w-3.5" aria-hidden="true" />
                                 ) : null}
                                 {change > 0 ? '+' : ''}
                                 {(change * 100).toFixed(2)}
@@ -479,8 +482,9 @@ function RateHistoryCard({
                 <div className="p-3 text-center border-t border-gray-100">
                   <button
                     onClick={() => setShowAll(!showAll)}
-                    className="text-sm font-medium text-primary-600 hover:text-primary-800 transition-colors"
+                    className="text-sm font-medium text-primary-600 hover:text-primary-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
                     data-testid="show-more-history"
+                    aria-label={showAll ? 'Show fewer rate history entries' : `Show all ${data.length} rate history entries`}
                   >
                     {showAll
                       ? 'Show less'
@@ -563,9 +567,9 @@ function ConnectionHealthCard({
     <Card data-testid="connection-health-card">
       <div className="flex items-center gap-2 mb-4">
         {totalIssues > 0 && state === 'success' ? (
-          <AlertTriangle className="h-5 w-5 text-warning-500" />
+          <AlertTriangle className="h-5 w-5 text-warning-500" aria-hidden="true" />
         ) : (
-          <CheckCircle className="h-5 w-5 text-success-500" />
+          <CheckCircle className="h-5 w-5 text-success-500" aria-hidden="true" />
         )}
         <h3 className="text-lg font-semibold text-gray-900">Connection Health</h3>
         {state === 'success' && totalIssues > 0 && (
@@ -574,18 +578,19 @@ function ConnectionHealthCard({
       </div>
 
       {state === 'loading' && (
-        <div className="flex items-center justify-center py-8" data-testid="connection-health-loading">
+        <div className="flex items-center justify-center py-8" data-testid="connection-health-loading" role="status">
           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
           <span className="ml-2 text-sm text-gray-500">Checking health...</span>
         </div>
       )}
 
       {state === 'error' && (
-        <div className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center">
+        <div className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center" role="alert">
           <p className="text-sm text-danger-700">{error}</p>
           <button
             onClick={load}
-            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
+            className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
+            aria-label="Retry loading connection health"
           >
             Try again
           </button>
@@ -597,7 +602,7 @@ function ConnectionHealthCard({
           {/* All healthy */}
           {totalIssues === 0 && (
             <div className="flex items-center gap-3 rounded-lg bg-success-50 p-4">
-              <CheckCircle className="h-5 w-5 text-success-500 shrink-0" />
+              <CheckCircle className="h-5 w-5 text-success-500 shrink-0" aria-hidden="true" />
               <p className="text-sm text-success-700">
                 All connections are healthy and up to date.
               </p>
@@ -612,7 +617,7 @@ function ConnectionHealthCard({
               data-testid={`stale-connection-${conn.id}`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <Clock className="h-4 w-4 text-warning-500 shrink-0" />
+                <Clock className="h-4 w-4 text-warning-500 shrink-0" aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-warning-800 truncate">
                     {conn.supplier_name}
@@ -660,9 +665,9 @@ function ConnectionHealthCard({
               >
                 <div className="flex items-center gap-2 mb-1">
                   {isIncrease ? (
-                    <TrendingUp className="h-4 w-4 text-danger-500" />
+                    <TrendingUp className="h-4 w-4 text-danger-500" aria-hidden="true" />
                   ) : (
-                    <TrendingDown className="h-4 w-4 text-success-500" />
+                    <TrendingDown className="h-4 w-4 text-success-500" aria-hidden="true" />
                   )}
                   <span
                     className={cn(

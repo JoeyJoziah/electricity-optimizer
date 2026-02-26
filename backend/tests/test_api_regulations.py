@@ -305,17 +305,20 @@ class TestGetStateRegulation:
         assert response.status_code == 404
         assert "ZZ" in response.json()["detail"]
 
-    @patch("api.v1.regulations.StateRegulationRepository")
-    def test_get_state_not_found_lowercase(self, mock_repo_cls, client):
-        """Lowercase unknown state code should also return 404 with uppercased code in message."""
-        mock_repo = MagicMock()
-        mock_repo.get_by_state = AsyncMock(return_value=None)
-        mock_repo_cls.return_value = mock_repo
-
+    def test_get_state_lowercase_returns_422(self, client):
+        """Lowercase state code fails pattern validation before reaching the repo."""
         response = client.get(f"{BASE_URL}/xx")
+        assert response.status_code == 422
 
-        assert response.status_code == 404
-        assert "XX" in response.json()["detail"]
+    def test_get_state_too_long_returns_422(self, client):
+        """State code longer than 2 uppercase letters should fail pattern validation."""
+        response = client.get(f"{BASE_URL}/USA")
+        assert response.status_code == 422
+
+    def test_get_state_numeric_returns_422(self, client):
+        """Numeric state code should fail pattern validation."""
+        response = client.get(f"{BASE_URL}/12")
+        assert response.status_code == 422
 
     @patch("api.v1.regulations.StateRegulationRepository")
     def test_get_state_with_null_optional_fields(self, mock_repo_cls, client):

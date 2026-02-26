@@ -6,7 +6,6 @@ Main application entry point with API endpoints, middleware, and lifecycle manag
 
 import asyncio
 import json
-import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -148,6 +147,11 @@ app.add_middleware(
 
 # GZIP Compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Distributed Tracing — must be outermost (registered last = runs first) so that
+# every downstream middleware and handler inherits the bound trace_id context var.
+from middleware.tracing import TracingMiddleware
+app.add_middleware(TracingMiddleware)
 
 # Security Headers
 from middleware.security_headers import SecurityHeadersMiddleware
@@ -293,23 +297,24 @@ class RequestTimeoutMiddleware:
 app.add_middleware(RequestTimeoutMiddleware)
 
 
-# Request ID and Timing Middleware (optimized for production)
+# Request Timing Middleware (optimized for production)
+# The trace_id / X-Request-ID lifecycle is handled by TracingMiddleware above.
+# This middleware records wall-clock time and emits the request_completed log.
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
-    """Add request ID and processing time to response headers"""
+    """Record processing time and emit per-request access logs."""
 
-    request_id = str(uuid.uuid4())
     start_time = time.time()
-
-    # Add request ID to structlog context
-    structlog.contextvars.bind_contextvars(request_id=request_id)
 
     response = await call_next(request)
 
     process_time = time.time() - start_time
-    response.headers["X-Request-ID"] = request_id
+
     if not settings.is_production:
         response.headers["X-Process-Time"] = str(process_time)
+
+    # Retrieve trace_id set by TracingMiddleware (fallback for safety)
+    trace_id = getattr(request.state, "trace_id", None)
 
     # Only log slow requests in production to reduce overhead
     if settings.is_production:
@@ -319,7 +324,8 @@ async def add_process_time_header(request: Request, call_next):
                 method=request.method,
                 path=request.url.path,
                 status_code=response.status_code,
-                process_time=process_time
+                process_time=process_time,
+                trace_id=trace_id,
             )
     else:
         logger.info(
@@ -327,7 +333,8 @@ async def add_process_time_header(request: Request, call_next):
             method=request.method,
             path=request.url.path,
             status_code=response.status_code,
-            process_time=process_time
+            process_time=process_time,
+            trace_id=trace_id,
         )
 
     return response
@@ -630,6 +637,51 @@ app.include_router(
     connections_v1.router,
     prefix=f"{settings.api_prefix}/connections",
     tags=["Connections"]
+)
+
+# User profile endpoints (extended profile: region, utility_types, annual_usage_kwh, etc.)
+from api.v1 import users as users_v1
+
+app.include_router(
+    users_v1.router,
+    prefix=f"{settings.api_prefix}",
+    tags=["Users"]
+)
+
+# Savings tracking endpoints
+from api.v1 import savings as savings_v1
+
+app.include_router(
+    savings_v1.router,
+    prefix=f"{settings.api_prefix}",
+    tags=["Savings"]
+)
+
+# Alerts endpoints (price alert CRUD + history)
+from api.v1 import alerts as alerts_v1
+
+app.include_router(
+    alerts_v1.router,
+    prefix=f"{settings.api_prefix}",
+    tags=["Alerts"]
+)
+
+# In-app notifications
+from api.v1 import notifications as notifications_v1
+
+app.include_router(
+    notifications_v1.router,
+    prefix=f"{settings.api_prefix}",
+    tags=["Notifications"]
+)
+
+# Integration health check endpoint
+from api.v1 import health as health_v1
+
+app.include_router(
+    health_v1.router,
+    prefix="",
+    tags=["Health"]
 )
 
 

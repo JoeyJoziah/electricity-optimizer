@@ -1,10 +1,11 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils/cn'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useSidebar } from '@/lib/contexts/sidebar-context'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -15,6 +16,7 @@ import {
   Zap,
   LogOut,
   User,
+  X,
 } from 'lucide-react'
 
 const navigation = [
@@ -26,12 +28,12 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
-export function Sidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { user, isAuthenticated, signOut } = useAuth()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
+    <>
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-6">
         <Zap className="h-8 w-8 text-primary-600" />
@@ -48,6 +50,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -67,7 +70,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer — User menu */}
+      {/* Footer -- User menu */}
       <div className="border-t border-gray-200 p-4">
         {isAuthenticated && user ? (
           <div className="space-y-3">
@@ -101,6 +104,51 @@ export function Sidebar() {
           </div>
         )}
       </div>
-    </aside>
+    </>
+  )
+}
+
+export function Sidebar() {
+  const { isOpen, close } = useSidebar()
+  const pathname = usePathname()
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    close()
+  }, [pathname, close])
+
+  return (
+    <>
+      {/* Desktop sidebar -- always visible on lg+ screens */}
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile sidebar overlay -- visible only when open on small screens */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-gray-900/50 transition-opacity"
+            onClick={close}
+            aria-hidden="true"
+          />
+
+          {/* Sidebar panel */}
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-white shadow-xl">
+            {/* Close button */}
+            <button
+              onClick={close}
+              className="absolute right-3 top-4 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-label="Close sidebar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <SidebarContent onNavigate={close} />
+          </aside>
+        </div>
+      )}
+    </>
   )
 }

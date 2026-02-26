@@ -288,6 +288,62 @@ async def delete_user_data(
 
 
 # =============================================================================
+# DATA DELETION ALIAS ENDPOINT (Article 17) — no-body variant
+# =============================================================================
+
+
+@router.delete(
+    "/gdpr/delete",
+    response_model=DataDeletionResponse,
+    summary="Delete account (no-body variant)",
+    description="Permanently delete the authenticated user's account and all associated data (GDPR Article 17). Confirmation is implied by calling this endpoint."
+)
+async def delete_account(
+    request: Request,
+    current_user: TokenData = Depends(get_current_user),
+    gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
+):
+    """
+    Delete all user data — convenience endpoint that does not require a request body.
+
+    Confirmation is considered given by the act of calling this endpoint
+    (the frontend must obtain explicit user confirmation before invoking it).
+    Implements GDPR Article 17 (Right to Erasure).
+    """
+    ip_address = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+
+    try:
+        deletion_log = await gdpr_service.delete_user_data(
+            user_id=current_user.user_id,
+            deleted_by=current_user.user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            anonymize_retained=False,
+        )
+
+        return DataDeletionResponse(
+            success=True,
+            user_id=current_user.user_id,
+            deleted_at=deletion_log.deleted_at,
+            deleted_categories=deletion_log.data_categories_deleted,
+            message="All user data has been deleted successfully",
+            deletion_log_id=deletion_log.id,
+        )
+
+    except UserNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete user data: {str(e)}"
+        )
+
+
+# =============================================================================
 # CONSENT WITHDRAWAL ENDPOINT (Article 21)
 # =============================================================================
 

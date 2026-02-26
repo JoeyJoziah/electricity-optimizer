@@ -67,7 +67,7 @@ async def list_regulations(
     },
 )
 async def get_state_regulation(
-    state_code: str = Path(..., description="Two-letter state code (e.g., CT, TX, NY)"),
+    state_code: str = Path(..., pattern=r"^[A-Z]{2}$", description="Two-letter state code (e.g., CT, MA)"),
     db=Depends(get_db_session),
 ):
     """

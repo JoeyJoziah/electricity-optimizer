@@ -497,10 +497,14 @@ class TestCreateEmailConnection:
         db = _install_auth()
         db.execute = AsyncMock(return_value=MagicMock())
 
-        response = client.post(
-            f"{BASE}/email",
-            json={"provider": "gmail", "consent_given": True},
-        )
+        with patch("services.email_oauth_service.settings") as mock_settings:
+            mock_settings.internal_api_key = "test-key"
+            mock_settings.gmail_client_id = "test-gmail-client"
+            mock_settings.gmail_client_secret = "test-gmail-secret"
+            response = client.post(
+                f"{BASE}/email",
+                json={"provider": "gmail", "consent_given": True},
+            )
 
         assert response.status_code == 202
         data = response.json()
@@ -513,10 +517,15 @@ class TestCreateEmailConnection:
         db = _install_auth()
         db.execute = AsyncMock(return_value=MagicMock())
 
-        response = client.post(
-            f"{BASE}/email",
-            json={"provider": "outlook", "consent_given": True},
-        )
+        with patch("services.email_oauth_service.settings") as mock_settings:
+            mock_settings.internal_api_key = "test-key"
+            mock_settings.outlook_client_id = "test-outlook-client"
+            mock_settings.outlook_client_secret = "test-outlook-secret"
+            mock_settings.outlook_tenant_id = "common"
+            response = client.post(
+                f"{BASE}/email",
+                json={"provider": "outlook", "consent_given": True},
+            )
 
         assert response.status_code == 202
         data = response.json()

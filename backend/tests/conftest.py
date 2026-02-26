@@ -479,7 +479,11 @@ def mock_sqlalchemy_select(monkeypatch):
             "Price": ["id", "region", "supplier", "price_per_kwh", "timestamp", "currency", "is_peak", "utility_type"],
         },
         "models.user": {
-            "User": ["id", "email", "name", "region", "created_at", "is_active", "current_supplier_id"],
+            "User": [
+                "id", "email", "name", "region", "created_at", "is_active",
+                "current_supplier_id", "utility_types", "annual_usage_kwh",
+                "onboarding_completed",
+            ],
         },
         "models.supplier": {
             "Supplier": ["id", "name", "regions", "is_active", "average_renewable_percentage"],

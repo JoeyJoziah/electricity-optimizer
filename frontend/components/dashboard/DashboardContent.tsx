@@ -17,11 +17,11 @@ const ForecastChart = dynamic(
   () => import('@/components/charts/ForecastChart').then((m) => m.ForecastChart),
   { ssr: false, loading: () => <ChartSkeleton /> }
 )
-import { ScheduleTimeline } from '@/components/charts/ScheduleTimeline'
 import { SupplierCard } from '@/components/suppliers/SupplierCard'
 import { useCurrentPrices, usePriceHistory, usePriceForecast } from '@/lib/hooks/usePrices'
 import { useSuppliers } from '@/lib/hooks/useSuppliers'
 import { useRealtimePrices } from '@/lib/hooks/useRealtime'
+import { useSavingsSummary } from '@/lib/hooks/useSavings'
 import { SavingsTracker } from '@/components/gamification/SavingsTracker'
 import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency } from '@/lib/utils/format'
@@ -34,7 +34,7 @@ import {
   Zap,
   Clock,
 } from 'lucide-react'
-import type { TimeRange } from '@/types'
+import type { TimeRange, Supplier, RawPricePoint, RawForecastPriceEntry, RawSupplierRecord } from '@/types'
 
 // Map time range labels to hours for API calls
 const TIME_RANGE_HOURS: Record<TimeRange, number> = {
@@ -44,31 +44,6 @@ const TIME_RANGE_HOURS: Record<TimeRange, number> = {
   '48h': 48,
   '7d': 168,
 }
-
-// Static data hoisted to module scope to prevent re-renders
-const SAVINGS_DATA = {
-  totalSavings: 45.50,
-  breakdown: [
-    { category: 'Load Shifting', amount: 25.00, percentage: 55 },
-    { category: 'Optimal Times', amount: 15.50, percentage: 34 },
-    { category: 'Price Alerts', amount: 5.00, percentage: 11 },
-  ],
-  period: 'month' as const,
-}
-
-const GAMIFICATION_DATA = {
-  dailySavings: 1.85,
-  weeklySavings: 12.30,
-  monthlySavings: 45.50,
-  streakDays: 12,
-  bestStreak: 18,
-  optimizationScore: 78,
-}
-
-const PRICE_ZONES = [
-  { start: '01:00', end: '06:00', type: 'cheap' as const },
-  { start: '17:00', end: '21:00', type: 'expensive' as const },
-]
 
 export default function DashboardContent() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>('24h')
@@ -91,6 +66,7 @@ export default function DashboardContent() {
     24
   )
   const { data: suppliersData } = useSuppliers(region, annualUsage)
+  const { data: savingsData } = useSavingsSummary()
 
   // Realtime connection
   const { isConnected } = useRealtimePrices(region)
@@ -98,11 +74,11 @@ export default function DashboardContent() {
   // Process price data for chart (handle both frontend and backend field names)
   const chartData = React.useMemo(() => {
     if (!historyData?.prices) return []
-    return historyData.prices.map((p: any) => {
+    return historyData.prices.map((p: RawPricePoint) => {
       const time = p.time || p.timestamp
       const price = p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null)
       return {
-        time: typeof time === 'string' ? time : new Date(time).toISOString(),
+        time: typeof time === 'string' ? time : new Date(time as number).toISOString(),
         price,
         forecast: p.forecast ?? null,
         isOptimal: price !== null && price < 0.22,
@@ -111,9 +87,9 @@ export default function DashboardContent() {
   }, [historyData])
 
   // Get current price info (handle backend field names: current_price vs price)
-  const rawPrice = pricesData?.prices?.[0] as any
+  const rawPrice = pricesData?.prices?.[0] as RawPricePoint | undefined
   const currentPrice = rawPrice ? {
-    price: Number(rawPrice.price ?? rawPrice.current_price ?? 0),
+    price: Number(rawPrice.price ?? rawPrice.price_per_kwh ?? 0),
     trend: rawPrice.trend || 'stable',
     changePercent: rawPrice.changePercent ?? (rawPrice.price_change_24h ? Number(rawPrice.price_change_24h) : null),
     region: rawPrice.region,
@@ -127,22 +103,37 @@ export default function DashboardContent() {
         ? TrendingDown
         : Minus
 
-  // Mock schedules - memoized to prevent re-renders
-  const today = React.useMemo(() => new Date().toISOString().split('T')[0], [])
-  const schedules = React.useMemo(() => [
-    {
-      applianceId: '1',
-      applianceName: 'Washing Machine',
-      scheduledStart: `${today}T02:00:00Z`,
-      scheduledEnd: `${today}T04:00:00Z`,
-      estimatedCost: 0.45,
-      savings: 0.15,
-      reason: 'Lowest price period',
-    },
-  ], [today])
+  // Compute cheapest 4-hour window from forecast data
+  const optimalWindow = React.useMemo(() => {
+    if (!forecastData?.forecast) return null
+    const forecastObj = forecastData.forecast as RawForecastPriceEntry[] | { prices?: RawForecastPriceEntry[] }
+    const prices: RawForecastPriceEntry[] = Array.isArray(forecastObj)
+      ? forecastObj
+      : (forecastObj as { prices?: RawForecastPriceEntry[] }).prices || []
+    if (prices.length < 4) return null
+
+    let minSum = Infinity
+    let bestStart = 0
+    for (let i = 0; i <= prices.length - 4; i++) {
+      const sum = prices
+        .slice(i, i + 4)
+        .reduce((s: number, p: RawForecastPriceEntry) => s + Number(p.price_per_kwh ?? p.price ?? 0), 0)
+      if (sum < minSum) {
+        minSum = sum
+        bestStart = i
+      }
+    }
+
+    const fmtHour = (h: number) => `${String(h % 24).padStart(2, '0')}:00`
+    return {
+      startLabel: fmtHour(bestStart),
+      endLabel: fmtHour(bestStart + 4),
+      avgPrice: minSum / 4,
+    }
+  }, [forecastData])
 
   // Top 2 suppliers for quick comparison (map backend fields to frontend types)
-  const topSuppliers = React.useMemo(() => (suppliersData?.suppliers?.slice(0, 2) || []).map((s: any) => ({
+  const topSuppliers = React.useMemo(() => (suppliersData?.suppliers?.slice(0, 2) || []).map((s: RawSupplierRecord) => ({
     id: s.id,
     name: s.name,
     logo: s.logo || s.logo_url,
@@ -151,7 +142,7 @@ export default function DashboardContent() {
     greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
     rating: s.rating ?? 0,
     estimatedAnnualCost: s.estimatedAnnualCost ?? 850,
-    tariffType: s.tariffType ?? (s.tariff_types?.[0] || 'variable'),
+    tariffType: (s.tariffType ?? (s.tariff_types?.[0] || 'variable')) as Supplier['tariffType'],
   })), [suppliersData, currentSupplier])
 
   // Loading state
@@ -255,18 +246,22 @@ export default function DashboardContent() {
                 <p className="text-sm font-medium text-gray-500">
                   Total Saved
                 </p>
-                <Badge variant="success">{GAMIFICATION_DATA.streakDays}-day streak</Badge>
+                {savingsData && savingsData.streak_days > 0 && (
+                  <Badge variant="success">{savingsData.streak_days}-day streak</Badge>
+                )}
               </div>
               <p className="mt-2 text-2xl font-bold text-success-600">
-                {formatCurrency(GAMIFICATION_DATA.monthlySavings)}
+                {savingsData ? formatCurrency(savingsData.monthly) : '--'}
               </p>
               <p className="mt-1 text-sm text-gray-500">
-                {formatCurrency(GAMIFICATION_DATA.dailySavings)} today
+                {savingsData
+                  ? `${formatCurrency(savingsData.weekly / 7)} today`
+                  : 'Start saving to track'}
               </p>
             </CardContent>
           </Card>
 
-          {/* Next Optimal Period */}
+          {/* Optimal Times - computed from forecast */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -275,12 +270,20 @@ export default function DashboardContent() {
                 </p>
                 <Clock className="h-5 w-5 text-warning-500" />
               </div>
-              <p className="mt-2 text-lg font-semibold text-gray-900">
-                02:00 - 06:00
-              </p>
-              <p className="mt-1 text-sm text-success-600">
-                Avg {formatCurrency(0.18)}/kWh
-              </p>
+              {optimalWindow ? (
+                <>
+                  <p className="mt-2 text-lg font-semibold text-gray-900">
+                    {optimalWindow.startLabel} - {optimalWindow.endLabel}
+                  </p>
+                  <p className="mt-1 text-sm text-success-600">
+                    Avg {formatCurrency(optimalWindow.avgPrice)}/kWh
+                  </p>
+                </>
+              ) : forecastLoading ? (
+                <p className="mt-2 text-lg text-gray-400">Loading forecast...</p>
+              ) : (
+                <p className="mt-2 text-lg text-gray-400">No forecast data</p>
+              )}
             </CardContent>
           </Card>
 
@@ -342,7 +345,14 @@ export default function DashboardContent() {
               <CardTitle>Savings & Streaks</CardTitle>
             </CardHeader>
             <CardContent>
-              <SavingsTracker {...GAMIFICATION_DATA} />
+              <SavingsTracker
+                dailySavings={savingsData ? savingsData.weekly / 7 : 0}
+                weeklySavings={savingsData?.weekly ?? 0}
+                monthlySavings={savingsData?.monthly ?? 0}
+                streakDays={savingsData?.streak_days ?? 0}
+                bestStreak={savingsData?.streak_days ?? 0}
+                optimizationScore={0}
+              />
             </CardContent>
           </Card>
         </div>
@@ -362,7 +372,7 @@ export default function DashboardContent() {
                   forecast={
                     Array.isArray(forecastData.forecast)
                       ? forecastData.forecast
-                      : ((forecastData.forecast as any).prices || []).map((p: any, i: number) => ({
+                      : ((forecastData.forecast as { prices?: RawForecastPriceEntry[] }).prices || []).map((p: RawForecastPriceEntry, i: number) => ({
                           hour: i + 1,
                           price: Number(p.price_per_kwh ?? p.price ?? 0),
                           confidence: [
@@ -409,18 +419,15 @@ export default function DashboardContent() {
           </Card>
         </div>
 
-        {/* Schedule timeline */}
+        {/* Schedule section - empty state until appliances are configured */}
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Today's Schedule</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScheduleTimeline
-              schedules={schedules}
-              showCurrentTime
-              showSavings
-              priceZones={PRICE_ZONES}
-            />
+            <div className="flex h-32 items-center justify-center text-gray-400">
+              <p>No optimization schedule set. Configure appliances in Settings to get started.</p>
+            </div>
           </CardContent>
         </Card>
       </div>

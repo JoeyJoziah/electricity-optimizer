@@ -183,37 +183,78 @@ async def get_current_prices(
     summary="Get historical electricity prices",
     responses={
         200: {"description": "Historical prices retrieved successfully"},
+        400: {"description": "start_date must be before end_date"},
         422: {"description": "Invalid parameters"},
     }
 )
 async def get_price_history(
     region: PriceRegion = Query(..., description="Price region"),
-    days: int = Query(7, ge=1, le=365, description="Number of days of history"),
-    supplier: Optional[str] = Query(None, description="Filter by supplier"),
+    days: int = Query(7, ge=1, le=365, description="Number of days of history (ignored when start_date/end_date provided)"),
+    supplier: Optional[str] = Query(None, description="Filter by supplier name"),
+    start_date: Optional[datetime] = Query(None, description="Filter by start date (ISO 8601, inclusive)"),
+    end_date: Optional[datetime] = Query(None, description="Filter by end date (ISO 8601, inclusive)"),
     price_service: PriceService = Depends(get_price_service),
 ):
     """
     Get historical electricity prices for a region.
 
     Returns price data for the specified time period, optionally
-    filtered by supplier.
+    filtered by supplier and/or explicit date range.
+
+    When start_date/end_date are supplied they take priority over `days`.
+    Both datetimes are interpreted as UTC if no timezone offset is provided.
     """
-    end = datetime.now(timezone.utc)
-    start = end - timedelta(days=days)
+    # Resolve the effective date window
+    if start_date is not None or end_date is not None:
+        # Explicit date range — ensure UTC and validate ordering
+        resolved_end = (end_date.replace(tzinfo=timezone.utc) if end_date.tzinfo is None else end_date) \
+            if end_date is not None else datetime.now(timezone.utc)
+        resolved_start = (start_date.replace(tzinfo=timezone.utc) if start_date.tzinfo is None else start_date) \
+            if start_date is not None else resolved_end - timedelta(days=days)
+
+        if resolved_start >= resolved_end:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="start_date must be before end_date",
+            )
+    else:
+        resolved_end = datetime.now(timezone.utc)
+        resolved_start = resolved_end - timedelta(days=days)
 
     try:
-        stats = await price_service.get_price_statistics(region, days)
+        prices = await price_service.get_historical_prices(
+            region=region,
+            start_date=resolved_start,
+            end_date=resolved_end,
+            supplier=supplier,
+        )
+
+        # Compute summary statistics from the returned rows
+        if prices:
+            avg = sum(p.price_per_kwh for p in prices) / len(prices)
+            avg_price = Decimal(str(round(avg, 4)))
+            min_price = min(p.price_per_kwh for p in prices)
+            max_price = max(p.price_per_kwh for p in prices)
+        else:
+            # Fall back to aggregate stats when no rows are returned
+            stats = await price_service.get_price_statistics(region, days)
+            avg_price = stats.get("avg_price")
+            min_price = stats.get("min_price")
+            max_price = stats.get("max_price")
+
         return PriceHistoryResponse(
             region=region.value,
             supplier=supplier,
-            start_date=start,
-            end_date=end,
-            prices=[],
-            average_price=stats.get("avg_price"),
-            min_price=stats.get("min_price"),
-            max_price=stats.get("max_price"),
+            start_date=resolved_start,
+            end_date=resolved_end,
+            prices=prices,
+            average_price=avg_price,
+            min_price=min_price,
+            max_price=max_price,
             source="live",
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("using_mock_history", reason=str(e))
         if settings.environment == "production":
@@ -222,12 +263,19 @@ async def get_price_history(
                 detail="Price service temporarily unavailable",
             )
         mock = _generate_mock_prices(region.value, days * 24)
+        # Apply supplier filter to mock data when requested
+        if supplier:
+            mock = [p for p in mock if p.supplier == supplier]
+        # Apply date filter to mock data when requested
+        mock = [p for p in mock if resolved_start <= p.timestamp <= resolved_end]
+        if not mock:
+            mock = _generate_mock_prices(region.value, days * 24)
         avg = sum(float(p.price_per_kwh) for p in mock) / len(mock)
         return PriceHistoryResponse(
             region=region.value,
             supplier=supplier,
-            start_date=start,
-            end_date=end,
+            start_date=resolved_start,
+            end_date=resolved_end,
             prices=mock,
             average_price=Decimal(str(round(avg, 4))),
             min_price=min(p.price_per_kwh for p in mock),

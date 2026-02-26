@@ -58,21 +58,23 @@ jest.mock('@/lib/api/suppliers', () => ({
   ),
 }))
 
-jest.mock('@/lib/api/optimization', () => ({
-  getOptimalSchedule: jest.fn(() =>
-    Promise.resolve({
-      schedules: [
-        {
-          applianceId: '1',
-          applianceName: 'Washing Machine',
-          scheduledStart: '2026-02-06T02:00:00Z',
-          scheduledEnd: '2026-02-06T04:00:00Z',
-          savings: 0.15,
-        },
-      ],
-      totalSavings: 0.15,
-    })
-  ),
+// Default empty savings response used by the savings hook via apiClient.get
+const defaultSavingsResponse = {
+  total: 0,
+  weekly: 0,
+  monthly: 0,
+  streak_days: 0,
+  currency: 'USD',
+}
+
+// Mock the API client used by useSavingsSummary
+jest.mock('@/lib/api/client', () => ({
+  apiClient: {
+    get: jest.fn(() => Promise.resolve(defaultSavingsResponse)),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
 }))
 
 describe('Dashboard Integration', () => {
@@ -181,11 +183,48 @@ describe('Dashboard Integration', () => {
     })
   })
 
-  it('shows schedule timeline for today', async () => {
+  it('shows empty schedule state when no appliances configured', async () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText('Washing Machine')).toBeInTheDocument()
+      expect(
+        screen.getByText(/no optimization schedule set/i)
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows savings data from API', async () => {
+    const { apiClient } = require('@/lib/api/client')
+    // Override for ALL calls in this test (not just once — handles React re-renders)
+    apiClient.get.mockImplementation(() =>
+      Promise.resolve({
+        total: 120.0,
+        weekly: 14.0,
+        monthly: 52.5,
+        streak_days: 7,
+        currency: 'USD',
+      })
+    )
+
+    render(<DashboardPage />, { wrapper })
+
+    await waitFor(() => {
+      // The streak badge appears in both the Total Saved card and SavingsTracker
+      expect(screen.getAllByText(/7-day streak/i).length).toBeGreaterThan(0)
+    })
+  })
+
+  it('shows empty savings state when no savings data', async () => {
+    const { apiClient } = require('@/lib/api/client')
+    apiClient.get.mockImplementation(() =>
+      Promise.reject(new Error('Not authenticated'))
+    )
+
+    render(<DashboardPage />, { wrapper })
+
+    await waitFor(() => {
+      // Should show '--' for savings amount and fallback text
+      expect(screen.getByText('--')).toBeInTheDocument()
     })
   })
 

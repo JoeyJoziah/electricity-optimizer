@@ -9,6 +9,22 @@ jest.mock('@/lib/hooks/usePrices', () => ({
   useRefreshPrices: () => mockRefreshPrices,
 }))
 
+// Mock NotificationBell to avoid QueryClientProvider requirement
+jest.mock('@/components/layout/NotificationBell', () => ({
+  NotificationBell: () => <div data-testid="notification-bell">notifications</div>,
+}))
+
+// Mock sidebar context
+const mockToggle = jest.fn()
+const mockClose = jest.fn()
+jest.mock('@/lib/contexts/sidebar-context', () => ({
+  useSidebar: () => ({
+    isOpen: false,
+    toggle: mockToggle,
+    close: mockClose,
+  }),
+}))
+
 // Mock lucide-react icons
 jest.mock('lucide-react', () => ({
   Bell: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="bell-icon" {...props} />,
@@ -62,7 +78,17 @@ describe('Header', () => {
     expect(screen.getByLabelText('Open menu')).toBeInTheDocument()
   })
 
-  it('calls onMenuClick when mobile menu button is clicked', async () => {
+  it('calls sidebar toggle when mobile menu button is clicked (no onMenuClick prop)', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+
+    render(<Header title="Dashboard" />)
+
+    await user.click(screen.getByLabelText('Open menu'))
+
+    expect(mockToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onMenuClick when provided as prop (backward compat)', async () => {
     const onMenuClick = jest.fn()
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
 
@@ -71,6 +97,8 @@ describe('Header', () => {
     await user.click(screen.getByLabelText('Open menu'))
 
     expect(onMenuClick).toHaveBeenCalledTimes(1)
+    // Should NOT call sidebar toggle when onMenuClick prop is provided
+    expect(mockToggle).not.toHaveBeenCalled()
   })
 
   it('renders the realtime live indicator', () => {
@@ -94,16 +122,10 @@ describe('Header', () => {
     expect(mockRefreshPrices).toHaveBeenCalledTimes(1)
   })
 
-  it('renders the notifications button', () => {
+  it('renders the notification bell component', () => {
     render(<Header title="Dashboard" />)
 
-    expect(screen.getByLabelText('View notifications')).toBeInTheDocument()
-  })
-
-  it('renders notification badge count', () => {
-    render(<Header title="Dashboard" />)
-
-    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByTestId('notification-bell')).toBeInTheDocument()
   })
 
   it('renders as a header element', () => {

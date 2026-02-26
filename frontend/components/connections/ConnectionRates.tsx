@@ -102,7 +102,7 @@ export function ConnectionRates({
   if (error === 'upgrade') {
     return (
       <Card padding="lg" className="text-center">
-        <Zap className="mx-auto h-12 w-12 text-gray-300" />
+        <Zap className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
         <h3 className="mt-4 text-lg font-semibold text-gray-900">
           Upgrade Required
         </h3>
@@ -111,7 +111,7 @@ export function ConnectionRates({
         </p>
         <a
           href="/pricing"
-          className="mt-6 inline-block rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+          className="mt-6 inline-block rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
         >
           View Plans
         </a>
@@ -126,7 +126,7 @@ export function ConnectionRates({
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
             aria-label="Back to connections"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -135,13 +135,13 @@ export function ConnectionRates({
             <h2 className="text-lg font-semibold text-gray-900">
               {supplierName || 'Connection'} Rates
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500" aria-live="polite">
               {rates.length} rate{rates.length !== 1 ? 's' : ''} extracted
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={fetchRates}>
+          <Button variant="ghost" size="sm" onClick={fetchRates} aria-label="Refresh rates">
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
@@ -171,7 +171,7 @@ export function ConnectionRates({
               </p>
             </div>
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-100">
-              <TrendingUp className="h-7 w-7 text-primary-600" />
+              <TrendingUp className="h-7 w-7 text-primary-600" aria-hidden="true" />
             </div>
           </div>
           {(mostRecentRate.usage_kwh !== null || mostRecentRate.amount !== null) && (
@@ -199,7 +199,7 @@ export function ConnectionRates({
 
       {/* Loading */}
       {loading && (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-12" role="status">
           <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           <span className="ml-2 text-sm text-gray-500">Loading rates...</span>
         </div>
@@ -207,13 +207,14 @@ export function ConnectionRates({
 
       {/* Error */}
       {error && error !== 'upgrade' && (
-        <div className="flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 p-4">
-          <AlertCircle className="mt-0.5 h-4 w-4 text-danger-500 shrink-0" />
+        <div className="flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 p-4" role="alert">
+          <AlertCircle className="mt-0.5 h-4 w-4 text-danger-500 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-sm text-danger-700">{error}</p>
             <button
               onClick={fetchRates}
-              className="mt-1 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
+              className="mt-1 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
+              aria-label="Retry loading rates"
             >
               Try again
             </button>
@@ -224,7 +225,7 @@ export function ConnectionRates({
       {/* Empty state */}
       {!loading && !error && rates.length === 0 && (
         <Card padding="lg" className="text-center">
-          <Calendar className="mx-auto h-12 w-12 text-gray-300" />
+          <Calendar className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
           <h3 className="mt-4 text-lg font-semibold text-gray-900">
             No Rates Yet
           </h3>
@@ -246,22 +247,22 @@ export function ConnectionRates({
       {!loading && rates.length > 0 && (
         <Card variant="bordered" padding="none">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" aria-label="Extracted rate history">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Period
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Rate
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Usage
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Amount
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Source
                   </th>
                 </tr>

@@ -113,7 +113,8 @@ export function ConnectionsOverview() {
       <div>
         <button
           onClick={handleBackToOverview}
-          className="mb-6 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="mb-6 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded"
+          aria-label="Back to connections overview"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to connections
@@ -143,6 +144,7 @@ export function ConnectionsOverview() {
           onClick={() => setTab('connections')}
           className={cn(
             'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t',
             tab === 'connections'
               ? 'border-primary-600 text-primary-600'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -158,6 +160,7 @@ export function ConnectionsOverview() {
           onClick={() => setTab('analytics')}
           className={cn(
             'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-t',
             tab === 'analytics'
               ? 'border-primary-600 text-primary-600'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -177,7 +180,7 @@ export function ConnectionsOverview() {
         >
           {/* Loading state */}
           {loading && (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-12" role="status">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               <span className="ml-2 text-sm text-gray-500">
                 Loading connections...
@@ -187,11 +190,12 @@ export function ConnectionsOverview() {
 
           {/* Error state */}
           {error && error !== 'upgrade' && (
-            <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-center">
+            <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-center" role="alert">
               <p className="text-sm text-danger-700">{error}</p>
               <button
                 onClick={fetchConnections}
-                className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors"
+                className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
+                aria-label="Retry loading connections"
               >
                 Try again
               </button>
@@ -204,7 +208,7 @@ export function ConnectionsOverview() {
               <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 Active Connections
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-3" aria-live="polite">
                 {connections.map((conn) => (
                   <ConnectionCard
                     key={conn.id}
@@ -251,7 +255,7 @@ export function ConnectionsOverview() {
 function PaidFeatureGate() {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
-      <Link2 className="mx-auto h-12 w-12 text-gray-300" />
+      <Link2 className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
       <h3 className="mt-4 text-lg font-semibold text-gray-900">
         Upgrade to Connect
       </h3>
@@ -261,7 +265,7 @@ function PaidFeatureGate() {
       </p>
       <a
         href="/pricing"
-        className="mt-6 inline-block rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+        className="mt-6 inline-block rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
       >
         View Plans
       </a>

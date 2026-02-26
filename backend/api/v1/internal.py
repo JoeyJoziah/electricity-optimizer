@@ -6,11 +6,12 @@ API-key-protected endpoints for scheduled jobs:
 - learn: Run the nightly adaptive learning cycle
 """
 
-from typing import Optional, List
+from typing import Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import verify_api_key, get_db_session, get_redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog
 
@@ -89,6 +90,68 @@ async def run_learning_cycle(
     except Exception as e:
         logger.error("learning_cycle_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Learning cycle failed: {str(e)}")
+
+
+class FlagUpdateBody(BaseModel):
+    enabled: Optional[bool] = Field(None, description="Enable or disable the flag")
+    tier_required: Optional[str] = Field(None, description="Minimum subscription tier required")
+    percentage: Optional[int] = Field(None, ge=0, le=100, description="Rollout percentage (0-100)")
+
+
+@router.put("/flags/{name}", tags=["Internal"])
+async def update_feature_flag(
+    name: str,
+    body: FlagUpdateBody,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Partially update a feature flag.
+
+    Requires a valid X-API-Key header (enforced by the router-level dependency).
+    Returns 404 when the flag name is unknown or no fields were supplied.
+    """
+    from services.feature_flag_service import FeatureFlagService
+
+    svc = FeatureFlagService(db)
+    success = await svc.update_flag(
+        name,
+        enabled=body.enabled,
+        tier_required=body.tier_required,
+        percentage=body.percentage,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Flag not found or no changes provided")
+    return {"success": True}
+
+
+@router.get("/flags", tags=["Internal"])
+async def list_feature_flags(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Return all feature flags (admin/ops view). Requires API key."""
+    from services.feature_flag_service import FeatureFlagService
+
+    svc = FeatureFlagService(db)
+    flags = await svc.get_all_flags()
+    return {"flags": flags}
+
+
+@router.post("/maintenance/cleanup", tags=["Internal"])
+async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
+    """
+    Run data retention cleanup tasks.
+
+    Deletes activity logs older than 365 days and bill upload records
+    (plus associated extracted rates and files) older than 730 days.
+
+    Requires a valid X-API-Key header (enforced by the router-level dependency).
+    """
+    from services.maintenance_service import MaintenanceService
+
+    svc = MaintenanceService(db)
+    logs = await svc.cleanup_activity_logs()
+    uploads = await svc.cleanup_expired_uploads()
+    return {"activity_logs": logs, "uploads": uploads}
 
 
 @router.get("/observation-stats", tags=["Internal"])

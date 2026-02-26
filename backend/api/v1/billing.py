@@ -68,6 +68,21 @@ class PortalSessionRequest(BaseModel):
 
     return_url: HttpUrl = Field(..., description="URL to return to after portal session")
 
+    @field_validator("return_url")
+    @classmethod
+    def validate_redirect_domain(cls, v):
+        parsed = urlparse(str(v))
+        hostname = parsed.hostname or ""
+        if not any(
+            hostname == d or hostname.endswith(f".{d}")
+            for d in ALLOWED_REDIRECT_DOMAINS
+        ):
+            raise ValueError(
+                f"Redirect URL domain '{hostname}' is not allowed. "
+                f"Must be one of: {', '.join(ALLOWED_REDIRECT_DOMAINS)}"
+            )
+        return v
+
 
 class PortalSessionResponse(BaseModel):
     """Response containing customer portal URL."""

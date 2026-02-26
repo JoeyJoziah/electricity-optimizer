@@ -2,7 +2,87 @@
  * Core type definitions for the Electricity Optimizer frontend
  */
 
+// ---------------------------------------------------------------------------
+// Raw API response shapes (backend field names before frontend normalization)
+// ---------------------------------------------------------------------------
+
+/**
+ * A single price entry as returned by the backend /prices endpoints.
+ * The backend may use either frontend-friendly names (price, time) or
+ * database column names (price_per_kwh, timestamp).
+ */
+export interface RawPricePoint {
+  /** Frontend-friendly field (normalized by price service) */
+  price?: number | null
+  /** Database column name from electricity_prices table */
+  price_per_kwh?: number | null
+  /** Frontend-friendly timestamp field */
+  time?: string | number
+  /** Database column name */
+  timestamp?: string | number
+  /** Forecast flag on history records */
+  forecast?: number | null
+  /** Percentage change over 24 h (frontend-friendly) */
+  changePercent?: number | null
+  /** Percentage change over 24 h (backend field name) */
+  price_change_24h?: number | null
+  trend?: 'increasing' | 'decreasing' | 'stable'
+  region?: string
+  supplier?: string
+}
+
+/**
+ * A single forecast price entry inside a forecast array.
+ * May come from an object with a nested `prices` array (backend shape) or
+ * a flat array of ForecastPoint objects (frontend shape).
+ */
+export interface RawForecastPriceEntry {
+  price?: number | null
+  price_per_kwh?: number | null
+  timestamp?: string
+}
+
+/**
+ * Raw backend supplier record before field normalization.
+ * The backend returns snake_case names; the frontend Supplier type uses camelCase.
+ */
+export interface RawSupplierRecord {
+  id: string
+  name: string
+  /** Backend field */
+  logo_url?: string
+  /** Frontend-normalized field */
+  logo?: string
+  /** Frontend camelCase */
+  avgPricePerKwh?: number
+  /** Frontend camelCase */
+  standingCharge?: number
+  /** Frontend camelCase */
+  greenEnergy?: boolean
+  /** Backend snake_case */
+  green_energy_provider?: boolean
+  rating?: number
+  /** Frontend camelCase */
+  estimatedAnnualCost?: number
+  /** Frontend camelCase */
+  tariffType?: 'fixed' | 'variable' | 'time-of-use'
+  /** Backend array of tariff type strings */
+  tariff_types?: string[]
+  /** Frontend camelCase */
+  exitFee?: number
+  /** Backend snake_case */
+  exit_fee?: number
+  /** Frontend camelCase */
+  contractLength?: number
+  /** Backend snake_case */
+  contract_length?: number
+  features?: string[]
+}
+
+// ---------------------------------------------------------------------------
 // Price data types
+// ---------------------------------------------------------------------------
+
 export interface PriceDataPoint {
   time: string
   price: number | null

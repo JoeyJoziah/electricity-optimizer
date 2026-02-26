@@ -1,19 +1,27 @@
 'use client'
 
 import React from 'react'
-import { Bell, RefreshCw, Menu } from 'lucide-react'
+import { RefreshCw, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useRefreshPrices } from '@/lib/hooks/usePrices'
+import { useSidebar } from '@/lib/contexts/sidebar-context'
+import { NotificationBell } from '@/components/layout/NotificationBell'
+
+// Import cn for the component
+import { cn } from '@/lib/utils/cn'
 
 interface HeaderProps {
   title: string
+  /** @deprecated Use SidebarProvider context instead. Kept for backward compatibility. */
   onMenuClick?: () => void
 }
 
 export function Header({ title, onMenuClick }: HeaderProps) {
   const refreshPrices = useRefreshPrices()
   const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const sidebar = useSidebar()
+
+  const handleMenuClick = onMenuClick ?? sidebar.toggle
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -30,7 +38,7 @@ export function Header({ title, onMenuClick }: HeaderProps) {
           variant="ghost"
           size="sm"
           className="lg:hidden"
-          onClick={onMenuClick}
+          onClick={handleMenuClick}
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
@@ -69,24 +77,8 @@ export function Header({ title, onMenuClick }: HeaderProps) {
         </Button>
 
         {/* Notifications */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="relative"
-          aria-label="View notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <Badge
-            variant="danger"
-            className="absolute -right-1 -top-1 h-4 min-w-4 px-1 text-xs"
-          >
-            3
-          </Badge>
-        </Button>
+        <NotificationBell />
       </div>
     </header>
   )
 }
-
-// Import cn for the component
-import { cn } from '@/lib/utils/cn'

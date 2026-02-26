@@ -227,20 +227,157 @@ jobs:
 
   # ===========================================================================
   # Rollback on Failure
+  #
+  # Triggered when smoke-tests fails (meaning the live deployment did not
+  # recover after a self-healing retry).
+  #
+  # Strategy:
+  #   1. Use the Render REST API to find the most-recent *successful* deploy
+  #      for each service that predates the current run.
+  #   2. Re-trigger that deploy via POST /deploys/:id/rollback so Render
+  #      rebuilds the previously-known-good image without a new commit push.
+  #
+  # Required secrets:
+  #   RENDER_API_KEY  – Render personal API token (Settings → API Keys)
+  #
+  # Render service IDs are hard-coded from the project's known configuration:
+  #   Backend  srv-d649uhur433s73d557cg
+  #   Frontend srv-d64ebangi27c73avv6d0
   # ===========================================================================
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
-    needs: [smoke-tests]
+    needs: [validate, smoke-tests]
     if: failure()
-    timeout-minutes: 5
+    timeout-minutes: 10
+
+    env:
+      RENDER_API_BASE: https://api.render.com/v1
+      BACKEND_SERVICE_ID: srv-d649uhur433s73d557cg
+      FRONTEND_SERVICE_ID: srv-d64ebangi27c73avv6d0
 
     steps:
-      - name: Notify deployment failure
+      - name: Announce rollback intent
         run: |
-          echo "::error::Production deployment failed and smoke tests did not recover"
-          echo "Manual investigation required"
-          echo "Version: ${{ needs.validate.outputs.version }}"
+          echo "::error::Production smoke tests failed after self-healing retry."
+          echo "Version attempted: ${{ needs.validate.outputs.version }}"
+          echo "Initiating automated rollback to last known-good deploy..."
+
+      # -----------------------------------------------------------------------
+      # Backend rollback
+      # -----------------------------------------------------------------------
+      - name: Fetch last successful backend deploy ID
+        id: last-backend-deploy
+        run: |
+          # List the 10 most-recent deploys for this service, then pick the
+          # first one whose status is "live" (completed successfully).
+          DEPLOY_ID=$(curl -fsS \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Accept: application/json" \
+            "${RENDER_API_BASE}/services/${BACKEND_SERVICE_ID}/deploys?limit=10" \
+            | jq -r '[.[] | select(.deploy.status == "live")] | .[0].deploy.id // empty')
+
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "::error::No previous successful backend deploy found. Manual rollback required."
+            exit 1
+          fi
+
+          echo "Last successful backend deploy: $DEPLOY_ID"
+          echo "deploy_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
+
+      - name: Rollback backend to last successful deploy
+        run: |
+          DEPLOY_ID="${{ steps.last-backend-deploy.outputs.deploy_id }}"
+          echo "Rolling backend back to deploy $DEPLOY_ID ..."
+          RESPONSE=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            "${RENDER_API_BASE}/services/${BACKEND_SERVICE_ID}/deploys/${DEPLOY_ID}/rollback")
+          echo "Render rollback response: $RESPONSE"
+          echo "Backend rollback triggered."
+
+      # -----------------------------------------------------------------------
+      # Frontend rollback
+      # -----------------------------------------------------------------------
+      - name: Fetch last successful frontend deploy ID
+        id: last-frontend-deploy
+        run: |
+          DEPLOY_ID=$(curl -fsS \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Accept: application/json" \
+            "${RENDER_API_BASE}/services/${FRONTEND_SERVICE_ID}/deploys?limit=10" \
+            | jq -r '[.[] | select(.deploy.status == "live")] | .[0].deploy.id // empty')
+
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "::error::No previous successful frontend deploy found. Manual rollback required."
+            exit 1
+          fi
+
+          echo "Last successful frontend deploy: $DEPLOY_ID"
+          echo "deploy_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
+
+      - name: Rollback frontend to last successful deploy
+        run: |
+          DEPLOY_ID="${{ steps.last-frontend-deploy.outputs.deploy_id }}"
+          echo "Rolling frontend back to deploy $DEPLOY_ID ..."
+          RESPONSE=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            "${RENDER_API_BASE}/services/${FRONTEND_SERVICE_ID}/deploys/${DEPLOY_ID}/rollback")
+          echo "Render rollback response: $RESPONSE"
+          echo "Frontend rollback triggered."
+
+      # -----------------------------------------------------------------------
+      # Wait for rollback to become live and verify health
+      # -----------------------------------------------------------------------
+      - name: Wait for rollback to propagate
+        run: |
+          echo "Waiting 120 s for Render to complete rollback deploys..."
+          sleep 120
+
+      - name: Verify backend health after rollback
+        run: |
+          MAX_ATTEMPTS=10
+          ATTEMPT=0
+          until [ $ATTEMPT -ge $MAX_ATTEMPTS ]; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "${{ secrets.PROD_API_URL }}/health" 2>/dev/null) || STATUS="000"
+            echo "Attempt $((ATTEMPT+1))/${MAX_ATTEMPTS}: backend health returned HTTP ${STATUS}"
+            if [ "$STATUS" = "200" ]; then
+              echo "Backend is healthy after rollback."
+              exit 0
+            fi
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 15
+          done
+          echo "::error::Backend did NOT recover after rollback. Immediate manual action required."
+          exit 1
+
+      - name: Verify frontend health after rollback
+        run: |
+          MAX_ATTEMPTS=10
+          ATTEMPT=0
+          until [ $ATTEMPT -ge $MAX_ATTEMPTS ]; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "${{ secrets.PROD_FRONTEND_URL }}" 2>/dev/null) || STATUS="000"
+            echo "Attempt $((ATTEMPT+1))/${MAX_ATTEMPTS}: frontend health returned HTTP ${STATUS}"
+            if [ "$STATUS" = "200" ]; then
+              echo "Frontend is healthy after rollback."
+              exit 0
+            fi
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 15
+          done
+          echo "::error::Frontend did NOT recover after rollback. Immediate manual action required."
+          exit 1
+
+      - name: Rollback complete
+        run: |
+          echo "Rollback to last known-good deploy completed successfully."
+          echo "Failed version: ${{ needs.validate.outputs.version }}"
+          echo "Both services are healthy at their previous deploy."
 
   # ===========================================================================
   # Notify Success

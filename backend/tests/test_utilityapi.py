@@ -993,18 +993,22 @@ class TestAuthorizationCallbackEndpoint:
     # HMAC test key used for signing callback state parameters
     _HMAC_TEST_KEY = "test-hmac-key-for-callback-state"
 
-    def _sign_state(self, connection_id: str) -> str:
-        """Sign a connection_id using the test HMAC key."""
+    def _sign_state(self, connection_id: str, user_id: str = None) -> str:
+        """Sign a connection_id + user_id using the test HMAC key."""
         from api.v1.connections import sign_callback_state
 
+        if user_id is None:
+            user_id = TEST_USER_ID
         with patch("api.v1.connections.settings") as mock_settings:
             mock_settings.internal_api_key = self._HMAC_TEST_KEY
-            return sign_callback_state(connection_id)
+            return sign_callback_state(connection_id, user_id)
 
-    def _setup_callback_db(self, db, connection_found: bool = True, status: str = "pending"):
+    def _setup_callback_db(self, db, connection_found: bool = True, status: str = "pending", user_id: str = None):
         """Configure DB mock for callback tests."""
+        if user_id is None:
+            user_id = TEST_USER_ID
         if connection_found:
-            conn_row = _DictRow({"id": TEST_CONNECTION_ID, "status": status})
+            conn_row = _DictRow({"id": TEST_CONNECTION_ID, "user_id": user_id, "status": status})
             conn_result = MagicMock()
             conn_result.mappings.return_value.first.return_value = conn_row
             conn_result.fetchone.return_value = conn_row
@@ -1137,7 +1141,7 @@ class TestAuthorizationCallbackEndpoint:
         from api.dependencies import get_db_session
 
         db = _mock_db()
-        conn_row = _DictRow({"id": TEST_CONNECTION_ID, "status": "pending"})
+        conn_row = _DictRow({"id": TEST_CONNECTION_ID, "user_id": TEST_USER_ID, "status": "pending"})
         conn_result = MagicMock()
         conn_result.mappings.return_value.first.return_value = conn_row
         conn_result.fetchone.return_value = conn_row
@@ -1177,7 +1181,7 @@ class TestAuthorizationCallbackEndpoint:
         from integrations.utilityapi import UtilityAPIError
 
         db = _mock_db()
-        conn_row = _DictRow({"id": TEST_CONNECTION_ID, "status": "pending"})
+        conn_row = _DictRow({"id": TEST_CONNECTION_ID, "user_id": TEST_USER_ID, "status": "pending"})
         conn_result = MagicMock()
         conn_result.mappings.return_value.first.return_value = conn_row
         conn_result.fetchone.return_value = conn_row
