@@ -1,31 +1,39 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { RegionSelector } from '@/components/onboarding/RegionSelector'
-import { useUpdateProfile } from '@/lib/hooks/useProfile'
-import { useSettingsStore } from '@/lib/store/settings'
+import { useEffect } from 'react'
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
+import { useProfile } from '@/lib/hooks/useProfile'
 
 export default function OnboardingPage() {
-  const router = useRouter()
-  const updateProfile = useUpdateProfile()
+  const { data: profile, isLoading } = useProfile()
 
-  const handleSelect = async (region: string) => {
-    // Save region + mark onboarding complete in backend
-    await updateProfile.mutateAsync({
-      region,
-      onboarding_completed: true,
-    })
+  // Redirect completed users to dashboard
+  useEffect(() => {
+    if (!isLoading && profile?.onboarding_completed && profile?.region) {
+      window.location.href = '/dashboard'
+    }
+  }, [profile, isLoading])
 
-    // Sync to Zustand store
-    useSettingsStore.getState().setRegion(region)
-
-    // Navigate to dashboard
+  const handleComplete = () => {
     window.location.href = '/dashboard'
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-primary-600" />
+      </div>
+    )
+  }
+
+  // Already completed — will redirect via useEffect
+  if (profile?.onboarding_completed && profile?.region) {
+    return null
   }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-      <RegionSelector onSelect={handleSelect} isLoading={updateProfile.isPending} />
+      <OnboardingWizard onComplete={handleComplete} />
     </div>
   )
 }
