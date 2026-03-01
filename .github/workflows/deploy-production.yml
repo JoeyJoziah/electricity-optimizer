@@ -22,7 +22,6 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE: ${{ github.repository }}/backend
-  FRONTEND_IMAGE: ${{ github.repository }}/frontend
 
 jobs:
   # ===========================================================================
@@ -112,29 +111,13 @@ jobs:
         type=sha,prefix=
       push: true
 
-  build-frontend:
-    name: Build Frontend Image
-    needs: [validate, test, security-gate]
-    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped') && needs.security-gate.result == 'success'
-    uses: ./.github/workflows/_docker-build-push.yml
-    with:
-      context: ./frontend
-      dockerfile: ./frontend/Dockerfile
-      image-name: ghcr.io/${{ github.repository }}/frontend
-      tags: |
-        type=raw,value=latest
-        type=raw,value=${{ needs.validate.outputs.version }}
-        type=sha,prefix=
-      build-args: NEXT_PUBLIC_API_URL=${{ vars.PROD_API_URL }}
-      push: true
-
   # ===========================================================================
-  # Deploy to Render
+  # Deploy to Render (backend only — frontend deploys via Vercel)
   # ===========================================================================
   deploy:
     name: Deploy to Render
     runs-on: ubuntu-latest
-    needs: [validate, build-backend, build-frontend]
+    needs: [validate, build-backend]
     timeout-minutes: 15
     environment:
       name: production
@@ -149,15 +132,6 @@ jobs:
             exit 1
           }
           echo "Backend deploy hook triggered"
-
-      - name: Trigger Render frontend deploy
-        run: |
-          echo "Triggering Render frontend deploy..."
-          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}" || {
-            echo "::error::Failed to trigger frontend deploy hook"
-            exit 1
-          }
-          echo "Frontend deploy hook triggered"
 
   # ===========================================================================
   # Smoke Tests with Self-Healing
@@ -178,13 +152,6 @@ jobs:
           timeout: '300'
           interval: '15'
 
-      - name: Wait for frontend
-        uses: ./.github/actions/wait-for-service
-        with:
-          url: ${{ secrets.PROD_FRONTEND_URL }}
-          timeout: '300'
-          interval: '15'
-
       - name: Verify API endpoints
         id: smoke
         run: |
@@ -200,49 +167,23 @@ jobs:
           done
           echo "failures=$FAILURES" >> $GITHUB_OUTPUT
 
-      - name: Auto-retry deploy on failure
+      - name: Fail if smoke tests detected issues
         if: steps.smoke.outputs.failures != '0'
         run: |
-          echo "::warning::Smoke tests failed (${{ steps.smoke.outputs.failures }} failures). Triggering re-deploy..."
-          curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}" || true
-          curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}" || true
-
-      - name: Wait for re-deploy
-        if: steps.smoke.outputs.failures != '0'
-        uses: ./.github/actions/wait-for-service
-        with:
-          url: ${{ secrets.PROD_API_URL }}/health
-          timeout: '300'
-          interval: '15'
-
-      - name: Final verification
-        if: steps.smoke.outputs.failures != '0'
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_API_URL }}/health" 2>/dev/null) || STATUS="000"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Backend still unhealthy after re-deploy (HTTP $STATUS)"
-            exit 1
-          fi
-          echo "Backend recovered after re-deploy"
+          echo "::error::Smoke tests failed (${{ steps.smoke.outputs.failures }} endpoint(s) unhealthy). Triggering rollback."
+          exit 1
 
   # ===========================================================================
   # Rollback on Failure
   #
-  # Triggered when smoke-tests fails (meaning the live deployment did not
-  # recover after a self-healing retry).
-  #
-  # Strategy:
-  #   1. Use the Render REST API to find the most-recent *successful* deploy
-  #      for each service that predates the current run.
-  #   2. Re-trigger that deploy via POST /deploys/:id/rollback so Render
-  #      rebuilds the previously-known-good image without a new commit push.
+  # Triggered when smoke-tests fails. Rolls back the backend to its last
+  # known-good deploy via the Render REST API (no new build minutes consumed).
   #
   # Required secrets:
   #   RENDER_API_KEY  – Render personal API token (Settings → API Keys)
   #
   # Render service IDs are hard-coded from the project's known configuration:
   #   Backend  srv-d649uhur433s73d557cg
-  #   Frontend srv-d64ebangi27c73avv6d0
   # ===========================================================================
   rollback:
     name: Rollback on Failure
@@ -254,12 +195,11 @@ jobs:
     env:
       RENDER_API_BASE: https://api.render.com/v1
       BACKEND_SERVICE_ID: srv-d649uhur433s73d557cg
-      FRONTEND_SERVICE_ID: srv-d64ebangi27c73avv6d0
 
     steps:
       - name: Announce rollback intent
         run: |
-          echo "::error::Production smoke tests failed after self-healing retry."
+          echo "::error::Production smoke tests failed."
           echo "Version attempted: ${{ needs.validate.outputs.version }}"
           echo "Initiating automated rollback to last known-good deploy..."
 
@@ -298,38 +238,6 @@ jobs:
           echo "Backend rollback triggered."
 
       # -----------------------------------------------------------------------
-      # Frontend rollback
-      # -----------------------------------------------------------------------
-      - name: Fetch last successful frontend deploy ID
-        id: last-frontend-deploy
-        run: |
-          DEPLOY_ID=$(curl -fsS \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Accept: application/json" \
-            "${RENDER_API_BASE}/services/${FRONTEND_SERVICE_ID}/deploys?limit=10" \
-            | jq -r '[.[] | select(.deploy.status == "live")] | .[0].deploy.id // empty')
-
-          if [ -z "$DEPLOY_ID" ]; then
-            echo "::error::No previous successful frontend deploy found. Manual rollback required."
-            exit 1
-          fi
-
-          echo "Last successful frontend deploy: $DEPLOY_ID"
-          echo "deploy_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
-
-      - name: Rollback frontend to last successful deploy
-        run: |
-          DEPLOY_ID="${{ steps.last-frontend-deploy.outputs.deploy_id }}"
-          echo "Rolling frontend back to deploy $DEPLOY_ID ..."
-          RESPONSE=$(curl -fsS -X POST \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Accept: application/json" \
-            -H "Content-Type: application/json" \
-            "${RENDER_API_BASE}/services/${FRONTEND_SERVICE_ID}/deploys/${DEPLOY_ID}/rollback")
-          echo "Render rollback response: $RESPONSE"
-          echo "Frontend rollback triggered."
-
-      # -----------------------------------------------------------------------
       # Wait for rollback to become live and verify health
       # -----------------------------------------------------------------------
       - name: Wait for rollback to propagate
@@ -355,29 +263,12 @@ jobs:
           echo "::error::Backend did NOT recover after rollback. Immediate manual action required."
           exit 1
 
-      - name: Verify frontend health after rollback
-        run: |
-          MAX_ATTEMPTS=10
-          ATTEMPT=0
-          until [ $ATTEMPT -ge $MAX_ATTEMPTS ]; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              "${{ secrets.PROD_FRONTEND_URL }}" 2>/dev/null) || STATUS="000"
-            echo "Attempt $((ATTEMPT+1))/${MAX_ATTEMPTS}: frontend health returned HTTP ${STATUS}"
-            if [ "$STATUS" = "200" ]; then
-              echo "Frontend is healthy after rollback."
-              exit 0
-            fi
-            ATTEMPT=$((ATTEMPT + 1))
-            sleep 15
-          done
-          echo "::error::Frontend did NOT recover after rollback. Immediate manual action required."
-          exit 1
-
       - name: Rollback complete
         run: |
-          echo "Rollback to last known-good deploy completed successfully."
+          echo "Rollback to last known-good backend deploy completed successfully."
           echo "Failed version: ${{ needs.validate.outputs.version }}"
-          echo "Both services are healthy at their previous deploy."
+          echo "Backend service is healthy at its previous deploy."
+          echo "Frontend is managed by Vercel (no Render rollback needed)."
 
   # ===========================================================================
   # Notify Success
