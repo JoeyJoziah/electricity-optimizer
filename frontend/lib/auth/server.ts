@@ -25,11 +25,6 @@ function buildConnectionString(): string {
 
 function createAuth() {
   const connectionString = buildConnectionString()
-  console.log("[Auth] Initializing Better Auth", {
-    dbUrlLen: (process.env.DATABASE_URL || "").length,
-    hasSecret: !!process.env.BETTER_AUTH_SECRET,
-    hasAuthUrl: !!process.env.BETTER_AUTH_URL,
-  })
 
   return betterAuth({
     database: new Pool({ connectionString }),

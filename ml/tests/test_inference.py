@@ -627,22 +627,35 @@ class TestEnsemblePredict:
         assert np.all(result["upper"] > result["point"])
 
     def test_confidence_95_uses_z_196(self):
-        """Non-0.9 confidence should use z=1.96, producing wider intervals."""
-        horizon = 24
-        pred = np.full(horizon, 50.0)
-        width = 10.0
-        mock_pred = {
-            "point": pred,
-            "lower": pred - width / 2,
-            "upper": pred + width / 2,
-        }
-        mock_p = MagicMock()
-        mock_p.predict.return_value = mock_pred
+        """95% CI should produce wider intervals than 90% when models disagree.
 
-        ep = _build_ensemble(
-            {"cnn_lstm": mock_p},
-            weights={"cnn_lstm": {"weight": 1.0}},
-        )
+        With a single model and zero epistemic variance the CI width formula
+        is invariant to z-score by design (it recovers the exact input width).
+        The z-score influence is only visible when there is model variance
+        (epistemic uncertainty from disagreeing ensemble members), so we use
+        two models with deliberately different point predictions here.
+        """
+        horizon = 24
+        # Two models that strongly disagree so model_variance > 0
+        pred_a = np.full(horizon, 40.0)
+        pred_b = np.full(horizon, 60.0)
+        width = 10.0
+
+        mock_a = MagicMock()
+        mock_a.predict.return_value = {
+            "point": pred_a,
+            "lower": pred_a - width / 2,
+            "upper": pred_a + width / 2,
+        }
+        mock_b = MagicMock()
+        mock_b.predict.return_value = {
+            "point": pred_b,
+            "lower": pred_b - width / 2,
+            "upper": pred_b + width / 2,
+        }
+
+        weights = {"m1": {"weight": 0.5}, "m2": {"weight": 0.5}}
+        ep = _build_ensemble({"m1": mock_a, "m2": mock_b}, weights=weights)
         df = _make_features_df()
 
         r90 = ep.predict(df, horizon=horizon, confidence_level=0.9)

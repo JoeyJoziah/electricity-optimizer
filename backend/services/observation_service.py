@@ -117,7 +117,11 @@ class ObservationService:
 
     async def archive_old_observations(self, days: int = 90):
         """Archive observations older than specified days."""
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        # Use naive UTC datetime for the SQL :cutoff parameter.
+        # PostgreSQL TIMESTAMPTZ comparisons accept naive UTC values, and the
+        # test suite asserts on naive bounds — keeping naive here avoids a
+        # TypeError in comparisons while still being correct.
+        cutoff = datetime.utcnow() - timedelta(days=days)  # noqa: DTZ003
 
         # Count before archival
         count_result = await self._repo._db.execute(

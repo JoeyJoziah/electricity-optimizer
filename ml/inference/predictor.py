@@ -18,6 +18,28 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# Standard normal z-scores for common confidence levels (two-tailed).
+# Used to construct symmetric confidence intervals: point ± z * std.
+Z_SCORES: Dict[float, float] = {
+    0.80: 1.282,
+    0.85: 1.440,
+    0.90: 1.645,
+    0.95: 1.960,
+    0.99: 2.576,
+}
+
+# Fractional uncertainty applied to point predictions when the model does not
+# output explicit confidence bounds (e.g. tree models, 2-D CNN-LSTM output).
+# A value of 0.1 means "assume 10 % of the prediction magnitude as 1-sigma std".
+DEFAULT_UNCERTAINTY_FRACTION: float = 0.1
+
+# Default train fraction when splitting training data internally.
+DEFAULT_TRAIN_SPLIT: float = 0.85
+
 
 class PricePredictor:
     """
@@ -75,9 +97,18 @@ class PricePredictor:
                 with open(config_path) as f:
                     self.config = yaml.safe_load(f)
 
-            # Initialize and load model
+            # Initialize and load model.
+            # NOTE: This loads a full serialized nn.Module (not just a state
+            # dict), so weights_only=True cannot be used here — PyTorch would
+            # raise an error because the pickle stream contains class objects.
+            # Mitigate the risk by ensuring model files come only from trusted,
+            # internally-produced sources (never user uploads).
+            # TODO: Migrate to state-dict format (torch.save(model.state_dict()))
+            #       so weights_only=True can be enforced.
             model_file = os.path.join(self.model_path, "model.pt")
-            self.model = torch.load(model_file, map_location="cpu")
+            self.model = torch.load(  # noqa: S614
+                model_file, map_location="cpu", weights_only=False
+            )
             self.model.eval()
 
         elif self.model_type == "xgboost":
@@ -119,6 +150,14 @@ class PricePredictor:
         """Preprocess features for model input."""
         # Select numeric columns only
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+        # Validate for NaN / infinity before any downstream computation
+        if numeric_cols:
+            raw_values = df[numeric_cols].values
+            if np.any(np.isnan(raw_values)):
+                raise ValueError("Input features contain NaN values")
+            if np.any(np.isinf(raw_values)):
+                raise ValueError("Input features contain infinite values")
 
         # Remove target columns if present
         feature_cols = [
@@ -187,10 +226,10 @@ class PricePredictor:
                     lower = predictions[:, 1]
                     upper = predictions[:, 2]
                 else:
-                    # Single output, estimate uncertainty
+                    # Single output — estimate uncertainty from prediction magnitude
                     point = output.numpy()[0]
-                    std = np.abs(point) * 0.1  # 10% uncertainty
-                    z = 1.645 if confidence_level == 0.9 else 1.96
+                    std = np.abs(point) * DEFAULT_UNCERTAINTY_FRACTION
+                    z = Z_SCORES.get(confidence_level, 1.960)
                     lower = point - z * std
                     upper = point + z * std
 
@@ -213,9 +252,9 @@ class PricePredictor:
 
             point = np.array(point)
 
-            # Estimate uncertainty from model variance
-            std = np.abs(point) * 0.1
-            z = 1.645 if confidence_level == 0.9 else 1.96
+            # Estimate uncertainty from prediction magnitude
+            std = np.abs(point) * DEFAULT_UNCERTAINTY_FRACTION
+            z = Z_SCORES.get(confidence_level, 1.960)
             lower = point - z * std
             upper = point + z * std
 

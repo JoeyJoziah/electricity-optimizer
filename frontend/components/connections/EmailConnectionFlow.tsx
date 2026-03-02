@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils/cn'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/input'
+import { API_ORIGIN } from '@/lib/config/env'
 import {
   Mail,
   AlertCircle,
@@ -13,8 +14,6 @@ import {
   Search,
   FileText,
 } from 'lucide-react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface EmailConnectionFlowProps {
   onComplete: () => void
@@ -76,7 +75,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
       setConnecting(true)
       setError(null)
 
-      const res = await fetch(`${API_BASE}/api/v1/connections/email`, {
+      const res = await fetch(`${API_ORIGIN}/api/v1/connections/email`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -119,7 +118,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
       setScanResult(null)
 
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/email/${connectionId}/scan`,
+        `${API_ORIGIN}/api/v1/connections/email/${connectionId}/scan`,
         {
           method: 'POST',
           credentials: 'include',

@@ -29,7 +29,22 @@ import {
   Bell,
   AlertCircle,
 } from 'lucide-react'
-import type { TimeRange } from '@/types'
+import type { TimeRange, RawPricePoint, RawForecastPriceEntry } from '@/types'
+
+/**
+ * Shape of each forecast item after normalization from the backend.
+ * Used when mapping raw forecast data into chart-ready points.
+ */
+interface ForecastItem {
+  hour: number
+  price: number
+}
+
+/**
+ * Backend forecast response may be a flat array of ForecastItem[]
+ * or an object with a nested `prices` array.
+ */
+type ForecastPayload = ForecastItem[] | { prices: RawForecastPriceEntry[] }
 
 export default function PricesContent() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>('24h')
@@ -66,11 +81,11 @@ export default function PricesContent() {
   const chartData = React.useMemo(() => {
     if (!historyData?.prices) return []
 
-    const history: { time: string; price: number | null; forecast: number | null; isOptimal: boolean }[] = historyData.prices.map((p: any) => {
+    const history: { time: string; price: number | null; forecast: number | null; isOptimal: boolean }[] = historyData.prices.map((p: RawPricePoint) => {
       const time = p.time || p.timestamp
       const price = p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null)
       return {
-        time: typeof time === 'string' ? time : new Date(time).toISOString(),
+        time: typeof time === 'string' ? time : new Date(time as number).toISOString(),
         price,
         forecast: null as number | null,
         isOptimal: price !== null && price < 0.22,
@@ -79,15 +94,15 @@ export default function PricesContent() {
 
     // Add forecast data (handle both array and backend object shape)
     if (forecastData?.forecast) {
-      const fc = forecastData.forecast as any
-      const forecastItems = Array.isArray(fc)
+      const fc = forecastData.forecast as ForecastPayload
+      const forecastItems: ForecastItem[] = Array.isArray(fc)
         ? fc
-        : (fc.prices || []).map((p: any, i: number) => ({
+        : (fc.prices || []).map((p: RawForecastPriceEntry, i: number) => ({
             hour: i + 1,
             price: Number(p.price_per_kwh ?? p.price ?? 0),
           }))
       const now = new Date()
-      forecastItems.forEach((f: any) => {
+      forecastItems.forEach((f: ForecastItem) => {
         const forecastTime = new Date(now.getTime() + f.hour * 60 * 60 * 1000)
         history.push({
           time: forecastTime.toISOString(),
@@ -102,9 +117,9 @@ export default function PricesContent() {
   }, [historyData, forecastData])
 
   // Map current price from backend fields
-  const rawPrice = pricesData?.prices?.[0] as any
+  const rawPrice = pricesData?.prices?.[0] as RawPricePoint | undefined
   const currentPrice = rawPrice ? {
-    price: Number(rawPrice.price ?? rawPrice.current_price ?? 0),
+    price: Number(rawPrice.price ?? rawPrice.current_price ?? rawPrice.price_per_kwh ?? 0),
     trend: rawPrice.trend || 'stable' as const,
     changePercent: rawPrice.changePercent ?? (rawPrice.price_change_24h ? Number(rawPrice.price_change_24h) : null),
     region: rawPrice.region,
@@ -122,7 +137,7 @@ export default function PricesContent() {
     if (!historyData?.prices) return null
 
     const prices = historyData.prices
-      .map((p: any) => p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null))
+      .map((p: RawPricePoint) => p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null))
       .filter((p: number | null): p is number => p !== null)
 
     if (prices.length === 0) return null

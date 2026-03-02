@@ -2,7 +2,7 @@
 # Minimal dependencies to reduce memory footprint and startup time
 
 # FastAPI and ASGI Server
-fastapi==0.109.0
+fastapi>=0.115.0,<1.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
@@ -11,18 +11,15 @@ pydantic-settings==2.1.0
 asyncpg==0.29.0
 sqlalchemy[asyncio]==2.0.25
 
-# Supabase (optional, only if using Supabase auth)
-supabase>=2.3,<3.0
-
 # Redis (lighter hiredis parser)
 redis[hiredis]==5.0.1
 
-# HTTP Client (httpx version constrained by supabase)
-httpx>=0.24,<0.26
+# HTTP Client
+httpx>=0.24,<0.28
 
 # Authentication & Security
 PyJWT[crypto]>=2.8,<3.0
-python-multipart==0.0.6
+python-multipart>=0.0.18
 
 # Environment & Configuration
 python-dotenv==1.0.0
@@ -43,6 +40,7 @@ numpy==1.26.3
 
 # Note: Removed unused dependencies:
 # - celery (not used, no background tasks)
+# - supabase (fully removed, using Neon Auth / Better Auth)
 # - aiohttp (not needed if only using httpx)
 # - pandas, scikit-learn (not needed unless training models)
 # - alembic (migrations run separately, not at runtime)

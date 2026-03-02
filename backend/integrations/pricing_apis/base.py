@@ -11,7 +11,7 @@ Provides common functionality for all pricing API integrations including:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional, TypeVar, Generic
@@ -313,7 +313,7 @@ class CircuitBreaker:
     def state(self) -> CircuitState:
         """Get current circuit state, checking for timeout transition"""
         if self._state == CircuitState.OPEN and self._last_failure_time:
-            elapsed = (datetime.utcnow() - self._last_failure_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - self._last_failure_time).total_seconds()
             if elapsed >= self.config.timeout_seconds:
                 return CircuitState.HALF_OPEN
         return self._state
@@ -354,7 +354,7 @@ class CircuitBreaker:
         """Record a failed call"""
         async with self._lock:
             self._failure_count += 1
-            self._last_failure_time = datetime.utcnow()
+            self._last_failure_time = datetime.now(timezone.utc)
 
             current = self.state
             if current == CircuitState.HALF_OPEN:

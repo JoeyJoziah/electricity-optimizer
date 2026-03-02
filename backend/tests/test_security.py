@@ -353,9 +353,9 @@ class TestSecurityIntegration:
     @pytest.mark.asyncio
     async def test_full_auth_flow_with_rate_limiting(self):
         """Test complete auth flow respects rate limits"""
-        pass  # Would require full app setup
+        pytest.skip("TODO: implement — requires full app setup with lifespan and DB")
 
     @pytest.mark.asyncio
     async def test_security_headers_on_all_responses(self):
         """Test security headers present on all response types"""
-        pass  # Would require full app setup
+        pytest.skip("TODO: implement — requires full app setup with lifespan and DB")

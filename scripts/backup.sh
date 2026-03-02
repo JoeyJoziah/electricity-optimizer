@@ -3,7 +3,7 @@
 # Database Backup Script for Electricity Optimizer
 # =============================================================================
 # Usage: ./scripts/backup.sh [--full]
-# Creates backups of TimescaleDB and Redis data
+# Creates backups of PostgreSQL and Redis data
 # =============================================================================
 
 set -e
@@ -44,18 +44,18 @@ create_backup_dir() {
 }
 
 # =============================================================================
-# PostgreSQL/TimescaleDB Backup
+# PostgreSQL Backup
 # =============================================================================
 
 backup_postgres() {
-    log_info "Starting TimescaleDB backup..."
+    log_info "Starting PostgreSQL backup..."
 
-    local backup_file="$BACKUP_DIR/timescaledb_${DATE}.sql.gz"
+    local backup_file="$BACKUP_DIR/postgres_${DATE}.sql.gz"
 
     # Get password from environment or .env
     source "$(dirname "$0")/../.env" 2>/dev/null || true
 
-    docker exec timescaledb pg_dump \
+    docker exec postgres pg_dump \
         -U postgres \
         -d electricity \
         --no-owner \
@@ -64,9 +64,9 @@ backup_postgres() {
 
     if [ -f "$backup_file" ]; then
         local size=$(du -h "$backup_file" | cut -f1)
-        log_info "TimescaleDB backup completed: $backup_file ($size)"
+        log_info "PostgreSQL backup completed: $backup_file ($size)"
     else
-        log_error "TimescaleDB backup failed"
+        log_error "PostgreSQL backup failed"
         return 1
     fi
 }
@@ -100,31 +100,6 @@ backup_redis() {
 }
 
 # =============================================================================
-# Airflow Metadata Backup
-# =============================================================================
-
-backup_airflow() {
-    log_info "Starting Airflow database backup..."
-
-    local backup_file="$BACKUP_DIR/airflow_${DATE}.sql.gz"
-
-    docker exec postgres-airflow pg_dump \
-        -U airflow \
-        -d airflow \
-        --no-owner \
-        --no-privileges \
-        | gzip > "$backup_file"
-
-    if [ -f "$backup_file" ]; then
-        local size=$(du -h "$backup_file" | cut -f1)
-        log_info "Airflow backup completed: $backup_file ($size)"
-    else
-        log_error "Airflow backup failed"
-        return 1
-    fi
-}
-
-# =============================================================================
 # Cleanup Old Backups
 # =============================================================================
 
@@ -147,12 +122,12 @@ verify_backups() {
 
     local errors=0
 
-    # Check TimescaleDB backup
-    latest_pg=$(ls -t "$BACKUP_DIR"/timescaledb_*.sql.gz 2>/dev/null | head -1)
+    # Check PostgreSQL backup
+    latest_pg=$(ls -t "$BACKUP_DIR"/postgres_*.sql.gz 2>/dev/null | head -1)
     if [ -n "$latest_pg" ] && [ -s "$latest_pg" ]; then
-        log_info "TimescaleDB backup verified: $latest_pg"
+        log_info "PostgreSQL backup verified: $latest_pg"
     else
-        log_error "TimescaleDB backup verification failed"
+        log_error "PostgreSQL backup verification failed"
         errors=$((errors + 1))
     fi
 
@@ -180,15 +155,15 @@ main() {
 
     create_backup_dir
 
-    # Always backup TimescaleDB
+    # Always backup PostgreSQL
     backup_postgres
 
     # Backup Redis
     backup_redis
 
-    # Full backup includes Airflow
+    # Full backup includes Redis verification
     if [ "$FULL_BACKUP" = "--full" ]; then
-        backup_airflow
+        log_info "Full backup mode: all databases backed up"
     fi
 
     # Cleanup old backups

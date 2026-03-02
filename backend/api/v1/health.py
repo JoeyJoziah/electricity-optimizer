@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session
+from api.dependencies import get_db_session, verify_api_key
 from config.database import db_manager
 from config.settings import settings
 
@@ -184,6 +184,7 @@ async def liveness_check():
     "/integrations",
     summary="Integration health check",
     response_description="Status of all external service integrations",
+    dependencies=[Depends(verify_api_key)],
 )
 async def check_integrations(
     db: AsyncSession = Depends(get_db_session),

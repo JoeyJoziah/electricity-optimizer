@@ -16,6 +16,8 @@ export interface RawPricePoint {
   price?: number | null
   /** Database column name from electricity_prices table */
   price_per_kwh?: number | null
+  /** Backend alternative field name for current price */
+  current_price?: number | null
   /** Frontend-friendly timestamp field */
   time?: string | number
   /** Database column name */

@@ -9,11 +9,10 @@ Provides RESTful API for electricity price predictions and optimization:
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 import numpy as np
-import asyncio
 
 from config.database import get_redis, get_timescale_session
 from models.region import Region

@@ -20,6 +20,28 @@ from ml.inference.predictor import PricePredictor
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# Standard normal z-scores for common confidence levels (two-tailed).
+# Used to construct symmetric confidence intervals: point ± z * std.
+Z_SCORES: Dict[float, float] = {
+    0.80: 1.282,
+    0.85: 1.440,
+    0.90: 1.645,
+    0.95: 1.960,
+    0.99: 2.576,
+}
+
+# Fractional uncertainty applied to point predictions when the model does not
+# output explicit confidence bounds (e.g. tree models, 2-D CNN-LSTM output).
+# A value of 0.1 means "assume 10 % of the prediction magnitude as 1-sigma std".
+DEFAULT_UNCERTAINTY_FRACTION: float = 0.1
+
+# Default train fraction when splitting training data internally.
+DEFAULT_TRAIN_SPLIT: float = 0.85
+
 
 class EnsemblePredictor:
     """
@@ -69,13 +91,13 @@ class EnsemblePredictor:
         """Load weights from Redis (set by LearningService), metadata file, or defaults."""
         # Try Redis first (dynamic weights from nightly learning)
         try:
-            import json as _json
+            import json as _json  # noqa: F401 — imported for side-effect availability
             redis_weights = self._load_weights_from_redis()
             if redis_weights:
                 logger.info("ensemble_weights_loaded_from_redis")
                 return redis_weights
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to load model weights from Redis: {e}, using defaults")
 
         return self._load_weights_from_file()
 
@@ -92,8 +114,8 @@ class EnsemblePredictor:
             if cached:
                 import json as _json
                 return _json.loads(cached)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to load model weights from Redis: {e}, using defaults")
         return None
 
     def _load_weights_from_file(self) -> Dict[str, Dict]:
@@ -169,6 +191,15 @@ class EnsemblePredictor:
                 - upper: Upper bounds (horizon,)
                 - components: (optional) Dict of per-model predictions
         """
+        # Validate input for NaN / infinity before any inference
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            feature_values = df[numeric_cols].values
+            if np.any(np.isnan(feature_values)):
+                raise ValueError("Input features contain NaN values")
+            if np.any(np.isinf(feature_values)):
+                raise ValueError("Input features contain infinite values")
+
         component_predictions = {}
         total_weight = 0
 
@@ -227,11 +258,17 @@ class EnsemblePredictor:
 
         avg_uncertainty = np.sum(individual_uncertainties, axis=0)
 
-        # Combine uncertainties (assuming independence)
-        total_std = np.sqrt(model_variance + (avg_uncertainty / 3.92) ** 2)
+        # Resolve the z-score for the requested confidence level.
+        # Falls back to 1.96 (95 % CI) for any level not in the lookup table.
+        z_score = Z_SCORES.get(confidence_level, 1.960)
+
+        # Combine uncertainties (assuming independence).
+        # avg_uncertainty is the full CI width (upper - lower), so dividing by
+        # 2 * z_score converts it back to a 1-sigma std estimate regardless of
+        # which confidence level was used to produce the individual bounds.
+        total_std = np.sqrt(model_variance + (avg_uncertainty / (2 * z_score)) ** 2)
 
         # Calculate confidence intervals
-        z_score = 1.645 if confidence_level == 0.9 else 1.96
         ensemble_lower = ensemble_point - z_score * total_std
         ensemble_upper = ensemble_point + z_score * total_std
 

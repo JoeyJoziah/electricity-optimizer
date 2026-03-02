@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils/cn'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { formatRelativeTime } from '@/lib/utils/format'
+import { API_ORIGIN } from '@/lib/config/env'
 import {
   KeyRound,
   Mail,
@@ -18,8 +20,6 @@ import {
   X,
   Loader2,
 } from 'lucide-react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface Connection {
   id: string
@@ -65,22 +65,6 @@ const statusConfig: Record<
   failed: { variant: 'danger', label: 'Failed' },
   expired: { variant: 'default', label: 'Expired' },
   revoked: { variant: 'default', label: 'Revoked' },
-}
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSeconds = Math.floor(diffMs / 1000)
-  const diffMinutes = Math.floor(diffSeconds / 60)
-  const diffHours = Math.floor(diffMinutes / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffSeconds < 60) return 'just now'
-  if (diffMinutes < 60) return `${diffMinutes}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  return date.toLocaleDateString()
 }
 
 export function ConnectionCard({
@@ -143,7 +127,7 @@ export function ConnectionCard({
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/${connection.id}`,
+        `${API_ORIGIN}/api/v1/connections/${connection.id}`,
         {
           method: 'PATCH',
           credentials: 'include',
@@ -182,7 +166,7 @@ export function ConnectionCard({
     try {
       setDeleting(true)
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/${connection.id}`,
+        `${API_ORIGIN}/api/v1/connections/${connection.id}`,
         {
           method: 'DELETE',
           credentials: 'include',
@@ -203,7 +187,7 @@ export function ConnectionCard({
     try {
       setSyncing(true)
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/${connection.id}/sync`,
+        `${API_ORIGIN}/api/v1/connections/${connection.id}/sync`,
         {
           method: 'POST',
           credentials: 'include',

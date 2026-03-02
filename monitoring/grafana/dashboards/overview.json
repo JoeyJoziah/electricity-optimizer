@@ -567,7 +567,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "up{job=~\"backend-api|timescaledb|redis|airflow\"}",
+          "expr": "up{job=~\"backend-api|postgres|redis\"}",
           "legendFormat": "{{job}}",
           "refId": "A"
         }

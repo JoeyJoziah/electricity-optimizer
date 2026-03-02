@@ -142,16 +142,8 @@ security-scan: ## Run security scans
 # Database
 # =============================================================================
 
-db-migrate: ## Run database migrations
-	@echo "$(BLUE)Running database migrations...$(NC)"
-	docker compose exec backend alembic upgrade head
-
-db-rollback: ## Rollback last database migration
-	@echo "$(BLUE)Rolling back last migration...$(NC)"
-	docker compose exec backend alembic downgrade -1
-
 db-shell: ## Open PostgreSQL shell
-	docker compose exec timescaledb psql -U postgres -d electricity
+	docker compose exec postgres psql -U postgres -d electricity
 
 redis-shell: ## Open Redis CLI
 	docker compose exec redis redis-cli -a $$REDIS_PASSWORD

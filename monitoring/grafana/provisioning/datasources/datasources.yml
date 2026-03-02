@@ -16,10 +16,10 @@ datasources:
       prometheusType: Prometheus
       prometheusVersion: "2.40.0"
 
-  - name: TimescaleDB
+  - name: PostgreSQL
     type: postgres
     access: proxy
-    url: timescaledb:5432
+    url: postgres:5432
     database: electricity
     user: postgres
     secureJsonData:

@@ -18,10 +18,6 @@ from auth.neon_auth import (
     SessionData,
 )
 
-# Deprecated alias — use SessionData directly.
-# Kept for any external consumers that were written before the rename.
-TokenData = SessionData
-
 # API Key header for service-to-service auth
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 

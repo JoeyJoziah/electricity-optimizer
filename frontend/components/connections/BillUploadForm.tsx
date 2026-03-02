@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils/cn'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { API_ORIGIN } from '@/lib/config/env'
 import {
   Upload,
   FileText,
@@ -20,8 +21,6 @@ import {
   DollarSign,
   Gauge,
 } from 'lucide-react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface BillUploadFormProps {
   connectionId: string
@@ -189,7 +188,7 @@ export function BillUploadForm({
 
         try {
           const res = await fetch(
-            `${API_BASE}/api/v1/connections/${connectionId}/uploads/${uploadId}`,
+            `${API_ORIGIN}/api/v1/connections/${connectionId}/uploads/${uploadId}`,
             { credentials: 'include' }
           )
 
@@ -270,7 +269,7 @@ export function BillUploadForm({
 
           xhr.open(
             'POST',
-            `${API_BASE}/api/v1/connections/${connectionId}/upload`
+            `${API_ORIGIN}/api/v1/connections/${connectionId}/upload`
           )
           xhr.withCredentials = true
           xhr.send(formData)

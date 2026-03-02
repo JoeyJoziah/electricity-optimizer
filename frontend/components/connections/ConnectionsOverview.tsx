@@ -9,6 +9,7 @@ import { ConnectionUploadFlow } from './ConnectionUploadFlow'
 import { ConnectionRates } from './ConnectionRates'
 import { ConnectionAnalytics } from './ConnectionAnalytics'
 import { cn } from '@/lib/utils/cn'
+import { API_ORIGIN } from '@/lib/config/env'
 import { Link2, ArrowLeft, Loader2 } from 'lucide-react'
 
 type View =
@@ -19,8 +20,6 @@ type View =
   | 'viewing-rates'
 
 type Tab = 'connections' | 'analytics'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface Connection {
   id: string
@@ -46,7 +45,7 @@ export function ConnectionsOverview() {
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch(`${API_BASE}/api/v1/connections`, {
+      const res = await fetch(`${API_ORIGIN}/api/v1/connections`, {
         credentials: 'include',
       })
       if (res.ok) {

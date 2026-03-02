@@ -33,21 +33,21 @@ log_error() {
 # =============================================================================
 
 wait_for_postgres() {
-    log_info "Waiting for TimescaleDB to be ready..."
+    log_info "Waiting for PostgreSQL to be ready..."
     local max_attempts=30
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if pg_isready -h timescaledb -p 5432 -U postgres > /dev/null 2>&1; then
-            log_info "TimescaleDB is ready!"
+        if pg_isready -h postgres -p 5432 -U postgres > /dev/null 2>&1; then
+            log_info "PostgreSQL is ready!"
             return 0
         fi
-        log_warn "Attempt $attempt/$max_attempts: TimescaleDB not ready yet..."
+        log_warn "Attempt $attempt/$max_attempts: PostgreSQL not ready yet..."
         sleep 2
         attempt=$((attempt + 1))
     done
 
-    log_error "TimescaleDB failed to become ready after $max_attempts attempts"
+    log_error "PostgreSQL failed to become ready after $max_attempts attempts"
     return 1
 }
 
@@ -77,12 +77,16 @@ wait_for_redis() {
 run_migrations() {
     log_info "Running database migrations..."
 
-    # Check if alembic.ini exists
-    if [ -f "alembic.ini" ]; then
-        alembic upgrade head
+    # Apply raw SQL migrations from backend/migrations/ in sorted order
+    local migrations_dir="/app/backend/migrations"
+    if [ -d "$migrations_dir" ]; then
+        for migration in $(ls "$migrations_dir"/*.sql 2>/dev/null | sort); do
+            log_info "Applying migration: $(basename "$migration")"
+            PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres -U postgres -d electricity -f "$migration" 2>&1 || true
+        done
         log_info "Migrations completed successfully!"
     else
-        log_warn "No alembic.ini found, skipping migrations"
+        log_warn "No migrations directory found at $migrations_dir, skipping migrations"
     fi
 }
 

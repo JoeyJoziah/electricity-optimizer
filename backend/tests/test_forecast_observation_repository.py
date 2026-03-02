@@ -139,8 +139,8 @@ class TestInsertForecasts:
         assert count == 1
         # Verify the row passed to execute has forecast_hour=14
         call_args = mock_session.execute.call_args
-        rows = call_args[0][1]  # second positional arg is the params list
-        assert rows[0]["forecast_hour"] == 14
+        rows = call_args[0][1]  # second positional arg is the flat params dict (keys use numeric suffix: forecast_hour0, etc.)
+        assert rows["forecast_hour0"] == 14
 
     @pytest.mark.asyncio
     async def test_insert_forecasts_with_datetime_timestamps(self, repo, mock_session):
@@ -163,10 +163,10 @@ class TestInsertForecasts:
         )
 
         assert count == 1
-        rows = mock_session.execute.call_args[0][1]
-        assert rows[0]["forecast_hour"] == 9
-        assert rows[0]["model_version"] == "v2.0"
-        assert rows[0]["region"] == "us_ct"
+        rows = mock_session.execute.call_args[0][1]  # flat params dict with numeric-suffix keys
+        assert rows["forecast_hour0"] == 9
+        assert rows["model_version0"] == "v2.0"
+        assert rows["region0"] == "us_ct"
 
 
 # =============================================================================

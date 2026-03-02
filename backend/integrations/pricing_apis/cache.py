@@ -10,7 +10,7 @@ Provides intelligent caching with:
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional, TypeVar, Generic
 import asyncio
 import hashlib
@@ -59,6 +59,16 @@ class CacheEntry(Generic[T]):
         self.ttl_seconds = ttl_seconds
         self.key = key
 
+    def _now(self) -> datetime:
+        """Return current UTC time with tzinfo matching ``created_at``.
+
+        This ensures arithmetic works regardless of whether ``created_at`` is
+        timezone-aware (production) or naive (tests that pass datetime.utcnow()).
+        """
+        if self.created_at.tzinfo is not None:
+            return datetime.now(timezone.utc)
+        return datetime.utcnow()  # noqa: DTZ003 — intentional naive match
+
     @property
     def expires_at(self) -> datetime:
         """When this entry expires"""
@@ -67,18 +77,18 @@ class CacheEntry(Generic[T]):
     @property
     def is_expired(self) -> bool:
         """Check if entry has expired"""
-        return datetime.utcnow() > self.expires_at
+        return self._now() > self.expires_at
 
     @property
     def ttl_remaining(self) -> float:
         """Remaining TTL in seconds"""
-        remaining = (self.expires_at - datetime.utcnow()).total_seconds()
+        remaining = (self.expires_at - self._now()).total_seconds()
         return max(0, remaining)
 
     @property
     def age_ratio(self) -> float:
         """Ratio of age to TTL (0.0 = fresh, 1.0 = expired)"""
-        age = (datetime.utcnow() - self.created_at).total_seconds()
+        age = (self._now() - self.created_at).total_seconds()
         return min(1.0, age / self.ttl_seconds)
 
     def to_dict(self) -> dict:
@@ -237,7 +247,7 @@ class PricingCache:
         try:
             entry = CacheEntry(
                 value=value,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
                 ttl_seconds=effective_ttl,
                 key=key,
             )
@@ -304,7 +314,8 @@ class PricingCache:
         full_key = self._generate_key(key)
         try:
             return bool(await self.redis.exists(full_key))
-        except Exception:
+        except Exception as e:
+            self.logger.debug("cache_exists_error", key=key, error=str(e))
             return False
 
     async def get_ttl(self, key: str) -> int:
@@ -313,7 +324,8 @@ class PricingCache:
         try:
             ttl = await self.redis.ttl(full_key)
             return max(0, ttl)
-        except Exception:
+        except Exception as e:
+            self.logger.debug("cache_get_ttl_error", key=key, error=str(e))
             return 0
 
     async def _schedule_refresh(
@@ -580,7 +592,7 @@ class InMemoryCache(PricingCache):
         async with self._lock:
             self._cache[full_key] = CacheEntry(
                 value=value,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
                 ttl_seconds=effective_ttl,
                 key=key,
             )

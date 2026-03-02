@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils/cn'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { API_ORIGIN } from '@/lib/config/env'
 import {
   TrendingUp,
   Calendar,
@@ -15,8 +16,6 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface ConnectionRate {
   id: string
@@ -75,7 +74,7 @@ export function ConnectionRates({
       setLoading(true)
       setError(null)
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/${connectionId}/rates`,
+        `${API_ORIGIN}/api/v1/connections/${connectionId}/rates`,
         { credentials: 'include' }
       )
       if (res.ok) {

@@ -24,6 +24,11 @@ from fastapi.testclient import TestClient
 # ---------------------------------------------------------------------------
 
 
+async def _noop_verify_api_key():
+    """Bypass API key auth in tests."""
+    return True
+
+
 def _make_db_session(healthy: bool = True):
     """Return a mock AsyncSession that succeeds or fails SELECT 1."""
     session = AsyncMock()
@@ -43,10 +48,11 @@ def _make_db_session(healthy: bool = True):
 def healthy_client():
     """Client where DB is healthy and Redis is healthy."""
     from main import app
-    from api.dependencies import get_db_session
+    from api.dependencies import get_db_session, verify_api_key
 
     db_session = _make_db_session(healthy=True)
     app.dependency_overrides[get_db_session] = lambda: db_session
+    app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
     redis_mock = AsyncMock()
     redis_mock.ping = AsyncMock(return_value=True)
@@ -57,16 +63,18 @@ def healthy_client():
             yield client
 
     app.dependency_overrides.pop(get_db_session, None)
+    app.dependency_overrides.pop(verify_api_key, None)
 
 
 @pytest.fixture()
 def db_unhealthy_client():
     """Client where DB execute raises an exception."""
     from main import app
-    from api.dependencies import get_db_session
+    from api.dependencies import get_db_session, verify_api_key
 
     db_session = _make_db_session(healthy=False)
     app.dependency_overrides[get_db_session] = lambda: db_session
+    app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
     redis_mock = AsyncMock()
     redis_mock.ping = AsyncMock(return_value=True)
@@ -77,16 +85,18 @@ def db_unhealthy_client():
             yield client
 
     app.dependency_overrides.pop(get_db_session, None)
+    app.dependency_overrides.pop(verify_api_key, None)
 
 
 @pytest.fixture()
 def redis_not_configured_client():
     """Client where Redis is not configured (get_redis_client returns None)."""
     from main import app
-    from api.dependencies import get_db_session
+    from api.dependencies import get_db_session, verify_api_key
 
     db_session = _make_db_session(healthy=True)
     app.dependency_overrides[get_db_session] = lambda: db_session
+    app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
     with patch("api.v1.health.db_manager") as mock_manager:
         mock_manager.get_redis_client = AsyncMock(return_value=None)
@@ -94,16 +104,18 @@ def redis_not_configured_client():
             yield client
 
     app.dependency_overrides.pop(get_db_session, None)
+    app.dependency_overrides.pop(verify_api_key, None)
 
 
 @pytest.fixture()
 def redis_unhealthy_client():
     """Client where Redis is configured but ping raises."""
     from main import app
-    from api.dependencies import get_db_session
+    from api.dependencies import get_db_session, verify_api_key
 
     db_session = _make_db_session(healthy=True)
     app.dependency_overrides[get_db_session] = lambda: db_session
+    app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
     redis_mock = AsyncMock()
     redis_mock.ping = AsyncMock(side_effect=Exception("Redis connection refused"))
@@ -114,6 +126,7 @@ def redis_unhealthy_client():
             yield client
 
     app.dependency_overrides.pop(get_db_session, None)
+    app.dependency_overrides.pop(verify_api_key, None)
 
 
 # =============================================================================
@@ -262,10 +275,11 @@ class TestExternalApiKeyChecks:
 
     def test_eia_configured(self):
         from main import app
-        from api.dependencies import get_db_session
+        from api.dependencies import get_db_session, verify_api_key
 
         db_session = _make_db_session(healthy=True)
         app.dependency_overrides[get_db_session] = lambda: db_session
+        app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
         redis_mock = AsyncMock()
         redis_mock.ping = AsyncMock(return_value=True)
@@ -291,6 +305,7 @@ class TestExternalApiKeyChecks:
                 response = client.get("/health/integrations")
 
         app.dependency_overrides.pop(get_db_session, None)
+        app.dependency_overrides.pop(verify_api_key, None)
 
         assert response.status_code in (200, 503)
         integrations = response.json()["integrations"]
@@ -299,10 +314,11 @@ class TestExternalApiKeyChecks:
 
     def test_stripe_not_configured(self):
         from main import app
-        from api.dependencies import get_db_session
+        from api.dependencies import get_db_session, verify_api_key
 
         db_session = _make_db_session(healthy=True)
         app.dependency_overrides[get_db_session] = lambda: db_session
+        app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
         redis_mock = AsyncMock()
         redis_mock.ping = AsyncMock(return_value=True)
@@ -327,6 +343,7 @@ class TestExternalApiKeyChecks:
                 response = client.get("/health/integrations")
 
         app.dependency_overrides.pop(get_db_session, None)
+        app.dependency_overrides.pop(verify_api_key, None)
 
         integrations = response.json()["integrations"]
         assert integrations["stripe"]["status"] == "not_configured"
@@ -341,9 +358,10 @@ class TestHealthIntegrationsEdgeCases:
     def test_no_db_session_returns_unhealthy(self):
         """When get_db_session yields None the DB check should return unhealthy."""
         from main import app
-        from api.dependencies import get_db_session
+        from api.dependencies import get_db_session, verify_api_key
 
         app.dependency_overrides[get_db_session] = lambda: None
+        app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
         redis_mock = AsyncMock()
         redis_mock.ping = AsyncMock(return_value=True)
@@ -354,6 +372,7 @@ class TestHealthIntegrationsEdgeCases:
                 response = client.get("/health/integrations")
 
         app.dependency_overrides.pop(get_db_session, None)
+        app.dependency_overrides.pop(verify_api_key, None)
 
         data = response.json()
         assert data["integrations"]["database"]["status"] == "unhealthy"
@@ -364,10 +383,11 @@ class TestHealthIntegrationsEdgeCases:
         would normally block requests (exclude_paths in main.py covers /health).
         """
         from main import app
-        from api.dependencies import get_db_session
+        from api.dependencies import get_db_session, verify_api_key
 
         db_session = _make_db_session(healthy=True)
         app.dependency_overrides[get_db_session] = lambda: db_session
+        app.dependency_overrides[verify_api_key] = _noop_verify_api_key
 
         redis_mock = AsyncMock()
         redis_mock.ping = AsyncMock(return_value=True)
@@ -381,3 +401,4 @@ class TestHealthIntegrationsEdgeCases:
                     assert response.status_code != 429
 
         app.dependency_overrides.pop(get_db_session, None)
+        app.dependency_overrides.pop(verify_api_key, None)

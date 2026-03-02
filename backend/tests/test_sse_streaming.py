@@ -45,7 +45,7 @@ def _make_price_obj(supplier: str = "Eversource", price: float = 0.28):
 
 
 def _make_token_data(user_id: str = "user-sse-test"):
-    """Build a minimal SessionData / TokenData mock."""
+    """Build a minimal SessionData mock."""
     from auth.neon_auth import SessionData
 
     return SessionData(

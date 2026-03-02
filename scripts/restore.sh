@@ -3,7 +3,7 @@
 # Database Restore Script for Electricity Optimizer
 # =============================================================================
 # Usage: ./scripts/restore.sh [backup_file]
-# Restores TimescaleDB and Redis data from backup
+# Restores PostgreSQL and Redis data from backup
 # =============================================================================
 
 set -e
@@ -31,7 +31,7 @@ log_error() {
 }
 
 # =============================================================================
-# Restore PostgreSQL/TimescaleDB
+# Restore PostgreSQL
 # =============================================================================
 
 restore_postgres() {
@@ -39,7 +39,7 @@ restore_postgres() {
 
     if [ -z "$backup_file" ]; then
         # Find latest backup
-        backup_file=$(ls -t "$BACKUP_DIR"/timescaledb_*.sql.gz 2>/dev/null | head -1)
+        backup_file=$(ls -t "$BACKUP_DIR"/postgres_*.sql.gz 2>/dev/null | head -1)
     fi
 
     if [ ! -f "$backup_file" ]; then
@@ -47,22 +47,22 @@ restore_postgres() {
         return 1
     fi
 
-    log_info "Restoring TimescaleDB from: $backup_file"
+    log_info "Restoring PostgreSQL from: $backup_file"
 
     # Stop services that depend on the database
-    docker compose stop backend celery-worker airflow-scheduler
+    docker compose stop backend
 
     # Drop and recreate database
-    docker exec timescaledb psql -U postgres -c "DROP DATABASE IF EXISTS electricity;"
-    docker exec timescaledb psql -U postgres -c "CREATE DATABASE electricity;"
+    docker exec postgres psql -U postgres -c "DROP DATABASE IF EXISTS electricity;"
+    docker exec postgres psql -U postgres -c "CREATE DATABASE electricity;"
 
     # Restore backup
-    gunzip -c "$backup_file" | docker exec -i timescaledb psql -U postgres -d electricity
+    gunzip -c "$backup_file" | docker exec -i postgres psql -U postgres -d electricity
 
-    log_info "TimescaleDB restore completed"
+    log_info "PostgreSQL restore completed"
 
     # Restart services
-    docker compose start backend celery-worker airflow-scheduler
+    docker compose start backend
 }
 
 # =============================================================================
@@ -97,41 +97,6 @@ restore_redis() {
 }
 
 # =============================================================================
-# Restore Airflow
-# =============================================================================
-
-restore_airflow() {
-    local backup_file=$1
-
-    if [ -z "$backup_file" ]; then
-        # Find latest backup
-        backup_file=$(ls -t "$BACKUP_DIR"/airflow_*.sql.gz 2>/dev/null | head -1)
-    fi
-
-    if [ ! -f "$backup_file" ]; then
-        log_warn "Airflow backup file not found"
-        return 0
-    fi
-
-    log_info "Restoring Airflow from: $backup_file"
-
-    # Stop Airflow services
-    docker compose stop airflow-webserver airflow-scheduler
-
-    # Drop and recreate database
-    docker exec postgres-airflow psql -U airflow -c "DROP DATABASE IF EXISTS airflow;"
-    docker exec postgres-airflow psql -U airflow -c "CREATE DATABASE airflow;"
-
-    # Restore backup
-    gunzip -c "$backup_file" | docker exec -i postgres-airflow psql -U airflow -d airflow
-
-    log_info "Airflow restore completed"
-
-    # Restart Airflow services
-    docker compose start airflow-webserver airflow-scheduler
-}
-
-# =============================================================================
 # List Available Backups
 # =============================================================================
 
@@ -140,16 +105,12 @@ list_backups() {
     echo "Available backups:"
     echo ""
 
-    echo "TimescaleDB:"
-    ls -lh "$BACKUP_DIR"/timescaledb_*.sql.gz 2>/dev/null | tail -5 || echo "  No backups found"
+    echo "PostgreSQL:"
+    ls -lh "$BACKUP_DIR"/postgres_*.sql.gz 2>/dev/null | tail -5 || echo "  No backups found"
 
     echo ""
     echo "Redis:"
     ls -lh "$BACKUP_DIR"/redis_*.rdb 2>/dev/null | tail -5 || echo "  No backups found"
-
-    echo ""
-    echo "Airflow:"
-    ls -lh "$BACKUP_DIR"/airflow_*.sql.gz 2>/dev/null | tail -5 || echo "  No backups found"
     echo ""
 }
 
@@ -178,12 +139,6 @@ main() {
     # Restore databases
     restore_postgres "$BACKUP_FILE"
     restore_redis
-
-    # Optionally restore Airflow
-    read -p "Restore Airflow database? (yes/no): " restore_af
-    if [ "$restore_af" = "yes" ]; then
-        restore_airflow
-    fi
 
     echo ""
     echo "==========================================="

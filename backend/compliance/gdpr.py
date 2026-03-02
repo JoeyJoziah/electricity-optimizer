@@ -696,8 +696,14 @@ class GDPRComplianceService:
                             upload_path = os.path.join("uploads", str(row["id"]))
                             if os.path.exists(upload_path):
                                 os.remove(upload_path)
-                        except Exception:
-                            pass  # Best-effort file cleanup
+                        except Exception as e:
+                            logger.error(
+                                "gdpr_file_deletion_failed",
+                                user_id=user_id,
+                                upload_id=str(row["id"]),
+                                error=str(e),
+                            )
+                            raise
 
                     await self.db_session.execute(
                         sa_text("""
@@ -743,7 +749,11 @@ class GDPRComplianceService:
                 legal_basis="user_request",
             )
 
-            # Store deletion log (would be in a separate immutable store)
+            # TODO: Persist the deletion_log to an immutable audit store.
+            # This is commented out because DeletionLogRepository has not been
+            # implemented yet and is not injected into GDPRComplianceService.__init__.
+            # Until it exists, GDPR deletion audit trail is not durably persisted.
+            # Tracked as tech debt — implement DeletionLogRepository and wire it in.
             # await self.deletion_log_repo.create(deletion_log)
 
             logger.info(

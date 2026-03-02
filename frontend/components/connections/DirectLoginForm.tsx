@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/input'
+import { formatRelativeTime } from '@/lib/utils/format'
+import { API_ORIGIN } from '@/lib/config/env'
 import {
   KeyRound,
   ExternalLink,
@@ -16,8 +18,6 @@ import {
   Zap,
   AlertTriangle,
 } from 'lucide-react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface DirectLoginFormProps {
   onComplete: () => void
@@ -41,22 +41,6 @@ interface SyncResult {
   success: boolean
   rates_found: number
   error: string | null
-}
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSeconds = Math.floor(diffMs / 1000)
-  const diffMinutes = Math.floor(diffSeconds / 60)
-  const diffHours = Math.floor(diffMinutes / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffSeconds < 60) return 'just now'
-  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`
-  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`
-  if (diffDays < 30) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`
-  return date.toLocaleDateString()
 }
 
 function formatFutureTime(dateString: string): string {
@@ -91,7 +75,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
   useEffect(() => {
     async function loadSuppliers() {
       try {
-        const res = await fetch(`${API_BASE}/api/v1/suppliers/registry`, {
+        const res = await fetch(`${API_ORIGIN}/api/v1/suppliers/registry`, {
           credentials: 'include',
         })
         if (res.ok) {
@@ -110,7 +94,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
   const fetchSyncStatus = useCallback(async (connId: string) => {
     try {
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/${connId}/sync-status`,
+        `${API_ORIGIN}/api/v1/connections/${connId}/sync-status`,
         { credentials: 'include' }
       )
       if (res.ok) {
@@ -138,7 +122,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
       setSubmitting(true)
       setError(null)
 
-      const res = await fetch(`${API_BASE}/api/v1/connections/direct`, {
+      const res = await fetch(`${API_ORIGIN}/api/v1/connections/direct`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -186,7 +170,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
       setSyncResult(null)
 
       const res = await fetch(
-        `${API_BASE}/api/v1/connections/${connectionId}/sync`,
+        `${API_ORIGIN}/api/v1/connections/${connectionId}/sync`,
         {
           method: 'POST',
           credentials: 'include',

@@ -12,7 +12,22 @@ model:
   # Input/Output Configuration
   input:
     sequence_length: 168  # 7 days of hourly data
-    num_features: 15      # Number of input features
+    # 19 features used by the model (authoritative list from ModelConfig in
+    # ml/models/price_forecaster.py and ml/inference/predictor.py):
+    #
+    # Price features (7):
+    #   spot_price, day_ahead_price, price_lag_1h, price_lag_24h,
+    #   price_lag_168h, price_rolling_mean_24h, price_rolling_std_24h
+    #
+    # Temporal features (5):
+    #   hour_of_day, day_of_week, month, is_weekend, is_holiday
+    #
+    # Weather features (4):
+    #   temperature, wind_speed, solar_radiation, cloud_cover
+    #
+    # Generation mix features (3):
+    #   renewable_percentage, fossil_percentage, nuclear_percentage
+    num_features: 19      # Number of input features (was 15 — corrected 2026-03-02)
 
   output:
     forecast_horizon: 24  # 24-hour ahead forecast

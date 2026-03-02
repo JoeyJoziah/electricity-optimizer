@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils/cn'
+import { API_ORIGIN } from '@/lib/config/env'
 import {
   TrendingUp,
   TrendingDown,
@@ -17,8 +18,6 @@ import {
   XCircle,
   Clock,
 } from 'lucide-react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,7 +78,7 @@ async function fetchAnalytics<T>(
   path: string,
   params?: Record<string, string>
 ): Promise<T> {
-  const url = new URL(`${API_BASE}/api/v1/connections/analytics/${path}`)
+  const url = new URL(`${API_ORIGIN}/api/v1/connections/analytics/${path}`)
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
   }
@@ -717,7 +716,7 @@ export function ConnectionAnalytics() {
 
   const handleSyncConnection = useCallback(async (connectionId: string) => {
     const res = await fetch(
-      `${API_BASE}/api/v1/connections/${connectionId}/sync`,
+      `${API_ORIGIN}/api/v1/connections/${connectionId}/sync`,
       {
         method: 'POST',
         credentials: 'include',

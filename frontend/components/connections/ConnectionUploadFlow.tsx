@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { BillUploadForm } from './BillUploadForm'
 import { ConnectionRates } from './ConnectionRates'
+import { API_ORIGIN } from '@/lib/config/env'
 import {
   Upload,
   Loader2,
@@ -13,8 +14,6 @@ import {
   CheckCircle2,
   ArrowLeft,
 } from 'lucide-react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface ConnectionUploadFlowProps {
   onComplete: () => void
@@ -38,7 +37,7 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
       setCreating(true)
       setError(null)
 
-      const res = await fetch(`${API_BASE}/api/v1/connections/upload`, {
+      const res = await fetch(`${API_ORIGIN}/api/v1/connections/upload`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
