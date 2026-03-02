@@ -138,3 +138,90 @@ class TestMigrationFiles:
             if not content:
                 empty.append(f)
         assert not empty, f"Empty migration files found: {empty}"
+
+
+def _read_migration(name: str) -> str:
+    """Read a migration file by name prefix (e.g. '017')."""
+    for f in get_migration_files():
+        if f.startswith(name):
+            path = os.path.join(MIGRATIONS_DIR, f)
+            with open(path) as fh:
+                return fh.read()
+    raise FileNotFoundError(f"No migration starting with {name}")
+
+
+class TestMigration017AdditionalIndexes:
+    """Validate migration 017: additional performance indexes."""
+
+    def test_has_four_correct_index_names(self):
+        """Migration 017 should create exactly 4 named indexes."""
+        content = _read_migration("017")
+        expected_indexes = {
+            "idx_user_connections_user_method",
+            "idx_bill_uploads_user_status",
+            "idx_forecast_observations_region",
+            "idx_notifications_user_unread_created",
+        }
+        found = set(re.findall(r"IF NOT EXISTS\s+(idx_\w+)", content))
+        assert found == expected_indexes, (
+            f"Expected indexes {expected_indexes}, found {found}"
+        )
+
+    def test_index_columns_reference_correct_tables(self):
+        """Index ON clauses should reference the right tables and columns."""
+        content = _read_migration("017")
+        # Each index should reference its correct table
+        assert "ON user_connections (user_id, connection_type)" in content
+        assert "ON bill_uploads (user_id, created_at DESC, status)" in content
+        assert "ON forecast_observations (region, utility_type, created_at DESC)" in content
+        assert "ON notifications (user_id, created_at DESC)" in content
+
+    def test_partial_index_has_where_clause(self):
+        """idx_notifications_user_unread_created must have WHERE read_at IS NULL."""
+        content = _read_migration("017")
+        # Find the block for the notifications index
+        idx = content.find("idx_notifications_user_unread_created")
+        assert idx != -1, "Notifications index not found"
+        # The WHERE clause should appear after the index definition
+        after_idx = content[idx:]
+        assert "WHERE read_at IS NULL" in after_idx, (
+            "Partial index missing WHERE read_at IS NULL clause"
+        )
+
+
+class TestMigration019NationwideSuppliers:
+    """Validate migration 019: nationwide supplier seeding."""
+
+    def test_uses_green_energy_not_provider(self):
+        """Migration 019 should use 'green_energy' column, not 'green_energy_provider'."""
+        content = _read_migration("019")
+        assert "green_energy_provider" not in content, (
+            "Migration 019 should use 'green_energy', not 'green_energy_provider'"
+        )
+        assert "green_energy" in content
+
+    def test_seeds_at_least_34_suppliers_across_13_states(self):
+        """Migration 019 should seed 34+ suppliers across 13+ state regions."""
+        content = _read_migration("019")
+        # Count INSERT value rows by matching gen_random_uuid() calls
+        supplier_count = content.count("gen_random_uuid()")
+        assert supplier_count >= 34, (
+            f"Expected >= 34 suppliers, found {supplier_count}"
+        )
+        # Extract all region values
+        regions = set(re.findall(r"'(us_[a-z]{2})'", content))
+        assert len(regions) >= 13, (
+            f"Expected >= 13 state regions, found {len(regions)}: {regions}"
+        )
+
+    def test_all_region_values_are_valid_enum_members(self):
+        """All region strings in migration 019 must be valid Region enum values."""
+        from backend.models.region import Region
+
+        content = _read_migration("019")
+        region_values = set(re.findall(r"'(us_[a-z]{2})'", content))
+        valid_values = {r.value for r in Region}
+        invalid = region_values - valid_values
+        assert not invalid, (
+            f"Invalid region values in migration 019: {invalid}"
+        )

@@ -18,9 +18,9 @@
 
 
 -- Compound index for connection lookups by user + method
--- Supports: SELECT ... FROM user_connections WHERE user_id = ? AND connection_method = ?
+-- Supports: SELECT ... FROM user_connections WHERE user_id = ? AND connection_type = ?
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_connections_user_method
-    ON user_connections (user_id, connection_method);
+    ON user_connections (user_id, connection_type);
 
 
 -- Covering index for bill upload queries ordered by recency and filtered by status
