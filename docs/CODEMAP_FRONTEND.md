@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-02-26 (7-phase gap remediation: error boundaries, toast/sidebar contexts, new test suites)
+**Last Updated:** 2026-03-02 (Env config centralization, test suite expansion: 1129 tests across 64 suites)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -121,20 +121,23 @@ frontend/
       toast.tsx                 # Toast notification component with variants (success, error, warning, info)
     optimize/                   # Empty directory (unused)
   lib/
+    config/
+      env.ts                    # Centralized env validation (API_URL, APP_URL, SITE_URL, API_ORIGIN, IS_PRODUCTION/IS_TEST/IS_DEV)
     api/
-      client.ts                 # Base API client (GET/POST/PUT/DELETE) -> NEXT_PUBLIC_API_URL
+      client.ts                 # Base API client (GET/POST/PUT/DELETE) -> env.API_URL
       prices.ts                 # Price API: getCurrentPrices, getPriceHistory, getPriceForecast, getOptimalPeriods
       suppliers.ts              # Supplier API: getSuppliers, getRecommendation, compareSuppliers, initiateSwitch, getSwitchStatus
       optimization.ts           # Optimization API: getOptimalSchedule, saveAppliances, calculatePotentialSavings
     auth/
-      client.ts                 # Better Auth client (createAuthClient) — browser-side auth
-      server.ts                 # Better Auth server-side helpers
+      client.ts                 # Better Auth client (createAuthClient) — browser-side auth, imports from env.ts
+      server.ts                 # Better Auth server-side helpers, imports from env.ts
     hooks/
-      useAuth.tsx               # AuthProvider context + useAuth, useRequireAuth, useAccessToken hooks
+      useAuth.tsx               # AuthProvider context + useAuth, useRequireAuth, useAccessToken hooks, imports from env.ts
       usePrices.ts              # useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods, useRefreshPrices
       useSuppliers.ts           # useSuppliers, useSupplier, useSupplierRecommendation, useCompareSuppliers, useInitiateSwitch, useSwitchStatus
       useOptimization.ts        # useOptimalSchedule, useOptimizationResult, useAppliances, useSaveAppliances, usePotentialSavings
-      useRealtime.ts            # useRealtimePrices (SSE via fetch-event-source), useRealtimeOptimization, useRealtimeSubscription, useRealtimeBroadcast
+      useProfile.ts             # User profile fetching hook
+      useRealtime.ts            # useRealtimePrices (SSE via fetch-event-source), useRealtimeOptimization, useRealtimeSubscription, useRealtimeBroadcast, imports from env.ts
       useDiagrams.ts            # useDiagramList, useDiagram, useSaveDiagram, useCreateDiagram
       useSavings.ts             # Savings data fetching hook
     store/
@@ -272,7 +275,7 @@ Configured in `QueryProvider` with defaults: 1min stale time, 5min garbage colle
 
 ### Base Client (`client.ts`)
 
-- Base URL: `NEXT_PUBLIC_API_URL` (default: `http://localhost:8000/api/v1`)
+- Base URL: `env.API_URL` (default: `http://localhost:8000/api/v1`, injected from `lib/config/env.ts`)
 - Methods: `get<T>`, `post<T>`, `put<T>`, `delete<T>`
 - All 4 fetch methods include `credentials: 'include'` for cross-origin cookie support (Neon Auth sessions)
 - Error handling: throws `ApiClientError` with status, message, details
@@ -540,53 +543,62 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-52 test suites, 834 tests total:
+64 test suites, 1129 tests total:
 
 **Component tests** (`__tests__/`):
 
-| Test File | Covers |
-|-----------|--------|
-| ComparisonTable.test.tsx | Supplier comparison table rendering and sorting |
-| PriceLineChart.test.tsx | Chart rendering with different data/configs |
-| SavingsDonut.test.tsx | Donut chart with savings breakdown |
-| ScheduleTimeline.test.tsx | Timeline with schedules and price zones |
-| SupplierCard.test.tsx | Card rendering, savings badge, selection |
-| SwitchWizard.test.tsx | Multi-step wizard flow (note: flaky) |
-| auth/LoginForm.test.tsx | Login form: email/password, OAuth, magic link, error states |
-| auth/SignupForm.test.tsx | Signup form: registration, password validation, OAuth |
-| charts/ForecastChart.test.tsx | Forecast chart: data rendering, empty state, confidence |
-| gamification/SavingsTracker.test.tsx | Streak tiers, progress bar, formatCurrency |
-| layout/Header.test.tsx | Header: title, nav, active state |
-| layout/Sidebar.test.tsx | Sidebar: nav links, responsive |
-| suppliers/SetSupplierDialog.test.tsx | Supplier selection dialog rendering and interaction |
-| suppliers/SupplierAccountForm.test.tsx | Account linking form validation and submission |
-| suppliers/SupplierSelector.test.tsx | Searchable supplier dropdown behavior |
-| ui/*.test.tsx | UI primitives: Badge, Button, Card, Input, Skeleton |
-| integration/dashboard.test.tsx | Dashboard integration: data loading, display, interactions |
-| pages/prices.test.tsx | Prices page rendering and interactions |
-| pages/suppliers.test.tsx | Suppliers page rendering and interactions |
-| hooks/useDiagrams.test.tsx | React Query diagram hooks |
-| hooks/usePrices.test.tsx | Price data fetching hooks |
-| utils/devGate.test.ts | isDevMode utility |
-| components/dev/DevBanner.test.tsx | DevBanner rendering |
-| components/dev/ExcalidrawWrapper.test.tsx | Excalidraw dynamic import wrapper |
-| components/dev/DiagramList.test.tsx | Diagram sidebar list |
-| components/dev/DiagramEditor.test.tsx | Canvas editor + save |
-| api/dev/diagrams/route.test.ts | List + create API routes |
-| api/dev/diagrams/name.route.test.ts | Read + save API routes |
-| app/dev/layout.test.tsx | Dev layout gate |
-| app/dev/architecture.test.tsx | Architecture page integration |
-| connections/BillUploadForm.test.tsx | Bill upload form: file selection, parsing, status |
-| connections/ConnectionAnalytics.test.tsx | Analytics dashboard: rate comparison, savings, health |
-| connections/ConnectionCard.test.tsx | Connection card: label editing, status display, sync |
-| connections/ConnectionMethodPicker.test.tsx | Method picker: email, upload, direct login, UtilityAPI |
-| connections/ConnectionRates.test.tsx | Extracted rates table rendering and filtering |
-| connections/ConnectionUploadFlow.test.tsx | Upload workflow: file selection, parsing, results |
-| connections/ConnectionsOverview.test.tsx | Tab navigation and connection management |
-| connections/DirectLoginForm.test.tsx | Credential form: input validation, submission, sync |
-| connections/EmailConnectionFlow.test.tsx | Email OAuth: provider selection, redirect, scanning |
-| prices/PricesContent.test.tsx | Prices page content component |
-| suppliers/SuppliersContent.test.tsx | Suppliers page content component |
+| Test File | Tests | Covers |
+|-----------|-------|--------|
+| ComparisonTable.test.tsx | -- | Supplier comparison table rendering and sorting |
+| PriceLineChart.test.tsx | 27 | Chart rendering with different data/configs |
+| SavingsDonut.test.tsx | 20 | Donut chart with savings breakdown |
+| ScheduleTimeline.test.tsx | 30 | Timeline with schedules and price zones |
+| SupplierCard.test.tsx | -- | Card rendering, savings badge, selection |
+| SwitchWizard.test.tsx | -- | Multi-step wizard flow (note: flaky) |
+| auth/LoginForm.test.tsx | -- | Login form: email/password, OAuth, magic link, error states |
+| auth/SignupForm.test.tsx | -- | Signup form: registration, password validation, OAuth |
+| charts/ForecastChart.test.tsx | -- | Forecast chart: data rendering, empty state, confidence |
+| gamification/SavingsTracker.test.tsx | -- | Streak tiers, progress bar, formatCurrency |
+| layout/Header.test.tsx | -- | Header: title, nav, active state |
+| layout/Sidebar.test.tsx | -- | Sidebar: nav links, responsive |
+| layout/NotificationBell.test.tsx | 33 | Notification bell: unread count, dropdown, interactions |
+| suppliers/SetSupplierDialog.test.tsx | -- | Supplier selection dialog rendering and interaction |
+| suppliers/SupplierAccountForm.test.tsx | -- | Account linking form validation and submission |
+| suppliers/SupplierSelector.test.tsx | -- | Searchable supplier dropdown behavior |
+| ui/*.test.tsx | -- | UI primitives: Badge, Button, Card, Input, Skeleton |
+| integration/dashboard.test.tsx | -- | Dashboard integration: data loading, display, interactions |
+| pages/prices.test.tsx | -- | Prices page rendering and interactions |
+| pages/suppliers.test.tsx | -- | Suppliers page rendering and interactions |
+| dashboard/DashboardContent.test.tsx | 49 | Dashboard content: widgets, data fetching, layout |
+| onboarding/RegionSelector.test.tsx | 24 | Region selector: search, selection, state updates |
+| onboarding/SupplierPicker.test.tsx | 24 | Supplier picker: selection, filtering, pagination |
+| hooks/useDiagrams.test.tsx | -- | React Query diagram hooks |
+| hooks/usePrices.test.tsx | -- | Price data fetching hooks |
+| hooks/useProfile.test.ts | 16 | User profile fetching and caching |
+| hooks/useSavings.test.ts | 11 | Savings data fetching and calculation |
+| utils/devGate.test.ts | -- | isDevMode utility |
+| contexts/toast-context.test.tsx | 27 | Toast notifications: create, dismiss, auto-cleanup |
+| contexts/sidebar-context.test.tsx | 20 | Sidebar state: toggle, close, persistence |
+| lib/config/env.test.ts | 14 | Environment variable validation and defaults |
+| components/dev/DevBanner.test.tsx | -- | DevBanner rendering |
+| components/dev/ExcalidrawWrapper.test.tsx | -- | Excalidraw dynamic import wrapper |
+| components/dev/DiagramList.test.tsx | -- | Diagram sidebar list |
+| components/dev/DiagramEditor.test.tsx | -- | Canvas editor + save |
+| api/dev/diagrams/route.test.ts | -- | List + create API routes |
+| api/dev/diagrams/name.route.test.ts | -- | Read + save API routes |
+| app/dev/layout.test.tsx | -- | Dev layout gate |
+| app/dev/architecture.test.tsx | -- | Architecture page integration |
+| connections/BillUploadForm.test.tsx | -- | Bill upload form: file selection, parsing, status |
+| connections/ConnectionAnalytics.test.tsx | -- | Analytics dashboard: rate comparison, savings, health |
+| connections/ConnectionCard.test.tsx | -- | Connection card: label editing, status display, sync |
+| connections/ConnectionMethodPicker.test.tsx | -- | Method picker: email, upload, direct login, UtilityAPI |
+| connections/ConnectionRates.test.tsx | -- | Extracted rates table rendering and filtering |
+| connections/ConnectionUploadFlow.test.tsx | -- | Upload workflow: file selection, parsing, results |
+| connections/ConnectionsOverview.test.tsx | -- | Tab navigation and connection management |
+| connections/DirectLoginForm.test.tsx | -- | Credential form: input validation, submission, sync |
+| connections/EmailConnectionFlow.test.tsx | -- | Email OAuth: provider selection, redirect, scanning |
+| prices/PricesContent.test.tsx | -- | Prices page content component |
+| suppliers/SuppliersContent.test.tsx | -- | Suppliers page content component |
 
 **Hook tests** (`lib/hooks/`):
 
@@ -654,16 +666,33 @@ npm run lint          # next lint
 
 ## Environment Variables
 
+**All environment variables are validated and centralized in `lib/config/env.ts`.**
+
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL (default: `http://localhost:8000/api/v1`) |
+| `NEXT_PUBLIC_APP_URL` | Yes | Frontend app URL for redirects (default: `http://localhost:3000`) |
 | `NEXT_PUBLIC_SITE_URL` | No | Site URL for SEO (default: `https://electricity-optimizer.vercel.app`) |
+| `NEXT_PUBLIC_API_ORIGIN` | No | Backend origin for CORS (default: derived from `NEXT_PUBLIC_API_URL`) |
 | `BETTER_AUTH_SECRET` | Yes | Secret for Better Auth session encryption |
 | `BETTER_AUTH_URL` | Yes | App URL for auth callbacks (e.g., `http://localhost:3000`) |
+| `NODE_ENV` | Yes | Environment: `development`, `test`, or `production` |
+
+**Validation & Exports from `env.ts`:**
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `API_URL` | string | Validated `NEXT_PUBLIC_API_URL` |
+| `APP_URL` | string | Validated `NEXT_PUBLIC_APP_URL` |
+| `SITE_URL` | string | Validated `NEXT_PUBLIC_SITE_URL` |
+| `API_ORIGIN` | string | Extracted origin from `API_URL` |
+| `IS_PRODUCTION` | boolean | `NODE_ENV === 'production'` |
+| `IS_TEST` | boolean | `NODE_ENV === 'test'` |
+| `IS_DEV` | boolean | `NODE_ENV === 'development'` |
 
 ---
 
-## Recent Changes (as of 2026-02-25)
+## Recent Changes (as of 2026-03-02)
 
 1. **Multi-utility support** -- Settings store includes `utilityTypes` field (array of UtilityType). Settings page has utility type checkboxes
 2. **Multi-state region selector** -- Settings page offers expanded region dropdown covering all 50 US states + international regions
@@ -689,6 +718,8 @@ npm run lint          # next lint
 22. **Gap remediation Phase 3 (UX)** -- Toast notification system (`ToastProvider` + `useToast`), sidebar context (`SidebarProvider` + `useSidebar`), NotificationBell component, modal component, error boundaries for all routes (Connections, Optimize, Settings), loading skeletons for connections/optimize
 23. **Gap remediation Phase 4 (Testing)** -- 365 new tests: connection component tests (9 suites), hook tests (useAuth, useOptimization, useRealtime, useSuppliers), API contract tests, store tests, prices/suppliers content tests. Total: 834 tests across 52 suites
 24. **Gap remediation Phase 7 (Standards)** -- Timer cleanup on unmount in toast context, accessible button variants, password reset flow (forgot-password, reset-password, verify-email pages), improved mobile form accessibility
+25. **Environment configuration centralization** -- New `lib/config/env.ts` module validates and exports: `API_URL`, `APP_URL`, `SITE_URL`, `API_ORIGIN`, `IS_PRODUCTION`, `IS_TEST`, `IS_DEV`. Updated `lib/api/client.ts`, `lib/auth/client.ts`, `lib/auth/server.ts`, `lib/hooks/useAuth.tsx`, `lib/hooks/useRealtime.ts` to import from `env.ts` instead of direct process.env access
+26. **Component and hook test expansion** -- 281 new tests across 12 new test files: PriceLineChart (27), SavingsDonut (20), ScheduleTimeline (30), DashboardContent (49), RegionSelector (24), SupplierPicker (24), NotificationBell (33), useProfile (16), useSavings (11), toast-context (27), sidebar-context (20), env (14). Total: 1129 tests across 64 suites
 
 ---
 

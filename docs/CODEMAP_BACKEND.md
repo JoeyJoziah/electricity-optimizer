@@ -1,12 +1,13 @@
 # Backend Codemap
 
-> Last updated: 2026-02-26 (7-phase gap remediation: security, product, UX, testing, infra)
+> Last updated: 2026-03-02 (8-phase rollout: app factory, connections refactor, health endpoints, migration 020, supplier caching, price pagination, learning aggregation)
 
 ## Directory Structure
 
 ```
 backend/
-├── main.py                          # FastAPI app entry point, middleware, health checks
+├── main.py                          # FastAPI app entry point, 27 lines (lifespan only); app created via app_factory.py
+├── app_factory.py                   # create_app() factory: middleware, routers, health endpoints
 ├── gunicorn_config.py               # Production WSGI config (Render free tier optimized)
 ├── requirements.txt                 # Python dependencies
 ├── requirements.lock                # Pinned lockfile for reproducible builds
@@ -32,9 +33,18 @@ backend/
 │       ├── recommendations.py       # Switching, usage, & daily recommendations (wired to RecommendationService)
 │       ├── user.py                  # User preferences (stub)
 │       ├── user_supplier.py         # Supplier selection + account linking (AES-256-GCM encrypted fields)
-│       ├── connections.py           # Connection management: 4 methods (email OAuth, bill upload, direct login, UtilityAPI), analytics, health, labels
+│       ├── connections/
+│       │   ├── __init__.py          # Router registration
+│       │   ├── router.py            # CRUD, analytics endpoints; routes registered in app_factory
+│       │   ├── common.py            # ConnectionValidator, _validate_connection_type, require_paid_tier
+│       │   ├── crud.py              # GET/POST/DELETE connection endpoints
+│       │   ├── rates.py             # GET rates endpoint, bulk_create_rates helper
+│       │   ├── analytics.py         # Analytics endpoints: comparison, history, savings, health
+│       │   ├── email_oauth.py       # Email OAuth endpoints (consent URL, scan, callback)
+│       │   ├── bill_upload.py       # Bill upload endpoints (upload, reparse, list uploads)
+│       │   ├── direct_sync.py       # Direct login sync endpoint
 │       ├── alerts.py                # Price alert CRUD endpoints (create, list, delete, trigger check)
-│       ├── health.py                # Enhanced health endpoint (DB/Redis/service checks)
+│       ├── health.py                # 3 health endpoints: /health, /health/ready, /health/live
 │       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
 │       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
 │       ├── users.py                 # User profile management (get, update, delete account)
@@ -174,37 +184,44 @@ backend/
     ├── test_price_sync_service.py   # PriceSyncService tests
     ├── test_sse_streaming.py        # SSE streaming endpoint tests
     ├── test_user_supplier.py        # Supplier selection + account linking tests
-    ├── test_connections.py          # Connection endpoint tests
+    ├── test_connections.py          # Connection endpoint tests (40 tests)
     ├── test_bill_upload.py          # Bill upload + parse tests
     ├── test_email_oauth.py          # OAuth state gen/verify, consent URLs, token encryption, email scanning, endpoint tests (70 tests)
-    ├── test_connection_analytics.py # Analytics service tests (39 tests)
-    ├── test_middleware_asgi.py      # ASGI middleware compliance tests (178 lines)
+    ├── test_connection_analytics.py # Connection analytics service tests (39+ tests)
+    ├── test_connection_service.py   # ConnectionService CRUD + status management tests (51 tests)
+    ├── test_supplier_cache.py       # Supplier registry Redis caching tests (25 tests)
+    ├── test_middleware_asgi.py      # ASGI middleware compliance tests (9 tests: SSE, rate limits, body size, timeout)
     ├── test_api_alerts.py           # Alert endpoint tests
-    ├── test_api_health.py           # Health endpoint tests
+    ├── test_api_health.py           # Health endpoint tests (/health, /health/ready, /health/live)
     ├── test_api_prices_analytics.py # Analytics endpoint tests
     ├── test_feature_flags.py        # Feature flag service tests
     ├── test_maintenance_service.py  # Maintenance service tests (21 tests: cleanup_activity_logs, cleanup_expired_uploads, endpoint integration)
     ├── test_migrations.py           # Migration validation tests
     ├── test_notifications.py        # Notification service tests
     ├── test_resilience.py           # Resilience/circuit breaker tests
-    ├── test_savings.py              # Savings service tests
+    ├── test_savings_service.py      # SavingsService calculation & tracking tests (52 tests)
+    ├── test_forecast_observation_repository.py # ForecastObservationRepository with new coverage/accuracy class methods
+    ├── test_performance.py          # Performance tests (31+ tests: query counts, caching, async Stripe)
     └── test_load.py                 # Load/stress test helpers
 ```
 
 ## Application Lifecycle
 
-**Entry Point:** `main.py` creates a FastAPI app with `lifespan` context manager.
+**Entry Point:** `main.py` (27 lines) calls `create_app()` from `app_factory.py` and runs Uvicorn with lifespan context manager.
+
+**App Factory:** `app_factory.py` -- `create_app()` factory function handles:
 
 ```
-Startup:
-  1. db_manager.initialize()  -- Neon PostgreSQL, Redis (graceful degradation)
-  2. Sentry SDK init (lazy import, if SENTRY_DSN configured)
-  3. Mount middleware: CORS, GZip, SecurityHeaders, RateLimiting, BodySizeLimit,
-     RequestTimeout, request-id/timing
-  4. Mount routers (see API Routes below)
-
-Shutdown:
-  1. db_manager.close()  -- close all connection pools
+create_app():
+  1. db_manager = DatabaseManager.get_instance()
+  2. db_manager.initialize()  -- Neon PostgreSQL, Redis (graceful degradation)
+  3. Sentry SDK init (lazy import, if SENTRY_DSN configured)
+  4. Mount middleware stack (see Middleware below)
+  5. Mount 19 routers (prices, suppliers, regulations, auth, etc.) with OpenAPI tags
+  6. Include health check endpoints (/health, /health/ready, /health/live) from health.py
+  7. Include root routes (/, /metrics)
+  8. Define lifespan context manager for startup/shutdown
+  9. Return FastAPI app
 ```
 
 **Production:** `gunicorn_config.py` -- 1 Uvicorn worker, 512MB RAM budget.
@@ -216,12 +233,16 @@ Shutdown:
 
 All routes use prefix `{settings.api_prefix}` (default `/api/v1`).
 
+**OpenAPI Tags:** All 19 router files now include explicit `tags` parameter for OpenAPI documentation.
+Routers organized by domain: prices, suppliers, regulations, auth, billing, compliance, users, connections, alerts, notifications, savings, recommendations, predictions, health, internal.
+Routes registered in `app_factory.py` with consistent tag naming.
+
 ### Prices (`/api/v1/prices`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/current` | None | Current prices by region (fallback: mock + source=fallback) |
-| GET | `/history` | None | Historical prices for a date range |
+| GET | `/history` | None | Historical prices for a date range (supports pagination: limit, offset) |
 | GET | `/forecast` | None | ML-based price forecast (1-168 hours) |
 | GET | `/compare` | None | Compare supplier prices in a region |
 | GET | `/statistics` | None | Min/max/avg price stats |
@@ -366,10 +387,10 @@ Key from `FIELD_ENCRYPTION_KEY` env var (32-byte hex).
 
 **Auth:** All endpoints require paid subscription tier (Pro or Business) via `require_paid_tier` dependency.
 
-**Route ordering:** Analytics routes registered before `/{connection_id}` to prevent path parameter capture.
+**Route ordering:** Analytics routes registered before `/{connection_id}` to prevent path parameter capture. Organized into 8 submodules: `router.py` (registration), `crud.py`, `analytics.py`, `rates.py`, `email_oauth.py`, `bill_upload.py`, `direct_sync.py`, `common.py` (validators).
 
 **Security:** OAuth tokens AES-256-GCM encrypted at rest. OAuth state HMAC-SHA256 signed with nonce
-for CSRF protection. Bill uploads: File type validation (PDF, PNG, JPG, JPEG, TIFF only), 10 MB max size.
+for CSRF protection (state timeout configured). Bill uploads: File type validation (PDF, PNG, JPG, JPEG, TIFF only), 10 MB max size. Password rate limit enforced (5 attempts / 15 min lockout).
 
 ### Alerts (`/api/v1/alerts`)
 
@@ -449,13 +470,14 @@ for CSRF protection. Bill uploads: File type validation (PDF, PNG, JPG, JPEG, TI
 | App | `environment` (dev/staging/prod/test), `api_prefix`, `backend_port` |
 | Database | `database_url` |
 | Redis | `redis_url`, `redis_password` |
-| Auth | `jwt_secret` (used only for internal API key validation), `jwt_algorithm` (HS256). User auth via Neon Auth sessions |
+| Auth | `jwt_secret` (used only for internal API key validation), `jwt_algorithm` (HS256). User auth via Neon Auth sessions. `field_encryption_key` (32-byte hex, validates via @field_validator) |
 | API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `eia_api_key`, `openweathermap_api_key` |
 | Email | `sendgrid_api_key`, `smtp_host/port/username/password`, `email_from_address/name` |
 | Stripe | `stripe_secret_key`, `stripe_webhook_secret`, `stripe_price_pro`, `stripe_price_business` |
 | ML | `model_path`, `model_forecast_hours` (24), `model_accuracy_threshold_mape` (10.0) |
 | GDPR | `data_retention_days` (730), `consent_required`, `data_residency` |
 | Features | `enable_auto_switching`, `enable_load_optimization`, `enable_real_time_updates` |
+| Security | `allowed_redirect_domains` (configurable, allows `electricity-optimizer*.vercel.app` and `electricity-optimizer*.onrender.com`). TimescaleDB removed (PostgreSQL only) |
 **Properties:** `is_production`, `is_development`, `effective_database_url`.
 
 ### config/database.py
@@ -505,7 +527,7 @@ for both `get_recommendation_service` and `get_learning_service`.
 
 | Method | Purpose |
 |--------|---------|
-| `record_forecast()` | Batch INSERT forecast predictions into `forecast_observations` (region normalized to lowercase via `region.lower()`) |
+| `record_forecast()` | Batch INSERT forecast predictions into `forecast_observations` (region normalized to lowercase via `region.lower()`) — supports bulk observables |
 | `observe_actuals_batch()` | Match unobserved forecasts to `electricity_prices` by region+hour (uses parameterized SQL, no LOWER()) |
 | `record_recommendation()` | Record recommendation served to user |
 | `record_recommendation_response()` | Update outcome with user acceptance/savings |
@@ -513,19 +535,22 @@ for both `get_recommendation_service` and `get_learning_service`.
 | `get_hourly_bias()` | Per-hour AVG(predicted - actual) for bias correction |
 | `get_model_accuracy_by_version()` | Accuracy breakdown by model version for weight tuning |
 
+**Bulk inserts:** Both `forecast_observations` and `connection_extracted_rates` use batch insert patterns via `bulk_create()` in repositories for efficient bulk data persistence.
+
 ### services/learning_service.py
 
 `LearningService` -- nightly adaptive learning cycle (inspired by AgentDB's NightlyLearner).
 
 | Step | Method | Action |
 |------|--------|--------|
-| 1 | `compute_rolling_accuracy()` | MAPE/RMSE per model from `forecast_observations` |
+| 1 | `compute_rolling_accuracy()` | MAPE/RMSE per model from `forecast_observations` (SQL GROUP BY aggregation with coverage metric) |
 | 2 | `detect_bias()` | Systematic over/under by hour-of-day |
 | 3 | `update_ensemble_weights()` | Inverse-MAPE weighting -> Redis `model:ensemble_weights` |
 | 4 | `store_bias_correction()` | Hourly correction vector -> vector store domain `bias_correction` |
 | 5 | `prune_stale_patterns()` | Remove low-confidence vectors |
 
 **Weight bounds:** 0.1 min, 0.8 max per model. Re-normalized after clamping.
+**Aggregation:** Uses parameterized SQL with `GROUP BY` and coverage filtering instead of Python-level grouping.
 
 ### services/stripe_service.py
 
@@ -598,8 +623,8 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 
 | Repository | Model | Key Methods |
 |------------|-------|-------------|
-| `PriceRepository` | `Price` | `get_current_prices` (filters by utility_type), `get_latest_by_supplier`, `get_historical_prices`, `bulk_create`, `get_price_statistics` |
-| `SupplierRegistryRepository` | `SupplierRegistry` | `list_suppliers` (paginated, filters: region/utility_type/green/active), `get_by_id`; WHERE clauses built from fixed literals only (no f-string interpolation — CWE-89 fix) |
+| `PriceRepository` | `Price` | `get_current_prices` (filters by utility_type), `get_latest_by_supplier`, `get_historical_prices_paginated` (pagination support), `bulk_create`, `get_price_statistics` |
+| `SupplierRegistryRepository` | `SupplierRegistry` | `list_suppliers` (paginated, filters: region/utility_type/green/active), `get_by_id`; Redis TTL cache (5min) for supplier data; WHERE clauses built from fixed literals only (no f-string interpolation — CWE-89 fix) |
 | `StateRegulationRepository` | `StateRegulation` | `list_deregulated` (filters: electricity/gas/oil/community_solar), `get_by_state`; WHERE clauses built from fixed literals only (CWE-89 fix) |
 | `UserRepository` | `User` | `get_by_email`, `update_preferences`, `update_last_login`, `record_consent` |
 | `ConsentRepository` | `ConsentRecord` | `get_by_user_and_purpose`, `get_latest_by_user_and_purpose`, `delete_by_user_id` |
@@ -664,7 +689,7 @@ Two auth mechanisms:
    - Checks `better-auth.session_token` cookie or `Authorization: Bearer <token>` header
    - Checks Redis cache first (120s TTL, key=`session:<sha256(token)[:32]>`) before DB query
    - Queries `neon_auth.session` + `neon_auth.user` tables directly via raw SQL on cache miss
-   - Returns `SessionData(user_id, email, name)` on success
+   - Returns `SessionData(user_id, email, name)` on success (canonical name; `TokenData` deprecated)
    - Returns HTTP 401 if token invalid/expired, HTTP 503 if DB unavailable
    - `get_current_user_optional` returns `None` if missing/invalid
    - `ensure_user_profile()` syncs new Neon Auth users to our `users` table on first API call
@@ -683,7 +708,7 @@ Two auth mechanisms:
 
 ## Database (Neon PostgreSQL)
 
-28 tables (init_neon.sql + 002-009, 011-017):
+28 tables (init_neon.sql + 002-009, 011-020):
 
 | Table | PK Type | Notes |
 |-------|---------|-------|
@@ -736,6 +761,9 @@ Two auth mechanisms:
 | `015_notifications.sql` | User notification storage and preference tracking |
 | `016_feature_flags.sql` | Feature flag storage and user feature toggles |
 | `017_additional_indexes.sql` | Performance indexes for alerts, notifications, savings queries |
+| `018_connection_supplier_name.sql` | Supplier name column on user_connections (denormalization for rates display) |
+| `019_nationwide_suppliers_seed.sql` | 34+ nationwide suppliers seeded across deregulated states (TX, OH, PA, IL, NY, NJ, MA, MD, MI, CA, FL, GA, VA) |
+| `020_composite_indexes.sql` | 3 composite indexes: prices(region+supplier+created DESC), prices(region+utility_type+created DESC), users(region) |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.
@@ -917,7 +945,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1253 passing, 0 failures (as of 2026-02-26). 51+ test files. Test ordering bug resolved (rate limiter `reset()` method + Pydantic descriptor restoration).
+**Test status:** 1350+ passing, 0 failures (as of 2026-03-02). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics).
 
 
 ## Scripts & Automation

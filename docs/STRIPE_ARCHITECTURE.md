@@ -200,6 +200,24 @@ class User(BaseModel):
 
 ## Environment Configuration
 
+### Billing Redirect Domains (2026-03-02)
+
+Stripe redirect domains (for checkout success/cancel and portal return URLs) are now configurable via the `ALLOWED_REDIRECT_DOMAINS` environment variable. This enables flexible deployment across different environments without code changes.
+
+**Environment Variable:**
+```
+ALLOWED_REDIRECT_DOMAINS=["electricity-optimizer.vercel.app","electricity-optimizer-frontend.onrender.com","localhost"]
+```
+
+Accepts either:
+- JSON array format: `["domain1", "domain2", ...]`
+- Comma-separated format: `domain1,domain2,...`
+
+**Usage in Code:**
+- The `stripe_service.py` validates redirect URLs against this allowlist before creating checkout/portal sessions
+- Prevents Open Redirect vulnerabilities
+- Defaults in `.env.example` cover Vercel and Render deployments plus localhost
+
 ### Development (Test Mode)
 
 ```bash
@@ -207,6 +225,7 @@ STRIPE_SECRET_KEY=sk_test_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 STRIPE_PRICE_PRO=price_test_xxx
 STRIPE_PRICE_BUSINESS=price_test_xxx
+ALLOWED_REDIRECT_DOMAINS=["http://localhost:3000"]
 ```
 
 ### Production (Live Mode)
@@ -216,6 +235,7 @@ STRIPE_SECRET_KEY=sk_live_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 STRIPE_PRICE_PRO=price_live_xxx
 STRIPE_PRICE_BUSINESS=price_live_xxx
+ALLOWED_REDIRECT_DOMAINS=["https://electricity-optimizer-frontend.onrender.com","https://electricity-optimizer.vercel.app"]
 ```
 
 ## API Endpoints
@@ -341,3 +361,12 @@ Metrics to monitor:
 - Churn rate (cancellations)
 - Failed payment rate
 - Webhook processing time
+
+---
+
+**Last Updated**: 2026-03-02
+
+**Key Changes**:
+- Environment variable `ALLOWED_REDIRECT_DOMAINS` now controls billing redirect domains (previously hardcoded)
+- Supports both JSON array and comma-separated formats for flexibility
+- Reduces security risk by allowing environment-specific configuration without code changes

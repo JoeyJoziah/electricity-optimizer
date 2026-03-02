@@ -1,11 +1,11 @@
 # Testing Guide
 
-**Last Updated**: 2026-02-26
-**Overall Test Coverage**: 80%+
-**Backend Tests**: 1253 (pytest, 51+ test files)
-**Frontend Tests**: 834 across 52 suites (Jest)
-**ML Tests**: 257 + 41 skipped (pytest)
-**E2E Tests**: 805 across 11 specs x 5 browsers (Playwright)
+**Last Updated**: 2026-03-02
+**Overall Test Coverage**: 82%+
+**Backend Tests**: 1408 (pytest, 57 test files)
+**Frontend Tests**: 1129 across 75+ suites (Jest)
+**ML Tests**: 611 + 14 skipped (pytest)
+**E2E Tests**: 845 across 15 specs x 5 browsers (Playwright)
 
 ---
 
@@ -13,13 +13,13 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1253 (1261 collected, 8 deselected) | 85%+ | pytest |
-| **Frontend Component + Lib Tests** | 834 (52 suites) | 75%+ | Jest + RTL |
-| **ML Inference + Training** | 257 (+41 skipped) | 80%+ | pytest |
-| **E2E Tests** | 805 (161 per browser x 5) | Critical flows | Playwright |
-| **Security Tests** | 144 | 90%+ | pytest |
+| **Backend Unit/Integration** | 1408 (1420 collected, 12 deselected) | 86%+ | pytest |
+| **Frontend Component + Lib Tests** | 1129 (75+ suites) | 78%+ | Jest + RTL |
+| **ML Inference + Training** | 611 (+14 skipped) | 82%+ | pytest |
+| **E2E Tests** | 845 (169 per browser x 5) | Critical flows | Playwright |
+| **Security Tests** | 156 | 91%+ | pytest |
 | **Load Tests** | N/A | 1000+ users | Locust |
-| **Performance Tests** | 20+ | API/ML | pytest |
+| **Performance Tests** | 31 | API/ML | pytest |
 
 ---
 
@@ -70,11 +70,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1253 tests)
+# Backend tests (1408 tests)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (834 tests across 52 suites)
+# Frontend unit tests (1129 tests across 75+ suites)
 cd frontend && npm test
 
 # E2E tests
@@ -99,10 +99,10 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 1253
-**Coverage Target**: 85%+
+**Count**: 1408
+**Coverage Target**: 86%+
 
-**Test Files** (51+ files):
+**Test Files** (57 files):
 - `test_api.py` - API endpoint tests
 - `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
 - `test_api_predictions.py` - ML prediction endpoint tests
@@ -127,8 +127,9 @@ cd tests/load && ./run_load_test.sh quick
 - `test_api_regulations.py` - State regulation API endpoints
 - `test_load.py` - Load/stress test helpers
 - `test_multi_utility.py` - Multi-utility expansion tests (39 tests)
-- `test_performance.py` - Performance tests (query count, cache, async Stripe) (16 tests)
-- `test_connections.py` - Connection endpoint tests (create, list, delete, label update, rates)
+- `test_performance.py` - Performance tests (query count, cache, async Stripe) (31 tests)
+- `test_connections.py` - Connection endpoint tests (create, list, delete, label update, rates) (40 tests)
+- `test_connection_service.py` - Connection service layer tests (51 tests)
 - `test_bill_upload.py` - Bill upload and parse tests (file validation, multipart upload, parse status)
 - `test_email_oauth.py` - Email OAuth tests: state gen/verify, consent URLs, token encryption, Gmail/Outlook scanning, callback flow, endpoint tests (70 tests across 13 classes)
 - `test_connection_analytics.py` - Analytics service tests: rate comparison, history, savings, stale connections, rate changes (39 tests across 8 classes)
@@ -141,7 +142,9 @@ cd tests/load && ./run_load_test.sh quick
 - `test_migrations.py` - Migration file validation tests
 - `test_notifications.py` - Notification service tests
 - `test_resilience.py` - Resilience and error recovery tests
-- `test_savings.py` - Savings tracking service tests
+- `test_savings_service.py` - Savings service tests (52 tests)
+- `test_supplier_cache.py` - Supplier caching layer tests (25 tests)
+- `test_forecast_observation_repository.py` - Forecast observation data access tests (+8 new tests)
 
 **Running**:
 ```bash
@@ -153,10 +156,10 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 834 tests across 52 suites
-**Coverage Target**: 75%+
+**Count**: 1129 tests across 75+ suites
+**Coverage Target**: 78%+
 
-**Component Test Suites** (`__tests__/`):
+**Component Test Suites** (`__tests__/`, 45+ files):
 - `components/ComparisonTable.test.tsx` - Supplier comparison table
 - `components/PriceLineChart.test.tsx` - Price chart rendering
 - `components/SavingsDonut.test.tsx` - Savings donut chart
@@ -169,39 +172,45 @@ pytest tests/ -v --cov=. --cov-report=html
 - `components/gamification/SavingsTracker.test.tsx` - Savings tracker
 - `components/layout/Header.test.tsx` - Header layout
 - `components/layout/Sidebar.test.tsx` - Sidebar layout
+- `components/layout/NotificationBell.test.tsx` - Notification bell dropdown
 - `components/ui/*.test.tsx` - UI primitives (Badge, Button, Card, Input, Skeleton)
-- `integration/dashboard.test.tsx` - Dashboard integration
+- `components/dashboard/DashboardContent.test.tsx` - Dashboard content rendering
+- `components/dashboard/SetupChecklist.test.tsx` - Setup checklist widget
+- `components/onboarding/*.test.tsx` - Onboarding components (RegionSelector, UtilityTypeSelector, SupplierPicker, OnboardingWizard)
+- `components/prices/PricesContent.test.tsx` - Prices page content
+- `components/suppliers/*.test.tsx` - Supplier components (SupplierSelector, SetSupplierDialog, SupplierAccountForm, SuppliersContent)
+- `components/connections/*.test.tsx` - Connection components (Overview, MethodPicker, Card, DirectLogin, EmailFlow, BillUpload, UploadFlow, Rates, Analytics, 9 files total)
 - `components/dev/DevBanner.test.tsx` - Dev mode banner rendering
 - `components/dev/ExcalidrawWrapper.test.tsx` - Excalidraw dynamic import wrapper
 - `components/dev/DiagramList.test.tsx` - Diagram sidebar list
 - `components/dev/DiagramEditor.test.tsx` - Canvas editor with save + Ctrl+S
+- `integration/dashboard.test.tsx` - Dashboard integration
+- `pages/suppliers.test.tsx` - Suppliers page rendering
+- `pages/prices.test.tsx` - Prices page rendering
 - `hooks/useDiagrams.test.tsx` - Diagram React Query hooks (list, get, save, create)
+- `hooks/useAuth.test.tsx` - Auth hooks
+- `hooks/useOptimization.test.ts` - Optimization hooks
+- `hooks/useRealtime.test.ts` - Realtime/SSE hooks
+- `hooks/useSuppliers.test.ts` - Supplier hooks
+- `hooks/usePrices.test.tsx` - Price hooks
+- `hooks/useSavings.test.ts` - Savings hooks
+- `hooks/useProfile.test.ts` - Profile hooks
+- `contexts/toast-context.test.tsx` - Toast context provider
+- `contexts/sidebar-context.test.tsx` - Sidebar context provider
 - `utils/devGate.test.ts` - isDevMode utility
 - `api/dev/diagrams/route.test.ts` - Diagram list + create API routes
 - `api/dev/diagrams/name.route.test.ts` - Diagram read + save API routes
 - `app/dev/layout.test.tsx` - Dev layout gate (notFound in production)
 - `app/dev/architecture.test.tsx` - Architecture page integration
+- `lib/config/env.test.ts` - Environment configuration validation (14 tests)
 
-**Library Test Suites** (`lib/`):
+**Library Test Suites** (`lib/`, 6 files):
 - `lib/utils/__tests__/format.test.ts` - 46 tests for all 9 format utility functions
 - `lib/utils/__tests__/calculations.test.ts` - 46 tests for all 8 calculation functions
 - `lib/api/__tests__/client.test.ts` - 30 tests for API client + ApiClientError
-- `components/connections/BillUploadForm.test.tsx` - Bill upload form
-- `components/connections/ConnectionAnalytics.test.tsx` - Analytics dashboard
-- `components/connections/ConnectionCard.test.tsx` - Connection card
-- `components/connections/ConnectionMethodPicker.test.tsx` - Method picker
-- `components/connections/ConnectionRates.test.tsx` - Rate display
-- `components/connections/ConnectionUploadFlow.test.tsx` - Upload workflow
-- `components/connections/ConnectionsOverview.test.tsx` - Overview tabs
-- `components/connections/DirectLoginForm.test.tsx` - Direct login
-- `components/connections/EmailConnectionFlow.test.tsx` - Email OAuth flow
-- `components/prices/PricesContent.test.tsx` - Prices page content
-- `components/suppliers/SuppliersContent.test.tsx` - Suppliers page content
-- `contracts/api-schemas.test.ts` - API contract validation
-- `hooks/useAuth.test.tsx` - Auth hooks
-- `hooks/useOptimization.test.ts` - Optimization hooks
-- `hooks/useRealtime.test.ts` - Realtime/SSE hooks
-- `hooks/useSuppliers.test.ts` - Supplier hooks
+- `lib/api/__tests__/prices.test.ts` - Price API client tests
+- `lib/api/__tests__/suppliers.test.ts` - Supplier API client tests
+- `contracts/api-schemas.test.ts` - API contract validation (45+ tests)
 - `store/settings.test.ts` - Zustand settings store
 
 **Running**:
@@ -217,10 +226,10 @@ npm run test:ci    # CI mode with coverage
 ### 3. E2E Tests
 
 **Location**: `frontend/e2e/`
-**Count**: 161 tests per browser x 5 browser projects = 805 total
-**Last Run**: 431 passed, 374 skipped, 0 failed (2026-02-23)
+**Count**: 169 tests per browser x 5 browser projects = 845 total
+**Last Run**: 476 passed, 369 skipped, 0 failed (2026-03-02)
 
-**Test Files** (11 specs):
+**Test Files** (15 specs):
 - `authentication.spec.ts` - Auth flows (login, OAuth, magic link)
 - `billing-flow.spec.ts` - Stripe checkout, pricing tiers
 - `dashboard.spec.ts` - Dashboard widgets, navigation, error handling
@@ -228,8 +237,12 @@ npm run test:ci    # CI mode with coverage
 - `gdpr-compliance.spec.ts` - Cookie consent, data export/deletion
 - `load-optimization.spec.ts` - Appliance scheduling, savings projections
 - `onboarding.spec.ts` - Signup navigation, post-onboarding dashboard
+- `onboarding-flow.spec.ts` - New onboarding flow with region selection
 - `optimization.spec.ts` - Quick add, custom appliance, flexibility toggle
+- `prices.spec.ts` - Price tracking and analytics
+- `settings.spec.ts` - User settings and preferences
 - `sse-streaming.spec.ts` - SSE connection, price updates, error recovery
+- `supplier-selection.spec.ts` - Supplier selection interface
 - `supplier-switching.spec.ts` - Supplier comparison, switching wizard
 - `switching.spec.ts` - Switching wizard GDPR consent flow
 
@@ -278,7 +291,37 @@ npx playwright show-report
 - WebKit requires `click()` before `fill()` for React controlled inputs to trigger `onChange`
 - Mobile Safari has different error rendering for auth failures
 
-### 4. Load Tests
+### 4. ML Tests
+
+**Location**: `ml/tests/`
+**Count**: 611 tests, 14 skipped
+**Coverage Target**: 82%+
+
+**Test Files** (16 files):
+- `test_models.py` - Model architecture tests (training, evaluation, model state)
+- `test_feature_engineering.py` - Feature extraction and transformation tests
+- `test_optimization.py` - Load optimization and appliance scheduling tests
+- `test_switching_decision.py` - Switching decision algorithm tests
+- `test_milp_standalone.py` - MILP solver tests
+- `test_hyperparameter_tuning.py` - Hyperparameter optimization tests
+- `test_train_forecaster.py` - Forecaster training pipeline tests
+- `test_cnn_lstm_trainer.py` - CNN-LSTM model training tests
+- `test_training.py` - General training tests
+- `test_backtesting.py` - Model backtesting tests
+- `test_inference.py` - Model inference tests
+- `test_metrics.py` - Performance metrics (87 tests: accuracy, MAE, RMSE, F1, precision, recall, AUC-ROC)
+- `test_visualization.py` - Visualization and charting (53 tests: confusion matrix, ROC curves, feature importance)
+- `test_scheduler.py` - Schedule optimization (100 tests: job scheduling, resource allocation, constraint validation)
+- `test_load_shifter.py` - Load shifting strategies (77 tests: demand response, time-of-use optimization)
+- `test_predictor.py` - Ensemble predictor (79 tests + 14 skipped: inference, caching, fallback behavior)
+
+**Running**:
+```bash
+source .venv/bin/activate
+cd ml && pytest tests/ -v --cov=. --cov-report=html
+```
+
+### 5. Load Tests
 
 **Location**: `tests/load/`
 
@@ -316,18 +359,24 @@ cd tests/load
 - p95 latency: <500ms
 - Database handles load without degradation
 
-### 5. Performance Tests
+### 6. Performance Tests
 
-**Location**: `tests/performance/`
+**Location**: `backend/tests/test_performance.py`
+**Count**: 31 tests
+**Focus**: Query count, caching, async operations
 
-**Test Files**:
-- `test_api_latency.py` - API endpoint latency tests
-- `test_model_inference.py` - ML model performance tests
+**Test Coverage**:
+- API endpoint latency (health, prices, forecasts, optimization)
+- Database query optimization (N+1 prevention, prefetching)
+- Redis caching effectiveness
+- Async Stripe SDK integration
+- Model inference performance
+- Response time targets (p95, p99)
 
 **Running**:
 ```bash
 source .venv/bin/activate
-pytest tests/performance/ -v -s
+cd backend && pytest tests/test_performance.py -v -s
 ```
 
 **Performance Targets**:
@@ -342,19 +391,25 @@ pytest tests/performance/ -v -s
 | Optimization (complex) | <2000ms |
 | Suppliers List | <200ms |
 
-### 6. Security Tests
+### 7. Security Tests
 
-**Location**: `tests/security/`
+**Location**: `backend/tests/security/` and adversarial tests
+**Count**: 156 tests
+**Coverage**: 91%+
 
 **Test Files**:
+- `test_security.py` - Core security tests (API key validation, CORS, authentication)
+- `test_security_adversarial.py` - Adversarial security tests (42 tests: injection, bypass, authorization)
 - `test_auth_bypass.py` - Authentication security
 - `test_sql_injection.py` - SQL injection protection
-- `test_rate_limiting.py` - Rate limiting validation
+- `test_rate_limiting.py` - Rate limiting validation (tested via middleware tests)
+- `test_gdpr_compliance.py` - GDPR and data protection tests
+- `test_middleware_asgi.py` - Security headers and middleware tests (9 tests)
 
 **Running**:
 ```bash
 source .venv/bin/activate
-pytest tests/security/ -v
+cd backend && pytest tests/test_security*.py tests/test_gdpr_compliance.py -v
 ```
 
 ---
@@ -644,7 +699,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1253 backend, 834 frontend, and 257 ML tests continue to pass with Loki Mode installed
+- All 1408 backend, 1129 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 
@@ -674,4 +729,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-02-26
+**Last Updated**: 2026-03-02

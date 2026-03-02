@@ -172,6 +172,25 @@ The Notion roadmap database has 13 properties, provisioned by `scripts/notion_se
 
 **API Version:** All scripts use Notion API version `2022-06-28`. Version `2025-09-03` omits `properties` from database responses and must not be used.
 
+### Supplier Registry Caching
+
+**Repository:** `backend/repositories/supplier_repository.py`
+
+The supplier registry (both `SupplierRepository` and `SupplierRegistryRepository`) uses Redis caching with a 1-hour TTL to optimize semi-static supplier data lookups.
+
+| Property | Value |
+|----------|-------|
+| Cache TTL | 3600 seconds (1 hour) |
+| Key Pattern | `supplier:<method>:<args...>` |
+| Fallback | Automatic database fallback if Redis is unavailable |
+| Invalidation | Explicit via `clear_cache()` / `clear_registry_cache()` on write operations |
+| Serialization | JSON (handles datetime via `default=str` fallback) |
+
+**Cache-backed Methods:**
+- `get_by_name()` — single supplier lookup
+- `list_by_region()` — regional supplier listings
+- All other write paths call `clear_cache()` to maintain consistency
+
 ### Monitoring Services
 
 | Service | Image | Port | Purpose |
@@ -221,10 +240,19 @@ In production, the database is Neon PostgreSQL (serverless, accessed via connect
 | Branch | `main` (br-broad-queen-aemirrrs) |
 | Compute Endpoint | `ep-withered-morning-aix83cfw` (us-east-1) |
 | Tables | 17 (see CODEMAP_BACKEND.md for full list) |
+| Migrations | Up to migration 020 (as of 2026-03-02) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
 **CRITICAL:** The Neon project has multiple compute endpoints. The app's `DATABASE_URL` uses `ep-withered-morning-aix83cfw` (us-east-1). The Neon MCP tool may connect to a different endpoint (`ep-lingering-forest-aebmj5t0`, us-east-2). Always verify which endpoint you're targeting when running migrations. Use the app's `DATABASE_URL` directly for production migrations.
+
+**Migration 020 (2026-03-02): Price Query Indexes**
+- Creates 3 composite indexes on `electricity_prices` table:
+  - `idx_prices_region_supplier_created` — supports supplier comparison queries with `created_at DESC` ordering
+  - `idx_prices_region_utilitytype_created` — supports multi-utility history queries with `created_at DESC` ordering
+  - `idx_users_region` — supports region-based user lookups
+- All indexes created with `CONCURRENTLY IF NOT EXISTS` for safe re-running on live databases
+- No table locks; safe for production use
 
 ### Render Deployment
 
@@ -238,23 +266,32 @@ In production, the database is Neon PostgreSQL (serverless, accessed via connect
 | Health Check | `curl -f http://localhost:${PORT:-8000}/health` |
 | Auto-deploy | On push to `main` |
 | Deploy Hook | Stored in 1Password |
+| App Factory | Uses `backend/app_factory.py` via `backend/main.py` |
 
 **Dockerfile Notes:**
 - Builder stage requires both `gcc` and `g++` for hnswlib C++ compilation
 - Runtime stage only needs `curl` (for health checks)
 - HNSW vector store uses ephemeral filesystem on Render; repopulated by nightly learning
 
+**Application Factory Pattern:**
+- `backend/main.py` delegates all construction to `app_factory.create_app()`
+- Returns tuple: `(FastAPI app instance, rate limiter middleware instance)`
+- Enables proper test isolation and environment-specific configuration
+- Maintains backward compatibility: existing imports of `from main import app` continue to work
+
 **Required Environment Variables (Render):**
 
 | Variable | Source | Notes |
 |----------|--------|-------|
 | `DATABASE_URL` | Neon | Must use `ep-withered-morning-aix83cfw` endpoint |
-| `REDIS_URL` | Redis provider | |
+| `REDIS_URL` | Redis provider | Upstash Redis for caching, rate limiting, ensemble weights |
 | `BETTER_AUTH_SECRET` | Generated | `openssl rand -hex 32` |
 | `BETTER_AUTH_URL` | App URL | Base URL for Better Auth |
 | `JWT_SECRET` | Generated | 32+ chars (internal API key validation only) |
 | `ENVIRONMENT` | `production` | |
 | `INTERNAL_API_KEY` | Generated | `openssl rand -hex 32` |
+| `ALLOWED_REDIRECT_DOMAINS` | Config | JSON array or comma-separated (Stripe redirect domains) |
+| `FIELD_ENCRYPTION_KEY` | Generated | 64 hex chars / 32 bytes (AES-256-GCM, required in production) |
 
 **Render CLI:**
 ```bash
@@ -639,4 +676,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-02-26
+**Last Updated**: 2026-03-02

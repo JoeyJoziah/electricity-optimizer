@@ -41,7 +41,7 @@ BETTER_AUTH_URL=           # Base URL for Better Auth (e.g., https://your-app.co
 Obtain API keys from the following providers:
 - Flatpeak API (UK/EU electricity prices)
 - NREL API (US utility rates)
-- IEA/EIA API (US energy data — gas, oil, propane)
+- EIA API (US energy data — gas, oil, propane)
 
 ```
 # Email Service (SendGrid primary, SMTP fallback)
@@ -56,9 +56,26 @@ EMAIL_FROM_ADDRESS=noreply@electricity-optimizer.app
 MODEL_PATH=                # Path to trained model directory (optional)
 ```
 
+### New Environment Variables (2026-03-02)
+
+```
+# Allowed redirect domains for Stripe checkout/portal
+# Accepts JSON array or comma-separated values
+ALLOWED_REDIRECT_DOMAINS=["electricity-optimizer.vercel.app","electricity-optimizer-frontend.onrender.com","localhost"]
+
+# Field-level encryption key for user account/meter numbers (AES-256-GCM)
+# REQUIRED in production. Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+# Must be exactly 64 hex characters (32 bytes)
+FIELD_ENCRYPTION_KEY=your-64-hex-char-key-here
+```
+
 ---
 
 ## Local Development
+
+### Application Architecture
+
+The FastAPI backend uses an app factory pattern (`backend/app_factory.py`) to construct the application. The entry point `backend/main.py` imports and launches the app via `app, _app_rate_limiter = create_app()`. This pattern enables proper testing and configuration isolation while maintaining backward compatibility with existing import paths.
 
 ### Quick Start
 
@@ -368,7 +385,7 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 ---
 
-**Last Updated**: 2026-02-25
+**Last Updated**: 2026-03-02
 
 ## Production Services (Live)
 
