@@ -96,6 +96,8 @@ models/saved/
 .claude/.board-sync-queue
 .claude/logs/
 .claude/state/
+.claude/hooks/memory/
+.claude/scripts/
 
 # Temporary files
 tmp/
