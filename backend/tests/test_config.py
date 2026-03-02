@@ -118,7 +118,8 @@ class TestSettings:
             "JWT_SECRET": "test-secret-key-that-is-at-least-32-chars-long-for-production",
             "FLATPEAK_API_KEY": "test-flatpeak",
             "NREL_API_KEY": "test-nrel",
-            "ENVIRONMENT": "production"
+            "ENVIRONMENT": "production",
+            "FIELD_ENCRYPTION_KEY": "a" * 64,
         }):
             settings = Settings()
 

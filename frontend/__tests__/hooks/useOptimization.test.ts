@@ -53,11 +53,11 @@ function createWrapper() {
 const mockAppliance = {
   id: 'app-1',
   name: 'Washing Machine',
-  wattage: 500,
-  averageUsageHours: 1.5,
-  flexibleSchedule: true,
-  preferredStartTime: '22:00',
-  preferredEndTime: '06:00',
+  powerKw: 0.5,
+  typicalDurationHours: 1.5,
+  isFlexible: true,
+  preferredTimeRange: { start: 22, end: 6 },
+  priority: 'medium' as const,
 }
 
 const mockScheduleResponse = {

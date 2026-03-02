@@ -23,6 +23,7 @@ jest.mock('@/lib/store/settings', () => ({
 }))
 
 import { useProfile, useUpdateProfile } from '@/lib/hooks/useProfile'
+import type { UserProfile } from '@/lib/api/profile'
 
 // --- Helpers ---
 
@@ -220,7 +221,7 @@ describe('useUpdateProfile', () => {
 
     const { result } = renderHook(() => useUpdateProfile(), { wrapper })
 
-    let response: typeof mockProfile | undefined
+    let response: UserProfile | undefined
     await act(async () => {
       response = await result.current.mutateAsync({ name: 'Updated Name' })
     })

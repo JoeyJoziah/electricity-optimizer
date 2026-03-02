@@ -49,7 +49,7 @@ describe('getCurrentPrices', () => {
     }
     mockFetch.mockResolvedValue(mockJsonResponse(responseData))
 
-    await getCurrentPrices()
+    await getCurrentPrices('us_ct')
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const calledUrl = mockFetch.mock.calls[0][0] as string
@@ -144,10 +144,10 @@ describe('error handling', () => {
       mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized')
     )
 
-    await expect(getCurrentPrices()).rejects.toThrow(ApiClientError)
+    await expect(getCurrentPrices('us_ct')).rejects.toThrow(ApiClientError)
 
     try {
-      await getCurrentPrices()
+      await getCurrentPrices('us_ct')
     } catch (error) {
       const apiError = error as ApiClientError
       expect(apiError.status).toBe(401)
@@ -166,10 +166,10 @@ describe('error handling', () => {
     )
 
     // With retry, the client will try MAX_RETRIES+1 times for 500 errors
-    await expect(getCurrentPrices()).rejects.toThrow(ApiClientError)
+    await expect(getCurrentPrices('us_ct')).rejects.toThrow(ApiClientError)
 
     try {
-      await getCurrentPrices()
+      await getCurrentPrices('us_ct')
     } catch (error) {
       const apiError = error as ApiClientError
       expect(apiError.status).toBe(500)
@@ -182,6 +182,6 @@ describe('error handling', () => {
 
     // The client retries on TypeError (network errors), so it will
     // eventually throw after exhausting retries
-    await expect(getCurrentPrices()).rejects.toThrow(TypeError)
+    await expect(getCurrentPrices('us_ct')).rejects.toThrow(TypeError)
   })
 })

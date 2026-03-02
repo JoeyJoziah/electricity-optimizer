@@ -50,7 +50,7 @@ describe('getSuppliers', () => {
     }
     mockFetch.mockResolvedValue(mockJsonResponse(responseData))
 
-    const result = await getSuppliers()
+    const result = await getSuppliers('us_ct')
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const calledUrl = mockFetch.mock.calls[0][0] as string
@@ -138,10 +138,10 @@ describe('error handling', () => {
       mockJsonResponse({ detail: 'Not authenticated' }, 401, 'Unauthorized')
     )
 
-    await expect(getSuppliers()).rejects.toThrow(ApiClientError)
+    await expect(getSuppliers('us_ct')).rejects.toThrow(ApiClientError)
 
     try {
-      await getSuppliers()
+      await getSuppliers('us_ct')
     } catch (error) {
       const apiError = error as ApiClientError
       expect(apiError.status).toBe(401)
@@ -156,7 +156,7 @@ describe('error handling', () => {
   it('handles empty response', async () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }))
 
-    const result = await getSuppliers()
+    const result = await getSuppliers('us_ct')
 
     expect(result).toEqual({ suppliers: [] })
     expect(result.suppliers).toHaveLength(0)
@@ -166,13 +166,13 @@ describe('error handling', () => {
     mockFetch.mockRejectedValue(new TypeError('Failed to fetch'))
 
     // The client retries on network errors (TypeError), eventually throws
-    await expect(getSuppliers()).rejects.toThrow(TypeError)
+    await expect(getSuppliers('us_ct')).rejects.toThrow(TypeError)
   })
 
   it('request includes credentials for auth', async () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }))
 
-    await getSuppliers()
+    await getSuppliers('us_ct')
 
     const calledOptions = mockFetch.mock.calls[0][1] as RequestInit
     expect(calledOptions.credentials).toBe('include')

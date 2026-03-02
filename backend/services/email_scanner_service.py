@@ -13,6 +13,8 @@ import httpx
 
 from utils.encryption import decrypt_field
 
+_OAUTH_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+
 
 # Keywords that indicate a utility bill email
 UTILITY_KEYWORDS = [
@@ -94,7 +96,7 @@ async def scan_gmail_inbox(
     keyword_query = " OR ".join(f'"{kw}"' for kw in UTILITY_KEYWORDS[:6])
     query = f"({keyword_query}) after:{after_date}"
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
         # List matching messages
         list_resp = await client.get(
             "https://gmail.googleapis.com/gmail/v1/users/me/messages",
@@ -163,7 +165,7 @@ async def scan_outlook_inbox(
     # Build $search query for Graph API
     search_terms = " OR ".join(f'"{kw}"' for kw in UTILITY_KEYWORDS[:6])
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
         resp = await client.get(
             "https://graph.microsoft.com/v1.0/me/messages",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -215,7 +217,7 @@ async def extract_rates_from_email(
     """
     extracted = {}
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
         if provider == "gmail":
             resp = await client.get(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{email_id}",
