@@ -4,8 +4,20 @@ Supplier Repository
 Data access layer for supplier and tariff data.
 Includes the SupplierRegistryRepository (backed by supplier_registry table)
 and StateRegulationRepository (backed by state_regulations table).
+
+Caching strategy
+----------------
+Both SupplierRepository and SupplierRegistryRepository accept an optional
+Redis client.  When Redis is unavailable (client is None) the repositories
+fall through to the database transparently.
+
+TTL: 3600 s (1 hour) for all supplier queries — supplier data is semi-static.
+Keys follow the pattern:  supplier:<method>:<args...>
+
+Cache invalidation is explicit via clear_cache() / clear_registry_cache().
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 
@@ -15,12 +27,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.supplier import Supplier, Tariff
 
+# 1-hour TTL for all supplier / supplier-registry caches.
+_SUPPLIER_CACHE_TTL = 3600
+
 
 class SupplierRepository(BaseRepository[Supplier]):
     """
     Repository for managing supplier data.
 
     Provides data access methods for suppliers and their tariffs.
+    Wraps get_by_name() and list_by_region() with a Redis TTL cache
+    (1 hour).  All other write paths call clear_cache() to keep the
+    cache consistent.
     """
 
     def __init__(self, db_session: AsyncSession, cache: Any = None):
@@ -29,10 +47,60 @@ class SupplierRepository(BaseRepository[Supplier]):
 
         Args:
             db_session: SQLAlchemy async session
-            cache: Redis cache client (optional)
+            cache: Redis cache client (optional).  Must expose async
+                   get(key), set(key, value, ex=ttl) and delete(*keys).
         """
         self._db = db_session
         self._cache = cache
+
+    # ------------------------------------------------------------------
+    # Internal cache helpers
+    # ------------------------------------------------------------------
+
+    async def _cache_get(self, key: str) -> Optional[Any]:
+        """Return deserialized value from Redis, or None on miss/error."""
+        if not self._cache:
+            return None
+        try:
+            raw = await self._cache.get(key)
+            return json.loads(raw) if raw else None
+        except Exception:
+            return None
+
+    async def _cache_set(self, key: str, value: Any) -> None:
+        """Serialize and store value in Redis with the supplier TTL."""
+        if not self._cache:
+            return
+        try:
+            await self._cache.set(key, json.dumps(value, default=str), ex=_SUPPLIER_CACHE_TTL)
+        except Exception:
+            pass
+
+    async def _cache_delete(self, *keys: str) -> None:
+        """Delete one or more keys from Redis (best-effort)."""
+        if not self._cache or not keys:
+            return
+        try:
+            await self._cache.delete(*keys)
+        except Exception:
+            pass
+
+    async def clear_cache(self) -> None:
+        """
+        Remove all known supplier cache keys.
+
+        Call this after any write operation (create / update / delete)
+        so subsequent reads reflect the latest database state.
+        """
+        if not self._cache:
+            return
+        try:
+            # Scan for all keys matching the supplier namespace.
+            # Uses SCAN so it is non-blocking on large key spaces.
+            async for key in self._cache.scan_iter(match="supplier:*"):
+                await self._cache.delete(key)
+        except Exception:
+            pass
 
     async def get_by_id(self, id: str) -> Optional[Supplier]:
         """
@@ -57,17 +125,36 @@ class SupplierRepository(BaseRepository[Supplier]):
         """
         Get a supplier by name.
 
+        Results are cached in Redis for 1 hour (key: supplier:name:<name>).
+
         Args:
             name: Supplier name
 
         Returns:
             Supplier if found, None otherwise
         """
+        cache_key = f"supplier:name:{name}"
+        cached = await self._cache_get(cache_key)
+        if cached is not None:
+            # Reconstruct the ORM object from the cached dict.
+            # Use a lightweight MagicMock-free approach: build a Supplier
+            # from the stored dict and skip any DB round-trip.
+            try:
+                return Supplier(**cached)
+            except Exception:
+                # If reconstruction fails (schema drift, etc.) fall through.
+                pass
+
         try:
             result = await self._db.execute(
                 select(Supplier).where(Supplier.name == name)
             )
-            return result.scalar_one_or_none()
+            supplier = result.scalar_one_or_none()
+
+            if supplier is not None:
+                await self._cache_set(cache_key, supplier.__dict__.copy())
+
+            return supplier
 
         except Exception as e:
             raise RepositoryError(f"Failed to get supplier by name: {str(e)}", e)
@@ -75,6 +162,9 @@ class SupplierRepository(BaseRepository[Supplier]):
     async def create(self, entity: Supplier) -> Supplier:
         """
         Create a new supplier.
+
+        Clears the supplier cache after a successful write so region-list
+        queries reflect the new record immediately.
 
         Args:
             entity: Supplier data to create
@@ -89,6 +179,7 @@ class SupplierRepository(BaseRepository[Supplier]):
             self._db.add(entity)
             await self._db.commit()
             await self._db.refresh(entity)
+            await self.clear_cache()
             return entity
 
         except Exception as e:
@@ -98,6 +189,8 @@ class SupplierRepository(BaseRepository[Supplier]):
     async def update(self, id: str, entity: Supplier) -> Optional[Supplier]:
         """
         Update an existing supplier.
+
+        Clears the supplier cache after a successful write.
 
         Args:
             id: Supplier ID
@@ -119,6 +212,7 @@ class SupplierRepository(BaseRepository[Supplier]):
 
             await self._db.commit()
             await self._db.refresh(existing)
+            await self.clear_cache()
             return existing
 
         except Exception as e:
@@ -128,6 +222,8 @@ class SupplierRepository(BaseRepository[Supplier]):
     async def delete(self, id: str) -> bool:
         """
         Delete a supplier.
+
+        Clears the supplier cache after a successful deletion.
 
         Args:
             id: Supplier ID
@@ -142,6 +238,7 @@ class SupplierRepository(BaseRepository[Supplier]):
 
             await self._db.delete(existing)
             await self._db.commit()
+            await self.clear_cache()
             return True
 
         except Exception as e:
@@ -217,6 +314,9 @@ class SupplierRepository(BaseRepository[Supplier]):
         """
         Get all suppliers available in a region.
 
+        Results are cached in Redis for 1 hour.
+        Key: supplier:region:<region>:active_only:<0|1>
+
         Args:
             region: Region code
             active_only: Whether to include only active suppliers
@@ -224,6 +324,14 @@ class SupplierRepository(BaseRepository[Supplier]):
         Returns:
             List of suppliers in the region
         """
+        cache_key = f"supplier:region:{region.lower()}:active_only:{int(active_only)}"
+        cached = await self._cache_get(cache_key)
+        if cached is not None:
+            try:
+                return [Supplier(**row) for row in cached]
+            except Exception:
+                pass
+
         try:
             # PostgreSQL array contains
             from sqlalchemy import any_
@@ -235,7 +343,11 @@ class SupplierRepository(BaseRepository[Supplier]):
 
             query = select(Supplier).where(and_(*conditions)).order_by(Supplier.name)
             result = await self._db.execute(query)
-            return list(result.scalars().all())
+            suppliers = list(result.scalars().all())
+
+            await self._cache_set(cache_key, [s.__dict__.copy() for s in suppliers])
+
+            return suppliers
 
         except Exception as e:
             raise RepositoryError(f"Failed to list suppliers by region: {str(e)}", e)
@@ -344,10 +456,67 @@ class SupplierRegistryRepository:
     This is the new source of truth for supplier data, replacing
     the hardcoded MOCK_SUPPLIERS list in api/v1/suppliers.py.
     Uses raw SQL since the table has no ORM model yet.
+
+    Caching
+    -------
+    list_suppliers() and get_by_id() are cached in Redis for 1 hour
+    (key prefix: ``supplier_registry:``).  Pass a Redis client as the
+    second constructor argument; omit it (or pass None) to disable
+    caching and always hit the database.
+
+    Call clear_registry_cache() after any mutation to the
+    supplier_registry table.
     """
 
-    def __init__(self, db_session: AsyncSession):
+    def __init__(self, db_session: AsyncSession, cache: Any = None):
+        """
+        Args:
+            db_session: SQLAlchemy async session.
+            cache: Optional async Redis client (aioredis.Redis or
+                   any object with async get/set/delete/scan_iter).
+        """
         self._db = db_session
+        self._cache = cache
+
+    # ------------------------------------------------------------------
+    # Internal cache helpers
+    # ------------------------------------------------------------------
+
+    async def _cache_get(self, key: str) -> Optional[Any]:
+        if not self._cache:
+            return None
+        try:
+            raw = await self._cache.get(key)
+            return json.loads(raw) if raw else None
+        except Exception:
+            return None
+
+    async def _cache_set(self, key: str, value: Any) -> None:
+        if not self._cache:
+            return
+        try:
+            await self._cache.set(
+                key,
+                json.dumps(value, default=str),
+                ex=_SUPPLIER_CACHE_TTL,
+            )
+        except Exception:
+            pass
+
+    async def clear_registry_cache(self) -> None:
+        """
+        Remove all supplier_registry cache entries.
+
+        Call this after writing to the supplier_registry table so
+        subsequent reads pick up the latest data.
+        """
+        if not self._cache:
+            return
+        try:
+            async for key in self._cache.scan_iter(match="supplier_registry:*"):
+                await self._cache.delete(key)
+        except Exception:
+            pass
 
     async def list_suppliers(
         self,
@@ -361,9 +530,27 @@ class SupplierRegistryRepository:
         """
         List suppliers with optional filtering.
 
+        Results are cached in Redis for 1 hour.  The cache key encodes
+        all filter and pagination parameters so different query shapes
+        get independent cache entries.
+
         Returns:
             Tuple of (list of supplier dicts, total count)
         """
+        # Build a deterministic, safe cache key from query parameters.
+        cache_key = (
+            f"supplier_registry:list"
+            f":region={region or ''}"
+            f":ut={utility_type or ''}"
+            f":green={int(green_only)}"
+            f":active={int(active_only)}"
+            f":p={page}"
+            f":ps={page_size}"
+        )
+        cached = await self._cache_get(cache_key)
+        if cached is not None:
+            return cached["suppliers"], cached["total"]
+
         try:
             # Build WHERE clause from fixed literal fragments only (no f-string
             # interpolation of variables) to prevent SQL injection (CWE-89).
@@ -422,13 +609,25 @@ class SupplierRegistryRepository:
                 for row in rows
             ]
 
+            await self._cache_set(cache_key, {"suppliers": suppliers, "total": total})
+
             return suppliers, total
 
         except Exception as e:
             raise RepositoryError(f"Failed to list suppliers: {str(e)}", e)
 
     async def get_by_id(self, supplier_id: str) -> Optional[dict]:
-        """Get a single supplier by its UUID."""
+        """
+        Get a single supplier by its UUID.
+
+        Result is cached in Redis for 1 hour
+        (key: supplier_registry:id:<supplier_id>).
+        """
+        cache_key = f"supplier_registry:id:{supplier_id}"
+        cached = await self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         try:
             result = await self._db.execute(
                 text("""
@@ -443,7 +642,7 @@ class SupplierRegistryRepository:
             if not row:
                 return None
 
-            return {
+            supplier = {
                 "id": str(row["id"]),
                 "name": row["name"],
                 "utility_types": list(row["utility_types"]),
@@ -459,6 +658,10 @@ class SupplierRegistryRepository:
                 "metadata": row["metadata"] or {},
                 "tariff_types": ["fixed", "variable"],
             }
+
+            await self._cache_set(cache_key, supplier)
+
+            return supplier
 
         except Exception as e:
             raise RepositoryError(f"Failed to get supplier: {str(e)}", e)

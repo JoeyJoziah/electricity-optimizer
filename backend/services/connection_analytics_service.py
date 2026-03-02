@@ -27,24 +27,34 @@ class ConnectionAnalyticsService:
 
         Returns the user's latest rate, market average for their region,
         delta, and percentage difference.
+
+        Query strategy: 2 DB round-trips instead of the prior 3.
+          1. CTE fetches the user's latest extracted rate AND their region
+             in a single query (JOIN across connection_extracted_rates,
+             user_connections, and users).
+          2. Market aggregate query uses the region returned from step 1.
         """
-        # Get user's latest extracted rate
+        # --- Query 1: user's latest rate + region (single round-trip via CTE) ---
         # NOTE: connection_extracted_rates has effective_date (not extracted_at)
-        # and supplier_name lives on user_connections (not on extracted_rates)
-        query = """
-            SELECT cer.rate_per_kwh, uc.supplier_name, cer.effective_date,
-                   uc.id as connection_id, uc.connection_type
-            FROM connection_extracted_rates cer
-            JOIN user_connections uc ON cer.connection_id = uc.id
-            WHERE uc.user_id = :uid
-        """
+        # and supplier_name lives on user_connections (not on extracted_rates).
+        cid_filter = "AND uc.id = :cid" if connection_id else ""
         params: Dict[str, Any] = {"uid": user_id}
         if connection_id:
-            query += " AND uc.id = :cid"
             params["cid"] = connection_id
-        query += " ORDER BY cer.effective_date DESC LIMIT 1"
 
-        result = await self.db.execute(text(query), params)
+        rate_region_query = f"""
+            SELECT cer.rate_per_kwh, uc.supplier_name, cer.effective_date,
+                   uc.id AS connection_id, uc.connection_type,
+                   COALESCE(u.region, 'US_CT') AS user_region
+            FROM connection_extracted_rates cer
+            JOIN user_connections uc ON cer.connection_id = uc.id
+            JOIN public.users u ON uc.user_id = u.id
+            WHERE uc.user_id = :uid
+              {cid_filter}
+            ORDER BY cer.effective_date DESC
+            LIMIT 1
+        """
+        result = await self.db.execute(text(rate_region_query), params)
         user_rate_row = result.mappings().first()
 
         if not user_rate_row:
@@ -55,22 +65,15 @@ class ConnectionAnalyticsService:
 
         user_rate = float(user_rate_row["rate_per_kwh"])
         supplier = user_rate_row["supplier_name"]
+        user_region = user_rate_row["user_region"]
 
-        # Get user's region
-        region_result = await self.db.execute(
-            text("SELECT region FROM public.users WHERE id = :uid"),
-            {"uid": user_id},
-        )
-        region_row = region_result.fetchone()
-        user_region = region_row[0] if region_row else "US_CT"
-
-        # Get market average for region (last 30 days)
+        # --- Query 2: market aggregate for the user's region (last 30 days) ---
         market_result = await self.db.execute(
             text("""
-                SELECT AVG(price_per_kwh) as avg_price,
-                       MIN(price_per_kwh) as min_price,
-                       MAX(price_per_kwh) as max_price,
-                       COUNT(*) as sample_count
+                SELECT AVG(price_per_kwh) AS avg_price,
+                       MIN(price_per_kwh) AS min_price,
+                       MAX(price_per_kwh) AS max_price,
+                       COUNT(*) AS sample_count
                 FROM electricity_prices
                 WHERE region = :region
                   AND timestamp >= NOW() - INTERVAL '30 days'

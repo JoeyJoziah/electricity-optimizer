@@ -193,17 +193,28 @@ async def get_price_history(
     supplier: Optional[str] = Query(None, description="Filter by supplier name"),
     start_date: Optional[datetime] = Query(None, description="Filter by start date (ISO 8601, inclusive)"),
     end_date: Optional[datetime] = Query(None, description="Filter by end date (ISO 8601, inclusive)"),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(24, ge=1, le=100, description="Records per page (1–100, default 24 = one day of hourly data)"),
     price_service: PriceService = Depends(get_price_service),
 ):
     """
     Get historical electricity prices for a region.
 
-    Returns price data for the specified time period, optionally
-    filtered by supplier and/or explicit date range.
+    Returns a paginated page of price data for the specified time period,
+    optionally filtered by supplier and/or explicit date range.
+
+    Pagination defaults to page=1, page_size=24 (one day of hourly data).
+    The response includes `total`, `page`, `page_size`, and `pages` so
+    callers can navigate the full dataset without fetching all records at once.
 
     When start_date/end_date are supplied they take priority over `days`.
     Both datetimes are interpreted as UTC if no timezone offset is provided.
     """
+    # Clamp page_size server-side as a defence-in-depth measure even though
+    # FastAPI's ge/le constraints enforce it at the query-param layer.
+    page = max(1, page)
+    page_size = max(1, min(100, page_size))
+
     # Resolve the effective date window
     if start_date is not None or end_date is not None:
         # Explicit date range — ensure UTC and validate ordering
@@ -222,14 +233,17 @@ async def get_price_history(
         resolved_start = resolved_end - timedelta(days=days)
 
     try:
-        prices = await price_service.get_historical_prices(
+        prices, total = await price_service.get_historical_prices_paginated(
             region=region,
             start_date=resolved_start,
             end_date=resolved_end,
+            page=page,
+            page_size=page_size,
             supplier=supplier,
         )
+        pages = max(1, (total + page_size - 1) // page_size)
 
-        # Compute summary statistics from the returned rows
+        # Compute summary statistics from the returned page rows
         if prices:
             avg = sum(p.price_per_kwh for p in prices) / len(prices)
             avg_price = Decimal(str(round(avg, 4)))
@@ -252,6 +266,10 @@ async def get_price_history(
             min_price=min_price,
             max_price=max_price,
             source="live",
+            total=total,
+            page=page,
+            page_size=page_size,
+            pages=pages,
         )
     except HTTPException:
         raise
@@ -262,25 +280,35 @@ async def get_price_history(
                 status_code=503,
                 detail="Price service temporarily unavailable",
             )
-        mock = _generate_mock_prices(region.value, days * 24)
-        # Apply supplier filter to mock data when requested
+        # Build the full mock dataset for the window, then slice it to the
+        # requested page so that fallback behaviour mirrors live pagination.
+        mock_all = _generate_mock_prices(region.value, days * 24)
         if supplier:
-            mock = [p for p in mock if p.supplier == supplier]
-        # Apply date filter to mock data when requested
-        mock = [p for p in mock if resolved_start <= p.timestamp <= resolved_end]
-        if not mock:
-            mock = _generate_mock_prices(region.value, days * 24)
-        avg = sum(float(p.price_per_kwh) for p in mock) / len(mock)
+            mock_all = [p for p in mock_all if p.supplier == supplier]
+        mock_all = [p for p in mock_all if resolved_start <= p.timestamp <= resolved_end]
+        if not mock_all:
+            mock_all = _generate_mock_prices(region.value, days * 24)
+
+        total_mock = len(mock_all)
+        pages_mock = max(1, (total_mock + page_size - 1) // page_size)
+        offset = (page - 1) * page_size
+        mock_page = mock_all[offset: offset + page_size]
+
+        avg = sum(float(p.price_per_kwh) for p in mock_all) / len(mock_all)
         return PriceHistoryResponse(
             region=region.value,
             supplier=supplier,
             start_date=resolved_start,
             end_date=resolved_end,
-            prices=mock,
+            prices=mock_page,
             average_price=Decimal(str(round(avg, 4))),
-            min_price=min(p.price_per_kwh for p in mock),
-            max_price=max(p.price_per_kwh for p in mock),
+            min_price=min(p.price_per_kwh for p in mock_all),
+            max_price=max(p.price_per_kwh for p in mock_all),
             source="fallback",
+            total=total_mock,
+            page=page,
+            page_size=page_size,
+            pages=pages_mock,
         )
 
 

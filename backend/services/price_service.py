@@ -451,6 +451,38 @@ class PriceService:
             supplier=supplier,
         )
 
+    async def get_historical_prices_paginated(
+        self,
+        region: PriceRegion,
+        start_date: datetime,
+        end_date: datetime,
+        page: int = 1,
+        page_size: int = 24,
+        supplier: Optional[str] = None,
+    ) -> tuple[List[Price], int]:
+        """
+        Get historical prices with offset pagination.
+
+        Args:
+            region: Price region
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+            page: 1-based page number
+            page_size: Records per page (1–100)
+            supplier: Optional supplier name to filter by
+
+        Returns:
+            Tuple of (prices for the requested page, total matching count)
+        """
+        return await self._repo.get_historical_prices_paginated(
+            region=region,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            page_size=page_size,
+            supplier=supplier,
+        )
+
     async def get_price_statistics(
         self,
         region: PriceRegion,

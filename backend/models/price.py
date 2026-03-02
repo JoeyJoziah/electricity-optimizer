@@ -172,7 +172,7 @@ class PriceListResponse(BaseModel):
 
 
 class PriceHistoryResponse(BaseModel):
-    """Response schema for price history"""
+    """Response schema for price history with pagination metadata"""
 
     region: str
     supplier: Optional[str] = None
@@ -183,6 +183,12 @@ class PriceHistoryResponse(BaseModel):
     min_price: Optional[Decimal] = None
     max_price: Optional[Decimal] = None
     source: Optional[str] = None
+
+    # Pagination metadata
+    total: int = 0
+    page: int = 1
+    page_size: int = 24
+    pages: int = 1
 
 
 class PriceForecastResponse(BaseModel):

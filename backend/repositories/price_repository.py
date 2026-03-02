@@ -491,6 +491,90 @@ class PriceRepository(BaseRepository[Price]):
         except Exception as e:
             raise RepositoryError(f"Failed to get historical prices: {str(e)}", e)
 
+    async def get_historical_prices_paginated(
+        self,
+        region: PriceRegion,
+        start_date: datetime,
+        end_date: datetime,
+        page: int = 1,
+        page_size: int = 24,
+        supplier: Optional[str] = None,
+        utility_type: UtilityType = UtilityType.ELECTRICITY,
+    ) -> tuple[List[Price], int]:
+        """
+        Get historical prices for a date range with offset pagination.
+
+        Executes a COUNT query and a paginated SELECT in parallel to minimise
+        round-trip latency.  Returns the page of Price objects together with
+        the total matching row count so callers can compute total_pages.
+
+        Args:
+            region: Price region
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+            page: 1-based page number (clamped to >= 1)
+            page_size: Records per page (clamped to 1–100)
+            supplier: Optional supplier filter
+            utility_type: Type of utility (defaults to electricity)
+
+        Returns:
+            Tuple of (list of Price objects for the page, total matching count)
+        """
+        try:
+            page = max(1, page)
+            page_size = max(1, min(100, page_size))
+            offset = (page - 1) * page_size
+
+            region_val = region.value if hasattr(region, "value") else region
+            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+
+            base_params: dict[str, Any] = {
+                "region": region_val,
+                "utility_type": ut_val,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+            supplier_clause = ""
+            if supplier:
+                supplier_clause = " AND supplier = :supplier"
+                base_params["supplier"] = supplier
+
+            count_sql = text(f"""
+                SELECT COUNT(*)
+                FROM electricity_prices
+                WHERE region = :region
+                  AND utility_type = :utility_type
+                  AND timestamp >= :start_date
+                  AND timestamp <= :end_date
+                {supplier_clause}
+            """)
+
+            rows_sql = text(f"""
+                SELECT {_PRICE_COLUMNS}
+                FROM electricity_prices
+                WHERE region = :region
+                  AND utility_type = :utility_type
+                  AND timestamp >= :start_date
+                  AND timestamp <= :end_date
+                {supplier_clause}
+                ORDER BY timestamp
+                LIMIT :limit OFFSET :offset
+            """)
+            page_params = {**base_params, "limit": page_size, "offset": offset}
+
+            count_result, rows_result = await asyncio.gather(
+                self._db.execute(count_sql, base_params),
+                self._db.execute(rows_sql, page_params),
+            )
+
+            total = count_result.scalar() or 0
+            rows = rows_result.mappings().all()
+            prices = [_row_to_price(row) for row in rows]
+            return prices, total
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get paginated historical prices: {str(e)}", e)
+
     async def bulk_create(self, prices: List[Price]) -> int:
         """
         Bulk create multiple price records.

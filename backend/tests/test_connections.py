@@ -740,28 +740,29 @@ class TestDeleteConnection:
 
 
 class TestGetRates:
-    """Tests for GET /connections/{id}/rates and GET /connections/{id}/rates/current."""
+    """Tests for GET /connections/{id}/rates and GET /connections/{id}/rates/current.
 
-    def _install_with_ownership(self, found: bool = True):
-        """Return a db mock wired for ownership check + optional rate rows."""
-        db = _install_auth()
-
-        ownership_result = MagicMock()
-        if found:
-            ownership_result.fetchone.return_value = MagicMock()
-        else:
-            ownership_result.fetchone.return_value = None
-
-        return db, ownership_result
+    The rates endpoints were refactored to eliminate N+1 queries:
+    - When rates exist, a single JOIN query handles ownership + data fetch.
+    - When no rates exist, a secondary EXISTS check is made to distinguish
+      "connection not found" (404) from "connection exists but has no rates" (200 []).
+    """
 
     def test_get_rates_empty(self, client):
-        """No extracted rates → returns an empty list."""
-        db, ownership_result = self._install_with_ownership(found=True)
+        """No extracted rates for a valid connection → returns an empty list.
 
-        empty_rates_result = MagicMock()
-        empty_rates_result.mappings.return_value.all.return_value = []
+        The JOIN query returns no rows (no rates), then the secondary EXISTS
+        query confirms the connection belongs to this user → 200 [].
+        """
+        db = _install_auth()
 
-        db.execute = AsyncMock(side_effect=[ownership_result, empty_rates_result])
+        # Query 1: JOIN returns empty (connection exists but has no rates)
+        join_empty = _empty_mapping_result()
+        # Query 2: EXISTS check confirms connection belongs to this user
+        exists_found = MagicMock()
+        exists_found.fetchone.return_value = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[join_empty, exists_found])
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates")
 
@@ -769,8 +770,8 @@ class TestGetRates:
         assert response.json() == []
 
     def test_get_rates_returns_all(self, client):
-        """Multiple extracted rates are all returned."""
-        db, ownership_result = self._install_with_ownership(found=True)
+        """Multiple extracted rates are returned in a single JOIN query."""
+        db = _install_auth()
 
         now = datetime.now(timezone.utc).isoformat()
         rate_rows = [
@@ -792,10 +793,9 @@ class TestGetRates:
             },
         ]
 
-        rates_result = MagicMock()
-        rates_result.mappings.return_value.all.return_value = [_DictRow(r) for r in rate_rows]
-
-        db.execute = AsyncMock(side_effect=[ownership_result, rates_result])
+        # Single JOIN query returns rows directly — no secondary query needed
+        join_rates_result = _mapping_result(rate_rows)
+        db.execute = AsyncMock(return_value=join_rates_result)
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates")
 
@@ -805,9 +805,25 @@ class TestGetRates:
         assert data[0]["rate_per_kwh"] == 0.2145
         assert data[1]["source"] == "api_pull"
 
+    def test_get_rates_not_found(self, client):
+        """Unknown connection_id (or wrong user) → 404.
+
+        JOIN returns empty, secondary EXISTS finds nothing → 404.
+        """
+        db = _install_auth()
+
+        join_empty = _empty_mapping_result()
+        exists_not_found = _empty_mapping_result()
+
+        db.execute = AsyncMock(side_effect=[join_empty, exists_not_found])
+
+        response = client.get(f"{BASE}/{str(uuid4())}/rates")
+
+        assert response.status_code == 404
+
     def test_get_current_rate(self, client):
-        """GET .../rates/current returns only the most recent rate."""
-        db, ownership_result = self._install_with_ownership(found=True)
+        """GET .../rates/current returns only the most recent rate in a single JOIN."""
+        db = _install_auth()
 
         now = datetime.now(timezone.utc).isoformat()
         rate_row_data = {
@@ -819,10 +835,9 @@ class TestGetRates:
             "raw_label": "Peak Rate",
         }
 
-        current_result = MagicMock()
-        current_result.mappings.return_value.first.return_value = _DictRow(rate_row_data)
-
-        db.execute = AsyncMock(side_effect=[ownership_result, current_result])
+        # Single JOIN query returns the rate row directly
+        join_current_result = _mapping_result([rate_row_data])
+        db.execute = AsyncMock(return_value=join_current_result)
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates/current")
 
@@ -831,6 +846,40 @@ class TestGetRates:
         assert data["rate_per_kwh"] == 0.2301
         assert data["source"] == "bill_parse"
         assert data["raw_label"] == "Peak Rate"
+
+    def test_get_current_rate_no_rates(self, client):
+        """Connection exists but has no rates → returns null (not 404).
+
+        JOIN returns no rows; secondary EXISTS confirms connection exists → null.
+        """
+        db = _install_auth()
+
+        join_empty = _empty_mapping_result()
+        exists_found = MagicMock()
+        exists_found.fetchone.return_value = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[join_empty, exists_found])
+
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates/current")
+
+        assert response.status_code == 200
+        assert response.json() is None
+
+    def test_get_current_rate_not_found(self, client):
+        """Unknown connection_id → 404.
+
+        JOIN returns no rows; secondary EXISTS also finds nothing → 404.
+        """
+        db = _install_auth()
+
+        join_empty = _empty_mapping_result()
+        exists_not_found = _empty_mapping_result()
+
+        db.execute = AsyncMock(side_effect=[join_empty, exists_not_found])
+
+        response = client.get(f"{BASE}/{str(uuid4())}/rates/current")
+
+        assert response.status_code == 404
 
 
 # ===========================================================================

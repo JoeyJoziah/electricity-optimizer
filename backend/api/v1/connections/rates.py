@@ -41,28 +41,39 @@ async def get_rates(
     current_user: TokenData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> List[ExtractedRateResponse]:
-    """Return all rates extracted for the given connection (scoped to current user)."""
-    # Verify ownership
-    conn_result = await db.execute(
-        text("SELECT id FROM user_connections WHERE id = :cid AND user_id = :uid"),
-        {"cid": connection_id, "uid": current_user.user_id},
-    )
-    if conn_result.fetchone() is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Connection not found.",
-        )
+    """Return all rates extracted for the given connection (scoped to current user).
 
+    Uses a single JOIN query to verify ownership and fetch rates simultaneously,
+    avoiding the prior 2-query ownership-check + rates-fetch pattern.
+    """
     result = await db.execute(
         text("""
-            SELECT id, connection_id, rate_per_kwh, effective_date, source, raw_label
-            FROM connection_extracted_rates
-            WHERE connection_id = :cid
-            ORDER BY effective_date DESC
+            SELECT cer.id, cer.connection_id, cer.rate_per_kwh,
+                   cer.effective_date, cer.source, cer.raw_label
+            FROM connection_extracted_rates cer
+            JOIN user_connections uc ON cer.connection_id = uc.id
+            WHERE cer.connection_id = :cid
+              AND uc.user_id = :uid
+            ORDER BY cer.effective_date DESC
         """),
-        {"cid": connection_id},
+        {"cid": connection_id, "uid": current_user.user_id},
     )
     rows = result.mappings().all()
+
+    # If no rows returned we can't distinguish "not found" from "no rates yet".
+    # Do a lightweight existence check only in that case (avoids extra query on
+    # the hot path where rows exist).
+    if not rows:
+        exists = await db.execute(
+            text("SELECT 1 FROM user_connections WHERE id = :cid AND user_id = :uid"),
+            {"cid": connection_id, "uid": current_user.user_id},
+        )
+        if exists.fetchone() is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Connection not found.",
+            )
+
     return [ExtractedRateResponse(**dict(row)) for row in rows]
 
 
@@ -81,29 +92,39 @@ async def get_current_rate(
     current_user: TokenData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> Optional[ExtractedRateResponse]:
-    """Return the single most recent rate extracted for this connection."""
-    # Verify ownership
-    conn_result = await db.execute(
-        text("SELECT id FROM user_connections WHERE id = :cid AND user_id = :uid"),
+    """Return the single most recent rate extracted for this connection.
+
+    Ownership verification and rate fetch are combined into a single JOIN query.
+    A NULL result from the JOIN means either: connection not found for this user,
+    or connection exists but has no rates yet.  A secondary EXISTS check
+    distinguishes the two cases only when the JOIN returns nothing.
+    """
+    result = await db.execute(
+        text("""
+            SELECT cer.id, cer.connection_id, cer.rate_per_kwh,
+                   cer.effective_date, cer.source, cer.raw_label
+            FROM connection_extracted_rates cer
+            JOIN user_connections uc ON cer.connection_id = uc.id
+            WHERE cer.connection_id = :cid
+              AND uc.user_id = :uid
+            ORDER BY cer.effective_date DESC
+            LIMIT 1
+        """),
         {"cid": connection_id, "uid": current_user.user_id},
     )
-    if conn_result.fetchone() is None:
+    row = result.mappings().first()
+    if row is not None:
+        return ExtractedRateResponse(**dict(row))
+
+    # No rate row: determine whether the connection itself is missing (404)
+    # or simply has no extracted rates yet (return null).
+    exists = await db.execute(
+        text("SELECT 1 FROM user_connections WHERE id = :cid AND user_id = :uid"),
+        {"cid": connection_id, "uid": current_user.user_id},
+    )
+    if exists.fetchone() is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Connection not found.",
         )
-
-    result = await db.execute(
-        text("""
-            SELECT id, connection_id, rate_per_kwh, effective_date, source, raw_label
-            FROM connection_extracted_rates
-            WHERE connection_id = :cid
-            ORDER BY effective_date DESC
-            LIMIT 1
-        """),
-        {"cid": connection_id},
-    )
-    row = result.mappings().first()
-    if row is None:
-        return None
-    return ExtractedRateResponse(**dict(row))
+    return None

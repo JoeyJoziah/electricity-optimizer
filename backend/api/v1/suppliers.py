@@ -23,7 +23,7 @@ from models.supplier import (
     TariffListResponse,
 )
 from models.utility import UtilityType
-from api.dependencies import get_db_session, get_current_user_optional, TokenData
+from api.dependencies import get_db_session, get_redis, get_current_user_optional, TokenData
 from repositories.supplier_repository import SupplierRegistryRepository
 
 
@@ -96,15 +96,16 @@ async def list_suppliers(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db=Depends(get_db_session),
+    redis=Depends(get_redis),
 ):
     """
     List energy suppliers with optional filtering.
 
     Returns paginated list of suppliers, optionally filtered by region,
     utility type, or green energy status. Data is sourced from the
-    supplier_registry table.
+    supplier_registry table. Results are cached in Redis for 1 hour.
     """
-    repo = SupplierRegistryRepository(db)
+    repo = SupplierRegistryRepository(db, cache=redis)
     suppliers_data, total = await repo.list_suppliers(
         region=region,
         utility_type=utility_type,
@@ -138,14 +139,16 @@ async def list_suppliers(
 async def get_supplier(
     supplier_id: str = Path(..., description="Supplier ID"),
     db=Depends(get_db_session),
+    redis=Depends(get_redis),
 ):
     """
     Get detailed information about a specific supplier.
 
     Returns full supplier details including contact info and ratings.
+    Result is cached in Redis for 1 hour.
     """
     _validate_uuid(supplier_id, "Supplier")
-    repo = SupplierRegistryRepository(db)
+    repo = SupplierRegistryRepository(db, cache=redis)
     supplier = await repo.get_by_id(supplier_id)
 
     if not supplier:
@@ -185,14 +188,16 @@ async def get_supplier_tariffs(
     utility_type: Optional[str] = Query(None, description="Filter by utility type"),
     available_only: bool = Query(True, description="Show only available tariffs"),
     db=Depends(get_db_session),
+    redis=Depends(get_redis),
 ):
     """
     Get tariffs offered by a specific supplier.
 
     Returns list of tariffs with pricing and contract details.
+    The supplier existence check uses the Redis-cached get_by_id() call.
     """
     _validate_uuid(supplier_id, "Supplier")
-    repo = SupplierRegistryRepository(db)
+    repo = SupplierRegistryRepository(db, cache=redis)
     supplier = await repo.get_by_id(supplier_id)
 
     if not supplier:
@@ -272,14 +277,16 @@ async def get_suppliers_by_region(
     utility_type: Optional[str] = Query(None, description="Filter by utility type"),
     green_only: bool = Query(False, description="Filter for green energy providers"),
     db=Depends(get_db_session),
+    redis=Depends(get_redis),
 ):
     """
     Get all suppliers available in a specific region.
 
     Convenience endpoint for region-based filtering.
+    Results are cached in Redis for 1 hour.
     """
     _validate_region_code(region)
-    repo = SupplierRegistryRepository(db)
+    repo = SupplierRegistryRepository(db, cache=redis)
     suppliers_data, total = await repo.list_suppliers(
         region=region,
         utility_type=utility_type,
@@ -310,13 +317,15 @@ async def compare_suppliers(
     utility_type: Optional[str] = Query("electricity", description="Utility type to compare"),
     tariff_type: Optional[str] = Query(None, description="Filter by tariff type"),
     db=Depends(get_db_session),
+    redis=Depends(get_redis),
 ):
     """
     Compare suppliers in a region with their best tariff prices.
 
     Returns suppliers sorted by their cheapest available tariff.
+    Supplier list lookup uses the Redis-cached list_suppliers() call.
     """
-    repo = SupplierRegistryRepository(db)
+    repo = SupplierRegistryRepository(db, cache=redis)
     suppliers_data, _ = await repo.list_suppliers(
         region=region,
         utility_type=utility_type,

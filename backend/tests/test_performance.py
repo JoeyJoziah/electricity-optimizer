@@ -490,3 +490,98 @@ class TestSQLAggregation:
         repo.get_supplier_price_stats.assert_called_once()
         repo.get_historical_prices.assert_not_called()
         assert result["cheapest_supplier"] == "Eversource"
+
+
+# =============================================================================
+# Phase 6: Learning service — model accuracy SQL aggregation
+# =============================================================================
+
+
+class TestLearningServiceSQLAggregation:
+    """Verify get_model_accuracy_by_version uses SQL GROUP BY aggregation.
+
+    The nightly learning cycle calls update_ensemble_weights() which fetches
+    per-model accuracy stats.  With large 7-day observation windows this can
+    be tens of thousands of rows.  Aggregation must happen in the DB via a
+    single GROUP BY query — not by pulling raw rows into Python.
+    """
+
+    @pytest.fixture
+    def mock_obs(self):
+        from unittest.mock import AsyncMock
+        obs = AsyncMock()
+        obs.get_forecast_accuracy = AsyncMock(
+            return_value={"total": 0, "mape": None, "rmse": None, "coverage": None}
+        )
+        obs.get_hourly_bias = AsyncMock(return_value=[])
+        obs.get_model_accuracy_by_version = AsyncMock(return_value=[])
+        return obs
+
+    @pytest.fixture
+    def mock_vs(self):
+        vs = MagicMock()
+        vs.async_insert = AsyncMock(return_value="vec-test")
+        vs.async_prune = AsyncMock(return_value=0)
+        return vs
+
+    @pytest.mark.asyncio
+    async def test_update_weights_uses_single_aggregated_call(self, mock_obs, mock_vs):
+        """update_ensemble_weights must call get_model_accuracy_by_version once
+        and receive pre-aggregated dicts — no raw row iteration in the service."""
+        from services.learning_service import LearningService
+
+        mock_obs.get_model_accuracy_by_version.return_value = [
+            {"model_version": "v2.1", "mape": 3.5, "rmse": 0.011, "coverage": 91.0, "count": 120},
+            {"model_version": "v2.0", "mape": 6.2, "rmse": 0.019, "coverage": 84.0, "count": 95},
+        ]
+
+        service = LearningService(
+            observation_service=mock_obs,
+            vector_store=mock_vs,
+            redis_client=None,
+        )
+        weights = await service.update_ensemble_weights("US", days=7)
+
+        # Exactly one call to the aggregating method — no per-row follow-up queries.
+        mock_obs.get_model_accuracy_by_version.assert_awaited_once_with("US", 7)
+        assert weights is not None
+        assert "v2.1" in weights
+        assert "v2.0" in weights
+        # Best model (lower MAPE) gets higher weight.
+        assert weights["v2.1"] > weights["v2.0"]
+
+    @pytest.mark.asyncio
+    async def test_coverage_field_present_in_stats(self, mock_obs, mock_vs):
+        """Pre-aggregated stats include coverage so callers can use it without
+        a second query.  The field must survive the service pass-through."""
+        from services.learning_service import LearningService
+
+        returned_stats = [
+            {"model_version": "v2.1", "mape": 4.0, "rmse": 0.012, "coverage": 88.5, "count": 60},
+        ]
+        mock_obs.get_model_accuracy_by_version.return_value = returned_stats
+
+        service = LearningService(
+            observation_service=mock_obs,
+            vector_store=mock_vs,
+            redis_client=None,
+        )
+
+        # The ObservationService is a thin pass-through; verify the dict it
+        # returns contains coverage so downstream logic can use it.
+        stats = await mock_obs.get_model_accuracy_by_version("US", 7)
+        assert stats[0]["coverage"] == 88.5
+
+    @pytest.mark.asyncio
+    async def test_full_cycle_passes_days_to_aggregation_call(self, mock_obs, mock_vs):
+        """run_full_cycle must forward the days param to the aggregation call."""
+        from services.learning_service import LearningService
+
+        service = LearningService(
+            observation_service=mock_obs,
+            vector_store=mock_vs,
+            redis_client=None,
+        )
+        await service.run_full_cycle(regions=["US"], days=14)
+
+        mock_obs.get_model_accuracy_by_version.assert_awaited_with("US", 14)

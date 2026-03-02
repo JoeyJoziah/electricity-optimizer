@@ -611,9 +611,9 @@ class TestGetModelAccuracyByVersion:
     async def test_multiple_versions_ranked(self, service, db):
         """Should return entries for each model version."""
         rows = [
-            _row(model_version="v2.1", count=50, mape=3.45, rmse=0.012345),
-            _row(model_version="v2.0", count=80, mape=5.67, rmse=0.023456),
-            _row(model_version="v1.9", count=30, mape=8.90, rmse=0.034567),
+            _row(model_version="v2.1", count=50, mape=3.45, rmse=0.012345, coverage=91.0),
+            _row(model_version="v2.0", count=80, mape=5.67, rmse=0.023456, coverage=85.0),
+            _row(model_version="v1.9", count=30, mape=8.90, rmse=0.034567, coverage=78.0),
         ]
         db.execute = AsyncMock(return_value=_make_result(fetchall_value=rows))
 
@@ -624,14 +624,15 @@ class TestGetModelAccuracyByVersion:
         assert result[0]["mape"] == 3.45
         assert result[0]["rmse"] == 0.012345
         assert result[0]["count"] == 50
+        assert result[0]["coverage"] == 91.0
         assert result[1]["model_version"] == "v2.0"
         assert result[2]["model_version"] == "v1.9"
 
     @pytest.mark.asyncio
     async def test_none_mape_handled(self, service, db):
-        """Should return None for mape when DB returns NULL."""
+        """Should return None for mape/rmse/coverage when DB returns NULL."""
         rows = [
-            _row(model_version="v3.0", count=2, mape=None, rmse=None),
+            _row(model_version="v3.0", count=2, mape=None, rmse=None, coverage=None),
         ]
         db.execute = AsyncMock(return_value=_make_result(fetchall_value=rows))
 
@@ -639,12 +640,13 @@ class TestGetModelAccuracyByVersion:
 
         assert result[0]["mape"] is None
         assert result[0]["rmse"] is None
+        assert result[0]["coverage"] is None
 
     @pytest.mark.asyncio
     async def test_mape_rounded_to_two_decimals(self, service, db):
-        """MAPE should be rounded to 2 decimal places."""
+        """MAPE should be rounded to 2 decimal places; coverage to 1 decimal place."""
         rows = [
-            _row(model_version="v2.1", count=10, mape=3.456789, rmse=0.0123456789),
+            _row(model_version="v2.1", count=10, mape=3.456789, rmse=0.0123456789, coverage=90.123),
         ]
         db.execute = AsyncMock(return_value=_make_result(fetchall_value=rows))
 
@@ -652,6 +654,16 @@ class TestGetModelAccuracyByVersion:
 
         assert result[0]["mape"] == 3.46
         assert result[0]["rmse"] == 0.012346
+        assert result[0]["coverage"] == 90.1
+
+    @pytest.mark.asyncio
+    async def test_single_db_call_for_aggregation(self, service, db):
+        """Should issue exactly one SQL query — aggregation happens in DB, not Python."""
+        db.execute = AsyncMock(return_value=_make_result(fetchall_value=[]))
+
+        await service.get_model_accuracy_by_version(region="US", days=7)
+
+        assert db.execute.await_count == 1
 
 
 # =============================================================================

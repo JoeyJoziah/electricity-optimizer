@@ -211,20 +211,38 @@ class ForecastObservationRepository:
     async def get_accuracy_by_version(
         self, region: str, days: int = 7
     ) -> List[Dict[str, Any]]:
-        """Compute accuracy breakdown by model_version."""
+        """Compute accuracy breakdown by model_version using SQL GROUP BY.
+
+        All aggregation (MAPE, RMSE, coverage) is performed in the database,
+        returning one pre-aggregated row per model version rather than fetching
+        raw observation rows and aggregating in Python.  This eliminates the
+        O(N) data transfer for large 7-day windows where N can be tens of
+        thousands of rows per version.
+
+        The ORDER BY mape ASC means callers can rely on the first entry being
+        the best-performing model without any additional sorting.
+        """
         query = text("""
             SELECT
                 model_version,
-                COUNT(*) as count,
-                AVG(ABS(predicted_price - actual_price) / NULLIF(actual_price, 0)) * 100 as mape,
-                SQRT(AVG(POWER(predicted_price - actual_price, 2))) as rmse
+                COUNT(*) AS count,
+                AVG(
+                    ABS(predicted_price - actual_price) / NULLIF(actual_price, 0)
+                ) * 100 AS mape,
+                SQRT(AVG(POWER(predicted_price - actual_price, 2))) AS rmse,
+                AVG(
+                    CASE
+                        WHEN actual_price BETWEEN confidence_lower AND confidence_upper
+                        THEN 1.0 ELSE 0.0
+                    END
+                ) * 100 AS coverage
             FROM forecast_observations
             WHERE observed_at IS NOT NULL
               AND region = :region
               AND created_at >= now() - make_interval(days => :days)
               AND model_version IS NOT NULL
             GROUP BY model_version
-            ORDER BY mape ASC
+            ORDER BY mape ASC NULLS LAST
         """)
 
         result = await self._db.execute(query, {"region": region.lower(), "days": days})
@@ -232,8 +250,9 @@ class ForecastObservationRepository:
             {
                 "model_version": row.model_version,
                 "count": row.count,
-                "mape": round(float(row.mape), 2) if row.mape else None,
-                "rmse": round(float(row.rmse), 6) if row.rmse else None,
+                "mape": round(float(row.mape), 2) if row.mape is not None else None,
+                "rmse": round(float(row.rmse), 6) if row.rmse is not None else None,
+                "coverage": round(float(row.coverage), 1) if row.coverage is not None else None,
             }
             for row in result.fetchall()
         ]

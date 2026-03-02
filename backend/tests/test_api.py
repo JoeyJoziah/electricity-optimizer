@@ -123,6 +123,116 @@ class TestPriceEndpoints:
             assert "prices" in data
             assert isinstance(data["prices"], list)
 
+    def test_price_history_pagination_metadata_present(self, client):
+        """Successful /history response always includes pagination envelope fields"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "days": 1},
+        )
+
+        assert response.status_code in [200, 500]
+        if response.status_code == 200:
+            data = response.json()
+            for field in ("total", "page", "page_size", "pages"):
+                assert field in data, f"Missing pagination field: {field}"
+            assert isinstance(data["total"], int)
+            assert data["total"] >= 0
+            assert isinstance(data["page"], int)
+            assert data["page"] >= 1
+            assert isinstance(data["page_size"], int)
+            assert 1 <= data["page_size"] <= 100
+            assert isinstance(data["pages"], int)
+            assert data["pages"] >= 1
+
+    def test_price_history_default_page_size_is_24(self, client):
+        """page_size defaults to 24 when not supplied"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk"},
+        )
+
+        assert response.status_code in [200, 500]
+        if response.status_code == 200:
+            data = response.json()
+            assert data["page_size"] == 24
+
+    def test_price_history_respects_page_size_param(self, client):
+        """page_size query param is reflected in the response envelope"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "days": 7, "page_size": 10},
+        )
+
+        assert response.status_code in [200, 500]
+        if response.status_code == 200:
+            data = response.json()
+            assert data["page_size"] == 10
+            assert len(data["prices"]) <= 10
+
+    def test_price_history_respects_page_param(self, client):
+        """page query param is reflected in the response envelope"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "days": 7, "page": 2, "page_size": 5},
+        )
+
+        assert response.status_code in [200, 500]
+        if response.status_code == 200:
+            data = response.json()
+            assert data["page"] == 2
+            assert data["page_size"] == 5
+
+    def test_price_history_page_size_clamped_to_100(self, client):
+        """page_size above 100 is rejected with 422 by FastAPI validation"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "page_size": 500},
+        )
+        assert response.status_code == 422
+
+    def test_price_history_page_zero_rejected(self, client):
+        """page < 1 is rejected with 422 by FastAPI validation"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "page": 0},
+        )
+        assert response.status_code == 422
+
+    def test_price_history_page_size_zero_rejected(self, client):
+        """page_size < 1 is rejected with 422 by FastAPI validation"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "page_size": 0},
+        )
+        assert response.status_code == 422
+
+    def test_price_history_prices_list_bounded_by_page_size(self, client):
+        """The prices array must never exceed page_size records"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "days": 30, "page": 1, "page_size": 12},
+        )
+
+        assert response.status_code in [200, 500]
+        if response.status_code == 200:
+            data = response.json()
+            assert len(data["prices"]) <= data["page_size"]
+
+    def test_price_history_pages_consistent_with_total(self, client):
+        """pages value is ceil(total / page_size), minimum 1"""
+        response = client.get(
+            "/api/v1/prices/history",
+            params={"region": "uk", "days": 7, "page_size": 24},
+        )
+
+        assert response.status_code in [200, 500]
+        if response.status_code == 200:
+            data = response.json()
+            total = data["total"]
+            page_size = data["page_size"]
+            expected_pages = max(1, (total + page_size - 1) // page_size)
+            assert data["pages"] == expected_pages
+
     def test_get_price_forecast(self, client):
         """Test GET /api/v1/prices/forecast endpoint"""
         response = client.get(

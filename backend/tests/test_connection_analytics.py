@@ -155,30 +155,28 @@ class TestGetRateComparisonService:
 
     @pytest.mark.asyncio
     async def test_get_rate_comparison_with_data(self):
-        """Returns full comparison dict when extracted rates exist."""
+        """Returns full comparison dict when extracted rates exist.
+
+        Uses 2 DB round-trips: (1) combined rate+region JOIN, (2) market aggregate.
+        """
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(timezone.utc)
 
-        # First call: user's extracted rate
-        rate_row = _DictRow({
+        # Query 1: combined rate + region JOIN (user_region now returned inline)
+        rate_region_row = _DictRow({
             "rate_per_kwh": 0.2500,
             "supplier_name": "Eversource",
             "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
+            "user_region": "US_CT",
         })
-        rate_result = MagicMock()
-        rate_result.mappings.return_value.first.return_value = rate_row
+        rate_region_result = MagicMock()
+        rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
-        # Second call: user's region
-        region_row = MagicMock()
-        region_row.__getitem__ = lambda self, idx: "US_CT"
-        region_result = MagicMock()
-        region_result.fetchone.return_value = region_row
-
-        # Third call: market stats
+        # Query 2: market aggregate
         market_row = _DictRow({
             "avg_price": 0.2000,
             "min_price": 0.1500,
@@ -188,7 +186,7 @@ class TestGetRateComparisonService:
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
-        db.execute = AsyncMock(side_effect=[rate_result, region_result, market_result])
+        db.execute = AsyncMock(side_effect=[rate_region_result, market_result])
 
         svc = ConnectionAnalyticsService(db)
         result = await svc.get_rate_comparison(TEST_USER_ID)
@@ -239,27 +237,28 @@ class TestGetRateComparisonService:
 
     @pytest.mark.asyncio
     async def test_get_rate_comparison_below_average(self):
-        """User rate below market average: delta is negative, is_above_average=False."""
+        """User rate below market average: delta is negative, is_above_average=False.
+
+        Uses 2-query pattern: combined rate+region, then market aggregate.
+        """
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(timezone.utc)
 
-        rate_row = _DictRow({
+        # Query 1: combined rate + region
+        rate_region_row = _DictRow({
             "rate_per_kwh": 0.1500,
             "supplier_name": "UI",
             "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
+            "user_region": "US_CT",
         })
-        rate_result = MagicMock()
-        rate_result.mappings.return_value.first.return_value = rate_row
+        rate_region_result = MagicMock()
+        rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
-        region_row = MagicMock()
-        region_row.__getitem__ = lambda self, idx: "US_CT"
-        region_result = MagicMock()
-        region_result.fetchone.return_value = region_row
-
+        # Query 2: market aggregate
         market_row = _DictRow({
             "avg_price": 0.2000,
             "min_price": 0.1200,
@@ -269,7 +268,7 @@ class TestGetRateComparisonService:
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
-        db.execute = AsyncMock(side_effect=[rate_result, region_result, market_result])
+        db.execute = AsyncMock(side_effect=[rate_region_result, market_result])
 
         svc = ConnectionAnalyticsService(db)
         result = await svc.get_rate_comparison(TEST_USER_ID)
@@ -694,28 +693,26 @@ class TestAnalyticsComparisonEndpoint:
     """Tests for GET /connections/analytics/comparison."""
 
     def test_comparison_returns_data(self, client):
-        """Endpoint returns comparison data from service."""
+        """Endpoint returns comparison data from service.
+
+        Uses 2-query pattern: (1) combined rate+region JOIN, (2) market aggregate.
+        """
         db = _install_auth()
 
         now = datetime.now(timezone.utc)
-        # Rate query result
-        rate_row = _DictRow({
+        # Query 1: combined rate + region (single JOIN)
+        rate_region_row = _DictRow({
             "rate_per_kwh": 0.25,
             "supplier_name": "Eversource",
             "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
+            "user_region": "US_CT",
         })
-        rate_result = MagicMock()
-        rate_result.mappings.return_value.first.return_value = rate_row
+        rate_region_result = MagicMock()
+        rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
-        # Region query result
-        region_row = MagicMock()
-        region_row.__getitem__ = lambda self, idx: "US_CT"
-        region_result = MagicMock()
-        region_result.fetchone.return_value = region_row
-
-        # Market query result
+        # Query 2: market aggregate
         market_row = _DictRow({
             "avg_price": 0.20,
             "min_price": 0.15,
@@ -725,7 +722,7 @@ class TestAnalyticsComparisonEndpoint:
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
-        db.execute = AsyncMock(side_effect=[rate_result, region_result, market_result])
+        db.execute = AsyncMock(side_effect=[rate_region_result, market_result])
 
         response = client.get(f"{BASE}/analytics/comparison")
 
@@ -853,25 +850,26 @@ class TestAnalyticsSavingsEndpoint:
     """Tests for GET /connections/analytics/savings."""
 
     def test_savings_with_data(self, client):
-        """Endpoint returns savings estimate when rate data exists."""
+        """Endpoint returns savings estimate when rate data exists.
+
+        Uses 2-query pattern via get_rate_comparison: (1) rate+region JOIN, (2) market.
+        """
         db = _install_auth()
         now = datetime.now(timezone.utc)
 
-        rate_row = _DictRow({
+        # Query 1: combined rate + region
+        rate_region_row = _DictRow({
             "rate_per_kwh": 0.25,
             "supplier_name": "Eversource",
             "effective_date": now,
             "connection_id": TEST_CONNECTION_ID,
             "connection_type": "direct",
+            "user_region": "US_CT",
         })
-        rate_result = MagicMock()
-        rate_result.mappings.return_value.first.return_value = rate_row
+        rate_region_result = MagicMock()
+        rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
-        region_row = MagicMock()
-        region_row.__getitem__ = lambda self, idx: "US_CT"
-        region_result = MagicMock()
-        region_result.fetchone.return_value = region_row
-
+        # Query 2: market aggregate
         market_row = _DictRow({
             "avg_price": 0.20,
             "min_price": 0.15,
@@ -881,7 +879,7 @@ class TestAnalyticsSavingsEndpoint:
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
-        db.execute = AsyncMock(side_effect=[rate_result, region_result, market_result])
+        db.execute = AsyncMock(side_effect=[rate_region_result, market_result])
 
         response = client.get(f"{BASE}/analytics/savings", params={"monthly_kwh": 800})
 

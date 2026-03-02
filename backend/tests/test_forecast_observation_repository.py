@@ -7,6 +7,7 @@ Covers all public methods of the raw-SQL data access layer:
 - insert_recommendation: UUID return, JSON serialization
 - update_recommendation_response: accepted/rejected, idempotency guard
 - get_accuracy_metrics: normal case, no-data fallback
+- get_accuracy_by_version: multi-version SQL aggregation, coverage metric, NULL handling
 """
 
 import sys
@@ -338,3 +339,128 @@ class TestGetAccuracyMetrics:
         assert metrics["mape"] is None
         assert metrics["rmse"] is None
         assert metrics["coverage"] is None
+
+
+# =============================================================================
+# TestGetAccuracyByVersion
+# =============================================================================
+
+
+class TestGetAccuracyByVersion:
+    """Tests for ForecastObservationRepository.get_accuracy_by_version.
+
+    Verifies that aggregation (MAPE, RMSE, coverage) is computed in SQL via
+    GROUP BY model_version rather than fetching raw rows and aggregating in
+    Python.  A single db.execute call must return pre-aggregated results.
+    """
+
+    @pytest.mark.asyncio
+    async def test_empty_result_returns_empty_list(self, repo, mock_session):
+        """Should return [] when no observed rows exist for the region/window."""
+        mock_session.execute.return_value = _make_result(fetchall_value=[])
+
+        result = await repo.get_accuracy_by_version(region="us_ct", days=7)
+
+        assert result == []
+        mock_session.execute.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_single_version_returned(self, repo, mock_session):
+        """Single model version row is mapped to the expected dict shape."""
+        rows = [
+            _row(model_version="v2.1", count=50, mape=4.25, rmse=0.012345, coverage=88.5),
+        ]
+        mock_session.execute.return_value = _make_result(fetchall_value=rows)
+
+        result = await repo.get_accuracy_by_version(region="us_ct", days=7)
+
+        assert len(result) == 1
+        entry = result[0]
+        assert entry["model_version"] == "v2.1"
+        assert entry["count"] == 50
+        assert entry["mape"] == 4.25
+        assert entry["rmse"] == 0.012345
+        assert entry["coverage"] == 88.5
+
+    @pytest.mark.asyncio
+    async def test_multiple_versions_ordered_by_mape(self, repo, mock_session):
+        """Results come back in ascending MAPE order (best model first)."""
+        rows = [
+            _row(model_version="v2.1", count=50, mape=3.45, rmse=0.011, coverage=91.0),
+            _row(model_version="v2.0", count=80, mape=5.67, rmse=0.023, coverage=85.0),
+            _row(model_version="v1.9", count=30, mape=8.90, rmse=0.035, coverage=78.0),
+        ]
+        mock_session.execute.return_value = _make_result(fetchall_value=rows)
+
+        result = await repo.get_accuracy_by_version(region="us_ct", days=14)
+
+        assert len(result) == 3
+        assert result[0]["model_version"] == "v2.1"
+        assert result[0]["mape"] == 3.45
+        assert result[1]["model_version"] == "v2.0"
+        assert result[2]["model_version"] == "v1.9"
+
+    @pytest.mark.asyncio
+    async def test_mape_rounded_to_two_decimals(self, repo, mock_session):
+        """MAPE values are rounded to 2 decimal places on return."""
+        rows = [
+            _row(model_version="v2.1", count=10, mape=3.456789, rmse=0.0123456789, coverage=90.123),
+        ]
+        mock_session.execute.return_value = _make_result(fetchall_value=rows)
+
+        result = await repo.get_accuracy_by_version(region="us_ct", days=7)
+
+        assert result[0]["mape"] == 3.46
+        assert result[0]["rmse"] == 0.012346
+        assert result[0]["coverage"] == 90.1
+
+    @pytest.mark.asyncio
+    async def test_null_mape_returned_as_none(self, repo, mock_session):
+        """NULL mape from DB (no actual prices yet) maps to None in the dict."""
+        rows = [
+            _row(model_version="v3.0", count=2, mape=None, rmse=None, coverage=None),
+        ]
+        mock_session.execute.return_value = _make_result(fetchall_value=rows)
+
+        result = await repo.get_accuracy_by_version(region="us_ct", days=7)
+
+        assert result[0]["mape"] is None
+        assert result[0]["rmse"] is None
+        assert result[0]["coverage"] is None
+
+    @pytest.mark.asyncio
+    async def test_coverage_computed_per_version(self, repo, mock_session):
+        """Coverage (confidence interval hit rate) is included per model version."""
+        rows = [
+            _row(model_version="v2.1", count=40, mape=3.0, rmse=0.01, coverage=92.5),
+            _row(model_version="v2.0", count=60, mape=6.0, rmse=0.02, coverage=75.0),
+        ]
+        mock_session.execute.return_value = _make_result(fetchall_value=rows)
+
+        result = await repo.get_accuracy_by_version(region="us", days=7)
+
+        assert result[0]["coverage"] == 92.5
+        assert result[1]["coverage"] == 75.0
+
+    @pytest.mark.asyncio
+    async def test_passes_lowercased_region_and_days(self, repo, mock_session):
+        """Region is lowercased and days is passed as a named parameter."""
+        mock_session.execute.return_value = _make_result(fetchall_value=[])
+
+        await repo.get_accuracy_by_version(region="US_CT", days=30)
+
+        params = mock_session.execute.call_args[0][1]
+        assert params["region"] == "us_ct"
+        assert params["days"] == 30
+
+    @pytest.mark.asyncio
+    async def test_single_db_call_no_in_memory_aggregation(self, repo, mock_session):
+        """Aggregation is done in SQL — exactly one execute call is made."""
+        mock_session.execute.return_value = _make_result(fetchall_value=[])
+
+        await repo.get_accuracy_by_version(region="us", days=7)
+
+        # One SELECT ... GROUP BY query, nothing more.
+        assert mock_session.execute.await_count == 1
+        # No commit needed for a read-only query.
+        mock_session.commit.assert_not_awaited()

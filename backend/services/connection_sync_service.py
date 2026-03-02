@@ -220,9 +220,9 @@ class ConnectionSyncService:
                     )
                     rate_errors.append(f"bill {bill_uid}: {exc}")
 
-        # ---- 6. Persist new rates ------------------------------------------
-        for rate_data in new_rates:
-            await self._insert_extracted_rate(connection_id, rate_data)
+        # ---- 6. Persist new rates (batch insert — 1 query regardless of count) ---
+        if new_rates:
+            await self._batch_insert_extracted_rates(connection_id, new_rates)
 
         # ---- 7. Update sync state ------------------------------------------
         combined_error = "; ".join(rate_errors) if rate_errors and not new_rates else None
@@ -432,27 +432,50 @@ class ConnectionSyncService:
         except Exception:
             return None
 
+    async def _batch_insert_extracted_rates(
+        self, connection_id: str, rate_records: list[dict]
+    ) -> None:
+        """Batch-insert multiple rate rows in a single query.
+
+        Uses a VALUES list constructed from the provided records so that N new
+        rates result in exactly 1 INSERT statement rather than N round-trips.
+        ``ON CONFLICT DO NOTHING`` ensures idempotency for re-runs.
+        """
+        if not rate_records:
+            return
+
+        # Build parameterised placeholders: (:id0,:cid0,:rate0,...), (:id1,...)
+        placeholders = []
+        params: dict = {}
+        for i, rate_data in enumerate(rate_records):
+            placeholders.append(
+                f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})"
+            )
+            params[f"id{i}"] = str(uuid4())
+            params[f"cid{i}"] = connection_id
+            params[f"rate{i}"] = rate_data["rate_per_kwh"]
+            params[f"eff_date{i}"] = rate_data["effective_date"]
+            params[f"source{i}"] = rate_data["source"]
+            params[f"label{i}"] = rate_data.get("raw_label")
+
+        await self._db.execute(
+            text(
+                "INSERT INTO connection_extracted_rates "
+                "    (id, connection_id, rate_per_kwh, effective_date, source, raw_label) "
+                f"VALUES {', '.join(placeholders)} "
+                "ON CONFLICT DO NOTHING"
+            ),
+            params,
+        )
+
     async def _insert_extracted_rate(
         self, connection_id: str, rate_data: dict
     ) -> None:
-        """Insert a single rate row into ``connection_extracted_rates``."""
-        await self._db.execute(
-            text("""
-                INSERT INTO connection_extracted_rates
-                    (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
-                VALUES
-                    (:id, :cid, :rate, :eff_date, :source, :label)
-                ON CONFLICT DO NOTHING
-            """),
-            {
-                "id": str(uuid4()),
-                "cid": connection_id,
-                "rate": rate_data["rate_per_kwh"],
-                "eff_date": rate_data["effective_date"],
-                "source": rate_data["source"],
-                "label": rate_data.get("raw_label"),
-            },
-        )
+        """Insert a single rate row into ``connection_extracted_rates``.
+
+        Prefer ``_batch_insert_extracted_rates`` when inserting multiple rows.
+        """
+        await self._batch_insert_extracted_rates(connection_id, [rate_data])
 
     async def _persist_sync_result(
         self,
