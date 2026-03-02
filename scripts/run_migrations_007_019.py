@@ -34,7 +34,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MIGRATIONS_DIR = PROJECT_ROOT / "backend" / "migrations"
 
 # Migrations that use CREATE INDEX CONCURRENTLY (cannot run inside transaction)
-CONCURRENT_MIGRATIONS = {"010_utility_type_index.sql", "017_additional_indexes.sql"}
+CONCURRENT_MIGRATIONS = {"010_utility_type_index.sql", "017_additional_indexes.sql", "020_price_query_indexes.sql"}
 
 # Known fixes for migration bugs
 MIGRATION_FIXES = {
@@ -59,6 +59,7 @@ MIGRATION_FILES = [
     "017_additional_indexes.sql",
     "018_nationwide_defaults.sql",
     "019_nationwide_suppliers.sql",
+    "020_price_query_indexes.sql",
 ]
 
 
