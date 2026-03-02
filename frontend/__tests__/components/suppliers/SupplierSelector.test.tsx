@@ -12,7 +12,7 @@ const mockSuppliers = [
     greenEnergy: true,
     rating: 4.5,
     estimatedAnnualCost: 1200,
-    tariffType: 'variable',
+    tariffType: 'variable' as const,
   },
   {
     id: '2',
@@ -22,7 +22,7 @@ const mockSuppliers = [
     greenEnergy: false,
     rating: 3.8,
     estimatedAnnualCost: 1350,
-    tariffType: 'fixed',
+    tariffType: 'fixed' as const,
   },
   {
     id: '3',
@@ -32,7 +32,7 @@ const mockSuppliers = [
     greenEnergy: true,
     rating: 4.0,
     estimatedAnnualCost: 1100,
-    tariffType: 'variable',
+    tariffType: 'variable' as const,
   },
 ]
 

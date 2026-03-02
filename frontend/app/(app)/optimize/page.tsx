@@ -61,7 +61,7 @@ export default function OptimizePage() {
   const { data: scheduleData, isLoading: scheduleLoading, refetch: refetchSchedule } =
     useOptimalSchedule({
       appliances,
-      region,
+      region: region ?? undefined,
       date: new Date().toISOString().split('T')[0],
     })
 

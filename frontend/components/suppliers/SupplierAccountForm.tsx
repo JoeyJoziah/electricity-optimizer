@@ -98,7 +98,7 @@ export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
             ? 'Must be 4-30 characters (letters, numbers, hyphens, spaces)'
             : undefined
         }
-        error={accountNumber.length > 0 && !accountNumberValid}
+        error={accountNumber.length > 0 && !accountNumberValid ? 'Must be 4-30 characters (letters, numbers, hyphens, spaces)' : undefined}
       />
 
       <Input

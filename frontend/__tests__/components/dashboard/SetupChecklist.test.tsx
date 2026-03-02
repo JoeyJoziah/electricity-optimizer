@@ -5,8 +5,8 @@ import { SetupChecklist } from '@/components/dashboard/SetupChecklist'
 import '@testing-library/jest-dom'
 
 // Mocks
-const mockRegion = jest.fn(() => 'us_ct')
-const mockCurrentSupplier = jest.fn(() => null)
+const mockRegion = jest.fn<string | null, []>(() => 'us_ct')
+const mockCurrentSupplier = jest.fn<{ id: string; name: string } | null, []>(() => null)
 
 jest.mock('@/lib/store/settings', () => ({
   useSettingsStore: (selector: (state: Record<string, unknown>) => unknown) =>
