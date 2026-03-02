@@ -146,7 +146,7 @@ app.add_middleware(
 )
 
 # GZIP Compression
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Distributed Tracing — must be outermost (registered last = runs first) so that
 # every downstream middleware and handler inherits the bound trace_id context var.

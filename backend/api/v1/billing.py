@@ -13,6 +13,7 @@ import structlog
 import stripe
 
 from api.dependencies import get_current_user, get_db_session, TokenData
+from config.settings import settings
 from repositories.user_repository import UserRepository
 from services.stripe_service import StripeService, apply_webhook_action
 
@@ -26,13 +27,6 @@ router = APIRouter()
 # =============================================================================
 
 
-ALLOWED_REDIRECT_DOMAINS = [
-    "electricity-optimizer.vercel.app",
-    "electricity-optimizer-frontend.onrender.com",
-    "localhost",
-]
-
-
 class CheckoutSessionRequest(BaseModel):
     """Request to create a checkout session."""
 
@@ -43,15 +37,16 @@ class CheckoutSessionRequest(BaseModel):
     @field_validator("success_url", "cancel_url")
     @classmethod
     def validate_redirect_domain(cls, v):
+        allowed = settings.allowed_redirect_domains
         parsed = urlparse(str(v))
         hostname = parsed.hostname or ""
         if not any(
             hostname == d or hostname.endswith(f".{d}")
-            for d in ALLOWED_REDIRECT_DOMAINS
+            for d in allowed
         ):
             raise ValueError(
                 f"Redirect URL domain '{hostname}' is not allowed. "
-                f"Must be one of: {', '.join(ALLOWED_REDIRECT_DOMAINS)}"
+                f"Must be one of: {', '.join(allowed)}"
             )
         return v
 
@@ -71,15 +66,16 @@ class PortalSessionRequest(BaseModel):
     @field_validator("return_url")
     @classmethod
     def validate_redirect_domain(cls, v):
+        allowed = settings.allowed_redirect_domains
         parsed = urlparse(str(v))
         hostname = parsed.hostname or ""
         if not any(
             hostname == d or hostname.endswith(f".{d}")
-            for d in ALLOWED_REDIRECT_DOMAINS
+            for d in allowed
         ):
             raise ValueError(
                 f"Redirect URL domain '{hostname}' is not allowed. "
-                f"Must be one of: {', '.join(ALLOWED_REDIRECT_DOMAINS)}"
+                f"Must be one of: {', '.join(allowed)}"
             )
         return v
 

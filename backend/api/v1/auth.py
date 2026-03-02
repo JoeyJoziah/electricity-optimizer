@@ -13,7 +13,7 @@ The backend only validates sessions and serves protected resources.
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,9 +25,18 @@ from auth.neon_auth import (
 )
 from auth.password import check_password_strength
 from config.database import get_timescale_session, db_manager
+from middleware.rate_limiter import UserRateLimiter
 
 
 logger = structlog.get_logger()
+
+# Strict per-endpoint rate limiter for password check-strength (5 req/min).
+# This is an unauthenticated endpoint and must be protected against
+# brute-force enumeration beyond the global middleware limits.
+_password_check_limiter = UserRateLimiter(
+    requests_per_minute=5,
+    requests_per_hour=60,
+)
 
 
 router = APIRouter()
@@ -150,13 +159,33 @@ async def logout(
     summary="Check password strength",
     description="Check if password meets security requirements"
 )
-async def check_password(request: PasswordStrengthRequest):
+async def check_password(http_request: Request, request: PasswordStrengthRequest):
     """
     Check password strength without creating account.
 
     Returns detailed assessment of password security.
     Password is sent in the request body (never as a query parameter)
     to avoid logging in server access logs and browser history.
+
+    Rate limited to 5 requests/minute per IP to prevent brute-force
+    enumeration on this unauthenticated endpoint.
     """
+    # Per-endpoint rate limit (5/min) — stricter than global middleware
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    identifier = f"password_check:ip:{client_ip}"
+    allowed, remaining = await _password_check_limiter.check_rate_limit(
+        identifier, "minute"
+    )
+    if not allowed:
+        logger.warning(
+            "password_check_rate_limited",
+            ip=client_ip,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Try again later.",
+            headers={"Retry-After": "60"},
+        )
+
     result = check_password_strength(request.password)
     return PasswordStrengthResponse(**result)

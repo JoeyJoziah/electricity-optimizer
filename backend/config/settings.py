@@ -46,7 +46,6 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
     # Database - Neon PostgreSQL
-    timescaledb_url: Optional[str] = Field(default=None, validation_alias="TIMESCALEDB_URL")
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
 
     # Redis
@@ -100,6 +99,27 @@ class Settings(BaseSettings):
     stripe_price_pro: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_PRO")
     stripe_price_business: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_BUSINESS")
 
+    # Billing redirect domain allowlist — stored as str to avoid pydantic-settings
+    # JSON-parse failures on comma-separated env var values. Parsed by the property.
+    allowed_redirect_domains_raw: str = Field(
+        default='["electricity-optimizer.vercel.app","electricity-optimizer-frontend.onrender.com","localhost"]',
+        validation_alias="ALLOWED_REDIRECT_DOMAINS",
+    )
+
+    @property
+    def allowed_redirect_domains(self) -> List[str]:
+        """Parse allowed redirect domains from JSON array or comma-separated string."""
+        raw = self.allowed_redirect_domains_raw
+        if not raw:
+            return ["localhost"]
+        raw = raw.strip()
+        if raw.startswith("["):
+            try:
+                return _json.loads(raw)
+            except _json.JSONDecodeError:
+                pass
+        return [domain.strip() for domain in raw.split(",") if domain.strip()]
+
     # Field-level encryption (AES-256-GCM for account numbers etc.)
     field_encryption_key: Optional[str] = Field(default=None, validation_alias="FIELD_ENCRYPTION_KEY")
 
@@ -139,6 +159,29 @@ class Settings(BaseSettings):
             raise ValueError(f"environment must be one of {allowed}")
         return v
 
+    @field_validator("field_encryption_key")
+    @classmethod
+    def validate_field_encryption_key(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure field encryption key is configured in production."""
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production":
+            if not v:
+                raise ValueError(
+                    "CRITICAL: FIELD_ENCRYPTION_KEY must be set in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
+            try:
+                key_bytes = bytes.fromhex(v)
+            except ValueError:
+                raise ValueError(
+                    "FIELD_ENCRYPTION_KEY must be a valid hex string."
+                )
+            if len(key_bytes) != 32:
+                raise ValueError(
+                    "FIELD_ENCRYPTION_KEY must be exactly 32 bytes (64 hex characters)."
+                )
+        return v
+
     @field_validator("jwt_secret")
     @classmethod
     def validate_jwt_secret(cls, v: str) -> str:
@@ -175,11 +218,6 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development"""
         return self.environment == "development"
-
-    @property
-    def effective_database_url(self) -> Optional[str]:
-        """Get the effective database URL (DATABASE_URL takes priority over TIMESCALEDB_URL)"""
-        return self.database_url or self.timescaledb_url
 
 
 # Global settings instance

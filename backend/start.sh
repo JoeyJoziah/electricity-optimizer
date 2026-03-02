@@ -10,8 +10,8 @@ echo "Port: ${PORT:-8000}"
 
 # Validate required environment variables
 if [ "$ENVIRONMENT" = "production" ]; then
-    if [ -z "$DATABASE_URL" ] && [ -z "$TIMESCALEDB_URL" ]; then
-        echo "❌ ERROR: DATABASE_URL or TIMESCALEDB_URL required in production"
+    if [ -z "$DATABASE_URL" ]; then
+        echo "ERROR: DATABASE_URL required in production"
         exit 1
     fi
 fi

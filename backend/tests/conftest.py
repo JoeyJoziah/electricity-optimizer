@@ -540,16 +540,27 @@ def reset_rate_limiter():
 
     Direct import of the singleton from main — no fragile middleware walk.
     Clears before AND after each test to prevent 429 accumulation.
+    Also resets per-endpoint rate limiters (e.g. password check-strength).
     """
     try:
         from main import _app_rate_limiter
         _app_rate_limiter.reset()
     except (ImportError, AttributeError):
         pass
+    try:
+        from api.v1.auth import _password_check_limiter
+        _password_check_limiter.reset()
+    except (ImportError, AttributeError):
+        pass
     yield
     try:
         from main import _app_rate_limiter
         _app_rate_limiter.reset()
+    except (ImportError, AttributeError):
+        pass
+    try:
+        from api.v1.auth import _password_check_limiter
+        _password_check_limiter.reset()
     except (ImportError, AttributeError):
         pass
 

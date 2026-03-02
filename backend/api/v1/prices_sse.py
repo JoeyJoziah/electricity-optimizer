@@ -86,7 +86,7 @@ async def _price_event_generator(
     15 seconds to keep proxies alive. Checks for client disconnection
     promptly.
     """
-    heartbeat_interval = 15
+    heartbeat_interval = 45
     elapsed_since_heartbeat = 0
 
     while True:

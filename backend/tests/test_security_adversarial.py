@@ -350,18 +350,29 @@ class TestXSSInputHandling:
         via the Next.js frontend API routes. The backend no longer has those
         endpoints.
         """
-        for payload in XSS_PAYLOADS:
-            response = full_app_client.post(
-                "/api/v1/auth/password/check-strength",
-                json={"password": payload},
-            )
-            assert response.status_code == 200, (
-                f"XSS payload in password check caused {response.status_code}."
-            )
-            assert "application/json" in response.headers.get("content-type", ""), (
-                f"Response to XSS-in-password is not JSON. "
-                f"Content-Type: {response.headers.get('content-type')}"
-            )
+        # Temporarily raise the per-endpoint rate limit — this test sends 6
+        # payloads which exceeds the strict 5/min production limit.  The test
+        # validates XSS handling, not rate limiting, so we widen the window.
+        from api.v1.auth import _password_check_limiter
+        _password_check_limiter.reset()
+        original_rpm = _password_check_limiter.requests_per_minute
+        _password_check_limiter.requests_per_minute = 100
+
+        try:
+            for payload in XSS_PAYLOADS:
+                response = full_app_client.post(
+                    "/api/v1/auth/password/check-strength",
+                    json={"password": payload},
+                )
+                assert response.status_code == 200, (
+                    f"XSS payload in password check caused {response.status_code}."
+                )
+                assert "application/json" in response.headers.get("content-type", ""), (
+                    f"Response to XSS-in-password is not JSON. "
+                    f"Content-Type: {response.headers.get('content-type')}"
+                )
+        finally:
+            _password_check_limiter.requests_per_minute = original_rpm
 
 
 # =============================================================================

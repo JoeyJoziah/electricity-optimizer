@@ -48,7 +48,10 @@ class SessionData:
     role: Optional[str] = None
 
 
-_SESSION_CACHE_TTL = 10  # seconds — kept short to limit access window after logout/ban
+# 5 minutes balances security (logout/ban propagation) with DB load reduction.
+# Explicit cache invalidation on logout ensures immediate session termination
+# (see invalidate_session_cache, called by the /auth/logout endpoint in api/v1/auth.py).
+_SESSION_CACHE_TTL = 300  # seconds
 
 
 async def _get_session_from_token(
@@ -59,7 +62,7 @@ async def _get_session_from_token(
     """
     Query neon_auth.session + neon_auth.user for the given session token.
 
-    Uses Redis as a short-lived cache (120s TTL) to avoid hitting the DB
+    Uses Redis as a short-lived cache (_SESSION_CACHE_TTL) to avoid hitting the DB
     on every authenticated request. Returns SessionData if the token is
     valid and not expired, None otherwise.
     """

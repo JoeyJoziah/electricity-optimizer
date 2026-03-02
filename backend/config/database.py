@@ -40,7 +40,7 @@ class DatabaseManager:
 
     async def _init_database(self):
         """Initialize database connection pool (Neon PostgreSQL)"""
-        db_url = settings.effective_database_url
+        db_url = settings.database_url
         if not db_url:
             logger.info("database_not_configured")
             return
