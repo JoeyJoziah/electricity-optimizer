@@ -243,4 +243,59 @@ describe('usePrices hooks', () => {
 
     retryClient.clear()
   })
+
+  // ========================================================================
+  // Null-region guard tests (enabled: !!region)
+  // ========================================================================
+
+  it('useCurrentPrices(null) is disabled — no API call', () => {
+    const { result } = renderHook(() => useCurrentPrices(null), { wrapper })
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetCurrentPrices).not.toHaveBeenCalled()
+  })
+
+  it('usePriceHistory(null) is disabled — no API call', () => {
+    const { result } = renderHook(() => usePriceHistory(null, 24), { wrapper })
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetPriceHistory).not.toHaveBeenCalled()
+  })
+
+  it('usePriceForecast(null) is disabled — no API call', () => {
+    const { result } = renderHook(() => usePriceForecast(null, 24), { wrapper })
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetPriceForecast).not.toHaveBeenCalled()
+  })
+
+  it('useOptimalPeriods(null) is disabled — no API call', () => {
+    const { result } = renderHook(() => useOptimalPeriods(null, 24), { wrapper })
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetOptimalPeriods).not.toHaveBeenCalled()
+  })
+
+  it('useCurrentPrices activates when region transitions from null to string', async () => {
+    const { result, rerender } = renderHook(
+      ({ region }: { region: string | null }) => useCurrentPrices(region),
+      {
+        wrapper,
+        initialProps: { region: null as string | null },
+      }
+    )
+
+    // Initially disabled
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetCurrentPrices).not.toHaveBeenCalled()
+
+    // Transition to a real region
+    rerender({ region: 'us_ct' })
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true)
+    })
+
+    expect(mockGetCurrentPrices).toHaveBeenCalledWith('us_ct')
+  })
 })

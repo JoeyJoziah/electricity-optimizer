@@ -220,7 +220,7 @@ describe('useOptimizationResult', () => {
   it('is disabled when date is empty', () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useOptimizationResult(''), { wrapper })
+    const { result } = renderHook(() => useOptimizationResult('', 'us_ct'), { wrapper })
 
     expect(result.current.fetchStatus).toBe('idle')
     expect(mockGetOptimizationResult).not.toHaveBeenCalled()
@@ -422,5 +422,38 @@ describe('usePotentialSavings', () => {
     })
 
     expect(result.current.error?.message).toBe('Calculation failed')
+  })
+})
+
+// ==========================================================================
+// Null-region guard tests
+// ==========================================================================
+describe('null-region guards', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('useOptimizationResult is disabled when region is null', () => {
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(
+      () => useOptimizationResult('2026-02-25', null),
+      { wrapper }
+    )
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetOptimizationResult).not.toHaveBeenCalled()
+  })
+
+  it('usePotentialSavings is disabled when region is null', () => {
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(
+      () => usePotentialSavings([mockAppliance], null),
+      { wrapper }
+    )
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockCalculatePotentialSavings).not.toHaveBeenCalled()
   })
 })

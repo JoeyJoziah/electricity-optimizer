@@ -26,11 +26,11 @@ export function useOptimalSchedule(request: GetOptimalScheduleRequest) {
 /**
  * Hook for getting optimization result for a date
  */
-export function useOptimizationResult(date: string, region: string) {
+export function useOptimizationResult(date: string, region: string | null) {
   return useQuery({
     queryKey: ['optimization', 'result', date, region],
-    queryFn: () => getOptimizationResult(date, region),
-    enabled: !!date,
+    queryFn: () => getOptimizationResult(date, region!),
+    enabled: !!date && !!region,
     staleTime: 60000,
   })
 }
@@ -64,11 +64,11 @@ export function useSaveAppliances() {
 /**
  * Hook for calculating potential savings
  */
-export function usePotentialSavings(appliances: Appliance[], region: string) {
+export function usePotentialSavings(appliances: Appliance[], region: string | null) {
   return useQuery({
     queryKey: ['potential-savings', appliances, region],
-    queryFn: () => calculatePotentialSavings(appliances, region),
-    enabled: appliances.length > 0,
+    queryFn: () => calculatePotentialSavings(appliances, region!),
+    enabled: appliances.length > 0 && !!region,
     staleTime: 300000,
   })
 }

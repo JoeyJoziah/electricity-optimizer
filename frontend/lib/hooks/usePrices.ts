@@ -6,10 +6,11 @@ import { getCurrentPrices, getPriceHistory, getPriceForecast, getOptimalPeriods 
 /**
  * Hook for fetching current electricity prices
  */
-export function useCurrentPrices(region: string) {
+export function useCurrentPrices(region: string | null) {
   return useQuery({
     queryKey: ['prices', 'current', region],
-    queryFn: () => getCurrentPrices(region),
+    queryFn: () => getCurrentPrices(region!),
+    enabled: !!region,
     refetchInterval: 60000, // Refetch every minute
     staleTime: 55000, // Stale just before next poll to prevent window-focus gap refetch
   })
@@ -18,10 +19,11 @@ export function useCurrentPrices(region: string) {
 /**
  * Hook for fetching price history
  */
-export function usePriceHistory(region: string, hours: number = 24) {
+export function usePriceHistory(region: string | null, hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'history', region, hours],
-    queryFn: () => getPriceHistory(region, hours),
+    queryFn: () => getPriceHistory(region!, hours),
+    enabled: !!region,
     staleTime: 60000, // Consider stale after 1 minute
   })
 }
@@ -29,10 +31,11 @@ export function usePriceHistory(region: string, hours: number = 24) {
 /**
  * Hook for fetching price forecast
  */
-export function usePriceForecast(region: string, hours: number = 24) {
+export function usePriceForecast(region: string | null, hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'forecast', region, hours],
-    queryFn: () => getPriceForecast(region, hours),
+    queryFn: () => getPriceForecast(region!, hours),
+    enabled: !!region,
     refetchInterval: 300000, // Refetch every 5 minutes
     staleTime: 180000, // Consider stale after 3 minutes
   })
@@ -41,10 +44,11 @@ export function usePriceForecast(region: string, hours: number = 24) {
 /**
  * Hook for fetching optimal periods
  */
-export function useOptimalPeriods(region: string, hours: number = 24) {
+export function useOptimalPeriods(region: string | null, hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'optimal', region, hours],
-    queryFn: () => getOptimalPeriods(region, hours),
+    queryFn: () => getOptimalPeriods(region!, hours),
+    enabled: !!region,
     refetchInterval: 300000,
     staleTime: 180000,
   })

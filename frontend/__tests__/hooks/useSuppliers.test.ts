@@ -690,3 +690,33 @@ describe('useUnlinkAccount', () => {
     )
   })
 })
+
+// ==========================================================================
+// Null-region guard tests
+// ==========================================================================
+describe('null-region guards', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('useSuppliers(null) is disabled — no API call', () => {
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useSuppliers(null), { wrapper })
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetSuppliers).not.toHaveBeenCalled()
+  })
+
+  it('useSupplierRecommendation with null region is disabled', () => {
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(
+      () => useSupplierRecommendation('sup-1', 10500, null),
+      { wrapper }
+    )
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetRecommendation).not.toHaveBeenCalled()
+  })
+})

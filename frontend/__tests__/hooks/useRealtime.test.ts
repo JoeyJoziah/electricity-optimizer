@@ -95,7 +95,7 @@ describe('useRealtimePrices', () => {
   it('sets isConnected to true on successful connection', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isConnected).toBe(true)
@@ -105,7 +105,7 @@ describe('useRealtimePrices', () => {
   it('starts with lastPrice as null', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     expect(result.current.lastPrice).toBeNull()
   })
@@ -151,7 +151,7 @@ describe('useRealtimePrices', () => {
   it('ignores messages with empty data', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(capturedCallbacks.onmessage).toBeDefined()
@@ -167,7 +167,7 @@ describe('useRealtimePrices', () => {
   it('ignores non-JSON messages (heartbeats)', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(capturedCallbacks.onmessage).toBeDefined()
@@ -183,7 +183,7 @@ describe('useRealtimePrices', () => {
   it('sets isConnected to false on error', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isConnected).toBe(true)
@@ -199,7 +199,7 @@ describe('useRealtimePrices', () => {
   it('returns exponential backoff delay on retryable error', async () => {
     const { wrapper } = createWrapper()
 
-    renderHook(() => useRealtimePrices(), { wrapper })
+    renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(capturedCallbacks.onerror).toBeDefined()
@@ -221,7 +221,7 @@ describe('useRealtimePrices', () => {
   it('stops retrying on auth failure', async () => {
     const { wrapper } = createWrapper()
 
-    renderHook(() => useRealtimePrices(), { wrapper })
+    renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(capturedCallbacks.onerror).toBeDefined()
@@ -235,7 +235,7 @@ describe('useRealtimePrices', () => {
   it('sets isConnected to false on close', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isConnected).toBe(true)
@@ -251,7 +251,7 @@ describe('useRealtimePrices', () => {
   it('disconnect aborts the connection', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isConnected).toBe(true)
@@ -267,7 +267,7 @@ describe('useRealtimePrices', () => {
   it('aborts connection on unmount (cleanup)', async () => {
     const { wrapper } = createWrapper()
 
-    const { unmount } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { unmount } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(mockFetchEventSource).toHaveBeenCalled()
@@ -328,7 +328,7 @@ describe('useRealtimePrices', () => {
 
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices(), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     // Should NOT be connected after auth failure
     await waitFor(() => {
@@ -341,7 +341,7 @@ describe('useRealtimePrices', () => {
   it('uses credentials: include for cookie auth', async () => {
     const { wrapper } = createWrapper()
 
-    renderHook(() => useRealtimePrices(), { wrapper })
+    renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
     await waitFor(() => {
       expect(mockFetchEventSource).toHaveBeenCalledTimes(1)
@@ -349,6 +349,50 @@ describe('useRealtimePrices', () => {
 
     const options = mockFetchEventSource.mock.calls[0][1]
     expect(options.credentials).toBe('include')
+  })
+
+  // ========================================================================
+  // Null-region guard tests
+  // ========================================================================
+
+  it('does not open SSE connection when region is null', async () => {
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useRealtimePrices(null), { wrapper })
+
+    // Give it a tick to ensure useEffect ran
+    await waitFor(() => {
+      expect(result.current.isConnected).toBe(false)
+    })
+
+    expect(mockFetchEventSource).not.toHaveBeenCalled()
+  })
+
+  it('opens SSE connection when region transitions from null to string', async () => {
+    const { wrapper } = createWrapper()
+
+    const { result, rerender } = renderHook(
+      ({ region }: { region: string | null }) => useRealtimePrices(region),
+      {
+        wrapper,
+        initialProps: { region: null as string | null },
+      }
+    )
+
+    // Initially no connection
+    expect(mockFetchEventSource).not.toHaveBeenCalled()
+    expect(result.current.isConnected).toBe(false)
+
+    // Transition to a real region
+    rerender({ region: 'us_ct' })
+
+    await waitFor(() => {
+      expect(mockFetchEventSource).toHaveBeenCalledTimes(1)
+    })
+
+    expect(result.current.isConnected).toBe(true)
+    const url = mockFetchEventSource.mock.calls[0][0]
+    expect(url).toContain('region=us_ct')
   })
 })
 

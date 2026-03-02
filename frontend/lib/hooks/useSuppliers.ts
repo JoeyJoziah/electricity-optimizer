@@ -21,10 +21,11 @@ import type { LinkAccountRequest as LinkAccountRequestType } from '@/lib/api/sup
 /**
  * Hook for fetching available suppliers
  */
-export function useSuppliers(region: string, annualUsage?: number) {
+export function useSuppliers(region: string | null, annualUsage?: number) {
   return useQuery({
     queryKey: ['suppliers', region, annualUsage],
-    queryFn: () => getSuppliers(region, annualUsage),
+    queryFn: () => getSuppliers(region!, annualUsage),
+    enabled: !!region,
     staleTime: 300000, // Consider stale after 5 minutes
   })
 }
@@ -47,12 +48,12 @@ export function useSupplier(supplierId: string) {
 export function useSupplierRecommendation(
   currentSupplierId: string,
   annualUsage: number,
-  region: string
+  region: string | null
 ) {
   return useQuery({
     queryKey: ['recommendation', currentSupplierId, annualUsage, region],
-    queryFn: () => getRecommendation(currentSupplierId, annualUsage, region),
-    enabled: !!currentSupplierId && annualUsage > 0,
+    queryFn: () => getRecommendation(currentSupplierId, annualUsage, region!),
+    enabled: !!currentSupplierId && annualUsage > 0 && !!region,
     staleTime: 300000,
   })
 }

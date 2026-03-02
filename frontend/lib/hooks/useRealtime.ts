@@ -32,7 +32,7 @@ export interface PriceUpdate {
  * Connects to the SSE endpoint and invalidates React Query caches
  * when new price data arrives.
  */
-export function useRealtimePrices(region: string, interval: number = 30) {
+export function useRealtimePrices(region: string | null, interval: number = 30) {
   const queryClient = useQueryClient()
   const [isConnected, setIsConnected] = useState(false)
   const [lastPrice, setLastPrice] = useState<PriceUpdate | null>(null)
@@ -42,7 +42,7 @@ export function useRealtimePrices(region: string, interval: number = 30) {
 
   useEffect(() => {
     mountedRef.current = true
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || !region) return
 
     const url = `${API_URL}/prices/stream?region=${region}&interval=${interval}`
     const MAX_RETRY_DELAY = 30_000
