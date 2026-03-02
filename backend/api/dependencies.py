@@ -12,13 +12,15 @@ from config.settings import settings
 from config.database import db_manager
 
 # Re-export auth dependencies from neon_auth module.
-# TokenData is an alias for SessionData to maintain backward compatibility
-# with existing endpoints that use `current_user: TokenData = Depends(get_current_user)`.
 from auth.neon_auth import (
     get_current_user,
     get_current_user_optional,
-    SessionData as TokenData,
+    SessionData,
 )
+
+# Deprecated alias — use SessionData directly.
+# Kept for any external consumers that were written before the rename.
+TokenData = SessionData
 
 # API Key header for service-to-service auth
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -110,8 +112,8 @@ def require_scope(required_scope: str):
         Dependency function that checks for the scope
     """
     async def check_scope(
-        token_data: TokenData = Depends(get_current_user)
-    ) -> TokenData:
+        token_data: SessionData = Depends(get_current_user)
+    ) -> SessionData:
         # Neon Auth sessions don't have scopes — check role instead
         if token_data.role != required_scope and token_data.role != "admin":
             raise HTTPException(
@@ -141,9 +143,9 @@ def require_paid_tier():
         Dependency function that checks for a paid subscription tier
     """
     async def check_tier(
-        current_user: TokenData = Depends(get_current_user),
+        current_user: SessionData = Depends(get_current_user),
         db=Depends(get_db_session),
-    ) -> TokenData:
+    ) -> SessionData:
         from sqlalchemy import text
 
         result = await db.execute(

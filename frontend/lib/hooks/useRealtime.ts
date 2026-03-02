@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+import { API_URL } from '@/lib/config/env'
 
 export interface RealtimeConfig {
   table: string

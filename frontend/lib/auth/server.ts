@@ -11,6 +11,7 @@
 
 import { betterAuth } from "better-auth"
 import { Pool } from "@neondatabase/serverless"
+import { APP_URL } from "@/lib/config/env"
 
 function buildConnectionString(): string {
   const baseUrl = process.env.DATABASE_URL || ""
@@ -74,7 +75,7 @@ function createAuth() {
     trustedOrigins: [
       "http://localhost:3000",
       "http://localhost:3001",
-      ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
+      ...(APP_URL !== "http://localhost:3000" ? [APP_URL] : []),
     ],
 
     // Tell Better Auth the DB uses UUID columns (neon_auth schema)

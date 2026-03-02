@@ -114,6 +114,13 @@ def _scalar_result(value) -> MagicMock:
     return result
 
 
+def _count_result(count: int) -> MagicMock:
+    """Mock execute() result for COUNT(*) queries."""
+    result = MagicMock()
+    result.scalar.return_value = count
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Module-scoped TestClient to avoid event-loop / middleware issues
 # ---------------------------------------------------------------------------
@@ -742,35 +749,47 @@ class TestDeleteConnection:
 class TestGetRates:
     """Tests for GET /connections/{id}/rates and GET /connections/{id}/rates/current.
 
-    The rates endpoints were refactored to eliminate N+1 queries:
-    - When rates exist, a single JOIN query handles ownership + data fetch.
-    - When no rates exist, a secondary EXISTS check is made to distinguish
-      "connection not found" (404) from "connection exists but has no rates" (200 []).
+    The list endpoint (GET /{id}/rates) is paginated and runs COUNT + data queries
+    in parallel via asyncio.gather, then falls back to a lightweight EXISTS check
+    only when the count is zero.
+
+    Query call order for GET /{id}/rates:
+      1 & 2 (parallel): COUNT(*) JOIN query, data SELECT JOIN query
+      3 (only when count==0): EXISTS ownership check
+
+    The /rates/current endpoint is unchanged — single JOIN + optional EXISTS.
     """
 
     def test_get_rates_empty(self, client):
-        """No extracted rates for a valid connection → returns an empty list.
+        """No extracted rates for a valid connection → returns empty paginated response.
 
-        The JOIN query returns no rows (no rates), then the secondary EXISTS
-        query confirms the connection belongs to this user → 200 [].
+        COUNT returns 0 (via gather), data query returns [] (via gather), then
+        the secondary EXISTS query confirms the connection belongs to this user
+        → 200 with empty rates list and total=0.
         """
         db = _install_auth()
 
-        # Query 1: JOIN returns empty (connection exists but has no rates)
-        join_empty = _empty_mapping_result()
-        # Query 2: EXISTS check confirms connection belongs to this user
+        # Queries 1+2 (parallel): COUNT=0 and empty data result
+        count_zero = _count_result(0)
+        data_empty = _empty_mapping_result()
+        # Query 3: EXISTS check confirms connection belongs to this user
         exists_found = MagicMock()
         exists_found.fetchone.return_value = MagicMock()
 
-        db.execute = AsyncMock(side_effect=[join_empty, exists_found])
+        db.execute = AsyncMock(side_effect=[count_zero, data_empty, exists_found])
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates")
 
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["rates"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["page_size"] == 20
+        assert data["pages"] == 1
 
     def test_get_rates_returns_all(self, client):
-        """Multiple extracted rates are returned in a single JOIN query."""
+        """Multiple extracted rates are returned with pagination metadata."""
         db = _install_auth()
 
         now = datetime.now(timezone.utc).isoformat()
@@ -793,33 +812,122 @@ class TestGetRates:
             },
         ]
 
-        # Single JOIN query returns rows directly — no secondary query needed
-        join_rates_result = _mapping_result(rate_rows)
-        db.execute = AsyncMock(return_value=join_rates_result)
+        # Queries 1+2 (parallel): COUNT=2 and rows result
+        count_two = _count_result(2)
+        data_result = _mapping_result(rate_rows)
+        db.execute = AsyncMock(side_effect=[count_two, data_result])
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates")
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 2
-        assert data[0]["rate_per_kwh"] == 0.2145
-        assert data[1]["source"] == "api_pull"
+        assert data["total"] == 2
+        assert data["page"] == 1
+        assert data["page_size"] == 20
+        assert data["pages"] == 1
+        assert len(data["rates"]) == 2
+        assert data["rates"][0]["rate_per_kwh"] == 0.2145
+        assert data["rates"][1]["source"] == "api_pull"
 
     def test_get_rates_not_found(self, client):
         """Unknown connection_id (or wrong user) → 404.
 
-        JOIN returns empty, secondary EXISTS finds nothing → 404.
+        COUNT returns 0 (via gather), data empty (via gather), secondary
+        EXISTS finds nothing → 404.
         """
         db = _install_auth()
 
-        join_empty = _empty_mapping_result()
+        count_zero = _count_result(0)
+        data_empty = _empty_mapping_result()
         exists_not_found = _empty_mapping_result()
 
-        db.execute = AsyncMock(side_effect=[join_empty, exists_not_found])
+        db.execute = AsyncMock(side_effect=[count_zero, data_empty, exists_not_found])
 
         response = client.get(f"{BASE}/{str(uuid4())}/rates")
 
         assert response.status_code == 404
+
+    def test_get_rates_pagination_page2(self, client):
+        """Requesting page 2 is reflected in the response metadata."""
+        db = _install_auth()
+
+        now = datetime.now(timezone.utc).isoformat()
+        rate_row = {
+            "id": str(uuid4()),
+            "connection_id": TEST_CONNECTION_ID,
+            "rate_per_kwh": 0.2201,
+            "effective_date": now,
+            "source": "bill_parse",
+            "raw_label": None,
+        }
+
+        # 25 total records across 2 pages of page_size=20; page 2 has 5 rows
+        count_result = _count_result(25)
+        data_result = _mapping_result([rate_row])
+        db.execute = AsyncMock(side_effect=[count_result, data_result])
+
+        response = client.get(
+            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=2&page_size=20"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 25
+        assert data["page"] == 2
+        assert data["page_size"] == 20
+        assert data["pages"] == 2
+
+    def test_get_rates_custom_page_size(self, client):
+        """page_size parameter is respected and reflected in the response."""
+        db = _install_auth()
+
+        now = datetime.now(timezone.utc).isoformat()
+        rows = [
+            {
+                "id": str(uuid4()),
+                "connection_id": TEST_CONNECTION_ID,
+                "rate_per_kwh": 0.2000 + i * 0.001,
+                "effective_date": now,
+                "source": "bill_parse",
+                "raw_label": None,
+            }
+            for i in range(5)
+        ]
+
+        count_result = _count_result(50)
+        data_result = _mapping_result(rows)
+        db.execute = AsyncMock(side_effect=[count_result, data_result])
+
+        response = client.get(
+            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=1&page_size=5"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page_size"] == 5
+        assert data["total"] == 50
+        assert data["pages"] == 10
+        assert len(data["rates"]) == 5
+
+    def test_get_rates_page_size_capped_at_100(self, client):
+        """page_size above 100 is rejected with 422."""
+        _install_auth()
+
+        response = client.get(
+            f"{BASE}/{TEST_CONNECTION_ID}/rates?page_size=101"
+        )
+
+        assert response.status_code == 422
+
+    def test_get_rates_page_below_1_rejected(self, client):
+        """page=0 is rejected with 422."""
+        _install_auth()
+
+        response = client.get(
+            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=0"
+        )
+
+        assert response.status_code == 422
 
     def test_get_current_rate(self, client):
         """GET .../rates/current returns only the most recent rate in a single JOIN."""

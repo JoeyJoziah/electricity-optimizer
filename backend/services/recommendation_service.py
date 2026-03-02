@@ -308,16 +308,38 @@ class RecommendationService:
             generated_at=datetime.now(timezone.utc)
         )
 
+    # Minimum number of historical observations required before the vector
+    # store search is worth attempting.  Below this threshold the index is
+    # too sparse to return meaningful neighbours and the SQLite scan cost
+    # outweighs any benefit.
+    _MIN_VECTOR_OBSERVATIONS = 10
+
     def _adjust_confidence_from_patterns(
         self,
         prices: List[Price],
         confidence: float,
     ) -> float:
-        """Adjust recommendation confidence based on similar historical patterns."""
+        """Adjust recommendation confidence based on similar historical patterns.
+
+        Skips the vector store lookup entirely when fewer than
+        _MIN_VECTOR_OBSERVATIONS historical observations exist in the
+        'recommendation' domain — the index is too sparse to return useful
+        neighbours and the SQLite scan is wasted I/O.
+        """
         if not self._vector_store or not prices:
             return confidence
 
         try:
+            # Cheap COUNT before the expensive kNN search.
+            stats = self._vector_store.get_stats(domain="recommendation")
+            if stats.get("total_vectors", 0) < self._MIN_VECTOR_OBSERVATIONS:
+                _logger.debug(
+                    "vector_confidence_adjustment_skipped_sparse",
+                    total_vectors=stats.get("total_vectors", 0),
+                    threshold=self._MIN_VECTOR_OBSERVATIONS,
+                )
+                return confidence
+
             from services.vector_store import price_curve_to_vector
             import numpy as np
 

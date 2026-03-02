@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog
 
-from api.dependencies import get_db_session, TokenData
+from api.dependencies import get_db_session, SessionData
 from models.connections import (
     ConnectionListResponse,
     ConnectionResponse,
@@ -42,7 +42,7 @@ router = APIRouter()
     summary="List connections",
 )
 async def list_connections(
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> ConnectionListResponse:
     """Return all active connections belonging to the current user."""
@@ -74,7 +74,7 @@ async def list_connections(
 )
 async def create_direct_connection(
     payload: CreateDirectConnectionRequest,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> ConnectionResponse:
     """
@@ -167,7 +167,7 @@ async def create_direct_connection(
 )
 async def get_connection(
     connection_id: str,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> ConnectionResponse:
     """Return a single connection record, scoped to the current user."""
@@ -201,7 +201,7 @@ async def get_connection(
 )
 async def delete_connection(
     connection_id: str,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> DeleteConnectionResponse:
     """Mark a connection as disconnected (soft delete), scoped to the current user."""
@@ -245,7 +245,7 @@ async def delete_connection(
 async def update_connection(
     connection_id: str,
     label: Optional[str] = None,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Update connection label or settings."""

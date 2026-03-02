@@ -22,7 +22,7 @@ from starlette.responses import RedirectResponse
 
 import structlog
 
-from api.dependencies import get_db_session, TokenData
+from api.dependencies import get_db_session, SessionData
 from models.connections import (
     CreateEmailConnectionRequest,
     EmailConnectionInitResponse,
@@ -47,7 +47,7 @@ router = APIRouter()
 )
 async def create_email_connection(
     payload: CreateEmailConnectionRequest,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> EmailConnectionInitResponse:
     """
@@ -195,7 +195,7 @@ async def email_oauth_callback(
 )
 async def trigger_email_scan(
     connection_id: str,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Trigger a scan of the connected email inbox for utility bills."""

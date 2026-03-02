@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 
 class _MockDB:
@@ -79,7 +79,7 @@ def auth_client(mock_db):
     """Create a TestClient with authenticated user and mock DB."""
     from main import app
 
-    test_user = TokenData(user_id="admin-user-1", email="admin@test.com")
+    test_user = SessionData(user_id="admin-user-1", email="admin@test.com")
     app.dependency_overrides[get_current_user] = lambda: test_user
     app.dependency_overrides[get_db_session] = lambda: mock_db
 

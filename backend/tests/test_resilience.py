@@ -14,7 +14,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 
 # ---------------------------------------------------------------------------
@@ -22,9 +22,9 @@ from api.dependencies import get_current_user, get_db_session, TokenData
 # ---------------------------------------------------------------------------
 
 
-def _make_test_user(suffix: str = "1") -> TokenData:
-    """Return a minimal TokenData for dependency injection."""
-    return TokenData(
+def _make_test_user(suffix: str = "1") -> SessionData:
+    """Return a minimal SessionData for dependency injection."""
+    return SessionData(
         user_id=f"resilience-user-{suffix}",
         email=f"resilience{suffix}@test.com",
     )

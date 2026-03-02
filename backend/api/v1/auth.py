@@ -39,7 +39,7 @@ _password_check_limiter = UserRateLimiter(
 )
 
 
-router = APIRouter()
+router = APIRouter(tags=["Authentication"])
 
 
 # =============================================================================

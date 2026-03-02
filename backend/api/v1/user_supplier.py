@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 from models.user_supplier import (
     SetSupplierRequest,
     LinkAccountRequest,
@@ -25,7 +25,7 @@ import structlog
 
 logger = structlog.get_logger()
 
-router = APIRouter()
+router = APIRouter(tags=["User Supplier"])
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ async def _ensure_user_exists(db: AsyncSession, user_id: str) -> None:
 @router.put("/supplier", response_model=UserSupplierResponse)
 async def set_current_supplier(
     body: SetSupplierRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Set the authenticated user's current supplier."""
@@ -142,7 +142,7 @@ async def set_current_supplier(
 
 @router.get("/supplier")
 async def get_current_supplier(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get the authenticated user's current supplier."""
@@ -180,7 +180,7 @@ async def get_current_supplier(
 
 @router.delete("/supplier")
 async def remove_current_supplier(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Remove the authenticated user's current supplier."""
@@ -208,7 +208,7 @@ async def remove_current_supplier(
 @router.post("/supplier/link", response_model=LinkedAccountResponse)
 async def link_supplier_account(
     body: LinkAccountRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Link a utility account to a supplier (stores encrypted account number)."""
@@ -282,7 +282,7 @@ async def link_supplier_account(
 
 @router.get("/supplier/accounts")
 async def get_linked_accounts(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get all linked supplier accounts for the authenticated user (masked)."""
@@ -343,7 +343,7 @@ async def get_linked_accounts(
 @router.delete("/supplier/accounts/{supplier_id}")
 async def unlink_supplier_account(
     supplier_id: UUID,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Unlink a specific supplier account."""

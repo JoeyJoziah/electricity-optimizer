@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog
 
-from api.dependencies import get_db_session, TokenData
+from api.dependencies import get_db_session, SessionData
 from models.connections import (
     AuthorizationCallbackResponse,
     SyncResultResponse,
@@ -196,7 +196,7 @@ async def utilityapi_callback(
 )
 async def trigger_sync(
     connection_id: str,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> SyncResultResponse:
     """
@@ -250,7 +250,7 @@ async def trigger_sync(
 )
 async def get_sync_status(
     connection_id: str,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> SyncStatusResponse:
     """

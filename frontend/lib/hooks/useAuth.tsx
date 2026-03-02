@@ -13,6 +13,7 @@ import { authClient } from '@/lib/auth/client'
 import { getUserSupplier } from '@/lib/api/suppliers'
 import { getUserProfile } from '@/lib/api/profile'
 import { useSettingsStore } from '@/lib/store/settings'
+import { API_URL } from '@/lib/config/env'
 
 // Auth user type
 export interface AuthUser {
@@ -219,8 +220,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Without this, the cached session remains valid for up to 30s
     // after Better Auth deletes it from the neon_auth.session table.
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
-      await fetch(`${baseUrl}/auth/logout`, {
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       })

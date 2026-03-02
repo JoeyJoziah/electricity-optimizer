@@ -23,11 +23,11 @@ from models.supplier import (
     TariffListResponse,
 )
 from models.utility import UtilityType
-from api.dependencies import get_db_session, get_redis, get_current_user_optional, TokenData
+from api.dependencies import get_db_session, get_redis, get_current_user_optional, SessionData
 from repositories.supplier_repository import SupplierRegistryRepository
 
 
-router = APIRouter()
+router = APIRouter(tags=["Suppliers"])
 
 # Regex for valid region codes (e.g. us_ct, uk, de, jp)
 _REGION_RE = re.compile(r"^[a-z]{2}(_[a-z]{2})?$")

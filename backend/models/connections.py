@@ -139,6 +139,16 @@ class ExtractedRateResponse(BaseModel):
     raw_label: Optional[str] = None
 
 
+class ExtractedRateListResponse(BaseModel):
+    """Paginated list of extracted rates for a connection."""
+
+    rates: List[ExtractedRateResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
 # ---------------------------------------------------------------------------
 # Bill Upload Models (Phase 2)
 # ---------------------------------------------------------------------------

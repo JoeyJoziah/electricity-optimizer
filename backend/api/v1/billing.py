@@ -12,14 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 import stripe
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 from config.settings import settings
 from repositories.user_repository import UserRepository
 from services.stripe_service import StripeService, apply_webhook_action
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["Billing"])
 
 
 # =============================================================================
@@ -121,7 +121,7 @@ class WebhookEventResponse(BaseModel):
 )
 async def create_checkout_session(
     request: CheckoutSessionRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -195,7 +195,7 @@ async def create_checkout_session(
 )
 async def create_portal_session(
     request: PortalSessionRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -257,7 +257,7 @@ async def create_portal_session(
     },
 )
 async def get_subscription_status(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """

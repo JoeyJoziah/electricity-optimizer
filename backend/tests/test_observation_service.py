@@ -76,7 +76,7 @@ class TestRecordForecast:
 
     @pytest.mark.asyncio
     async def test_single_prediction_inserts_one_row(self, service, db):
-        """Should insert exactly 1 row for a single prediction."""
+        """Should insert exactly 1 row for a single prediction (1 batch call)."""
         predictions = [
             {
                 "timestamp": datetime(2026, 2, 23, 14, 0, tzinfo=timezone.utc),
@@ -94,24 +94,24 @@ class TestRecordForecast:
         )
 
         assert result == 1
+        # 1 prediction fits in one batch → exactly 1 execute call
         db.execute.assert_awaited_once()
         db.commit.assert_awaited_once()
 
-        # Verify the params passed to execute
+        # Params are a flat dict with index-suffixed keys for the single chunk.
         call_args = db.execute.call_args
-        rows = call_args[0][1]  # second positional arg is the rows list
-        assert len(rows) == 1
-        assert rows[0]["forecast_id"] == "fc-1"
-        assert rows[0]["region"] == "us"
-        assert rows[0]["predicted_price"] == 0.25
-        assert rows[0]["confidence_lower"] == 0.20
-        assert rows[0]["confidence_upper"] == 0.30
-        assert rows[0]["model_version"] == "v2.1"
-        assert rows[0]["forecast_hour"] == 14
+        params = call_args[0][1]  # second positional arg is the params dict
+        assert params["forecast_id0"] == "fc-1"
+        assert params["region0"] == "us"
+        assert params["predicted_price0"] == 0.25
+        assert params["confidence_lower0"] == 0.20
+        assert params["confidence_upper0"] == 0.30
+        assert params["model_version0"] == "v2.1"
+        assert params["forecast_hour0"] == 14
 
     @pytest.mark.asyncio
     async def test_batch_predictions_inserts_all(self, service, db):
-        """Should insert all predictions in a single batch."""
+        """24 predictions should produce 2 INSERT calls (chunks of 20 + 4)."""
         predictions = [
             {
                 "timestamp": datetime(2026, 2, 23, h, 0, tzinfo=timezone.utc),
@@ -127,12 +127,23 @@ class TestRecordForecast:
         )
 
         assert result == 24
-        call_args = db.execute.call_args
-        rows = call_args[0][1]
-        assert len(rows) == 24
-        # Verify forecast_hour values span 0-23
-        hours = [r["forecast_hour"] for r in rows]
-        assert hours == list(range(24))
+        # 24 predictions → ceil(24/20) = 2 execute calls
+        assert db.execute.await_count == 2
+
+        # First chunk: rows 0-19 (20 rows), second chunk: rows 20-23 (4 rows).
+        first_params = db.execute.call_args_list[0][0][1]
+        second_params = db.execute.call_args_list[1][0][1]
+        # First chunk has keys id0..id19
+        assert "id0" in first_params and "id19" in first_params
+        assert "id20" not in first_params
+        # Second chunk has keys id0..id3
+        assert "id0" in second_params and "id3" in second_params
+        assert "id4" not in second_params
+        # Verify forecast_hour values in first chunk span 0-19
+        hours_first = [first_params[f"forecast_hour{i}"] for i in range(20)]
+        assert hours_first == list(range(20))
+        hours_second = [second_params[f"forecast_hour{i}"] for i in range(4)]
+        assert hours_second == list(range(20, 24))
 
     @pytest.mark.asyncio
     async def test_iso_string_timestamp_parsed(self, service, db):
@@ -151,8 +162,8 @@ class TestRecordForecast:
         )
 
         assert result == 1
-        rows = db.execute.call_args[0][1]
-        assert rows[0]["forecast_hour"] == 8
+        params = db.execute.call_args[0][1]
+        assert params["forecast_hour0"] == 8
 
     @pytest.mark.asyncio
     async def test_missing_optional_fields_default_to_none(self, service, db):
@@ -170,10 +181,10 @@ class TestRecordForecast:
             predictions=predictions,
         )
 
-        rows = db.execute.call_args[0][1]
-        assert rows[0]["confidence_lower"] is None
-        assert rows[0]["confidence_upper"] is None
-        assert rows[0]["model_version"] is None
+        params = db.execute.call_args[0][1]
+        assert params["confidence_lower0"] is None
+        assert params["confidence_upper0"] is None
+        assert params["model_version0"] is None
 
     @pytest.mark.asyncio
     async def test_unique_ids_per_row(self, service, db):
@@ -192,8 +203,9 @@ class TestRecordForecast:
             predictions=predictions,
         )
 
-        rows = db.execute.call_args[0][1]
-        ids = [r["id"] for r in rows]
+        # 5 predictions fit in one chunk
+        params = db.execute.call_args[0][1]
+        ids = [params[f"id{i}"] for i in range(5)]
         assert len(set(ids)) == 5  # all unique
 
     @pytest.mark.asyncio
@@ -212,8 +224,8 @@ class TestRecordForecast:
             predictions=predictions,
         )
 
-        rows = db.execute.call_args[0][1]
-        assert rows[0]["forecast_hour"] == 0
+        params = db.execute.call_args[0][1]
+        assert params["forecast_hour0"] == 0
 
 
 # =============================================================================

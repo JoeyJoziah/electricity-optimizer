@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog
 
-from api.dependencies import get_db_session, TokenData
+from api.dependencies import get_db_session, SessionData
 from models.connections import (
     BillUploadListResponse,
     BillUploadResponse,
@@ -105,7 +105,7 @@ async def _run_background_parse(
 )
 async def create_upload_connection(
     payload: CreateUploadConnectionRequest,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> ConnectionResponse:
     """Create a manual-upload connection stub; actual file upload is separate."""
@@ -150,7 +150,7 @@ async def upload_bill_file(
     connection_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> BillUploadResponse:
     """
@@ -289,7 +289,7 @@ async def upload_bill_file(
 )
 async def list_bill_uploads(
     connection_id: str,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> BillUploadListResponse:
     """Return all bill uploads for the given connection (scoped to current user)."""
@@ -349,7 +349,7 @@ async def list_bill_uploads(
 async def get_bill_upload(
     connection_id: str,
     upload_id: str,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> BillUploadResponse:
     """Return a single bill upload record (for polling parse status)."""
@@ -399,7 +399,7 @@ async def reparse_bill_upload(
     connection_id: str,
     upload_id: str,
     background_tasks: BackgroundTasks,
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> BillUploadResponse:
     """

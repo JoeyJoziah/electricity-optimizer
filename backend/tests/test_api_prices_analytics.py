@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ def analytics_client():
     from main import app
     from api.dependencies import get_price_service, get_analytics_service
 
-    test_user = TokenData(user_id="user-analytics-1", email="analytics@test.com")
+    test_user = SessionData(user_id="user-analytics-1", email="analytics@test.com")
 
     mock_price_svc = _MockPriceService()
     mock_analytics_svc = _MockAnalyticsService()

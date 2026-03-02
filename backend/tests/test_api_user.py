@@ -11,11 +11,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, TokenData
+from api.dependencies import get_current_user, SessionData
 from config.database import get_timescale_session
 
 
-TEST_USER = TokenData(user_id="user-prefs-1", email="prefs@example.com")
+TEST_USER = SessionData(user_id="user-prefs-1", email="prefs@example.com")
 
 
 def _make_mock_user(preferences=None):

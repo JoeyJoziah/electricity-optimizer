@@ -23,7 +23,7 @@ import structlog
 logger = structlog.get_logger(__name__)
 settings = get_settings()
 
-router = APIRouter()
+router = APIRouter(tags=["Price Analytics"])
 
 
 # ---------------------------------------------------------------------------

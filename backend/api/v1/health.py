@@ -1,30 +1,25 @@
 """
-Integration Health Check API
+Health Check API
 
-Provides a deep health-check endpoint that verifies connectivity and
-configuration status for every external service integration: database,
-Redis, and third-party API keys (EIA, NREL, OpenWeatherMap, Stripe,
-UtilityAPI, SendGrid/SMTP, and email OAuth providers).
+Provides health and readiness endpoints for load-balancer probes, uptime
+monitors, and the integration deep-check used by operators.
 
-The endpoint is intentionally unauthenticated so it can be called by
-uptime monitors and load-balancer probes.  Sensitive internals are never
-exposed — only ``"configured"`` / ``"not_configured"`` / ``"healthy"`` /
-``"unhealthy"`` status strings are returned, never credentials.
-
-Route
------
-GET /health/integrations   — deep integration status check
+Routes
+------
+GET /health                — basic health + uptime + DB connectivity status
+GET /health/ready          — readiness check (DB + Redis)
+GET /health/live           — liveness probe (always 200 if process is alive)
+GET /health/integrations   — deep integration status (DB, Redis, all API keys)
 """
 
 import time
 from typing import Any, Dict
 
+import structlog
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import structlog
 
 from api.dependencies import get_db_session
 from config.database import db_manager
@@ -32,16 +27,21 @@ from config.settings import settings
 
 logger = structlog.get_logger(__name__)
 
+# Recorded once when this module is first imported so that /health can report
+# the application uptime.  In practice this happens at startup time when the
+# router is registered with the app.
+_startup_time: float = time.time()
+
 router = APIRouter(prefix="/health", tags=["Health"])
 
 
 # =============================================================================
-# Helpers
+# Shared helpers
 # =============================================================================
 
 
 def _configured(value: Any) -> str:
-    """Return 'configured' if value is truthy, else 'not_configured'."""
+    """Return 'configured' if *value* is truthy, otherwise 'not_configured'."""
     return "configured" if value else "not_configured"
 
 
@@ -80,9 +80,8 @@ def _check_external_apis() -> Dict[str, Dict[str, str]]:
     """
     Check whether external API keys are present in config.
 
-    We deliberately do NOT make live HTTP calls here (too slow, may exhaust
-    rate limits) — instead we confirm that credentials are configured so that
-    operators know which integrations are wired up.
+    Deliberately avoids live HTTP calls (too slow, risks rate-limit exhaustion)
+    — only verifies that credentials are configured.
     """
     return {
         "eia": {"status": _configured(settings.eia_api_key)},
@@ -107,7 +106,77 @@ def _check_external_apis() -> Dict[str, Dict[str, str]]:
 
 
 # =============================================================================
-# Endpoint
+# Basic health endpoints
+# =============================================================================
+
+
+@router.get("", tags=["Health"], summary="Basic health check")
+async def health_check():
+    """Basic health check endpoint with deployment metadata and uptime."""
+    uptime_seconds = time.time() - _startup_time
+
+    db_status = "disconnected"
+    try:
+        if db_manager.timescale_engine or db_manager.timescale_pool:
+            result = await db_manager._execute_raw_query("SELECT 1")
+            if result:
+                db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+
+    return {
+        "status": "healthy",
+        "version": settings.app_version,
+        "environment": settings.environment,
+        "uptime_seconds": round(uptime_seconds, 2),
+        "database_status": db_status,
+    }
+
+
+@router.get("/ready", tags=["Health"], summary="Readiness check")
+async def readiness_check():
+    """Readiness check — verify all dependencies are available."""
+    checks: Dict[str, bool] = {
+        "database": False,
+        "redis": False,
+    }
+
+    # Check Database (Neon PostgreSQL)
+    try:
+        result = await db_manager._execute_raw_query("SELECT 1")
+        checks["database"] = len(result) > 0
+    except Exception as e:
+        logger.error("database_health_check_failed", error=str(e))
+
+    # Check Redis
+    try:
+        redis = await db_manager.get_redis_client()
+        if redis:
+            await redis.ping()
+            checks["redis"] = True
+    except Exception as e:
+        logger.error("redis_health_check_failed", error=str(e))
+
+    all_healthy = all(checks.values())
+    http_status = 200 if all_healthy else 503
+
+    return JSONResponse(
+        status_code=http_status,
+        content={
+            "status": "ready" if all_healthy else "not ready",
+            "checks": checks,
+        },
+    )
+
+
+@router.get("/live", tags=["Health"], summary="Liveness probe")
+async def liveness_check():
+    """Liveness check — verify application process is running."""
+    return {"status": "alive"}
+
+
+# =============================================================================
+# Integration deep-check endpoint
 # =============================================================================
 
 
@@ -144,14 +213,10 @@ async def check_integrations(
     """
     checks: Dict[str, Any] = {}
 
-    # Live connectivity checks
     checks["database"] = await _check_database(db)
     checks["redis"] = await _check_redis()
-
-    # Configuration-presence checks for external APIs
     checks.update(_check_external_apis())
 
-    # Overall status considers only the live checks
     live_statuses = [checks["database"]["status"], checks["redis"]["status"]]
     overall = (
         "healthy"

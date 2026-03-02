@@ -17,7 +17,7 @@ from config.settings import settings
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["Webhooks"])
 
 
 class WebhookResponse(BaseModel):

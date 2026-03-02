@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 from services.alert_service import AlertService
 
 logger = structlog.get_logger(__name__)
@@ -95,7 +95,7 @@ def _get_alert_service() -> AlertService:
     response_description="All alert configurations for the current user",
 )
 async def get_alerts(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """
@@ -120,7 +120,7 @@ async def get_alerts(
 )
 async def create_alert(
     body: CreateAlertRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """
@@ -163,7 +163,7 @@ async def create_alert(
 async def get_alert_history(
     page: int = Query(default=1, ge=1, description="1-based page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Records per page (max 100)"),
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """
@@ -192,7 +192,7 @@ async def get_alert_history(
 )
 async def delete_alert(
     alert_id: str,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """
@@ -226,7 +226,7 @@ async def delete_alert(
 async def update_alert(
     alert_id: str,
     body: UpdateAlertRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
     """

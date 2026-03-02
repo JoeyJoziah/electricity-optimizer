@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, TokenData
+from api.dependencies import get_current_user, SessionData
 from config.database import get_timescale_session
 from repositories.user_repository import UserRepository
 from models.user import UserPreferences
@@ -19,7 +19,7 @@ import structlog
 
 logger = structlog.get_logger()
 
-router = APIRouter()
+router = APIRouter(tags=["User"])
 
 
 class UserPreferencesUpdate(BaseModel):
@@ -32,7 +32,7 @@ class UserPreferencesUpdate(BaseModel):
 
 @router.get("/preferences")
 async def get_preferences(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_timescale_session),
 ):
     """Get current user preferences from database."""
@@ -58,7 +58,7 @@ async def get_preferences(
 @router.post("/preferences")
 async def update_preferences(
     preferences: UserPreferencesUpdate,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_timescale_session),
 ):
     """Update user preferences in database (partial update — only non-null fields)."""

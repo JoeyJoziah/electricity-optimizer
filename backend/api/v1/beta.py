@@ -16,11 +16,11 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/beta", tags=["beta"])
+router = APIRouter(prefix="/beta", tags=["Beta"])
 
 
 class BetaSignupRequest(BaseModel):
@@ -153,7 +153,7 @@ async def beta_signup(
 
 @router.get("/signups/count")
 async def get_beta_count(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get total beta signups count (requires authentication)"""
@@ -168,7 +168,7 @@ async def get_beta_count(
 
 @router.get("/signups/stats")
 async def get_beta_stats(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
     page: int = 1,
     page_size: int = 50,

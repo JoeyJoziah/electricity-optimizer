@@ -17,7 +17,7 @@ from models.regulation import StateRegulationResponse, StateRegulationListRespon
 from repositories.supplier_repository import StateRegulationRepository
 
 
-router = APIRouter()
+router = APIRouter(tags=["Regulations"])
 
 
 # =============================================================================

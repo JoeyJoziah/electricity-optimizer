@@ -15,10 +15,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 
-TEST_USER = TokenData(user_id="user-billing-1", email="billing@test.com")
+TEST_USER = SessionData(user_id="user-billing-1", email="billing@test.com")
 
 BASE_URL = "/api/v1/billing"
 

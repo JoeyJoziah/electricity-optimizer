@@ -14,7 +14,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 from compliance.gdpr import GDPRComplianceService, UserNotFoundError
 from compliance.repositories import ConsentRepository, DeletionLogRepository
 from repositories.user_repository import UserRepository
@@ -29,7 +29,7 @@ from models.consent import (
 )
 
 
-router = APIRouter()
+router = APIRouter(tags=["Compliance"])
 
 
 # =============================================================================
@@ -63,7 +63,7 @@ async def get_gdpr_service(session=Depends(get_db_session)):
 async def record_consent(
     request: Request,
     consent_request: ConsentRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
 ):
     """
@@ -110,7 +110,7 @@ async def record_consent(
     description="Retrieve complete consent history for the current user"
 )
 async def get_consent_history(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
 ):
     """
@@ -139,7 +139,7 @@ async def get_consent_history(
     description="Get current consent status for all purposes"
 )
 async def get_consent_status(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
 ):
     """
@@ -175,7 +175,7 @@ async def get_consent_status(
     description="Export all user data in machine-readable JSON format (GDPR Article 15, 20)"
 )
 async def export_user_data(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
 ):
     """
@@ -233,7 +233,7 @@ async def export_user_data(
 async def delete_user_data(
     request: Request,
     deletion_request: DataDeletionRequest,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
 ):
     """
@@ -300,7 +300,7 @@ async def delete_user_data(
 )
 async def delete_account(
     request: Request,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
 ):
     """
@@ -356,7 +356,7 @@ async def delete_account(
 )
 async def withdraw_all_consents(
     request: Request,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     gdpr_service: GDPRComplianceService = Depends(get_gdpr_service),
 ):
     """

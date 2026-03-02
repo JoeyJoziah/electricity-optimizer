@@ -16,11 +16,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 from models.consent import ConsentRecord, DeletionLog
 
 
-TEST_USER = TokenData(user_id="gdpr-user-1", email="gdpr@example.com")
+TEST_USER = SessionData(user_id="gdpr-user-1", email="gdpr@example.com")
 
 
 @pytest.fixture

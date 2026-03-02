@@ -23,6 +23,10 @@ class ForecastObservationRepository:
     def __init__(self, db: AsyncSession):
         self._db = db
 
+    # Number of rows per INSERT statement.  Keeping this at 20 balances
+    # round-trip reduction against per-query parameter count limits.
+    _INSERT_BATCH_SIZE = 20
+
     async def insert_forecasts(
         self,
         forecast_id: str,
@@ -30,7 +34,12 @@ class ForecastObservationRepository:
         predictions: List[Dict[str, Any]],
         model_version: Optional[str] = None,
     ) -> int:
-        """Batch-INSERT forecast predictions."""
+        """Batch-INSERT forecast predictions in chunks of _INSERT_BATCH_SIZE.
+
+        Builds an explicit multi-row VALUES list for each chunk so that 20
+        rows result in exactly 1 INSERT statement rather than 20 round-trips.
+        Commits once after all chunks are inserted.
+        """
         if not predictions:
             return 0
 
@@ -52,16 +61,38 @@ class ForecastObservationRepository:
                 "model_version": model_version,
             })
 
-        query = text("""
-            INSERT INTO forecast_observations
-                (id, forecast_id, region, forecast_hour, predicted_price,
-                 confidence_lower, confidence_upper, model_version)
-            VALUES
-                (:id, :forecast_id, :region, :forecast_hour, :predicted_price,
-                 :confidence_lower, :confidence_upper, :model_version)
-        """)
+        # Insert in explicit multi-row VALUE chunks to minimise round-trips.
+        for chunk_start in range(0, len(rows), self._INSERT_BATCH_SIZE):
+            chunk = rows[chunk_start : chunk_start + self._INSERT_BATCH_SIZE]
 
-        await self._db.execute(query, rows)
+            # Build (:id0,:forecast_id0,...), (:id1,:forecast_id1,...) list.
+            placeholders = []
+            params: Dict[str, Any] = {}
+            for i, row in enumerate(chunk):
+                placeholders.append(
+                    f"(:id{i}, :forecast_id{i}, :region{i}, :forecast_hour{i},"
+                    f" :predicted_price{i}, :confidence_lower{i},"
+                    f" :confidence_upper{i}, :model_version{i})"
+                )
+                params[f"id{i}"] = row["id"]
+                params[f"forecast_id{i}"] = row["forecast_id"]
+                params[f"region{i}"] = row["region"]
+                params[f"forecast_hour{i}"] = row["forecast_hour"]
+                params[f"predicted_price{i}"] = row["predicted_price"]
+                params[f"confidence_lower{i}"] = row["confidence_lower"]
+                params[f"confidence_upper{i}"] = row["confidence_upper"]
+                params[f"model_version{i}"] = row["model_version"]
+
+            await self._db.execute(
+                text(
+                    "INSERT INTO forecast_observations"
+                    "    (id, forecast_id, region, forecast_hour, predicted_price,"
+                    "     confidence_lower, confidence_upper, model_version)"
+                    f" VALUES {', '.join(placeholders)}"
+                ),
+                params,
+            )
+
         await self._db.commit()
         return len(rows)
 

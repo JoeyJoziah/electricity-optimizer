@@ -4,7 +4,9 @@
  * and 401 redirect to login with callback URL preservation.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+import { API_URL } from '@/lib/config/env'
+
+const BASE_URL = API_URL
 const MAX_RETRIES = 2
 const RETRY_BASE_MS = 500
 

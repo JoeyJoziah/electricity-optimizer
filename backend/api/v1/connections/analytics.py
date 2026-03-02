@@ -19,7 +19,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, TokenData
+from api.dependencies import get_db_session, SessionData
 from api.v1.connections.common import require_paid_tier
 
 router = APIRouter()
@@ -36,7 +36,7 @@ router = APIRouter()
 )
 async def get_rate_comparison(
     connection_id: Optional[str] = Query(None),
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Compare extracted rates against current market prices."""
@@ -57,7 +57,7 @@ async def get_rate_comparison(
 async def get_rate_history(
     connection_id: Optional[str] = Query(None),
     days: int = Query(365, ge=1, le=1095),
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get time-series rate data for chart rendering."""
@@ -77,7 +77,7 @@ async def get_rate_history(
 )
 async def get_savings_estimate(
     monthly_kwh: float = Query(900, ge=0, le=50000),
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Calculate estimated annual savings based on rate comparison."""
@@ -96,7 +96,7 @@ async def get_savings_estimate(
     summary="Connection health status",
 )
 async def get_connection_health(
-    current_user: TokenData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Check for stale or unhealthy connections."""

@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_recommendation_service, TokenData
+from api.dependencies import get_current_user, get_recommendation_service, SessionData
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def auth_client(mock_recommendation_service):
     """Create a TestClient with authenticated user and mocked service."""
     from main import app
 
-    test_user = TokenData(user_id="test-user-123", email="test@example.com")
+    test_user = SessionData(user_id="test-user-123", email="test@example.com")
     app.dependency_overrides[get_current_user] = lambda: test_user
     app.dependency_overrides[get_recommendation_service] = lambda: mock_recommendation_service
 

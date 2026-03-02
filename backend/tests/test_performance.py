@@ -585,3 +585,226 @@ class TestLearningServiceSQLAggregation:
         await service.run_full_cycle(regions=["US"], days=14)
 
         mock_obs.get_model_accuracy_by_version.assert_awaited_with("US", 14)
+
+
+# =============================================================================
+# Phase 7: Conditional vector store lookup
+# =============================================================================
+
+
+class TestConditionalVectorLookup:
+    """Verify that _adjust_confidence_from_patterns skips the kNN search
+    when the 'recommendation' domain contains fewer than 10 observations.
+
+    This prevents wasted SQLite I/O on a sparse index that cannot produce
+    meaningful nearest-neighbour results.
+    """
+
+    @pytest.fixture
+    def sparse_vector_store(self):
+        """Mock vector store with fewer than 10 recommendation vectors."""
+        vs = MagicMock()
+        vs.get_stats = MagicMock(return_value={"total_vectors": 5})
+        vs.search = MagicMock(return_value=[])
+        return vs
+
+    @pytest.fixture
+    def dense_vector_store(self):
+        """Mock vector store with 15 recommendation vectors (above threshold)."""
+        vs = MagicMock()
+        vs.get_stats = MagicMock(return_value={"total_vectors": 15})
+        vs.search = MagicMock(return_value=[
+            {"similarity": 0.95, "confidence": 0.9, "id": "vec-1", "domain": "recommendation", "metadata": {}}
+        ])
+        return vs
+
+    @pytest.fixture
+    def mock_prices(self):
+        return [
+            MagicMock(price_per_kwh=Decimal("0.20")),
+            MagicMock(price_per_kwh=Decimal("0.25")),
+        ]
+
+    def test_sparse_index_skips_search(self, sparse_vector_store, mock_prices):
+        """Should not call vector_store.search when fewer than 10 observations exist."""
+        from services.recommendation_service import RecommendationService
+
+        service = RecommendationService(
+            price_service=MagicMock(),
+            user_repo=MagicMock(),
+            vector_store=sparse_vector_store,
+        )
+        confidence = service._adjust_confidence_from_patterns(mock_prices, 0.85)
+
+        # get_stats called once to check count
+        sparse_vector_store.get_stats.assert_called_once_with(domain="recommendation")
+        # search must NOT be called on a sparse index
+        sparse_vector_store.search.assert_not_called()
+        # confidence returned unchanged
+        assert confidence == 0.85
+
+    def test_dense_index_runs_search(self, dense_vector_store, mock_prices):
+        """Should call vector_store.search when 10+ observations exist."""
+        from services.recommendation_service import RecommendationService
+
+        with patch("services.vector_store.price_curve_to_vector") as mock_ptv:
+            import numpy as np
+            mock_ptv.return_value = np.zeros(24, dtype=np.float32)
+
+            service = RecommendationService(
+                price_service=MagicMock(),
+                user_repo=MagicMock(),
+                vector_store=dense_vector_store,
+            )
+            confidence = service._adjust_confidence_from_patterns(mock_prices, 0.85)
+
+        dense_vector_store.get_stats.assert_called_once_with(domain="recommendation")
+        dense_vector_store.search.assert_called_once()
+        # High-confidence match (0.9 > 0.8) should bump confidence up
+        assert confidence == round(min(0.95, 0.85 + 0.1), 2)
+
+    def test_no_vector_store_returns_unchanged(self, mock_prices):
+        """Should return confidence unchanged when no vector store is configured."""
+        from services.recommendation_service import RecommendationService
+
+        service = RecommendationService(
+            price_service=MagicMock(),
+            user_repo=MagicMock(),
+            vector_store=None,
+        )
+        confidence = service._adjust_confidence_from_patterns(mock_prices, 0.75)
+        assert confidence == 0.75
+
+    def test_empty_prices_returns_unchanged(self, sparse_vector_store):
+        """Should return confidence unchanged when prices list is empty."""
+        from services.recommendation_service import RecommendationService
+
+        service = RecommendationService(
+            price_service=MagicMock(),
+            user_repo=MagicMock(),
+            vector_store=sparse_vector_store,
+        )
+        confidence = service._adjust_confidence_from_patterns([], 0.70)
+        assert confidence == 0.70
+        sparse_vector_store.get_stats.assert_not_called()
+
+    def test_exactly_threshold_minus_one_skips(self, mock_prices):
+        """9 observations (one below threshold) must skip the search."""
+        from services.recommendation_service import RecommendationService
+
+        vs = MagicMock()
+        vs.get_stats = MagicMock(return_value={"total_vectors": 9})
+        vs.search = MagicMock(return_value=[])
+
+        service = RecommendationService(
+            price_service=MagicMock(),
+            user_repo=MagicMock(),
+            vector_store=vs,
+        )
+        service._adjust_confidence_from_patterns(mock_prices, 0.80)
+        vs.search.assert_not_called()
+
+    def test_exactly_threshold_runs_search(self, mock_prices):
+        """Exactly 10 observations must trigger the search."""
+        from services.recommendation_service import RecommendationService
+
+        vs = MagicMock()
+        vs.get_stats = MagicMock(return_value={"total_vectors": 10})
+        vs.search = MagicMock(return_value=[])
+
+        with patch("services.vector_store.price_curve_to_vector") as mock_ptv:
+            import numpy as np
+            mock_ptv.return_value = np.zeros(24, dtype=np.float32)
+
+            service = RecommendationService(
+                price_service=MagicMock(),
+                user_repo=MagicMock(),
+                vector_store=vs,
+            )
+            service._adjust_confidence_from_patterns(mock_prices, 0.80)
+
+        vs.search.assert_called_once()
+
+
+# =============================================================================
+# Phase 8: Forecast observation batch INSERT (20-row chunks)
+# =============================================================================
+
+
+class TestForecastObservationBatchInsert:
+    """Verify that insert_forecasts uses explicit multi-row VALUES chunks of
+    _INSERT_BATCH_SIZE (20) rather than individual per-row INSERT calls.
+    """
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        db.execute = AsyncMock(return_value=MagicMock())
+        db.commit = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def repo(self, db):
+        from repositories.forecast_observation_repository import ForecastObservationRepository
+        return ForecastObservationRepository(db)
+
+    def _make_predictions(self, count: int) -> list:
+        from datetime import datetime, timezone
+        return [
+            {
+                "timestamp": datetime(2026, 2, 23, h % 24, 0, tzinfo=timezone.utc),
+                "predicted_price": 0.10 + (h % 24) * 0.01,
+            }
+            for h in range(count)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_20_predictions_single_execute(self, repo, db):
+        """Exactly 20 predictions should produce exactly 1 execute call."""
+        preds = self._make_predictions(20)
+        result = await repo.insert_forecasts("fc-20", "US", preds)
+        assert result == 20
+        assert db.execute.await_count == 1
+        db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_21_predictions_two_execute_calls(self, repo, db):
+        """21 predictions (20 + 1) should produce exactly 2 execute calls."""
+        preds = self._make_predictions(21)
+        result = await repo.insert_forecasts("fc-21", "US", preds)
+        assert result == 21
+        assert db.execute.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_40_predictions_two_execute_calls(self, repo, db):
+        """40 predictions (2 full chunks) should produce exactly 2 execute calls."""
+        preds = self._make_predictions(40)
+        result = await repo.insert_forecasts("fc-40", "US", preds)
+        assert result == 40
+        assert db.execute.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_single_commit_regardless_of_chunks(self, repo, db):
+        """Only one COMMIT should be issued regardless of how many chunks are used."""
+        preds = self._make_predictions(45)
+        await repo.insert_forecasts("fc-45", "US", preds)
+        db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_params_use_indexed_keys(self, repo, db):
+        """Params dict must use index-suffixed keys (id0, forecast_id0, ...)."""
+        preds = self._make_predictions(3)
+        await repo.insert_forecasts("fc-keys", "US", preds)
+        params = db.execute.call_args[0][1]
+        for i in range(3):
+            assert f"id{i}" in params
+            assert f"forecast_id{i}" in params
+            assert f"region{i}" in params
+            assert f"forecast_hour{i}" in params
+            assert f"predicted_price{i}" in params
+
+    @pytest.mark.asyncio
+    async def test_batch_size_constant(self, repo):
+        """_INSERT_BATCH_SIZE should be 20."""
+        from repositories.forecast_observation_repository import ForecastObservationRepository
+        assert ForecastObservationRepository._INSERT_BATCH_SIZE == 20

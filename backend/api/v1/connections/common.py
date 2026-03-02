@@ -23,7 +23,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 # ---------------------------------------------------------------------------
 # Shared filesystem paths
@@ -109,9 +109,9 @@ def verify_callback_state(state: str) -> tuple:
 
 
 async def require_paid_tier(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> TokenData:
+) -> SessionData:
     """
     Dependency that raises 403 for free-tier users.
 

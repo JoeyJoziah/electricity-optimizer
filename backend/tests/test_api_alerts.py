@@ -31,7 +31,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 from services.alert_service import AlertService, PriceAlert
 
 # ---------------------------------------------------------------------------
@@ -349,7 +349,7 @@ def mock_db():
 def auth_client(mock_db):
     from main import app
 
-    test_user = TokenData(user_id=TEST_USER_ID, email="test@example.com")
+    test_user = SessionData(user_id=TEST_USER_ID, email="test@example.com")
     app.dependency_overrides[get_current_user] = lambda: test_user
     app.dependency_overrides[get_db_session] = lambda: mock_db
 
@@ -683,7 +683,7 @@ class TestAlertHistory:
 
         from main import app
 
-        my_user = TokenData(user_id=TEST_USER_ID, email="me@example.com")
+        my_user = SessionData(user_id=TEST_USER_ID, email="me@example.com")
         app.dependency_overrides[get_current_user] = lambda: my_user
         app.dependency_overrides[get_db_session] = lambda: mock_db
 

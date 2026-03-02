@@ -14,13 +14,13 @@ from typing import Optional, List
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 import structlog
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
 # =============================================================================
@@ -90,7 +90,7 @@ class UserProfileUpdate(BaseModel):
     description="Retrieve the authenticated user's extended profile data",
 )
 async def get_profile(
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserProfile:
     """Return the current user's profile, including region, utility types, and usage data."""
@@ -135,7 +135,7 @@ async def get_profile(
 )
 async def update_profile(
     update: UserProfileUpdate,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserProfile:
     """Partially update the current user's profile. Returns the updated profile."""

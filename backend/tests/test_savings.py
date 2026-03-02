@@ -22,7 +22,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, TokenData
+from api.dependencies import get_current_user, get_db_session, SessionData
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -268,7 +268,7 @@ def auth_client(mock_db):
     """TestClient with authenticated user and mock DB session."""
     from main import app
 
-    test_user = TokenData(user_id=TEST_USER_ID, email="test@example.com")
+    test_user = SessionData(user_id=TEST_USER_ID, email="test@example.com")
     app.dependency_overrides[get_current_user] = lambda: test_user
     app.dependency_overrides[get_db_session] = lambda: mock_db
 
@@ -484,7 +484,7 @@ class TestSavingsHistory:
 
         from main import app
 
-        my_user = TokenData(user_id=TEST_USER_ID, email="me@example.com")
+        my_user = SessionData(user_id=TEST_USER_ID, email="me@example.com")
         app.dependency_overrides[get_current_user] = lambda: my_user
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
