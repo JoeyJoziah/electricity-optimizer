@@ -26,7 +26,7 @@ export function DiagramEditor({ name, data, isLoading, onSave, isSaving }: Diagr
     latestDataRef.current = null
   }, [name])
 
-  const handleChange = useCallback((elements: readonly any[], appState: Record<string, unknown>) => {
+  const handleChange = useCallback((elements: readonly Record<string, unknown>[], appState: Record<string, unknown>) => {
     latestDataRef.current = {
       type: 'excalidraw',
       version: 2,

@@ -17,7 +17,7 @@ const ForecastChart = dynamic(
   { ssr: false, loading: () => <ChartSkeleton /> }
 )
 import { useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods } from '@/lib/hooks/usePrices'
-import { useSettingsStore, type PriceAlert } from '@/lib/store/settings'
+import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency, formatTime } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
 import {

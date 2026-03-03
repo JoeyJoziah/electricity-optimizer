@@ -45,7 +45,8 @@ describe('GET /api/dev/diagrams/[name]', () => {
   })
 
   function createRequest() {
-    return { method: 'GET' } as any
+    // Partial mock — only the fields the route handler reads
+    return { method: 'GET' } as unknown as import('next/server').NextRequest
   }
 
   it('returns 404 when NODE_ENV is not development', async () => {
@@ -108,9 +109,10 @@ describe('PUT /api/dev/diagrams/[name]', () => {
   })
 
   function createPutRequest(body: Record<string, unknown>) {
+    // Partial mock — only the fields the route handler reads
     return {
       json: async () => body,
-    } as any
+    } as unknown as import('next/server').NextRequest
   }
 
   it('returns 404 when NODE_ENV is not development', async () => {

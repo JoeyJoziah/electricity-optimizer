@@ -8,9 +8,9 @@ jest.mock('@/lib/utils/cn', () => ({
 }))
 
 jest.mock('lucide-react', () => ({
-  Plus: (props: any) => <svg data-testid="plus-icon" {...props} />,
-  FileText: (props: any) => <svg data-testid="file-icon" {...props} />,
-  Loader2: (props: any) => <svg data-testid="loader-icon" {...props} />,
+  Plus: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="plus-icon" {...props} />,
+  FileText: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="file-icon" {...props} />,
+  Loader2: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="loader-icon" {...props} />,
 }))
 
 import { DiagramList } from '@/components/dev/DiagramList'

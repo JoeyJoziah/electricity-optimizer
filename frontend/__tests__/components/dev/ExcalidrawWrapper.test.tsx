@@ -3,11 +3,11 @@ import React from 'react'
 import '@testing-library/jest-dom'
 
 jest.mock('@excalidraw/excalidraw', () => ({
-  Excalidraw: (props: any) => <div data-testid="mock-excalidraw" data-theme={props.theme} />,
+  Excalidraw: (props: { theme?: string }) => <div data-testid="mock-excalidraw" data-theme={props.theme} />,
 }))
 
 jest.mock('next/dynamic', () => {
-  return (loader: () => Promise<any>, _opts?: any) => {
+  return (_loader: () => Promise<unknown>, _opts?: Record<string, unknown>) => {
     const Component = require('@excalidraw/excalidraw').Excalidraw
     return Component
   }

@@ -67,7 +67,7 @@ describe('GET /api/dev/diagrams', () => {
   it('returns list of .excalidraw files sorted by mtime descending', async () => {
     mockedFs.existsSync.mockReturnValue(true)
     mockedFs.readdirSync.mockReturnValue(
-      ['alpha.excalidraw', 'beta.excalidraw', 'readme.md'] as any
+      ['alpha.excalidraw', 'beta.excalidraw', 'readme.md'] as unknown as string[]
     )
     mockedFs.statSync.mockImplementation((filePath: fs.PathLike) => {
       const p = filePath.toString()
@@ -105,9 +105,10 @@ describe('POST /api/dev/diagrams', () => {
   })
 
   function createPostRequest(body: Record<string, unknown>) {
+    // Partial mock — only the fields the route handler reads
     return {
       json: async () => body,
-    } as any
+    } as unknown as import('next/server').NextRequest
   }
 
   it('returns 404 when NODE_ENV is not development', async () => {

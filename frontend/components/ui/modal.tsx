@@ -29,14 +29,54 @@ export function Modal({
   variant = 'default',
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    if (!open) return
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+    if (!open || !overlayRef.current) return
+
+    // Store the element that was focused before the modal opened
+    previouslyFocusedRef.current = document.activeElement as HTMLElement
+
+    // Move focus into the modal
+    const focusable = overlayRef.current.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )
+    if (focusable.length > 0) {
+      focusable[0].focus()
     }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+
+      if (e.key === 'Tab') {
+        const elements = overlayRef.current?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (!elements?.length) return
+
+        const first = elements[0]
+        const last = elements[elements.length - 1]
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      // Restore focus when modal closes
+      previouslyFocusedRef.current?.focus()
+    }
   }, [open, onClose])
 
   if (!open) return null
@@ -52,7 +92,7 @@ export function Modal({
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className={cn('w-full max-w-md rounded-lg bg-white p-6 shadow-xl')}>
         <div className="flex items-start justify-between">
           <h2
             id="modal-title"

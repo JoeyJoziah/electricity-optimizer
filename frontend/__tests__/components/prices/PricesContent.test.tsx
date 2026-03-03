@@ -6,13 +6,13 @@ import React from 'react'
 
 // Mock next/dynamic to resolve dynamic imports synchronously
 jest.mock('next/dynamic', () => {
-  return (loader: () => Promise<any>, options?: { loading?: () => React.ReactNode }) => {
-    const DynamicComponent = (props: any) => {
-      const [Comp, setComp] = React.useState<React.ComponentType<any> | null>(null)
+  return (loader: () => Promise<Record<string, unknown>>, options?: { loading?: () => React.ReactNode }) => {
+    const DynamicComponent = (props: Record<string, unknown>) => {
+      const [Comp, setComp] = React.useState<React.ComponentType<Record<string, unknown>> | null>(null)
 
       React.useEffect(() => {
-        loader().then((mod: any) => {
-          setComp(() => mod.default || mod.PriceLineChart || mod.ForecastChart || mod)
+        loader().then((mod: Record<string, unknown>) => {
+          setComp(() => (mod.default || mod.PriceLineChart || mod.ForecastChart || mod) as React.ComponentType<Record<string, unknown>>)
         })
       }, [])
 
@@ -29,7 +29,12 @@ jest.mock('next/dynamic', () => {
 
 // Mock chart components
 jest.mock('@/components/charts/PriceLineChart', () => ({
-  PriceLineChart: ({ data, timeRange, onTimeRangeChange, loading }: any) => (
+  PriceLineChart: ({ data, timeRange, onTimeRangeChange, loading }: {
+    data?: unknown[]
+    timeRange?: string
+    onTimeRangeChange?: (range: string) => void
+    loading?: boolean
+  }) => (
     <div data-testid="price-line-chart">
       {loading && <div data-testid="chart-loading">Loading chart...</div>}
       <span data-testid="chart-time-range">{timeRange}</span>
@@ -52,7 +57,7 @@ jest.mock('@/components/charts/PriceLineChart', () => ({
 }))
 
 jest.mock('@/components/charts/ForecastChart', () => ({
-  ForecastChart: ({ forecast, currentPrice }: any) => (
+  ForecastChart: ({ forecast, currentPrice }: { forecast?: unknown[]; currentPrice?: number }) => (
     <div data-testid="forecast-chart">
       <span data-testid="forecast-points">
         {Array.isArray(forecast) ? forecast.length : 0}
@@ -76,10 +81,10 @@ jest.mock('@/components/layout/Header', () => ({
 // Mock settings store with configurable state
 const mockAddPriceAlert = jest.fn()
 const mockRemovePriceAlert = jest.fn()
-let mockPriceAlerts: any[] = []
+let mockPriceAlerts: { id: string; type: string; threshold: number; enabled: boolean }[] = []
 
 jest.mock('@/lib/store/settings', () => ({
-  useSettingsStore: (selector: (state: any) => any) =>
+  useSettingsStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       region: 'us_ct',
       priceAlerts: mockPriceAlerts,
@@ -95,10 +100,10 @@ const mockGetPriceForecast = jest.fn()
 const mockGetOptimalPeriods = jest.fn()
 
 jest.mock('@/lib/api/prices', () => ({
-  getCurrentPrices: (...args: any[]) => mockGetCurrentPrices(...args),
-  getPriceHistory: (...args: any[]) => mockGetPriceHistory(...args),
-  getPriceForecast: (...args: any[]) => mockGetPriceForecast(...args),
-  getOptimalPeriods: (...args: any[]) => mockGetOptimalPeriods(...args),
+  getCurrentPrices: (...args: unknown[]) => mockGetCurrentPrices(...args),
+  getPriceHistory: (...args: unknown[]) => mockGetPriceHistory(...args),
+  getPriceForecast: (...args: unknown[]) => mockGetPriceForecast(...args),
+  getOptimalPeriods: (...args: unknown[]) => mockGetOptimalPeriods(...args),
 }))
 
 // Import after mocks are set up

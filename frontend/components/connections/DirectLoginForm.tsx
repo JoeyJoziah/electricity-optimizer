@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/input'
 import { formatRelativeTime } from '@/lib/utils/format'
 import { API_ORIGIN } from '@/lib/config/env'
+import { isSafeOAuthRedirect } from '@/lib/utils/url'
 import {
   KeyRound,
   ExternalLink,
@@ -136,7 +137,18 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
       if (res.ok) {
         const data = await res.json()
         if (data.redirect_url) {
-          window.location.href = data.redirect_url
+          // Validate before navigating — prevents open redirect attacks if the
+          // backend response is ever tampered with or returns an unexpected URL.
+          const url = data.redirect_url as string
+          const safe = isSafeOAuthRedirect(url, [
+            'https://utilityapi.com',
+            'https://www.utilityapi.com',
+          ])
+          if (safe) {
+            window.location.href = url
+          } else {
+            setError('Invalid redirect URL returned from server. Please try again.')
+          }
           return
         }
         const connId = data.id || data.connection_id

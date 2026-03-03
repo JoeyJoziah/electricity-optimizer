@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/input'
 import { API_ORIGIN } from '@/lib/config/env'
+import { isSafeOAuthRedirect } from '@/lib/utils/url'
 import {
   Mail,
   AlertCircle,
@@ -85,8 +86,19 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
       if (res.ok) {
         const data = await res.json()
         if (data.redirect_url) {
-          // Full page redirect for OAuth flow
-          window.location.href = data.redirect_url
+          // Validate before navigating — prevents open redirect attacks.
+          const url = data.redirect_url as string
+          const safe = isSafeOAuthRedirect(url, [
+            'https://accounts.google.com',
+            'https://login.microsoftonline.com',
+            'https://login.live.com',
+          ])
+          if (safe) {
+            // Full page redirect for OAuth flow
+            window.location.href = url
+          } else {
+            setError('Invalid redirect URL returned from server. Please try again.')
+          }
           return
         }
         // Fallback: if no redirect URL, treat as direct connection

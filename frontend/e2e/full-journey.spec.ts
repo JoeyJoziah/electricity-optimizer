@@ -222,8 +222,7 @@ test.describe('Full User Journey - Signup to Billing', () => {
     await expect(page.getByRole('heading', { name: 'Weather-Aware' })).toBeVisible()
   })
 
-  // TODO: SignupForm uses Better Auth client, not the mocked API endpoint
-  test.skip('Step 2: Navigate to signup and fill the form', async ({ page }) => {
+  test('Step 2: Navigate to signup and fill the form', async ({ page }) => {
     await page.goto('/')
 
     // Click Get Started from landing page
@@ -250,8 +249,7 @@ test.describe('Full User Journey - Signup to Billing', () => {
     await expect(page.getByText(/check your email|dashboard|onboarding/i)).toBeVisible()
   })
 
-  // TODO: SignupForm uses Better Auth client — needs mockBetterAuth route interception
-  test.skip('Step 3: Signup API responds correctly and user is redirected', async ({ page }) => {
+  test('Step 3: Signup API responds correctly and user is redirected', async ({ page }) => {
 
     await page.goto('/auth/signup')
 

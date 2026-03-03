@@ -17,9 +17,9 @@ jest.mock('@/lib/hooks/useDiagrams', () => {
 })
 
 jest.mock('@/components/dev/DiagramList', () => ({
-  DiagramList: (props: any) => (
+  DiagramList: (props: { onSelect?: (name: string) => void; onCreateClick?: () => void }) => (
     <div data-testid="diagram-list">
-      <button data-testid="select-diagram" onClick={() => props.onSelect('test')}>
+      <button data-testid="select-diagram" onClick={() => props.onSelect?.('test')}>
         Select
       </button>
       <button data-testid="create-diagram" onClick={props.onCreateClick}>
@@ -30,9 +30,9 @@ jest.mock('@/components/dev/DiagramList', () => ({
 }))
 
 jest.mock('@/components/dev/DiagramEditor', () => ({
-  DiagramEditor: (props: any) => (
+  DiagramEditor: (props: { name?: string; onSave?: (data: Record<string, unknown>) => void }) => (
     <div data-testid="diagram-editor" data-name={props.name}>
-      <button data-testid="save-diagram" onClick={() => props.onSave({ elements: [] })}>
+      <button data-testid="save-diagram" onClick={() => props.onSave?.({ elements: [] })}>
         Save
       </button>
     </div>

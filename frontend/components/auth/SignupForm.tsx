@@ -109,6 +109,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     }
   }
 
+  const confirmPasswordHasError = Boolean(confirmPassword && password !== confirmPassword)
+
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="bg-white rounded-lg shadow-md p-8">
@@ -116,7 +118,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
 
         {/* Error display */}
         {(error || localError) && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div role="alert" aria-live="polite" className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600">{error || localError}</p>
           </div>
         )}
@@ -288,15 +290,19 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              aria-invalid={confirmPasswordHasError ? 'true' : undefined}
+              aria-describedby={confirmPasswordHasError ? 'confirmPassword-error' : undefined}
               className={`w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                confirmPassword && password !== confirmPassword
+                confirmPasswordHasError
                   ? 'border-red-300'
                   : 'border-gray-300'
               }`}
               placeholder="Confirm your password"
             />
-            {confirmPassword && password !== confirmPassword && (
-              <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
+            {confirmPasswordHasError && (
+              <p id="confirmPassword-error" className="mt-1 text-xs text-red-600" role="alert">
+                Passwords do not match
+              </p>
             )}
           </div>
 

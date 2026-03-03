@@ -46,12 +46,13 @@ export function Toast({ id, variant, title, description, onDismiss }: ToastProps
   return (
     <div
       role="alert"
+      aria-atomic="true"
       className={cn(
         'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border p-4 shadow-lg',
         bg
       )}
     >
-      <Icon className={cn('h-5 w-5 flex-shrink-0 mt-0.5', iconColor)} />
+      <Icon className={cn('h-5 w-5 flex-shrink-0 mt-0.5', iconColor)} aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900">{title}</p>
         {description && (
@@ -61,9 +62,9 @@ export function Toast({ id, variant, title, description, onDismiss }: ToastProps
       <button
         onClick={() => onDismiss(id)}
         className="flex-shrink-0 rounded p-1 hover:bg-gray-200/50"
-        aria-label="Dismiss"
+        aria-label="Dismiss notification"
       >
-        <X className="h-4 w-4 text-gray-500" />
+        <X className="h-4 w-4 text-gray-500" aria-hidden="true" />
       </button>
     </div>
   )

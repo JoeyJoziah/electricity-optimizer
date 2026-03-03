@@ -144,7 +144,7 @@ export default function DashboardContent() {
     rating: s.rating ?? 0,
     estimatedAnnualCost: s.estimatedAnnualCost ?? 850,
     tariffType: (s.tariffType ?? (s.tariff_types?.[0] || 'variable')) as Supplier['tariffType'],
-  })), [suppliersData, currentSupplier])
+  })), [suppliersData])
 
   // Loading state
   if (pricesLoading && historyLoading) {

@@ -19,7 +19,7 @@ export interface SupplierCardProps {
   className?: string
 }
 
-export const SupplierCard: React.FC<SupplierCardProps> = ({
+export const SupplierCard: React.FC<SupplierCardProps> = React.memo(({
   supplier,
   isCurrent = false,
   currentAnnualCost,
@@ -178,4 +178,6 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
       )}
     </Card>
   )
-}
+})
+
+SupplierCard.displayName = 'SupplierCard'

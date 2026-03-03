@@ -37,8 +37,8 @@ export default function BetaSignupPage() {
       setSubmitted(true)
 
       // Track signup event
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'beta_signup', {
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('event', 'beta_signup', {
           event_category: 'engagement',
           event_label: formData.currentSupplier,
         })

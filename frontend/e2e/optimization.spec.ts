@@ -90,17 +90,15 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('Pool Pump')).toBeVisible()
   })
 
-  // TODO: implement appliance edit mode testids (supplier-card-settings)
-  test.skip('can remove appliance in edit mode', async ({ page }) => {
+  test('can remove appliance in edit mode', async ({ page }) => {
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await expect(page.getByText('Washing Machine').first()).toBeVisible()
-    await page.locator('[data-testid="supplier-card-settings"]').first().click()
+    await page.locator('[data-testid="appliance-card-settings"]').first().click()
     await page.getByRole('button').filter({ has: page.locator('svg') }).last().click()
     await expect(page.getByText('No appliances added yet')).toBeVisible()
   })
 
-  // TODO: implement schedule-block testids on ScheduleTimeline
-  test.skip('runs optimization and shows results', async ({ page }) => {
+  test('runs optimization and shows results', async ({ page }) => {
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await page.getByRole('button', { name: /Dishwasher/ }).click()
     await page.getByRole('button', { name: /Optimize Now/ }).click()
@@ -109,12 +107,11 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText(/Total savings/i)).toBeVisible()
   })
 
-  // TODO: implement schedule details after optimization
-  test.skip('displays schedule details', async ({ page }) => {
+  test('displays schedule details', async ({ page }) => {
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await page.getByRole('button', { name: /Optimize Now/ }).click()
     await expect(page.getByText('Schedule Details')).toBeVisible()
-    await expect(page.getByText('Washing Machine')).toBeVisible()
+    await expect(page.getByText('Washing Machine').first()).toBeVisible()
     await expect(page.getByText('Lowest price period')).toBeVisible()
   })
 
@@ -153,8 +150,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('high')).toBeVisible()
   })
 
-  // TODO: implement price-zone testids on ScheduleTimeline
-  test.skip('timeline shows price zones', async ({ page }) => {
+  test('timeline shows price zones', async ({ page }) => {
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await page.getByRole('button', { name: /Optimize Now/ }).click()
     await expect(page.getByTestId('price-zone-cheap')).toBeVisible()

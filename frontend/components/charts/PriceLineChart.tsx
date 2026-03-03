@@ -158,11 +158,12 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
         ? TrendingDown
         : Minus
 
+  // Use darker success color (text-success-700 / emerald-700) for WCAG AA contrast compliance
   const trendColor =
     trend === 'increasing'
       ? 'text-danger-500'
       : trend === 'decreasing'
-        ? 'text-success-500'
+        ? 'text-emerald-700'
         : 'text-gray-500'
 
   return (

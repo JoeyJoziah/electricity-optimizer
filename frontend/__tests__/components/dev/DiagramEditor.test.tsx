@@ -3,7 +3,7 @@ import React from 'react'
 import '@testing-library/jest-dom'
 
 jest.mock('@/components/dev/ExcalidrawWrapper', () => ({
-  ExcalidrawWrapper: ({ onChange, initialData }: any) => (
+  ExcalidrawWrapper: ({ onChange }: { onChange?: (elements: Record<string, unknown>[], appState: Record<string, unknown>) => void; initialData?: Record<string, unknown> }) => (
     <div data-testid="mock-excalidraw">
       <button
         data-testid="trigger-change"
@@ -25,9 +25,9 @@ jest.mock('@/lib/utils/cn', () => ({
 }))
 
 jest.mock('lucide-react', () => ({
-  Save: (props: any) => <svg data-testid="save-icon" {...props} />,
-  Check: (props: any) => <svg data-testid="check-icon" {...props} />,
-  Loader2: (props: any) => <svg data-testid="loader-icon" {...props} />,
+  Save: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="save-icon" {...props} />,
+  Check: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="check-icon" {...props} />,
+  Loader2: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="loader-icon" {...props} />,
 }))
 
 import { DiagramEditor } from '@/components/dev/DiagramEditor'

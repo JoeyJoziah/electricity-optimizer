@@ -8,9 +8,15 @@ export default function AppLayout({
 }) {
   return (
     <SidebarProvider>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:left-0 focus:z-50 focus:p-4 focus:bg-primary-600 focus:text-white"
+      >
+        Skip to main content
+      </a>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 lg:pl-64">{children}</main>
+        <main id="main-content" className="flex-1 lg:pl-64">{children}</main>
       </div>
     </SidebarProvider>
   )

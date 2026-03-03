@@ -19,7 +19,7 @@ const mockCurrentSupplier = {
 }
 
 jest.mock('@/lib/store/settings', () => ({
-  useSettingsStore: (selector: (state: any) => any) =>
+  useSettingsStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       region: mockRegion,
       annualUsageKwh: 10500,
@@ -35,18 +35,18 @@ const mockCompareSuppliers = jest.fn()
 const mockInitiateSwitch = jest.fn()
 
 jest.mock('@/lib/api/suppliers', () => ({
-  getSuppliers: (...args: any[]) => mockGetSuppliers(...args),
+  getSuppliers: (...args: unknown[]) => mockGetSuppliers(...args),
   getSupplier: jest.fn(),
-  getRecommendation: (...args: any[]) => mockGetRecommendation(...args),
-  compareSuppliers: (...args: any[]) => mockCompareSuppliers(...args),
-  initiateSwitch: (...args: any[]) => mockInitiateSwitch(...args),
+  getRecommendation: (...args: unknown[]) => mockGetRecommendation(...args),
+  compareSuppliers: (...args: unknown[]) => mockCompareSuppliers(...args),
+  initiateSwitch: (...args: unknown[]) => mockInitiateSwitch(...args),
   getSwitchStatus: jest.fn(),
 }))
 
 // Mock Next.js Image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     return <img {...props} />
   },

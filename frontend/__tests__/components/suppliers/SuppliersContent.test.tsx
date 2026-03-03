@@ -16,7 +16,7 @@ jest.mock('@/components/layout/Header', () => ({
 // Mock Next.js Image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     return <img {...props} />
   },
@@ -24,11 +24,11 @@ jest.mock('next/image', () => ({
 
 // Mock settings store with configurable state
 let mockRegion = 'us_ct'
-let mockCurrentSupplier: any = null
+let mockCurrentSupplier: Record<string, unknown> | null = null
 const mockSetCurrentSupplier = jest.fn()
 
 jest.mock('@/lib/store/settings', () => ({
-  useSettingsStore: (selector: (state: any) => any) =>
+  useSettingsStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       region: mockRegion,
       annualUsageKwh: 10500,
@@ -44,13 +44,13 @@ const mockInitiateSwitch = jest.fn()
 const mockSetUserSupplier = jest.fn()
 
 jest.mock('@/lib/api/suppliers', () => ({
-  getSuppliers: (...args: any[]) => mockGetSuppliers(...args),
+  getSuppliers: (...args: unknown[]) => mockGetSuppliers(...args),
   getSupplier: jest.fn(),
-  getRecommendation: (...args: any[]) => mockGetRecommendation(...args),
+  getRecommendation: (...args: unknown[]) => mockGetRecommendation(...args),
   compareSuppliers: jest.fn(),
-  initiateSwitch: (...args: any[]) => mockInitiateSwitch(...args),
+  initiateSwitch: (...args: unknown[]) => mockInitiateSwitch(...args),
   getSwitchStatus: jest.fn(),
-  setUserSupplier: (...args: any[]) => mockSetUserSupplier(...args),
+  setUserSupplier: (...args: unknown[]) => mockSetUserSupplier(...args),
   getUserSupplier: jest.fn(),
   removeUserSupplier: jest.fn(),
   linkSupplierAccount: jest.fn(),

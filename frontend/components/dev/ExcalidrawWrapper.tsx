@@ -4,6 +4,17 @@ import React, { useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'
 
+/**
+ * Local Excalidraw type aliases.
+ * The package does not re-export its internal types (AppState, OrderedExcalidrawElement,
+ * BinaryFiles) via a path that bundler module resolution can reach. These opaque aliases
+ * keep the wrapper boundary typed without pulling in unstable internals.
+ * This component is dev-only (triple-gated, notFound in production).
+ */
+export type ExcalidrawElement = Record<string, unknown>
+type ExcalidrawAppState = Record<string, unknown>
+type ExcalidrawFiles = Record<string, unknown>
+
 const Excalidraw = dynamic(
   () => import('@excalidraw/excalidraw').then((mod) => mod.Excalidraw),
   {
@@ -18,13 +29,14 @@ const Excalidraw = dynamic(
 
 interface ExcalidrawWrapperProps {
   initialData?: Record<string, unknown>
-  onChange?: (elements: readonly any[], appState: Record<string, unknown>) => void
+  onChange?: (elements: readonly ExcalidrawElement[], appState: ExcalidrawAppState) => void
   theme?: 'light' | 'dark'
 }
 
 export function ExcalidrawWrapper({ initialData, onChange, theme = 'light' }: ExcalidrawWrapperProps) {
   const handleChange = useCallback(
-    (elements: readonly any[], appState: any, files: any) => {
+    // Excalidraw passes branded internal types; we accept them as our opaque aliases
+    (elements: readonly ExcalidrawElement[], appState: ExcalidrawAppState, _files: ExcalidrawFiles) => {
       onChange?.(elements, appState)
     },
     [onChange]
@@ -33,9 +45,11 @@ export function ExcalidrawWrapper({ initialData, onChange, theme = 'light' }: Ex
   return (
     <div className="h-full w-full" data-testid="excalidraw-wrapper">
       <Excalidraw
-        initialData={initialData as any}
-        onChange={handleChange as any}
-        theme={theme}
+        {...{
+          initialData,
+          onChange: handleChange,
+          theme,
+        }}
       />
     </div>
   )

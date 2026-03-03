@@ -155,20 +155,28 @@ export function useRealtimeOptimization() {
 /**
  * Generic hook for subscribing to any table changes.
  * Uses polling as a universal fallback.
+ *
+ * `onUpdate` is stored in a ref so that callers can pass inline arrow functions
+ * without causing the polling interval to reset on every parent render.
  */
 export function useRealtimeSubscription(
   config: RealtimeConfig,
   onUpdate?: (payload: unknown) => void
 ) {
-  const queryClient = useQueryClient()
+  const _queryClient = useQueryClient()
   const [isConnected, setIsConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+
+  // Keep a stable ref to the latest onUpdate so the interval never needs to
+  // restart when the caller passes a new inline function reference.
+  const onUpdateRef = useRef(onUpdate)
+  onUpdateRef.current = onUpdate
 
   useEffect(() => {
     // Poll every 30 seconds as fallback
     const timer = setInterval(() => {
       setLastUpdate(new Date())
-      onUpdate?.({ table: config.table, event: config.event })
+      onUpdateRef.current?.({ table: config.table, event: config.event })
     }, 30_000)
 
     setIsConnected(true)
@@ -177,7 +185,9 @@ export function useRealtimeSubscription(
       clearInterval(timer)
       setIsConnected(false)
     }
-  }, [config.table, config.event, config.filter, onUpdate, queryClient])
+    // onUpdate intentionally excluded — accessed via ref to avoid interval resets
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.table, config.event, config.filter])
 
   return { isConnected, lastUpdate }
 }

@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { Appliance, Supplier, UserSettings } from '@/types'
+import type { Appliance, Supplier } from '@/types'
 
 export type UtilityType = 'electricity' | 'natural_gas' | 'heating_oil' | 'propane' | 'community_solar'
 

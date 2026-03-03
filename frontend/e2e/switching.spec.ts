@@ -123,13 +123,12 @@ test.describe('Supplier Switching Flow', () => {
     await expect(page.getByText(/Save/).first()).toBeVisible()
   })
 
-  // TODO: implement table view toggle on suppliers page
-  test.skip('can switch view between grid and table', async ({ page }) => {
+  test('can switch view between grid and table', async ({ page }) => {
     // Default is grid view
     await expect(page.locator('[data-testid="supplier-card-1"]')).toBeVisible()
 
     // Switch to table view
-    await page.getByRole('button').filter({ has: page.locator('svg') }).nth(1).click()
+    await page.getByRole('button', { name: /table view/i }).click()
 
     // Should show table
     await expect(page.getByRole('table')).toBeVisible()

@@ -33,7 +33,7 @@ function createAuth() {
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 12,
-      requireEmailVerification: false,
+      requireEmailVerification: true,
     },
 
     // Social providers — enabled when env vars are present

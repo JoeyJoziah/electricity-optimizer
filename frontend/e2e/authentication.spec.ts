@@ -116,13 +116,11 @@ test.describe('Authentication Flows', () => {
     await expect(page.getByText(/check your email/i)).toBeVisible()
   })
 
-  // User menu UI not yet finalized
-  test.skip('user can logout', async ({ page }) => {
+  test('user can logout', async ({ page }) => {
     await setAuthenticatedState(page)
     await page.goto('/dashboard')
 
-    await page.click('[data-testid="user-menu"]')
-    await page.click('text=Sign out')
+    await page.click('[data-testid="sign-out-button"]')
 
     await page.waitForURL('/auth/login')
   })
@@ -137,8 +135,7 @@ test.describe('Authentication Flows', () => {
     await page.waitForURL(/\/auth\/login/, { timeout: 10000 })
   })
 
-  // Forgot password UI not implemented
-  test.skip('shows forgot password link', async ({ page }) => {
+  test('shows forgot password link', async ({ page }) => {
     await page.goto('/auth/login')
 
     await expect(page.getByText(/forgot password/i)).toBeVisible()
@@ -215,15 +212,13 @@ test.describe('Authentication Security', () => {
     await expect(page.getByText(/too many|rate limit|try again/i)).toBeVisible({ timeout: 5000 })
   })
 
-  // User menu UI not yet finalized
-  test.skip('clears sensitive data on logout', async ({ page }) => {
+  test('clears sensitive data on logout', async ({ page }) => {
     await setAuthenticatedState(page)
     await mockBetterAuth(page)
 
     await page.goto('/dashboard')
 
-    await page.click('[data-testid="user-menu"]')
-    await page.click('text=Sign out')
+    await page.click('[data-testid="sign-out-button"]')
 
     const cookies = await page.context().cookies()
     const sessionCookie = cookies.find(c => c.name === 'better-auth.session_token')

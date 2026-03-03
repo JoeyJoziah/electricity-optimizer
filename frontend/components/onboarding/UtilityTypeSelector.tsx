@@ -1,8 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Button } from '@/components/ui/button'
-import { Zap, Flame, Droplets, Sun, Users } from 'lucide-react'
+import { Zap, Flame, Droplets, Sun } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UtilityType } from '@/lib/store/settings'
 

@@ -207,6 +207,7 @@ export default function OptimizePage() {
                 <div className="flex items-center justify-between">
                   <CardTitle>Your Appliances</CardTitle>
                   <Button
+                    data-testid="appliance-card-settings"
                     variant="ghost"
                     size="sm"
                     onClick={() => setIsEditing(!isEditing)}

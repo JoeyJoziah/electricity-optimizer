@@ -95,9 +95,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       <div className="bg-white rounded-lg shadow-md p-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Sign in to your account</h2>
 
-        {/* Error display */}
+        {/* Error display — role="alert" and aria-live="polite" ensure screen readers announce errors */}
         {(error || localError) && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md"
+          >
             <p className="text-sm text-red-600">{error || localError}</p>
           </div>
         )}

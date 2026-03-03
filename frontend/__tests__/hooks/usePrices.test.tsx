@@ -16,10 +16,10 @@ const mockGetPriceForecast = jest.fn()
 const mockGetOptimalPeriods = jest.fn()
 
 jest.mock('@/lib/api/prices', () => ({
-  getCurrentPrices: (...args: any[]) => mockGetCurrentPrices(...args),
-  getPriceHistory: (...args: any[]) => mockGetPriceHistory(...args),
-  getPriceForecast: (...args: any[]) => mockGetPriceForecast(...args),
-  getOptimalPeriods: (...args: any[]) => mockGetOptimalPeriods(...args),
+  getCurrentPrices: (...args: unknown[]) => mockGetCurrentPrices(...args),
+  getPriceHistory: (...args: unknown[]) => mockGetPriceHistory(...args),
+  getPriceForecast: (...args: unknown[]) => mockGetPriceForecast(...args),
+  getOptimalPeriods: (...args: unknown[]) => mockGetOptimalPeriods(...args),
 }))
 
 // Reusable mock data
