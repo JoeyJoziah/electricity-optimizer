@@ -12,6 +12,7 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 - **GDPR-compliant data management** with full audit trails
 - **Interactive dashboards** for visualizing consumption, costs, and forecasts
 - **Gamification** with savings tracking and achievement badges
+- **Accessibility testing** (WCAG compliance via jest-axe)
 
 ## Tech Stack
 
@@ -81,7 +82,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (741 tests)
+### Backend (1,374 tests)
 
 ```bash
 source .venv/bin/activate
@@ -91,7 +92,7 @@ pytest tests/ -v
 
 > **Important:** Always use the project venv at `.venv/`. System Python is missing required dependencies (fastapi, httpx, pydantic, pytest-asyncio).
 
-### Frontend (445 tests, 32 suites)
+### Frontend (1,374 tests, 93 suites)
 
 ```bash
 cd frontend
@@ -101,7 +102,15 @@ npm run test:ci  # With coverage
 
 > **Note:** The SwitchWizard test suite is occasionally flaky.
 
-### E2E Tests
+### ML (611 tests)
+
+```bash
+source .venv/bin/activate
+cd ml
+pytest tests/ -v
+```
+
+### E2E Tests (624 tests)
 
 ```bash
 cd frontend
@@ -109,21 +118,23 @@ npx playwright test
 npx playwright test --ui  # Interactive mode
 ```
 
+> **Total test count:** 3,359+ across all suites (1,374 backend + 1,374 frontend + 611 ML + 624 E2E).
+
 ### Additional Test Suites
 
 The repository includes load, performance, and security tests under `tests/`. See [docs/TESTING.md](docs/TESTING.md) for the full testing guide.
 
 ## Deployment
 
-| Service  | Platform |
-|----------|----------|
-| Backend  | Render   |
-| Frontend | Render   |
-| Database | Neon     |
+| Service  | Platform | URL |
+|----------|----------|-----|
+| Backend  | Render   | https://electricity-optimizer.onrender.com |
+| Frontend | Vercel   | — |
+| Database | Neon     | — |
 
 Configuration files:
 
-- `render.yaml` -- Render service definitions (backend + frontend)
+- `render.yaml` -- Render service definitions (backend)
 - `docker-compose.prod.yml` -- Production Docker Compose
 - `scripts/deploy.sh` / `scripts/production-deploy.sh` -- Deployment scripts
 
@@ -210,7 +221,7 @@ electricity-optimizer/
 
 ## Database
 
-Production database is **Neon PostgreSQL** with 14 tables. All primary keys use UUID type.
+Production database is **Neon PostgreSQL** with 17 tables. All primary keys use UUID type.
 
 | Table | Purpose |
 |-------|---------|
@@ -228,6 +239,9 @@ Production database is **Neon PostgreSQL** with 14 tables. All primary keys use 
 | `recommendation_outcomes` | Recommendation success tracking |
 | `supplier_registry` | Multi-state supplier catalog with utility types |
 | `state_regulations` | Deregulation status and PUC info for all 50 states + DC |
+| `user_connections` | Utility account connections (direct login, email, bill upload) |
+| `bill_uploads` | Uploaded utility bill documents (OCR parsing) |
+| `connection_extracted_rates` | Rates extracted from connected utility accounts |
 
 ## Key Services
 

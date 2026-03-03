@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-02 (Env config centralization, test suite expansion: 1129 tests across 64 suites)
+**Last Updated:** 2026-03-03 (Frontend review swarm: 1374 tests across 93 suites, jest-axe a11y, env var audit)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -543,7 +543,7 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-64 test suites, 1129 tests total:
+93 test suites, 1374 tests total (updated after frontend review swarm `c29e1d6`):
 
 **Component tests** (`__tests__/`):
 
@@ -692,7 +692,7 @@ npm run lint          # next lint
 
 ---
 
-## Recent Changes (as of 2026-03-02)
+## Recent Changes (as of 2026-03-03)
 
 1. **Multi-utility support** -- Settings store includes `utilityTypes` field (array of UtilityType). Settings page has utility type checkboxes
 2. **Multi-state region selector** -- Settings page offers expanded region dropdown covering all 50 US states + international regions
@@ -720,6 +720,9 @@ npm run lint          # next lint
 24. **Gap remediation Phase 7 (Standards)** -- Timer cleanup on unmount in toast context, accessible button variants, password reset flow (forgot-password, reset-password, verify-email pages), improved mobile form accessibility
 25. **Environment configuration centralization** -- New `lib/config/env.ts` module validates and exports: `API_URL`, `APP_URL`, `SITE_URL`, `API_ORIGIN`, `IS_PRODUCTION`, `IS_TEST`, `IS_DEV`. Updated `lib/api/client.ts`, `lib/auth/client.ts`, `lib/auth/server.ts`, `lib/hooks/useAuth.tsx`, `lib/hooks/useRealtime.ts` to import from `env.ts` instead of direct process.env access
 26. **Component and hook test expansion** -- 281 new tests across 12 new test files: PriceLineChart (27), SavingsDonut (20), ScheduleTimeline (30), DashboardContent (49), RegionSelector (24), SupplierPicker (24), NotificationBell (33), useProfile (16), useSavings (11), toast-context (27), sidebar-context (20), env (14). Total: 1129 tests across 64 suites
+27. **Frontend review swarm** (`c29e1d6`) -- 5-agent swarm: 248 new tests (1374 total, 93 suites), jest-axe accessibility testing (51 a11y tests in `__tests__/a11y/`), open redirect fix (`isSafeRedirect` in `lib/utils/url.ts`), `requireEmailVerification: true`, 3 WCAG fixes (color contrast, aria-describedby, role="alert"), skip-to-content link, modal focus trap, `React.memo` on SupplierCard, ESLint config (`.eslintrc.json`), `any` types 9→3, `global.d.ts` for Window.gtag
+28. **E2E test healing** (`9585625`) -- 624 E2E passed (up from ~431), skips reduced from 16 to 5, duplicate spec removed, ESLint cleanup (0 lint errors)
+29. **Env var audit** (`b7436e6`) -- 27 1Password mappings (up from 17), 5 new vault items, BETTER_AUTH_SECRET validator, INTERNAL_API_KEY != JWT_SECRET enforcer
 
 ---
 

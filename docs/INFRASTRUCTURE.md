@@ -501,8 +501,11 @@ deploy:
 - 1Password for production secrets (vault: "Electricity Optimizer")
 - Never commit secrets to Git
 - INTERNAL_API_KEY for service-to-service authentication (GitHub Actions + Render)
+- `BETTER_AUTH_SECRET` field validator: enforces 32+ character minimum in production (`Settings` model)
+- `INTERNAL_API_KEY != JWT_SECRET` model validator: prevents key reuse between internal API auth and JWT signing
+- **Env var audit** (2026-03-03): 27 secrets reviewed — 27 PASS, 0 FAIL. Full report: `.swarm-reports/ENV_VAR_AUDIT_FINAL.md`
 
-**1Password Vault** ("Electricity Optimizer" — 15 items, 34 credential fields):
+**1Password Vault** ("Electricity Optimizer" — 21 items (including 3 stale kept-but-archived), 27 SecretsManager mappings):
 
 | Item | Category | Fields | Purpose |
 |------|----------|--------|---------|
@@ -521,6 +524,13 @@ deploy:
 | Neon Auth | Login | `secret`, `auth_url`, `auth_database_url` | Better Auth signing key, auth endpoint, and database URL |
 | Codecov | Login | `token` | Code coverage tracking |
 | Notion Integration | Login | `api_token`, `database_id` | Notion API credentials for roadmap sync |
+| Vercel Frontend | Login | `vercel_token`, `project_id` | Vercel deployment credentials for frontend |
+| OAuth Providers | Login | `google_client_id`, `google_client_secret` | OAuth provider credentials for social login |
+| Email OAuth | Login | `gmail_client_id`, `gmail_client_secret`, `outlook_client_id`, `outlook_client_secret` | Email OAuth credentials for connection import |
+| Email Service | Login | `sendgrid_api_key`, `from_address` | Transactional email service credentials |
+| CORS and Redirects | Login | `allowed_origins`, `allowed_redirect_domains` | CORS origin whitelist and Stripe redirect domain config |
+
+**SecretsManager** (`backend/config/secrets.py`): 27 mappings (up from 17) covering all environment variables sourced from 1Password. Each mapping specifies the vault item, field name, and target env var.
 
 **GitHub Actions Secrets** (required for adaptive learning workflows):
 - `INTERNAL_API_KEY` — same key as Render env var
@@ -676,4 +686,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-03-02
+**Last Updated**: 2026-03-03

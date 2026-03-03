@@ -25,7 +25,8 @@ This guide covers how to deploy the Electricity Optimizer platform in different 
 
 - **Neon**: For serverless PostgreSQL (project: holy-pine-81107663)
 - **GitHub**: For CI/CD and container registry
-- **Render.com**: For backend and frontend hosting
+- **Render.com**: For backend hosting
+- **Vercel**: For frontend hosting
 
 ### Authentication
 
@@ -330,7 +331,8 @@ render logs --service srv-d649uhur433s73d557cg
 ### Secrets Management
 
 - Never commit secrets to version control
-- Use 1Password for production secrets
+- All production secrets stored in 1Password vault "Electricity Optimizer" (21 items, 27 SecretsManager mappings)
+- `SecretsManager` in `backend/config/secrets.py` has 27 mappings covering all environment variables
 - Rotate keys every 90 days
 - INTERNAL_API_KEY required for service-to-service auth (price-sync workflow)
 
@@ -385,17 +387,17 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 ---
 
-**Last Updated**: 2026-03-02
+**Last Updated**: 2026-03-03
 
 ## Production Services (Live)
 
 | Service | URL | Platform |
 |---------|-----|----------|
 | Backend API | https://electricity-optimizer.onrender.com | Render |
-| Frontend | https://electricity-optimizer-frontend.onrender.com | Render |
+| Frontend | https://electricity-optimizer.vercel.app | Vercel |
 | Database | Neon PostgreSQL (holy-pine-81107663) | Neon |
 
-Both Render services auto-deploy on push to `main`. Backend build takes ~2 minutes, frontend ~4 minutes.
+Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-deploys on push to `main` via Vercel.
 
 ### Authentication in Production
 
@@ -403,3 +405,38 @@ Both Render services auto-deploy on push to `main`. Backend build takes ~2 minut
 - On HTTPS, cookies are auto-prefixed with `__Secure-` by Better Auth
 - Backend and frontend both check for `better-auth.session_token` and `__Secure-better-auth.session_token`
 - `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` must match between backend and frontend env vars
+
+### Render Environment Variables (Backend)
+
+The backend service has **26 env vars** on Render, all mapped to 1Password via `SecretsManager` in `backend/config/secrets.py` (27 total mappings, including one local-only mapping). Key categories:
+
+- **Database**: `DATABASE_URL` (Neon pooler endpoint `ep-withered-morning`)
+- **Auth**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
+- **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
+- **APIs**: `NREL_API_KEY`, `EIA_API_KEY`, `FLATPEAK_API_KEY`
+- **Email**: `SENDGRID_API_KEY`, SMTP fallback vars
+- **Security**: `INTERNAL_API_KEY`, `FIELD_ENCRYPTION_KEY`, `GITHUB_WEBHOOK_SECRET`
+- **OAuth**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+- **Services**: `REDIS_URL`, `UTILITYAPI_TOKEN`, `OPENWEATHERMAP_API_KEY`
+- **Config**: `ENVIRONMENT`, `ALLOWED_REDIRECT_DOMAINS`
+
+### Vercel Environment Variables (Frontend)
+
+The frontend service has **8 env vars** on Vercel:
+
+| Variable | Visibility | Purpose |
+|----------|-----------|---------|
+| `NEXT_PUBLIC_API_URL` | Client | Backend API base URL |
+| `NEXT_PUBLIC_APP_URL` | Client | Frontend app base URL |
+| `NEXT_PUBLIC_SITE_URL` | Client | Canonical site URL |
+| `BETTER_AUTH_SECRET` | Server only | Auth signing key |
+| `BETTER_AUTH_URL` | Server only | Better Auth base URL |
+| `DATABASE_URL` | Server only | Neon DB connection string |
+| `GOOGLE_CLIENT_ID` | Server only | Google OAuth client ID |
+| `GITHUB_CLIENT_ID` | Server only | GitHub OAuth client ID |
+
+**CRITICAL**: `BETTER_AUTH_SECRET` must be explicitly set in Vercel. If missing, Better Auth falls back to an insecure `DEFAULT_SECRET`, which would compromise session signing in production.
+
+`NEXT_PUBLIC_` prefixed variables are client-visible and bundled into the JavaScript output. They contain only URLs -- no secrets should ever use this prefix.
+
+> For a comprehensive audit of all environment variables across services, see `.swarm-reports/ENV_VAR_AUDIT_FINAL.md`.

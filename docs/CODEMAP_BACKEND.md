@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-02 (8-phase rollout: app factory, connections refactor, health endpoints, migration 020, supplier caching, price pagination, learning aggregation)
+> Last updated: 2026-03-03 (8-phase rollout: app factory, connections refactor, health endpoints, migration 020, supplier caching, price pagination, learning aggregation, env var audit (17→27 1Password mappings))
 
 ## Directory Structure
 
@@ -16,7 +16,7 @@ backend/
 ├── config/
 │   ├── settings.py                  # Pydantic-settings config (env vars), get_settings() DI
 │   ├── database.py                  # DatabaseManager: Neon PostgreSQL, Redis
-│   └── secrets.py                   # SecretsManager: 1Password (prod) / env vars (dev)
+│   └── secrets.py                   # SecretsManager: 27 SECRET_MAPPINGS, 1Password (prod) / env vars (dev)
 │
 ├── api/
 │   ├── dependencies.py              # FastAPI DI: auth, DB sessions, service factories
@@ -470,7 +470,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 | App | `environment` (dev/staging/prod/test), `api_prefix`, `backend_port` |
 | Database | `database_url` |
 | Redis | `redis_url`, `redis_password` |
-| Auth | `jwt_secret` (used only for internal API key validation), `jwt_algorithm` (HS256). User auth via Neon Auth sessions. `field_encryption_key` (32-byte hex, validates via @field_validator) |
+| Auth | `jwt_secret` (used only for internal API key validation), `jwt_algorithm` (HS256). User auth via Neon Auth sessions. `field_encryption_key` (32-byte hex, validates via @field_validator). `better_auth_secret` (32+ chars in production, validated via @field_validator) |
 | API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `eia_api_key`, `openweathermap_api_key` |
 | Email | `sendgrid_api_key`, `smtp_host/port/username/password`, `email_from_address/name` |
 | Stripe | `stripe_secret_key`, `stripe_webhook_secret`, `stripe_price_pro`, `stripe_price_business` |
@@ -478,7 +478,17 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 | GDPR | `data_retention_days` (730), `consent_required`, `data_residency` |
 | Features | `enable_auto_switching`, `enable_load_optimization`, `enable_real_time_updates` |
 | Security | `allowed_redirect_domains` (configurable, allows `electricity-optimizer*.vercel.app` and `electricity-optimizer*.onrender.com`). TimescaleDB removed (PostgreSQL only) |
+**Validators:** `validate_api_key_differs_from_jwt` (@model_validator) ensures `internal_api_key` and `jwt_secret` are not identical in production.
+
 **Properties:** `is_production`, `is_development`, `effective_database_url`.
+
+### config/secrets.py
+
+`SecretsManager` with 27 `SECRET_MAPPINGS` (up from 17) mapping 1Password item/field pairs to env vars. In production, secrets are fetched from 1Password vault "Electricity Optimizer" (`OP_VAULT`); in dev, falls back to env vars.
+
+**New mappings (added in env var audit):** `sendgrid_api_key`, `google_client_id`, `google_client_secret`, `github_client_id`, `github_client_secret`, `gmail_client_id`, `gmail_client_secret`, `outlook_client_id`, `outlook_client_secret`, `redis_url`.
+
+**Renamed:** `postgres_password` → `database_url` (full connection string instead of password-only).
 
 ### config/database.py
 
@@ -945,7 +955,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1350+ passing, 0 failures (as of 2026-03-02). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics).
+**Test status:** 1374 passed, 2 skipped, 0 failures (as of 2026-03-03). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics).
 
 
 ## Scripts & Automation
