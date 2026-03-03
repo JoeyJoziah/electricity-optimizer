@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test'
+import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
 
 test.describe('Load Optimization', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBetterAuth(page)
+    await setAuthenticatedState(page)
+
     // Mock optimization API
     await page.route('**/api/v1/optimization/schedule**', async (route) => {
       await route.fulfill({
@@ -48,6 +52,84 @@ test.describe('Load Optimization', () => {
       })
     })
 
+    await page.route('**/api/v1/users/profile**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          name: 'Test User',
+          region: 'US_CT',
+          utility_types: ['electricity'],
+          current_supplier_id: null,
+          annual_usage_kwh: 10500,
+          onboarding_completed: true,
+        }),
+      })
+    })
+
+    await page.route('**/api/v1/user/supplier', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ supplier: null }),
+      })
+    })
+
+    await page.route('**/api/v1/savings/summary**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
+      })
+    })
+
+    await page.route('**/api/v1/prices/current**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ prices: [] }),
+      })
+    })
+
+    await page.route('**/api/v1/prices/history**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ prices: [] }),
+      })
+    })
+
+    await page.route('**/api/v1/prices/forecast**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ forecast: [] }),
+      })
+    })
+
+    await page.route('**/api/v1/suppliers**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ suppliers: [] }),
+      })
+    })
+
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'electricity-optimizer-settings',
+        JSON.stringify({
+          state: {
+            region: 'US_CT',
+            annualUsageKwh: 10500,
+            peakDemandKw: 5,
+            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
+          },
+        })
+      )
+    })
+
     await page.goto('/optimize')
   })
 
@@ -91,10 +173,20 @@ test.describe('Load Optimization', () => {
   })
 
   test('can remove appliance in edit mode', async ({ page }) => {
+    // Add an appliance first
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await expect(page.getByText('Washing Machine').first()).toBeVisible()
+
+    // Click the settings/edit toggle button to enter edit mode
     await page.locator('[data-testid="appliance-card-settings"]').first().click()
-    await page.getByRole('button').filter({ has: page.locator('svg') }).last().click()
+
+    // Wait for edit mode UI to appear — the Trash2 button has an SVG with
+    // the text-danger-500 class. Find the button containing it.
+    const trashButton = page.locator('button').filter({ has: page.locator('.text-danger-500') })
+    await expect(trashButton).toBeVisible({ timeout: 5000 })
+    await trashButton.click()
+
+    // The appliance should be removed, showing the empty state
     await expect(page.getByText('No appliances added yet')).toBeVisible()
   })
 
@@ -104,7 +196,9 @@ test.describe('Load Optimization', () => {
     await page.getByRole('button', { name: /Optimize Now/ }).click()
     await expect(page.getByText('Optimized Schedule')).toBeVisible()
     await expect(page.getByTestId('schedule-block-1')).toBeVisible()
-    await expect(page.getByText(/Total savings/i)).toBeVisible()
+    // Use .first() because "Total savings" text appears in both the summary card
+    // ("Total savings today") and potentially in other elements
+    await expect(page.getByText(/Total savings/i).first()).toBeVisible()
   })
 
   test('displays schedule details', async ({ page }) => {
@@ -160,6 +254,79 @@ test.describe('Load Optimization', () => {
 
 test.describe('Optimization Mobile', () => {
   test('is responsive on mobile', async ({ page }) => {
+    await mockBetterAuth(page)
+    await setAuthenticatedState(page)
+
+    await page.route('**/api/v1/users/profile**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          name: 'Test User',
+          region: 'US_CT',
+          utility_types: ['electricity'],
+          current_supplier_id: null,
+          annual_usage_kwh: 10500,
+          onboarding_completed: true,
+        }),
+      })
+    })
+
+    await page.route('**/api/v1/user/supplier', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ supplier: null }),
+      })
+    })
+
+    await page.route('**/api/v1/savings/summary**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
+      })
+    })
+
+    await page.route('**/api/v1/prices/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ prices: [], forecast: [], periods: [] }),
+      })
+    })
+
+    await page.route('**/api/v1/suppliers**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ suppliers: [] }),
+      })
+    })
+
+    await page.route('**/api/v1/optimization/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ schedules: [], totalSavings: 0 }),
+      })
+    })
+
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'electricity-optimizer-settings',
+        JSON.stringify({
+          state: {
+            region: 'US_CT',
+            annualUsageKwh: 10500,
+            peakDemandKw: 5,
+            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
+          },
+        })
+      )
+    })
+
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/optimize')
 

@@ -19,7 +19,6 @@ import type { LinkedAccountResponse } from '@/lib/api/suppliers'
 import { useToast } from '@/lib/contexts/toast-context'
 import {
   User,
-  MapPin,
   Zap,
   Bell,
   Palette,
@@ -59,7 +58,7 @@ export default function SettingsPage() {
     resetSettings,
   } = useSettingsStore()
 
-  const { success: toastSuccess, error: toastError } = useToast()
+  const { error: toastError } = useToast()
   const [saved, setSaved] = React.useState(false)
   const [exporting, setExporting] = React.useState(false)
   const [showSupplierPicker, setShowSupplierPicker] = React.useState(false)
@@ -385,7 +384,7 @@ export default function SettingsPage() {
                 }
               />
               <p className="ml-6 text-sm text-gray-500">
-                Remind you when it's a good time to run appliances
+                Remind you when it&apos;s a good time to run appliances
               </p>
 
               <Checkbox

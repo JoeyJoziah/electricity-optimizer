@@ -16,7 +16,6 @@ jest.mock('@/components/onboarding/OnboardingWizard', () => ({
 }))
 
 // Mock window.location.href setter
-const mockLocationAssign = jest.fn()
 Object.defineProperty(window, 'location', {
   value: { href: '' },
   writable: true,

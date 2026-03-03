@@ -10,7 +10,7 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('next/link', () => {
-  return ({
+  const MockLink = ({
     children,
     href,
     className,
@@ -26,6 +26,8 @@ jest.mock('next/link', () => {
       {children}
     </a>
   )
+  MockLink.displayName = 'MockLink'
+  return MockLink
 })
 
 jest.mock('@/lib/utils/cn', () => ({

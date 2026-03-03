@@ -183,7 +183,7 @@ describe('useSavingsSummary', () => {
       .mockRejectedValueOnce(new Error('Transient error'))
       .mockResolvedValueOnce(mockSavingsSummary)
 
-    const { wrapper } = createWrapper()
+    const { wrapper: _wrapper } = createWrapper()
     // Override the wrapper to use retry: 1 (matching hook's own setting)
     const queryClient = new QueryClient({
       defaultOptions: {

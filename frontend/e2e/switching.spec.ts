@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test'
+import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
 
 test.describe('Supplier Switching Flow', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBetterAuth(page)
+    await setAuthenticatedState(page)
+
     // Mock suppliers API
     await page.route('**/api/v1/suppliers**', async (route) => {
       await route.fulfill({

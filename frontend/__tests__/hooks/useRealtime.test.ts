@@ -181,9 +181,9 @@ describe('useRealtimePrices', () => {
   })
 
   it('sets isConnected to false on error', async () => {
-    const { wrapper } = createWrapper()
+    const { wrapper: errorWrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
+    const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper: errorWrapper })
 
     await waitFor(() => {
       expect(result.current.isConnected).toBe(true)
@@ -409,9 +409,9 @@ describe('useRealtimeOptimization', () => {
   })
 
   it('returns isConnected true immediately', () => {
-    const { wrapper, queryClient } = createWrapper()
+    const { wrapper: optWrapper } = createWrapper()
 
-    const { result } = renderHook(() => useRealtimeOptimization(), { wrapper })
+    const { result } = renderHook(() => useRealtimeOptimization(), { wrapper: optWrapper })
 
     expect(result.current.isConnected).toBe(true)
   })

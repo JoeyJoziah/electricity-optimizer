@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SignupForm } from '@/components/auth/SignupForm'
 import '@testing-library/jest-dom'
@@ -25,9 +25,11 @@ jest.mock('@/lib/hooks/useAuth', () => ({
 
 // Mock next/link
 jest.mock('next/link', () => {
-  return ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
+  const MockLink = ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
     <a href={href} {...props}>{children}</a>
   )
+  MockLink.displayName = 'MockLink'
+  return MockLink
 })
 
 // Helper to fill in a valid form

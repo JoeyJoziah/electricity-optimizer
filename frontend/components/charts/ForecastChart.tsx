@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import { format, parseISO, addHours } from 'date-fns'
+import { format, addHours } from 'date-fns'
 import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/format'
 import type { PriceForecast } from '@/types'

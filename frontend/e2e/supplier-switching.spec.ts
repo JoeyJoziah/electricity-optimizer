@@ -81,19 +81,68 @@ test.describe('Supplier Comparison & Switching', () => {
         body: JSON.stringify({ schedules: [], totalSavings: 0 }),
       })
     })
+
+    await page.route('**/api/v1/users/profile**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          name: 'Test User',
+          region: 'US_CT',
+          utility_types: ['electricity'],
+          current_supplier_id: null,
+          annual_usage_kwh: 10500,
+          onboarding_completed: true,
+        }),
+      })
+    })
+
+    await page.route('**/api/v1/user/supplier', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ supplier: null }),
+      })
+    })
+
+    await page.route('**/api/v1/savings/summary**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
+      })
+    })
+
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'electricity-optimizer-settings',
+        JSON.stringify({
+          state: {
+            region: 'US_CT',
+            annualUsageKwh: 10500,
+            peakDemandKw: 5,
+            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
+          },
+        })
+      )
+    })
   })
 
   test('displays supplier list on suppliers page', async ({ page }) => {
     await page.goto('/suppliers')
-    await expect(page.getByText('Eversource Energy')).toBeVisible()
-    await expect(page.getByText('NextEra Energy')).toBeVisible()
-    await expect(page.getByText('United Illuminating')).toBeVisible()
+    // Use .first() because supplier names appear in both the stats summary row
+    // (Cheapest Option, Greenest Option) and in the supplier card grid
+    await expect(page.getByText('Eversource Energy').first()).toBeVisible()
+    await expect(page.getByText('NextEra Energy').first()).toBeVisible()
+    await expect(page.getByText('United Illuminating').first()).toBeVisible()
   })
 
   test('shows supplier comparison with prices', async ({ page }) => {
     await page.goto('/suppliers')
-    // Check price display (look for formatted price values)
-    await expect(page.getByText(/0\.22|0\.24|0\.26/)).toBeVisible()
+    // Use .first() because each supplier card displays its price,
+    // and the regex matches multiple elements
+    await expect(page.getByText(/0\.22|0\.24|0\.26/).first()).toBeVisible()
   })
 
   test('shows green energy badges', async ({ page }) => {

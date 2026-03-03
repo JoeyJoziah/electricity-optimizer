@@ -43,7 +43,7 @@ export default function BetaSignupPage() {
           event_label: formData.currentSupplier,
         })
       }
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -60,7 +60,7 @@ export default function BetaSignupPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <CardTitle className="text-2xl">You're on the list! 🎉</CardTitle>
+            <CardTitle className="text-2xl">You&apos;re on the list! 🎉</CardTitle>
             <CardDescription className="text-base mt-2">
               Check your email for the next steps
             </CardDescription>
@@ -71,7 +71,7 @@ export default function BetaSignupPage() {
                 <strong>What happens next:</strong>
               </p>
               <ol className="mt-2 text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                <li>You'll receive a welcome email within 24 hours</li>
+                <li>You&apos;ll receive a welcome email within 24 hours</li>
                 <li>Get your unique beta access code</li>
                 <li>Start saving on your electricity bills!</li>
               </ol>
@@ -245,7 +245,7 @@ export default function BetaSignupPage() {
                 />
                 <label htmlFor="agree" className="text-sm text-gray-700">
                   I agree to participate in the beta program, provide feedback, and understand this is
-                  a testing phase. I've read the{' '}
+                  a testing phase. I&apos;ve read the{' '}
                   <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>
                   {' '}and{' '}
                   <a href="/terms" className="text-blue-600 hover:underline">Terms of Service</a>.
@@ -268,13 +268,13 @@ export default function BetaSignupPage() {
             </Button>
 
             <p className="text-xs text-center text-gray-500">
-              We'll never share your information with third parties. You can unsubscribe anytime.
+              We&apos;ll never share your information with third parties. You can unsubscribe anytime.
             </p>
           </form>
 
           {/* Benefits Section */}
           <div className="mt-8 pt-8 border-t border-gray-200">
-            <h3 className="font-semibold text-lg mb-4 text-center">What You'll Get</h3>
+            <h3 className="font-semibold text-lg mb-4 text-center">What You&apos;ll Get</h3>
             <div className="grid md:grid-cols-3 gap-4">
               <div className="text-center p-4">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">

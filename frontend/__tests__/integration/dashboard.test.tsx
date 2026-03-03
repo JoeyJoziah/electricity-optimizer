@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import DashboardPage from '@/app/(app)/dashboard/page'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
@@ -186,7 +185,6 @@ describe('Dashboard Integration', () => {
   })
 
   it('allows navigation to detailed views', async () => {
-    const user = userEvent.setup()
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {

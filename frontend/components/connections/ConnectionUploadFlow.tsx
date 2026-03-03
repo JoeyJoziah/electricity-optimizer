@@ -3,7 +3,6 @@
 import React, { useState, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { BillUploadForm } from './BillUploadForm'
 import { ConnectionRates } from './ConnectionRates'
 import { API_ORIGIN } from '@/lib/config/env'
@@ -12,7 +11,6 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  ArrowLeft,
 } from 'lucide-react'
 
 interface ConnectionUploadFlowProps {

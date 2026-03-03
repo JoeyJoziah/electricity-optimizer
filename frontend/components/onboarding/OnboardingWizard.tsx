@@ -10,7 +10,7 @@ import { DEREGULATED_ELECTRICITY_STATES, ALL_STATES } from '@/lib/constants/regi
 import { useUpdateProfile } from '@/lib/hooks/useProfile'
 import { useSetSupplier } from '@/lib/hooks/useSuppliers'
 import { useSettingsStore } from '@/lib/store/settings'
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UtilityType } from '@/lib/store/settings'
 import type { Supplier } from '@/types'
@@ -51,7 +51,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }, [isDeregulated, selectedSupplier])
 
   const currentStepIndex = steps.indexOf(currentStep)
-  const isLastContentStep = currentStep === 'utility-types' && !isDeregulated
   const totalSteps = isDeregulated ? (selectedSupplier ? 4 : 3) : 2
 
   // Step 1: Region selected

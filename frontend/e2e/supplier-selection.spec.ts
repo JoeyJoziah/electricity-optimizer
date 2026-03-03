@@ -10,8 +10,8 @@ test.describe('Supplier Selection Flow', () => {
   test.beforeEach(async ({ page }) => {
     await mockBetterAuth(page)
 
-    // Mock profile — onboarded user with region
-    await page.route('**/api/v1/users/profile', async (route, request) => {
+    // Mock profile — onboarded user with region (use ** wildcard for query params)
+    await page.route('**/api/v1/users/profile**', async (route, request) => {
       if (request.method() === 'GET') {
         await route.fulfill({
           status: 200,
@@ -103,6 +103,14 @@ test.describe('Supplier Selection Flow', () => {
       })
     })
 
+    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ periods: [] }),
+      })
+    })
+
     await page.route('**/api/v1/savings/summary**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -118,6 +126,20 @@ test.describe('Supplier Selection Flow', () => {
         body: JSON.stringify({ recommendation: null }),
       })
     })
+
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'electricity-optimizer-settings',
+        JSON.stringify({
+          state: {
+            region: 'US_CT',
+            annualUsageKwh: 10500,
+            peakDemandKw: 5,
+            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
+          },
+        })
+      )
+    })
   })
 
   test('suppliers page shows available suppliers', async ({ page }) => {
@@ -125,8 +147,10 @@ test.describe('Supplier Selection Flow', () => {
     await page.goto('/suppliers')
 
     await expect(page.getByText('Compare Suppliers')).toBeVisible()
-    await expect(page.getByText('Eversource Energy')).toBeVisible()
-    await expect(page.getByText('NextEra Energy')).toBeVisible()
+    // Use .first() because supplier names appear in both the stats row
+    // (e.g., "Cheapest Option: Eversource Energy") and in the supplier card grid
+    await expect(page.getByText('Eversource Energy').first()).toBeVisible()
+    await expect(page.getByText('NextEra Energy').first()).toBeVisible()
   })
 
   test('shows "not set" when no supplier selected', async ({ page }) => {

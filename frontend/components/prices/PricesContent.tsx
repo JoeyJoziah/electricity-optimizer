@@ -196,7 +196,7 @@ export default function PricesContent() {
           {/* Today's Low */}
           <Card>
             <CardContent className="p-4">
-              <p className="text-sm font-medium text-gray-500">Today's Low</p>
+              <p className="text-sm font-medium text-gray-500">Today&apos;s Low</p>
               {pricesLoading ? (
                 <Skeleton variant="text" className="mt-2 h-8 w-24" />
               ) : (
@@ -213,7 +213,7 @@ export default function PricesContent() {
           {/* Today's High */}
           <Card>
             <CardContent className="p-4">
-              <p className="text-sm font-medium text-gray-500">Today's High</p>
+              <p className="text-sm font-medium text-gray-500">Today&apos;s High</p>
               {pricesLoading ? (
                 <Skeleton variant="text" className="mt-2 h-8 w-24" />
               ) : (

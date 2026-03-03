@@ -12,7 +12,7 @@ const mockSetNotificationPreferences = jest.fn()
 const mockSetDisplayPreferences = jest.fn()
 const mockResetSettings = jest.fn()
 
-let mockStoreState = {
+const mockStoreState = {
   region: 'us_ct',
   utilityTypes: ['electricity'] as string[],
   currentSupplier: null as null | { id: string; name: string; estimatedAnnualCost: number },

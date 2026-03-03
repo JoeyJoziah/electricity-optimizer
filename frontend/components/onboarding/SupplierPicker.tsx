@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { SupplierSelector } from '@/components/suppliers/SupplierSelector'
 import { useSuppliers } from '@/lib/hooks/useSuppliers'
 import { Building2, Loader2 } from 'lucide-react'

@@ -1,11 +1,9 @@
 'use client'
 
 import React from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
-import { TrendingUp, Flame, Target, Award } from 'lucide-react'
+import { Flame, Target } from 'lucide-react'
 
 interface SavingsTrackerProps {
   dailySavings: number

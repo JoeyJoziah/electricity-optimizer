@@ -13,9 +13,11 @@ jest.mock('next/navigation', () => ({
 
 // Mock next/link
 jest.mock('next/link', () => {
-  return ({ children, href, className, onClick, ...props }: { children: React.ReactNode; href: string; className?: string; onClick?: () => void }) => (
+  const MockLink = ({ children, href, className, onClick, ...props }: { children: React.ReactNode; href: string; className?: string; onClick?: () => void }) => (
     <a href={href} className={className} onClick={onClick} {...props}>{children}</a>
   )
+  MockLink.displayName = 'MockLink'
+  return MockLink
 })
 
 // Mock cn utility

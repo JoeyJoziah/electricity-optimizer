@@ -1,11 +1,11 @@
 import { render } from '@testing-library/react'
-import { userEvent } from '@testing-library/user-event'
+import userEvent from '@testing-library/user-event'
 import { axe } from 'jest-axe'
 import { SignupForm } from '@/components/auth/SignupForm'
 import '@testing-library/jest-dom'
 
 jest.mock('next/link', () => {
-  return ({
+  const MockLink = ({
     children,
     href,
     className,
@@ -18,6 +18,8 @@ jest.mock('next/link', () => {
       {children}
     </a>
   )
+  MockLink.displayName = 'MockLink'
+  return MockLink
 })
 
 const mockUseAuth = jest.fn()

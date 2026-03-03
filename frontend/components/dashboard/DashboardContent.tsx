@@ -69,8 +69,8 @@ export default function DashboardContent() {
   const { data: suppliersData } = useSuppliers(region, annualUsage)
   const { data: savingsData } = useSavingsSummary()
 
-  // Realtime connection
-  const { isConnected } = useRealtimePrices(region)
+  // Realtime connection (hook must be called for SSE side-effects)
+  useRealtimePrices(region)
 
   // Process price data for chart (handle both frontend and backend field names)
   const chartData = React.useMemo(() => {
@@ -428,7 +428,7 @@ export default function DashboardContent() {
         {/* Schedule section - empty state until appliances are configured */}
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Today's Schedule</CardTitle>
+            <CardTitle>Today&apos;s Schedule</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex h-32 items-center justify-center text-gray-400">

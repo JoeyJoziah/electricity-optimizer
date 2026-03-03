@@ -47,7 +47,11 @@ export function ExcalidrawWrapper({ initialData, onChange, theme = 'light' }: Ex
       <Excalidraw
         {...{
           initialData,
-          onChange: handleChange,
+          // Cast required: our opaque ExcalidrawAppState alias is structurally
+          // compatible but lacks the index signature on the library's AppState.
+          // This component is dev-only (triple-gated, notFound in production).
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onChange: handleChange as unknown as (elements: any, appState: any, files: any) => void,
           theme,
         }}
       />

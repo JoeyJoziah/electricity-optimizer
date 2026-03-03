@@ -172,8 +172,8 @@ test.describe('Onboarding Wizard Flow', () => {
     await page.click('text=Continue to Dashboard')
     await page.click('text=Next: Choose Supplier')
 
-    // Skip supplier
-    await page.click('text=Skip')
+    // Skip supplier — use role selector to avoid matching "Skip to main content" a11y link
+    await page.getByRole('button', { name: 'Skip' }).click()
     await page.waitForURL(/\/dashboard/, { timeout: 10000 })
   })
 

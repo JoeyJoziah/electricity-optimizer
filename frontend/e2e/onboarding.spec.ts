@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState, clearAuthState } from './helpers/auth'
+import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
 
 /**
  * User Onboarding E2E Tests
@@ -69,12 +69,13 @@ test.describe('User Onboarding Flow', () => {
 
   test('landing page shows signup call to action', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('link', { name: /sign up|get started/i })).toBeVisible()
+    // Use .first() to avoid strict mode violation — landing page has multiple "Get Started" links
+    await expect(page.getByRole('link', { name: /sign up|get started/i }).first()).toBeVisible()
   })
 
   test('signup form validates required fields', async ({ page }) => {
     await page.goto('/auth/signup')
-    await expect(page.getByText('Create your account')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
 
     // Try to submit without filling anything — button should be disabled
     const submitButton = page.getByRole('button', { name: /create account/i })
@@ -84,8 +85,14 @@ test.describe('User Onboarding Flow', () => {
   test('signup form shows password requirements', async ({ page }) => {
     await page.goto('/auth/signup')
 
-    await page.fill('#password', 'short')
-    await expect(page.getByText('At least 12 characters')).toBeVisible()
+    // Click the password field first to ensure focus, then fill — Mobile Safari
+    // needs focus to trigger React onChange reliably
+    const passwordInput = page.locator('#password')
+    await passwordInput.click()
+    await passwordInput.fill('short')
+
+    // Wait for React state update to render requirements
+    await expect(page.getByText('At least 12 characters')).toBeVisible({ timeout: 5000 })
     await expect(page.getByText('One uppercase letter')).toBeVisible()
     await expect(page.getByText('One number')).toBeVisible()
     await expect(page.getByText('One special character')).toBeVisible()
@@ -109,7 +116,8 @@ test.describe('User Onboarding Flow', () => {
     await page.check('#terms')
 
     await page.click('button[type="submit"]')
-    await page.waitForURL(/\/(dashboard|auth)/, { timeout: 10000 })
+    // After signup, user may be redirected to onboarding, dashboard, or auth page
+    await page.waitForURL(/\/(onboarding|dashboard|auth)/, { timeout: 10000 })
   })
 
   test('login page is accessible from signup page', async ({ page }) => {
@@ -121,6 +129,12 @@ test.describe('User Onboarding Flow', () => {
 
   test('new users have no default region', async ({ page }) => {
     await setAuthenticatedState(page)
+
+    // Clear any persisted settings so region is null
+    await page.addInitScript(() => {
+      localStorage.removeItem('electricity-optimizer-settings')
+    })
+
     await page.goto('/settings')
 
     // New users should not have a pre-selected region

@@ -36,7 +36,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         await signIn(email, password)
         onSuccess?.()
       }
-    } catch (err) {
+    } catch {
       // Error is already set in auth context
     }
   }
@@ -46,7 +46,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     clearError()
     try {
       await signInWithGoogle()
-    } catch (err) {
+    } catch {
       // Error is already set in auth context
     }
   }
@@ -56,7 +56,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     clearError()
     try {
       await signInWithGitHub()
-    } catch (err) {
+    } catch {
       // Error is already set in auth context
     }
   }

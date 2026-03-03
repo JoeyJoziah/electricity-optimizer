@@ -1,15 +1,14 @@
 import { test, expect } from '@playwright/test'
+import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
 
 test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
   test.beforeEach(async ({ page }) => {
-    // Set up authenticated state
+    // Set up authenticated state via Better Auth cookie
+    await mockBetterAuth(page)
+    await setAuthenticatedState(page)
+
+    // Set up local settings
     await page.addInitScript(() => {
-      localStorage.setItem('auth_token', 'mock_jwt_token')
-      localStorage.setItem('user', JSON.stringify({
-        id: 'user_123',
-        email: 'test@example.com',
-        onboarding_completed: true,
-      }))
       localStorage.setItem(
         'electricity-optimizer-settings',
         JSON.stringify({
@@ -90,6 +89,46 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
             },
           ],
         }),
+      })
+    })
+
+    await page.route('**/api/v1/users/profile**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          name: 'Test User',
+          region: 'US_CT',
+          utility_types: ['electricity'],
+          current_supplier_id: null,
+          annual_usage_kwh: 10500,
+          onboarding_completed: true,
+        }),
+      })
+    })
+
+    await page.route('**/api/v1/user/supplier', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ supplier: null }),
+      })
+    })
+
+    await page.route('**/api/v1/savings/summary**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
+      })
+    })
+
+    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ periods: [] }),
       })
     })
   })
@@ -289,14 +328,8 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
 
 test.describe('SSE Streaming - Error Recovery', () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem('auth_token', 'mock_jwt_token')
-      localStorage.setItem('user', JSON.stringify({
-        id: 'user_123',
-        email: 'test@example.com',
-        onboarding_completed: true,
-      }))
-    })
+    await mockBetterAuth(page)
+    await setAuthenticatedState(page)
 
     await page.route('**/api/v1/prices/current**', async (route) => {
       await route.fulfill({
@@ -346,6 +379,60 @@ test.describe('SSE Streaming - Error Recovery', () => {
         contentType: 'application/json',
         body: JSON.stringify({ suppliers: [] }),
       })
+    })
+
+    await page.route('**/api/v1/users/profile**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          name: 'Test User',
+          region: 'US_CT',
+          utility_types: ['electricity'],
+          current_supplier_id: null,
+          annual_usage_kwh: 10500,
+          onboarding_completed: true,
+        }),
+      })
+    })
+
+    await page.route('**/api/v1/user/supplier', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ supplier: null }),
+      })
+    })
+
+    await page.route('**/api/v1/savings/summary**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
+      })
+    })
+
+    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ periods: [] }),
+      })
+    })
+
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'electricity-optimizer-settings',
+        JSON.stringify({
+          state: {
+            region: 'US_CT',
+            annualUsageKwh: 10500,
+            peakDemandKw: 5,
+            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
+          },
+        })
+      )
     })
   })
 

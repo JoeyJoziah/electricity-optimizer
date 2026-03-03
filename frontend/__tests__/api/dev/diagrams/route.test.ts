@@ -67,7 +67,7 @@ describe('GET /api/dev/diagrams', () => {
   it('returns list of .excalidraw files sorted by mtime descending', async () => {
     mockedFs.existsSync.mockReturnValue(true)
     mockedFs.readdirSync.mockReturnValue(
-      ['alpha.excalidraw', 'beta.excalidraw', 'readme.md'] as unknown as string[]
+      ['alpha.excalidraw', 'beta.excalidraw', 'readme.md'] as unknown as ReturnType<typeof fs.readdirSync>
     )
     mockedFs.statSync.mockImplementation((filePath: fs.PathLike) => {
       const p = filePath.toString()

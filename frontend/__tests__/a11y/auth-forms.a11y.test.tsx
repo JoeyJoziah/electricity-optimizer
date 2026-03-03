@@ -19,7 +19,7 @@ jest.mock('@/lib/hooks/useAuth', () => ({
 }))
 
 jest.mock('next/link', () => {
-  return ({
+  const MockLink = ({
     children,
     href,
     ...props
@@ -31,6 +31,8 @@ jest.mock('next/link', () => {
       {children}
     </a>
   )
+  MockLink.displayName = 'MockLink'
+  return MockLink
 })
 
 describe('LoginForm a11y', () => {

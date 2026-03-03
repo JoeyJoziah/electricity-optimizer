@@ -2,16 +2,15 @@
 
 import React, { useState } from 'react'
 import { Header } from '@/components/layout/Header'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input, Checkbox } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScheduleTimeline } from '@/components/charts/ScheduleTimeline'
-import { useOptimalSchedule, useAppliances, useSaveAppliances, usePotentialSavings } from '@/lib/hooks/useOptimization'
+import { useOptimalSchedule, usePotentialSavings } from '@/lib/hooks/useOptimization'
 import { useSettingsStore } from '@/lib/store/settings'
 import { formatCurrency, formatDuration } from '@/lib/utils/format'
-import { cn } from '@/lib/utils/cn'
 import {
   Plus,
   Trash2,
@@ -518,7 +517,7 @@ export default function OptimizePage() {
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <AlertCircle className="h-12 w-12 text-gray-300" />
                   <p className="mt-4 text-gray-500">
-                    Click "Optimize Now" to generate your schedule
+                    Click &quot;Optimize Now&quot; to generate your schedule
                   </p>
                 </CardContent>
               </Card>

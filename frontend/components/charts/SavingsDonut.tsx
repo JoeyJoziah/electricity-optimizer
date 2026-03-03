@@ -93,7 +93,7 @@ export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(({
               paddingAngle={2}
               dataKey="amount"
             >
-              {chartData.map((entry, index) => (
+              {chartData.map((entry, _index) => (
                 <Cell key={entry.category} fill={entry.color} />
               ))}
             </Pie>

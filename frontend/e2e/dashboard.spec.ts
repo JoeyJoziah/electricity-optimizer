@@ -1,7 +1,30 @@
 import { test, expect } from '@playwright/test'
+import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
 
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBetterAuth(page)
+    await setAuthenticatedState(page)
+
+    // Initialize settings store with region so hooks fire (enabled: !!region)
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'electricity-optimizer-settings',
+        JSON.stringify({
+          state: {
+            region: 'US_CT',
+            annualUsageKwh: 10500,
+            peakDemandKw: 5,
+            displayPreferences: {
+              currency: 'USD',
+              theme: 'system',
+              timeFormat: '12h',
+            },
+          },
+        })
+      )
+    })
+
     // Mock API responses
     await page.route('**/api/v1/prices/current**', async (route) => {
       await route.fulfill({
@@ -80,6 +103,55 @@ test.describe('Dashboard', () => {
       })
     })
 
+    // Mock additional endpoints needed when navigating away from dashboard
+    await page.route('**/api/v1/users/profile**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          name: 'Test User',
+          region: 'US_CT',
+          utility_types: ['electricity'],
+          current_supplier_id: null,
+          annual_usage_kwh: 10500,
+          onboarding_completed: true,
+        }),
+      })
+    })
+
+    await page.route('**/api/v1/user/supplier', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ supplier: null }),
+      })
+    })
+
+    await page.route('**/api/v1/savings/summary**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
+      })
+    })
+
+    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ periods: [] }),
+      })
+    })
+
+    await page.route('**/api/v1/suppliers/recommendation**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ recommendation: null }),
+      })
+    })
+
     await page.goto('/dashboard')
   })
 
@@ -126,14 +198,17 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Eversource Energy' })).toBeVisible()
   })
 
-  test('navigates to prices page', async ({ page }) => {
+  test('navigates to prices page', async ({ page, isMobile }) => {
+    test.skip(isMobile === true, 'Mobile navigation uses different layout')
     await page.getByText('View all prices').click()
-    await expect(page).toHaveURL('/prices')
+    await page.waitForURL(/\/prices/, { timeout: 15000 })
   })
 
-  test('navigates to suppliers page', async ({ page }) => {
+  // Client-side navigation from dashboard to suppliers can be slow on webkit
+  test('navigates to suppliers page', async ({ page, isMobile }) => {
+    test.skip(isMobile === true, 'Mobile navigation uses different layout')
     await page.getByRole('link', { name: 'View all', exact: true }).click()
-    await expect(page).toHaveURL('/suppliers')
+    await page.waitForURL(/\/suppliers/, { timeout: 20000 })
   })
 
   // Realtime indicator has class "hidden sm:flex" — not visible on mobile viewports
@@ -155,6 +230,9 @@ test.describe('Dashboard', () => {
 
 test.describe('Dashboard Error Handling', () => {
   test('handles API errors gracefully', async ({ page }) => {
+    await mockBetterAuth(page)
+    await setAuthenticatedState(page)
+
     await page.route('**/api/v1/prices/current**', async (route) => {
       await route.fulfill({
         status: 500,

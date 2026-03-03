@@ -84,7 +84,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     try {
       await signUp(email, password, name || undefined)
       onSuccess?.()
-    } catch (err) {
+    } catch {
       // Error is already set in auth context
     }
   }
@@ -94,7 +94,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     clearError()
     try {
       await signInWithGoogle()
-    } catch (err) {
+    } catch {
       // Error is already set in auth context
     }
   }
@@ -104,7 +104,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     clearError()
     try {
       await signInWithGitHub()
-    } catch (err) {
+    } catch {
       // Error is already set in auth context
     }
   }

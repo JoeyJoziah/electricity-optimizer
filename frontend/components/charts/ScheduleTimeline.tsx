@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { format, parseISO, differenceInMinutes, startOfDay, addHours } from 'date-fns'
+import { parseISO, differenceInMinutes, startOfDay } from 'date-fns'
 import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/format'
 import type { OptimizationSchedule } from '@/types'
@@ -43,10 +43,12 @@ export const ScheduleTimeline: React.FC<ScheduleTimelineProps> = React.memo(({
   showSavings = false,
   allowReschedule = false,
   onSelectSchedule,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onReschedule,
   className,
 }) => {
   const [hoveredSchedule, setHoveredSchedule] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [draggedSchedule, setDraggedSchedule] = useState<string | null>(null)
 
   // Calculate total savings
@@ -140,7 +142,7 @@ export const ScheduleTimeline: React.FC<ScheduleTimelineProps> = React.memo(({
     >
       {/* Header with total savings */}
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">Today's Schedule</h3>
+        <h3 className="font-semibold text-gray-900">Today&apos;s Schedule</h3>
         <div className="text-sm">
           Total savings:{' '}
           <span className="font-semibold text-success-600">

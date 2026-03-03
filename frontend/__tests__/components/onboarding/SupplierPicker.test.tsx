@@ -16,7 +16,6 @@ jest.mock('lucide-react', () => ({
 
 // SupplierSelector is the compound dropdown — mock it to a simple list so
 // SupplierPicker logic can be exercised without the dropdown internals.
-const mockOnChange = jest.fn()
 jest.mock('@/components/suppliers/SupplierSelector', () => ({
   SupplierSelector: ({
     suppliers,
