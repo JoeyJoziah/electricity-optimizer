@@ -13,6 +13,7 @@ import React, { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { authClient } from '@/lib/auth/client'
 
@@ -63,9 +64,9 @@ function ResetPasswordForm() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger-50">
               <svg
-                className="h-6 w-6 text-red-600"
+                className="h-6 w-6 text-danger-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -84,7 +85,7 @@ function ResetPasswordForm() {
             </p>
             <Link
               href="/auth/forgot-password"
-              className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="mt-4 inline-block text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors duration-200"
             >
               Request a new reset link
             </Link>
@@ -100,9 +101,9 @@ function ResetPasswordForm() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-50">
               <svg
-                className="h-6 w-6 text-green-600"
+                className="h-6 w-6 text-success-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -121,7 +122,7 @@ function ResetPasswordForm() {
             </p>
             <Link
               href="/auth/login"
-              className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="mt-4 inline-block text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors duration-200"
             >
               Sign in with your new password
             </Link>
@@ -144,46 +145,33 @@ function ResetPasswordForm() {
           </p>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  New password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={MIN_PASSWORD_LENGTH}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  autoComplete="new-password"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Confirm password
-                </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  minLength={MIN_PASSWORD_LENGTH}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  autoComplete="new-password"
-                />
-              </div>
+              <Input
+                id="password"
+                label="New password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={MIN_PASSWORD_LENGTH}
+                autoComplete="new-password"
+                autoFocus
+              />
+              <Input
+                id="confirmPassword"
+                label="Confirm password"
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={MIN_PASSWORD_LENGTH}
+                autoComplete="new-password"
+              />
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg flex items-center gap-2">
+                  <svg className="w-4 h-4 text-danger-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-danger-600">{error}</p>
                 </div>
               )}
               <Button type="submit" className="w-full" disabled={loading} loading={loading}>

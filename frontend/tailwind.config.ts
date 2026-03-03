@@ -67,10 +67,20 @@ const config: Config = {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
+      boxShadow: {
+        'card': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+        'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        'input-focus': '0 0 0 3px rgb(59 130 246 / 0.15)',
+      },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'flash-green': 'flashGreen 0.5s ease-out',
         'flash-red': 'flashRed 0.5s ease-out',
+        'slide-down': 'slideDown 0.2s ease-out',
+        'slide-up': 'slideUp 0.2s ease-out',
+        'fade-in': 'fadeIn 0.2s ease-out',
+        'scale-in': 'scaleIn 0.15s ease-out',
+        'shimmer': 'shimmer 1.5s ease-in-out infinite',
       },
       keyframes: {
         flashGreen: {
@@ -81,6 +91,29 @@ const config: Config = {
           '0%': { backgroundColor: 'rgb(239 68 68 / 0.3)' },
           '100%': { backgroundColor: 'transparent' },
         },
+        slideDown: {
+          from: { opacity: '0', transform: 'translateY(-10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideUp: {
+          from: { opacity: '0', transform: 'translateY(10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeIn: {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        scaleIn: {
+          from: { opacity: '0', transform: 'scale(0.95)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+      },
+      transitionTimingFunction: {
+        'ease-spring': 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
     },
   },

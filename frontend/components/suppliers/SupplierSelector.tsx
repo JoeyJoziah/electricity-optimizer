@@ -74,7 +74,7 @@ export const SupplierSelector: React.FC<SupplierSelectorProps> = ({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search suppliers..."
-                className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
+                className="w-full bg-transparent text-gray-900 text-sm outline-none placeholder:text-gray-400"
                 autoFocus
               />
               {search && (

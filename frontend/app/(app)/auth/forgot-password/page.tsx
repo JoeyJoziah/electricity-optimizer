@@ -10,20 +10,42 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { authClient } from '@/lib/auth/client'
 
 export const dynamic = 'force-dynamic'
+
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value)
+    if (emailError) setEmailError(null)
+  }
+
+  const handleEmailBlur = () => {
+    if (email && !isValidEmail(email)) {
+      setEmailError('Please enter a valid email address')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setEmailError(null)
+
+    if (email && !isValidEmail(email)) {
+      setEmailError('Please enter a valid email address')
+      return
+    }
+
     setLoading(true)
     try {
       // Better Auth client method: requestPasswordReset
@@ -47,9 +69,9 @@ export default function ForgotPasswordPage() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-50">
               <svg
-                className="h-6 w-6 text-green-600"
+                className="h-6 w-6 text-success-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -69,7 +91,7 @@ export default function ForgotPasswordPage() {
             </p>
             <Link
               href="/auth/login"
-              className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="mt-4 inline-block text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors duration-200"
             >
               Back to sign in
             </Link>
@@ -92,25 +114,25 @@ export default function ForgotPasswordPage() {
           </p>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  autoFocus
-                />
-              </div>
+              <Input
+                id="email"
+                label="Email address"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                onBlur={handleEmailBlur}
+                error={emailError || undefined}
+                placeholder="you@example.com"
+                autoComplete="email"
+                autoFocus
+              />
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg flex items-center gap-2">
+                  <svg className="w-4 h-4 text-danger-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-danger-600">{error}</p>
                 </div>
               )}
               <Button type="submit" className="w-full" disabled={loading} loading={loading}>
@@ -119,7 +141,7 @@ export default function ForgotPasswordPage() {
               <p className="text-center text-sm text-gray-500">
                 <Link
                   href="/auth/login"
-                  className="text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-primary-600 hover:text-primary-700 font-medium transition-colors duration-200"
                 >
                   Back to sign in
                 </Link>

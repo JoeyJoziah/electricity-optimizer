@@ -180,7 +180,7 @@ export default function BetaSignupPage() {
                 <select
                   id="currentSupplier"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                   value={formData.currentSupplier}
                   onChange={(e) => setFormData({ ...formData, currentSupplier: e.target.value })}
                 >
@@ -199,7 +199,7 @@ export default function BetaSignupPage() {
                 <select
                   id="monthlyBill"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                   value={formData.monthlyBill}
                   onChange={(e) => setFormData({ ...formData, monthlyBill: e.target.value })}
                 >
@@ -219,7 +219,7 @@ export default function BetaSignupPage() {
                 <select
                   id="hearAbout"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                   value={formData.hearAbout}
                   onChange={(e) => setFormData({ ...formData, hearAbout: e.target.value })}
                 >

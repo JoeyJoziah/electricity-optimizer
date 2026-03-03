@@ -191,7 +191,7 @@ export default function SettingsPage() {
                 <select
                   value={region || ''}
                   onChange={(e) => setRegion(e.target.value)}
-                  className="rounded-lg border border-gray-300 px-3 py-2"
+                  className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                 >
                   <option value="" disabled>Select your state...</option>
                   {US_REGIONS.map((group) => (
@@ -425,7 +425,7 @@ export default function SettingsPage() {
                       currency: e.target.value as 'USD' | 'GBP' | 'EUR',
                     })
                   }
-                  className="rounded-lg border border-gray-300 px-3 py-2"
+                  className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                 >
                   <option value="USD">USD (Dollars)</option>
                   <option value="GBP">GBP (Pounds)</option>
@@ -447,7 +447,7 @@ export default function SettingsPage() {
                       theme: e.target.value as 'light' | 'dark' | 'system',
                     })
                   }
-                  className="rounded-lg border border-gray-300 px-3 py-2"
+                  className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                 >
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
@@ -469,7 +469,7 @@ export default function SettingsPage() {
                       timeFormat: e.target.value as '12h' | '24h',
                     })
                   }
-                  className="rounded-lg border border-gray-300 px-3 py-2"
+                  className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                 >
                   <option value="24h">24-hour (14:30)</option>
                   <option value="12h">12-hour (2:30 PM)</option>

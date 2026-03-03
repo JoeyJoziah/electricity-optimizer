@@ -2,22 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 17, 24, 39;
-  --background-rgb: 249, 250, 251;
-}
+/*
+ * Design System CSS Custom Properties
+ *
+ * Force light color scheme until dark mode is fully implemented.
+ * The app uses hardcoded Tailwind color classes (text-gray-900, bg-white, etc.)
+ * which don't respond to prefers-color-scheme. Using color-scheme: light
+ * prevents browser dark mode from creating contrast issues (white text on
+ * white backgrounds in form inputs).
+ *
+ * When implementing dark mode, switch to darkMode: 'class' in tailwind.config.ts
+ * and use dark: prefixes on all color-bearing classes.
+ */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 249, 250, 251;
-    --background-rgb: 17, 24, 39;
-  }
+:root {
+  color-scheme: light;
+
+  /* Surface colors */
+  --color-background: 249 250 251;
+  --color-foreground: 17 24 39;
+  --color-surface: 255 255 255;
+  --color-surface-secondary: 249 250 251;
+
+  /* Brand / primary */
+  --color-primary: 59 130 246;
+  --color-primary-foreground: 255 255 255;
+
+  /* Energy theme accent */
+  --color-energy-green: 34 197 94;
+  --color-energy-amber: 245 158 11;
+  --color-energy-red: 239 68 68;
+
+  /* Semantic */
+  --color-success: 16 185 129;
+  --color-warning: 245 158 11;
+  --color-danger: 239 68 68;
+
+  /* Form inputs */
+  --color-input-bg: 255 255 255;
+  --color-input-text: 17 24 39;
+  --color-input-border: 209 213 219;
+  --color-input-placeholder: 156 163 175;
+  --color-input-focus-ring: 59 130 246;
+
+  /* Borders */
+  --color-border: 229 231 235;
+  --color-border-hover: 209 213 219;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+  /* Spacing scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+
+  /* Border radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Transitions */
+  --transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background-color: rgb(var(--background-rgb));
+  color: rgb(var(--color-foreground));
+  background-color: rgb(var(--color-background));
   font-feature-settings: 'rlig' 1, 'calt' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ensure all form inputs have explicit readable colors */
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    color: rgb(var(--color-input-text));
+    background-color: rgb(var(--color-input-bg));
+  }
+
+  html {
+    font-size: 16px;
+  }
 }
 
 /* Custom scrollbar */
@@ -39,9 +115,9 @@ body {
   background: #94a3b8;
 }
 
-/* Focus visible outline */
+/* Focus visible outline — consistent primary color */
 *:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid rgb(var(--color-primary));
   outline-offset: 2px;
 }
 
@@ -63,6 +139,38 @@ body {
   }
   to {
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }
 
@@ -70,8 +178,21 @@ body {
   animation: slideDown 0.2s ease-out;
 }
 
+.animate-slideUp {
+  animation: slideUp 0.2s ease-out;
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.15s ease-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background-size: 200% 100%;
 }
 
 /* Chart tooltip styles */
@@ -79,21 +200,15 @@ body {
   z-index: 100 !important;
 }
 
-/* Responsive typography */
-@layer base {
-  html {
-    font-size: 16px;
-  }
-
-  @screen sm {
-    html {
-      font-size: 16px;
-    }
-  }
-
-  @screen lg {
-    html {
-      font-size: 16px;
-    }
-  }
+/* Skeleton loading shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--color-border)) 25%,
+    rgb(var(--color-surface-secondary)) 50%,
+    rgb(var(--color-border)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
 }

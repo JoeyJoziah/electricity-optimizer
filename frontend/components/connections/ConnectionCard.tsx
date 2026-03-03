@@ -242,7 +242,7 @@ export function ConnectionCard({
                     }
                     maxLength={100}
                     disabled={savingLabel}
-                    className="rounded border border-gray-300 px-2 py-0.5 text-sm font-medium text-gray-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:opacity-50 w-48"
+                    className="rounded bg-white border border-gray-300 px-2 py-0.5 text-sm font-medium text-gray-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:opacity-50 w-48"
                     aria-label="Connection label"
                     data-testid="label-input"
                   />

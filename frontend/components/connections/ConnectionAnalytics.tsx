@@ -332,7 +332,7 @@ function SavingsEstimateCard({
               max={99999}
               value={inputValue}
               onChange={handleKwhChange}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none"
+              className="block w-full rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none"
               aria-label="Monthly electricity usage in kilowatt hours"
             />
           </div>
