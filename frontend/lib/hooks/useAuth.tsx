@@ -60,13 +60,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Initialize auth state from session cookie
   // Fetch session, supplier, and profile data in parallel to avoid waterfall
+  // On auth pages, skip profile/supplier calls to prevent 401 redirect loops
   useEffect(() => {
     const initAuth = async () => {
       try {
+        const isAuthPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/')
+
         const [sessionResult, supplierResult, profileResult] = await Promise.allSettled([
           authClient.getSession(),
-          getUserSupplier(),
-          getUserProfile(),
+          isAuthPage ? Promise.resolve({ supplier: null }) : getUserSupplier(),
+          isAuthPage ? Promise.resolve({ region: null, onboarding_completed: false }) : getUserProfile(),
         ])
 
         if (sessionResult.status === 'fulfilled' && sessionResult.value.data?.user) {

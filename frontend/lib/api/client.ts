@@ -5,6 +5,7 @@
  */
 
 import { API_URL } from '@/lib/config/env'
+import { isSafeRedirect } from '@/lib/utils/url'
 
 const BASE_URL = API_URL
 const MAX_RETRIES = 2
@@ -28,16 +29,40 @@ export class ApiClientError extends Error {
   }
 }
 
+const REDIRECT_COUNT_KEY = 'api_401_redirect_count'
+// Safety valve: 3 is safe even with React StrictMode's double-mount in dev,
+// because window.location.href assignment aborts the current execution context.
+const MAX_401_REDIRECTS = 3
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    // On 401, preserve current URL and redirect to login
+    // On 401, redirect to login — but guard against redirect loops
     if (response.status === 401 && typeof window !== 'undefined') {
-      const currentPath = window.location.pathname + window.location.search
-      sessionStorage.setItem('auth_redirect', currentPath)
-      console.warn(
-        '[auth] Session expired or unauthorized. Redirecting to login.'
-      )
-      window.location.href = `/auth/login?callbackUrl=${encodeURIComponent(currentPath)}`
+      const pathname = window.location.pathname
+
+      // Broad match: suppress redirect on ALL auth pages (login, signup, callback, verify-email).
+      // This is intentionally broader than middleware.ts authPaths, which only lists form pages.
+      if (!pathname.startsWith('/auth/')) {
+        // Safety valve: stop after MAX_401_REDIRECTS consecutive 401 redirects
+        const count = parseInt(sessionStorage.getItem(REDIRECT_COUNT_KEY) || '0', 10)
+        if (count < MAX_401_REDIRECTS) {
+          sessionStorage.setItem(REDIRECT_COUNT_KEY, String(count + 1))
+
+          // If current URL already has a callbackUrl, preserve the original
+          // instead of nesting (prevents exponential URL growth).
+          // Validate with isSafeRedirect to prevent open redirect via crafted callbackUrl.
+          const params = new URLSearchParams(window.location.search)
+          const existingCallback = params.get('callbackUrl')
+          const callbackUrl = (existingCallback && isSafeRedirect(existingCallback))
+            ? existingCallback
+            : pathname
+
+          console.warn(
+            '[auth] Session expired or unauthorized. Redirecting to login.'
+          )
+          window.location.href = `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+        }
+      }
     }
 
     let errorMessage = 'An error occurred'
@@ -56,6 +81,11 @@ async function handleResponse<T>(response: Response): Promise<T> {
       status: response.status,
       details,
     })
+  }
+
+  // Reset redirect counter on any successful response
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(REDIRECT_COUNT_KEY)
   }
 
   return response.json()

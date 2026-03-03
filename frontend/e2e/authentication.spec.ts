@@ -114,8 +114,8 @@ test.describe('Authentication Flows', () => {
     await page.fill('#password', 'TestPass123!')
     await page.click('button[type="submit"]')
 
-    // Should redirect to dashboard — webkit needs more time for cookie + redirect
-    await page.waitForURL('/dashboard', { timeout: 20000 })
+    // Should redirect to dashboard — webkit/Mobile Safari need extra time for cookie + redirect
+    await page.waitForURL('/dashboard', { timeout: 30000 })
     await expect(page.getByText('Current Price').first()).toBeVisible()
   })
 
@@ -266,6 +266,62 @@ test.describe('Authentication Flows', () => {
     // Middleware allowed the request (cookie exists) but the client sees no session
     // This is acceptable — the next navigation will redirect
     await expect(page.locator('body')).toBeVisible()
+  })
+})
+
+test.describe('Redirect Loop Prevention', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBetterAuth(page)
+
+    // Mock backend API endpoints that return 401 for stale sessions
+    await page.route('**/api/v1/user/supplier', async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Unauthorized' }),
+      })
+    })
+
+    await page.route('**/api/v1/users/profile', async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Unauthorized' }),
+      })
+    })
+  })
+
+  test('stale cookie does not cause redirect loop on login page', async ({ page }) => {
+    // Simulate a stale/expired session: the beforeEach mockBetterAuth(page) already
+    // wired get-session to return null when no valid cookie is present. We ensure no
+    // live session cookie exists so the middleware does not redirect us away from login,
+    // then verify the page stays on /auth/login (no redirect loop).
+    await clearAuthState(page)
+
+    await page.goto('/auth/login')
+
+    // Wait for client-side useAuth to finish its session check
+    await page.waitForTimeout(2000)
+    expect(page.url()).toContain('/auth/login')
+
+    // URL should not be excessively long (no nested callbackUrl)
+    expect(page.url().length).toBeLessThan(500)
+  })
+
+  test('preserves original callbackUrl through 401 cycle', async ({ page }) => {
+    await clearAuthState(page)
+
+    // Navigate to a protected page — middleware redirects to login with callbackUrl
+    await page.goto('/suppliers')
+    await page.waitForURL(/\/auth\/login\?callbackUrl=/, { timeout: 10000 })
+
+    // Verify the callbackUrl is /suppliers (not a nested URL)
+    const url = new URL(page.url())
+    const callbackUrl = url.searchParams.get('callbackUrl')
+    expect(callbackUrl).toBe('/suppliers')
+
+    // URL should stay clean (no double-encoded callbackUrl nesting)
+    expect(page.url().length).toBeLessThan(500)
   })
 })
 

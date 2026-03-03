@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-03 (Frontend review swarm: 1374 tests across 93 suites, jest-axe a11y, env var audit)
+**Last Updated:** 2026-03-03 (URI_TOO_LONG fix: 1385 tests across 94 suites, 401 redirect guard, callbackUrl validation)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -34,7 +34,7 @@ frontend/
       auth/
         login/page.tsx          # Login page (/auth/login) - renders LoginForm
         signup/page.tsx         # Signup page (/auth/signup) - renders SignupForm
-        callback/page.tsx       # OAuth/magic-link callback (/auth/callback)
+        callback/page.tsx       # OAuth/magic-link callback (/auth/callback), a11y spinner
         forgot-password/page.tsx # Forgot password page (/auth/forgot-password) - password reset request
         reset-password/page.tsx # Reset password page (/auth/reset-password) - set new password with token
         verify-email/page.tsx   # Email verification page (/auth/verify-email) - verify email token
@@ -124,7 +124,7 @@ frontend/
     config/
       env.ts                    # Centralized env validation (API_URL, APP_URL, SITE_URL, API_ORIGIN, IS_PRODUCTION/IS_TEST/IS_DEV)
     api/
-      client.ts                 # Base API client (GET/POST/PUT/DELETE) -> env.API_URL
+      client.ts                 # Base API client (GET/POST/PUT/DELETE) -> env.API_URL, 401 redirect guard with safety valve
       prices.ts                 # Price API: getCurrentPrices, getPriceHistory, getPriceForecast, getOptimalPeriods
       suppliers.ts              # Supplier API: getSuppliers, getRecommendation, compareSuppliers, initiateSwitch, getSwitchStatus
       optimization.ts           # Optimization API: getOptimalSchedule, saveAppliances, calculatePotentialSavings
@@ -132,7 +132,7 @@ frontend/
       client.ts                 # Better Auth client (createAuthClient) — browser-side auth, imports from env.ts
       server.ts                 # Better Auth server-side helpers, imports from env.ts
     hooks/
-      useAuth.tsx               # AuthProvider context + useAuth, useRequireAuth, useAccessToken hooks, imports from env.ts
+      useAuth.tsx               # AuthProvider context + useAuth, useRequireAuth, useAccessToken hooks; skips profile/supplier on /auth/* pages
       usePrices.ts              # useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods, useRefreshPrices
       useSuppliers.ts           # useSuppliers, useSupplier, useSupplierRecommendation, useCompareSuppliers, useInitiateSwitch, useSwitchStatus
       useOptimization.ts        # useOptimalSchedule, useOptimizationResult, useAppliances, useSaveAppliances, usePotentialSavings
@@ -150,6 +150,7 @@ frontend/
       cn.ts                     # cn() - Tailwind class merge utility (clsx + tailwind-merge)
       format.ts                 # formatCurrency, formatPricePerKwh, formatDateTime, formatTime, formatDuration, formatEnergy, etc.
       devGate.ts                # isDevMode() — checks NODE_ENV === 'development'
+      url.ts                    # isSafeRedirect() — validates same-origin redirect URLs (used by API client 401 handler)
   types/
     index.ts                    # All TypeScript interfaces (PriceDataPoint, Supplier, Appliance, etc.)
   __tests__/
@@ -167,7 +168,7 @@ frontend/
     utils/__tests__/
       format.test.ts            # Format utility tests (46 tests)
       calculations.test.ts      # Calculation utility tests (46 tests)
-  e2e/                          # Playwright E2E tests (11 specs, 5 browser projects, 805 total)
+  e2e/                          # Playwright E2E tests (15 specs, 5 browser projects, 634 passed)
     helpers/
       auth.ts                   # Better Auth mocking: mockBetterAuth, setAuthenticatedState, clearAuthState
   public/                       # Static assets (icons, etc.)
@@ -280,6 +281,11 @@ Configured in `QueryProvider` with defaults: 1min stale time, 5min garbage colle
 - All 4 fetch methods include `credentials: 'include'` for cross-origin cookie support (Neon Auth sessions)
 - Error handling: throws `ApiClientError` with status, message, details
 - All requests include `Content-Type: application/json`
+- **401 Redirect Guard**: 3-layer defense against redirect loops:
+  1. Auth page guard: skips redirect when `pathname.startsWith('/auth/')`
+  2. CallbackUrl extraction: reuses existing `callbackUrl` param (validated with `isSafeRedirect()`) instead of nesting
+  3. Safety valve: `sessionStorage` counter (key: `api_401_redirect_count`) stops after 3 consecutive 401 redirects; resets on any successful response
+- Automatic retry with exponential backoff for 5xx/network errors (max 2 retries, 500ms base)
 
 ### Region Default
 
@@ -335,7 +341,7 @@ All API functions and hooks default to `region = 'us_ct'` (Connecticut). This wa
 
 | Hook | Purpose |
 |------|---------|
-| `useAuth()` | Access user, isAuthenticated, signIn/signUp/signOut/signInWithGoogle/signInWithGitHub methods |
+| `useAuth()` | Access user, isAuthenticated, signIn/signUp/signOut/signInWithGoogle/signInWithGitHub methods. Skips `getUserSupplier()`/`getUserProfile()` on `/auth/*` pages to prevent 401 redirect loops |
 | `useRequireAuth()` | Same as useAuth but redirects to `/auth/login` if not authenticated |
 
 ---
@@ -543,7 +549,7 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-93 test suites, 1374 tests total (updated after frontend review swarm `c29e1d6`):
+94 test suites, 1385 tests total (updated after URI_TOO_LONG redirect loop fix):
 
 **Component tests** (`__tests__/`):
 
@@ -628,17 +634,18 @@ Page Component (app/(app)/*)
 | lib/utils/\_\_tests\_\_/format.test.ts | 46 | All 9 format functions (currency, date, time, energy, etc.) |
 | lib/utils/\_\_tests\_\_/calculations.test.ts | 46 | All 8 calculation functions (trend, optimal periods, savings, etc.) |
 | lib/api/\_\_tests\_\_/client.test.ts | 30 | API client (GET/POST/PUT/DELETE), ApiClientError class |
+| lib/api/\_\_tests\_\_/client-401-redirect.test.ts | 9 | 401 redirect loop prevention (auth page guard, callbackUrl extraction, safety valve, open redirect rejection) |
 | lib/api/\_\_tests\_\_/prices.test.ts | -- | Price API function tests |
 | lib/api/\_\_tests\_\_/suppliers.test.ts | -- | Supplier API function tests |
 
 ### E2E Tests (`e2e/`)
 
-11 Playwright spec files x 5 browser projects = 805 total tests.
-**Last run:** 431 passed, 374 skipped, 0 failed (2026-02-23).
+15 Playwright spec files x 5 browser projects.
+**Last run:** 634 passed, 5 skipped, 0 failed (2026-03-03).
 
 | Spec File | Tests | Description |
 |-----------|-------|-------------|
-| authentication.spec.ts | 15 | Login, OAuth, session persistence, rate limiting (10 active, 5 skipped) |
+| authentication.spec.ts | 17 | Login, OAuth, session persistence, rate limiting, redirect loop prevention (12 active, 5 skipped) |
 | billing-flow.spec.ts | 9 | Stripe pricing, checkout flow |
 | dashboard.spec.ts | 11 | Widgets, navigation, error handling |
 | full-journey.spec.ts | 25 | Full user journey (landing -> optimize) |
@@ -723,6 +730,7 @@ npm run lint          # next lint
 27. **Frontend review swarm** (`c29e1d6`) -- 5-agent swarm: 248 new tests (1374 total, 93 suites), jest-axe accessibility testing (51 a11y tests in `__tests__/a11y/`), open redirect fix (`isSafeRedirect` in `lib/utils/url.ts`), `requireEmailVerification: true`, 3 WCAG fixes (color contrast, aria-describedby, role="alert"), skip-to-content link, modal focus trap, `React.memo` on SupplierCard, ESLint config (`.eslintrc.json`), `any` types 9→3, `global.d.ts` for Window.gtag
 28. **E2E test healing** (`9585625`) -- 624 E2E passed (up from ~431), skips reduced from 16 to 5, duplicate spec removed, ESLint cleanup (0 lint errors)
 29. **Env var audit** (`b7436e6`) -- 27 1Password mappings (up from 17), 5 new vault items, BETTER_AUTH_SECRET validator, INTERNAL_API_KEY != JWT_SECRET enforcer
+30. **URI_TOO_LONG redirect loop fix** (2026-03-03) -- P0 bug: stale session cookies caused exponential URL growth via nested `callbackUrl` params. 3-layer defense in `client.ts` (auth page guard, callbackUrl extraction with `isSafeRedirect()`, sessionStorage safety valve). `useAuth.tsx` skips profile/supplier API calls on `/auth/*` pages. Auth callback page got a11y fix. +11 Jest tests (9 redirect + 2 useAuth), +2 E2E tests (redirect loop prevention). Playwright config: `retries: 1` for local runs
 
 ---
 

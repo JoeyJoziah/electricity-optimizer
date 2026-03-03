@@ -2,11 +2,22 @@
 
 **Last Updated**: 2026-03-03
 **Status**: Live in production (Backend: Render, Frontend: Vercel)
-**Overall Progress**: All features complete, 3,359+ tests passing (1374 backend, 1374 frontend, 611 ML, 624 E2E), deployed to production
+**Overall Progress**: All features complete, 3,370+ tests passing (1374 backend, 1385 frontend, 611 ML, 634 E2E), deployed to production
 
 ---
 
 ## Completed Items from Sessions 2026-03-02 to 2026-03-03
+
+### URI_TOO_LONG Redirect Loop Fix (2026-03-03)
+- [x] **P0 Bug Fix**: Stale session cookies caused exponential URL growth (HTTP 414)
+- [x] 3-layer defense in `lib/api/client.ts`: auth page guard, callbackUrl extraction with `isSafeRedirect()`, sessionStorage safety valve
+- [x] `useAuth.tsx`: skip `getUserSupplier()`/`getUserProfile()` on `/auth/*` pages
+- [x] Auth callback page: added `role="status"` and `aria-label` (a11y)
+- [x] 9 new unit tests (`client-401-redirect.test.ts`): redirect behavior, auth page guard, callbackUrl extraction, safety valve, open redirect rejection
+- [x] 2 new useAuth tests: auth page API call skipping verification
+- [x] 2 new E2E tests: stale cookie redirect loop prevention, callbackUrl preservation
+- [x] Playwright config: `retries: 1` for local runs
+- [x] Frontend tests: 1374→1385 (94 suites), E2E: 624→634, Total: 3,370+
 
 ### Deep Codebase Audit (commit b7c78dd)
 - [x] ML hardening, security fixes, dead code cleanup
@@ -421,7 +432,7 @@
 - **Documentation**: 15+ comprehensive docs
 
 ### Test Coverage
-- **Total Tests**: 3,359+ (backend + frontend + E2E)
+- **Total Tests**: 3,370+ (backend + frontend + E2E)
 - **Test Success Rate**: 100%
 - **Backend Tests**: 1374 tests (54 test files, 1374 test functions via def test_)
   - Auth: 40 tests (JWT + Neon Auth + password + API keys)
@@ -430,7 +441,7 @@
   - Services: 200+ tests (stripe, alerts, learning, observations, email)
   - API Endpoints: 300+ tests (health, prices, recommendations, analytics, compliance, billing)
   - Infrastructure: 100+ tests (middleware, migrations, vector store, performance)
-- **Frontend Unit Tests**: 1374 tests (93 test suites, 1374 test cases via describe/it)
+- **Frontend Unit Tests**: 1385 tests (94 test suites, 1385 test cases via describe/it)
   - Components: 380 tests (UI primitives, charts, suppliers, connections, layout)
   - Pages: 22 tests (dashboard, prices, suppliers)
   - Hooks: 51 tests (useAuth, usePrices, useDiagrams)
@@ -443,7 +454,7 @@
   - Predictions: 59 tests (ensemble predictor, uncertainty)
   - Optimization: 150+ tests (load shifting, scheduling, decision engine)
   - Metrics: 86 tests (MAPE, accuracy, validation)
-- **E2E Tests**: 16 spec files (624 test cases across Chromium/Firefox/WebKit/Mobile)
+- **E2E Tests**: 16 spec files (634 test cases across Chromium/Firefox/WebKit/Mobile)
   - Onboarding: 2 specs (full journey, flow)
   - Authentication: 1 spec (OAuth, magic link, session)
   - Dashboard: 1 spec (widgets, analytics)
@@ -523,13 +534,13 @@ make backup
 **Completed** (Batches 1-4 + sessions through 2026-03-03):
 - **Backend API** (17+ endpoints, 1374 tests passing, 2 skipped, 57 test files)
 - **ML Pipeline** (CNN-LSTM, MILP, weather-aware, 611 tests, 55 skipped, 16 test files)
-- **Frontend Dashboard** (5 pages, gamification, SSE streaming, 1374 tests, 93 suites)
+- **Frontend Dashboard** (5 pages, gamification, SSE streaming, 1385 tests, 94 suites)
 - **Security & Compliance** (Neon Auth sessions, GDPR, API key auth, 34 adversarial tests, AES-256-GCM encryption)
 - **Infrastructure** (Docker, consolidated GitHub Actions CI/CD, Render deploy hooks, 8 new migrations)
-- **Testing** (3,359+ tests, 100% passing, 80%+ coverage, E2E across 5 browsers)
+- **Testing** (3,370+ tests, 100% passing, 80%+ coverage, E2E across 5 browsers)
 - **Adaptive Learning** (observation loop, nightly learning, HNSW vector store, batch inserts)
 - **Multi-Utility** (electricity, natural gas, heating oil, propane, community solar, 5 full test suites)
-- **E2E** (16 Playwright spec files, 624 test cases, 0 failures)
+- **E2E** (16 Playwright spec files, 634 test cases, 0 failures)
 - **Stripe Monetization** (Free/$4.99 Pro/$14.99 Business, async SDK calls, webhook security)
 - **Landing Page** (with SEO, multi-currency support)
 - **P0-P5 Innovations** (alerts, weather, SSE, gamification, billing, connections, learning)
@@ -555,7 +566,7 @@ make backup
 
 **Statistics**:
 - 35,000+ lines of production code
-- 3,359+ tests (1374 backend, 1374 frontend, 611 ML, 624 E2E)
+- 3,370+ tests (1374 backend, 1385 frontend, 611 ML, 634 E2E)
 - 100% backend test success rate
 - 100% frontend test success rate
 - 0 security vulnerabilities (SQL injection hardened, SSE auth, session SHA-256 cache keys, AES-256-GCM encryption)

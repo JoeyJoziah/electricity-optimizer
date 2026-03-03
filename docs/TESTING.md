@@ -3,10 +3,10 @@
 **Last Updated**: 2026-03-03
 **Overall Test Coverage**: 82%+
 **Backend Tests**: 1374 passed, 2 skipped (pytest, 57 test files)
-**Frontend Tests**: 1374 across 93 suites (Jest)
+**Frontend Tests**: 1385 across 94 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
-**E2E Tests**: 624 passed, 5 skipped (Playwright)
-**Total**: 3,359+ tests passing
+**E2E Tests**: 634 passed, 5 skipped (Playwright)
+**Total**: 3,370+ tests passing
 
 ---
 
@@ -15,10 +15,10 @@
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
 | **Backend Unit/Integration** | 1374 passed, 2 skipped | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1374 (93 suites) | 78%+ | Jest + RTL |
+| **Frontend Component + Lib Tests** | 1385 (94 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
-| **E2E Tests** | 624 passed, 5 skipped | Critical flows | Playwright |
+| **E2E Tests** | 634 passed, 5 skipped | Critical flows | Playwright |
 | **Security Tests** | 156 | 91%+ | pytest |
 | **Load Tests** | N/A | 1000+ users | Locust |
 | **Performance Tests** | 31 | API/ML | pytest |
@@ -76,7 +76,7 @@ make test-e2e
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (1374 tests across 93 suites)
+# Frontend unit tests (1385 tests across 94 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -158,7 +158,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1374 tests across 93 suites (up from 1126/64 after frontend review swarm, commit `c29e1d6`)
+**Count**: 1385 tests across 94 suites (up from 1374/93 after URI_TOO_LONG redirect loop fix)
 **Coverage Target**: 78%+
 
 **Accessibility Testing**: 51 tests using `jest-axe` for automated WCAG 2.1 AA compliance checks. Tests are located in `__tests__/a11y/` and cover color contrast, ARIA attributes, keyboard navigation, focus management, and semantic HTML across all major components.
@@ -208,10 +208,11 @@ pytest tests/ -v --cov=. --cov-report=html
 - `app/dev/architecture.test.tsx` - Architecture page integration
 - `lib/config/env.test.ts` - Environment configuration validation (14 tests)
 
-**Library Test Suites** (`lib/`, 6 files):
+**Library Test Suites** (`lib/`, 7 files):
 - `lib/utils/__tests__/format.test.ts` - 46 tests for all 9 format utility functions
 - `lib/utils/__tests__/calculations.test.ts` - 46 tests for all 8 calculation functions
 - `lib/api/__tests__/client.test.ts` - 30 tests for API client + ApiClientError
+- `lib/api/__tests__/client-401-redirect.test.ts` - 9 tests for 401 redirect loop prevention (auth page guard, callbackUrl extraction, safety valve, counter reset, open redirect rejection)
 - `lib/api/__tests__/prices.test.ts` - Price API client tests
 - `lib/api/__tests__/suppliers.test.ts` - Supplier API client tests
 - `contracts/api-schemas.test.ts` - API contract validation (45+ tests)
@@ -230,11 +231,11 @@ npm run test:ci    # CI mode with coverage
 ### 3. E2E Tests
 
 **Location**: `frontend/e2e/`
-**Count**: 624 passed, 5 skipped, 0 failed
-**Last Run**: 2026-03-03 (E2E test healing, commit `9585625`)
+**Count**: 634 passed, 5 skipped, 0 failed
+**Last Run**: 2026-03-03 (URI_TOO_LONG fix + redirect loop prevention tests)
 
 **Test Files** (15 specs):
-- `authentication.spec.ts` - Auth flows (login, OAuth, magic link)
+- `authentication.spec.ts` - Auth flows (login, OAuth, magic link, redirect loop prevention)
 - `billing-flow.spec.ts` - Stripe checkout, pricing tiers
 - `dashboard.spec.ts` - Dashboard widgets, navigation, error handling
 - `full-journey.spec.ts` - End-to-end user journey (landing -> dashboard -> optimize)
@@ -464,6 +465,25 @@ A 5-agent swarm (test-writer, code-reviewer, a11y-auditor, e2e-fixer, security-p
 - 29 new test files across components, hooks, pages, and accessibility
 - ESLint configuration (`.eslintrc.json`) with `no-explicit-any: "warn"` and test overrides
 - Reports available in `.swarm-reports/FRONTEND_REVIEW_REPORT.md`
+
+### URI_TOO_LONG Redirect Loop Fix (2026-03-03)
+
+Fixed a P0 bug where stale session cookies caused exponential URL growth (HTTP 414 URI_TOO_LONG). The API client's 401 handler was firing on auth pages, nesting `callbackUrl` parameters with each redirect cycle.
+
+**Fix**: 3-layer defense in `lib/api/client.ts`:
+1. Auth page guard: skip redirect when `pathname.startsWith('/auth/')`
+2. CallbackUrl extraction: reuse existing `callbackUrl` instead of nesting, validated with `isSafeRedirect()`
+3. Safety valve: `sessionStorage` counter stops after 3 consecutive 401 redirects
+
+**New tests added**:
+- `lib/api/__tests__/client-401-redirect.test.ts` (9 tests): redirect behavior, auth page guard, callbackUrl extraction, safety valve, counter reset, open redirect rejection
+- `__tests__/hooks/useAuth.test.tsx` (+2 tests): auth page API call skipping, non-auth page API calls
+- `e2e/authentication.spec.ts` (+2 E2E tests): stale cookie redirect loop prevention, callbackUrl preservation through 401 cycle
+
+**Additional changes**:
+- `lib/hooks/useAuth.tsx`: skips `getUserSupplier()`/`getUserProfile()` on `/auth/*` pages
+- `app/(app)/auth/callback/page.tsx`: added `role="status"` and `aria-label` for a11y
+- `playwright.config.ts`: added `retries: 1` for local runs
 
 ### E2E Test Healing (2026-03-03, commit `9585625`)
 
@@ -726,7 +746,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1374 backend, 1374 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 1374 backend, 1385 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 

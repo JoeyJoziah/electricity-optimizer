@@ -39,10 +39,12 @@ jest.mock('@/lib/api/profile', () => ({
 
 // Mock settings store
 const mockSetCurrentSupplier = jest.fn()
+const mockSetRegion = jest.fn()
 jest.mock('@/lib/store/settings', () => ({
   useSettingsStore: {
     getState: () => ({
       setCurrentSupplier: mockSetCurrentSupplier,
+      setRegion: mockSetRegion,
     }),
   },
 }))
@@ -170,6 +172,18 @@ describe('useAuth hook', () => {
   })
 
   it('syncs supplier to settings store when session and supplier both succeed', async () => {
+    // Must be on a non-auth page so getUserSupplier() is not skipped
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        href: 'http://localhost:3000/dashboard',
+        pathname: '/dashboard',
+        search: '',
+        origin: 'http://localhost:3000',
+      },
+    })
+
     mockGetSession.mockResolvedValue({
       data: {
         user: {
@@ -189,6 +203,8 @@ describe('useAuth hook', () => {
         rating: 4.2,
       },
     })
+    // Profile returns onboarding_completed: true so we don't get redirected away
+    mockGetUserProfile.mockResolvedValue({ region: 'CT', onboarding_completed: true })
 
     const wrapper = createWrapper()
     renderHook(() => useAuth(), { wrapper })
@@ -203,6 +219,59 @@ describe('useAuth hook', () => {
         })
       )
     })
+  })
+
+  it('skips supplier and profile API calls on auth pages', async () => {
+    // Simulate being on an auth page
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        pathname: '/auth/login',
+        href: 'http://localhost:3000/auth/login',
+        search: '',
+        origin: 'http://localhost:3000',
+      },
+    })
+
+    mockGetSession.mockResolvedValue({ data: null, error: null })
+
+    const wrapper = createWrapper()
+    renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(mockGetSession).toHaveBeenCalled()
+    })
+
+    // getUserSupplier and getUserProfile should NOT have been called on auth pages
+    expect(mockGetUserSupplier).not.toHaveBeenCalled()
+    expect(mockGetUserProfile).not.toHaveBeenCalled()
+  })
+
+  it('calls supplier and profile APIs on non-auth pages', async () => {
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        pathname: '/dashboard',
+        href: 'http://localhost:3000/dashboard',
+        search: '',
+        origin: 'http://localhost:3000',
+      },
+    })
+
+    mockGetSession.mockResolvedValue({ data: null, error: null })
+
+    const wrapper = createWrapper()
+    renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(mockGetSession).toHaveBeenCalled()
+    })
+
+    // On non-auth pages, both should be called
+    expect(mockGetUserSupplier).toHaveBeenCalled()
+    expect(mockGetUserProfile).toHaveBeenCalled()
   })
 
   it('handles getSession failure gracefully', async () => {
