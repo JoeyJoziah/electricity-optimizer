@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Service-to-service API key (must NOT be the same as jwt_secret)
     internal_api_key: Optional[str] = Field(default=None, validation_alias="INTERNAL_API_KEY")
 
+    # Better Auth session token signing secret
+    better_auth_secret: Optional[str] = Field(default=None, validation_alias="BETTER_AUTH_SECRET")
+
     # External APIs
     flatpeak_api_key: Optional[str] = Field(default=None, validation_alias="FLATPEAK_API_KEY")
     nrel_api_key: Optional[str] = Field(default=None, validation_alias="NREL_API_KEY")
@@ -204,6 +207,32 @@ class Settings(BaseSettings):
                 "JWT_SECRET must be at least 32 characters in production."
             )
         return v
+
+    @field_validator("better_auth_secret")
+    @classmethod
+    def validate_better_auth_secret(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure Better Auth secret is strong when provided in production."""
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production" and v is not None and len(v) < 32:
+            raise ValueError(
+                "BETTER_AUTH_SECRET must be at least 32 characters in production. "
+                "Generate one with: openssl rand -hex 32"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def validate_api_key_differs_from_jwt(self) -> "Settings":
+        """Ensure INTERNAL_API_KEY and JWT_SECRET are not identical."""
+        if (
+            self.internal_api_key
+            and self.jwt_secret
+            and self.internal_api_key == self.jwt_secret
+        ):
+            raise ValueError(
+                "INTERNAL_API_KEY must differ from JWT_SECRET to maintain "
+                "separation of concerns between user auth and service auth."
+            )
+        return self
 
     # NOTE: cors_origins parsing is handled by the cors_origins property above.
     # The cors_origins_raw field stores the raw env var string to avoid

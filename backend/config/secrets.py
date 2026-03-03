@@ -45,7 +45,8 @@ class SecretsManager:
         "internal_api_key": "API Secrets.internal_api_key",
         "better_auth_secret": "Neon Auth.secret",
         # Database & infrastructure
-        "postgres_password": "Neon PostgreSQL.database_url",
+        "database_url": "Neon PostgreSQL.database_url",
+        "redis_url": "Redis Upstash.redis_url",
         "redis_password": "Redis Upstash.redis_password",
         # Pricing data providers
         "flatpeak_api_key": "Pricing APIs.flatpeak",
@@ -58,6 +59,17 @@ class SecretsManager:
         "stripe_webhook_secret": "Stripe Keys.webhook_secret",
         "stripe_price_pro": "Stripe Keys.price_pro",
         "stripe_price_business": "Stripe Keys.price_business",
+        "sendgrid_api_key": "Email Service.sendgrid_api_key",
+        # OAuth providers (social login)
+        "google_client_id": "OAuth Providers.google_client_id",
+        "google_client_secret": "OAuth Providers.google_client_secret",
+        "github_client_id": "OAuth Providers.github_client_id",
+        "github_client_secret": "OAuth Providers.github_client_secret",
+        # Email OAuth (connection bill import)
+        "gmail_client_id": "Email OAuth.gmail_client_id",
+        "gmail_client_secret": "Email OAuth.gmail_client_secret",
+        "outlook_client_id": "Email OAuth.outlook_client_id",
+        "outlook_client_secret": "Email OAuth.outlook_client_secret",
         # Security & monitoring
         "field_encryption_key": "Field Encryption.key",
         "sentry_dsn": "Monitoring.sentry_dsn",
@@ -234,9 +246,9 @@ def get_jwt_secret() -> str:
     return require_secret("jwt_secret")
 
 
-def get_database_password() -> str:
-    """Get database password"""
-    return require_secret("postgres_password")
+def get_database_url() -> str:
+    """Get database connection URL"""
+    return require_secret("database_url")
 
 
 def get_redis_password() -> Optional[str]:
