@@ -1,7 +1,11 @@
 # DNS Email Setup — electricity-optimizer.app
 
+> **STATUS (2026-03-04):** Domain `electricity-optimizer.app` was never purchased (NXDOMAIN).
+> Currently using Resend's built-in `onboarding@resend.dev` sender as a temporary workaround.
+> This only delivers to the Resend account email. The guide below applies AFTER a domain is purchased.
+
 > Purpose: Configure DNS records so Resend can send transactional email from
-> `noreply@electricity-optimizer.app` (email verification, magic links).
+> `onboarding@resend.dev (temporary; see status above)` (email verification, magic links).
 >
 > Last updated: 2026-03-04
 
@@ -141,7 +145,7 @@ Once the domain is verified, set these in your deployment environment
 
 ```
 RESEND_API_KEY=re_xxxxxxxxxxxx          # from https://resend.com/api-keys
-EMAIL_FROM_ADDRESS=Electricity Optimizer <noreply@electricity-optimizer.app>
+EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
 ```
 
 ### Implementation Notes:
@@ -171,7 +175,7 @@ See `/frontend/.env.example` for reference, and `/backend/config/settings.py` fo
 - [ ] Resend domain status shows **Verified**
 - [ ] `RESEND_API_KEY` set in Vercel (Settings > Environment Variables) and 1Password
 - [ ] `RESEND_API_KEY` set in Render (Environment > Environment Variables) and 1Password
-- [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <noreply@electricity-optimizer.app>` in Vercel
+- [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <onboarding@resend.dev>` in Vercel
 - [ ] Both variables marked as available in Production, Preview, and Development environments (Vercel)
 - [ ] `RESEND_API_KEY` value verified with `vercel env pull` on frontend (must be non-empty)
 - [ ] `RESEND_API_KEY` value verified in Render dashboard (must be non-empty, no trailing whitespace)

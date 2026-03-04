@@ -51,7 +51,7 @@ SMTP_HOST=                 # SMTP server hostname (fallback)
 SMTP_PORT=587              # SMTP port (fallback)
 SMTP_USERNAME=             # SMTP username (fallback)
 SMTP_PASSWORD=             # SMTP password (fallback)
-EMAIL_FROM_ADDRESS=noreply@electricity-optimizer.app
+EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
 
 # Email Service — Frontend (Resend for auth emails)
 RESEND_API_KEY=            # Resend API key for email verification, magic links, password reset
@@ -439,7 +439,7 @@ The frontend service has **10 env vars** on Vercel:
 | `BETTER_AUTH_URL` | Server only | Better Auth base URL |
 | `DATABASE_URL` | Server only | Neon DB connection string |
 | `RESEND_API_KEY` | Server only | Resend API key for email verification, magic links |
-| `EMAIL_FROM_ADDRESS` | Server only | Email sender address (`noreply@electricity-optimizer.app`) |
+| `EMAIL_FROM_ADDRESS` | Server only | Email sender address (`onboarding@resend.dev`) — temporary Resend sandbox sender until a custom domain is purchased and verified |
 | `GOOGLE_CLIENT_ID` | Server only | Google OAuth client ID |
 | `GITHUB_CLIENT_ID` | Server only | GitHub OAuth client ID |
 

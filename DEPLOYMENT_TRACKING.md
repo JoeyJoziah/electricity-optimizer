@@ -111,7 +111,7 @@ SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
 SMTP_PASSWORD=
-EMAIL_FROM_ADDRESS=noreply@electricity-optimizer.app
+EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
 # ML Model
 MODEL_PATH=
 

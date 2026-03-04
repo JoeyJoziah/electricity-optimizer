@@ -4,6 +4,11 @@
 **Deployment Type**: Beta (50+ users)
 **Infrastructure Budget**: <$50/month (Render.com + Neon PostgreSQL)
 
+> **NOTE (2026-03-04):** Domain `electricity-optimizer.app` has not been purchased yet.
+> All references to `electricity-optimizer.app` in this guide are aspirational.
+> Currently using `onboarding@resend.dev` as the email sender (Resend sandbox — delivers only to account email).
+> Email-related steps in this guide require a verified custom domain in Resend before they will work.
+
 ---
 
 ## Overview

@@ -1116,7 +1116,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxx          # For email verification, magic link, pa
 
 6. **New Environment Variables**
    - `RESEND_API_KEY`: Resend email service API key
-   - `EMAIL_FROM_ADDRESS`: Configurable FROM address (default: `noreply@electricity-optimizer.app`)
+   - `EMAIL_FROM_ADDRESS`: Configurable FROM address (default: `onboarding@resend.dev`)
    - `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED`: Show Google OAuth button
    - `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED`: Show GitHub OAuth button
 
