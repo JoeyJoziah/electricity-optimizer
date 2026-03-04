@@ -14,7 +14,7 @@ const nextConfig = {
 
   // Environment variables
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api/v1',
   },
 
   // Image optimization
@@ -60,13 +60,14 @@ const nextConfig = {
 
   // API proxy rewrites — use fallback so Next.js API routes (/api/auth/*) are checked first
   async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
     return {
       beforeFiles: [],
       afterFiles: [],
       fallback: [
         {
-          source: '/api/:path*',
-          destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/:path*`,
+          source: '/api/v1/:path*',
+          destination: `${backendUrl}/api/v1/:path*`,
         },
       ],
     }

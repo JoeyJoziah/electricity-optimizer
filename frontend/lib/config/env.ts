@@ -56,8 +56,8 @@ function env(
  */
 export const API_URL: string = env(
   process.env.NEXT_PUBLIC_API_URL,
-  'http://localhost:8000/api/v1',
-  { required: true, name: 'NEXT_PUBLIC_API_URL' },
+  '/api/v1',
+  { required: false, name: 'NEXT_PUBLIC_API_URL' },
 )
 
 /**
@@ -65,15 +65,16 @@ export const API_URL: string = env(
  * Use this when you need to construct URLs with a different path prefix
  * than /api/v1 (e.g. file uploads, checkout proxy).
  *
- * Derived from API_URL by stripping the pathname.
+ * For relative API_URL (same-origin proxy), returns empty string so that
+ * `${API_ORIGIN}/api/v1/...` becomes `/api/v1/...` (relative, same-origin).
  */
 export const API_ORIGIN: string = (() => {
   try {
+    if (API_URL.startsWith('/')) return ''
     const parsed = new URL(API_URL)
     return `${parsed.protocol}//${parsed.host}`
   } catch {
-    // Fallback for edge cases where URL parsing fails
-    return 'http://localhost:8000'
+    return ''
   }
 })()
 

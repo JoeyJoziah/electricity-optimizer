@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { API_ORIGIN } from '@/lib/config/env'
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = await fetch(`${API_ORIGIN}/api/v1/billing/checkout`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/billing/checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

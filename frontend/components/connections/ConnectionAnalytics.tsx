@@ -77,11 +77,12 @@ async function fetchAnalytics<T>(
   path: string,
   params?: Record<string, string>
 ): Promise<T> {
-  const url = new URL(`${API_ORIGIN}/api/v1/connections/analytics/${path}`)
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+  let url = `${API_ORIGIN}/api/v1/connections/analytics/${path}`
+  if (params && Object.keys(params).length > 0) {
+    const qs = new URLSearchParams(params).toString()
+    url += `?${qs}`
   }
-  const res = await fetch(url.toString(), { credentials: 'include' })
+  const res = await fetch(url, { credentials: 'include' })
   if (!res.ok) {
     throw new Error(`Failed to fetch ${path}: ${res.status}`)
   }

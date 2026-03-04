@@ -35,11 +35,11 @@ describe('lib/config/env', () => {
       expect(API_URL).toBe('https://api.example.com/api/v1')
     })
 
-    it('falls back to localhost in development', async () => {
+    it('falls back to relative /api/v1 in development', async () => {
       delete env.NEXT_PUBLIC_API_URL
       env.NODE_ENV = 'development'
       const { API_URL } = await import('@/lib/config/env')
-      expect(API_URL).toBe('http://localhost:8000/api/v1')
+      expect(API_URL).toBe('/api/v1')
     })
   })
 
@@ -56,11 +56,11 @@ describe('lib/config/env', () => {
       expect(API_ORIGIN).toBe('http://localhost:8000')
     })
 
-    it('uses default origin when API_URL is not set', async () => {
+    it('returns empty string for relative API_URL (same-origin proxy)', async () => {
       delete env.NEXT_PUBLIC_API_URL
       env.NODE_ENV = 'development'
       const { API_ORIGIN } = await import('@/lib/config/env')
-      expect(API_ORIGIN).toBe('http://localhost:8000')
+      expect(API_ORIGIN).toBe('')
     })
   })
 
@@ -95,17 +95,15 @@ describe('lib/config/env', () => {
   })
 
   describe('production validation', () => {
-    it('throws when required API_URL is missing in production', async () => {
+    it('uses /api/v1 fallback in production when API_URL is missing', async () => {
       delete env.NEXT_PUBLIC_API_URL
       env.NODE_ENV = 'production'
 
-      await expect(import('@/lib/config/env')).rejects.toThrow(
-        /Missing required environment variable.*NEXT_PUBLIC_API_URL/,
-      )
+      const { API_URL } = await import('@/lib/config/env')
+      expect(API_URL).toBe('/api/v1')
     })
 
     it('does NOT throw for optional vars (APP_URL) in production', async () => {
-      // API_URL is set so the required check passes
       env.NEXT_PUBLIC_API_URL = 'https://api.example.com/api/v1'
       delete env.NEXT_PUBLIC_APP_URL
       delete env.NEXT_PUBLIC_SITE_URL

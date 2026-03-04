@@ -127,6 +127,41 @@ async def list_suppliers(
     )
 
 
+@router.get("/registry", summary="List suppliers with API integration")
+async def list_registry_suppliers(
+    region: Optional[str] = Query(None, description="Filter by region"),
+    utility_type: Optional[str] = Query(None, description="Filter by utility type"),
+    db=Depends(get_db_session),
+    redis=Depends(get_redis),
+):
+    """
+    List suppliers that have API integration available.
+
+    Used by the DirectLoginForm dropdown to show connectable utility providers.
+    Returns only suppliers with api_available=true.
+    """
+    repo = SupplierRegistryRepository(db, cache=redis)
+    suppliers_data, _ = await repo.list_suppliers(
+        region=region,
+        utility_type=utility_type,
+        active_only=True,
+        page=1,
+        page_size=100,
+    )
+    api_suppliers = [s for s in suppliers_data if s.get("api_available")]
+    return {
+        "suppliers": [
+            {
+                "id": s["id"],
+                "name": s["name"],
+                "region": s["regions"][0] if s.get("regions") else None,
+                "utility_type": s["utility_types"][0] if s.get("utility_types") else "electricity",
+            }
+            for s in api_suppliers
+        ]
+    }
+
+
 @router.get(
     "/{supplier_id}",
     response_model=SupplierDetailResponse,

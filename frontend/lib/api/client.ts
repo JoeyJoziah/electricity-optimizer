@@ -123,14 +123,13 @@ async function fetchWithRetry<T>(
 
 export const apiClient = {
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    const url = new URL(`${BASE_URL}${endpoint}`)
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, value)
-      })
+    let urlStr = `${BASE_URL}${endpoint}`
+    if (params && Object.keys(params).length > 0) {
+      const qs = new URLSearchParams(params).toString()
+      urlStr += `?${qs}`
     }
 
-    return fetchWithRetry<T>(url.toString(), {
+    return fetchWithRetry<T>(urlStr, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
