@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-02-23
+> Last validated: 2026-03-04
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -42,9 +42,15 @@ ls -la .claude/hooks/board-sync/sync-boards.sh  # must be executable
 Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional sync
 ```
 
+### Step 5: Agentic-Flow Availability Check
+```bash
+# Verify agentic-flow MCP tools are accessible (optional — only if using af-* agents)
+# Tools namespaced as mcp__agentic-flow__*
+```
+
 ### Skip Conditions
 - Skip if user says "skip init"
-- Skip if all 4 steps were already run this conversation
+- Skip if all 5 steps were already run this conversation
 - On failure: warn user, attempt partial init, continue with what works
 
 ## Loki Mode
@@ -64,6 +70,17 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
+## Agentic-Flow Integration (2026-03-04)
+
+- **Source**: `/Users/devinmcgrath/projects/agentic-flow` (v2.0.2-alpha)
+- **MCP Server**: `agentic-flow` in `.mcp.json`, tools as `mcp__agentic-flow__*`
+- **Agents** (34 symlinked via af-* namespace): core (5), analysis (3), architecture (1), development (1), testing (4), github (8), sparc (4), devops (1), documentation (1), data (1), goal (3), templates (2)
+- **Skills** (8): af-github-code-review, af-pair-programming, af-performance-analysis, af-hooks-automation, af-verification-quality, af-sparc-methodology, af-skill-builder, af-stream-chain
+- **Commands** (7): af-github, af-pair, af-sparc, af-verify, af-analysis, af-hooks, af-workflows
+- **Helpers** (4): af-auto-commit.sh, af-health-monitor.sh, af-security-scanner.sh, af-checkpoint-manager.sh
+- **Excluded**: 32 agents, 29 skills (consensus, federation, v3, Flow Nexus, SONA, hive-mind — internal or redundant)
+- **Rollback**: `~/.claude/integrations/agentic-flow-electricity-optimizer.json`
+
 ## Architecture Quick Reference
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
@@ -71,6 +88,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Database**: Neon PostgreSQL — app endpoint is `ep-withered-morning` (us-east-1), NOT Neon MCP endpoint
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business)
+- **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills)
 - **Board Sync**: GitHub Projects #4 + Notion roadmap (auto-sync on edits)
 
 ## Critical Reminders
@@ -81,6 +99,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "Electricity Optimizer"
 5. **Region enum**: `backend/models/region.py` — all 50 states + DC + international, never raw strings
 6. **UUID PKs**: All primary keys use UUID type; GRANTs use `neondb_owner` role
+7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
 
 ## Autonomous Workflow (when Loki is driving)
 

@@ -106,6 +106,14 @@
       "args": [
         "unplugin-dev-inspector-monorepo"
       ]
+    },
+    "agentic-flow": {
+      "command": "npx",
+      "args": ["agentic-flow", "mcp", "start"],
+      "env": {
+        "NODE_NO_WARNINGS": "1",
+        "AGENTIC_FLOW_HOME": "/Users/devinmcgrath/projects/agentic-flow"
+      }
     }
   }
 }

@@ -21,7 +21,7 @@ function getResend(): Resend {
 }
 
 const FROM_ADDRESS =
-  process.env.EMAIL_FROM_ADDRESS || "Electricity Optimizer <noreply@electricity-optimizer.app>"
+  process.env.EMAIL_FROM_ADDRESS || "Electricity Optimizer <onboarding@resend.dev>"
 
 interface SendEmailParams {
   to: string

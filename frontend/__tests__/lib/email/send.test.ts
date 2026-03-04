@@ -30,7 +30,7 @@ describe('sendEmail', () => {
     })
 
     expect(mockSend).toHaveBeenCalledWith({
-      from: expect.stringContaining('noreply@electricity-optimizer.app'),
+      from: expect.stringContaining('onboarding@resend.dev'),
       to: 'user@example.com',
       subject: 'Test Subject',
       html: '<p>Hello</p>',

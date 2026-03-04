@@ -398,6 +398,31 @@ manually store via `npx claude-flow memory store -k "loki_manual_sync" -v "..." 
 
 ---
 
+## Agentic-Flow Coexistence (2026-03-04)
+
+Agentic-flow (v2.0.2-alpha) was integrated alongside Loki Mode via SPARC integration. The two systems complement each other:
+
+| System | Role | Namespace |
+|--------|------|-----------|
+| **Loki Mode** | Autonomous RARV cycles, PRD execution, event bus | `loki-mode` MCP |
+| **Claude Flow** | Memory persistence, coordination, hooks | `claude-flow` MCP |
+| **Agentic-Flow** | Agent orchestration, code review, SPARC methodology | `agentic-flow` MCP |
+
+### Key Points
+- Agentic-flow agents use `af-*` prefix (e.g., `.claude/agents/af-core/`)
+- Skills use `af-*` prefix (e.g., `.claude/skills/af-sparc-methodology`)
+- MCP tools namespaced as `mcp__agentic-flow__*` — no collision with `mcp__claude-flow__*`
+- All af-* symlinks are `.gitignore`d (machine-specific)
+- Event bus and memory hooks remain Loki/Claude Flow owned
+- Agentic-flow adds: code review swarms, pair programming, SPARC workflow commands, performance analysis
+
+### Memory Cross-Sync
+- Claude Flow: Primary persistent memory (sql.js + HNSW, 1,216+ entries)
+- Loki 3-tier: Episodic/semantic/procedural file-based memory
+- Both updated during memory sync swarms; bidirectional search via `mcp__claude-flow__memory_search`
+
+---
+
 ## Session History
 
 ### 2026-03-04: Full Memory Sync + Documentation Audit

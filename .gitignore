@@ -126,3 +126,9 @@ Thumbs.db
 
 # Project Intelligence (generated, symlinked to .loki/)
 .project-intelligence/
+
+# Agentic-flow integration (machine-specific symlinks)
+.claude/agents/af-*
+.claude/skills/af-*
+.claude/commands/af-*
+.claude/helpers/af-*
