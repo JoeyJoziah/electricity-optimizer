@@ -272,6 +272,7 @@ Multi-region currency: UK/EU -> GBP/EUR, default -> USD.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
+| GET | `/registry` | None | Supplier registry with API availability (for DirectLoginForm dropdown) — returns suppliers where `api_available=true` |
 | GET | `/` | None | List suppliers (paginated, filterable by region/utility_type/green) |
 | GET | `/{supplier_id}` | None | Supplier details (UUID validated) |
 | GET | `/{supplier_id}/tariffs` | None | Supplier tariff list (UUID validated) |
@@ -281,7 +282,8 @@ Multi-region currency: UK/EU -> GBP/EUR, default -> USD.
 **Data source:** `supplier_registry` table via `SupplierRegistryRepository`. Supports filtering
 by `utility_type` (electricity, natural_gas, heating_oil, propane, community_solar), `green_only`,
 and region. Input validation (`_validate_uuid`, `_validate_region_code`) rejects invalid IDs/regions
-before DB access.
+before DB access. The `/registry` endpoint (2026-03-04) provides a minimal list of suppliers with
+direct login APIs available, used by DirectLoginForm for user selection.
 
 ### State Regulations (`/api/v1/regulations`)
 

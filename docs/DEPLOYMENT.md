@@ -428,13 +428,14 @@ The backend service has **26 env vars** on Render, all mapped to 1Password via `
 
 ### Vercel Environment Variables (Frontend)
 
-The frontend service has **10 env vars** on Vercel:
+The frontend service has **11 env vars** on Vercel:
 
 | Variable | Visibility | Purpose |
 |----------|-----------|---------|
-| `NEXT_PUBLIC_API_URL` | Client | Backend API base URL |
+| `NEXT_PUBLIC_API_URL` | Client | Backend API base URL — **default is `/api/v1` (relative, proxied through Next.js)** |
 | `NEXT_PUBLIC_APP_URL` | Client | Frontend app base URL |
 | `NEXT_PUBLIC_SITE_URL` | Client | Canonical site URL |
+| `BACKEND_URL` | Server only | Production backend URL (`https://electricity-optimizer.onrender.com`) for server-side API calls |
 | `BETTER_AUTH_SECRET` | Server only | Auth signing key |
 | `BETTER_AUTH_URL` | Server only | Better Auth base URL |
 | `DATABASE_URL` | Server only | Neon DB connection string |
@@ -450,5 +451,31 @@ The frontend service has **10 env vars** on Vercel:
 **Verification**: After setting environment variables, use `vercel env pull` to verify the values are correctly populated (not empty or malformed). The environment variable names and values must match exactly between Vercel and 1Password.
 
 `NEXT_PUBLIC_` prefixed variables are client-visible and bundled into the JavaScript output. They contain only URLs -- no secrets should ever use this prefix.
+
+### Same-Origin Proxy Pattern (2026-03-04)
+
+Cross-origin cookies fail when the frontend (Vercel) makes direct requests to the backend (Render) due to browser CORS and cookie policies. The solution uses Next.js rewrites to proxy API calls:
+
+**next.config.js:**
+```javascript
+rewrites: async () => ({
+  beforeFiles: [
+    {
+      source: '/api/v1/:path*',
+      destination: `${process.env.BACKEND_URL}/api/v1/:path*`,
+    },
+  ],
+}),
+```
+
+**Benefits:**
+- Client requests go to `https://electricity-optimizer.vercel.app/api/v1/*` (same-origin)
+- Next.js server rewrites to `https://electricity-optimizer.onrender.com/api/v1/*` (server-to-server)
+- Cookies are automatically included in same-origin requests
+- No CORS issues; session tokens work transparently
+
+**Environment Variables:**
+- `NEXT_PUBLIC_API_URL=/api/v1` (client uses relative path)
+- `BACKEND_URL=https://electricity-optimizer.onrender.com` (server uses absolute URL for rewrites)
 
 > For a comprehensive audit of all environment variables across services, see `.swarm-reports/ENV_VAR_AUDIT_FINAL.md`.

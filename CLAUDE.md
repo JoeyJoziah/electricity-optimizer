@@ -84,8 +84,9 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 ## Architecture Quick Reference
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
-- **Frontend**: Next.js 14 + TypeScript
+- **Frontend**: Next.js 14 + TypeScript (proxied to backend via `/api/v1/*` rewrites)
 - **Database**: Neon PostgreSQL — app endpoint is `ep-withered-morning` (us-east-1), NOT Neon MCP endpoint
+- **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://electricity-optimizer.onrender.com` (server-side)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business)
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills)

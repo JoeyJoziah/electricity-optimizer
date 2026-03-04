@@ -223,13 +223,20 @@ All services communicate over the internal Docker bridge network. Only the follo
 | 3001 | Grafana | Internal/VPN |
 | 9090 | Prometheus | Internal only |
 
-### Service Discovery
+### Service Discovery & API URLs (2026-03-04)
 
-Services discover each other using Docker DNS:
+**Local Development (Docker):**
 - `http://backend:8000` - Backend API
 - `redis://redis:6379` - Redis
 
-In production, the database is Neon PostgreSQL (serverless, accessed via connection string — no local container).
+**Production (Client → Server):**
+- Client requests: `https://electricity-optimizer.vercel.app/api/v1/*` (same-origin via Next.js rewrites)
+- Backend endpoint: `https://electricity-optimizer-api.onrender.com/api/v1/*` (Render)
+- Database: Neon PostgreSQL (serverless, accessed via connection string — no local container)
+
+**Cross-Service Communication:**
+- `NEXT_PUBLIC_API_URL=/api/v1` (frontend client-side, relative URL)
+- `BACKEND_URL=https://electricity-optimizer.onrender.com` (frontend server-side, for rewrites and server-only calls)
 
 ### Neon PostgreSQL (Production Database)
 
@@ -244,7 +251,7 @@ In production, the database is Neon PostgreSQL (serverless, accessed via connect
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
-**CRITICAL:** The Neon project has multiple compute endpoints. The app's `DATABASE_URL` uses `ep-withered-morning-aix83cfw` (us-east-1). The Neon MCP tool may connect to a different endpoint (`ep-lingering-forest-aebmj5t0`, us-east-2). Always verify which endpoint you're targeting when running migrations. Use the app's `DATABASE_URL` directly for production migrations.
+**CRITICAL:** The Neon project has multiple compute endpoints. The app's `DATABASE_URL` uses `ep-withered-morning-aix83cfw` (us-east-1) with pooler endpoint `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. The Neon MCP tool may connect to a different endpoint (`ep-lingering-forest-aebmj5t0`, us-east-2). Always verify which endpoint you're targeting when running migrations. Use the app's `DATABASE_URL` directly for production migrations.
 
 **Migration 020 (2026-03-02): Price Query Indexes**
 - Creates 3 composite indexes on `electricity_prices` table:

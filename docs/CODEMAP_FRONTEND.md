@@ -837,7 +837,13 @@ const { data, isLoading, error } = useQuery({
 - Request/response transformation
 - Timeout management
 
-**Base URL:** `process.env.NEXT_PUBLIC_API_URL` (from `lib/config/env.ts`)
+**Base URL:** `process.env.NEXT_PUBLIC_API_URL` (from `lib/config/env.ts`, default: `/api/v1` — relative, proxied through Next.js)
+
+**Same-Origin Proxy (2026-03-04):**
+- Production: Client requests go to `/api/v1/*` (same-origin, proxied by Next.js)
+- `next.config.js` rewrites `/api/v1/:path*` to `${BACKEND_URL}/api/v1/:path*` (server-side)
+- `BACKEND_URL` (server env var) = `https://electricity-optimizer.onrender.com` in production
+- Eliminates cross-origin cookie issues; sessions work transparently
 
 **Error Handling:**
 - Network errors → "Connection failed"
@@ -1018,13 +1024,23 @@ npm run type-check
 
 ### Environment Variables
 
-**Required `frontend/.env.local`:**
+**Required `frontend/.env.local` (Development):**
 ```
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=/api/v1              # Default: relative path (proxied through Next.js)
 NEXT_PUBLIC_ENVIRONMENT=development
-RESEND_API_KEY=re_xxxxxxxxxxxx          # For email verification, magic link, password reset
-# NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=true # Show Google OAuth button
-# NEXT_PUBLIC_OAUTH_GITHUB_ENABLED=true # Show GitHub OAuth button
+BACKEND_URL=http://localhost:8000        # Server-side: backend for rewrites + server calls
+RESEND_API_KEY=re_xxxxxxxxxxxx           # For email verification, magic link, password reset
+# NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=true  # Show Google OAuth button
+# NEXT_PUBLIC_OAUTH_GITHUB_ENABLED=true  # Show GitHub OAuth button
+```
+
+**Production (Vercel):**
+```
+NEXT_PUBLIC_API_URL=/api/v1              # Relative, proxied by Next.js
+BACKEND_URL=https://electricity-optimizer.onrender.com  # For server-side rewrites
+RESEND_API_KEY=re_xxxxxxxxxxxx           # (Server-only, loaded at runtime)
+BETTER_AUTH_SECRET=...                   # (Server-only)
+BETTER_AUTH_URL=...                      # (Server-only)
 ```
 
 **Centralized in `lib/config/env.ts`:**

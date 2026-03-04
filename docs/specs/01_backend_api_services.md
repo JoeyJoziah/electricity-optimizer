@@ -60,6 +60,14 @@ Auth: `none`=public, `jwt`=Bearer, `api-key`=X-API-Key header.
 | POST | `/refresh` | api-key | -- | errors array |
 | GET | `/stream` | none | `region`, `interval?` 10-300s | SSE |
 
+### 2.2b Suppliers (`/api/v1/suppliers`)
+
+| Method | Path | Auth | Params | Returns |
+|--------|------|------|--------|---------|
+| GET | `/registry` | none | -- | `{ suppliers: [{ name, api_available, regions }] }` |
+
+**Purpose:** Returns list of suppliers with `api_available=true` for DirectLoginForm dropdown and integration availability.
+
 **Production fallback pattern (every GET endpoint):**
 ```
 TRY: result = fetch_from_db(params); RETURN {result, source: "live"}
