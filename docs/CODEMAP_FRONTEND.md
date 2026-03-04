@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-03 (URI_TOO_LONG fix: 1385 tests across 94 suites, 401 redirect guard, callbackUrl validation)
+**Last Updated:** 2026-03-03 (UI/UX overhaul: enhanced Input component, auth form refactoring, design system completion)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -22,7 +22,7 @@ frontend/
     manifest.ts                 # PWA manifest (standalone, blue theme)
     robots.ts                   # robots.txt (disallows /api/, /dashboard/)
     sitemap.ts                  # Sitemap (/, /pricing, /dashboard, /privacy, /terms)
-    globals.css                 # Global styles
+    globals.css                 # Global styles + design system CSS variables + animations
     pricing/page.tsx            # Pricing page (/pricing) - 3 tiers with FAQ
     privacy/page.tsx            # Privacy policy (/privacy)
     terms/page.tsx              # Terms of service (/terms)
@@ -30,518 +30,759 @@ frontend/
       auth/[...all]/route.ts    # Better Auth API handler (sign-in, sign-up, sign-out, OAuth, etc.)
       checkout/route.ts         # POST /api/checkout - proxies to backend billing/checkout
     (app)/                      # Route group: authenticated app pages (sidebar layout)
-      layout.tsx                # App layout: Sidebar + flex main content
-      auth/
-        login/page.tsx          # Login page (/auth/login) - renders LoginForm
-        signup/page.tsx         # Signup page (/auth/signup) - renders SignupForm
-        callback/page.tsx       # OAuth/magic-link callback (/auth/callback), a11y spinner
-        forgot-password/page.tsx # Forgot password page (/auth/forgot-password) - password reset request
-        reset-password/page.tsx # Reset password page (/auth/reset-password) - set new password with token
-        verify-email/page.tsx   # Email verification page (/auth/verify-email) - verify email token
-      beta-signup/page.tsx      # Beta signup form (/beta-signup) - CT suppliers
-      dashboard/
-        page.tsx                # Dashboard (/dashboard) - imports DashboardContent
-        loading.tsx             # Dashboard loading skeleton
-        error.tsx               # Dashboard error boundary
-      prices/
-        page.tsx                # Prices (/prices) - imports PricesContent
-        loading.tsx             # Prices loading skeleton
-        error.tsx               # Prices error boundary
-      suppliers/
-        page.tsx                # Suppliers (/suppliers) - imports SuppliersContent
-        loading.tsx             # Suppliers loading skeleton
-        error.tsx               # Suppliers error boundary
-      connections/
-        page.tsx                # Connections (/connections) - ConnectionsOverview with tabs
-        error.tsx               # Connections error boundary
-        loading.tsx             # Connections loading skeleton
-      optimize/
-        page.tsx                # Optimization (/optimize) - appliances, schedule, savings
-        error.tsx               # Optimize error boundary
-        loading.tsx             # Optimize loading skeleton
-      settings/
-        page.tsx                # Settings (/settings) - region, usage, notifications, display
-        error.tsx               # Settings error boundary
-    (dev)/                      # Route group: dev-only pages (triple-gated)
-      layout.tsx                # Dev gate (notFound if not development) + DevBanner
-      architecture/
-        page.tsx                # Excalidraw diagram editor (list + canvas)
-    optimization/               # Empty directory (unused)
+      layout.tsx                # Sidebar layout + navigation
+      dashboard/page.tsx        # Dashboard overview (user stats, recent recommendations)
+      prices/page.tsx           # Electricity prices table + region selector
+      suppliers/page.tsx        # Supplier details + regional availability
+      optimize/page.tsx         # Appliance optimization tool + recommendations
+      settings/page.tsx         # User settings (region, notifications, profile)
+      onboarding/page.tsx       # Initial setup flow (region selection, utility preferences)
+      auth/                     # Authentication pages (route group within (app))
+        layout.tsx              # Auth layout (centered cards, no sidebar)
+        login/page.tsx          # Sign in form (email/password, OAuth, magic link)
+        signup/page.tsx         # Register form (email/password, OAuth, terms)
+        forgot-password/page.tsx # Password reset request
+        reset-password/page.tsx  # Password reset form
+        callback/page.tsx       # OAuth callback handler
+        verify-email/page.tsx   # Email verification after signup
+      connections/page.tsx      # Connections overview (bills, utilities, direct sync)
+      (dev)/                    # Route group: development-only pages (gate with notFound)
+        layout.tsx              # Dev layout (DevBanner, notFound if not development)
+        architecture/page.tsx   # Excalidraw diagram editor (list + canvas)
   components/
+    ui/
+      input.tsx                 # Input + Checkbox: validation, success/error states, labelSuffix/labelRight
+      button.tsx                # Button: primary/secondary/outline variants, loading state
+      card.tsx                  # Card: CardHeader, CardTitle, CardContent, CardDescription
+      badge.tsx                 # Badge: status indicators (primary/success/danger/warning)
+      modal.tsx                 # Modal: controlled dialog with overlay
+      toast.tsx                 # Toast: notifications (success/error/warning)
+      dropdown.tsx              # Dropdown: menu with keyboard navigation
+      tabs.tsx                  # Tabs: tab navigation (horizontal)
+      tooltip.tsx               # Tooltip: hover text with delay
+      avatar.tsx                # Avatar: user profile images with fallback
+      skeleton.tsx              # Skeleton: shimmer loading placeholder
+      spinner.tsx               # Spinner: animated loading indicator
     auth/
-      LoginForm.tsx             # Email/password + OAuth (Google, GitHub) + magic link (legacy UI)
-      SignupForm.tsx            # Registration form with OAuth options (legacy UI)
-    dashboard/
-      DashboardContent.tsx      # Extracted dashboard page content (client component)
-    charts/
-      ForecastChart.tsx         # ML forecast visualization (Recharts)
-      PriceLineChart.tsx        # Price history line chart with time range selector
-      SavingsDonut.tsx          # Donut chart for savings breakdown
-      ScheduleTimeline.tsx      # 24-hour timeline with price zones + scheduled tasks
-    gamification/
-      SavingsTracker.tsx        # Streak tracking, savings summary, optimization score
+      LoginForm.tsx             # Login form (email blur validation, OAuth, magic link toggle)
+      SignupForm.tsx            # Signup form (password strength indicator, 5 req checks, confirm match)
+      logout-button.tsx         # Sign out trigger + redirect
     layout/
-      Header.tsx                # Sticky header: title, live indicator, refresh, notifications
-      Sidebar.tsx               # Fixed sidebar: logo + 6 nav links (Dashboard, Prices, Suppliers, Connections, Optimize, Settings)
-      NotificationBell.tsx      # Notification bell with unread count badge, dropdown panel
+      Sidebar.tsx               # Main navigation sidebar (app pages only)
+      Header.tsx                # Top header (logo, user menu, mobile toggle)
+      DevBanner.tsx             # Development-only banner (top of page)
+    dashboard/
+      StatsCard.tsx             # Metric card (value, label, change %)
+      RecentActivity.tsx        # Activity feed (timestamps, user actions)
+      RecommendationCard.tsx    # Optimization recommendation display
     prices/
-      PricesContent.tsx         # Extracted prices page content (client component)
-    providers/
-      QueryProvider.tsx         # TanStack React Query client (1min stale, 5min GC, 3 retries)
+      PriceTable.tsx            # Prices data table (sortable, filterable)
+      RegionSelector.tsx        # Dropdown to switch regions
+      PriceChart.tsx            # Recharts visualization (line/area)
+      PriceTrendsBadge.tsx      # Up/down indicator with color coding
     suppliers/
-      ComparisonTable.tsx       # Tabular supplier comparison with filters
-      SetSupplierDialog.tsx     # Modal dialog to select current supplier from list
-      SupplierAccountForm.tsx   # Account linking form (account number, meter, consent)
-      SupplierCard.tsx          # Supplier card with pricing, rating, green badge
-      SupplierSelector.tsx      # Searchable dropdown to pick a supplier
-      SwitchWizard.tsx          # Multi-step supplier switching flow with GDPR consent
-      SuppliersContent.tsx      # Extracted suppliers page content (client component)
-    connections/
-      ConnectionMethodPicker.tsx  # 4-method picker (Email, Bill Upload, Direct Login, UtilityAPI)
-      EmailConnectionFlow.tsx     # Gmail/Outlook OAuth redirect + inbox scan UI
-      BillUploadForm.tsx          # File upload (PDF/image), parse status polling
-      DirectLoginForm.tsx         # Credential form + sync status polling
-      ConnectionUploadFlow.tsx    # Upload workflow orchestration
-      ConnectionRates.tsx         # Extracted rates display
-      ConnectionCard.tsx          # Connection card with editable label, status, last sync
-      ConnectionsOverview.tsx     # Tab navigation: Connections | Analytics views
-      ConnectionAnalytics.tsx     # 4-card analytics dashboard (rate comparison, savings, history, health)
-    dev/                         # Dev-only components (never loaded in production)
-      DevBanner.tsx              # "Development Mode" indicator banner
-      ExcalidrawWrapper.tsx      # Dynamic Excalidraw import (ssr: false)
-      DiagramList.tsx            # Sidebar diagram list with create button
-      DiagramEditor.tsx          # Canvas editor with save toolbar + Ctrl+S
-    ui/                         # Primitive UI components (badge, button, card, input, skeleton)
-      badge.tsx                 # Badge with variants: default, success, warning, danger, info
-      button.tsx                # Button with variants: primary, ghost, outline, danger + sizes
-      card.tsx                  # Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription
-      input.tsx                 # Input with label/helperText + Checkbox component
-      skeleton.tsx              # Skeleton + ChartSkeleton loading placeholders
-      modal.tsx                 # Reusable modal/dialog component with backdrop, close button, accessibility
-      toast.tsx                 # Toast notification component with variants (success, error, warning, info)
-    optimize/                   # Empty directory (unused)
+      SupplierList.tsx          # Supplier grid/table (region filtered)
+      SupplierCard.tsx          # Supplier info card
+      SupplierSelector.tsx      # Dropdown with search (bg-white text-gray-900)
+    optimize/
+      ApplianceForm.tsx         # Add/edit appliance
+      ApplianceCard.tsx         # Display appliance with settings button
+      RecommendationList.tsx    # List of optimization suggestions
+    connections/                # Connection feature UI (9 components)
+      Overview.tsx              # Dashboard of user connections
+      MethodPicker.tsx          # Select connection type (direct, bill, email, etc.)
+      Card.tsx                  # Connection status card
+      DirectLogin.tsx           # UtilityAPI direct sync form (bg-white, text-gray-900)
+      EmailFlow.tsx             # Gmail/Outlook OAuth flow
+      BillUpload.tsx            # Bill upload form
+      UploadFlow.tsx            # Multi-step upload wizard
+      Rates.tsx                 # Imported rates table (sortable)
+      Analytics.tsx             # Rate comparison + savings dashboard
+    settings/
+      ProfileForm.tsx           # Edit user info
+      RegionSelector.tsx        # Change region with 50 states + DC support
+      NotificationPrefs.tsx     # Email notification toggles
+      DangerZone.tsx            # Delete account button
   lib/
-    config/
-      env.ts                    # Centralized env validation (API_URL, APP_URL, SITE_URL, API_ORIGIN, IS_PRODUCTION/IS_TEST/IS_DEV)
-    api/
-      client.ts                 # Base API client (GET/POST/PUT/DELETE) -> env.API_URL, 401 redirect guard with safety valve
-      prices.ts                 # Price API: getCurrentPrices, getPriceHistory, getPriceForecast, getOptimalPeriods
-      suppliers.ts              # Supplier API: getSuppliers, getRecommendation, compareSuppliers, initiateSwitch, getSwitchStatus
-      optimization.ts           # Optimization API: getOptimalSchedule, saveAppliances, calculatePotentialSavings
-    auth/
-      client.ts                 # Better Auth client (createAuthClient) — browser-side auth, imports from env.ts
-      server.ts                 # Better Auth server-side helpers, imports from env.ts
     hooks/
-      useAuth.tsx               # AuthProvider context + useAuth, useRequireAuth, useAccessToken hooks; skips profile/supplier on /auth/* pages
-      usePrices.ts              # useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods, useRefreshPrices
-      useSuppliers.ts           # useSuppliers, useSupplier, useSupplierRecommendation, useCompareSuppliers, useInitiateSwitch, useSwitchStatus
-      useOptimization.ts        # useOptimalSchedule, useOptimizationResult, useAppliances, useSaveAppliances, usePotentialSavings
-      useProfile.ts             # User profile fetching hook
-      useRealtime.ts            # useRealtimePrices (SSE via fetch-event-source), useRealtimeOptimization, useRealtimeSubscription, useRealtimeBroadcast, imports from env.ts
-      useDiagrams.ts            # useDiagramList, useDiagram, useSaveDiagram, useCreateDiagram
-      useSavings.ts             # Savings data fetching hook
-    store/
-      settings.ts               # Zustand store: region, supplier, usage, appliances, notifications, display prefs
-    contexts/
-      sidebar-context.tsx       # SidebarProvider + useSidebar hook (isOpen, toggle, close)
-      toast-context.tsx         # ToastProvider + useToast hook (toast, success, error, warning, info methods, auto-dismiss timers)
+      useAuth.ts                # Custom hook: auth state + sign in/up/out
+      useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false)
+      useLocalStorage.ts        # Persist state to browser storage
+      useDarkMode.ts            # Dark mode toggle (future)
+      useMediaQuery.ts          # Responsive design breakpoint detection
+      useClickOutside.ts        # Detect clicks outside an element
+      useDebounce.ts            # Debounce values/callbacks
     utils/
-      calculations.ts           # calculatePriceTrend, findOptimalPeriods, calculateAnnualSavings, calculatePaybackMonths, etc.
-      cn.ts                     # cn() - Tailwind class merge utility (clsx + tailwind-merge)
-      format.ts                 # formatCurrency, formatPricePerKwh, formatDateTime, formatTime, formatDuration, formatEnergy, etc.
-      devGate.ts                # isDevMode() — checks NODE_ENV === 'development'
-      url.ts                    # isSafeRedirect() — validates same-origin redirect URLs (used by API client 401 handler)
-  types/
-    index.ts                    # All TypeScript interfaces (PriceDataPoint, Supplier, Appliance, etc.)
+      cn.ts                     # clsx + tailwind-merge for className composition
+      format.ts                 # Currency formatting (Intl.NumberFormat, en-US)
+      url.ts                    # isSafeRedirect() for same-origin validation
+      api.ts                    # API client + error handling
+      auth.ts                   # Auth utilities (JWT decode, token storage)
+      error.ts                  # Error message extraction + logging
+    api/
+      client.ts                 # Fetch wrapper + 401 handler (3-layer callbackUrl guard)
+      __tests__/
+        client-401-redirect.test.ts  # 9 tests for 401 edge cases
+    auth/
+      server.ts                 # Better Auth server instance (edge runtime)
+      client.ts                 # Better Auth client instance
+    config/
+      env.ts                    # Centralized NEXT_PUBLIC_* validation
+  styles/
+    (additional global styles imported in globals.css)
+  public/
+    (static assets: icons, logos, fonts)
   __tests__/
-    components/                 # Component unit tests (14 suites)
-      auth/                     #   LoginForm, SignupForm
-      charts/                   #   ForecastChart
-      gamification/             #   SavingsTracker
-      layout/                   #   Header, Sidebar
-      ui/                       #   Badge, Button, Card, Input, Skeleton
-      ComparisonTable, PriceLineChart, SavingsDonut, ScheduleTimeline, SupplierCard, SwitchWizard
-    integration/                # Integration test: dashboard
-  lib/
-    api/__tests__/
-      client.test.ts            # API client unit tests (30 tests)
-    utils/__tests__/
-      format.test.ts            # Format utility tests (46 tests)
-      calculations.test.ts      # Calculation utility tests (46 tests)
-  e2e/                          # Playwright E2E tests (15 specs, 5 browser projects, 634 passed)
+    __mocks__/
+      better-auth-react.js      # ESM → CJS bridge for jest
+    a11y/
+      (51 accessibility tests using jest-axe)
+    unit/
+      (component unit tests with React Testing Library)
+  e2e/
+    (Playwright E2E tests, 634 passed, 5 skipped)
     helpers/
-      auth.ts                   # Better Auth mocking: mockBetterAuth, setAuthenticatedState, clearAuthState
-  public/                       # Static assets (icons, etc.)
+      auth.ts                   # mockBetterAuth(), setAuthenticatedState(), clearAuthState()
+  playwright.config.ts          # E2E config (retries: 1, timeout fixes)
+  jest.config.js                # Jest config
+  tailwind.config.ts            # Tailwind CSS theme config
+  tsconfig.json                 # TypeScript config
+  next.config.js                # Next.js config (CSP, HSTS headers)
+  package.json                  # Dependencies, scripts, dev tools
 ```
 
 ---
 
-## Route Map
+## Design System
 
-### Marketing Pages (root layout - no sidebar)
+### Colors (Tailwind CSS Extended)
 
-| Route | File | Description |
-|-------|------|-------------|
-| `/` | `app/page.tsx` | Landing page: hero, 6 features, pricing preview, footer |
-| `/pricing` | `app/pricing/page.tsx` | Detailed pricing page: 3 tiers (Free/$4.99 Pro/$14.99 Business) + FAQ |
-| `/privacy` | `app/privacy/page.tsx` | Privacy policy (GDPR, data retention, third-party services) |
-| `/terms` | `app/terms/page.tsx` | Terms of service (subscriptions, API usage, liability) |
+```typescript
+// Primary blue (brand color)
+primary: {
+  50: '#eff6ff',    100: '#dbeafe',   200: '#bfdbfe',   300: '#93c5fd',
+  400: '#60a5fa',   500: '#3b82f6',   600: '#2563eb',   700: '#1d4ed8',
+  800: '#1e40af',   900: '#1e3a8a',
+}
 
-### App Pages ((app) route group - sidebar layout)
+// Semantic colors
+success:  { 50-900: green palette }     // Energy savings, validation
+warning:  { 50-900: amber palette }     // Caution, pending states
+danger:   { 50-900: red palette }       // Errors, alerts, destructive
+electricity: {
+  cheap: '#22c55e',       // Green: low prices
+  moderate: '#f59e0b',    // Amber: medium prices
+  expensive: '#ef4444',   // Red: high prices
+}
+```
 
-| Route | File | Description |
-|-------|------|-------------|
-| `/dashboard` | `app/(app)/dashboard/page.tsx` | Main dashboard: current price, savings, charts, forecast, schedule |
-| `/prices` | `app/(app)/prices/page.tsx` | Price detail: history chart, stats, 48h forecast, optimal periods, alerts |
-| `/suppliers` | `app/(app)/suppliers/page.tsx` | Supplier comparison: grid/table views, recommendation banner, switch wizard |
-| `/connections` | `app/(app)/connections/page.tsx` | Connection management: overview, analytics, 4 import methods |
-| `/optimize` | `app/(app)/optimize/page.tsx` | Load optimization: appliance config, schedule optimizer, savings calc |
-| `/settings` | `app/(app)/settings/page.tsx` | Settings: region, supplier, usage, notifications, display, privacy |
-| `/auth/login` | `app/(app)/auth/login/page.tsx` | Login form (force-dynamic) |
-| `/auth/signup` | `app/(app)/auth/signup/page.tsx` | Signup form (force-dynamic) |
-| `/auth/callback` | `app/(app)/auth/callback/page.tsx` | OAuth/magic-link callback handler (force-dynamic) |
-| `/beta-signup` | `app/(app)/beta-signup/page.tsx` | Beta program signup form |
+### CSS Custom Properties (`globals.css`)
 
-### Dev Pages ((dev) route group - dev banner, no sidebar)
+```css
+/* Surface colors */
+--color-background: 249 250 251;        /* Light gray (bg-gray-50) */
+--color-foreground: 17 24 39;           /* Dark gray (text-gray-900) */
+--color-surface: 255 255 255;           /* White (cards, inputs) */
+--color-surface-secondary: 249 250 251; /* Light gray (secondary surfaces) */
 
-| Route | File | Description |
-|-------|------|-------------|
-| `/architecture` | `app/(dev)/architecture/page.tsx` | Excalidraw diagram editor — list + canvas (dev-only, triple-gated) |
+/* Brand */
+--color-primary: 59 130 246;            /* Blue primary */
+--color-primary-foreground: 255 255 255; /* White text on primary */
 
-### API Routes
+/* Energy theme accent */
+--color-energy-green: 34 197 94;        /* Green (savings) */
+--color-energy-amber: 245 158 11;       /* Amber (moderate) */
+--color-energy-red: 239 68 68;          /* Red (expensive) */
 
-| Route | Method | File | Description |
-|-------|--------|------|-------------|
-| `/api/auth/*` | GET/POST | `app/api/auth/[...all]/route.ts` | Better Auth handler (sign-in, sign-up, sign-out, OAuth, session, etc.) |
-| `/api/checkout` | POST | `app/api/checkout/route.ts` | Proxy to backend Stripe checkout (requires auth header) |
-| `/api/dev/diagrams` | GET | `app/api/dev/diagrams/route.ts` | List .excalidraw diagrams (dev-only) |
-| `/api/dev/diagrams` | POST | `app/api/dev/diagrams/route.ts` | Create new diagram (dev-only) |
-| `/api/dev/diagrams/[name]` | GET | `app/api/dev/diagrams/[name]/route.ts` | Read diagram data (dev-only) |
-| `/api/dev/diagrams/[name]` | PUT | `app/api/dev/diagrams/[name]/route.ts` | Save diagram data (dev-only) |
+/* Semantic */
+--color-success: 16 185 129;            /* Teal success */
+--color-warning: 245 158 11;            /* Amber warning */
+--color-danger: 239 68 68;              /* Red danger */
 
-### SEO / Meta
+/* Form inputs */
+--color-input-bg: 255 255 255;          /* White background */
+--color-input-text: 17 24 39;           /* Gray-900 text */
+--color-input-border: 209 213 219;      /* Gray-300 border */
+--color-input-placeholder: 156 163 175; /* Gray-400 placeholder */
+--color-input-focus-ring: 59 130 246;   /* Blue focus ring */
 
-| File | Description |
-|------|-------------|
-| `app/manifest.ts` | PWA manifest: "Electricity Optimizer", standalone, blue theme |
-| `app/robots.ts` | Disallows /api/ and /dashboard/ from crawlers |
-| `app/sitemap.ts` | 5 URLs: /, /pricing, /dashboard, /privacy, /terms |
-| `app/layout.tsx` | Root metadata: title template, OG tags, Twitter card, keywords |
+/* Borders */
+--color-border: 229 231 235;            /* Gray-200 */
+--color-border-hover: 209 213 219;      /* Gray-300 on hover */
+
+/* Shadows */
+--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+--shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+```
+
+### Typography
+
+- **Font Family:** Inter (sans-serif), JetBrains Mono (monospace)
+- **Base Size:** 16px (html), 14px body fallback
+- **Headings:** font-bold (600-700 weight)
+- **Body:** font-normal (400 weight)
+- **Small Text:** text-sm (0.875rem)
+
+### Box Shadows (Tailwind Extended)
+
+```typescript
+boxShadow: {
+  'card': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+  'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+  'input-focus': '0 0 0 3px rgb(59 130 246 / 0.15)',
+}
+```
+
+### Animations (Tailwind Extended)
+
+```typescript
+animation: {
+  'slide-down': 'slideDown 0.2s ease-out',       // Alert slide in from top
+  'slide-up': 'slideUp 0.2s ease-out',           // Modal/tooltip slide in from bottom
+  'fade-in': 'fadeIn 0.2s ease-out',             // General fade in
+  'scale-in': 'scaleIn 0.15s ease-out',          // Card/modal scale in
+  'shimmer': 'shimmer 1.5s ease-in-out infinite', // Skeleton loading
+  'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+  'flash-green': 'flashGreen 0.5s ease-out',     // Success flash
+  'flash-red': 'flashRed 0.5s ease-out',         // Error flash
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+```
+
+### Global Styles
+
+- **Color scheme:** `color-scheme: light` (forces light mode until dark mode implemented)
+- **Scrollbar:** Custom webkit scrollbar with gray colors
+- **Focus visible:** 2px primary-colored outline with 2px offset
+- **Input colors:** All inputs force `bg-white` + `text-gray-900` in base layer (ensures visibility in dark mode prefers-color-scheme)
+- **Skeleton loading:** Shimmer gradient animation on placeholder elements
+
+---
+
+## Component Reference
+
+### UI Component Library
+
+#### Input Component (`components/ui/input.tsx`)
+
+**Enhanced form input with validation, success states, and flexible labeling.**
+
+```typescript
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string              // Input label above field
+  labelSuffix?: React.ReactNode // "(optional)" or other suffix text
+  labelRight?: React.ReactNode  // Right-aligned content (e.g., "Forgot password?" link)
+  error?: string              // Error message (displays with icon + danger-600 color)
+  helperText?: string         // Helper text below input (gray-500)
+  success?: boolean           // True if value is valid
+  successText?: string        // Success message (displays with icon + success-600 color)
+}
+
+// Usage: Email input with blur validation
+<Input
+  id="email"
+  label="Email address"
+  type="email"
+  value={email}
+  onChange={(e) => handleEmailChange(e.target.value)}
+  onBlur={handleEmailBlur}
+  error={emailError || undefined}
+  placeholder="you@example.com"
+  required
+/>
+
+// Usage: Password input with forgot link
+<Input
+  id="password"
+  label="Password"
+  labelRight={<Link href="/forgot-password">Forgot?</Link>}
+  type="password"
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+/>
+
+// Usage: Name field with optional suffix
+<Input
+  id="name"
+  label="Name"
+  labelSuffix="(optional)"
+  type="text"
+  value={name}
+  onChange={(e) => setName(e.target.value)}
+/>
+
+// Usage: Confirm password with success feedback
+<Input
+  id="confirmPassword"
+  label="Confirm password"
+  type="password"
+  value={confirmPassword}
+  onChange={(e) => setConfirmPassword(e.target.value)}
+  error={confirmPasswordHasError ? 'Passwords do not match' : undefined}
+  success={confirmPasswordMatch}
+  successText={confirmPasswordMatch ? 'Passwords match' : undefined}
+/>
+```
+
+**Styling:**
+- Border: `rounded-lg border bg-white px-4 py-2.5`
+- Default state: `border-gray-300 focus:border-primary-500 focus:ring-primary-500`
+- Error state: `border-danger-300 focus:border-danger-500 focus:ring-danger-500`
+- Success state: `border-success-400 focus:border-success-500 focus:ring-success-500`
+- Hover: `hover:border-gray-400` with `transition-all duration-200`
+- Disabled: `disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500`
+- Focus ring: `focus:ring-2 focus:ring-offset-0`
+- Aria: `aria-invalid` for errors, `aria-describedby` for helper/error/success text
+
+#### Checkbox Component (`components/ui/input.tsx`)
+
+**Checkbox with integrated label.**
+
+```typescript
+interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  label: string
+}
+
+// Usage
+<Checkbox
+  id="terms"
+  label="I agree to the Terms of Service"
+  checked={acceptTerms}
+  onChange={(e) => setAcceptTerms(e.target.checked)}
+/>
+```
+
+**Styling:**
+- Checkbox: `h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500`
+- Label: `text-sm text-gray-700 cursor-pointer`
+
+---
+
+### Authentication Components
+
+#### LoginForm (`components/auth/LoginForm.tsx`)
+
+**Sign in form with email/password, OAuth, and magic link support.**
+
+**Features:**
+- Email blur validation (`isValidEmail` regex check)
+- OAuth buttons: Google + GitHub with SVG icons
+- Magic link toggle: `Sign in with magic link` / `Use password instead`
+- Password forgot link in labelRight
+- Error alert with animate-slideDown
+- Success state: "Check your email" card with checkmark icon
+- Loading spinner on submit button
+
+**State:**
+- `email`: Email input value
+- `password`: Password input value
+- `emailError`: Email validation error
+- `showMagicLink`: Toggle between password/magic link mode
+- `magicLinkSent`: Success state (shows email confirmation screen)
+- `isLoading`: Loading state from useAuth hook
+- `error`: Auth error from useAuth context
+
+**Handlers:**
+- `handleEmailChange()`: Update email + clear emailError
+- `handleEmailBlur()`: Validate email format
+- `handleSubmit()`: Validate + call signIn() or sendMagicLink()
+- `handleGoogleSignIn()`: OAuth sign-in
+- `handleGitHubSignIn()`: OAuth sign-in
+
+**UI Structure:**
+```
+Card (bg-white, shadow-card, rounded-xl, p-8)
+  ├─ Heading: "Sign in to your account"
+  ├─ Error alert (if error || localError)
+  ├─ OAuth buttons (Google + GitHub)
+  ├─ Divider: "Or continue with"
+  ├─ Form (space-y-4)
+  │  ├─ Input: Email (required, blur validation)
+  │  ├─ Input: Password (labelRight: Forgot link)
+  │  └─ Button: Submit (loading spinner)
+  ├─ Toggle: "Sign in with magic link"
+  └─ Sign up link
+```
+
+#### SignupForm (`components/auth/SignupForm.tsx`)
+
+**Register form with password strength indicator and real-time validation.**
+
+**Features:**
+- Email blur validation
+- Name field with "(optional)" suffix via labelSuffix
+- Password strength indicator: 6-segment bar + label (Weak/Medium/Strong/Very Strong)
+- Password requirements checklist: 5 items with checkmarks
+  - At least 12 characters
+  - One uppercase letter
+  - One lowercase letter
+  - One number
+  - One special character
+- Confirm password with success feedback (green checkmark + "Passwords match")
+- Terms acceptance checkbox
+- Submit button disabled until: password valid + passwords match + terms accepted
+- OAuth buttons: Google + GitHub
+
+**Password Strength Scoring:**
+```typescript
+// Score 0-6 (each category adds 1)
+if (password.length >= 12) score += 1
+if (password.length >= 16) score += 1
+if (/[A-Z]/.test(password)) score += 1
+if (/[a-z]/.test(password)) score += 1
+if (/[0-9]/.test(password)) score += 1
+if (/[^A-Za-z0-9]/.test(password)) score += 1
+
+// Labels by score
+score <= 2: "Weak" (danger-500)
+score <= 4: "Medium" (warning-500)
+score <= 5: "Strong" (success-500)
+score > 5: "Very Strong" (success-600)
+```
+
+**Handlers:**
+- `handleEmailChange()`: Update + clear error
+- `handleEmailBlur()`: Validate email
+- `handleSubmit()`: Validate all fields + call signUp()
+- `handleGoogleSignIn()` / `handleGitHubSignIn()`: OAuth
+
+**UI Structure:**
+```
+Card (bg-white, shadow-card, rounded-xl, p-8)
+  ├─ Heading: "Create your account"
+  ├─ Error alert (if error || localError)
+  ├─ OAuth buttons (Google + GitHub)
+  ├─ Divider: "Or create with email"
+  ├─ Form (space-y-4)
+  │  ├─ Input: Name (labelSuffix: "(optional)")
+  │  ├─ Input: Email (blur validation)
+  │  ├─ Input: Password
+  │  │  ├─ Strength bar (6 segments)
+  │  │  └─ Requirements checklist (5 items)
+  │  ├─ Input: Confirm password (success feedback)
+  │  ├─ Checkbox: Terms acceptance
+  │  └─ Button: Submit (disabled state logic)
+  └─ Sign in link
+```
+
+#### ForgotPasswordForm (`app/(app)/auth/forgot-password/page.tsx`)
+
+**Password reset request form.**
+
+**Features:**
+- Email blur validation
+- Submit button shows "Sending..." while loading
+- Success screen: Shows submitted email + "Back to sign in" link
+- Error handling with danger alert
+- Card + Button components for consistent styling
+
+**Flow:**
+1. User enters email + submits
+2. `authClient.requestPasswordReset()` called
+3. On success: Show "Check your email" confirmation screen
+4. Error: Display error alert
+
+#### ResetPasswordForm (`app/(app)/auth/reset-password/page.tsx`)
+
+**Set new password after email reset link.**
+
+**Features:**
+- New password input (minLength: 12)
+- Confirm password input
+- Token extraction from query param (`?token=...`)
+- Invalid token state: Shows error + link to request new reset
+- Success state: Shows confirmation + "Sign in" link
+- Minimum password length enforced: 12 characters
+
+**States:**
+- No token: "Invalid reset link" error screen
+- Form: "Set new password" form
+- Success: "Password reset successful" confirmation
+
+---
+
+### Layout Components
+
+#### Sidebar (`components/layout/Sidebar.tsx`)
+
+**Main navigation for authenticated app pages.**
+
+**Routes:**
+- `/dashboard` → Dashboard icon + "Dashboard"
+- `/prices` → Price chart icon + "Prices"
+- `/suppliers` → Building icon + "Suppliers"
+- `/optimize` → Zap icon + "Optimize"
+- `/connections` → Plug icon + "Connections"
+- `/settings` → Cog icon + "Settings"
+
+**Features:**
+- Hover highlight on current route
+- Collapse/expand toggle on mobile
+- User profile section (avatar + name + sign out button)
+- `data-testid="sign-out-button"` for E2E tests
+
+#### Header (`components/layout/Header.tsx`)
+
+**Top navigation bar (logo, user menu, mobile toggle).**
+
+---
+
+### Dashboard Components
+
+#### StatsCard (`components/dashboard/StatsCard.tsx`)
+
+**Metric display card with change indicator.**
+
+```
+┌─────────────────────┐
+│ Label: "Monthly Bill"│
+│ Value: "$125.34"    │
+│ Change: +5.2% ▲     │ (green or red)
+└─────────────────────┘
+```
+
+#### RecommendationCard (`components/dashboard/RecommendationCard.tsx`)
+
+**Optimization suggestion with action button.**
+
+---
+
+### Supplier Components
+
+#### SupplierSelector (`components/suppliers/SupplierSelector.tsx`)
+
+**Dropdown with search, styled with `bg-white text-gray-900`.**
+
+**Usage:**
+```typescript
+<SupplierSelector
+  value={selectedSupplier}
+  onChange={setSelectedSupplier}
+  utilities={['electricity', 'natural_gas']}
+  region="CT"
+/>
+```
+
+---
+
+### Connection Components (9 files)
+
+#### Overview (`components/connections/Overview.tsx`)
+
+**Dashboard of user connections (bills, utilities, sync status).**
+
+#### MethodPicker (`components/connections/MethodPicker.tsx`)
+
+**Select connection type: Direct, Bill Upload, Email OAuth, or UtilityAPI.**
+
+#### DirectLogin (`components/connections/DirectLogin.tsx`)
+
+**UtilityAPI login form, styled with `bg-white text-gray-900`.**
+
+#### EmailFlow (`components/connections/EmailFlow.tsx`)
+
+**Gmail/Outlook OAuth flow with HMAC-SHA256 state validation.**
+
+#### BillUpload (`components/connections/BillUpload.tsx`)
+
+**Bill PDF/image upload with OCR parsing.**
+
+#### UploadFlow (`components/connections/UploadFlow.tsx`)
+
+**Multi-step upload wizard.**
+
+#### Rates (`components/connections/Rates.tsx`)
+
+**Imported rates table (sortable, filterable).**
+
+#### Analytics (`components/connections/Analytics.tsx`)
+
+**Rate comparison + savings calculator (kWh input styled with `bg-white text-gray-900`).**
+
+---
+
+### Settings Page Components
+
+**All select dropdowns styled with `bg-white text-gray-900`:**
+- RegionSelector (4 selects: state, utility type, price period, etc.)
+- NotificationPrefs (3 notification email toggles with selects)
+
+---
+
+## Authentication Flow
+
+### Better Auth Integration
+
+**Frontend Auth Stack:**
+- **Client Library:** `better-auth` package (React hooks + client)
+- **Server:** `backend/auth/neon_auth.py` (FastAPI dependency)
+- **API Route:** `app/api/auth/[...all]/route.ts` (NextAuth-style catch-all)
+- **Session Management:** HTTP-only cookies (`better-auth.session_token` + `__Secure-` variant on HTTPS)
+
+**Sign In Flow:**
+1. User enters email + password in LoginForm
+2. `useAuth.signIn()` calls `authClient.signIn()` (POST `/api/auth/sign-in`)
+3. Better Auth validates credentials
+4. Session cookie set automatically
+5. Frontend auth state updated
+6. Redirect to `/dashboard` (via `onSuccess` callback)
+
+**Sign Up Flow:**
+1. User fills SignupForm (name, email, password, confirm, terms)
+2. Password strength validated client-side
+3. `useAuth.signUp()` calls `authClient.signUp()` (POST `/api/auth/sign-up`)
+4. Better Auth creates user + session
+5. Email verification may be required (depends on config)
+6. Redirect to dashboard or email verification page
+
+**OAuth Flow:**
+1. User clicks "Continue with Google/GitHub"
+2. `useAuth.signInWithGoogle()` / `signInWithGitHub()` called
+3. Browser redirects to OAuth provider
+4. User approves + browser redirects to callback URL
+5. Better Auth exchanges code for token
+6. Session created + cookie set
+7. Redirect to dashboard
+
+**Magic Link Flow:**
+1. User enters email + clicks "Sign in with magic link"
+2. `useAuth.sendMagicLink()` called (POST `/api/auth/send-magic-link`)
+3. Better Auth sends email with clickable link
+4. User clicks link in email
+5. Link redirects to `/auth/callback?token=...&email=...`
+6. Callback page exchanges token for session
+7. Redirect to dashboard
+
+**Password Reset Flow:**
+1. User enters email in forgot-password form
+2. `authClient.requestPasswordReset()` (POST `/api/auth/request-password-reset`)
+3. Email sent with reset link
+4. User clicks link: `/auth/reset-password?token=...`
+5. User enters new password + confirms
+6. `authClient.resetPassword()` called (POST `/api/auth/reset-password`)
+7. Password updated in database
+8. User redirected to login
+
+**401 Redirect Guard (3-layer defense):**
+
+Context: Stale session cookies → 401 on auth pages → nested callbackUrl → HTTP 414 (URI_TOO_LONG)
+
+1. **Auth page guard in `useAuth.tsx`:**
+   - Detect `/auth/*` pages
+   - Skip expensive queries (`getUserSupplier()`, `getUserProfile()`)
+   - Reduces redirect spam
+
+2. **CallbackUrl extraction in `client.ts`:**
+   - Extract callbackUrl from response (fallback: `localStorage`)
+   - Validate with `isSafeRedirect()` (same-origin only)
+   - Prevents open redirect + nested URL explosion
+
+3. **SessionStorage safety valve:**
+   - Track redirect nesting level in sessionStorage
+   - Max 3 redirects before giving up
+   - Prevents infinite loops
+
+**Implementation in `frontend/lib/api/client.ts`:**
+```typescript
+// On 401 response:
+if (response.status === 401) {
+  const callbackUrl = extractCallbackUrl(data)
+  if (callbackUrl && isSafeRedirect(callbackUrl)) {
+    window.location.href = callbackUrl
+  }
+}
+```
 
 ---
 
 ## State Management
 
-### Zustand Settings Store (`lib/store/settings.ts`)
+### Auth Hook (`lib/hooks/useAuth.ts`)
 
-Persisted to localStorage under key `electricity-optimizer-settings`.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `region` | string | `'us_ct'` | Pricing region (all US states + international) |
-| `utilityTypes` | UtilityType[] | `['electricity']` | Selected utility types for comparison |
-| `currentSupplier` | Supplier \| null | `null` | User's current energy supplier |
-| `annualUsageKwh` | number | `10500` | Annual electricity consumption (US average) |
-| `peakDemandKw` | number | `5` | Maximum power draw |
-| `appliances` | Appliance[] | `[]` | Configured appliances for optimization |
-| `notificationPreferences` | object | `{priceAlerts: true, optimalTimes: true, supplierUpdates: false}` | Notification toggles |
-| `displayPreferences` | object | `{currency: 'USD', theme: 'system', timeFormat: '12h'}` | Display settings |
-
-**UtilityType:** `'electricity' | 'natural_gas' | 'heating_oil' | 'propane' | 'community_solar'`
-
-**Convenience selectors:** `useRegion`, `useUtilityTypes`, `useCurrentSupplier`, `useAnnualUsage`, `useAppliances`, `useCurrency`, `useTheme`
-
-### React Query (TanStack Query v5)
-
-Configured in `QueryProvider` with defaults: 1min stale time, 5min garbage collection, 3 retries with exponential backoff, refetch on window focus.
-
-| Query Key Pattern | Hook | Refetch Interval | Stale Time |
-|-------------------|------|-------------------|------------|
-| `['prices', 'current', region]` | `useCurrentPrices` | 60s | 55s |
-| `['prices', 'history', region, hours]` | `usePriceHistory` | -- | 60s |
-| `['prices', 'forecast', region, hours]` | `usePriceForecast` | 300s | 180s |
-| `['prices', 'optimal', region, hours]` | `useOptimalPeriods` | 300s | 180s |
-| `['suppliers', region, annualUsage]` | `useSuppliers` | -- | 300s |
-| `['supplier', id]` | `useSupplier` | -- | 300s |
-| `['recommendation', ...]` | `useSupplierRecommendation` | -- | 300s |
-| `['optimization', 'schedule', ...]` | `useOptimalSchedule` | -- | 180s |
-| `['potential-savings', ...]` | `usePotentialSavings` | -- | 300s |
-| `['appliances']` | `useAppliances` | -- | 300s |
-| `['diagrams', 'list']` | `useDiagramList` | -- | -- |
-| `['diagrams', 'detail', name]` | `useDiagram` | -- | -- |
-
----
-
-## API Layer (`lib/api/`)
-
-### Base Client (`client.ts`)
-
-- Base URL: `env.API_URL` (default: `http://localhost:8000/api/v1`, injected from `lib/config/env.ts`)
-- Methods: `get<T>`, `post<T>`, `put<T>`, `delete<T>`
-- All 4 fetch methods include `credentials: 'include'` for cross-origin cookie support (Neon Auth sessions)
-- Error handling: throws `ApiClientError` with status, message, details
-- All requests include `Content-Type: application/json`
-- **401 Redirect Guard**: 3-layer defense against redirect loops:
-  1. Auth page guard: skips redirect when `pathname.startsWith('/auth/')`
-  2. CallbackUrl extraction: reuses existing `callbackUrl` param (validated with `isSafeRedirect()`) instead of nesting
-  3. Safety valve: `sessionStorage` counter (key: `api_401_redirect_count`) stops after 3 consecutive 401 redirects; resets on any successful response
-- Automatic retry with exponential backoff for 5xx/network errors (max 2 retries, 500ms base)
-
-### Region Default
-
-All API functions and hooks default to `region = 'us_ct'` (Connecticut). This was changed from `'uk'` to reflect the CT focus.
-
-### Endpoints Called
-
-| API Module | Endpoint | Method | Used By |
-|------------|----------|--------|---------|
-| prices | `/prices/current` | GET | Dashboard, Prices |
-| prices | `/prices/history` | GET | Dashboard, Prices |
-| prices | `/prices/forecast` | GET | Dashboard, Prices |
-| prices | `/prices/optimal-periods` | GET | Prices |
-| prices | `/prices/stream` | SSE | Dashboard (useRealtimePrices) |
-| suppliers | `/suppliers` | GET | Dashboard, Suppliers |
-| suppliers | `/suppliers/{id}` | GET | Supplier detail |
-| suppliers | `/suppliers/recommend` | POST | Suppliers |
-| suppliers | `/suppliers/compare` | POST | Suppliers |
-| suppliers | `/suppliers/switch` | POST | Suppliers (SwitchWizard) |
-| suppliers | `/suppliers/switch/{ref}` | GET | Switch status polling |
-| optimization | `/optimization/schedule` | POST | Optimize |
-| optimization | `/optimization/result` | GET | Optimization results |
-| optimization | `/optimization/appliances` | GET/POST | Appliance management |
-| optimization | `/optimization/potential-savings` | POST | Optimize |
-| billing | `/billing/checkout` | POST | Checkout API route proxy |
-| auth | `/api/auth/*` | GET/POST | Better Auth handles all auth flows (sign-in, sign-up, sign-out, OAuth, session) |
-| auth | `/auth/me` | GET | Get current user (backend) |
-
----
-
-## Authentication
-
-### Architecture
-
-- **Provider:** Neon Auth (Better Auth) — managed auth via `@better-auth` SDK
-- **API Route:** `app/api/auth/[...all]/route.ts` handles all auth endpoints (sign-in, sign-up, sign-out, OAuth, session, etc.)
-- **Client:** `lib/auth/client.ts` — `createAuthClient()` from `better-auth/react`
-- **Server:** `lib/auth/server.ts` — server-side auth helpers
-- **Session Storage:** httpOnly cookies (`better-auth.session_token`) — no localStorage tokens
-- **Route Protection:** `middleware.ts` checks session cookie, redirects unauthenticated users to `/auth/login`
-- **Context:** `AuthProvider` wraps the entire app in `app/layout.tsx`, provides `useAuth()` hook
-
-### Auth Methods
-
-| Method | Flow |
-|--------|------|
-| Email/Password | Better Auth handles via `/api/auth/sign-in/email` and `/api/auth/sign-up/email` |
-| Google OAuth | `authClient.signIn.social({ provider: "google" })` → callback → session cookie |
-| GitHub OAuth | `authClient.signIn.social({ provider: "github" })` → callback → session cookie |
-| Magic Link | Better Auth magic link flow via `/api/auth/magic-link` |
-
-### Hooks
-
-| Hook | Purpose |
-|------|---------|
-| `useAuth()` | Access user, isAuthenticated, signIn/signUp/signOut/signInWithGoogle/signInWithGitHub methods. Skips `getUserSupplier()`/`getUserProfile()` on `/auth/*` pages to prevent 401 redirect loops |
-| `useRequireAuth()` | Same as useAuth but redirects to `/auth/login` if not authenticated |
-
----
-
-## Real-Time Data
-
-### SSE Price Stream (`useRealtimePrices`)
-
-- Connects to `/prices/stream?region={region}&interval={interval}` via `@microsoft/fetch-event-source`
-- Uses `credentials: 'include'` to send Better Auth session cookies (native `EventSource` cannot)
-- Auth failure detection: 401/403 in `onopen` throws to stop retrying
-- `onerror` returns retry delay (ms) or throws for auth failures; exponential backoff (1s -> 2s -> 4s, max 30s)
-- `openWhenHidden: false` pauses streaming when the browser tab is hidden (saves bandwidth and server connections)
-- Cleanup via `AbortController.abort()` (not `EventSource.close()`)
-- On message: parses `PriceUpdate` (with optional `source` field: `"live"` or `"fallback"`), invalidates `['prices', 'current']` and `['prices', 'history']` queries
-- Returns: `{ isConnected, lastPrice, disconnect }`
-
-### Polling Fallbacks
-
-- `useRealtimeOptimization`: Polls optimization queries every 60s
-- `useRealtimeSubscription`: Generic polling every 30s
-- `useRealtimeBroadcast`: Placeholder for future WebSocket support
-
----
-
-## Key Components
-
-### Layout
-
-| Component | File | Props | Description |
-|-----------|------|-------|-------------|
-| `Sidebar` | `components/layout/Sidebar.tsx` | -- | Fixed left sidebar (hidden on mobile). 5 nav items: Dashboard, Prices, Suppliers, Optimize, Settings |
-| `Header` | `components/layout/Header.tsx` | `title, onMenuClick?` | Sticky header with page title, live indicator (green dot), refresh button, notification bell |
-
-### Charts (Recharts)
-
-| Component | File | Description |
-|-----------|------|-------------|
-| `PriceLineChart` | `components/charts/PriceLineChart.tsx` | Line chart with time range selector (6h/12h/24h/48h/7d), optional forecast overlay, optimal period highlighting |
-| `ForecastChart` | `components/charts/ForecastChart.tsx` | ML forecast visualization with confidence intervals |
-| `SavingsDonut` | `components/charts/SavingsDonut.tsx` | Donut chart breaking down savings by category |
-| `ScheduleTimeline` | `components/charts/ScheduleTimeline.tsx` | 24-hour horizontal timeline showing price zones (cheap/expensive) and scheduled appliance runs |
-
-### Suppliers
-
-| Component | File | Description |
-|-----------|------|-------------|
-| `SupplierCard` | `components/suppliers/SupplierCard.tsx` | Card showing supplier name, price, rating, green badge, savings vs current |
-| `ComparisonTable` | `components/suppliers/ComparisonTable.tsx` | Full table with sortable columns and filters |
-| `SetSupplierDialog` | `components/suppliers/SetSupplierDialog.tsx` | Modal dialog listing available suppliers for selection |
-| `SupplierAccountForm` | `components/suppliers/SupplierAccountForm.tsx` | Utility account linking form with consent checkbox |
-| `SupplierSelector` | `components/suppliers/SupplierSelector.tsx` | Searchable dropdown with green/rating badges |
-| `SwitchWizard` | `components/suppliers/SwitchWizard.tsx` | Multi-step modal: review -> GDPR consent -> confirm -> complete |
-
-### Connections
-
-| Component | File | Description |
-|-----------|------|-------------|
-| `ConnectionMethodPicker` | `components/connections/ConnectionMethodPicker.tsx` | Card grid: Email OAuth, Bill Upload, Direct Login, UtilityAPI |
-| `EmailConnectionFlow` | `components/connections/EmailConnectionFlow.tsx` | Provider selection (Gmail/Outlook), OAuth redirect, scan inbox UI |
-| `BillUploadForm` | `components/connections/BillUploadForm.tsx` | Drag-drop file upload, parse status polling, extracted data display |
-| `DirectLoginForm` | `components/connections/DirectLoginForm.tsx` | Utility credential form, sync trigger, sync-status polling |
-| `ConnectionCard` | `components/connections/ConnectionCard.tsx` | Connection card with inline editable label (pencil icon, Enter/Escape) |
-| `ConnectionsOverview` | `components/connections/ConnectionsOverview.tsx` | Tab navigation between "Connections" and "Analytics" views |
-| `ConnectionAnalytics` | `components/connections/ConnectionAnalytics.tsx` | 4-card dashboard: rate comparison, savings estimate, rate history, connection health |
-| `ConnectionRates` | `components/connections/ConnectionRates.tsx` | Table of extracted rates per connection |
-| `ConnectionUploadFlow` | `components/connections/ConnectionUploadFlow.tsx` | Bill upload workflow orchestrator |
-
-### Gamification
-
-| Component | File | Description |
-|-----------|------|-------------|
-| `SavingsTracker` | `components/gamification/SavingsTracker.tsx` | Daily/weekly/monthly savings, streak counter (bronze/silver/gold/legendary), optimization score, progress bar toward $50/mo goal |
-
-### Auth
-
-| Component | File | Description |
-|-----------|------|-------------|
-| `LoginForm` | `components/auth/LoginForm.tsx` | Email/password form + Google/GitHub OAuth buttons + magic link option (legacy, uses useAuth hook) |
-| `SignupForm` | `components/auth/SignupForm.tsx` | Registration form with name, email, password + OAuth (legacy, uses useAuth hook) |
-
----
-
-## Utility Functions
-
-### `lib/utils/format.ts`
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `formatCurrency` | `(amount, currency='USD')` | Intl.NumberFormat with `en-US` locale, supports USD/GBP/EUR |
-| `formatPricePerKwh` | `(price, currency)` | Formatted price + "/kWh" suffix |
-| `formatPercentage` | `(value, decimals=2)` | Number with % suffix |
-| `formatDateTime` | `(dateString, formatStr)` | date-fns format, default `dd MMM yyyy HH:mm` |
-| `formatTime` | `(dateString, is24Hour)` | Time-only format (HH:mm or h:mm a) |
-| `formatDuration` | `(hours)` | e.g., "2h 30m" |
-| `formatEnergy` | `(kWh)` | Auto-scales to MWh if >= 1000 |
-| `formatRelativeTime` | `(dateString)` | e.g., "2 hours ago" |
-| `formatCompactNumber` | `(num)` | e.g., "1.2K", "3.5M" |
-
-### `lib/utils/calculations.ts`
-
-| Function | Description |
-|----------|-------------|
-| `calculatePriceTrend` | Compares recent price halves to determine increasing/decreasing/stable |
-| `findOptimalPeriods` | Finds contiguous low-price periods below a percentile threshold |
-| `calculateAnnualSavings` | Difference between two suppliers' annual costs |
-| `calculatePaybackMonths` | Months to recoup exit fee from monthly savings |
-| `calculateTotalScheduleSavings` | Sum of savings across optimization schedules |
-| `calculateRecommendationConfidence` | Weighted score from savings, volatility, data quality |
-| `getPriceCategory` | cheap/moderate/expensive based on ratio to average |
-| `calculateChangePercent` | Percentage change between two values |
-
----
-
-## Type System (`types/index.ts`)
-
-### Core Types
-
-| Type | Key Fields |
-|------|------------|
-| `PriceDataPoint` | time, price, forecast, isOptimal, confidenceLow/High |
-| `CurrentPrice` | region, price, timestamp, trend, changePercent |
-| `PriceForecast` | hour, price, confidence [low, high], timestamp |
-| `Supplier` | id, name, avgPricePerKwh, standingCharge, greenEnergy, rating, estimatedAnnualCost, tariffType |
-| `SupplierRecommendation` | supplier, currentSupplier, estimatedSavings, paybackMonths, confidence |
-| `Appliance` | id, name, powerKw, typicalDurationHours, isFlexible, priority |
-| `OptimizationSchedule` | applianceId, applianceName, scheduledStart/End, estimatedCost, savings, reason |
-| `UserSettings` | region, currentSupplier, annualUsageKwh, peakDemandKw, appliances, notification/display prefs |
-| `TimeRange` | `'6h' \| '12h' \| '24h' \| '48h' \| '7d'` |
-
----
-
-## Data Flow
-
+```typescript
+const {
+  user,                    // Current user object (null if not signed in)
+  isLoading,              // Loading state during auth operations
+  error,                  // Error message from auth
+  signIn,                 // async (email, password) => Promise<void>
+  signUp,                 // async (email, password, name?) => Promise<void>
+  signOut,                // async () => Promise<void>
+  signInWithGoogle,       // async () => Promise<void>
+  signInWithGitHub,       // async () => Promise<void>
+  sendMagicLink,          // async (email) => Promise<void>
+  clearError,             // () => void
+} = useAuth()
 ```
-User Action
-    |
-    v
-Page Component (app/(app)/*)
-    |
-    +--> Zustand Store (settings, appliances, preferences)
-    |        persisted to localStorage
-    |
-    +--> React Query Hook (lib/hooks/*)
-              |
-              v
-         API Function (lib/api/*)
-              |
-              v
-         apiClient.get/post -> fetch()
-              |
-              v
-         Backend (FastAPI @ NEXT_PUBLIC_API_URL)
-              |
-              v
-         Response -> React Query Cache -> Component Re-render
-              |
-         SSE Stream (prices) -> query invalidation -> auto-refetch
+
+**Features:**
+- Persists auth state to localStorage (Zustand store)
+- Syncs with Better Auth session
+- Handles 401 errors with 3-layer redirect guard
+
+### React Query Integration
+
+**Used for server state (API calls):**
+- Prices fetch with caching
+- User profile data
+- Recommendations list
+- Connection status
+
+**Query hooks pattern:**
+```typescript
+const { data, isLoading, error } = useQuery({
+  queryKey: ['prices', region],
+  queryFn: () => api.getPrices(region),
+  staleTime: 5 * 60 * 1000, // 5 minutes
+})
 ```
 
 ---
 
-## Error Handling
+## API Integration
 
-- **Root level:** `app/error.tsx` catches page-level errors, `app/global-error.tsx` catches layout-level errors
-- **Per-route:** Dashboard, Prices, Suppliers, Connections, Optimize, and Settings each have dedicated `error.tsx` boundaries with retry buttons
-- **Loading states:** Connections and Optimize routes have `loading.tsx` Suspense skeletons for better UX
-- **API layer:** `ApiClientError` class with status code, message, and details
-- **Auth:** `AuthError` class with optional error code
-- **Toast notifications:** `ToastProvider` + `useToast` hook for error/warning/success messages with auto-dismiss timers
-- **404:** Custom `app/not-found.tsx` with link back to dashboard
+### Frontend API Client (`lib/api/client.ts`)
 
----
+**Fetch wrapper with:**
+- Authorization header (Bearer token from auth)
+- Error handling + logging
+- 401 response handling (3-layer guard)
+- Request/response transformation
+- Timeout management
 
-## Dependencies
+**Base URL:** `process.env.NEXT_PUBLIC_API_URL` (from `lib/config/env.ts`)
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| next | 14.2.35 | Framework (App Router, fixes CVE-2025-29927/CVE-2024-46982/CVE-2024-34351) |
-| react | ^18.2.0 | UI library |
-| better-auth | latest | Authentication (Neon Auth / Better Auth) |
-| @tanstack/react-query | ^5.17.15 | Server state management |
-| zustand | ^4.4.7 | Client state management |
-| recharts | ^2.10.3 | Charts and data visualization |
-| lucide-react | ^0.309.0 | Icon library |
-| tailwindcss | ^3.4.1 | Utility-first CSS |
-| tailwind-merge | ^2.2.0 | Tailwind class deduplication |
-| clsx | ^2.1.0 | Conditional class names |
-| @microsoft/fetch-event-source | ^2.0.1 | SSE with auth (replaces native EventSource) |
-| date-fns | ^3.2.0 | Date formatting |
-| @excalidraw/excalidraw | latest | Interactive diagram editor (dev-only, dynamically imported) |
-
-### Dev Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| @playwright/test | ^1.40.1 | E2E testing |
-| jest | ^29.7.0 | Unit testing |
-| @testing-library/react | ^14.1.2 | Component testing |
-| typescript | ^5.3.3 | Type checking |
+**Error Handling:**
+- Network errors → "Connection failed"
+- 4xx errors → Extract message from response.data.detail
+- 5xx errors → "Server error, try again"
+- 401 → Trigger redirect guard
+- Unknown → "Something went wrong"
 
 ---
 
@@ -549,193 +790,409 @@ Page Component (app/(app)/*)
 
 ### Unit Tests
 
-94 test suites, 1385 tests total (updated after URI_TOO_LONG redirect loop fix):
+- **Framework:** Jest + React Testing Library
+- **Coverage:** 1385 tests across 94 suites
+- **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
+- **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
-**Component tests** (`__tests__/`):
+**Key test files:**
+- `components/auth/__tests__/LoginForm.test.tsx`
+- `components/auth/__tests__/SignupForm.test.tsx`
+- `lib/hooks/__tests__/useAuth.test.tsx`
+- `lib/api/__tests__/client-401-redirect.test.ts` (9 tests for 401 edge cases)
+- `app/(app)/auth/__tests__/authentication.spec.ts`
+- `__tests__/a11y/` (51 jest-axe tests)
 
-| Test File | Tests | Covers |
-|-----------|-------|--------|
-| ComparisonTable.test.tsx | -- | Supplier comparison table rendering and sorting |
-| PriceLineChart.test.tsx | 27 | Chart rendering with different data/configs |
-| SavingsDonut.test.tsx | 20 | Donut chart with savings breakdown |
-| ScheduleTimeline.test.tsx | 30 | Timeline with schedules and price zones |
-| SupplierCard.test.tsx | -- | Card rendering, savings badge, selection |
-| SwitchWizard.test.tsx | -- | Multi-step wizard flow (note: flaky) |
-| auth/LoginForm.test.tsx | -- | Login form: email/password, OAuth, magic link, error states |
-| auth/SignupForm.test.tsx | -- | Signup form: registration, password validation, OAuth |
-| charts/ForecastChart.test.tsx | -- | Forecast chart: data rendering, empty state, confidence |
-| gamification/SavingsTracker.test.tsx | -- | Streak tiers, progress bar, formatCurrency |
-| layout/Header.test.tsx | -- | Header: title, nav, active state |
-| layout/Sidebar.test.tsx | -- | Sidebar: nav links, responsive |
-| layout/NotificationBell.test.tsx | 33 | Notification bell: unread count, dropdown, interactions |
-| suppliers/SetSupplierDialog.test.tsx | -- | Supplier selection dialog rendering and interaction |
-| suppliers/SupplierAccountForm.test.tsx | -- | Account linking form validation and submission |
-| suppliers/SupplierSelector.test.tsx | -- | Searchable supplier dropdown behavior |
-| ui/*.test.tsx | -- | UI primitives: Badge, Button, Card, Input, Skeleton |
-| integration/dashboard.test.tsx | -- | Dashboard integration: data loading, display, interactions |
-| pages/prices.test.tsx | -- | Prices page rendering and interactions |
-| pages/suppliers.test.tsx | -- | Suppliers page rendering and interactions |
-| dashboard/DashboardContent.test.tsx | 49 | Dashboard content: widgets, data fetching, layout |
-| onboarding/RegionSelector.test.tsx | 24 | Region selector: search, selection, state updates |
-| onboarding/SupplierPicker.test.tsx | 24 | Supplier picker: selection, filtering, pagination |
-| hooks/useDiagrams.test.tsx | -- | React Query diagram hooks |
-| hooks/usePrices.test.tsx | -- | Price data fetching hooks |
-| hooks/useProfile.test.ts | 16 | User profile fetching and caching |
-| hooks/useSavings.test.ts | 11 | Savings data fetching and calculation |
-| utils/devGate.test.ts | -- | isDevMode utility |
-| contexts/toast-context.test.tsx | 27 | Toast notifications: create, dismiss, auto-cleanup |
-| contexts/sidebar-context.test.tsx | 20 | Sidebar state: toggle, close, persistence |
-| lib/config/env.test.ts | 14 | Environment variable validation and defaults |
-| components/dev/DevBanner.test.tsx | -- | DevBanner rendering |
-| components/dev/ExcalidrawWrapper.test.tsx | -- | Excalidraw dynamic import wrapper |
-| components/dev/DiagramList.test.tsx | -- | Diagram sidebar list |
-| components/dev/DiagramEditor.test.tsx | -- | Canvas editor + save |
-| api/dev/diagrams/route.test.ts | -- | List + create API routes |
-| api/dev/diagrams/name.route.test.ts | -- | Read + save API routes |
-| app/dev/layout.test.tsx | -- | Dev layout gate |
-| app/dev/architecture.test.tsx | -- | Architecture page integration |
-| connections/BillUploadForm.test.tsx | -- | Bill upload form: file selection, parsing, status |
-| connections/ConnectionAnalytics.test.tsx | -- | Analytics dashboard: rate comparison, savings, health |
-| connections/ConnectionCard.test.tsx | -- | Connection card: label editing, status display, sync |
-| connections/ConnectionMethodPicker.test.tsx | -- | Method picker: email, upload, direct login, UtilityAPI |
-| connections/ConnectionRates.test.tsx | -- | Extracted rates table rendering and filtering |
-| connections/ConnectionUploadFlow.test.tsx | -- | Upload workflow: file selection, parsing, results |
-| connections/ConnectionsOverview.test.tsx | -- | Tab navigation and connection management |
-| connections/DirectLoginForm.test.tsx | -- | Credential form: input validation, submission, sync |
-| connections/EmailConnectionFlow.test.tsx | -- | Email OAuth: provider selection, redirect, scanning |
-| prices/PricesContent.test.tsx | -- | Prices page content component |
-| suppliers/SuppliersContent.test.tsx | -- | Suppliers page content component |
+### E2E Tests (Playwright)
 
-**Hook tests** (`lib/hooks/`):
+- **Coverage:** 634 tests passed, 5 skipped
+- **Config:** `playwright.config.ts` (retries: 1, baseURL: localhost:3000)
+- **Auth helpers:** `e2e/helpers/auth.ts`
+- **Data attributes for selectors:**
+  - `data-testid="sign-out-button"` on Sidebar
+  - `data-testid="appliance-card-settings"` on optimize page
 
-| Test File | Covers |
-|-----------|--------|
-| useAuth.test.tsx | Auth state, sign-in/out, session persistence |
-| useOptimization.test.ts | Schedule fetching, result caching, appliance management |
-| useRealtime.test.ts | SSE connection, price streaming, error recovery |
-| useSuppliers.test.ts | Supplier fetching, recommendations, comparisons |
+**Skipped tests (legitimate):**
+- Email validation smoke tests
+- Magic link flow (requires real email)
+- GDPR data export suite
+- 2 mobile viewport conditionals
 
-**API contract tests** (`__tests__/contracts/`):
+---
 
-| Test File | Covers |
-|-----------|--------|
-| api-schemas.test.ts | Request/response schema validation, type safety |
+## Performance Optimizations
 
-**Store tests** (`lib/store/`):
+### Page Optimizations
 
-| Test File | Covers |
-|-----------|--------|
-| settings.test.ts | Zustand persistence, selectors, state updates |
+**SSE Configuration:**
+- `openWhenHidden: false` (don't waste bandwidth on background tabs)
 
-**Library tests** (`lib/`):
+**Auth Waterfall Fix:**
+- Use `Promise.allSettled()` instead of sequential promises
+- Parallel auth checks: user + supplier + profile
 
-| Test File | Tests | Covers |
-|-----------|-------|--------|
-| lib/utils/\_\_tests\_\_/format.test.ts | 46 | All 9 format functions (currency, date, time, energy, etc.) |
-| lib/utils/\_\_tests\_\_/calculations.test.ts | 46 | All 8 calculation functions (trend, optimal periods, savings, etc.) |
-| lib/api/\_\_tests\_\_/client.test.ts | 30 | API client (GET/POST/PUT/DELETE), ApiClientError class |
-| lib/api/\_\_tests\_\_/client-401-redirect.test.ts | 9 | 401 redirect loop prevention (auth page guard, callbackUrl extraction, safety valve, open redirect rejection) |
-| lib/api/\_\_tests\_\_/prices.test.ts | -- | Price API function tests |
-| lib/api/\_\_tests\_\_/suppliers.test.ts | -- | Supplier API function tests |
+**Page Load Strategy:**
+- Root pages: Static generation where possible
+- App pages: Server-side auth check + data fetch
+- Auth pages: Force dynamic (don't cache 401 responses)
 
-### E2E Tests (`e2e/`)
+**Component Loading:**
+- Skeleton loaders on async components
+- Lazy load heavy components (e.g., Excalidraw on `/architecture`)
 
-15 Playwright spec files x 5 browser projects.
-**Last run:** 634 passed, 5 skipped, 0 failed (2026-03-03).
+### Code Splitting
 
-| Spec File | Tests | Description |
-|-----------|-------|-------------|
-| authentication.spec.ts | 17 | Login, OAuth, session persistence, rate limiting, redirect loop prevention (12 active, 5 skipped) |
-| billing-flow.spec.ts | 9 | Stripe pricing, checkout flow |
-| dashboard.spec.ts | 11 | Widgets, navigation, error handling |
-| full-journey.spec.ts | 25 | Full user journey (landing -> optimize) |
-| gdpr-compliance.spec.ts | 14 | Cookie consent, data export/deletion |
-| load-optimization.spec.ts | 18 | Appliance scheduling, savings |
-| onboarding.spec.ts | 11 | Signup navigation, dashboard access |
-| optimization.spec.ts | 12 | Quick add, custom appliance, flexibility |
-| sse-streaming.spec.ts | 11 | SSE connection, error recovery |
-| supplier-switching.spec.ts | 18 | Supplier comparison, switch wizard |
-| switching.spec.ts | 17 | Switching wizard GDPR consent |
+- Next.js automatic code splitting per route
+- Dynamic imports for dev-only pages (Excalidraw)
+- React.lazy() for modal/dialog content
 
-**Browser projects:** Chromium, Firefox, WebKit, Mobile Chrome (Pixel 5), Mobile Safari (iPhone 12)
+---
 
-### Commands
+## Accessibility
+
+### WCAG AA Compliance
+
+- **51 jest-axe tests** in `__tests__/a11y/`
+- All form inputs have associated labels
+- Error messages linked via `aria-describedby`
+- Invalid inputs marked with `aria-invalid="true"`
+- Alert boxes use `role="alert"` + `aria-live="polite"`
+- Keyboard navigation on dropdowns + modals
+- Color contrast checked (primary-600 on white, etc.)
+
+### Semantic HTML
+
+- `<form>` for forms (prevents nested forms)
+- `<label htmlFor>` for all inputs
+- `<button type="submit">` for form submissions
+- `<main>` for main content
+- `<nav>` for navigation
+
+### Focus Management
+
+- Focus visible outline: 2px primary-colored
+- Focus order matches visual order
+- Modal/dialog traps focus
+
+---
+
+## Known Issues & Workarounds
+
+### Color Scheme Light Forcing
+
+**Issue:** Browser dark mode + hardcoded Tailwind colors create contrast issues (white text on white in inputs).
+
+**Workaround:** Set `color-scheme: light` in `globals.css` to force light mode until dark mode is fully implemented.
+
+**Future:** Switch to `darkMode: 'class'` in `tailwind.config.ts` and use `dark:` prefixes on all color-bearing classes.
+
+### Input Color Forcing
+
+**Issue:** System Python + form autofill override input colors.
+
+**Workaround:** Force all select inputs to `bg-white text-gray-900` in code:
+- Settings page (4 selects)
+- Beta signup page (3 selects)
+- SupplierSelector (search input)
+- ConnectionCard (label input)
+- ConnectionAnalytics (kWh input)
+
+**Pattern:**
+```tsx
+<select className="bg-white text-gray-900 border-gray-300 ...">
+```
+
+### URI_TOO_LONG Redirect Loop (FIXED)
+
+**Issue:** Stale session cookies → 401 on auth pages → nested callbackUrl → HTTP 414
+
+**Fix (3-layer defense):**
+1. Detect `/auth/*` pages in `useAuth.tsx` → skip expensive queries
+2. Validate callbackUrl with `isSafeRedirect()` in `client.ts`
+3. Track nesting in sessionStorage (max 3 redirects)
+
+**Files changed:**
+- `frontend/lib/api/client.ts` (add guard)
+- `frontend/lib/hooks/useAuth.tsx` (+2 tests)
+- `frontend/lib/api/__tests__/client-401-redirect.test.ts` (9 new tests)
+- `frontend/app/(app)/auth/callback/page.tsx` (a11y)
+- `frontend/playwright.config.ts` (retries: 1)
+
+---
+
+## Development Workflow
+
+### Running Frontend Locally
 
 ```bash
-npm run test          # Jest watch mode
-npm run test:ci       # Jest with coverage
-npm run test:e2e      # Playwright E2E (all 5 browsers)
-npm run type-check    # tsc --noEmit
-npm run lint          # next lint
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+# Runs on http://localhost:3000
+
+# Run unit tests
+npm run test
+
+# Run E2E tests
+npm run test:e2e
+
+# Run specific test suite
+npm run test -- LoginForm
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Linting
+npm run lint
+
+# Type checking
+npm run type-check
+```
+
+### Environment Variables
+
+**Required `frontend/.env.local`:**
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_ENVIRONMENT=development
+```
+
+**Centralized in `lib/config/env.ts`:**
+- Validates NEXT_PUBLIC_* variables
+- Type-safe access
+- Fallbacks for development
+
+### Hot Reload
+
+- Next.js dev server watches files + hot reloads
+- Auth state persists in localStorage during reload
+- Query cache persists during reload (React Query)
+
+---
+
+## Component Checklist
+
+### Core Components (Count: 19)
+
+- [x] Input (enhanced with labelSuffix, labelRight, success, successText)
+- [x] Checkbox (integrated in input.tsx)
+- [x] Button (primary/secondary/outline + loading state)
+- [x] Card (CardHeader, CardTitle, CardContent, CardDescription)
+- [x] Badge (status indicators)
+- [x] Modal (controlled dialog)
+- [x] Toast (notifications)
+- [x] Dropdown (menu)
+- [x] Tabs (tab navigation)
+- [x] Tooltip (hover text)
+- [x] Avatar (user profile images)
+- [x] Skeleton (loading placeholder)
+- [x] Spinner (loading indicator)
+- [x] LoginForm
+- [x] SignupForm
+- [x] Sidebar
+- [x] Header
+- [x] DevBanner
+- [x] StatsCard
+
+### Feature Components (Count: 20+)
+
+- [x] Connection components (9)
+- [x] Supplier components (3)
+- [x] Settings components (4)
+- [x] Dashboard components (3)
+- [x] Prices components (4)
+- [x] Optimize components (3)
+
+---
+
+## File Statistics
+
+- **Total Pages:** 19 (root + (app) + (dev) + auth routes)
+- **Total Layouts:** 3 (root, app, dev, auth)
+- **Total Components:** 50+ (UI + feature-specific)
+- **Total Tests:** 1385 across 94 suites
+- **Accessibility Tests:** 51 (jest-axe)
+- **E2E Tests:** 634 passed, 5 skipped
+- **Total Test Coverage:** 3,370+ tests (frontend + backend + ML + E2E)
+
+---
+
+## Recent Updates (2026-03-03)
+
+### UI/UX Overhaul (Commit b3cdf76)
+
+1. **Input Component Enhanced**
+   - Added `labelSuffix` prop: "(optional)" text in gray-400
+   - Added `labelRight` prop: Right-aligned content (e.g., "Forgot password?" link)
+   - Added `success` + `successText` props: Green feedback with checkmark icon
+   - Updated padding: `px-4 py-2.5` (taller for touch targets)
+   - Updated border transitions: `hover:border-gray-400` with `transition-all duration-200`
+   - Added error/success icons in feedback text (SVG checkmark + error circle)
+
+2. **Auth Forms Refactored**
+   - LoginForm: Now uses shared Input component instead of custom inputs
+   - LoginForm: Added email blur validation with `isValidEmail()` helper
+   - LoginForm: Uses Input's `labelRight` for "Forgot password?" link
+   - SignupForm: Now uses shared Input component
+   - SignupForm: Added email blur validation
+   - SignupForm: Uses Input's `labelSuffix` for "(optional)" on name field
+   - SignupForm: Uses Input's `success` + `successText` for confirm password match feedback
+   - SignupForm: Password strength indicator: 6-segment bar + 5 requirement checks
+
+3. **Forgot/Reset Password Pages**
+   - Refactored to use Input component
+   - Added email blur validation on forgot-password page
+   - Standardized colors: primary-*/danger-*/success-* (was blue-*/red-*/green-*)
+
+4. **Global Styles Rewrite (`globals.css`)**
+   - Complete rewrite with 20+ CSS custom properties (colors, shadows, spacing, transitions)
+   - Force light color scheme (`color-scheme: light`)
+   - Base layer input color rules (`bg-white text-gray-900`)
+   - New animations: `slideUp`, `scaleIn`, `shimmer`
+   - New utility classes: `.skeleton` (shimmer loading)
+   - Custom scrollbar styling (webkit)
+
+5. **Tailwind Config Extended (`tailwind.config.ts`)**
+   - New box shadows: `card`, `card-hover`, `input-focus`
+   - New animations: `slide-down`, `slide-up`, `fade-in`, `scale-in`, `shimmer`
+   - Spring easing function: `cubic-bezier(0.4, 0, 0.2, 1)`
+   - Custom keyframes for flashGreen, flashRed, slideDown, slideUp, fadeIn, scaleIn, shimmer
+
+6. **Input Color Fixes**
+   - Settings page: 4 select dropdowns → `bg-white text-gray-900`
+   - Beta signup page: 3 select dropdowns → `bg-white text-gray-900`
+   - SupplierSelector: Search input → `bg-white text-gray-900`
+   - ConnectionCard: Label input → `bg-white text-gray-900`
+   - ConnectionAnalytics: kWh input → `bg-white text-gray-900`
+
+### Earlier Updates (2026-03-02)
+
+- **URI_TOO_LONG Fix:** 3-layer 401 redirect guard, +13 tests, docs updated (Commit 555d48f)
+- **Frontend Review Swarm:** +248 tests, a11y tooling, security & perf fixes (Commit c29e1d6)
+- **E2E Healing:** 624 E2E passed, 0 lint errors (Commit 9585625)
+- **Env Var Audit:** 27 1Password mappings, validation added (Commit b7436e6)
+
+---
+
+## Quick Reference: New Props & Patterns
+
+### Input Component API
+
+```typescript
+<Input
+  // Standard HTML input props
+  id="email"
+  type="email"
+  name="email"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  onBlur={handleEmailBlur}
+  placeholder="you@example.com"
+  required
+  autoComplete="email"
+  disabled={false}
+
+  // New props
+  label="Email address"                    // Top label
+  labelSuffix="(optional)"                 // Gray-400 suffix on label
+  labelRight={<Link>Forgot?</Link>}        // Right-aligned content on label line
+  error="Invalid email"                    // Error message (danger-600 + icon)
+  helperText="We'll never share..."        // Helper text (gray-500)
+  success={true}                           // Show success state
+  successText="Email verified"             // Success message (success-600 + icon)
+
+  // Style merging (clsx + tailwind-merge)
+  className="custom-class"                 // Merges with default Tailwind
+/>
+```
+
+### Blur Validation Pattern
+
+```typescript
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+const [email, setEmail] = useState('')
+const [emailError, setEmailError] = useState<string | null>(null)
+
+const handleEmailChange = (value: string) => {
+  setEmail(value)
+  if (emailError) setEmailError(null)  // Clear error on change
+}
+
+const handleEmailBlur = () => {
+  if (email && !isValidEmail(email)) {
+    setEmailError('Please enter a valid email address')
+  }
+}
+
+// In JSX:
+<Input
+  value={email}
+  onChange={(e) => handleEmailChange(e.target.value)}
+  onBlur={handleEmailBlur}
+  error={emailError || undefined}
+/>
+```
+
+### Success Feedback Pattern
+
+```typescript
+const confirmPasswordHasError = Boolean(confirmPassword && password !== confirmPassword)
+const confirmPasswordMatch = Boolean(confirmPassword && password === confirmPassword)
+
+// In JSX:
+<Input
+  id="confirmPassword"
+  label="Confirm password"
+  type="password"
+  value={confirmPassword}
+  onChange={(e) => setConfirmPassword(e.target.value)}
+  error={confirmPasswordHasError ? 'Passwords do not match' : undefined}
+  success={confirmPasswordMatch}
+  successText={confirmPasswordMatch ? 'Passwords match' : undefined}
+/>
 ```
 
 ---
 
-## Environment Variables
+## Style Guide
 
-**All environment variables are validated and centralized in `lib/config/env.ts`.**
+### Color Usage
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL (default: `http://localhost:8000/api/v1`) |
-| `NEXT_PUBLIC_APP_URL` | Yes | Frontend app URL for redirects (default: `http://localhost:3000`) |
-| `NEXT_PUBLIC_SITE_URL` | No | Site URL for SEO (default: `https://electricity-optimizer.vercel.app`) |
-| `NEXT_PUBLIC_API_ORIGIN` | No | Backend origin for CORS (default: derived from `NEXT_PUBLIC_API_URL`) |
-| `BETTER_AUTH_SECRET` | Yes | Secret for Better Auth session encryption |
-| `BETTER_AUTH_URL` | Yes | App URL for auth callbacks (e.g., `http://localhost:3000`) |
-| `NODE_ENV` | Yes | Environment: `development`, `test`, or `production` |
+- **Primary (Blue):** Buttons, links, focus rings, active states
+- **Success (Teal/Green):** Confirmations, valid inputs, passing checks
+- **Warning (Amber):** Medium priority, caution messages, moderate values
+- **Danger (Red):** Errors, invalid inputs, destructive actions
+- **Gray:** Text, backgrounds, disabled states, borders
 
-**Validation & Exports from `env.ts`:**
+### Typography Usage
 
-| Export | Type | Description |
-|--------|------|-------------|
-| `API_URL` | string | Validated `NEXT_PUBLIC_API_URL` |
-| `APP_URL` | string | Validated `NEXT_PUBLIC_APP_URL` |
-| `SITE_URL` | string | Validated `NEXT_PUBLIC_SITE_URL` |
-| `API_ORIGIN` | string | Extracted origin from `API_URL` |
-| `IS_PRODUCTION` | boolean | `NODE_ENV === 'production'` |
-| `IS_TEST` | boolean | `NODE_ENV === 'test'` |
-| `IS_DEV` | boolean | `NODE_ENV === 'development'` |
+- **Headings:** font-bold, text-lg/xl/2xl, text-gray-900
+- **Body:** font-normal, text-sm/base, text-gray-700
+- **Labels:** font-medium, text-sm, text-gray-700
+- **Placeholder:** text-gray-400, italic
 
----
+### Spacing
 
-## Recent Changes (as of 2026-03-03)
+- **Gaps between form inputs:** `space-y-4` (1rem)
+- **Card padding:** `p-8` (2rem)
+- **Button padding:** `px-4 py-2.5`
+- **Label margin:** `mb-1.5` (0.375rem)
 
-1. **Multi-utility support** -- Settings store includes `utilityTypes` field (array of UtilityType). Settings page has utility type checkboxes
-2. **Multi-state region selector** -- Settings page offers expanded region dropdown covering all 50 US states + international regions
-3. **Region default changed from 'uk' to 'us_ct'** -- All API functions and hooks default to `'us_ct'`
-4. **Settings store defaults updated** -- region: `'us_ct'`, utilityTypes: `['electricity']`, currency: `'USD'`, annualUsageKwh: `10500`, timeFormat: `'12h'`
-5. **Landing page added at `/`** -- Full marketing page with hero, features, pricing preview, and footer
-6. **Route restructuring** -- Marketing pages at root layout without sidebar; app pages under `(app)` route group with sidebar
-7. **Stripe monetization** -- Checkout API route proxy at `/api/checkout`; tiers: Free, Pro ($4.99/mo), Business ($14.99/mo)
-8. **SEO metadata** -- Root layout includes OG tags, Twitter card, keywords; dedicated robots.ts and sitemap.ts
-9. **Error boundaries** -- Global error boundary + per-route boundaries for dashboard, prices, suppliers
-10. **Neon Auth migration** -- Supabase SDK removed; auth now via Better Auth (`better-auth` package) with Neon Auth backend. Session cookies replace localStorage JWT tokens. Route protection via `middleware.ts`
-11. **CSP + HSTS headers** -- Content-Security-Policy and Strict-Transport-Security added to `next.config.js`
-12. **Frontend test expansion** -- 392 Jest tests across 22 suites covering components, lib/utils, lib/api
-13. **Cross-browser E2E** -- 11 Playwright specs across 5 browser projects (Chromium, Firefox, WebKit, Mobile Chrome, Mobile Safari). 431 passing, 0 failures
-14. **SSE auth upgrade** -- Replaced native `EventSource` with `@microsoft/fetch-event-source` for cookie-based session auth. Enables `credentials: 'include'`, auth failure detection, and exponential backoff retry
-15. **Backend route splitting** -- `prices.py` split into `prices.py` (CRUD), `prices_analytics.py` (statistics), `prices_sse.py` (streaming with real DB data via PriceService)
-16. **Excalidraw architecture diagrams** -- Dev-only `/architecture` page for interactive `.excalidraw` diagrams stored in `docs/architecture/`. Triple-gated (middleware rewrite, layout notFound, API 404). Dynamic import keeps ~2MB bundle out of production. 53 new tests across 10 suites
-17. **Supplier selection & account linking** -- `SetSupplierDialog`, `SupplierAccountForm`, `SupplierSelector` components. Backend encrypts account/meter numbers with AES-256-GCM. 469 total frontend tests across 35 suites
-18. **Connection feature (5 phases)** -- Full utility connection system: Email OAuth import (Gmail + Outlook with HMAC state), bill upload with OCR parsing, direct login, UtilityAPI sync. Analytics dashboard with rate comparison, savings estimates, rate history charts, and connection health monitoring. 9 new frontend components in `connections/` directory
-19. **Page component extraction** -- Dashboard, Prices, Suppliers page content extracted into dedicated `*Content.tsx` components. Added Next.js `loading.tsx` skeletons for all three routes. Pages are now server components with `export const metadata` for SSR
-20. **Auth init waterfall fix** -- `useAuth.tsx` now uses `Promise.allSettled()` to fetch session and user-supplier data in parallel instead of sequentially
-21. **SSE background tab optimization** -- `openWhenHidden` changed from `true` to `false` in `useRealtimePrices` to pause SSE when tab is hidden
-22. **Gap remediation Phase 3 (UX)** -- Toast notification system (`ToastProvider` + `useToast`), sidebar context (`SidebarProvider` + `useSidebar`), NotificationBell component, modal component, error boundaries for all routes (Connections, Optimize, Settings), loading skeletons for connections/optimize
-23. **Gap remediation Phase 4 (Testing)** -- 365 new tests: connection component tests (9 suites), hook tests (useAuth, useOptimization, useRealtime, useSuppliers), API contract tests, store tests, prices/suppliers content tests. Total: 834 tests across 52 suites
-24. **Gap remediation Phase 7 (Standards)** -- Timer cleanup on unmount in toast context, accessible button variants, password reset flow (forgot-password, reset-password, verify-email pages), improved mobile form accessibility
-25. **Environment configuration centralization** -- New `lib/config/env.ts` module validates and exports: `API_URL`, `APP_URL`, `SITE_URL`, `API_ORIGIN`, `IS_PRODUCTION`, `IS_TEST`, `IS_DEV`. Updated `lib/api/client.ts`, `lib/auth/client.ts`, `lib/auth/server.ts`, `lib/hooks/useAuth.tsx`, `lib/hooks/useRealtime.ts` to import from `env.ts` instead of direct process.env access
-26. **Component and hook test expansion** -- 281 new tests across 12 new test files: PriceLineChart (27), SavingsDonut (20), ScheduleTimeline (30), DashboardContent (49), RegionSelector (24), SupplierPicker (24), NotificationBell (33), useProfile (16), useSavings (11), toast-context (27), sidebar-context (20), env (14). Total: 1129 tests across 64 suites
-27. **Frontend review swarm** (`c29e1d6`) -- 5-agent swarm: 248 new tests (1374 total, 93 suites), jest-axe accessibility testing (51 a11y tests in `__tests__/a11y/`), open redirect fix (`isSafeRedirect` in `lib/utils/url.ts`), `requireEmailVerification: true`, 3 WCAG fixes (color contrast, aria-describedby, role="alert"), skip-to-content link, modal focus trap, `React.memo` on SupplierCard, ESLint config (`.eslintrc.json`), `any` types 9→3, `global.d.ts` for Window.gtag
-28. **E2E test healing** (`9585625`) -- 624 E2E passed (up from ~431), skips reduced from 16 to 5, duplicate spec removed, ESLint cleanup (0 lint errors)
-29. **Env var audit** (`b7436e6`) -- 27 1Password mappings (up from 17), 5 new vault items, BETTER_AUTH_SECRET validator, INTERNAL_API_KEY != JWT_SECRET enforcer
-30. **URI_TOO_LONG redirect loop fix** (2026-03-03) -- P0 bug: stale session cookies caused exponential URL growth via nested `callbackUrl` params. 3-layer defense in `client.ts` (auth page guard, callbackUrl extraction with `isSafeRedirect()`, sessionStorage safety valve). `useAuth.tsx` skips profile/supplier API calls on `/auth/*` pages. Auth callback page got a11y fix. +11 Jest tests (9 redirect + 2 useAuth), +2 E2E tests (redirect loop prevention). Playwright config: `retries: 1` for local runs
+### Animations
+
+- **Entry animations:** `animate-fadeIn` (200ms) or `animate-slideDown` (alerts)
+- **Success messages:** `animate-slideDown` (200ms)
+- **Modals:** `animate-scaleIn` (150ms)
+- **Loading:** `animate-spin` (SVG spinner) or `.skeleton` (shimmer)
 
 ---
 
-## Related Codemaps
-
-- [Backend Codemap](./CODEMAP_BACKEND.md) - FastAPI backend, API endpoints, database schema
-- [Stripe Architecture](./STRIPE_ARCHITECTURE.md) - Payment integration details
-- [Deployment](./DEPLOYMENT.md) - Deployment configuration and environment setup
+**Last Reviewed:** 2026-03-03 by documentation engineer
+**Status:** Current with all recent UI/UX changes
+**Test Coverage:** 1385 tests (frontend), 3,370 total (all layers)
