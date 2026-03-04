@@ -22,7 +22,7 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 | Frontend       | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts      |
 | Database       | Neon PostgreSQL (serverless)                                   |
 | ML / Data      | TensorFlow, XGBoost, PuLP, scikit-learn                       |
-| Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies, Resend email |
+| Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies, Resend email with verification resend on login error |
 | Payments       | Stripe (checkout, webhooks, customer portal)                   |
 | Infrastructure | Docker, Prometheus, Grafana                                    |
 | CI/CD          | GitHub Actions (Python 3.11, Node 20)                          |
@@ -150,7 +150,8 @@ Copy `.env.example` to `.env` and configure. Key variables:
 | `REDIS_URL` | Redis for caching and session storage |
 | `BETTER_AUTH_SECRET` | Better Auth signing key |
 | `BETTER_AUTH_URL` | Better Auth base URL |
-| `RESEND_API_KEY` | Resend email service (verification, magic link, password reset) |
+| `RESEND_API_KEY` | Resend email service (verification, magic link, password reset) — **required in Vercel** |
+| `EMAIL_FROM_ADDRESS` | Email sender address for Resend (e.g., `noreply@example.com`) — **required in Vercel, no trailing newlines** |
 | `INTERNAL_API_KEY` | Service-to-service auth (price-sync workflow) |
 | `STRIPE_SECRET_KEY` | Stripe payments integration |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |

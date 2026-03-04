@@ -123,3 +123,6 @@ Thumbs.db
 .swarm/
 .loki/
 .mcp.backup_*.json
+
+# Project Intelligence (generated, symlinked to .loki/)
+.project-intelligence/

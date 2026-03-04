@@ -48,9 +48,10 @@ function createAuth() {
       },
     },
 
-    // Email verification — sends on signup
+    // Email verification — sends on signup and re-sends on sign-in attempt
     emailVerification: {
       sendOnSignUp: true,
+      sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail({

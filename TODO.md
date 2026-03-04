@@ -8,6 +8,14 @@
 
 ## Completed Items from Sessions 2026-03-02 to 2026-03-04
 
+### Auth System Fix — Verification Email Resend (2026-03-04 Late Session)
+- [x] **Verification Email Delivery Fixed**: Resolved RESEND_API_KEY empty in Vercel + EMAIL_FROM_ADDRESS trailing \n
+- [x] **Resend Verification on Signup**: Added `sendOnSignIn: true` to Better Auth emailVerification config (frontend/lib/auth/server.ts)
+- [x] **Resend Link on Login Error**: Added "Resend verification email" link to LoginForm error state (frontend/components/auth/LoginForm.tsx)
+- [x] **Vercel Production Deployment**: RESEND_API_KEY and EMAIL_FROM_ADDRESS set in Vercel production + preview environments
+- [x] **Production Deployment Success**: Deployed to Vercel successfully — auth system fully operational in production
+- [x] **Claude Flow Memory**: Updated to 985+ entries; 6 new learned skills extracted
+
 ### Auth System Fix (2026-03-04)
 - [x] **Email Verification**: Added `sendVerificationEmail` callback to Better Auth config using Resend SDK
 - [x] **Magic Link Authentication**: Replaced stub with real `better-auth/plugins/magic-link` plugin (server + client)
@@ -605,12 +613,15 @@ make backup
 
 ## Session Summary: 2026-03-04
 
-**Latest Session**: Auth system fix — email verification, magic link, OAuth conditional rendering; SendGrid→Resend migration; documentation audit
+**Latest Session**: Auth system fix — **verification email resend on login error** (fixed RESEND_API_KEY + EMAIL_FROM_ADDRESS in Vercel), SendGrid→Resend migration, production deployment
 **Test Status**: 3,383+ tests passing (1,374 backend, 1,398 frontend, 611 ML, 634 E2E)
 **Frontend Status**: 100% tests green, 95 suites, 1,398 test cases
-**Auth System**: Fully operational (email verification via Resend, magic link plugin, conditional OAuth, password reset emails)
-**Production**: Live (Backend: Render, Frontend: Vercel, Database: Neon PostgreSQL)
-- Documentation audit completed: 8 files updated (stale refs, URLs, counts corrected), commits 1e27255 and 9a91abf
+**Auth System**: Fully operational in production (email verification with resend option, magic link plugin, conditional OAuth, password reset emails, Resend SDK v2.23.0)
+**Production**: Live and verified (Backend: Render, Frontend: Vercel, Database: Neon PostgreSQL)
+- **New Features**: "Resend verification email" link in LoginForm error state; `sendOnSignIn: true` on Better Auth config
+- **Env Vars Fixed**: RESEND_API_KEY (was empty), EMAIL_FROM_ADDRESS (removed trailing \n) — both configured in Vercel production + preview
+- **Documentation**: README.md and TODO.md updated with verification email resend feature + env var requirements
+- **Memory**: Claude Flow updated to 985+ entries; 6 learned skills extracted (better-auth-email-verification-resend.md, conditional-oauth-env-var-pattern.md, etc.)
 
 ---
 

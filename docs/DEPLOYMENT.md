@@ -202,6 +202,9 @@ Before deploying to production:
 - [ ] Backup created
 - [ ] Rollback plan documented
 - [ ] Team notified
+- [ ] Vercel environment variables verified with `vercel env pull` (all values non-empty, especially `BETTER_AUTH_SECRET` and `RESEND_API_KEY`)
+- [ ] Render environment variables verified (all 26 present and non-empty)
+- [ ] 1Password vault in sync with production secrets
 
 ### Render Deploy Hooks
 
@@ -425,7 +428,7 @@ The backend service has **26 env vars** on Render, all mapped to 1Password via `
 
 ### Vercel Environment Variables (Frontend)
 
-The frontend service has **8 env vars** on Vercel:
+The frontend service has **10 env vars** on Vercel:
 
 | Variable | Visibility | Purpose |
 |----------|-----------|---------|
@@ -435,10 +438,16 @@ The frontend service has **8 env vars** on Vercel:
 | `BETTER_AUTH_SECRET` | Server only | Auth signing key |
 | `BETTER_AUTH_URL` | Server only | Better Auth base URL |
 | `DATABASE_URL` | Server only | Neon DB connection string |
+| `RESEND_API_KEY` | Server only | Resend API key for email verification, magic links |
+| `EMAIL_FROM_ADDRESS` | Server only | Email sender address (`noreply@electricity-optimizer.app`) |
 | `GOOGLE_CLIENT_ID` | Server only | Google OAuth client ID |
 | `GITHUB_CLIENT_ID` | Server only | GitHub OAuth client ID |
 
-**CRITICAL**: `BETTER_AUTH_SECRET` must be explicitly set in Vercel. If missing, Better Auth falls back to an insecure `DEFAULT_SECRET`, which would compromise session signing in production.
+**CRITICAL**: Both `BETTER_AUTH_SECRET` and `RESEND_API_KEY` must be explicitly set in Vercel with non-empty values:
+- If `BETTER_AUTH_SECRET` is missing, Better Auth falls back to an insecure `DEFAULT_SECRET`, compromising session signing.
+- If `RESEND_API_KEY` is missing or empty, email verification and magic links will fail silently.
+
+**Verification**: After setting environment variables, use `vercel env pull` to verify the values are correctly populated (not empty or malformed). The environment variable names and values must match exactly between Vercel and 1Password.
 
 `NEXT_PUBLIC_` prefixed variables are client-visible and bundled into the JavaScript output. They contain only URLs -- no secrets should ever use this prefix.
 

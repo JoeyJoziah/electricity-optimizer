@@ -147,9 +147,15 @@ EMAIL_FROM_ADDRESS=Electricity Optimizer <noreply@electricity-optimizer.app>
 ### Implementation Notes:
 
 - `RESEND_API_KEY` is used by the backend (FastAPI) when sending emails via `resend.emails.send()`
+- `RESEND_API_KEY` is also used by the frontend (Next.js) in `lib/email/send.ts` for email verification, magic links, and password reset
 - `EMAIL_FROM_ADDRESS` is used by the frontend (Next.js) in `lib/email/send.ts` (defaults to the domain email if not set)
 - The `EMAIL_FROM_ADDRESS` value must use the verified domain — using an unverified domain will cause Resend to reject send requests
-- Store both secrets in 1Password ("Electricity Optimizer" vault) and set them as Vercel environment variables
+- **CRITICAL**: `RESEND_API_KEY` must be non-empty in both Render and Vercel environment variables. If empty or missing:
+  - Email verification will fail silently (no error, but emails won't be sent)
+  - Magic links will fail
+  - Password reset will fail
+  - After setting the variable, verify with `vercel env pull` (frontend) and Render dashboard (backend)
+- Store both secrets in 1Password ("Electricity Optimizer" vault) and set them as environment variables in Vercel and Render
 
 See `/frontend/.env.example` for reference, and `/backend/config/settings.py` for backend email configuration.
 
@@ -164,7 +170,11 @@ See `/frontend/.env.example` for reference, and `/backend/config/settings.py` fo
 - [ ] DMARC TXT record added at `_dmarc` subdomain
 - [ ] Resend domain status shows **Verified**
 - [ ] `RESEND_API_KEY` set in Vercel (Settings > Environment Variables) and 1Password
+- [ ] `RESEND_API_KEY` set in Render (Environment > Environment Variables) and 1Password
 - [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <noreply@electricity-optimizer.app>` in Vercel
-- [ ] Both variables marked as available in Production, Preview, and Development environments
+- [ ] Both variables marked as available in Production, Preview, and Development environments (Vercel)
+- [ ] `RESEND_API_KEY` value verified with `vercel env pull` on frontend (must be non-empty)
+- [ ] `RESEND_API_KEY` value verified in Render dashboard (must be non-empty, no trailing whitespace)
 - [ ] Frontend redeployed after setting variables
+- [ ] Backend redeployed after setting variables
 - [ ] Test email sent and received successfully
