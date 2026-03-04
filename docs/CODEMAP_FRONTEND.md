@@ -126,7 +126,7 @@ frontend/
       server.ts                 # Better Auth server instance (emailVerification, magicLink plugin, password reset)
       client.ts                 # Better Auth client instance (magicLinkClient plugin)
     email/
-      send.ts                   # Resend email utility (lazy singleton, configurable FROM address)
+      send.ts                   # Resend email utility (lazy singleton, verification + magic link + password reset)
     config/
       env.ts                    # Centralized NEXT_PUBLIC_* validation
   styles/

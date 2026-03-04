@@ -298,6 +298,11 @@ Store all OAuth secrets securely in 1Password:
 3. Check server logs: `vercel logs electricity-optimizer` for errors
 4. Restart the deployment with a redeploy
 
+### OAuth works locally but not in production
+
+- Check that the OAuth provider's authorized redirect URIs include the production URL
+- Verify CORS settings allow the production domain
+
 ---
 
 ## How OAuth Works in Electricity Optimizer

@@ -1,6 +1,6 @@
 # Loki Mode Integration Architecture
 
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-03-04
 **Loki Version:** v5.53.0
 **Provider:** Claude (Opus 4.6)
 
@@ -238,7 +238,7 @@ provide domain-specialized context when Loki assigns sub-tasks during RARV cycle
 | Agent             | Domain                                                        |
 |-------------------|---------------------------------------------------------------|
 | EnergyDataAgent   | EIA/NREL APIs, Region enum, utility types, state regulations  |
-| NeonDBAgent       | 14-table schema, endpoint quirk (us-east-1), UUID PKs, migrations |
+| NeonDBAgent       | 17-table schema, endpoint quirk (us-east-1), UUID PKs, migrations |
 | StripeAgent       | Async billing, $4.99 Pro / $14.99 Business, webhook flow     |
 | MLPipelineAgent   | Ensemble predictor, HNSW vector store, observation loop, nightly learning |
 
@@ -395,3 +395,15 @@ manually store via `npx claude-flow memory store -k "loki_manual_sync" -v "..." 
 1. Check executable: `ls -la .claude/hooks/board-sync/sync-boards.sh`
 2. Check log: `.claude/logs/loki-board-sync.log`
 3. Verify auth: `gh auth status` and `cat ~/.config/notion/api_key`
+
+---
+
+## Session History
+
+### 2026-03-04: Full Memory Sync + Documentation Audit
+- **Commits**: 6781d36 (auth overhaul + Resend migration), 1e27255 (doc audit), 9a91abf (test count fix)
+- **Phase**: MAINTENANCE (Memory Systems Audit)
+- **Key work**: SendGrid→Resend migration, auth email verification, magic link plugin, OAuth conditional, 1Password 27 mappings, Vercel env vars, DNS/OAuth guides
+- **Memory sync**: Claude Flow 921+ entries, Loki 3-tier rebuilt, CONTINUITY.md updated to commit 9a91abf
+- **Learned skills**: 6 patterns extracted
+- **Tests**: 3,383 passing (1374 backend, 1398 frontend, 611 ML, 634 E2E)

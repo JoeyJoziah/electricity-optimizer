@@ -51,7 +51,7 @@ DATABASE_URL=postgresql://neondb_owner:***@ep-xxx.us-east-2.aws.neon.tech/neondb
   - Copy: `IEA_API_KEY=xxx`
 
 ### Step 3: Generate Secrets (1 min)
-- [ ] Generate JWT secret:
+- [ ] Generate JWT secret (used for internal API key validation only — not user authentication; Better Auth handles user sessions):
 ```bash
 openssl rand -hex 32
 ```
@@ -116,6 +116,8 @@ EMAIL_FROM_ADDRESS=noreply@electricity-optimizer.app
 MODEL_PATH=
 
 # Security
+# NOTE: JWT_SECRET is for internal API key validation only (price-refresh endpoint X-API-Key).
+# User authentication is handled entirely by Better Auth (Neon Auth) via session cookies.
 JWT_SECRET=
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=15
@@ -189,5 +191,5 @@ NEXT_PUBLIC_API_URL=
 
 ---
 
-**Last Updated**: 2026-02-23
-**Next Step**: Set up Neon PostgreSQL account and configure Render.com services
+**Last Updated**: 2026-03-04
+**Next Step**: DNS records for email delivery (SPF/DKIM/DMARC for Resend) + OAuth provider setup (Google/GitHub client IDs in Render env vars)

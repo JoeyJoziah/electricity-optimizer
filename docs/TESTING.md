@@ -750,6 +750,27 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 ---
 
+### Email and Auth Testing
+
+Email and authentication features are tested across multiple layers:
+
+**Backend** (`backend/tests/`):
+- `test_email_oauth.py` — 70 tests covering email OAuth state gen/verify, consent URLs, token encryption, Gmail/Outlook scanning, callback flow
+- `test_auth.py` — 40 tests covering Neon Auth session validation, password strength, API key auth
+- Email service tested via mock Resend client (no real emails sent in tests)
+
+**Frontend** (`frontend/__tests__/`):
+- `components/auth/LoginForm.test.tsx` — Login form with conditional OAuth, magic link
+- `components/auth/SignupForm.test.tsx` — Signup form with email validation, error states
+- `hooks/useAuth.test.tsx` — Auth hook with API call skipping on `/auth/*` pages
+- `lib/config/env.test.ts` — Environment config validation including auth env vars
+
+**E2E** (`frontend/e2e/`):
+- `authentication.spec.ts` — Full auth flows including redirect loop prevention, callbackUrl preservation
+- 5 legitimately skipped tests require real email delivery (verification, magic link)
+
+---
+
 ## Maintenance
 
 ### Updating Test Dependencies
@@ -776,4 +797,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-03-03
+**Last Updated**: 2026-03-04

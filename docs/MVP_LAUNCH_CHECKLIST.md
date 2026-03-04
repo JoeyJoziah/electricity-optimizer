@@ -79,8 +79,11 @@
   - [x] Session cookies (httpOnly, Secure, SameSite=Strict) ✅
   - [x] Backend session validation via `neon_auth.session` table ✅
   - [x] Both `better-auth.session_token` and `__Secure-` variant checked ✅
-  - [x] OAuth providers (Google, GitHub) integrated ✅
-  - [x] Magic link authentication available ✅
+  - [x] OAuth providers (Google, GitHub) integrated (conditional UI via `NEXT_PUBLIC_OAUTH_*_ENABLED`) ✅
+  - [x] Magic link authentication (`better-auth/plugins/magic-link`, server + client plugins) ✅
+  - [x] Email verification on signup via Resend SDK (`sendVerificationEmail` callback) ✅
+  - [x] Password reset emails via Resend SDK with branded HTML templates ✅
+  - [x] Email delivery: Resend (primary) + SMTP fallback, both backend and frontend use `RESEND_API_KEY` ✅
 
 - [x] **Authorization**
   - [x] SessionData canonical type throughout backend ✅
@@ -516,7 +519,7 @@ make deploy-production
 
 ---
 
-**Last Updated**: 2026-03-03 (b3cdf76)
+**Last Updated**: 2026-03-04 (9a91abf)
 **Status**: 100% Complete — Live in Production
 **Current Metrics**: 3,383+ tests passing, 65+ beta users, 99.8% uptime, 55 NPS
 **Next Phase**: Scale & public launch (scheduled Q2 2026)

@@ -19,6 +19,7 @@
 - [x] **New Dependency**: `resend` npm package added to frontend
 - [x] **Tests Updated**: 133 auth+email tests passing (useAuth, LoginForm, SignupForm, email/send), +13 new/updated tests
 - [x] Frontend tests: 1,385→1,398 passing, 0 regressions
+- [x] **SendGrid→Resend Migration**: Backend `email_service.py`, `secrets.py`, `settings.py`, `health.py`, `requirements.txt`, `render.yaml` all updated; `sendgrid_api_key` replaced with `resend_api_key` in 1Password vault (27 mappings)
 
 ### UI/UX Overhaul (commit b3cdf76, 2026-03-03)
 - [x] **Input Component Enhancement**: Added labelSuffix, labelRight, success/successText props
@@ -604,11 +605,12 @@ make backup
 
 ## Session Summary: 2026-03-04
 
-**Latest Session**: Auth system fix — email verification, magic link, OAuth conditional rendering
+**Latest Session**: Auth system fix — email verification, magic link, OAuth conditional rendering; SendGrid→Resend migration; documentation audit
 **Test Status**: 3,383+ tests passing (1,374 backend, 1,398 frontend, 611 ML, 634 E2E)
 **Frontend Status**: 100% tests green, 95 suites, 1,398 test cases
 **Auth System**: Fully operational (email verification via Resend, magic link plugin, conditional OAuth, password reset emails)
 **Production**: Live (Backend: Render, Frontend: Vercel, Database: Neon PostgreSQL)
+- Documentation audit completed: 8 files updated (stale refs, URLs, counts corrected), commits 1e27255 and 9a91abf
 
 ---
 
