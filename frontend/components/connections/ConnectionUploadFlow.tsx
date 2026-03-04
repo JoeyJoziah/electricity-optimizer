@@ -35,6 +35,9 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
       setCreating(true)
       setError(null)
 
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
+
       const res = await fetch(`${API_ORIGIN}/api/v1/connections/upload`, {
         method: 'POST',
         credentials: 'include',
@@ -42,7 +45,10 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
         body: JSON.stringify({
           method: 'manual_upload',
         }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (res.ok) {
         const data = await res.json()
@@ -53,12 +59,18 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
         setStep('uploading')
       } else if (res.status === 403) {
         setError('upgrade')
+      } else if (res.status === 504) {
+        setError('Request timed out. Please try again.')
       } else {
         const data = await res.json().catch(() => null)
         setError(data?.detail || 'Failed to create upload connection. Please try again.')
       }
-    } catch {
-      setError('Network error. Please check your connection and try again.')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out. Please try again.')
+      } else {
+        setError('Network error. Please check your connection and try again.')
+      }
     } finally {
       setCreating(false)
     }

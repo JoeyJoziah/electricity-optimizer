@@ -43,17 +43,23 @@ export const SupplierAccountForm: React.FC<SupplierAccountFormProps> = ({
     setError(null)
 
     try {
-      await onSubmit({
-        supplierId,
-        accountNumber,
-        meterNumber: meterNumber || undefined,
-        serviceZip: serviceZip || undefined,
-        accountNickname: nickname || undefined,
-        consentGiven: consent,
-      })
+      const result = Promise.race([
+        onSubmit({
+          supplierId,
+          accountNumber,
+          meterNumber: meterNumber || undefined,
+          serviceZip: serviceZip || undefined,
+          accountNickname: nickname || undefined,
+          consentGiven: consent,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Request timed out. Please try again.')), 15000)
+        ),
+      ])
+      await result
       setIsExpanded(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to link account')
+      setError(err instanceof Error ? err.message : 'Failed to link account. Please try again.')
     }
   }
 

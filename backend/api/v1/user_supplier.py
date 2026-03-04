@@ -255,10 +255,22 @@ async def link_supplier_account(
         await db.commit()
     except Exception as e:
         await db.rollback()
+        error_msg = str(e).lower()
         logger.error("link_account_failed", user_id=current_user.user_id, error=str(e))
+
+        if "timeout" in error_msg or "canceling statement" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Request timed out. Please try again.",
+            )
+        if "unique" in error_msg or "duplicate" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This account is already linked to this supplier.",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to link account",
+            detail="Failed to link account. Please try again.",
         )
 
     logger.info("account_linked", user_id=current_user.user_id, supplier_id=supplier_id_str)

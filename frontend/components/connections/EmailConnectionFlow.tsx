@@ -108,6 +108,11 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
         setError(
           'Email connections are available on Pro and Business plans. Please upgrade to continue.'
         )
+      } else if (res.status === 503) {
+        const data = await res.json().catch(() => null)
+        setError(
+          data?.detail || 'Email connection is not yet available. Please try bill upload instead.'
+        )
       } else {
         const data = await res.json().catch(() => null)
         setError(
@@ -277,6 +282,12 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
           Setting up your email connection. You will be redirected to authorize
           access shortly.
         </p>
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 p-3 text-left">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-danger-500 shrink-0" />
+            <p className="text-sm text-danger-700">{error}</p>
+          </div>
+        )}
       </Card>
     )
   }

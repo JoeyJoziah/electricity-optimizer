@@ -54,7 +54,21 @@ async def create_email_connection(
     Initiate an email-import connection.
     Creates a pending connection and returns the OAuth consent URL.
     """
-    from services.email_oauth_service import get_gmail_consent_url, get_outlook_consent_url
+    from services.email_oauth_service import get_gmail_consent_url, get_outlook_consent_url, settings as _oauth_settings
+
+    # Fail fast if OAuth credentials are not configured for the requested provider
+    if payload.provider == "gmail":
+        if not _oauth_settings.gmail_client_id or not _oauth_settings.gmail_client_secret:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Gmail connection is not yet configured. Please try bill upload instead.",
+            )
+    else:
+        if not _oauth_settings.outlook_client_id or not _oauth_settings.outlook_client_secret:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Outlook connection is not yet configured. Please try bill upload instead.",
+            )
 
     connection_id = str(uuid4())
 

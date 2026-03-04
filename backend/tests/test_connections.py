@@ -561,6 +561,36 @@ class TestCreateEmailConnection:
 
         assert response.status_code == 422
 
+    def test_create_email_connection_gmail_unconfigured(self, client):
+        """Gmail returns 503 when credentials are not configured."""
+        _install_auth()
+
+        with patch("services.email_oauth_service.settings") as mock_settings:
+            mock_settings.gmail_client_id = None
+            mock_settings.gmail_client_secret = None
+            response = client.post(
+                f"{BASE}/email",
+                json={"provider": "gmail", "consent_given": True},
+            )
+
+        assert response.status_code == 503
+        assert "not yet configured" in response.json()["detail"]
+
+    def test_create_email_connection_outlook_unconfigured(self, client):
+        """Outlook returns 503 when credentials are not configured."""
+        _install_auth()
+
+        with patch("services.email_oauth_service.settings") as mock_settings:
+            mock_settings.outlook_client_id = None
+            mock_settings.outlook_client_secret = None
+            response = client.post(
+                f"{BASE}/email",
+                json={"provider": "outlook", "consent_given": True},
+            )
+
+        assert response.status_code == 503
+        assert "not yet configured" in response.json()["detail"]
+
 
 # ===========================================================================
 # 5. Upload Stub

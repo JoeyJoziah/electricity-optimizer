@@ -265,31 +265,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    {/* Linked account info */}
-                    {linkedAccounts.length > 0 && (
-                      <div className="space-y-2">
-                        {linkedAccounts.map((account: LinkedAccountResponse) => (
-                          <div
-                            key={account.supplier_id}
-                            className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
-                          >
-                            <div>
-                              <span className="text-gray-500">Account: </span>
-                              <span className="font-mono">{account.account_number_masked || 'Linked'}</span>
-                              {account.account_nickname && (
-                                <span className="ml-2 text-gray-400">({account.account_nickname})</span>
-                              )}
-                            </div>
-                            <Badge variant="info" size="sm">
-                              <Link2 className="mr-1 h-3 w-3" />
-                              Linked
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Link account form */}
+                    {/* Link account form for current supplier */}
                     <SupplierAccountForm
                       supplierId={currentSupplier.id}
                       supplierName={currentSupplier.name}
@@ -325,6 +301,41 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Linked Accounts section - shows ALL linked accounts regardless of current supplier */}
+              {linkedAccounts.length > 0 && (
+                <div className="border-t border-gray-200 pt-4">
+                  <p className="font-medium text-gray-900">Linked Accounts</p>
+                  <p className="mb-3 text-sm text-gray-500">
+                    All your linked utility provider accounts
+                  </p>
+                  <div className="space-y-2">
+                    {linkedAccounts.map((account: LinkedAccountResponse) => (
+                      <div
+                        key={account.supplier_id}
+                        className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
+                      >
+                        <div>
+                          <span className="font-medium text-gray-900">{account.supplier_name}</span>
+                          {account.account_number_masked && (
+                            <>
+                              <span className="mx-2 text-gray-300">|</span>
+                              <span className="font-mono text-gray-600">{account.account_number_masked}</span>
+                            </>
+                          )}
+                          {account.account_nickname && (
+                            <span className="ml-2 text-gray-400">({account.account_nickname})</span>
+                          )}
+                        </div>
+                        <Badge variant="info" size="sm">
+                          <Link2 className="mr-1 h-3 w-3" />
+                          Linked
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

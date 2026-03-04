@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from pydantic import BaseModel
 from sqlalchemy import text
+import structlog
 
 from models.supplier import (
     SupplierResponse,
@@ -26,6 +27,8 @@ from models.utility import UtilityType
 from api.dependencies import get_db_session, get_redis, get_current_user_optional, SessionData
 from repositories.supplier_repository import SupplierRegistryRepository
 
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Suppliers"])
 
@@ -149,6 +152,18 @@ async def list_registry_suppliers(
         page_size=100,
     )
     api_suppliers = [s for s in suppliers_data if s.get("api_available")]
+
+    # Fallback: if no suppliers have api_available set, return all active suppliers
+    # so the dropdown is never empty. This handles the case where the migration
+    # to set api_available hasn't been run yet.
+    if not api_suppliers and suppliers_data:
+        logger.warning(
+            "supplier_registry_fallback",
+            msg="No suppliers with api_available=true found, falling back to all active suppliers",
+            total_active=len(suppliers_data),
+        )
+        api_suppliers = suppliers_data
+
     return {
         "suppliers": [
             {
