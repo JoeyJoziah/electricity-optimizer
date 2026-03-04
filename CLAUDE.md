@@ -81,6 +81,22 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Excluded**: 32 agents, 29 skills (consensus, federation, v3, Flow Nexus, SONA, hive-mind — internal or redundant)
 - **Rollback**: `~/.claude/integrations/agentic-flow-electricity-optimizer.json`
 
+## Multi-Repo Skill Integration (2026-03-04)
+
+- **Total**: 2,099 skills, 204 commands, 189 agents (2,492 entities)
+- **Sources**: 15 GitHub repos (7 curated + 7 vendor + 1 existing)
+- **Vendor skills** (37): Vercel (4), Better Auth (6), Neon (2), Stripe (2), Sentry (8), Trail of Bits (12), Cloudflare (3)
+- **Curated** (1,087): Antigravity bundles (ag-* prefix for 136 conflicts)
+- **App automations** (832): Composio (composio-* prefix)
+- **Commands** (23 new): hesreallyhim slash commands (acc-* prefix for 1 conflict)
+- **Routing optimizer**: `~/.claude/skills/skill-router/` — SKILL.md + registry.json + swarm-routes.json
+- **Priority**: vendor-first > project-specific > curated bundles > general
+- **Manifests**: `~/.claude/integrations/*.json` (10 files, one per source)
+- **Verify**: `~/.claude/scripts/verify-skills.sh`
+- **Rollback**: `~/.claude/scripts/rollback-integration.sh <manifest-name>`
+- **Namespace prefixes**: vercel-, better-auth-, sentry-, tob-, cf-, ag-, composio-, acc-
+- **Symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh
+
 ## Architecture Quick Reference
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
@@ -89,7 +105,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://electricity-optimizer.onrender.com` (server-side)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business)
-- **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills)
+- **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **Board Sync**: GitHub Projects #4 + Notion roadmap (auto-sync on edits)
 
 ## Critical Reminders
@@ -101,6 +117,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 5. **Region enum**: `backend/models/region.py` — all 50 states + DC + international, never raw strings
 6. **UUID PKs**: All primary keys use UUID type; GRANTs use `neondb_owner` role
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
+8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
 
 ## Autonomous Workflow (when Loki is driving)
 
