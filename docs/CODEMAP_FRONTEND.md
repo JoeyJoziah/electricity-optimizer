@@ -66,7 +66,6 @@ frontend/
     auth/
       LoginForm.tsx             # Login form (email blur validation, conditional OAuth, magic link toggle)
       SignupForm.tsx            # Signup form (password strength, conditional OAuth, email verification redirect)
-      logout-button.tsx         # Sign out trigger + redirect
     layout/
       Sidebar.tsx               # Main navigation sidebar (app pages only)
       Header.tsx                # Top header (logo, user menu, mobile toggle)

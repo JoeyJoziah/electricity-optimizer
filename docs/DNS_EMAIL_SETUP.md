@@ -137,17 +137,21 @@ You can also use https://mxtoolbox.com/SuperTool.aspx for a web-based check.
 ## Environment Variables
 
 Once the domain is verified, set these in your deployment environment
-(1Password vault: "Electricity Optimizer"):
+(Vercel Settings > Environment Variables and 1Password vault: "Electricity Optimizer"):
 
 ```
 RESEND_API_KEY=re_xxxxxxxxxxxx          # from https://resend.com/api-keys
 EMAIL_FROM_ADDRESS=Electricity Optimizer <noreply@electricity-optimizer.app>
 ```
 
-The `EMAIL_FROM_ADDRESS` value must use the verified domain. Using an
-unverified domain will cause Resend to reject all send requests.
+### Implementation Notes:
 
-See `frontend/.env.example` for the full environment variable reference.
+- `RESEND_API_KEY` is used by the backend (FastAPI) when sending emails via `resend.emails.send()`
+- `EMAIL_FROM_ADDRESS` is used by the frontend (Next.js) in `lib/email/send.ts` (defaults to the domain email if not set)
+- The `EMAIL_FROM_ADDRESS` value must use the verified domain — using an unverified domain will cause Resend to reject send requests
+- Store both secrets in 1Password ("Electricity Optimizer" vault) and set them as Vercel environment variables
+
+See `/frontend/.env.example` for reference, and `/backend/config/settings.py` for backend email configuration.
 
 ---
 
@@ -159,6 +163,8 @@ See `frontend/.env.example` for the full environment variable reference.
 - [ ] Return-path CNAME added if required by Resend for your account
 - [ ] DMARC TXT record added at `_dmarc` subdomain
 - [ ] Resend domain status shows **Verified**
-- [ ] `RESEND_API_KEY` set in production environment (Render + local `.env.local`)
-- [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <noreply@electricity-optimizer.app>`
+- [ ] `RESEND_API_KEY` set in Vercel (Settings > Environment Variables) and 1Password
+- [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <noreply@electricity-optimizer.app>` in Vercel
+- [ ] Both variables marked as available in Production, Preview, and Development environments
+- [ ] Frontend redeployed after setting variables
 - [ ] Test email sent and received successfully

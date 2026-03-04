@@ -128,8 +128,8 @@ The repository includes load, performance, and security tests under `tests/`. Se
 
 | Service  | Platform | URL |
 |----------|----------|-----|
-| Backend  | Render   | https://electricity-optimizer.onrender.com |
-| Frontend | Vercel   | — |
+| Backend  | Render   | https://electricity-optimizer-api.onrender.com |
+| Frontend | Vercel   | https://electricity-optimizer.vercel.app |
 | Database | Neon     | — |
 
 Configuration files:

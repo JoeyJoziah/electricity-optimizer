@@ -41,7 +41,7 @@ Auth: `none`=public, `jwt`=Bearer, `api-key`=X-API-Key header.
 |--------|------|------|---------|
 | GET | `/` | none | API metadata; hides `/docs` link in prod |
 | GET | `/health` | none | `{ status, version, environment, uptime_seconds, database_status }` |
-| GET | `/health/ready` | none | Checks Redis + TimescaleDB + Neon PostgreSQL; 503 if any fail |
+| GET | `/health/ready` | none | Checks Redis + Neon PostgreSQL; 503 if any fail |
 | GET | `/health/live` | none | `{ status: "alive" }` |
 | GET | `/metrics` | none | Prometheus ASGI sub-app |
 

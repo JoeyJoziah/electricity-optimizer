@@ -139,22 +139,22 @@ NEXT_PUBLIC_API_URL=
 ## Deployment Status
 
 ### Backend (Render.com Web Service)
-- Status: Pending
-- URL: Not deployed yet
+- Status: LIVE
+- URL: https://electricity-optimizer-api.onrender.com (srv-d649uhur433s73d557cg)
 - Services: FastAPI, Redis (via render.yaml)
 - Database: Neon PostgreSQL (serverless, external)
 
-### Frontend (Render.com Static Site)
-- Status: Pending
-- URL: Not deployed yet
+### Frontend (Vercel)
+- Status: LIVE
+- URL: https://electricity-optimizer.vercel.app
 - Framework: Next.js 14
 
 ### Cost Tracking
-- Render.com: $7/month (backend web service)
-- Render.com: $0/month (static site, free tier)
-- Neon PostgreSQL: $0/month (free tier, 0.5 GB)
-- Redis Cloud: $0/month (free tier via Render)
-- **Total**: $7-11/month
+- Render.com Backend: $10.50/month (web service, prod tier)
+- Vercel Frontend: $0-20/month (depends on usage)
+- Neon PostgreSQL: $0/month (free tier, 0.5 GB) or ~$19/month (Launch tier)
+- Redis/Upstash: ~$7/month (basic tier)
+- **Total**: ~$25-50/month (production)
 
 ---
 

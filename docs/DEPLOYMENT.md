@@ -396,7 +396,7 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 | Service | URL | Platform |
 |---------|-----|----------|
-| Backend API | https://electricity-optimizer.onrender.com | Render |
+| Backend API | https://electricity-optimizer-api.onrender.com | Render (srv-d649uhur433s73d557cg) |
 | Frontend | https://electricity-optimizer.vercel.app | Vercel |
 | Database | Neon PostgreSQL (holy-pine-81107663) | Neon |
 

@@ -14,7 +14,7 @@ The app uses **Better Auth** for authentication, which supports multiple social 
 - **Google OAuth** — Sign in with Google
 - **GitHub OAuth** — Sign in with GitHub
 
-Both providers are conditionally enabled: if their environment variables are set, they'll automatically appear in the UI. If missing, only email/password and magic link authentication will be available.
+Both providers are conditionally enabled: if their environment variables are set AND their visibility flags are enabled, they'll automatically appear in the UI. If missing, only email/password and magic link authentication will be available.
 
 ---
 
@@ -84,18 +84,29 @@ Save these securely. You'll need them in the next step.
      - **Environments:** Production, Preview, Development
 
 4. Click **Save** for each variable
-5. **Redeploy** the app for the changes to take effect:
+
+### Step 6: Enable OAuth Button Visibility
+
+1. Add one more environment variable in Vercel:
+   - **Name:** `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED`
+   - **Value:** `true`
+   - **Environments:** Production, Preview, Development
+2. Click **Save**
+
+### Step 7: Redeploy and Verify
+
+1. **Redeploy** the app for the changes to take effect:
    - Go to **Deployments**
    - Click the three dots next to the latest deployment
    - Select **Redeploy**
 
-### Step 6: Verify It Works
-
-1. Go to `https://electricity-optimizer.vercel.app`
-2. Click **Sign in** or **Sign up**
+2. Go to `https://electricity-optimizer.vercel.app/auth/login` (or `/auth/signup`)
 3. You should see a **"Continue with Google"** button
 4. Click it and follow the Google sign-in flow
-5. You'll be redirected back to the app and logged in
+5. You'll be redirected back to `https://electricity-optimizer.vercel.app/api/auth/callback/google`
+6. Upon successful verification, you'll be redirected to the dashboard
+
+**Note:** The OAuth button only appears if both credentials AND the `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED` flag are set.
 
 ---
 
@@ -139,18 +150,29 @@ Save these securely. You'll need them in the next step.
      - **Environments:** Production, Preview, Development
 
 4. Click **Save** for each variable
-5. **Redeploy** the app:
+
+### Step 4: Enable OAuth Button Visibility
+
+1. Add one more environment variable in Vercel:
+   - **Name:** `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED`
+   - **Value:** `true`
+   - **Environments:** Production, Preview, Development
+2. Click **Save**
+
+### Step 5: Redeploy and Verify
+
+1. **Redeploy** the app:
    - Go to **Deployments**
    - Click the three dots next to the latest deployment
    - Select **Redeploy**
 
-### Step 4: Verify It Works
-
-1. Go to `https://electricity-optimizer.vercel.app`
-2. Click **Sign in** or **Sign up**
+2. Go to `https://electricity-optimizer.vercel.app/auth/login` (or `/auth/signup`)
 3. You should see a **"Continue with GitHub"** button
 4. Click it and authorize the app
-5. You'll be redirected back to the app and logged in
+5. You'll be redirected back to `https://electricity-optimizer.vercel.app/api/auth/callback/github`
+6. Upon successful verification, you'll be redirected to the dashboard
+
+**Note:** The OAuth button only appears if both credentials AND the `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED` flag are set.
 
 ---
 
@@ -180,6 +202,8 @@ If you're running the app locally (`http://localhost:3000`), you need separate O
    GOOGLE_CLIENT_SECRET=your_local_google_client_secret
    GITHUB_CLIENT_ID=your_local_github_client_id
    GITHUB_CLIENT_SECRET=your_local_github_client_secret
+   NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=true
+   NEXT_PUBLIC_OAUTH_GITHUB_ENABLED=true
    ```
 
 3. Run the frontend:
@@ -194,14 +218,20 @@ If you're running the app locally (`http://localhost:3000`), you need separate O
 
 Below is the complete list of environment variables you need to set in Vercel:
 
+### Required for OAuth to work:
+
 | Variable Name | Description | Example |
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID | `123456789.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | `GOCSPX-...` |
 | `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | `Iv1.abc123def456` |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret | `abcd1234efgh5678ijkl` |
+| `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED` | Show Google button in UI | `true` |
+| `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED` | Show GitHub button in UI | `true` |
 
-**All four variables are optional** — the app will work with just email/password if they're not set. But both Google and GitHub will only appear in the UI if *both* their ID and Secret are configured.
+**All variables are optional** — the app will work with just email/password if they're not set. However:
+- The OAuth provider buttons will NOT appear unless BOTH the Client ID/Secret AND the `NEXT_PUBLIC_OAUTH_*_ENABLED` flag are set to `true`
+- The `NEXT_PUBLIC_*` prefix means these flags are sent to the browser (they only control UI visibility, not credentials)
 
 ---
 
@@ -226,14 +256,17 @@ Store all OAuth secrets securely in 1Password:
 
 ### "Continue with Google/GitHub" buttons don't appear
 
-**Cause:** Missing or misconfigured environment variables
+**Cause:** Missing or misconfigured environment variables OR the visibility flag is not enabled
 
 **Solution:**
 1. Go to Vercel **Settings** > **Environment Variables**
-2. Verify both the ID and Secret are set for the provider
-3. Verify they're available in the correct environments (Production, Preview, Development)
-4. Redeploy the app
-5. Hard refresh your browser (Ctrl+Shift+R or Cmd+Shift+R)
+2. Verify BOTH the ID and Secret are set for the provider
+3. Verify the `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED` or `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED` flag is set to `true`
+4. Verify all variables are available in the correct environments (Production, Preview, Development)
+5. Redeploy the app
+6. Hard refresh your browser (Ctrl+Shift+R or Cmd+Shift+R)
+
+**Note:** Even if credentials are configured, the buttons will not appear without the `NEXT_PUBLIC_OAUTH_*_ENABLED` flag.
 
 ### OAuth callback fails with "Redirect URI mismatch"
 

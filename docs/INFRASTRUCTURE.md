@@ -505,14 +505,13 @@ deploy:
 - `INTERNAL_API_KEY != JWT_SECRET` model validator: prevents key reuse between internal API auth and JWT signing
 - **Env var audit** (2026-03-03): 27 secrets reviewed — 27 PASS, 0 FAIL. Full report: `.swarm-reports/ENV_VAR_AUDIT_FINAL.md`
 
-**1Password Vault** ("Electricity Optimizer" — 22 items (including 3 stale kept-but-archived), 28 SecretsManager mappings):
+**1Password Vault** ("Electricity Optimizer" — 19 items listed, 27 mapped to SecretsManager):
 
 | Item | Category | Fields | Purpose |
 |------|----------|--------|---------|
 | Neon PostgreSQL | Login | `database_url` | DATABASE_URL connection string (ep-withered-morning endpoint) |
 | Redis Upstash | Login | `redis_url`, `redis_password` | Upstash Redis for caching, rate limiting, ensemble weights |
 | API Secrets | Login | `jwt_secret`, `internal_api_key` | JWT (internal validation only) + service-to-service API key |
-| Neon Auth | Login | `secret`, `url` | BETTER_AUTH_SECRET signing key + BETTER_AUTH_URL |
 | Stripe Keys | Login | `secret_key`, `webhook_secret`, `price_pro`, `price_business` | Stripe payment integration |
 | Pricing APIs | Login | `flatpeak`, `nrel`, `iea`, `eia` | API keys for FlatPeak, NREL, IEA, EIA pricing providers |
 | OpenWeatherMap | Login | `api_key` | Weather data API key (free tier: 1000 calls/day) |
@@ -530,7 +529,7 @@ deploy:
 | Resend | Login | `resend_api_key`, `email_from_address` | Transactional email service (backend + frontend auth emails) |
 | CORS and Redirects | Login | `allowed_origins`, `allowed_redirect_domains` | CORS origin whitelist and Stripe redirect domain config |
 
-**SecretsManager** (`backend/config/secrets.py`): 28 mappings (up from 27) covering all environment variables sourced from 1Password. Each mapping specifies the vault item, field name, and target env var.
+**SecretsManager** (`backend/config/secrets.py`): 27 mappings covering all environment variables sourced from 1Password. Each mapping specifies the vault item, field name, and target env var.
 
 **GitHub Actions Secrets** (required for adaptive learning workflows):
 - `INTERNAL_API_KEY` — same key as Render env var
