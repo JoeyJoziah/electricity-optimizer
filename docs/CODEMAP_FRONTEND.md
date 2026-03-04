@@ -396,6 +396,7 @@ interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>
 - OAuth buttons: Google + GitHub (conditionally rendered via `NEXT_PUBLIC_OAUTH_*_ENABLED` env vars)
 - Magic link toggle: `Sign in with magic link` / `Use password instead`
 - Password forgot link in labelRight
+- Error handling: "Email not verified" error includes "Resend verification email" link to `/auth/verify-email?email=...`
 - Error alert with animate-slideDown
 - Success state: "Check your email" card with checkmark icon
 - Loading spinner on submit button
@@ -526,6 +527,61 @@ Card (bg-white, shadow-card, rounded-xl, p-8)
 - No token: "Invalid reset link" error screen
 - Form: "Set new password" form
 - Success: "Password reset successful" confirmation
+
+#### VerifyEmailPage (`app/(app)/auth/verify-email/page.tsx`)
+
+**Email verification after signup and resend verification email flow.**
+
+**Two Modes:**
+1. **With token** (`?token=...`): Auto-verifies email via Better Auth, shows result (verifying → verified/failed)
+2. **Without token**: Shows "Check your email" prompt with resend option
+
+**Features:**
+- Automatic token verification on mount (single execution with `useRef` guard)
+- Better Auth error handling: checks `result?.error` (returns `{data, error}` instead of throwing)
+- Resend verification email: email input field (if no email param) + submit button
+- Error handling: `result?.error` from Better Auth + try/catch for exceptions
+- Success feedback: Green confirmation banner "Verification email sent!"
+- Pre-filled email: `?email=...` query param auto-fills resend form
+- States: `verifying`, `verified`, `verifyError`, `resending`, `resent`, `resendError`
+
+**Token Verification Flow:**
+1. Page mounts with `?token=...` query param
+2. Immediately calls `authClient.verifyEmail({ query: { token } })`
+3. Returns `{ data, error }` — check `result?.error` for failures
+4. On success: Redirect to `/auth/login` (user auto-signed in)
+5. On error: Show error message + offer new verification link
+
+**Resend Flow:**
+1. User lands on `/auth/verify-email?email=user@example.com`
+2. Email address pre-filled (from signup form)
+3. Clicks "Resend verification email" button
+4. Calls `authClient.sendVerificationEmail({ email: resendEmail })`
+5. Returns `{ data, error }` — check `result?.error` for failures
+6. On success: Show green banner "Verification email sent!"
+7. On error: Show red banner with error message
+
+**UI States:**
+```
+With token:
+  ├─ Verifying: Spinner + "Verifying your email..."
+  ├─ Verified: Green checkmark + "Email verified" + "Go to sign in" link
+  └─ Failed: Red X + "Verification failed" + error message + "Request a new verification email" link
+
+Without token (default):
+  ├─ Check email: Email icon + message + resend button
+  ├─ Email input: Only shown if no email param
+  ├─ Error state: Red banner with error (both result?.error and exceptions)
+  └─ Success state: Green banner "Verification email sent!"
+```
+
+**Logging:**
+- `[VerifyEmail] verifyEmail error: ...` when `result?.error` returned
+- `[VerifyEmail] verifyEmail exception: ...` when exception caught
+- `[VerifyEmail] sendVerificationEmail error: ...` when `result?.error` returned
+- `[VerifyEmail] sendVerificationEmail exception: ...` when exception caught
+
+**Tests:** 19 tests covering token verification (success/error/exception), resend flow (success/error/exception), error displays, re-render guard
 
 ---
 
@@ -797,7 +853,7 @@ const { data, isLoading, error } = useQuery({
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1398 tests across 95 suites
+- **Coverage:** 1401 tests across 95 suites
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
@@ -1024,10 +1080,10 @@ RESEND_API_KEY=re_xxxxxxxxxxxx          # For email verification, magic link, pa
 - **Total Pages:** 19 (root + (app) + (dev) + auth routes)
 - **Total Layouts:** 3 (root, app, dev, auth)
 - **Total Components:** 50+ (UI + feature-specific)
-- **Total Tests:** 1398 across 95 suites
+- **Total Tests:** 1401 across 95 suites
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
-- **Total Test Coverage:** 3,383+ tests (frontend + backend + ML + E2E)
+- **Total Test Coverage:** 3,386+ tests (frontend + backend + ML + E2E)
 
 ---
 
@@ -1071,6 +1127,45 @@ RESEND_API_KEY=re_xxxxxxxxxxxx          # For email verification, magic link, pa
    - Updated: `LoginForm.test.tsx` (conditional OAuth, magic link failure)
    - Updated: `SignupForm.test.tsx` (conditional OAuth)
    - Frontend total: 1,385 → 1,398 tests
+
+### Email Verification Fix (Commit fd13207, 2026-03-04)
+
+**Problem:** VerifyEmailPage and LoginForm assumed Better Auth methods throw on error, but they return `{data, error}` instead.
+
+**Solutions:**
+
+1. **VerifyEmailPage (`app/(app)/auth/verify-email/page.tsx`)**
+   - Fixed token verification: now checks `result?.error` from `authClient.verifyEmail()`
+   - Fixed resend flow: now checks `result?.error` from `authClient.sendVerificationEmail()`
+   - Added separate `verifyError` and `resendError` states for distinct error messages
+   - Added red error banner for resend failures (matches send success green banner)
+   - Added logging: `[VerifyEmail] verifyEmail error/exception`, `[VerifyEmail] sendVerificationEmail error/exception`
+   - Exception handling: try/catch as fallback (logs and shows user message)
+   - Tests: 19 tests covering 3 token scenarios (success, error return, exception throw) + 3 resend scenarios
+
+2. **LoginForm (`components/auth/LoginForm.tsx`)**
+   - Added "Resend verification email" link in error message for "Email not verified" errors
+   - Link points to `/auth/verify-email?email=...` (pre-fills email in resend form)
+   - Enables faster re-verification without manual email entry
+
+3. **Email Service Logging (`frontend/lib/email/send.ts`)**
+   - Added structured logging before send: `[Email] Sending to=... subject=... from=...`
+   - Added logging after successful send: `[Email] Sent successfully id=...`
+   - Helps diagnose email delivery failures
+
+4. **Auth Server Logging (`frontend/lib/auth/server.ts`)**
+   - Added logging in `sendVerificationEmail` callback: `[Auth] sendVerificationEmail called for user=... url=...`
+   - Tracks when verification emails are triggered (signup, resend, etc.)
+
+**Tests Added:**
+   - `__tests__/pages/auth-verify-email.test.tsx`: 19 tests
+     - Token verification: success, error return, exception throw (3 tests)
+     - Resend flow: success, error return, exception throw (3 tests)
+     - Error display: verification failed, resend failed (2 tests)
+     - UI states: check email screen, resent confirmation (2 tests)
+     - Form behavior: pre-filled email, empty email disables button (2 tests)
+     - Re-render guard: useRef prevents double-verify in StrictMode (1 test)
+   - Frontend total: 1,398 → 1,417 tests
 
 ### UI/UX Overhaul (Commit b3cdf76, 2026-03-03)
 
@@ -1242,5 +1337,5 @@ const confirmPasswordMatch = Boolean(confirmPassword && password === confirmPass
 ---
 
 **Last Reviewed:** 2026-03-04 by documentation engineer
-**Status:** Current with auth system fix and all recent changes
-**Test Coverage:** 1398 tests (frontend), 3,383 total (all layers)
+**Status:** Current with email verification fix and all recent changes
+**Test Coverage:** 1401 tests (frontend), 3,386 total (all layers)

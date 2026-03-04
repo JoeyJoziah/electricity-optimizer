@@ -3,10 +3,10 @@
 **Last Updated**: 2026-03-04
 **Overall Test Coverage**: 82%+
 **Backend Tests**: 1374 passed, 2 skipped (pytest, 57 test files)
-**Frontend Tests**: 1398 across 95 suites (Jest)
+**Frontend Tests**: 1401 across 95 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: 3,383+ tests passing
+**Total**: 3,386+ tests passing
 
 ---
 
@@ -15,7 +15,7 @@
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
 | **Backend Unit/Integration** | 1374 passed, 2 skipped | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1398 (95 suites) | 78%+ | Jest + RTL |
+| **Frontend Component + Lib Tests** | 1401 (95 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
 | **E2E Tests** | 634 passed, 5 skipped | Critical flows | Playwright |
@@ -158,7 +158,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1398 tests across 95 suites (up from 1385/94 after auth system fix)
+**Count**: 1401 tests across 95 suites (up from 1385/94 after auth system fix)
 **Coverage Target**: 78%+
 
 **Accessibility Testing**: 51 tests using `jest-axe` for automated WCAG 2.1 AA compliance checks. Tests are located in `__tests__/a11y/` and cover color contrast, ARIA attributes, keyboard navigation, focus management, and semantic HTML across all major components.

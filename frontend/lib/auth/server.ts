@@ -54,6 +54,7 @@ function createAuth() {
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
+        console.log(`[Auth] sendVerificationEmail called for user=${user.email} url=${url}`)
         await sendEmail({
           to: user.email,
           subject: "Verify your email — Electricity Optimizer",

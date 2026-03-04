@@ -39,7 +39,7 @@ describe('VerifyEmailPage — no token (check email screen)', () => {
     mockToken = null
     mockEmail = null
     jest.clearAllMocks()
-    mockSendVerificationEmail.mockResolvedValue(undefined)
+    mockSendVerificationEmail.mockResolvedValue({ data: {} })
   })
 
   it('renders check your email heading', () => {
@@ -99,6 +99,32 @@ describe('VerifyEmailPage — no token (check email screen)', () => {
     const button = screen.getByRole('button', { name: /resend verification email/i })
     expect(button).toBeDisabled()
   })
+
+  it('shows error message when sendVerificationEmail returns error', async () => {
+    mockEmail = 'user@example.com'
+    mockSendVerificationEmail.mockResolvedValue({ error: { message: 'User not found' } })
+    const user = userEvent.setup()
+    render(<VerifyEmailPage />)
+
+    await user.click(screen.getByRole('button', { name: /resend verification email/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/unable to send verification email/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows error message when sendVerificationEmail throws', async () => {
+    mockEmail = 'user@example.com'
+    mockSendVerificationEmail.mockRejectedValue(new Error('Network error'))
+    const user = userEvent.setup()
+    render(<VerifyEmailPage />)
+
+    await user.click(screen.getByRole('button', { name: /resend verification email/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/unable to send verification email/i)).toBeInTheDocument()
+    })
+  })
 })
 
 describe('VerifyEmailPage — with valid token', () => {
@@ -115,7 +141,7 @@ describe('VerifyEmailPage — with valid token', () => {
   })
 
   it('calls authClient.verifyEmail with the token', async () => {
-    mockVerifyEmail.mockResolvedValue(undefined)
+    mockVerifyEmail.mockResolvedValue({ data: {} })
     render(<VerifyEmailPage />)
 
     await waitFor(() => {
@@ -124,7 +150,7 @@ describe('VerifyEmailPage — with valid token', () => {
   })
 
   it('shows email verified success state after verification', async () => {
-    mockVerifyEmail.mockResolvedValue(undefined)
+    mockVerifyEmail.mockResolvedValue({ data: {} })
     render(<VerifyEmailPage />)
 
     await waitFor(() => {
@@ -133,7 +159,7 @@ describe('VerifyEmailPage — with valid token', () => {
   })
 
   it('shows go to sign in link after verification', async () => {
-    mockVerifyEmail.mockResolvedValue(undefined)
+    mockVerifyEmail.mockResolvedValue({ data: {} })
     render(<VerifyEmailPage />)
 
     await waitFor(() => {
@@ -178,8 +204,18 @@ describe('VerifyEmailPage — with invalid token', () => {
     })
   })
 
+  it('shows error when verifyEmail returns error object', async () => {
+    mockVerifyEmail.mockResolvedValue({ error: { message: 'Token expired' } })
+    render(<VerifyEmailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /verification failed/i })).toBeInTheDocument()
+      expect(screen.getByText(/token expired/i)).toBeInTheDocument()
+    })
+  })
+
   it('only calls verifyEmail once even in StrictMode double-render', async () => {
-    mockVerifyEmail.mockResolvedValue(undefined)
+    mockVerifyEmail.mockResolvedValue({ data: {} })
     render(<VerifyEmailPage />)
 
     await waitFor(() => {

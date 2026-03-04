@@ -29,6 +29,7 @@ function VerifyEmailContent() {
   const [verifyError, setVerifyError] = useState('')
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
+  const [resendError, setResendError] = useState('')
   const [resendEmail, setResendEmail] = useState(emailParam)
 
   // Verify the token automatically on mount (only once)
@@ -41,8 +42,14 @@ function VerifyEmailContent() {
       try {
         // Better Auth verifyEmail is a GET with query params
         // Maps to GET /api/auth/verify-email?token=...
-        await authClient.verifyEmail({ query: { token } })
-        setVerified(true)
+        // Returns { data, error } instead of throwing
+        const result = await authClient.verifyEmail({ query: { token } })
+        if (result?.error) {
+          console.error('[VerifyEmail] verifyEmail error:', result.error)
+          setVerifyError(result.error.message || 'Verification failed. The link may have expired.')
+        } else {
+          setVerified(true)
+        }
       } catch (err: unknown) {
         const message =
           err instanceof Error
@@ -60,12 +67,20 @@ function VerifyEmailContent() {
   const handleResend = async () => {
     if (!resendEmail) return
     setResending(true)
+    setResendError('')
     try {
       // Maps to POST /api/auth/send-verification-email
-      await authClient.sendVerificationEmail({ email: resendEmail })
-      setResent(true)
-    } catch {
-      // Silent fail -- don't reveal whether the email exists
+      // Better Auth returns { data, error } instead of throwing
+      const result = await authClient.sendVerificationEmail({ email: resendEmail })
+      if (result?.error) {
+        console.error('[VerifyEmail] sendVerificationEmail error:', result.error)
+        setResendError('Unable to send verification email. Please try again.')
+      } else {
+        setResent(true)
+      }
+    } catch (err) {
+      console.error('[VerifyEmail] sendVerificationEmail exception:', err)
+      setResendError('Unable to send verification email. Please try again.')
     } finally {
       setResending(false)
     }
@@ -195,6 +210,11 @@ function VerifyEmailContent() {
 
             <div className="mt-6 space-y-3">
               {/* Resend section */}
+              {resendError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-700">{resendError}</p>
+                </div>
+              )}
               {!resent ? (
                 <>
                   {!emailParam && (

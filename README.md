@@ -22,7 +22,7 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 | Frontend       | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts      |
 | Database       | Neon PostgreSQL (serverless)                                   |
 | ML / Data      | TensorFlow, XGBoost, PuLP, scikit-learn                       |
-| Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies, Resend email with verification resend on login error |
+| Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies, Resend email with verification resend on login error, client error handling fixed for proper {data, error} checking |
 | Payments       | Stripe (checkout, webhooks, customer portal)                   |
 | Infrastructure | Docker, Prometheus, Grafana                                    |
 | CI/CD          | GitHub Actions (Python 3.11, Node 20)                          |
@@ -92,7 +92,7 @@ pytest tests/ -v
 
 > **Important:** Always use the project venv at `.venv/`. System Python is missing required dependencies (fastapi, httpx, pydantic, pytest-asyncio).
 
-### Frontend (1,398 tests, 95 suites)
+### Frontend (1,401 tests, 95 suites)
 
 ```bash
 cd frontend
@@ -118,7 +118,7 @@ npx playwright test
 npx playwright test --ui  # Interactive mode
 ```
 
-> **Total test count:** 3,383+ across all suites (1,374 backend + 1,398 frontend + 611 ML + 634 E2E).
+> **Total test count:** 3,386+ across all suites (1,374 backend + 1,401 frontend + 611 ML + 634 E2E).
 
 ### Additional Test Suites
 
