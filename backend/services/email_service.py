@@ -1,7 +1,7 @@
 """
 Email Service
 
-Provides email sending with SendGrid as primary and SMTP as fallback.
+Provides email sending with Resend as primary and SMTP as fallback.
 Includes Jinja2 template rendering for HTML emails.
 """
 
@@ -18,7 +18,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "..", "templates", "emai
 
 class EmailService:
     """
-    Email service with SendGrid primary and SMTP fallback.
+    Email service with Resend primary and SMTP fallback.
 
     Usage:
         service = EmailService()
@@ -48,12 +48,12 @@ class EmailService:
         text_body: Optional[str] = None,
     ) -> bool:
         """
-        Send an email. Tries SendGrid first, falls back to SMTP.
+        Send an email. Tries Resend first, falls back to SMTP.
 
         Returns True on success, False on failure.
         """
-        if self._settings.sendgrid_api_key:
-            if await self._send_via_sendgrid(to, subject, html_body, text_body):
+        if self._settings.resend_api_key:
+            if await self._send_via_resend(to, subject, html_body, text_body):
                 return True
 
         if self._settings.smtp_host:
@@ -64,48 +64,46 @@ class EmailService:
             "email_send_no_provider",
             to=to,
             subject=subject,
-            message="No email provider configured (set SENDGRID_API_KEY or SMTP_HOST)",
+            message="No email provider configured (set RESEND_API_KEY or SMTP_HOST)",
         )
         return False
 
-    async def _send_via_sendgrid(
+    async def _send_via_resend(
         self,
         to: str,
         subject: str,
         html_body: str,
         text_body: Optional[str] = None,
     ) -> bool:
-        """Send email via SendGrid API."""
+        """Send email via Resend API."""
         try:
-            from sendgrid import SendGridAPIClient
-            from sendgrid.helpers.mail import Mail, Email, To, Content
+            import resend
 
-            message = Mail(
-                from_email=Email(
-                    self._settings.email_from_address,
-                    self._settings.email_from_name,
-                ),
-                to_emails=To(to),
-                subject=subject,
-                html_content=Content("text/html", html_body),
-            )
+            resend.api_key = self._settings.resend_api_key
+
+            from_address = f"{self._settings.email_from_name} <{self._settings.email_from_address}>"
+
+            params = {
+                "from": from_address,
+                "to": [to],
+                "subject": subject,
+                "html": html_body,
+            }
 
             if text_body:
-                message.add_content(Content("text/plain", text_body))
+                params["text"] = text_body
 
-            sg = SendGridAPIClient(self._settings.sendgrid_api_key)
-            response = sg.send(message)
+            resend.Emails.send(params)
 
             logger.info(
-                "email_sent_sendgrid",
+                "email_sent_resend",
                 to=to,
                 subject=subject,
-                status_code=response.status_code,
             )
             return True
 
         except Exception as e:
-            logger.error("email_sendgrid_failed", to=to, error=str(e))
+            logger.error("email_resend_failed", to=to, error=str(e))
             return False
 
     async def _send_via_smtp(

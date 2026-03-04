@@ -45,13 +45,16 @@ Obtain API keys from the following providers:
 - EIA API (US energy data — gas, oil, propane)
 
 ```
-# Email Service (SendGrid primary, SMTP fallback)
-SENDGRID_API_KEY=          # SendGrid API key for welcome emails
+# Email Service — Backend (Resend primary, SMTP fallback)
+RESEND_API_KEY=            # Resend API key for transactional emails
 SMTP_HOST=                 # SMTP server hostname (fallback)
 SMTP_PORT=587              # SMTP port (fallback)
 SMTP_USERNAME=             # SMTP username (fallback)
 SMTP_PASSWORD=             # SMTP password (fallback)
 EMAIL_FROM_ADDRESS=noreply@electricity-optimizer.app
+
+# Email Service — Frontend (Resend for auth emails)
+RESEND_API_KEY=            # Resend API key for email verification, magic links, password reset
 
 # ML Model Path
 MODEL_PATH=                # Path to trained model directory (optional)
@@ -114,7 +117,7 @@ make health
 | Backend API | http://localhost:8000 | - |
 | API Docs | http://localhost:8000/docs | Dev only (disabled in production) |
 
-> **Note:** The backend includes a live email service at `backend/services/email_service.py` that handles welcome and notification emails via SendGrid (with SMTP fallback). Ensure the email environment variables above are configured before using email features.
+> **Note:** The backend includes a live email service at `backend/services/email_service.py` that handles welcome and notification emails via Resend (with SMTP fallback). Ensure the email environment variables above are configured before using email features.
 
 ### Development Workflow
 
@@ -414,7 +417,7 @@ The backend service has **26 env vars** on Render, all mapped to 1Password via `
 - **Auth**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
 - **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
 - **APIs**: `NREL_API_KEY`, `EIA_API_KEY`, `FLATPEAK_API_KEY`
-- **Email**: `SENDGRID_API_KEY`, SMTP fallback vars
+- **Email**: `RESEND_API_KEY`, SMTP fallback vars
 - **Security**: `INTERNAL_API_KEY`, `FIELD_ENCRYPTION_KEY`, `GITHUB_WEBHOOK_SECRET`
 - **OAuth**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
 - **Services**: `REDIS_URL`, `UTILITYAPI_TOKEN`, `OPENWEATHERMAP_API_KEY`

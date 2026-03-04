@@ -55,7 +55,7 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-semibold text-gray-900 mt-8">5. Third-Party Services</h2>
           <p className="mt-3 text-gray-600">
             We use the following third-party services: NREL for electricity price data,
-            OpenWeatherMap for weather data, Stripe for payment processing, and SendGrid
+            OpenWeatherMap for weather data, Stripe for payment processing, and Resend
             for email notifications. Each service has its own privacy policy.
           </p>
 

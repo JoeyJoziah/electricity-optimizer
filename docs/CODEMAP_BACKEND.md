@@ -77,7 +77,7 @@ backend/
 │   ├── analytics_service.py         # Trends, volatility, peak hours, supplier comparison
 │   ├── recommendation_service.py    # Switching + usage recommendations
 │   ├── alert_service.py             # Price threshold alerts + email notifications
-│   ├── email_service.py             # SendGrid (primary) + SMTP (fallback) + Jinja2
+│   ├── email_service.py             # Resend (primary) + SMTP (fallback) + Jinja2
 │   ├── stripe_service.py            # Checkout, portal, subscriptions, webhooks
 │   ├── vector_store.py              # SQLite-backed vector store for price pattern matching
 │   ├── hnsw_vector_store.py         # HNSW-indexed wrapper (O(log n) ANN, fallback); get_vector_store_singleton()
@@ -159,7 +159,7 @@ backend/
     ├── test_api_user.py             # User preference endpoint tests
     ├── test_auth.py                 # Authentication tests
     ├── test_config.py               # Settings validation tests
-    ├── test_email_service.py        # Email service tests (SendGrid + SMTP)
+    ├── test_email_service.py        # Email service tests (Resend + SMTP)
     ├── test_models.py               # Pydantic model tests
     ├── test_services.py             # Service layer tests
     ├── test_repositories.py         # Repository tests
@@ -472,7 +472,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 | Redis | `redis_url`, `redis_password` |
 | Auth | `jwt_secret` (used only for internal API key validation), `jwt_algorithm` (HS256). User auth via Neon Auth sessions. `field_encryption_key` (32-byte hex, validates via @field_validator). `better_auth_secret` (32+ chars in production, validated via @field_validator) |
 | API keys | `internal_api_key`, `flatpeak_api_key`, `nrel_api_key`, `iea_api_key`, `eia_api_key`, `openweathermap_api_key` |
-| Email | `sendgrid_api_key`, `smtp_host/port/username/password`, `email_from_address/name` |
+| Email | `resend_api_key`, `smtp_host/port/username/password`, `email_from_address/name` |
 | Stripe | `stripe_secret_key`, `stripe_webhook_secret`, `stripe_price_pro`, `stripe_price_business` |
 | ML | `model_path`, `model_forecast_hours` (24), `model_accuracy_threshold_mape` (10.0) |
 | GDPR | `data_retention_days` (730), `consent_required`, `data_residency` |
@@ -486,7 +486,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 
 `SecretsManager` with 27 `SECRET_MAPPINGS` (up from 17) mapping 1Password item/field pairs to env vars. In production, secrets are fetched from 1Password vault "Electricity Optimizer" (`OP_VAULT`); in dev, falls back to env vars.
 
-**New mappings (added in env var audit):** `sendgrid_api_key`, `google_client_id`, `google_client_secret`, `github_client_id`, `github_client_secret`, `gmail_client_id`, `gmail_client_secret`, `outlook_client_id`, `outlook_client_secret`, `redis_url`.
+**New mappings (added in env var audit):** `resend_api_key`, `google_client_id`, `google_client_secret`, `github_client_id`, `github_client_secret`, `gmail_client_id`, `gmail_client_secret`, `outlook_client_id`, `outlook_client_secret`, `redis_url`.
 
 **Renamed:** `postgres_password` → `database_url` (full connection string instead of password-only).
 
@@ -651,7 +651,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | `AnalyticsService` | PriceRepository, Redis | Trends, volatility, peak hours, supplier comparison (cache=redis wired in dependencies.py) |
 | `RecommendationService` | PriceService, UserRepository, HNSWVectorStore | Switching + usage recommendations (with pattern-based confidence adjustment) |
 | `AlertService` | EmailService | Threshold checking + alert emails |
-| `EmailService` | Settings | SendGrid primary, SMTP fallback, Jinja2 templates |
+| `EmailService` | Settings | Resend primary, SMTP fallback, Jinja2 templates |
 | `StripeService` | Settings | Checkout, portal, subscriptions, webhooks |
 | `VectorStore` | SQLite, numpy | Price pattern matching, optimization caching |
 | `HNSWVectorStore` | VectorStore, hnswlib | HNSW-accelerated vector search (wraps VectorStore) |
@@ -794,7 +794,7 @@ disables `tr_prevent_deletion_log_update` trigger for schema backfill operations
 | redis[hiredis] | 5.0.1 | Redis client |
 | stripe | >=7.0,<8.0 | Payment processing |
 | PyJWT | >=2.8,<3.0 | JWT tokens |
-| sendgrid | >=6.0,<7.0 | Email (primary) |
+| resend | >=2.0,<3.0 | Email (primary) |
 | aiosmtplib | >=3.0,<4.0 | Email (fallback) |
 | jinja2 | >=3.0 | Email templates |
 | structlog | 24.1.0 | Structured logging |

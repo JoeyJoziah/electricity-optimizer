@@ -2,7 +2,7 @@
 Tests for the Email Service (backend/services/email_service.py)
 
 Tests cover:
-- SendGrid sending path
+- Resend sending path
 - SMTP fallback chain
 - Template rendering
 - Error handling and fallback behavior
@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _make_service(
-    sendgrid_api_key=None,
+    resend_api_key=None,
     smtp_host=None,
     smtp_port=587,
     smtp_username="user",
@@ -26,7 +26,7 @@ def _make_service(
 
     service = object.__new__(EmailService)
     mock_settings = MagicMock()
-    mock_settings.sendgrid_api_key = sendgrid_api_key
+    mock_settings.resend_api_key = resend_api_key
     mock_settings.smtp_host = smtp_host
     mock_settings.smtp_port = smtp_port
     mock_settings.smtp_username = smtp_username
@@ -78,19 +78,19 @@ class TestTemplateRendering:
 
 
 # =============================================================================
-# SENDGRID PATH
+# RESEND PATH
 # =============================================================================
 
 
-class TestSendGridPath:
-    """Tests for the SendGrid code path in EmailService.send()."""
+class TestResendPath:
+    """Tests for the Resend code path in EmailService.send()."""
 
     @pytest.mark.asyncio
-    async def test_sendgrid_success(self):
-        """When SendGrid is configured and succeeds, send() returns True."""
-        service = _make_service(sendgrid_api_key="SG.test-key")
+    async def test_resend_success(self):
+        """When Resend is configured and succeeds, send() returns True."""
+        service = _make_service(resend_api_key="re_test-key")
 
-        with patch.object(service, "_send_via_sendgrid", return_value=True):
+        with patch.object(service, "_send_via_resend", return_value=True):
             result = await service.send(
                 to="user@example.com",
                 subject="Test",
@@ -99,11 +99,11 @@ class TestSendGridPath:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_sendgrid_failure_falls_back_to_smtp(self):
-        """When SendGrid fails and SMTP is configured, SMTP should be tried."""
-        service = _make_service(sendgrid_api_key="SG.test-key", smtp_host="smtp.test.com")
+    async def test_resend_failure_falls_back_to_smtp(self):
+        """When Resend fails and SMTP is configured, SMTP should be tried."""
+        service = _make_service(resend_api_key="re_test-key", smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_sendgrid", return_value=False), \
+        with patch.object(service, "_send_via_resend", return_value=False), \
              patch.object(service, "_send_via_smtp", return_value=True) as mock_smtp:
             result = await service.send(
                 to="user@example.com",
@@ -114,11 +114,11 @@ class TestSendGridPath:
         mock_smtp.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_sendgrid_not_configured_skips(self):
-        """When SendGrid is not configured, _send_via_sendgrid should not be called."""
-        service = _make_service(sendgrid_api_key=None, smtp_host="smtp.test.com")
+    async def test_resend_not_configured_skips(self):
+        """When Resend is not configured, _send_via_resend should not be called."""
+        service = _make_service(resend_api_key=None, smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_sendgrid") as mock_sg, \
+        with patch.object(service, "_send_via_resend") as mock_resend, \
              patch.object(service, "_send_via_smtp", return_value=True):
             result = await service.send(
                 to="user@example.com",
@@ -126,7 +126,7 @@ class TestSendGridPath:
                 html_body="<p>Hello</p>",
             )
         assert result is True
-        mock_sg.assert_not_called()
+        mock_resend.assert_not_called()
 
 
 # =============================================================================
@@ -174,8 +174,8 @@ class TestNoProvider:
 
     @pytest.mark.asyncio
     async def test_no_provider_returns_false(self):
-        """When neither SendGrid nor SMTP is configured, send() returns False."""
-        service = _make_service(sendgrid_api_key=None, smtp_host=None)
+        """When neither Resend nor SMTP is configured, send() returns False."""
+        service = _make_service(resend_api_key=None, smtp_host=None)
 
         result = await service.send(
             to="user@example.com",
@@ -194,14 +194,16 @@ class TestErrorHandling:
     """Tests for error handling in email sending."""
 
     @pytest.mark.asyncio
-    async def test_sendgrid_internal_exception_returns_false(self):
-        """_send_via_sendgrid should catch exceptions and return False."""
-        service = _make_service(sendgrid_api_key="SG.key")
+    async def test_resend_internal_exception_returns_false(self):
+        """_send_via_resend should catch exceptions and return False."""
+        service = _make_service(resend_api_key="re_key")
 
-        # Patch the sendgrid import inside _send_via_sendgrid to raise
-        with patch.dict("sys.modules", {"sendgrid": MagicMock(side_effect=Exception("import fail"))}):
-            # _send_via_sendgrid has its own try/except that returns False
-            result = await service._send_via_sendgrid(
+        # Patch the resend module so Emails.send raises
+        mock_resend = MagicMock()
+        mock_resend.Emails.send.side_effect = Exception("Resend API error")
+        with patch.dict("sys.modules", {"resend": mock_resend}):
+            # _send_via_resend has its own try/except that returns False
+            result = await service._send_via_resend(
                 to="user@example.com",
                 subject="Test",
                 html_body="<p>Hello</p>",
@@ -210,10 +212,10 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_both_providers_fail_returns_false(self):
-        """When both SendGrid and SMTP fail, send() returns False."""
-        service = _make_service(sendgrid_api_key="SG.key", smtp_host="smtp.test.com")
+        """When both Resend and SMTP fail, send() returns False."""
+        service = _make_service(resend_api_key="re_key", smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_sendgrid", return_value=False), \
+        with patch.object(service, "_send_via_resend", return_value=False), \
              patch.object(service, "_send_via_smtp", return_value=False):
             result = await service.send(
                 to="user@example.com",

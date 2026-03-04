@@ -58,7 +58,7 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(page.getByText('Smart schedule optimization')).toBeVisible()
     await expect(page.getByText('Weather-aware predictions')).toBeVisible()
     await expect(page.getByText('Historical price data')).toBeVisible()
-    await expect(page.getByText('Email notifications via SendGrid')).toBeVisible()
+    await expect(page.getByText('Email notifications')).toBeVisible()
     await expect(page.getByText('Savings tracker & gamification')).toBeVisible()
   })
 

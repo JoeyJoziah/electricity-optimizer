@@ -37,7 +37,7 @@ const tiers = [
       'Smart schedule optimization',
       'Weather-aware predictions',
       'Historical price data',
-      'Email notifications via SendGrid',
+      'Email notifications',
       'Savings tracker & gamification',
     ],
     limitations: [],

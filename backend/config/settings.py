@@ -85,8 +85,8 @@ class Settings(BaseSettings):
     model_retrain_interval_days: int = Field(default=7, validation_alias="MODEL_RETRAIN_INTERVAL_DAYS")
     model_accuracy_threshold_mape: float = Field(default=10.0, validation_alias="MODEL_ACCURACY_THRESHOLD_MAPE")
 
-    # Email - SendGrid (primary)
-    sendgrid_api_key: Optional[str] = Field(default=None, validation_alias="SENDGRID_API_KEY")
+    # Email - Resend (primary)
+    resend_api_key: Optional[str] = Field(default=None, validation_alias="RESEND_API_KEY")
     # Email - SMTP (fallback)
     smtp_host: Optional[str] = Field(default=None, validation_alias="SMTP_HOST")
     smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")

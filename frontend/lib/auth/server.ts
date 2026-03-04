@@ -10,8 +10,10 @@
  */
 
 import { betterAuth } from "better-auth"
+import { magicLink } from "better-auth/plugins/magic-link"
 import { Pool } from "@neondatabase/serverless"
 import { APP_URL } from "@/lib/config/env"
+import { sendEmail } from "@/lib/email/send"
 
 function buildConnectionString(): string {
   const baseUrl = process.env.DATABASE_URL || ""
@@ -29,12 +31,49 @@ function createAuth() {
   return betterAuth({
     database: new Pool({ connectionString }),
 
+    // Explicit secret for token signing (Better Auth reads BETTER_AUTH_SECRET by default)
+    secret: process.env.BETTER_AUTH_SECRET,
+
     // Email + password authentication
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 12,
       requireEmailVerification: true,
+      sendResetPassword: async ({ user, url }) => {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your password — Electricity Optimizer",
+          html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Click the link below to reset your password:</p><p><a href="${url}">Reset password</a></p><p>If you didn&apos;t request this, you can safely ignore this email.</p>`,
+        })
+      },
     },
+
+    // Email verification — sends on signup
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendEmail({
+          to: user.email,
+          subject: "Verify your email — Electricity Optimizer",
+          html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Welcome to Electricity Optimizer! Please verify your email by clicking the link below:</p><p><a href="${url}">Verify email</a></p><p>This link will expire in 24 hours.</p>`,
+        })
+      },
+    },
+
+    // Plugins
+    plugins: [
+      magicLink({
+        sendMagicLink: async ({ email, url }) => {
+          await sendEmail({
+            to: email,
+            subject: "Your sign-in link — Electricity Optimizer",
+            html: `<p>Click the link below to sign in to Electricity Optimizer:</p><p><a href="${url}">Sign in</a></p><p>This link expires in 5 minutes. If you didn&apos;t request this, you can safely ignore this email.</p>`,
+          })
+        },
+        expiresIn: 300, // 5 minutes
+      }),
+    ],
 
     // Social providers — enabled when env vars are present
     socialProviders: {

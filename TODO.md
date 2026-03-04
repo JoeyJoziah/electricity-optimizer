@@ -1,12 +1,24 @@
 # Electricity Optimizer - Project TODO
 
-**Last Updated**: 2026-03-03
+**Last Updated**: 2026-03-04
 **Status**: Live in production (Backend: Render, Frontend: Vercel)
-**Overall Progress**: All features complete, 3,370+ tests passing (1374 backend, 1385 frontend, 611 ML, 634 E2E), deployed to production
+**Overall Progress**: All features complete, 3,383+ tests passing (1374 backend, 1398 frontend, 611 ML, 634 E2E), deployed to production
 
 ---
 
-## Completed Items from Sessions 2026-03-02 to 2026-03-03
+## Completed Items from Sessions 2026-03-02 to 2026-03-04
+
+### Auth System Fix (2026-03-04)
+- [x] **Email Verification**: Added `sendVerificationEmail` callback to Better Auth config using Resend SDK
+- [x] **Magic Link Authentication**: Replaced stub with real `better-auth/plugins/magic-link` plugin (server + client)
+- [x] **Password Reset Emails**: Added `sendResetPassword` callback with branded HTML template
+- [x] **Email Utility**: Created `frontend/lib/email/send.ts` — Resend SDK with lazy singleton, configurable FROM address
+- [x] **Signup Flow Fix**: Redirect to `/auth/verify-email` instead of `/onboarding` (no session until verified)
+- [x] **OAuth Conditional Rendering**: Buttons hidden unless `NEXT_PUBLIC_OAUTH_*_ENABLED=true`
+- [x] **New Env Vars**: `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS`, `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED`, `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED`
+- [x] **New Dependency**: `resend` npm package added to frontend
+- [x] **Tests Updated**: 133 auth+email tests passing (useAuth, LoginForm, SignupForm, email/send), +13 new/updated tests
+- [x] Frontend tests: 1,385→1,398 passing, 0 regressions
 
 ### UI/UX Overhaul (commit b3cdf76, 2026-03-03)
 - [x] **Input Component Enhancement**: Added labelSuffix, labelRight, success/successText props
@@ -27,7 +39,7 @@
 - [x] 2 new useAuth tests: auth page API call skipping verification
 - [x] 2 new E2E tests: stale cookie redirect loop prevention, callbackUrl preservation
 - [x] Playwright config: `retries: 1` for local runs
-- [x] Frontend tests: 1,374→1,385 (94 suites), E2E: 624→634, Total: 3,370+
+- [x] Frontend tests: 1,374→1,385 (94 suites), E2E: 624→634, Total: 3,383+
 
 ### Deep Codebase Audit (commit b7c78dd)
 - [x] ML hardening, security fixes, dead code cleanup
@@ -224,8 +236,10 @@
 
 - [x] **Task #12**: Authentication & Security
   - [x] Neon Auth (Better Auth) integration — managed auth with session cookies
-  - [x] OAuth providers (Google, GitHub) via Better Auth
-  - [x] Magic link authentication via Better Auth
+  - [x] OAuth providers (Google, GitHub) via Better Auth (conditional UI via env vars)
+  - [x] Magic link authentication via Better Auth (`better-auth/plugins/magic-link`)
+  - [x] Email verification on signup via Resend SDK (`sendOnSignUp: true`, `autoSignInAfterVerification: true`)
+  - [x] Password reset emails via Resend SDK with branded HTML templates
   - [x] Session validation via `neon_auth.session` table (backend)
   - [x] Route protection middleware (frontend)
   - [x] Permission-based access control
@@ -442,7 +456,7 @@
 - **Documentation**: 15+ comprehensive docs
 
 ### Test Coverage
-- **Total Tests**: 3,370+ (backend + frontend + E2E)
+- **Total Tests**: 3,383+ (backend + frontend + E2E)
 - **Test Success Rate**: 100%
 - **Backend Tests**: 1374 tests (54 test files, 1374 test functions via def test_)
   - Auth: 40 tests (JWT + Neon Auth + password + API keys)
@@ -451,7 +465,7 @@
   - Services: 200+ tests (stripe, alerts, learning, observations, email)
   - API Endpoints: 300+ tests (health, prices, recommendations, analytics, compliance, billing)
   - Infrastructure: 100+ tests (middleware, migrations, vector store, performance)
-- **Frontend Unit Tests**: 1385 tests (94 test suites, 1385 test cases via describe/it)
+- **Frontend Unit Tests**: 1398 tests (94 test suites, 1398 test cases via describe/it)
   - Components: 380 tests (UI primitives, charts, suppliers, connections, layout)
   - Pages: 22 tests (dashboard, prices, suppliers)
   - Hooks: 51 tests (useAuth, usePrices, useDiagrams)
@@ -544,10 +558,10 @@ make backup
 **Completed** (Batches 1-4 + sessions through 2026-03-03):
 - **Backend API** (17+ endpoints, 1374 tests passing, 2 skipped, 57 test files)
 - **ML Pipeline** (CNN-LSTM, MILP, weather-aware, 611 tests, 55 skipped, 16 test files)
-- **Frontend Dashboard** (5 pages, gamification, SSE streaming, 1385 tests, 94 suites)
+- **Frontend Dashboard** (5 pages, gamification, SSE streaming, 1398 tests, 94 suites)
 - **Security & Compliance** (Neon Auth sessions, GDPR, API key auth, 34 adversarial tests, AES-256-GCM encryption)
 - **Infrastructure** (Docker, consolidated GitHub Actions CI/CD, Render deploy hooks, 8 new migrations)
-- **Testing** (3,370+ tests, 100% passing, 80%+ coverage, E2E across 5 browsers)
+- **Testing** (3,383+ tests, 100% passing, 80%+ coverage, E2E across 5 browsers)
 - **Adaptive Learning** (observation loop, nightly learning, HNSW vector store, batch inserts)
 - **Multi-Utility** (electricity, natural gas, heating oil, propane, community solar, 5 full test suites)
 - **E2E** (16 Playwright spec files, 634 test cases, 0 failures)
@@ -576,7 +590,7 @@ make backup
 
 **Statistics**:
 - 35,000+ lines of production code
-- 3,370+ tests (1374 backend, 1385 frontend, 611 ML, 634 E2E)
+- 3,383+ tests (1374 backend, 1398 frontend, 611 ML, 634 E2E)
 - 100% backend test success rate
 - 100% frontend test success rate
 - 0 security vulnerabilities (SQL injection hardened, SSE auth, session SHA-256 cache keys, AES-256-GCM encryption)
@@ -588,18 +602,17 @@ make backup
 
 ---
 
-## Session Summary: 2026-03-03
+## Session Summary: 2026-03-04
 
-**Latest Commit**: b3cdf76 (UI/UX overhaul: Input component, auth forms, design system)
-**Test Status**: 3,370+ tests passing (1,374 backend, 1,385 frontend, 611 ML, 634 E2E)
-**Frontend Status**: 100% tests green, 94 suites, 1,385 test cases
-**Design System**: Complete (CSS tokens, animations, accessibility)
-**Auth System**: Fully integrated (Better Auth sessions, secure cookies)
+**Latest Session**: Auth system fix — email verification, magic link, OAuth conditional rendering
+**Test Status**: 3,383+ tests passing (1,374 backend, 1,398 frontend, 611 ML, 634 E2E)
+**Frontend Status**: 100% tests green, 95 suites, 1,398 test cases
+**Auth System**: Fully operational (email verification via Resend, magic link plugin, conditional OAuth, password reset emails)
 **Production**: Live (Backend: Render, Frontend: Vercel, Database: Neon PostgreSQL)
 
 ---
 
-**Last Updated**: 2026-03-03 (b3cdf76)
+**Last Updated**: 2026-03-04
 **Target Market**: Nationwide USA (USD default, multi-currency support)
 **Prepared by**: Complete Hive Mind (All 6 Swarms)
 **Achievement**: Production-ready MVP in 22 hours, continuous improvements ongoing

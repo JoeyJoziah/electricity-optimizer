@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-03 (UI/UX overhaul: enhanced Input component, auth form refactoring, design system completion)
+**Last Updated:** 2026-03-04 (Auth system fix: email verification via Resend, magic link plugin, conditional OAuth, signup redirect fix)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -64,8 +64,8 @@ frontend/
       skeleton.tsx              # Skeleton: shimmer loading placeholder
       spinner.tsx               # Spinner: animated loading indicator
     auth/
-      LoginForm.tsx             # Login form (email blur validation, OAuth, magic link toggle)
-      SignupForm.tsx            # Signup form (password strength indicator, 5 req checks, confirm match)
+      LoginForm.tsx             # Login form (email blur validation, conditional OAuth, magic link toggle)
+      SignupForm.tsx            # Signup form (password strength, conditional OAuth, email verification redirect)
       logout-button.tsx         # Sign out trigger + redirect
     layout/
       Sidebar.tsx               # Main navigation sidebar (app pages only)
@@ -105,7 +105,7 @@ frontend/
       DangerZone.tsx            # Delete account button
   lib/
     hooks/
-      useAuth.ts                # Custom hook: auth state + sign in/up/out
+      useAuth.tsx               # Custom hook: auth state + sign in/up/out + magic link + email verification
       useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false)
       useLocalStorage.ts        # Persist state to browser storage
       useDarkMode.ts            # Dark mode toggle (future)
@@ -124,8 +124,10 @@ frontend/
       __tests__/
         client-401-redirect.test.ts  # 9 tests for 401 edge cases
     auth/
-      server.ts                 # Better Auth server instance (edge runtime)
-      client.ts                 # Better Auth client instance
+      server.ts                 # Better Auth server instance (emailVerification, magicLink plugin, password reset)
+      client.ts                 # Better Auth client instance (magicLinkClient plugin)
+    email/
+      send.ts                   # Resend email utility (lazy singleton, configurable FROM address)
     config/
       env.ts                    # Centralized NEXT_PUBLIC_* validation
   styles/
@@ -388,11 +390,11 @@ interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>
 
 #### LoginForm (`components/auth/LoginForm.tsx`)
 
-**Sign in form with email/password, OAuth, and magic link support.**
+**Sign in form with email/password, conditional OAuth, and magic link support.**
 
 **Features:**
 - Email blur validation (`isValidEmail` regex check)
-- OAuth buttons: Google + GitHub with SVG icons
+- OAuth buttons: Google + GitHub (conditionally rendered via `NEXT_PUBLIC_OAUTH_*_ENABLED` env vars)
 - Magic link toggle: `Sign in with magic link` / `Use password instead`
 - Password forgot link in labelRight
 - Error alert with animate-slideDown
@@ -420,8 +422,8 @@ interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>
 Card (bg-white, shadow-card, rounded-xl, p-8)
   ├─ Heading: "Sign in to your account"
   ├─ Error alert (if error || localError)
-  ├─ OAuth buttons (Google + GitHub)
-  ├─ Divider: "Or continue with"
+  ├─ OAuth buttons (conditional: NEXT_PUBLIC_OAUTH_*_ENABLED)
+  ├─ Divider: "Or continue with" (conditional: only if OAuth enabled)
   ├─ Form (space-y-4)
   │  ├─ Input: Email (required, blur validation)
   │  ├─ Input: Password (labelRight: Forgot link)
@@ -432,7 +434,7 @@ Card (bg-white, shadow-card, rounded-xl, p-8)
 
 #### SignupForm (`components/auth/SignupForm.tsx`)
 
-**Register form with password strength indicator and real-time validation.**
+**Register form with password strength indicator, real-time validation, and email verification redirect.**
 
 **Features:**
 - Email blur validation
@@ -447,7 +449,8 @@ Card (bg-white, shadow-card, rounded-xl, p-8)
 - Confirm password with success feedback (green checkmark + "Passwords match")
 - Terms acceptance checkbox
 - Submit button disabled until: password valid + passwords match + terms accepted
-- OAuth buttons: Google + GitHub
+- OAuth buttons: Google + GitHub (conditionally rendered via `NEXT_PUBLIC_OAUTH_*_ENABLED` env vars)
+- Signup redirects to `/auth/verify-email?email=...` (email verification required before sign-in)
 
 **Password Strength Scoring:**
 ```typescript
@@ -477,8 +480,8 @@ score > 5: "Very Strong" (success-600)
 Card (bg-white, shadow-card, rounded-xl, p-8)
   ├─ Heading: "Create your account"
   ├─ Error alert (if error || localError)
-  ├─ OAuth buttons (Google + GitHub)
-  ├─ Divider: "Or create with email"
+  ├─ OAuth buttons (conditional: NEXT_PUBLIC_OAUTH_*_ENABLED)
+  ├─ Divider: "Or create with email" (conditional: only if OAuth enabled)
   ├─ Form (space-y-4)
   │  ├─ Input: Name (labelSuffix: "(optional)")
   │  ├─ Input: Email (blur validation)
@@ -640,8 +643,10 @@ Card (bg-white, shadow-card, rounded-xl, p-8)
 ### Better Auth Integration
 
 **Frontend Auth Stack:**
-- **Client Library:** `better-auth` package (React hooks + client)
-- **Server:** `backend/auth/neon_auth.py` (FastAPI dependency)
+- **Client Library:** `better-auth` package (React hooks + client) with `magicLinkClient` plugin
+- **Server:** `frontend/lib/auth/server.ts` (Better Auth server with emailVerification, magicLink plugin, password reset)
+- **Email:** `frontend/lib/email/send.ts` (Resend SDK for verification, magic link, password reset emails)
+- **Backend:** `backend/auth/neon_auth.py` (FastAPI session validation dependency)
 - **API Route:** `app/api/auth/[...all]/route.ts` (NextAuth-style catch-all)
 - **Session Management:** HTTP-only cookies (`better-auth.session_token` + `__Secure-` variant on HTTPS)
 
@@ -657,9 +662,10 @@ Card (bg-white, shadow-card, rounded-xl, p-8)
 1. User fills SignupForm (name, email, password, confirm, terms)
 2. Password strength validated client-side
 3. `useAuth.signUp()` calls `authClient.signUp()` (POST `/api/auth/sign-up`)
-4. Better Auth creates user + session
-5. Email verification may be required (depends on config)
-6. Redirect to dashboard or email verification page
+4. Better Auth creates user (no session — email verification required)
+5. Verification email sent automatically via Resend (`sendOnSignUp: true`)
+6. Redirect to `/auth/verify-email?email=...`
+7. User clicks verification link in email → auto-sign-in → redirect to dashboard
 
 **OAuth Flow:**
 1. User clicks "Continue with Google/GitHub"
@@ -672,12 +678,13 @@ Card (bg-white, shadow-card, rounded-xl, p-8)
 
 **Magic Link Flow:**
 1. User enters email + clicks "Sign in with magic link"
-2. `useAuth.sendMagicLink()` called (POST `/api/auth/send-magic-link`)
-3. Better Auth sends email with clickable link
+2. `useAuth.sendMagicLink()` calls `authClient.signIn.magicLink({ email, callbackURL: '/dashboard' })`
+3. Better Auth magic link plugin sends email via Resend (5-minute expiry)
 4. User clicks link in email
 5. Link redirects to `/auth/callback?token=...&email=...`
 6. Callback page exchanges token for session
 7. Redirect to dashboard
+8. On error: throws (prevents misleading "Check your email" success screen)
 
 **Password Reset Flow:**
 1. User enters email in forgot-password form
@@ -791,16 +798,16 @@ const { data, isLoading, error } = useQuery({
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1385 tests across 94 suites
+- **Coverage:** 1398 tests across 95 suites
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
 **Key test files:**
-- `components/auth/__tests__/LoginForm.test.tsx`
-- `components/auth/__tests__/SignupForm.test.tsx`
-- `lib/hooks/__tests__/useAuth.test.tsx`
+- `__tests__/components/auth/LoginForm.test.tsx` (magic link failure, conditional OAuth)
+- `__tests__/components/auth/SignupForm.test.tsx` (conditional OAuth)
+- `__tests__/hooks/useAuth.test.tsx` (email verification redirect, real magic link, clearError)
+- `__tests__/lib/email/send.test.ts` (Resend SDK: send, error handling, missing API key)
 - `lib/api/__tests__/client-401-redirect.test.ts` (9 tests for 401 edge cases)
-- `app/(app)/auth/__tests__/authentication.spec.ts`
 - `__tests__/a11y/` (51 jest-axe tests)
 
 ### E2E Tests (Playwright)
@@ -960,6 +967,9 @@ npm run type-check
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_ENVIRONMENT=development
+RESEND_API_KEY=re_xxxxxxxxxxxx          # For email verification, magic link, password reset
+# NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=true # Show Google OAuth button
+# NEXT_PUBLIC_OAUTH_GITHUB_ENABLED=true # Show GitHub OAuth button
 ```
 
 **Centralized in `lib/config/env.ts`:**
@@ -1015,16 +1025,55 @@ NEXT_PUBLIC_ENVIRONMENT=development
 - **Total Pages:** 19 (root + (app) + (dev) + auth routes)
 - **Total Layouts:** 3 (root, app, dev, auth)
 - **Total Components:** 50+ (UI + feature-specific)
-- **Total Tests:** 1385 across 94 suites
+- **Total Tests:** 1398 across 95 suites
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
-- **Total Test Coverage:** 3,370+ tests (frontend + backend + ML + E2E)
+- **Total Test Coverage:** 3,383+ tests (frontend + backend + ML + E2E)
 
 ---
 
-## Recent Updates (2026-03-03)
+## Recent Updates (2026-03-04)
 
-### UI/UX Overhaul (Commit b3cdf76)
+### Auth System Fix (2026-03-04)
+
+1. **Email Verification via Resend**
+   - Created `lib/email/send.ts`: Resend SDK with lazy singleton pattern (avoids build-time env var issues)
+   - Added `emailVerification` config to `lib/auth/server.ts`: `sendOnSignUp: true`, `autoSignInAfterVerification: true`
+   - Branded HTML email template for verification emails
+
+2. **Magic Link Plugin (Real Implementation)**
+   - Server: `better-auth/plugins/magic-link` in `lib/auth/server.ts` (5-minute expiry)
+   - Client: `magicLinkClient()` in `lib/auth/client.ts`
+   - Hook: `useAuth.sendMagicLink()` now calls `authClient.signIn.magicLink()` (was stub)
+   - Error handling: throws on failure (prevents misleading success screen in LoginForm)
+
+3. **Password Reset Emails**
+   - Added `sendResetPassword` callback in `lib/auth/server.ts`
+   - Uses same Resend email utility with branded HTML template
+
+4. **Signup Flow Fix**
+   - `useAuth.signUp()` redirects to `/auth/verify-email?email=...` (was `/onboarding`)
+   - Removed premature `setUser()` call (no session exists until email verified)
+
+5. **Conditional OAuth Buttons**
+   - LoginForm + SignupForm: OAuth buttons only rendered when `NEXT_PUBLIC_OAUTH_*_ENABLED=true`
+   - Divider ("Or continue with") also hidden when no OAuth providers enabled
+
+6. **New Environment Variables**
+   - `RESEND_API_KEY`: Resend email service API key
+   - `EMAIL_FROM_ADDRESS`: Configurable FROM address (default: `noreply@electricity-optimizer.app`)
+   - `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED`: Show Google OAuth button
+   - `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED`: Show GitHub OAuth button
+
+7. **Tests Updated**
+   - 133 auth+email tests passing across 12 suites
+   - New: `__tests__/lib/email/send.test.ts` (3 tests)
+   - Updated: `useAuth.test.tsx` (signup redirect, real magic link, clearError flow)
+   - Updated: `LoginForm.test.tsx` (conditional OAuth, magic link failure)
+   - Updated: `SignupForm.test.tsx` (conditional OAuth)
+   - Frontend total: 1,385 → 1,398 tests
+
+### UI/UX Overhaul (Commit b3cdf76, 2026-03-03)
 
 1. **Input Component Enhanced**
    - Added `labelSuffix` prop: "(optional)" text in gray-400
@@ -1193,6 +1242,6 @@ const confirmPasswordMatch = Boolean(confirmPassword && password === confirmPass
 
 ---
 
-**Last Reviewed:** 2026-03-03 by documentation engineer
-**Status:** Current with all recent UI/UX changes
-**Test Coverage:** 1385 tests (frontend), 3,370 total (all layers)
+**Last Reviewed:** 2026-03-04 by documentation engineer
+**Status:** Current with auth system fix and all recent changes
+**Test Coverage:** 1398 tests (frontend), 3,383 total (all layers)

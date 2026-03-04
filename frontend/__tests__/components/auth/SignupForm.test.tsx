@@ -190,19 +190,10 @@ describe('SignupForm', () => {
     expect(submitButton).toBeDisabled()
   })
 
-  it('renders OAuth buttons for Google and GitHub', () => {
+  it('hides OAuth buttons when env vars are not set', () => {
     render(<SignupForm />)
-    expect(screen.getByText('Continue with Google')).toBeInTheDocument()
-    expect(screen.getByText('Continue with GitHub')).toBeInTheDocument()
-  })
-
-  it('calls signInWithGoogle when Google button clicked', async () => {
-    const user = userEvent.setup()
-    render(<SignupForm />)
-
-    await user.click(screen.getByText('Continue with Google'))
-
-    expect(mockSignInWithGoogle).toHaveBeenCalled()
+    expect(screen.queryByText('Continue with Google')).not.toBeInTheDocument()
+    expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
   })
 
   it('renders sign in link', () => {

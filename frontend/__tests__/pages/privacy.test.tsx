@@ -53,7 +53,7 @@ describe('PrivacyPage', () => {
   it('renders third-party services mentioned', () => {
     expect(screen.getByText(/NREL/)).toBeInTheDocument()
     expect(screen.getByText(/Stripe/)).toBeInTheDocument()
-    expect(screen.getByText(/SendGrid/)).toBeInTheDocument()
+    expect(screen.getByText(/Resend/)).toBeInTheDocument()
   })
 
   it('renders privacy contact email', () => {

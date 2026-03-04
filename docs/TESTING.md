@@ -1,12 +1,12 @@
 # Testing Guide
 
-**Last Updated**: 2026-03-03
+**Last Updated**: 2026-03-04
 **Overall Test Coverage**: 82%+
 **Backend Tests**: 1374 passed, 2 skipped (pytest, 57 test files)
-**Frontend Tests**: 1385 across 94 suites (Jest)
+**Frontend Tests**: 1398 across 95 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: 3,370+ tests passing
+**Total**: 3,383+ tests passing
 
 ---
 
@@ -15,7 +15,7 @@
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
 | **Backend Unit/Integration** | 1374 passed, 2 skipped | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1385 (94 suites) | 78%+ | Jest + RTL |
+| **Frontend Component + Lib Tests** | 1398 (95 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
 | **E2E Tests** | 634 passed, 5 skipped | Critical flows | Playwright |
@@ -76,7 +76,7 @@ make test-e2e
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (1385 tests across 94 suites)
+# Frontend unit tests (1398 tests across 95 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -158,7 +158,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1385 tests across 94 suites (up from 1374/93 after URI_TOO_LONG redirect loop fix)
+**Count**: 1398 tests across 95 suites (up from 1385/94 after auth system fix)
 **Coverage Target**: 78%+
 
 **Accessibility Testing**: 51 tests using `jest-axe` for automated WCAG 2.1 AA compliance checks. Tests are located in `__tests__/a11y/` and cover color contrast, ARIA attributes, keyboard navigation, focus management, and semantic HTML across all major components.
@@ -746,7 +746,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1374 backend, 1385 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 1374 backend, 1398 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 

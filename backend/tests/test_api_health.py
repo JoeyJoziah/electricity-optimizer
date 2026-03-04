@@ -154,7 +154,7 @@ class TestHealthIntegrationsShape:
         response = healthy_client.get("/health/integrations")
         integrations = response.json()["integrations"]
         for key in ("eia", "nrel", "openweathermap", "stripe", "utilityapi",
-                    "sendgrid", "gmail_oauth", "outlook_oauth",
+                    "resend", "gmail_oauth", "outlook_oauth",
                     "field_encryption", "internal_api_key"):
             assert key in integrations, f"Missing integration key: {key}"
 
@@ -293,7 +293,7 @@ class TestExternalApiKeyChecks:
             mock_settings.openweathermap_api_key = None
             mock_settings.stripe_secret_key = None
             mock_settings.utilityapi_key = None
-            mock_settings.sendgrid_api_key = None
+            mock_settings.resend_api_key = None
             mock_settings.gmail_client_id = None
             mock_settings.gmail_client_secret = None
             mock_settings.outlook_client_id = None
@@ -331,7 +331,7 @@ class TestExternalApiKeyChecks:
             mock_settings.openweathermap_api_key = None
             mock_settings.stripe_secret_key = None
             mock_settings.utilityapi_key = None
-            mock_settings.sendgrid_api_key = None
+            mock_settings.resend_api_key = None
             mock_settings.gmail_client_id = None
             mock_settings.gmail_client_secret = None
             mock_settings.outlook_client_id = None

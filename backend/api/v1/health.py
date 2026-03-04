@@ -89,7 +89,7 @@ def _check_external_apis() -> Dict[str, Dict[str, str]]:
         "openweathermap": {"status": _configured(settings.openweathermap_api_key)},
         "stripe": {"status": _configured(settings.stripe_secret_key)},
         "utilityapi": {"status": _configured(settings.utilityapi_key)},
-        "sendgrid": {"status": _configured(settings.sendgrid_api_key)},
+        "resend": {"status": _configured(settings.resend_api_key)},
         "gmail_oauth": {
             "status": _configured(
                 settings.gmail_client_id and settings.gmail_client_secret

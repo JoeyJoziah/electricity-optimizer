@@ -21,7 +21,7 @@ Clients (Next.js, GitHub Actions, Stripe)
 
 FastAPI + Uvicorn, Python 3.12 (3.11 in CI), SQLAlchemy 2.x async + asyncpg, Pydantic v2,
 PyJWT (HS256), Neon PostgreSQL, Redis (aioredis), Stripe SDK, NumPy/Pandas
-CNN-LSTM ensemble, Prometheus + Sentry + structlog, SendGrid/SMTP email.
+CNN-LSTM ensemble, Prometheus + Sentry + structlog, Resend/SMTP email.
 
 ### 1.3 Route Registration (main.py)
 
@@ -226,7 +226,7 @@ require_scope(name): get_current_user -> check scope in scopes | 403
 | Auth | `JWT_SECRET` (min 32 chars prod), `JWT_ALGORITHM`, `INTERNAL_API_KEY` |
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO/BUSINESS` |
 | APIs | `FLATPEAK_API_KEY`, `NREL_API_KEY`, `OPENWEATHERMAP_API_KEY`, etc. |
-| Email | `SENDGRID_API_KEY`, `SMTP_HOST/PORT/USERNAME/PASSWORD` |
+| Email | `RESEND_API_KEY`, `SMTP_HOST/PORT/USERNAME/PASSWORD` |
 | ML | `MODEL_PATH`, `MODEL_FORECAST_HOURS` (24), `MODEL_RETRAIN_INTERVAL_DAYS` (7) |
 | GDPR | `DATA_RETENTION_DAYS` (730), `CONSENT_REQUIRED`, `DATA_RESIDENCY` |
 | Monitor | `SENTRY_DSN`, `PROMETHEUS_PORT` |

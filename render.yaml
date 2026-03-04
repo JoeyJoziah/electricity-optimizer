@@ -21,7 +21,7 @@ services:
         sync: false
       - key: OPENWEATHERMAP_API_KEY
         sync: false
-      - key: SENDGRID_API_KEY
+      - key: RESEND_API_KEY
         sync: false
       - key: ENVIRONMENT
         value: production

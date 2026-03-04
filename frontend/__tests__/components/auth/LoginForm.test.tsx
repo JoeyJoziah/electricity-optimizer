@@ -52,10 +52,10 @@ describe('LoginForm', () => {
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
   })
 
-  it('renders OAuth buttons for Google and GitHub', () => {
+  it('hides OAuth buttons when env vars are not set', () => {
     render(<LoginForm />)
-    expect(screen.getByText('Continue with Google')).toBeInTheDocument()
-    expect(screen.getByText('Continue with GitHub')).toBeInTheDocument()
+    expect(screen.queryByText('Continue with Google')).not.toBeInTheDocument()
+    expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
   })
 
   it('calls signIn with email and password on form submit', async () => {
@@ -85,22 +85,11 @@ describe('LoginForm', () => {
     })
   })
 
-  it('calls signInWithGoogle when Google button clicked', async () => {
-    const user = userEvent.setup()
+  it('does not call OAuth handlers when buttons are hidden', () => {
     render(<LoginForm />)
-
-    await user.click(screen.getByText('Continue with Google'))
-
-    expect(mockSignInWithGoogle).toHaveBeenCalled()
-  })
-
-  it('calls signInWithGitHub when GitHub button clicked', async () => {
-    const user = userEvent.setup()
-    render(<LoginForm />)
-
-    await user.click(screen.getByText('Continue with GitHub'))
-
-    expect(mockSignInWithGitHub).toHaveBeenCalled()
+    // OAuth buttons are hidden by default (env vars not set)
+    expect(screen.queryByText('Continue with Google')).not.toBeInTheDocument()
+    expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
   })
 
   it('displays error message from auth context', () => {
@@ -117,15 +106,11 @@ describe('LoginForm', () => {
     expect(screen.getByRole('button', { name: /signing in/i })).toBeInTheDocument()
   })
 
-  it('disables OAuth buttons while loading', () => {
+  it('disables submit button while loading', () => {
     mockIsLoading = true
     render(<LoginForm />)
 
-    const googleButton = screen.getByText('Continue with Google').closest('button')
-    const githubButton = screen.getByText('Continue with GitHub').closest('button')
-
-    expect(googleButton).toBeDisabled()
-    expect(githubButton).toBeDisabled()
+    expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled()
   })
 
   it('switches to magic link mode and hides password field', async () => {
@@ -149,7 +134,7 @@ describe('LoginForm', () => {
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
   })
 
-  it('shows magic link sent confirmation after sending', async () => {
+  it('shows magic link sent confirmation after successful send', async () => {
     mockSendMagicLink.mockResolvedValueOnce(undefined)
     const user = userEvent.setup()
     render(<LoginForm />)
@@ -162,6 +147,20 @@ describe('LoginForm', () => {
       expect(screen.getByText('Check your email')).toBeInTheDocument()
     })
     expect(screen.getByText(/test@example.com/)).toBeInTheDocument()
+  })
+
+  it('does NOT show success screen when magic link fails', async () => {
+    mockSendMagicLink.mockRejectedValueOnce(new Error('Failed to send magic link'))
+    const user = userEvent.setup()
+    render(<LoginForm />)
+
+    await user.click(screen.getByText('Sign in with magic link'))
+    await user.type(screen.getByLabelText('Email address'), 'test@example.com')
+    await user.click(screen.getByRole('button', { name: /send magic link/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Check your email')).not.toBeInTheDocument()
+    })
   })
 
   it('clears error on form submit', async () => {

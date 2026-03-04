@@ -22,7 +22,7 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 | Frontend       | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts      |
 | Database       | Neon PostgreSQL (serverless)                                   |
 | ML / Data      | TensorFlow, XGBoost, PuLP, scikit-learn                       |
-| Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies      |
+| Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies, Resend email |
 | Payments       | Stripe (checkout, webhooks, customer portal)                   |
 | Infrastructure | Docker, Prometheus, Grafana                                    |
 | CI/CD          | GitHub Actions (Python 3.11, Node 20)                          |
@@ -92,7 +92,7 @@ pytest tests/ -v
 
 > **Important:** Always use the project venv at `.venv/`. System Python is missing required dependencies (fastapi, httpx, pydantic, pytest-asyncio).
 
-### Frontend (1,374 tests, 93 suites)
+### Frontend (1,398 tests, 95 suites)
 
 ```bash
 cd frontend
@@ -110,7 +110,7 @@ cd ml
 pytest tests/ -v
 ```
 
-### E2E Tests (624 tests)
+### E2E Tests (634 tests)
 
 ```bash
 cd frontend
@@ -118,7 +118,7 @@ npx playwright test
 npx playwright test --ui  # Interactive mode
 ```
 
-> **Total test count:** 3,359+ across all suites (1,374 backend + 1,374 frontend + 611 ML + 624 E2E).
+> **Total test count:** 3,383+ across all suites (1,374 backend + 1,398 frontend + 611 ML + 634 E2E).
 
 ### Additional Test Suites
 
@@ -150,6 +150,7 @@ Copy `.env.example` to `.env` and configure. Key variables:
 | `REDIS_URL` | Redis for caching and session storage |
 | `BETTER_AUTH_SECRET` | Better Auth signing key |
 | `BETTER_AUTH_URL` | Better Auth base URL |
+| `RESEND_API_KEY` | Resend email service (verification, magic link, password reset) |
 | `INTERNAL_API_KEY` | Service-to-service auth (price-sync workflow) |
 | `STRIPE_SECRET_KEY` | Stripe payments integration |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |
@@ -253,7 +254,8 @@ Production database is **Neon PostgreSQL** with 17 tables. All primary keys use 
 | Observations | `backend/services/observation_service.py` | Forecast vs actual tracking, accuracy metrics |
 | Learning | `backend/services/learning_service.py` | Nightly accuracy, bias detection, weight tuning |
 | Weather | `backend/integrations/weather_service.py` | OpenWeatherMap integration for demand forecasting |
-| Email | `backend/services/email_service.py` | SendGrid primary, SMTP fallback |
+| Email (Backend) | `backend/services/email_service.py` | Resend primary, SMTP fallback |
+| Email (Frontend) | `frontend/lib/email/send.ts` | Resend SDK for auth emails (verification, magic link, password reset) |
 | Analytics | `backend/services/analytics_service.py` | Usage and savings analytics (with Redis caching) |
 | SSE Streaming | `backend/api/v1/prices.py` | Real-time price update streaming (auth required) |
 | Realtime Hook | `frontend/lib/hooks/useRealtime.ts` | SSE client-side consumption |

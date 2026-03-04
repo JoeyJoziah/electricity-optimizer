@@ -59,7 +59,7 @@ class SecretsManager:
         "stripe_webhook_secret": "Stripe Keys.webhook_secret",
         "stripe_price_pro": "Stripe Keys.price_pro",
         "stripe_price_business": "Stripe Keys.price_business",
-        "sendgrid_api_key": "Email Service.sendgrid_api_key",
+        "resend_api_key": "Resend.resend_api_key",
         # OAuth providers (social login)
         "google_client_id": "OAuth Providers.google_client_id",
         "google_client_secret": "OAuth Providers.google_client_secret",

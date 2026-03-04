@@ -10,6 +10,7 @@ const mockSignInEmail = jest.fn()
 const mockSignUpEmail = jest.fn()
 const mockSignOut = jest.fn()
 const mockSignInSocial = jest.fn()
+const mockSignInMagicLink = jest.fn()
 
 jest.mock('@/lib/auth/client', () => ({
   authClient: {
@@ -17,6 +18,7 @@ jest.mock('@/lib/auth/client', () => ({
     signIn: {
       email: (...args: unknown[]) => mockSignInEmail(...args),
       social: (...args: unknown[]) => mockSignInSocial(...args),
+      magicLink: (...args: unknown[]) => mockSignInMagicLink(...args),
     },
     signUp: {
       email: (...args: unknown[]) => mockSignUpEmail(...args),
@@ -467,7 +469,7 @@ describe('useAuth hook', () => {
   // -------------------------------------------------------------------------
   // signUp
   // -------------------------------------------------------------------------
-  it('signUp sets user on success and redirects to onboarding', async () => {
+  it('signUp redirects to verify-email (no session until verified)', async () => {
     mockSignUpEmail.mockResolvedValue({
       data: {
         user: {
@@ -497,8 +499,10 @@ describe('useAuth hook', () => {
       password: 'securepass',
       name: 'New User',
     })
-    expect(result.current.user?.id).toBe('user-new')
-    expect(window.location.href).toBe('/onboarding')
+    // No session is created until email is verified, so user should not be set
+    expect(result.current.user).toBeNull()
+    // Redirects to verify-email with the email as query param
+    expect(window.location.href).toBe('/auth/verify-email?email=new%40example.com')
   })
 
   it('signUp sets error on failure', async () => {
@@ -757,7 +761,9 @@ describe('useAuth hook', () => {
   // -------------------------------------------------------------------------
   // Magic link
   // -------------------------------------------------------------------------
-  it('sendMagicLink sets unavailable message', async () => {
+  it('sendMagicLink calls authClient.signIn.magicLink', async () => {
+    mockSignInMagicLink.mockResolvedValue({ error: null })
+
     const wrapper = createWrapper()
     const { result } = renderHook(() => useAuth(), { wrapper })
 
@@ -769,15 +775,49 @@ describe('useAuth hook', () => {
       await result.current.sendMagicLink('test@example.com')
     })
 
-    expect(result.current.error).toBe(
-      'Magic link sign-in is not currently available. Please use email/password or social login.'
-    )
+    expect(mockSignInMagicLink).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      callbackURL: '/dashboard',
+    })
+    expect(result.current.error).toBeNull()
+  })
+
+  it('sendMagicLink throws and sets error on failure', async () => {
+    mockSignInMagicLink.mockResolvedValue({
+      error: { message: 'Failed to send magic link' },
+    })
+
+    const wrapper = createWrapper()
+    const { result } = renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    let caughtError: unknown
+    await act(async () => {
+      try {
+        await result.current.sendMagicLink('test@example.com')
+      } catch (e) {
+        caughtError = e
+      }
+    })
+
+    expect(caughtError).toBeDefined()
+    await waitFor(() => {
+      expect(result.current.error).toBe('Failed to send magic link')
+    })
   })
 
   // -------------------------------------------------------------------------
   // clearError
   // -------------------------------------------------------------------------
   it('clearError resets the error state', async () => {
+    // Trigger an error via failed magic link
+    mockSignInMagicLink.mockResolvedValue({
+      error: { message: 'Magic link error' },
+    })
+
     const wrapper = createWrapper()
     const { result } = renderHook(() => useAuth(), { wrapper })
 
@@ -785,14 +825,17 @@ describe('useAuth hook', () => {
       expect(result.current.isLoading).toBe(false)
     })
 
-    // Set an error via sendMagicLink (does not throw, simply sets error)
     await act(async () => {
-      await result.current.sendMagicLink('test@example.com')
+      try {
+        await result.current.sendMagicLink('test@example.com')
+      } catch {
+        // expected
+      }
     })
 
-    expect(result.current.error).toBe(
-      'Magic link sign-in is not currently available. Please use email/password or social login.'
-    )
+    await waitFor(() => {
+      expect(result.current.error).toBe('Magic link error')
+    })
 
     act(() => {
       result.current.clearError()

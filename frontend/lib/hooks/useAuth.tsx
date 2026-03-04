@@ -184,7 +184,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null)
 
     try {
-      const { data, error: authError } = await authClient.signUp.email({
+      const { error: authError } = await authClient.signUp.email({
         email,
         password,
         name: name || '',
@@ -194,18 +194,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error(authError.message || 'Failed to sign up')
       }
 
-      if (data?.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name || undefined,
-          emailVerified: data.user.emailVerified,
-          createdAt: data.user.createdAt?.toString() || '',
-        })
-      }
-
-      // New users go to onboarding to select their state
-      window.location.href = '/onboarding'
+      // With requireEmailVerification, no session is created yet.
+      // Redirect to verify-email page instead of onboarding.
+      window.location.href = `/auth/verify-email?email=${encodeURIComponent(email)}`
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign up'
       setError(message)
@@ -278,9 +269,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [])
 
-  // Send magic link (not natively supported by better-auth — show message)
-  const sendMagicLink = useCallback(async (_email: string) => {
-    setError('Magic link sign-in is not currently available. Please use email/password or social login.')
+  // Send magic link via Better Auth magic-link plugin
+  const sendMagicLink = useCallback(async (email: string) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const { error: authError } = await authClient.signIn.magicLink({
+        email,
+        callbackURL: '/dashboard',
+      })
+
+      if (authError) {
+        throw new Error(authError.message || 'Failed to send magic link')
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to send magic link'
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
   // Clear error

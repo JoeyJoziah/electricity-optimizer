@@ -104,8 +104,8 @@ FLATPEAK_API_KEY=
 NREL_API_KEY=
 IEA_API_KEY=
 
-# Email (SendGrid primary)
-SENDGRID_API_KEY=
+# Email (Resend primary)
+RESEND_API_KEY=
 # Email (SMTP fallback)
 SMTP_HOST=
 SMTP_PORT=587
@@ -181,7 +181,7 @@ NEXT_PUBLIC_API_URL=
 
 - [ ] Backend responding at /health endpoint
 - [ ] Frontend loads without errors
-- [ ] Can sign up for beta at /beta-signup (welcome email sends via SendGrid/SMTP)
+- [ ] Can sign up for beta at /beta-signup (welcome email sends via Resend/SMTP)
 - [ ] Dashboard displays mock data
 - [ ] API endpoints return 200 OK
 - [ ] Monitoring dashboards accessible
