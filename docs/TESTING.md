@@ -2,11 +2,11 @@
 
 **Last Updated**: 2026-03-04
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 1374 passed, 2 skipped (pytest, 57 test files)
-**Frontend Tests**: 1401 across 95 suites (Jest)
+**Backend Tests**: 1376 passed, 2 skipped (pytest, 57 test files)
+**Frontend Tests**: 1391 across 95 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: 3,386+ tests passing
+**Total**: 3,378+ tests passing
 
 ---
 
@@ -14,8 +14,8 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1374 passed, 2 skipped | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1401 (95 suites) | 78%+ | Jest + RTL |
+| **Backend Unit/Integration** | 1376 passed, 2 skipped | 86%+ | pytest |
+| **Frontend Component + Lib Tests** | 1391 (95 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
 | **E2E Tests** | 634 passed, 5 skipped | Critical flows | Playwright |
@@ -72,11 +72,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1374 passed, 2 skipped)
+# Backend tests (1376 passed, 2 skipped)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (1398 tests across 95 suites)
+# Frontend unit tests (1391 tests across 95 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -101,7 +101,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 1374 passed, 2 skipped
+**Count**: 1376 passed, 2 skipped
 **Coverage Target**: 86%+
 
 **Test Files** (57 files):
@@ -158,7 +158,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1401 tests across 95 suites (up from 1385/94 after auth system fix)
+**Count**: 1391 tests across 95 suites
 **Coverage Target**: 78%+
 
 **Accessibility Testing**: 51 tests using `jest-axe` for automated WCAG 2.1 AA compliance checks. Tests are located in `__tests__/a11y/` and cover color contrast, ARIA attributes, keyboard navigation, focus management, and semantic HTML across all major components.
@@ -703,7 +703,7 @@ open tests/load/reports/load_test_*.html
 
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1374 backend, 1398 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1376 backend, 1391 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 
@@ -746,7 +746,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1374 backend, 1398 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 1376 backend, 1391 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 

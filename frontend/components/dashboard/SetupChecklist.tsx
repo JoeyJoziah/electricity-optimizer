@@ -21,7 +21,7 @@ interface ChecklistItem {
 }
 
 export function SetupChecklist() {
-  const [dismissed, setDismissed] = useState(true) // default to hidden until we check
+  const [dismissed, setDismissed] = useState<boolean | null>(null) // null = not yet loaded
 
   const region = useSettingsStore((s) => s.region)
   const currentSupplier = useSettingsStore((s) => s.currentSupplier)
@@ -63,7 +63,7 @@ export function SetupChecklist() {
   const allDone = completedCount === items.length
 
   // Hide if all done or dismissed
-  if (allDone || dismissed) return null
+  if (allDone || dismissed || dismissed === null) return null
 
   const handleDismiss = () => {
     localStorage.setItem(DISMISSED_KEY, 'true')

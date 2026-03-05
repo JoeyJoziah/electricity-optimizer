@@ -539,11 +539,12 @@ Card (bg-white, shadow-card, rounded-xl, p-8)
 **Features:**
 - Automatic token verification on mount (single execution with `useRef` guard)
 - Better Auth error handling: checks `result?.error` (returns `{data, error}` instead of throwing)
-- Resend verification email: email input field (if no email param) + submit button
+- Resend verification email: uses shared `Input` component (if no email param) + submit button
 - Error handling: `result?.error` from Better Auth + try/catch for exceptions
-- Success feedback: Green confirmation banner "Verification email sent!"
+- Success feedback: Success-token confirmation banner "Verification email sent!"
 - Pre-filled email: `?email=...` query param auto-fills resend form
 - States: `verifying`, `verified`, `verifyError`, `resending`, `resent`, `resendError`
+- **Design tokens**: All colors use design token system (`primary-*`, `danger-*`, `success-*`) — no raw Tailwind colors
 
 **Token Verification Flow:**
 1. Page mounts with `?token=...` query param
@@ -859,7 +860,7 @@ const { data, isLoading, error } = useQuery({
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1401 tests across 95 suites
+- **Coverage:** 1391 tests across 95 suites
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
@@ -1096,10 +1097,10 @@ BETTER_AUTH_URL=...                      # (Server-only)
 - **Total Pages:** 19 (root + (app) + (dev) + auth routes)
 - **Total Layouts:** 3 (root, app, dev, auth)
 - **Total Components:** 50+ (UI + feature-specific)
-- **Total Tests:** 1401 across 95 suites
+- **Total Tests:** 1391 across 95 suites
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
-- **Total Test Coverage:** 3,386+ tests (frontend + backend + ML + E2E)
+- **Total Test Coverage:** 3,378+ tests (frontend + backend + ML + E2E)
 
 ---
 
@@ -1354,4 +1355,4 @@ const confirmPasswordMatch = Boolean(confirmPassword && password === confirmPass
 
 **Last Reviewed:** 2026-03-04 by documentation engineer
 **Status:** Current with email verification fix and all recent changes
-**Test Coverage:** 1401 tests (frontend), 3,386 total (all layers)
+**Test Coverage:** 1391 tests (frontend), 3,378 total (all layers)

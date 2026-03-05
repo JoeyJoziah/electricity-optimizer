@@ -300,7 +300,9 @@ export default function DashboardContent() {
                 <p className="text-sm font-medium text-gray-500">
                   Suppliers
                 </p>
-                <Badge variant="success">Cheaper available</Badge>
+                {currentSupplier && topSuppliers.some(s => s.estimatedAnnualCost < currentSupplier.estimatedAnnualCost) ? (
+                  <Badge variant="success">Cheaper available</Badge>
+                ) : null}
               </div>
               <p className="mt-2 text-lg font-semibold text-gray-900">
                 {suppliersData?.suppliers?.length || 0} options

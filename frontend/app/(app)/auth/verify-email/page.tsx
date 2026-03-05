@@ -15,6 +15,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 
 export const dynamic = 'force-dynamic'
@@ -93,7 +94,7 @@ function VerifyEmailContent() {
         <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
-              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-primary-600" />
               <h2 className="text-lg font-semibold text-gray-900">Verifying your email...</h2>
               <p className="mt-2 text-sm text-gray-600">Please wait a moment.</p>
             </CardContent>
@@ -107,9 +108,9 @@ function VerifyEmailContent() {
         <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-100">
                 <svg
-                  className="h-6 w-6 text-green-600"
+                  className="h-6 w-6 text-success-600"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -128,7 +129,7 @@ function VerifyEmailContent() {
               </p>
               <Link
                 href="/auth/login"
-                className="mt-4 inline-block text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="mt-4 inline-block text-sm text-primary-600 hover:text-primary-700 font-medium"
               >
                 Go to sign in
               </Link>
@@ -143,9 +144,9 @@ function VerifyEmailContent() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger-100">
               <svg
-                className="h-6 w-6 text-red-600"
+                className="h-6 w-6 text-danger-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -163,7 +164,7 @@ function VerifyEmailContent() {
             <div className="mt-4 space-y-2">
               <Link
                 href="/auth/verify-email"
-                className="block text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="block text-sm text-primary-600 hover:text-primary-700 font-medium"
               >
                 Request a new verification email
               </Link>
@@ -186,9 +187,9 @@ function VerifyEmailContent() {
       <Card className="w-full max-w-md" padding="none">
         <div className="p-8">
           <CardContent className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
               <svg
-                className="h-6 w-6 text-blue-600"
+                className="h-6 w-6 text-primary-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -211,23 +212,19 @@ function VerifyEmailContent() {
             <div className="mt-6 space-y-3">
               {/* Resend section */}
               {resendError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-700">{resendError}</p>
+                <div className="p-3 bg-danger-50 border border-danger-200 rounded-md">
+                  <p className="text-sm text-danger-700">{resendError}</p>
                 </div>
               )}
               {!resent ? (
                 <>
                   {!emailParam && (
                     <div className="mb-2">
-                      <label htmlFor="resend-email" className="sr-only">
-                        Email address
-                      </label>
-                      <input
+                      <Input
                         id="resend-email"
                         type="email"
                         value={resendEmail}
                         onChange={(e) => setResendEmail(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                         placeholder="Enter your email to resend"
                       />
                     </div>
@@ -243,8 +240,8 @@ function VerifyEmailContent() {
                   </Button>
                 </>
               ) : (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                  <p className="text-sm text-green-700">
+                <div className="p-3 bg-success-50 border border-success-200 rounded-md">
+                  <p className="text-sm text-success-700">
                     Verification email sent! Check your inbox.
                   </p>
                 </div>
