@@ -57,6 +57,19 @@ services:
         sync: false
       - key: GITHUB_WEBHOOK_SECRET
         sync: false
+      # --- Free-tier integrations (2026-03-05) ---
+      - key: UPTIMEROBOT_API_KEY
+        sync: false
+      - key: DIFFBOT_API_TOKEN
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: ONESIGNAL_APP_ID
+        sync: false
+      - key: ONESIGNAL_REST_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
 
   - type: cron
     name: db-maintenance

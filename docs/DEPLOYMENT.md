@@ -203,7 +203,7 @@ Before deploying to production:
 - [ ] Rollback plan documented
 - [ ] Team notified
 - [ ] Vercel environment variables verified with `vercel env pull` (all values non-empty, especially `BETTER_AUTH_SECRET` and `RESEND_API_KEY`)
-- [ ] Render environment variables verified (all 26 present and non-empty)
+- [ ] Render environment variables verified (all 29 present and non-empty)
 - [ ] 1Password vault in sync with production secrets
 
 ### Render Deploy Hooks
@@ -414,7 +414,7 @@ Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-de
 
 ### Render Environment Variables (Backend)
 
-The backend service has **26 env vars** on Render, all mapped to 1Password via `SecretsManager` in `backend/config/secrets.py` (27 total mappings, including one local-only mapping). Key categories:
+The backend service has **29 env vars** on Render, all mapped to 1Password via `SecretsManager` in `backend/config/secrets.py` (27 total mappings, including one local-only mapping). Key categories:
 
 - **Database**: `DATABASE_URL` (Neon pooler endpoint `ep-withered-morning`)
 - **Auth**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
@@ -424,7 +424,10 @@ The backend service has **26 env vars** on Render, all mapped to 1Password via `
 - **Security**: `INTERNAL_API_KEY`, `FIELD_ENCRYPTION_KEY`, `GITHUB_WEBHOOK_SECRET`
 - **OAuth**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
 - **Services**: `REDIS_URL`, `UTILITYAPI_TOKEN`, `OPENWEATHERMAP_API_KEY`
+- **Monitoring & Integration**: `UPTIMEROBOT_API_KEY`, `DIFFBOT_API_TOKEN`, `TAVILY_API_KEY`, `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`, `GOOGLE_MAPS_API_KEY`
 - **Config**: `ENVIRONMENT`, `ALLOWED_REDIRECT_DOMAINS`
+
+**Render API Pagination Gotcha**: When managing environment variables via the Render REST API (`GET /v1/services/{id}/env-vars`), the default pagination limit is 20. Always append `?limit=100` to retrieve all 29 env vars. Without this, you may see only the first 20 vars and incorrectly think some have been deleted.
 
 ### Vercel Environment Variables (Frontend)
 
