@@ -957,7 +957,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1374 passed, 2 skipped, 0 failures (as of 2026-03-03). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics).
+**Test status:** 1376 passed, 2 skipped, 0 failures (as of 2026-03-04). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics).
 
 
 ## Scripts & Automation
