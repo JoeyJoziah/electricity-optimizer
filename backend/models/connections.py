@@ -99,6 +99,7 @@ class ConnectionResponse(BaseModel):
     supplier_name: Optional[str] = None
     status: ConnectionStatus = "active"
     account_number_masked: Optional[str] = None
+    meter_number_masked: Optional[str] = None
     email_provider: Optional[str] = None
     label: Optional[str] = None
     created_at: datetime = Field(

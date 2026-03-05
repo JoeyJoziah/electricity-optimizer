@@ -384,53 +384,23 @@ class ConnectionSyncService:
     # ------------------------------------------------------------------
 
     async def _fetch_connection(self, connection_id: str) -> Optional[dict]:
-        """
-        Load a connection row with all sync-related columns.
-
-        Falls back gracefully if the migration-009 columns don't exist yet.
-        """
-        # Try the full column list first (migration 009 present)
-        try:
-            result = await self._db.execute(
-                text("""
-                    SELECT id, status,
-                           utilityapi_auth_uid_encrypted,
-                           last_sync_at,
-                           last_sync_error,
-                           COALESCE(sync_frequency_hours, :default_freq) AS sync_frequency_hours
-                    FROM user_connections
-                    WHERE id = :cid
-                """),
-                {"cid": connection_id, "default_freq": _DEFAULT_SYNC_FREQUENCY_HOURS},
-            )
-            row = result.mappings().first()
-            if row is None:
-                return None
-            return dict(row)
-        except Exception:
-            pass
-
-        # Fallback: load only the base columns (pre-migration-009)
-        try:
-            result = await self._db.execute(
-                text("""
-                    SELECT id, status
-                    FROM user_connections
-                    WHERE id = :cid
-                """),
-                {"cid": connection_id},
-            )
-            row = result.mappings().first()
-            if row is None:
-                return None
-            base = dict(row)
-            base.setdefault("utilityapi_auth_uid_encrypted", None)
-            base.setdefault("last_sync_at", None)
-            base.setdefault("last_sync_error", None)
-            base.setdefault("sync_frequency_hours", _DEFAULT_SYNC_FREQUENCY_HOURS)
-            return base
-        except Exception:
+        """Load a connection row with all sync-related columns."""
+        result = await self._db.execute(
+            text("""
+                SELECT id, status,
+                       utilityapi_auth_uid_encrypted,
+                       last_sync_at,
+                       last_sync_error,
+                       COALESCE(sync_frequency_hours, :default_freq) AS sync_frequency_hours
+                FROM user_connections
+                WHERE id = :cid
+            """),
+            {"cid": connection_id, "default_freq": _DEFAULT_SYNC_FREQUENCY_HOURS},
+        )
+        row = result.mappings().first()
+        if row is None:
             return None
+        return dict(row)
 
     async def _batch_insert_extracted_rates(
         self, connection_id: str, rate_records: list[dict]

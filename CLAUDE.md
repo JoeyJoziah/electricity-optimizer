@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-04
+> Last validated: 2026-03-05
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 14-table schema, endpoint quirk (us-east-1), UUID PKs, migration patterns
+- **NeonDBAgent**: 17-table schema (23 migrations), endpoint quirk (us-east-1), UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 

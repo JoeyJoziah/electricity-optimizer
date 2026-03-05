@@ -49,7 +49,8 @@ async def list_connections(
     result = await db.execute(
         text("""
             SELECT id, user_id, connection_type, supplier_id, supplier_name,
-                   status, account_number_masked, email_provider, label, created_at
+                   status, account_number_masked, meter_number_masked,
+                   email_provider, label, created_at
             FROM user_connections
             WHERE user_id = :uid
             ORDER BY created_at DESC
@@ -124,14 +125,23 @@ async def create_direct_connection(
     masked = mask_account_number(payload.account_number)
     connection_id = str(uuid4())
 
+    # Encrypt meter number if provided
+    encrypted_meter = None
+    masked_meter = None
+    if payload.meter_number:
+        encrypted_meter = encrypt_field(payload.meter_number)
+        masked_meter = mask_account_number(payload.meter_number)
+
     await db.execute(
         text("""
             INSERT INTO user_connections
                 (id, user_id, connection_type, supplier_id, supplier_name,
-                 status, account_number_encrypted, account_number_masked, created_at)
+                 status, account_number_encrypted, account_number_masked,
+                 meter_number_encrypted, meter_number_masked, created_at)
             VALUES
                 (:id, :uid, 'direct', :sid, :sname,
-                 'active', :enc_acct, :masked_acct, NOW())
+                 'active', :enc_acct, :masked_acct,
+                 :enc_meter, :masked_meter, NOW())
         """),
         {
             "id": connection_id,
@@ -140,6 +150,8 @@ async def create_direct_connection(
             "sname": supplier["name"],
             "enc_acct": encrypted_account,
             "masked_acct": masked,
+            "enc_meter": encrypted_meter,
+            "masked_meter": masked_meter,
         },
     )
     await db.commit()
@@ -152,6 +164,7 @@ async def create_direct_connection(
         supplier_name=supplier["name"],
         status="active",
         account_number_masked=masked,
+        meter_number_masked=masked_meter,
     )
 
 
@@ -174,7 +187,8 @@ async def get_connection(
     result = await db.execute(
         text("""
             SELECT id, user_id, connection_type, supplier_id, supplier_name,
-                   status, account_number_masked, email_provider, label, created_at
+                   status, account_number_masked, meter_number_masked,
+                   email_provider, label, created_at
             FROM user_connections
             WHERE id = :cid AND user_id = :uid
         """),

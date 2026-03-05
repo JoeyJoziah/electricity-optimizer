@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-04 (8-phase rollout: app factory, connections refactor, health endpoints, migration 020, supplier caching, price pagination, learning aggregation, env var audit (17→27 1Password mappings), Resend migration, auth email features)
+> Last updated: 2026-03-05 (DB audit: migration 023 indexes/retention/consent FK, bulk_create multi-row INSERT, check_thresholds O(n+m) optimization, meter_number storage fix, dead fallback removal)
 
 ## Directory Structure
 

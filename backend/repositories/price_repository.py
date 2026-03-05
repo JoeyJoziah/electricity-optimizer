@@ -577,7 +577,9 @@ class PriceRepository(BaseRepository[Price]):
 
     async def bulk_create(self, prices: List[Price]) -> int:
         """
-        Bulk create multiple price records.
+        Bulk create multiple price records using multi-row INSERT.
+
+        Chunks at 500 rows to stay within parameter limits (11 params per row).
 
         Args:
             prices: List of prices to create
@@ -585,31 +587,47 @@ class PriceRepository(BaseRepository[Price]):
         Returns:
             Number of records created
         """
+        if not prices:
+            return 0
+
+        CHUNK_SIZE = 500
+
         try:
-            for entity in prices:
+            for chunk_start in range(0, len(prices), CHUNK_SIZE):
+                chunk = prices[chunk_start : chunk_start + CHUNK_SIZE]
+                placeholders = []
+                params: dict = {}
+
+                for i, entity in enumerate(chunk):
+                    placeholders.append(
+                        f"(:id{i}, :region{i}, :supplier{i}, :price_per_kwh{i}, "
+                        f":currency{i}, :timestamp{i}, :is_peak{i}, :source_api{i}, "
+                        f":created_at{i}, :carbon_intensity{i}, :utility_type{i})"
+                    )
+                    params[f"id{i}"] = entity.id
+                    params[f"region{i}"] = entity.region if isinstance(entity.region, str) else entity.region.value
+                    params[f"supplier{i}"] = entity.supplier
+                    params[f"price_per_kwh{i}"] = entity.price_per_kwh
+                    params[f"currency{i}"] = entity.currency
+                    params[f"timestamp{i}"] = entity.timestamp
+                    params[f"is_peak{i}"] = entity.is_peak
+                    params[f"source_api{i}"] = entity.source_api
+                    params[f"created_at{i}"] = entity.created_at
+                    params[f"carbon_intensity{i}"] = entity.carbon_intensity
+                    params[f"utility_type{i}"] = (
+                        entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value
+                    )
+
                 await self._db.execute(
-                    text("""
-                        INSERT INTO electricity_prices
-                            (id, region, supplier, price_per_kwh, currency, timestamp,
-                             is_peak, source_api, created_at, carbon_intensity, utility_type)
-                        VALUES
-                            (:id, :region, :supplier, :price_per_kwh, :currency, :timestamp,
-                             :is_peak, :source_api, :created_at, :carbon_intensity, :utility_type)
-                    """),
-                    {
-                        "id": entity.id,
-                        "region": entity.region if isinstance(entity.region, str) else entity.region.value,
-                        "supplier": entity.supplier,
-                        "price_per_kwh": entity.price_per_kwh,
-                        "currency": entity.currency,
-                        "timestamp": entity.timestamp,
-                        "is_peak": entity.is_peak,
-                        "source_api": entity.source_api,
-                        "created_at": entity.created_at,
-                        "carbon_intensity": entity.carbon_intensity,
-                        "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
-                    },
+                    text(
+                        "INSERT INTO electricity_prices "
+                        "    (id, region, supplier, price_per_kwh, currency, timestamp, "
+                        "     is_peak, source_api, created_at, carbon_intensity, utility_type) "
+                        f"VALUES {', '.join(placeholders)}"
+                    ),
+                    params,
                 )
+
             await self._db.commit()
             return len(prices)
 

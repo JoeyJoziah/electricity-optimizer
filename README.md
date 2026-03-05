@@ -82,7 +82,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (1,374 tests)
+### Backend (1,376 tests)
 
 ```bash
 source .venv/bin/activate
@@ -118,7 +118,7 @@ npx playwright test
 npx playwright test --ui  # Interactive mode
 ```
 
-> **Total test count:** 3,386+ across all suites (1,374 backend + 1,401 frontend + 611 ML + 634 E2E).
+> **Total test count:** 3,388+ across all suites (1,376 backend + 1,401 frontend + 611 ML + 634 E2E).
 
 ### Additional Test Suites
 

@@ -93,6 +93,9 @@ class AlertService:
         """
         Check current prices against user thresholds.
 
+        Pre-groups prices by region so each threshold only checks its matching
+        prices — O(n+m) instead of O(n*m).
+
         Args:
             prices: List of current Price objects (region, supplier, price_per_kwh, timestamp)
             thresholds: List of user alert thresholds
@@ -100,14 +103,22 @@ class AlertService:
         Returns:
             List of (AlertThreshold, PriceAlert) tuples for triggered alerts
         """
+        # Group prices by region for efficient lookup
+        prices_by_region: dict = {}
+        no_region_prices: list = []
+        for price in prices:
+            region = getattr(price, "region", None)
+            if region:
+                prices_by_region.setdefault(region, []).append(price)
+            else:
+                no_region_prices.append(price)
+
         triggered = []
 
         for threshold in thresholds:
-            for price in prices:
-                price_region = getattr(price, "region", None)
-                if price_region and price_region != threshold.region:
-                    continue
+            matching_prices = prices_by_region.get(threshold.region, []) + no_region_prices
 
+            for price in matching_prices:
                 current = Decimal(str(price.price_per_kwh))
 
                 # Check price below threshold
