@@ -66,7 +66,7 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=200)
-    region: str = Field(..., min_length=2, max_length=50)
+    region: Optional[str] = Field(default=None, min_length=2, max_length=50)
 
     # Account status
     is_active: bool = True

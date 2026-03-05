@@ -50,6 +50,13 @@ class DatabaseManager:
             connect_args = {}
             if "neon.tech" in db_url or "neon" in db_url:
                 connect_args["ssl"] = "require"
+                # PgBouncer transaction-mode pooling does not support named prepared
+                # statements (they are bound to a backend connection, but transaction
+                # mode may hand the client a different backend each transaction).
+                # Setting statement_cache_size=0 disables asyncpg's prepared-statement
+                # cache, preventing intermittent
+                # InvalidSQLStatementNameError on Neon's pooled endpoint.
+                connect_args["statement_cache_size"] = 0
 
             # Strip sslmode and channel_binding from URL (asyncpg uses connect_args instead)
             from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
@@ -61,16 +68,19 @@ class DatabaseManager:
             db_url = urlunparse(parsed._replace(query=clean_query))
 
             # SQLAlchemy async engine for ORM
-            # Optimized for free tier (512MB RAM, single worker)
+            # Optimized for free tier (512MB RAM, single worker on Render).
+            # Pool math: pool_size=3 + max_overflow=5 = 8 max connections.
+            # Neon free tier allows ~10; leaves 2 slots for Better Auth frontend
+            # Pool and any admin/migration connections.
             sqlalchemy_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
             self.timescale_engine = create_async_engine(
                 sqlalchemy_url,
                 echo=False,  # Disable SQL echo in production to reduce overhead
-                pool_size=2,  # Reduced from 5 for free tier
-                max_overflow=3,  # Reduced from 10 for free tier
+                pool_size=3,       # was 2; one extra permanent slot for burst headroom
+                max_overflow=5,    # was 3; total 8 stays under Neon's ~10 limit
                 pool_pre_ping=True,
-                pool_recycle=300,
-                pool_timeout=30,  # Add timeout to prevent hanging
+                pool_recycle=200,  # was 300; recycle 100s before Neon's 5-min auto-suspend
+                pool_timeout=20,   # was 30; fail faster to avoid cascading timeouts
                 connect_args=connect_args,
             )
 

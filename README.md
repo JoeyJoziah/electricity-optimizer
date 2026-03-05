@@ -82,7 +82,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (1,376 tests)
+### Backend (1,393 tests)
 
 ```bash
 source .venv/bin/activate
@@ -118,7 +118,7 @@ npx playwright test
 npx playwright test --ui  # Interactive mode
 ```
 
-> **Total test count:** 3,388+ across all suites (1,376 backend + 1,401 frontend + 611 ML + 634 E2E).
+> **Total test count:** 3,405+ across all suites (1,393 backend + 1,401 frontend + 611 ML + 634 E2E).
 
 ### Additional Test Suites
 
@@ -223,7 +223,7 @@ electricity-optimizer/
 
 ## Database
 
-Production database is **Neon PostgreSQL** with 17 tables. All primary keys use UUID type.
+Production database is **Neon PostgreSQL** with 20 public tables (+ 9 neon_auth tables managed by Better Auth). All primary keys use UUID type.
 
 | Table | Purpose |
 |-------|---------|

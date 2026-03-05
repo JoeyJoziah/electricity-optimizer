@@ -498,7 +498,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 
 | Backend | Client | Pool Config |
 |---------|--------|-------------|
-| Neon PostgreSQL | SQLAlchemy `AsyncEngine` + optional `asyncpg.Pool` | pool_size=2, max_overflow=3, pool_recycle=300 |
+| Neon PostgreSQL | SQLAlchemy `AsyncEngine` + optional `asyncpg.Pool` | pool_size=3, max_overflow=5, pool_recycle=300 |
 | Redis | `redis.asyncio.Redis` | max_connections=10, socket_keepalive=True |
 
 **Neon handling:** SSL auto-required for `neon.tech` URLs; `sslmode`/`channel_binding`
@@ -720,7 +720,7 @@ Two auth mechanisms:
 
 ## Database (Neon PostgreSQL)
 
-28 tables (init_neon.sql + 002-009, 011-020):
+20 public tables + 9 neon_auth tables = 29 total (init_neon.sql + 002-009, 011-023):
 
 | Table | PK Type | Notes |
 |-------|---------|-------|
@@ -776,6 +776,9 @@ Two auth mechanisms:
 | `018_connection_supplier_name.sql` | Supplier name column on user_connections (denormalization for rates display) |
 | `019_nationwide_suppliers_seed.sql` | 34+ nationwide suppliers seeded across deregulated states (TX, OH, PA, IL, NY, NJ, MA, MD, MI, CA, FL, GA, VA) |
 | `020_composite_indexes.sql` | 3 composite indexes: prices(region+supplier+created DESC), prices(region+utility_type+created DESC), users(region) |
+| `021_supplier_api_available.sql` | Set `api_available=true` for 37 suppliers with direct login APIs |
+| `022_user_supplier_composite_index.sql` | Composite index on `user_supplier_accounts` for faster lookups |
+| `023_db_audit_indexes.sql` | 2 partial indexes (sync_due + alert_configs), meter_number columns, consent FK CASCADE->SET NULL, 2 PL/pgSQL data retention functions |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.

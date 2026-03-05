@@ -24,7 +24,7 @@
 
 **Problem**: Database connection pools sized for multi-worker deployment
 **Solution**:
-- Reduced SQLAlchemy pool: `pool_size=2` (was 5), `max_overflow=3` (was 10)
+- Reduced SQLAlchemy pool: `pool_size=3` (was 5), `max_overflow=5` (was 10)
 - Reduced asyncpg pool: `min_size=1` (was 2), `max_size=5` (was 10)
 - Reduced Redis connections: `max_connections=10` (was 20)
 - Added connection timeouts and idle connection cleanup

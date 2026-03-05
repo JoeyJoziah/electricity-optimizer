@@ -2,11 +2,11 @@
 
 **Last Updated**: 2026-03-04
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 1376 passed, 2 skipped (pytest, 57 test files)
+**Backend Tests**: 1393 passed, 2 skipped (pytest, 57 test files)
 **Frontend Tests**: 1391 across 95 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: 3,378+ tests passing
+**Total**: 3,395+ tests passing
 
 ---
 
@@ -14,7 +14,7 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1376 passed, 2 skipped | 86%+ | pytest |
+| **Backend Unit/Integration** | 1393 passed, 2 skipped | 86%+ | pytest |
 | **Frontend Component + Lib Tests** | 1391 (95 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
@@ -72,7 +72,7 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1376 passed, 2 skipped)
+# Backend tests (1393 passed, 2 skipped)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
@@ -101,7 +101,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 1376 passed, 2 skipped
+**Count**: 1393 passed, 2 skipped
 **Coverage Target**: 86%+
 
 **Test Files** (57 files):
@@ -703,7 +703,7 @@ open tests/load/reports/load_test_*.html
 
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1376 backend, 1391 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1393 backend, 1391 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 
@@ -746,7 +746,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1376 backend, 1391 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 1393 backend, 1391 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 

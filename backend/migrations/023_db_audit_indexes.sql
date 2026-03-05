@@ -16,7 +16,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_connections_sync_due
 --     Existing index is (user_id) only; region-based lookups have no coverage
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_alert_configs_region_active
     ON price_alert_configs (region)
-    WHERE alert_enabled = TRUE;
+    WHERE is_active = TRUE;
 
 -- =============================================================================
 -- SECTION 2: meter_number columns on user_connections
@@ -90,7 +90,8 @@ DECLARE
     deleted_count INTEGER;
 BEGIN
     DELETE FROM forecast_observations
-    WHERE observed_at < NOW() - (retention_days || ' days')::INTERVAL;
+    WHERE observed_at < NOW() - (retention_days || ' days')::INTERVAL
+       OR (observed_at IS NULL AND created_at < NOW() - (retention_days || ' days')::INTERVAL);
 
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
 

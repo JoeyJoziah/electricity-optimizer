@@ -33,7 +33,7 @@ class ConsentRecord(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str = Field(default_factory=lambda: str(uuid4()))
-    user_id: str = Field(..., description="User ID this consent belongs to")
+    user_id: Optional[str] = Field(default=None, description="User ID this consent belongs to (nullable for GDPR SET NULL)")
     purpose: str = Field(..., description="Purpose of data processing")
     consent_given: bool = Field(..., description="Whether consent was given or withdrawn")
     timestamp: datetime = Field(..., description="When consent was recorded")
