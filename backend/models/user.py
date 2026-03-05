@@ -146,7 +146,7 @@ class UserResponse(BaseModel):
     id: str
     email: EmailStr
     name: str
-    region: str
+    region: Optional[str] = None
     is_active: bool
     is_verified: bool
     current_supplier: Optional[str] = None
