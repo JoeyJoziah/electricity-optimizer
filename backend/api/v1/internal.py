@@ -7,7 +7,7 @@ API-key-protected endpoints for scheduled jobs:
 """
 
 from typing import Any, Optional, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import verify_api_key, get_db_session, get_redis
@@ -188,3 +188,107 @@ async def get_observation_stats(
     except Exception as e:
         logger.error("observation_stats_failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Diffbot Rate Scraping
+# =============================================================================
+
+
+class ScrapeRequest(BaseModel):
+    supplier_urls: List[dict] = Field(
+        ..., description='[{"supplier_id": "...", "url": "..."}, ...]'
+    )
+
+
+@router.post("/scrape-rates", tags=["Internal"])
+async def scrape_supplier_rates(request: ScrapeRequest):
+    """Scrape supplier rate pages via Diffbot Extract API.
+
+    Each URL uses 1 Diffbot credit. Rate limited to 5 calls/min.
+    Free tier: 10,000 credits/month.
+    """
+    from services.rate_scraper_service import RateScraperService
+
+    service = RateScraperService()
+    results = await service.scrape_supplier_rates(request.supplier_urls)
+    return {"status": "ok", "results": results}
+
+
+# =============================================================================
+# OpenWeather Data Fetching
+# =============================================================================
+
+
+class WeatherRequest(BaseModel):
+    regions: List[str] = Field(
+        default=["US"], description="US state abbreviations (e.g. NY, CA, TX)"
+    )
+
+
+@router.post("/fetch-weather", tags=["Internal"])
+async def fetch_weather_data(request: WeatherRequest):
+    """Fetch current weather for US state regions.
+
+    Budget: 1 call per region. 51 regions = 51 calls/day (5.1% of daily limit).
+    Free tier: 1,000 calls/day.
+    """
+    from services.weather_service import WeatherService
+
+    service = WeatherService()
+    results = await service.fetch_weather_for_regions(request.regions)
+    return {
+        "status": "ok",
+        "regions_fetched": len(results),
+        "data": results,
+    }
+
+
+# =============================================================================
+# Tavily Market Intelligence
+# =============================================================================
+
+
+class MarketResearchRequest(BaseModel):
+    regions: List[str] = Field(
+        default=["NY", "CA", "TX"],
+        description="Regions to scan for energy market news",
+    )
+
+
+@router.post("/market-research", tags=["Internal"])
+async def run_market_research(request: MarketResearchRequest):
+    """Run weekly energy market intelligence scan via Tavily AI search.
+
+    Budget: ~10 searches/week = 40/month (4% of free tier quota).
+    Free tier: 1,000 credits/month.
+    """
+    from services.market_intelligence_service import MarketIntelligenceService
+
+    service = MarketIntelligenceService()
+    results = await service.weekly_market_scan(request.regions)
+    return {"status": "ok", "results": results}
+
+
+# =============================================================================
+# Google Maps Geocoding
+# =============================================================================
+
+
+class GeocodeRequest(BaseModel):
+    address: str = Field(..., description="US address to geocode")
+
+
+@router.post("/geocode", tags=["Internal"])
+async def geocode_address(request: GeocodeRequest):
+    """Resolve a US address to a state/region via Google Geocoding API.
+
+    Uses 1 geocoding credit per request. Free tier: 10,000/month.
+    """
+    from services.geocoding_service import GeocodingService
+
+    service = GeocodingService()
+    result = await service.geocode(request.address)
+    if not result:
+        raise HTTPException(status_code=404, detail="Could not geocode address")
+    return {"status": "ok", "result": result}

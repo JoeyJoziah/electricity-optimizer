@@ -116,3 +116,13 @@ export const IS_TEST = isTest
 
 /** True when NODE_ENV === 'development' (or unset) */
 export const IS_DEV = !isProduction && !isTest
+
+// ---------------------------------------------------------------------------
+// Analytics & Integrations
+// ---------------------------------------------------------------------------
+
+/** Microsoft Clarity project ID for heatmaps and session recordings (free, unlimited). */
+export const CLARITY_PROJECT_ID: string = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || ''
+
+/** OneSignal App ID for web push notifications (free tier, 10K web push/send). */
+export const ONESIGNAL_APP_ID: string = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''

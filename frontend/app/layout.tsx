@@ -4,6 +4,7 @@ import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { AuthProvider } from '@/lib/hooks/useAuth'
 import { ToastProvider } from '@/lib/contexts/toast-context'
+import { ClarityScript } from '@/lib/analytics/clarity'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -39,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <ClarityScript />
         <QueryProvider>
           <AuthProvider>
             <ToastProvider>

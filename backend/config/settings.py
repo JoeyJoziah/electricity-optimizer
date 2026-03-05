@@ -70,6 +70,22 @@ class Settings(BaseSettings):
     openvolt_api_key: Optional[str] = Field(default=None, validation_alias="OPENVOLT_API_KEY")
     openweathermap_api_key: Optional[str] = Field(default=None, validation_alias="OPENWEATHERMAP_API_KEY")
 
+    # Rate Scraping (Diffbot — free tier, 10K credits/month)
+    diffbot_api_token: str = Field(default="", validation_alias="DIFFBOT_API_TOKEN")
+
+    # Market Intelligence (Tavily — free tier, 1K searches/month)
+    tavily_api_key: str = Field(default="", validation_alias="TAVILY_API_KEY")
+
+    # Geocoding (Google Maps — free tier, 10K geocodes/month, card required)
+    google_maps_api_key: str = Field(default="", validation_alias="GOOGLE_MAPS_API_KEY")
+
+    # Push Notifications (OneSignal — free tier, unlimited mobile push)
+    onesignal_app_id: str = Field(default="", validation_alias="ONESIGNAL_APP_ID")
+    onesignal_rest_api_key: str = Field(default="", validation_alias="ONESIGNAL_REST_API_KEY")
+
+    # Uptime Monitoring (UptimeRobot — free tier, 50 monitors)
+    uptimerobot_api_key: str = Field(default="", validation_alias="UPTIMEROBOT_API_KEY")
+
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=100, validation_alias="RATE_LIMIT_PER_MINUTE")
     rate_limit_per_hour: int = Field(default=1000, validation_alias="RATE_LIMIT_PER_HOUR")
