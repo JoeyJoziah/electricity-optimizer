@@ -236,9 +236,15 @@ The `state_regulations` table contains deregulation status and PUC info for all 
 
 ## Key Constraints and Gotchas
 
-### Database Endpoint Quirk (CRITICAL)
+### Neon Database Configuration (CRITICAL)
 
-The app uses endpoint `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (us-east-1). The Neon MCP/console shows a DIFFERENT endpoint (`ep-lingering-forest-aebmj5t0`, us-east-2). Both connect to the same Neon project, but **migrations run via Neon MCP tools do not reach the app database**. Always run migrations via asyncpg against the app's `DATABASE_URL`.
+**Project:** `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools.
+
+- **Pooled endpoint** (app queries): `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`
+- **Direct endpoint** (DDL/migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`
+- **Branches**: `production` (default), `vercel-dev` (preview deployments)
+
+For production migrations, use 1Password CLI to get `DATABASE_URL` and run via asyncpg/psycopg2 against the direct endpoint.
 
 ### conftest.py mock_sqlalchemy_select (CRITICAL)
 
@@ -326,7 +332,7 @@ Key variables (see `.env.example` and `backend/.env.example` for full list):
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL` | Neon PostgreSQL connection string (must use `ep-withered-morning` endpoint) |
+| `DATABASE_URL` | Neon PostgreSQL connection string (project: cold-rice-23455092, pooled endpoint `ep-withered-morning`) |
 | `INTERNAL_API_KEY` | Protects internal ML endpoints and `/metrics` |
 | `STRIPE_SECRET_KEY` | Stripe server-side key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |

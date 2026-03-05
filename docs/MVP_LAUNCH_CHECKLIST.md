@@ -148,11 +148,11 @@
   - [x] Health endpoints configured ✅
 
 - [x] **Database**
-  - [x] Neon PostgreSQL (project: holy-pine-81107663, branch: main) ✅
-  - [x] All 20 migrations applied successfully (001-020) ✅
-  - [x] Connection pooling: Neon MCP pooler (us-east-1) ✅
+  - [x] Neon PostgreSQL (project: cold-rice-23455092, branch: production) ✅
+  - [x] All 23 migrations applied successfully (001-023) ✅
+  - [x] Connection pooling: PgBouncer via `-pooler` endpoint (us-east-1) ✅
   - [x] Backup strategy: Neon built-in (point-in-time recovery, branch snapshots) ✅
-  - [x] 17 production tables, all schemas validated ✅
+  - [x] 20 public + 9 neon_auth tables, all schemas validated ✅
 
 - [x] **External Services**
   - [x] Neon PostgreSQL verified (app endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`) ✅
@@ -461,7 +461,7 @@ make smoke-test
 **Launch Status:**
 - Backend: Live on Render.com (srv-d649uhur433s73d557cg)
 - Frontend: Live on Vercel (auto-deployment on push)
-- Database: Live on Neon PostgreSQL (project: holy-pine-81107663)
+- Database: Live on Neon PostgreSQL (project: cold-rice-23455092)
 - Monitoring: Active (Prometheus + Grafana)
 - Alerts: Active (6 rules, Slack notifications)
 

@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 17-table schema (23 migrations), endpoint quirk (us-east-1), UUID PKs, migration patterns
+- **NeonDBAgent**: 20-table schema (23 migrations), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
@@ -101,7 +101,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
 - **Frontend**: Next.js 14 + TypeScript (proxied to backend via `/api/v1/*` rewrites)
-- **Database**: Neon PostgreSQL — app endpoint is `ep-withered-morning` (us-east-1), NOT Neon MCP endpoint
+- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 20 public + 9 neon_auth tables
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://electricity-optimizer.onrender.com` (server-side)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business)
@@ -110,7 +110,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ## Critical Reminders
 
-1. **DB Endpoint**: App uses `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` — migrations via Neon MCP go to WRONG endpoint
+1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments)
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
 4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "Electricity Optimizer"

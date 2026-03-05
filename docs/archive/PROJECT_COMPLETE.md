@@ -57,7 +57,7 @@
 
 ### Backend (10,000+ lines)
 - **FastAPI Application**: 17 RESTful endpoints
-- **Database**: Neon PostgreSQL (serverless, project: holy-pine-81107663) + TimescaleDB (local dev time-series)
+- **Database**: Neon PostgreSQL (serverless, project: cold-rice-23455092) + TimescaleDB (local dev time-series)
 - **Caching**: Redis (5-minute TTL, price data)
 - **External APIs**: Flatpeak (UK/EU), NREL (US), IEA (Global)
 - **Architecture**: Repository pattern + Service layer

@@ -26,13 +26,13 @@
 
 ### Step 1: Neon PostgreSQL Setup (5 min)
 - [ ] Create account at https://neon.tech
-- [ ] Create new project: "electricity-optimizer" (project ID: holy-pine-81107663)
-- [ ] Copy connection string from Dashboard
-- [ ] Note the branch: main (br-broad-queen-aemirrrs)
+- [x] Neon project: "energyoptimize" (project ID: cold-rice-23455092)
+- [x] Connection string from 1Password vault "Electricity Optimizer"
+- [x] Production branch: `production` (br-shy-sun-aibo9dns), Preview branch: `vercel-dev`
 
 **Notes**:
 ```
-DATABASE_URL=postgresql://neondb_owner:***@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
 ```
 
 ### Step 2: API Keys Setup (10 min)

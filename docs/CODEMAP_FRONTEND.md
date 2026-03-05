@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-04 (Auth system fix: email verification via Resend, magic link plugin, conditional OAuth, signup redirect fix)
+**Last Updated:** 2026-03-05 (Loading skeletons verified, type safety audit completed, test counts updated)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -31,12 +31,23 @@ frontend/
       checkout/route.ts         # POST /api/checkout - proxies to backend billing/checkout
     (app)/                      # Route group: authenticated app pages (sidebar layout)
       layout.tsx                # Sidebar layout + navigation
-      dashboard/page.tsx        # Dashboard overview (user stats, recent recommendations)
-      prices/page.tsx           # Electricity prices table + region selector
-      suppliers/page.tsx        # Supplier details + regional availability
-      optimize/page.tsx         # Appliance optimization tool + recommendations
+      dashboard/
+        page.tsx                # Dashboard overview (user stats, recent recommendations)
+        loading.tsx             # Stats + activity skeleton
+      prices/
+        page.tsx                # Electricity prices table + region selector
+        loading.tsx             # Price table skeleton
+      suppliers/
+        page.tsx                # Supplier details + regional availability
+        loading.tsx             # Grid skeleton for supplier cards
+      optimize/
+        page.tsx                # Appliance optimization tool + recommendations
+        loading.tsx             # Stats + appliance/schedule skeleton
       settings/page.tsx         # User settings (region, notifications, profile)
       onboarding/page.tsx       # Initial setup flow (region selection, utility preferences)
+      connections/
+        page.tsx                # Connections overview (bills, utilities, direct sync)
+        loading.tsx             # Connection cards + method picker skeleton
       auth/                     # Authentication pages (route group within (app))
         layout.tsx              # Auth layout (centered cards, no sidebar)
         login/page.tsx          # Sign in form (email/password, OAuth, magic link)
@@ -45,7 +56,6 @@ frontend/
         reset-password/page.tsx  # Password reset form
         callback/page.tsx       # OAuth callback handler
         verify-email/page.tsx   # Email verification after signup
-      connections/page.tsx      # Connections overview (bills, utilities, direct sync)
       (dev)/                    # Route group: development-only pages (gate with notFound)
         layout.tsx              # Dev layout (DevBanner, notFound if not development)
         architecture/page.tsx   # Excalidraw diagram editor (list + canvas)
@@ -860,7 +870,7 @@ const { data, isLoading, error } = useQuery({
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1391 tests across 95 suites
+- **Coverage:** 1,391 tests across 95 suites (zero failures)
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
@@ -914,6 +924,22 @@ const { data, isLoading, error } = useQuery({
 - Next.js automatic code splitting per route
 - Dynamic imports for dev-only pages (Excalidraw)
 - React.lazy() for modal/dialog content
+
+---
+
+## Type Safety
+
+### TypeScript Coverage
+
+- **Page Components:** 100% type-safe (zero `any` types)
+- **Content Components:** 100% type-safe (zero `any` types)
+- **UI Components:** Fully typed props and event handlers
+- **Hooks:** Explicit return types on all custom hooks
+- **API Client:** Typed request/response handlers
+
+### Exception (Necessary)
+
+- **ExcalidrawWrapper.tsx:** Uses `any` type for third-party library cast (dev tool only, justified by external API constraints)
 
 ---
 
@@ -1097,7 +1123,8 @@ BETTER_AUTH_URL=...                      # (Server-only)
 - **Total Pages:** 19 (root + (app) + (dev) + auth routes)
 - **Total Layouts:** 3 (root, app, dev, auth)
 - **Total Components:** 50+ (UI + feature-specific)
-- **Total Tests:** 1391 across 95 suites
+- **Loading Skeletons:** 5 (dashboard, prices, suppliers, optimize, connections)
+- **Total Tests:** 1,391 across 95 suites (zero failures)
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
 - **Total Test Coverage:** 3,378+ tests (frontend + backend + ML + E2E)

@@ -48,7 +48,7 @@ backend/
 │       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
 │       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
 │       ├── users.py                 # User profile management (get, update, delete account)
-│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats
+│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup (prices + observations)
 │
 ├── routers/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
@@ -90,7 +90,7 @@ backend/
 │   ├── email_oauth_service.py       # OAuth2 flows for Gmail + Outlook, HMAC-SHA256 state validation, token encryption
 │   ├── email_scanner_service.py     # Gmail REST API + Microsoft Graph API inbox scanning, rate extraction via regex
 │   ├── bill_parser.py               # Bill document parsing (PDF/image OCR), rate extraction
-│   ├── maintenance_service.py       # Data retention cleanup (activity logs 365d, uploads 730d, parameterized SQL)
+│   ├── maintenance_service.py       # Data retention cleanup (activity logs 365d, uploads 730d, prices 365d, observations 90d, parameterized SQL + PL/pgSQL)
 │   ├── notification_service.py      # Notification creation, delivery, preference management
 │   ├── savings_service.py           # Savings calculation and tracking
 │   └── feature_flag_service.py      # Feature flag evaluation and management
@@ -104,7 +104,7 @@ backend/
 │   └── repositories.py              # ConsentRecordORM, DeletionLogORM, SQLAlchemy mappers
 │
 ├── integrations/
-│   ├── weather_service.py           # OpenWeatherMap integration
+│   ├── weather_service.py           # OpenWeatherMap integration, WeatherCircuitBreaker (failure threshold 5, timeout 60s, recovery 2 successes)
 │   └── pricing_apis/
 │       ├── base.py                  # PricingRegion (alias->Region), PriceData, APIError, RateLimitError; PriceUnit imported from models/utility.py
 │       ├── service.py               # PricingService (unified multi-API interface)
@@ -170,12 +170,12 @@ backend/
     ├── test_stripe_service.py       # Stripe service tests
     ├── test_vector_store.py         # Vector store tests (VectorStore)
     ├── test_hnsw_vector_store.py    # HNSW vector store tests (HNSWVectorStore)
-    ├── test_weather_service.py      # Weather service tests
+    ├── test_weather_service.py      # Weather service tests (12 circuit breaker tests: 7 breaker, 5 integration)
     ├── test_gdpr_compliance.py      # GDPR compliance tests
     ├── test_multi_utility.py        # Multi-utility expansion tests (39 tests)
     ├── test_observation_service.py  # ObservationService tests (31 tests)
     ├── test_learning_service.py     # LearningService tests (32 tests)
-    ├── test_performance.py          # Performance tests (16 tests)
+    ├── test_performance.py          # Performance tests (18 tests: query counts, caching, async operations)
     ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn)
     ├── test_api_regulations.py      # State regulation API tests
     ├── test_analytics_service.py    # AnalyticsService tests
@@ -195,13 +195,12 @@ backend/
     ├── test_api_health.py           # Health endpoint tests (/health, /health/ready, /health/live)
     ├── test_api_prices_analytics.py # Analytics endpoint tests
     ├── test_feature_flags.py        # Feature flag service tests
-    ├── test_maintenance_service.py  # Maintenance service tests (21 tests: cleanup_activity_logs, cleanup_expired_uploads, endpoint integration)
+    ├── test_maintenance_service.py  # Maintenance service tests (28 tests: cleanup_activity_logs, cleanup_expired_uploads, cleanup_old_prices, cleanup_old_observations, endpoint integration)
     ├── test_migrations.py           # Migration validation tests
     ├── test_notifications.py        # Notification service tests
     ├── test_resilience.py           # Resilience/circuit breaker tests
     ├── test_savings_service.py      # SavingsService calculation & tracking tests (52 tests)
     ├── test_forecast_observation_repository.py # ForecastObservationRepository with new coverage/accuracy class methods
-    ├── test_performance.py          # Performance tests (31+ tests: query counts, caching, async Stripe)
     └── test_load.py                 # Load/stress test helpers
 ```
 
@@ -348,6 +347,7 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | POST | `/observe-forecasts` | Backfill actual prices into unobserved forecast rows |
 | POST | `/learn` | Run adaptive learning cycle (accuracy, bias, weight tuning, pruning) |
 | GET | `/observation-stats` | Forecast accuracy metrics and hourly bias |
+| POST | `/maintenance/cleanup` | Run data retention cleanup: activity logs, uploads, prices, observations (returns counts deleted) |
 
 ### User Supplier (`/api/v1/user/supplier`)
 
@@ -667,7 +667,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | `EmailScannerService` | AsyncSession | Gmail/Outlook inbox scanning: keyword search, MIME traversal, regex rate extraction |
 | `BillParser` | -- | Document parsing: PDF text extraction, OCR for images, rate/supplier/amount detection |
 | `GDPRComplianceService` | ConsentRepo, UserRepo | Consent, export, deletion, retention |
-| `MaintenanceService` | AsyncSession | Data retention cleanup: activity logs (365d), bill uploads (730d), parameterized SQL queries |
+| `MaintenanceService` | AsyncSession | Data retention cleanup: activity logs (365d), bill uploads (730d), prices (365d), observations (90d); calls PL/pgSQL functions |
 | `NotificationService` | AsyncSession, EmailService | Create/deliver notifications, manage preferences |
 | `SavingsService` | AsyncSession, ConnectionService | Calculate/track savings, manage goals |
 | `FeatureFlagService` | Redis | Evaluate feature flags, manage user toggles |
@@ -863,6 +863,15 @@ Nightly Learning (nightly-learning.yml, 4AM UTC):
      4. store_bias_correction() -> bias vector -> vector store domain=bias_correction
      5. prune_stale_patterns() -> remove low-confidence vectors
   -> EnsemblePredictor reads weights from Redis on next inference
+
+Data Retention (data-retention.yml, Sunday 3AM UTC):
+  -> POST /api/v1/internal/maintenance/cleanup (X-API-Key)
+  -> MaintenanceService cleanup chain:
+     - cleanup_activity_logs(365) -> activity logs table
+     - cleanup_expired_uploads(730) -> bill uploads table
+     - cleanup_old_prices(365) -> electricity_prices table
+     - cleanup_old_observations(90) -> forecast_observations table
+  -> All calls use PL/pgSQL cleanup_* functions for efficiency
 ```
 
 ### Recommendation Confidence Adjustment
@@ -957,7 +966,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1376 passed, 2 skipped, 0 failures (as of 2026-03-04). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics).
+**Test status:** 1393 passed, 2 skipped, 0 failures (as of 2026-03-05). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics), weather service circuit breaker, maintenance service cleanup operations.
 
 
 ## Scripts & Automation

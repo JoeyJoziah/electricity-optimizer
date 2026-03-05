@@ -90,7 +90,7 @@ $ docker exec electricity-optimizer-timescaledb-1 psql -U postgres -d electricit
 All tables created
 
 #### Neon PostgreSQL Tables (Production)
-Production uses Neon PostgreSQL (project: holy-pine-81107663, branch: main) with 14 tables:
+Production uses Neon PostgreSQL (project: cold-rice-23455092, branch: production) with 20 public + 9 neon_auth tables:
 - users, electricity_prices, suppliers, tariffs, consent_records, deletion_logs, beta_signups, auth_sessions, login_attempts, activity_logs, forecast_observations, recommendation_outcomes, supplier_registry, state_regulations
 - All PKs use UUID type; GRANTs use neondb_owner role
 

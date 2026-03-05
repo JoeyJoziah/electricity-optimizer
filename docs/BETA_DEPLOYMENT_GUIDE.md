@@ -128,7 +128,7 @@ Create `.env.production`:
 ```bash
 # Neon PostgreSQL (serverless database)
 NEON_DATABASE_URL=postgresql://[user]:[password]@[host].neon.tech/neondb?sslmode=require
-# Project: holy-pine-81107663, Branch: main
+# Project: cold-rice-23455092 ("energyoptimize"), Branch: production
 
 # Neon Auth (Better Auth) — session-based authentication
 BETTER_AUTH_SECRET=$(openssl rand -base64 32)

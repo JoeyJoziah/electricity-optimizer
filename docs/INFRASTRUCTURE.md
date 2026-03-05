@@ -240,18 +240,21 @@ All services communicate over the internal Docker bridge network. Only the follo
 
 ### Neon PostgreSQL (Production Database)
 
-**Project ID:** `holy-pine-81107663`
+**Project ID:** `cold-rice-23455092` (Neon project name: "energyoptimize")
 
 | Property | Value |
 |----------|-------|
-| Branch | `main` (br-broad-queen-aemirrrs) |
-| Compute Endpoint | `ep-withered-morning-aix83cfw` (us-east-1) |
-| Tables | 17 (see CODEMAP_BACKEND.md for full list) |
-| Migrations | Up to migration 020 (as of 2026-03-02) |
+| Production Branch | `production` (br-shy-sun-aibo9dns) — default |
+| Preview Branch | `vercel-dev` (br-little-salad-ainqjnuj) — for Vercel preview deployments |
+| Pooled Endpoint | `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (PgBouncer) |
+| Direct Endpoint | `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (for DDL/migrations) |
+| Public Tables | 20 (see CODEMAP_BACKEND.md for full list) |
+| Auth Tables | 9 (neon_auth schema — managed by Better Auth) |
+| Migrations | Up to migration 023 (as of 2026-03-05) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
-**CRITICAL:** The Neon project has multiple compute endpoints. The app's `DATABASE_URL` uses `ep-withered-morning-aix83cfw` (us-east-1) with pooler endpoint `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. The Neon MCP tool may connect to a different endpoint (`ep-lingering-forest-aebmj5t0`, us-east-2). Always verify which endpoint you're targeting when running migrations. Use the app's `DATABASE_URL` directly for production migrations.
+**Neon MCP:** Always use `projectId: "cold-rice-23455092"` when calling `mcp__Neon__*` tools. The previous stale project `holy-pine-81107663` was deleted (0 users, missing tables, wrong region).
 
 **Migration 020 (2026-03-02): Price Query Indexes**
 - Creates 3 composite indexes on `electricity_prices` table:

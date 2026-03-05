@@ -141,8 +141,10 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
     """
     Run data retention cleanup tasks.
 
-    Deletes activity logs older than 365 days and bill upload records
-    (plus associated extracted rates and files) older than 730 days.
+    Deletes activity logs older than 365 days, bill upload records
+    (plus associated extracted rates and files) older than 730 days,
+    electricity prices older than 365 days, and forecast observations
+    older than 90 days.
 
     Requires a valid X-API-Key header (enforced by the router-level dependency).
     """
@@ -151,7 +153,14 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
     svc = MaintenanceService(db)
     logs = await svc.cleanup_activity_logs()
     uploads = await svc.cleanup_expired_uploads()
-    return {"activity_logs": logs, "uploads": uploads}
+    prices = await svc.cleanup_old_prices()
+    observations = await svc.cleanup_old_observations()
+    return {
+        "activity_logs": logs,
+        "uploads": uploads,
+        "prices": prices,
+        "observations": observations,
+    }
 
 
 @router.get("/observation-stats", tags=["Internal"])

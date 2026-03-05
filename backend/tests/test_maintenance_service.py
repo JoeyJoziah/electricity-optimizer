@@ -129,6 +129,98 @@ class TestCleanupActivityLogs:
 
 
 # =============================================================================
+# TestCleanupOldPrices
+# =============================================================================
+
+
+class TestCleanupOldPrices:
+    """Tests for MaintenanceService.cleanup_old_prices"""
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def service(self, db):
+        from services.maintenance_service import MaintenanceService
+        return MaintenanceService(db)
+
+    @pytest.mark.asyncio
+    async def test_returns_deleted_count(self, service, db):
+        result_mock = MagicMock()
+        result_mock.scalar.return_value = 42
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.cleanup_old_prices(retention_days=365)
+
+        assert result["deleted"] == 42
+        assert result["retention_days"] == 365
+
+    @pytest.mark.asyncio
+    async def test_default_retention_is_365(self, service, db):
+        result_mock = MagicMock()
+        result_mock.scalar.return_value = 0
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.cleanup_old_prices()
+
+        assert result["retention_days"] == 365
+
+    @pytest.mark.asyncio
+    async def test_handles_null_scalar(self, service, db):
+        result_mock = MagicMock()
+        result_mock.scalar.return_value = None
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.cleanup_old_prices()
+
+        assert result["deleted"] == 0
+
+
+# =============================================================================
+# TestCleanupOldObservations
+# =============================================================================
+
+
+class TestCleanupOldObservations:
+    """Tests for MaintenanceService.cleanup_old_observations"""
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def service(self, db):
+        from services.maintenance_service import MaintenanceService
+        return MaintenanceService(db)
+
+    @pytest.mark.asyncio
+    async def test_returns_deleted_count(self, service, db):
+        result_mock = MagicMock()
+        result_mock.scalar.return_value = 100
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.cleanup_old_observations(retention_days=90)
+
+        assert result["deleted"] == 100
+        assert result["retention_days"] == 90
+
+    @pytest.mark.asyncio
+    async def test_default_retention_is_90(self, service, db):
+        result_mock = MagicMock()
+        result_mock.scalar.return_value = 0
+        db.execute = AsyncMock(return_value=result_mock)
+
+        result = await service.cleanup_old_observations()
+
+        assert result["retention_days"] == 90
+
+
+# =============================================================================
 # TestCleanupExpiredUploads
 # =============================================================================
 
@@ -337,13 +429,19 @@ class TestMaintenanceEndpoint:
 
     @patch("services.maintenance_service.MaintenanceService")
     def test_maintenance_happy_path(self, mock_svc_cls, auth_client):
-        """Should call both cleanup methods and return their results."""
+        """Should call all cleanup methods and return their results."""
         mock_svc = MagicMock()
         mock_svc.cleanup_activity_logs = AsyncMock(
             return_value={"deleted": 10, "retention_days": 365}
         )
         mock_svc.cleanup_expired_uploads = AsyncMock(
             return_value={"deleted": 3, "retention_days": 730}
+        )
+        mock_svc.cleanup_old_prices = AsyncMock(
+            return_value={"deleted": 500, "retention_days": 365}
+        )
+        mock_svc.cleanup_old_observations = AsyncMock(
+            return_value={"deleted": 200, "retention_days": 90}
         )
         mock_svc_cls.return_value = mock_svc
 
@@ -356,6 +454,8 @@ class TestMaintenanceEndpoint:
         assert data["activity_logs"]["retention_days"] == 365
         assert data["uploads"]["deleted"] == 3
         assert data["uploads"]["retention_days"] == 730
+        assert data["prices"]["deleted"] == 500
+        assert data["observations"]["deleted"] == 200
 
     @patch("services.maintenance_service.MaintenanceService")
     def test_maintenance_zero_deletions(self, mock_svc_cls, auth_client):
@@ -367,6 +467,12 @@ class TestMaintenanceEndpoint:
         mock_svc.cleanup_expired_uploads = AsyncMock(
             return_value={"deleted": 0, "retention_days": 730}
         )
+        mock_svc.cleanup_old_prices = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 365}
+        )
+        mock_svc.cleanup_old_observations = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 90}
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post("/api/v1/internal/maintenance/cleanup")
@@ -375,6 +481,8 @@ class TestMaintenanceEndpoint:
         data = response.json()
         assert data["activity_logs"]["deleted"] == 0
         assert data["uploads"]["deleted"] == 0
+        assert data["prices"]["deleted"] == 0
+        assert data["observations"]["deleted"] == 0
 
     def test_maintenance_requires_api_key(self, unauth_client):
         """Request without X-API-Key header should be rejected with 401."""

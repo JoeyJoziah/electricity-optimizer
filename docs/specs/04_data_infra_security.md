@@ -30,7 +30,7 @@ postgres-exporter   postgres-exporter           9187   timescaledb        0.1CPU
 
 ## 2. Database Schema
 
-Neon PostgreSQL (project `holy-pine-81107663`, branch `main`). All PKs are UUID via `gen_random_uuid()`.
+Neon PostgreSQL (project `cold-rice-23455092`, branch `production`). All PKs are UUID via `gen_random_uuid()`.
 
 ```
 users ──< auth_sessions      (FK CASCADE)     suppliers ──< tariffs  (FK CASCADE)

@@ -23,7 +23,7 @@ This guide covers how to deploy the Electricity Optimizer platform in different 
 
 ### Required Accounts
 
-- **Neon**: For serverless PostgreSQL (project: holy-pine-81107663)
+- **Neon**: For serverless PostgreSQL (project: cold-rice-23455092 "energyoptimize")
 - **GitHub**: For CI/CD and container registry
 - **Render.com**: For backend hosting
 - **Vercel**: For frontend hosting
@@ -401,7 +401,7 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 |---------|-----|----------|
 | Backend API | https://electricity-optimizer-api.onrender.com | Render (srv-d649uhur433s73d557cg) |
 | Frontend | https://electricity-optimizer.vercel.app | Vercel |
-| Database | Neon PostgreSQL (holy-pine-81107663) | Neon |
+| Database | Neon PostgreSQL (cold-rice-23455092) | Neon |
 
 Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-deploys on push to `main` via Vercel.
 

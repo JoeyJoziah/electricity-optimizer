@@ -1,10 +1,14 @@
 """Tests for the Weather Service integration."""
 
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+
 from integrations.weather_service import (
+    CircuitState,
+    WeatherCircuitBreaker,
     WeatherData,
     WeatherForecast,
     WeatherService,
@@ -104,3 +108,148 @@ class TestWeatherService:
         """Verify Connecticut coordinates are set."""
         assert CT_LAT == pytest.approx(41.3083, abs=0.01)
         assert CT_LON == pytest.approx(-72.9279, abs=0.01)
+
+
+class TestWeatherCircuitBreaker:
+    """Tests for the weather service circuit breaker."""
+
+    @pytest.mark.asyncio
+    async def test_starts_closed(self):
+        cb = WeatherCircuitBreaker()
+        assert cb.state == CircuitState.CLOSED
+        assert await cb.can_execute() is True
+
+    @pytest.mark.asyncio
+    async def test_opens_after_threshold_failures(self):
+        cb = WeatherCircuitBreaker(failure_threshold=3)
+        for _ in range(3):
+            await cb.record_failure()
+        assert cb.state == CircuitState.OPEN
+        assert await cb.can_execute() is False
+
+    @pytest.mark.asyncio
+    async def test_stays_closed_below_threshold(self):
+        cb = WeatherCircuitBreaker(failure_threshold=5)
+        for _ in range(4):
+            await cb.record_failure()
+        assert cb.state == CircuitState.CLOSED
+        assert await cb.can_execute() is True
+
+    @pytest.mark.asyncio
+    async def test_transitions_to_half_open_after_timeout(self):
+        cb = WeatherCircuitBreaker(failure_threshold=2, timeout_seconds=60)
+        await cb.record_failure()
+        await cb.record_failure()
+        assert cb.state == CircuitState.OPEN
+
+        # Simulate timeout elapsed
+        cb._last_failure_time = datetime.now(timezone.utc) - timedelta(seconds=61)
+        assert cb.state == CircuitState.HALF_OPEN
+        assert await cb.can_execute() is True
+
+    @pytest.mark.asyncio
+    async def test_closes_after_success_threshold_in_half_open(self):
+        cb = WeatherCircuitBreaker(failure_threshold=2, timeout_seconds=0, success_threshold=2)
+        await cb.record_failure()
+        await cb.record_failure()
+        # timeout_seconds=0 so it immediately becomes HALF_OPEN
+        cb._last_failure_time = datetime.now(timezone.utc) - timedelta(seconds=1)
+        assert cb.state == CircuitState.HALF_OPEN
+
+        await cb.record_success()
+        await cb.record_success()
+        assert cb.state == CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_reopens_on_failure_in_half_open(self):
+        cb = WeatherCircuitBreaker(failure_threshold=2, timeout_seconds=0)
+        await cb.record_failure()
+        await cb.record_failure()
+        cb._last_failure_time = datetime.now(timezone.utc) - timedelta(seconds=1)
+        assert cb.state == CircuitState.HALF_OPEN
+
+        await cb.record_failure()
+        assert cb._state == CircuitState.OPEN
+
+    @pytest.mark.asyncio
+    async def test_success_resets_failure_count_when_closed(self):
+        cb = WeatherCircuitBreaker(failure_threshold=5)
+        for _ in range(4):
+            await cb.record_failure()
+        await cb.record_success()
+        assert cb._failure_count == 0
+
+
+class TestWeatherServiceCircuitBreaker:
+    """Tests for circuit breaker integration in WeatherService."""
+
+    def setup_method(self):
+        self.service = WeatherService(api_key="test-key")
+
+    @pytest.mark.asyncio
+    async def test_get_current_returns_none_when_circuit_open(self):
+        """When circuit is open, get_current should return None."""
+        # Force circuit open
+        for _ in range(5):
+            await self.service._circuit_breaker.record_failure()
+        assert self.service._circuit_breaker.state == CircuitState.OPEN
+
+        result = await self.service.get_current()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_forecast_returns_none_when_circuit_open(self):
+        """When circuit is open, get_forecast_48h should return None."""
+        for _ in range(5):
+            await self.service._circuit_breaker.record_failure()
+
+        result = await self.service.get_forecast_48h()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_features_returns_none_when_circuit_open(self):
+        """When circuit is open, get_features_for_forecast should return None."""
+        for _ in range(5):
+            await self.service._circuit_breaker.record_failure()
+
+        result = await self.service.get_features_for_forecast()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_current_returns_none_on_http_error(self):
+        """HTTP errors should return None and record failure."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=MagicMock(status_code=500)
+        )
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.is_closed = False
+        self.service._client = mock_client
+
+        result = await self.service.get_current()
+        assert result is None
+        assert self.service._circuit_breaker._failure_count == 1
+
+    @pytest.mark.asyncio
+    async def test_successful_call_records_success(self):
+        """Successful API call should record success on circuit breaker."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "dt": 1707696000,
+            "main": {"temp": 45.0, "humidity": 65, "feels_like": 40.0, "pressure": 1020},
+            "wind": {"speed": 12.0},
+            "clouds": {"all": 75},
+        }
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.is_closed = False
+        self.service._client = mock_client
+
+        result = await self.service.get_current()
+        assert result is not None
+        assert result.temperature_f == 45.0
+        assert self.service._circuit_breaker._failure_count == 0

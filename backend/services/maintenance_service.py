@@ -35,6 +35,28 @@ class MaintenanceService:
         logger.info("activity_logs_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}
 
+    async def cleanup_old_prices(self, retention_days: int = 365):
+        """Call the PL/pgSQL cleanup_old_prices function."""
+        result = await self._db.execute(
+            text("SELECT cleanup_old_prices(:days)"),
+            {"days": retention_days},
+        )
+        deleted = result.scalar() or 0
+        await self._db.commit()
+        logger.info("old_prices_cleaned", deleted=deleted, retention_days=retention_days)
+        return {"deleted": deleted, "retention_days": retention_days}
+
+    async def cleanup_old_observations(self, retention_days: int = 90):
+        """Call the PL/pgSQL cleanup_old_observations function."""
+        result = await self._db.execute(
+            text("SELECT cleanup_old_observations(:days)"),
+            {"days": retention_days},
+        )
+        deleted = result.scalar() or 0
+        await self._db.commit()
+        logger.info("old_observations_cleaned", deleted=deleted, retention_days=retention_days)
+        return {"deleted": deleted, "retention_days": retention_days}
+
     async def cleanup_expired_uploads(self, retention_days: int = 730):
         """Delete bill upload records and files older than retention period."""
         cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
