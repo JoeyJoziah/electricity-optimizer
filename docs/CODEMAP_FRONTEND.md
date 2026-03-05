@@ -1382,4 +1382,4 @@ const confirmPasswordMatch = Boolean(confirmPassword && password === confirmPass
 
 **Last Reviewed:** 2026-03-04 by documentation engineer
 **Status:** Current with email verification fix and all recent changes
-**Test Coverage:** 1391 tests (frontend), 3,378 total (all layers)
+**Test Coverage:** 1398 tests (frontend), 3,402 total (all layers)

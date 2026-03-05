@@ -498,7 +498,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 
 | Backend | Client | Pool Config |
 |---------|--------|-------------|
-| Neon PostgreSQL | SQLAlchemy `AsyncEngine` + optional `asyncpg.Pool` | pool_size=3, max_overflow=5, pool_recycle=300 |
+| Neon PostgreSQL | SQLAlchemy `AsyncEngine` + optional `asyncpg.Pool` | pool_size=3, max_overflow=5, pool_recycle=200, pool_timeout=20 |
 | Redis | `redis.asyncio.Redis` | max_connections=10, socket_keepalive=True |
 
 **Neon handling:** SSL auto-required for `neon.tech` URLs; `sslmode`/`channel_binding`
@@ -730,7 +730,7 @@ Two auth mechanisms:
 | `tariffs` | UUID | FK to suppliers, utility_type column |
 | `supplier_registry` | UUID | DB-backed supplier data (replaces mock data). Columns: utility_types[], regions[], rating, green_energy_provider, metadata JSONB |
 | `state_regulations` | VARCHAR(2) PK | Deregulation flags, PUC info, licensing requirements |
-| `consent_records` | UUID | FK to users (ON DELETE CASCADE) |
+| `consent_records` | UUID | FK to users (ON DELETE SET NULL), user_id nullable for GDPR compliance |
 | `deletion_logs` | UUID | Immutable (trigger blocks UPDATE/DELETE) |
 | `beta_signups` | UUID | email UNIQUE |
 | `auth_sessions` | UUID | FK to users |
@@ -778,7 +778,7 @@ Two auth mechanisms:
 | `020_composite_indexes.sql` | 3 composite indexes: prices(region+supplier+created DESC), prices(region+utility_type+created DESC), users(region) |
 | `021_supplier_api_available.sql` | Set `api_available=true` for 37 suppliers with direct login APIs |
 | `022_user_supplier_composite_index.sql` | Composite index on `user_supplier_accounts` for faster lookups |
-| `023_db_audit_indexes.sql` | 2 partial indexes (sync_due + alert_configs), meter_number columns, consent FK CASCADE->SET NULL, 2 PL/pgSQL data retention functions |
+| `023_db_audit_indexes.sql` | **DEPLOYED** — 2 partial indexes (sync_due + alert_configs), meter_number columns, consent FK CASCADE->SET NULL, 2 PL/pgSQL data retention functions |
 
 **003 details:** Safe to re-run (IF NOT EXISTS / IF EXISTS guards). Temporarily
 disables `tr_prevent_deletion_log_update` trigger for schema backfill operations.
@@ -980,6 +980,7 @@ with `credentials: 'include'` for cookie-based session auth.
 |------|---------|
 | `deploy.sh` | One-command deployment (validates `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `INTERNAL_API_KEY`) |
 | `health-check.sh` | Service health verification: Backend API, Frontend, Redis (configurable via `REDIS_HOST`/`REDIS_PORT`) |
+| `db_maintenance.py` | Scheduled database maintenance cron job. Runs `cleanup_old_prices(365)` and `cleanup_old_observations(90)` via asyncpg. Designed for Render cron jobs |
 | `notion_setup_schema.py` | Idempotent Notion database schema provisioning (13 properties). Supports `--dry-run` |
 | `notion_sync.py` | Syncs TODO.md tasks to Notion (`--once` or continuous). Uses `database_id` query endpoint |
 | `github_notion_sync.py` | Syncs GitHub issues/PRs to Notion roadmap (`--mode full` or `--mode event`) |
