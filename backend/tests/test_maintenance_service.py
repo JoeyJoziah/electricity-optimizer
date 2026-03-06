@@ -9,10 +9,9 @@ Covers all public methods:
 
 import os
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-
 
 # =============================================================================
 # HELPERS
@@ -52,6 +51,7 @@ class TestCleanupActivityLogs:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
     @pytest.mark.asyncio
@@ -107,6 +107,7 @@ class TestCleanupActivityLogs:
         db.execute = AsyncMock(return_value=_make_result(rowcount=3))
 
         from datetime import timezone
+
         before = datetime.now(timezone.utc) - timedelta(days=365)
         await service.cleanup_activity_logs(retention_days=365)
         after = datetime.now(timezone.utc) - timedelta(days=365)
@@ -145,6 +146,7 @@ class TestCleanupOldPrices:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
     @pytest.mark.asyncio
@@ -196,6 +198,7 @@ class TestCleanupOldObservations:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
     @pytest.mark.asyncio
@@ -237,6 +240,7 @@ class TestCleanupExpiredUploads:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
     @pytest.mark.asyncio
@@ -376,6 +380,7 @@ class TestCleanupExpiredUploads:
         db.execute = AsyncMock(return_value=_make_result(fetchall_value=[]))
 
         from datetime import timezone
+
         before = datetime.now(timezone.utc) - timedelta(days=730)
         await service.cleanup_expired_uploads(retention_days=730)
         after = datetime.now(timezone.utc) - timedelta(days=730)
@@ -400,13 +405,14 @@ class TestMaintenanceEndpoint:
 
     @pytest.fixture
     def auth_client(self, mock_db):
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         app.dependency_overrides[verify_api_key] = lambda: True
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         from fastapi.testclient import TestClient
+
         client = TestClient(app)
         yield client
 
@@ -415,13 +421,14 @@ class TestMaintenanceEndpoint:
 
     @pytest.fixture
     def unauth_client(self, mock_db):
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         app.dependency_overrides.pop(verify_api_key, None)
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         from fastapi.testclient import TestClient
+
         client = TestClient(app)
         yield client
 
@@ -446,6 +453,7 @@ class TestMaintenanceEndpoint:
         mock_svc_cls.return_value = mock_svc
 
         from fastapi.testclient import TestClient
+
         response = auth_client.post("/api/v1/internal/maintenance/cleanup")
 
         assert response.status_code == 200
@@ -467,9 +475,7 @@ class TestMaintenanceEndpoint:
         mock_svc.cleanup_expired_uploads = AsyncMock(
             return_value={"deleted": 0, "retention_days": 730}
         )
-        mock_svc.cleanup_old_prices = AsyncMock(
-            return_value={"deleted": 0, "retention_days": 365}
-        )
+        mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0, "retention_days": 365})
         mock_svc.cleanup_old_observations = AsyncMock(
             return_value={"deleted": 0, "retention_days": 90}
         )

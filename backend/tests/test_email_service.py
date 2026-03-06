@@ -8,8 +8,9 @@ Tests cover:
 - Error handling and fallback behavior
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 def _make_service(
@@ -103,8 +104,9 @@ class TestResendPath:
         """When Resend fails and SMTP is configured, SMTP should be tried."""
         service = _make_service(resend_api_key="re_test-key", smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_resend", return_value=False), \
-             patch.object(service, "_send_via_smtp", return_value=True) as mock_smtp:
+        with patch.object(service, "_send_via_resend", return_value=False), patch.object(
+            service, "_send_via_smtp", return_value=True
+        ) as mock_smtp:
             result = await service.send(
                 to="user@example.com",
                 subject="Test",
@@ -118,8 +120,9 @@ class TestResendPath:
         """When Resend is not configured, _send_via_resend should not be called."""
         service = _make_service(resend_api_key=None, smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_resend") as mock_resend, \
-             patch.object(service, "_send_via_smtp", return_value=True):
+        with patch.object(service, "_send_via_resend") as mock_resend, patch.object(
+            service, "_send_via_smtp", return_value=True
+        ):
             result = await service.send(
                 to="user@example.com",
                 subject="Test",
@@ -215,8 +218,9 @@ class TestErrorHandling:
         """When both Resend and SMTP fail, send() returns False."""
         service = _make_service(resend_api_key="re_key", smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_resend", return_value=False), \
-             patch.object(service, "_send_via_smtp", return_value=False):
+        with patch.object(service, "_send_via_resend", return_value=False), patch.object(
+            service, "_send_via_smtp", return_value=False
+        ):
             result = await service.send(
                 to="user@example.com",
                 subject="Test",
@@ -249,9 +253,8 @@ class TestErrorHandling:
         # Patch aiosmtplib to raise inside _send_via_smtp
         with patch.dict("sys.modules", {"aiosmtplib": MagicMock()}):
             import sys
-            sys.modules["aiosmtplib"].send = AsyncMock(
-                side_effect=Exception("SMTP connect failed")
-            )
+
+            sys.modules["aiosmtplib"].send = AsyncMock(side_effect=Exception("SMTP connect failed"))
             result = await service._send_via_smtp(
                 to="user@example.com",
                 subject="Test",

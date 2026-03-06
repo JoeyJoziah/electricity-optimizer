@@ -4,16 +4,15 @@ Recommendation Service
 Business logic for generating user recommendations.
 """
 
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass
-
-from services.price_service import PriceService
-from repositories.user_repository import UserRepository
-from models.price import Price, PriceRegion
-
 import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+from models.price import Price, PriceRegion
+from repositories.user_repository import UserRepository
+from services.price_service import PriceService
 
 _logger = logging.getLogger(__name__)
 
@@ -21,6 +20,7 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class SwitchingRecommendation:
     """Recommendation for switching suppliers"""
+
     user_id: str
     current_supplier: str
     recommended_supplier: str
@@ -36,6 +36,7 @@ class SwitchingRecommendation:
 @dataclass
 class UsageRecommendation:
     """Recommendation for usage timing"""
+
     user_id: str
     appliance: str
     optimal_start_time: datetime
@@ -72,10 +73,7 @@ class RecommendationService:
         self._user_repo = user_repo
         self._vector_store = vector_store
 
-    async def get_switching_recommendation(
-        self,
-        user_id: str
-    ) -> Optional[SwitchingRecommendation]:
+    async def get_switching_recommendation(self, user_id: str) -> Optional[SwitchingRecommendation]:
         """
         Generate supplier switching recommendation for a user.
 
@@ -97,10 +95,7 @@ class RecommendationService:
         return self._compute_switching(user_id, user, prices)
 
     async def get_usage_recommendation(
-        self,
-        user_id: str,
-        appliance: str,
-        duration_hours: int
+        self, user_id: str, appliance: str, duration_hours: int
     ) -> Optional[Dict[str, Any]]:
         """
         Generate usage timing recommendation for an appliance.
@@ -122,9 +117,7 @@ class RecommendationService:
 
         # Get optimal windows
         windows = await self._price_service.get_optimal_usage_windows(
-            region=region,
-            duration_hours=duration_hours,
-            within_hours=24
+            region=region, duration_hours=duration_hours, within_hours=24
         )
 
         if not windows:
@@ -134,27 +127,27 @@ class RecommendationService:
 
         # Estimate cost (simplified - would use appliance power ratings)
         appliance_kwh = self._get_appliance_consumption(appliance, duration_hours)
-        estimated_cost = appliance_kwh * best_window['avg_price']
+        estimated_cost = appliance_kwh * best_window["avg_price"]
 
         # Get peak price for comparison
         prices = await self._price_service.get_current_prices(region)
-        peak_price = max(p.price_per_kwh for p in prices) if prices else best_window['avg_price']
+        peak_price = max(p.price_per_kwh for p in prices) if prices else best_window["avg_price"]
         cost_at_peak = appliance_kwh * peak_price
 
         reasons = []
-        if best_window['avg_price'] < peak_price * Decimal("0.7"):
+        if best_window["avg_price"] < peak_price * Decimal("0.7"):
             reasons.append("Running during off-peak hours saves significantly")
         reasons.append(f"Optimal window has average price of {best_window['avg_price']:.4f}/kWh")
 
         return {
-            'user_id': user_id,
-            'appliance': appliance,
-            'optimal_start_time': best_window['start'],
-            'optimal_end_time': best_window['end'],
-            'estimated_cost': estimated_cost.quantize(Decimal("0.01")),
-            'cost_vs_peak': (cost_at_peak - estimated_cost).quantize(Decimal("0.01")),
-            'reasons': reasons,
-            'generated_at': datetime.now(timezone.utc)
+            "user_id": user_id,
+            "appliance": appliance,
+            "optimal_start_time": best_window["start"],
+            "optimal_end_time": best_window["end"],
+            "estimated_cost": estimated_cost.quantize(Decimal("0.01")),
+            "cost_vs_peak": (cost_at_peak - estimated_cost).quantize(Decimal("0.01")),
+            "reasons": reasons,
+            "generated_at": datetime.now(timezone.utc),
         }
 
     def _get_appliance_consumption(self, appliance: str, hours: int) -> Decimal:
@@ -177,16 +170,13 @@ class RecommendationService:
             "pool_pump": Decimal("1.5"),
             "air_conditioner": Decimal("3.5"),
             "heater": Decimal("2.0"),
-            "default": Decimal("1.0")
+            "default": Decimal("1.0"),
         }
 
         rate = consumption_rates.get(appliance.lower(), consumption_rates["default"])
         return rate * Decimal(str(hours))
 
-    async def get_daily_recommendations(
-        self,
-        user_id: str
-    ) -> Dict[str, Any]:
+    async def get_daily_recommendations(self, user_id: str) -> Dict[str, Any]:
         """
         Generate all daily recommendations for a user.
 
@@ -204,10 +194,10 @@ class RecommendationService:
         user = await self._user_repo.get_by_id(user_id)
         if not user:
             return {
-                'user_id': user_id,
-                'generated_at': datetime.now(timezone.utc).isoformat(),
-                'switching_recommendation': None,
-                'usage_recommendations': []
+                "user_id": user_id,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "switching_recommendation": None,
+                "usage_recommendations": [],
             }
 
         region = PriceRegion(user.region)
@@ -217,9 +207,7 @@ class RecommendationService:
 
         # Prefetch: 1 query (optimal usage windows for max duration we need)
         windows = await self._price_service.get_optimal_usage_windows(
-            region=region,
-            duration_hours=2,
-            within_hours=24
+            region=region, duration_hours=2, within_hours=24
         )
 
         # Pure computation — no DB calls
@@ -231,17 +219,15 @@ class RecommendationService:
 
         usage_recommendations = []
         for appliance in appliances:
-            rec = self._compute_usage(
-                user_id, appliance, 2, windows, prices, peak_price
-            )
+            rec = self._compute_usage(user_id, appliance, 2, windows, prices, peak_price)
             if rec:
                 usage_recommendations.append(rec)
 
         return {
-            'user_id': user_id,
-            'generated_at': datetime.now(timezone.utc).isoformat(),
-            'switching_recommendation': switching.__dict__ if switching else None,
-            'usage_recommendations': usage_recommendations
+            "user_id": user_id,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "switching_recommendation": switching.__dict__ if switching else None,
+            "usage_recommendations": usage_recommendations,
         }
 
     def _compute_switching(
@@ -305,7 +291,7 @@ class RecommendationService:
             savings_percentage=savings_percentage,
             confidence=confidence,
             reasons=reasons,
-            generated_at=datetime.now(timezone.utc)
+            generated_at=datetime.now(timezone.utc),
         )
 
     # Minimum number of historical observations required before the vector
@@ -340,14 +326,18 @@ class RecommendationService:
                 )
                 return confidence
 
-            from services.vector_store import price_curve_to_vector
             import numpy as np
+
+            from services.vector_store import price_curve_to_vector
 
             price_values = [float(p.price_per_kwh) for p in prices[:24]]
             price_vector = price_curve_to_vector(price_values)
 
             similar = self._vector_store.search(
-                price_vector, domain="recommendation", k=3, min_similarity=0.7,
+                price_vector,
+                domain="recommendation",
+                k=3,
+                min_similarity=0.7,
             )
 
             if similar and similar[0]["similarity"] > 0.9:
@@ -376,23 +366,23 @@ class RecommendationService:
         best_window = windows[0]
 
         appliance_kwh = self._get_appliance_consumption(appliance, duration_hours)
-        estimated_cost = appliance_kwh * best_window['avg_price']
+        estimated_cost = appliance_kwh * best_window["avg_price"]
 
-        effective_peak = peak_price if peak_price > 0 else best_window['avg_price']
+        effective_peak = peak_price if peak_price > 0 else best_window["avg_price"]
         cost_at_peak = appliance_kwh * effective_peak
 
         reasons = []
-        if best_window['avg_price'] < effective_peak * Decimal("0.7"):
+        if best_window["avg_price"] < effective_peak * Decimal("0.7"):
             reasons.append("Running during off-peak hours saves significantly")
         reasons.append(f"Optimal window has average price of {best_window['avg_price']:.4f}/kWh")
 
         return {
-            'user_id': user_id,
-            'appliance': appliance,
-            'optimal_start_time': best_window['start'],
-            'optimal_end_time': best_window['end'],
-            'estimated_cost': estimated_cost.quantize(Decimal("0.01")),
-            'cost_vs_peak': (cost_at_peak - estimated_cost).quantize(Decimal("0.01")),
-            'reasons': reasons,
-            'generated_at': datetime.now(timezone.utc)
+            "user_id": user_id,
+            "appliance": appliance,
+            "optimal_start_time": best_window["start"],
+            "optimal_end_time": best_window["end"],
+            "estimated_cost": estimated_cost.quantize(Decimal("0.01")),
+            "cost_vs_peak": (cost_at_peak - estimated_cost).quantize(Decimal("0.01")),
+            "reasons": reasons,
+            "generated_at": datetime.now(timezone.utc),
         }

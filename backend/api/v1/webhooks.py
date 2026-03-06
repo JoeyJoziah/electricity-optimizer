@@ -8,10 +8,9 @@ verification. Logs events and can trigger downstream actions (e.g., Notion sync)
 import hashlib
 import hmac
 
-from fastapi import APIRouter, Request, HTTPException
-from pydantic import BaseModel
-
 import structlog
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from config.settings import settings
 
@@ -22,6 +21,7 @@ router = APIRouter(tags=["Webhooks"])
 
 class WebhookResponse(BaseModel):
     """Response for webhook processing."""
+
     received: bool
     event: str
 

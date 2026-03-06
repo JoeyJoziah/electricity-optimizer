@@ -10,7 +10,7 @@ Endpoints for in-app notification management:
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from services.notification_service import NotificationService
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
