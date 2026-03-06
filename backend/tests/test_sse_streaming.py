@@ -28,7 +28,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -121,8 +120,9 @@ class TestSSEMaxConnections:
     @pytest.fixture
     def app_client(self):
         """TestClient with auth and price_service dependencies overridden."""
+        from api.dependencies import (get_current_user, get_db_session,
+                                      get_price_service, get_redis)
         from main import app
-        from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
 
         token = _make_token_data("user-maxconn")
         mock_svc = AsyncMock()
@@ -158,9 +158,7 @@ class TestSSEMaxConnections:
 
         # get_redis is imported locally inside _sse_incr via config.database
         with patch("config.database.get_redis", new=_no_redis):
-            response = app_client.get(
-                "/api/v1/prices/stream?region=us_ct&interval=10"
-            )
+            response = app_client.get("/api/v1/prices/stream?region=us_ct&interval=10")
 
         assert response.status_code == 429
 
@@ -239,7 +237,7 @@ class TestSSEEventGenerator:
         first = events[0]
         assert first.startswith("data: ")
         assert first.endswith("\n\n")
-        payload = json.loads(first[len("data: "): -2])
+        payload = json.loads(first[len("data: ") : -2])
         assert payload["region"] == "us_ct"
         assert payload["supplier"] == "United Illuminating"
         assert "price_per_kwh" in payload
@@ -284,7 +282,7 @@ class TestSSEEventGenerator:
                     pass
 
         assert len(events) >= 1
-        payload = json.loads(events[0][len("data: "): -2])
+        payload = json.loads(events[0][len("data: ") : -2])
         assert payload["source"] == "fallback"
 
     @pytest.mark.asyncio
@@ -294,9 +292,7 @@ class TestSSEEventGenerator:
         from models.price import PriceRegion
 
         mock_svc = AsyncMock()
-        mock_svc.get_current_prices = AsyncMock(
-            side_effect=RuntimeError("DB connection lost")
-        )
+        mock_svc.get_current_prices = AsyncMock(side_effect=RuntimeError("DB connection lost"))
 
         fallback_price = _make_price_obj("Mock Supplier", 0.27)
 
@@ -320,7 +316,7 @@ class TestSSEEventGenerator:
 
         # Should have yielded a fallback event rather than crashing
         assert len(events) >= 1
-        payload = json.loads(events[0][len("data: "): -2])
+        payload = json.loads(events[0][len("data: ") : -2])
         assert payload["source"] == "fallback"
 
     @pytest.mark.asyncio
@@ -373,9 +369,10 @@ class TestSSEEndpoint:
         disconnecting immediately.  The inner async generator breaks as soon
         as it detects the disconnection, so the test does not hang.
         """
-        from main import app
-        from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
+        from api.dependencies import (get_current_user, get_db_session,
+                                      get_price_service, get_redis)
         from api.v1 import prices_sse
+        from main import app
 
         token = _make_token_data("user-headers")
         mock_svc = AsyncMock()

@@ -8,14 +8,13 @@ All queries use parameterised ``text()`` statements and the async SQLAlchemy
 session pattern established across this codebase.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import structlog
 
 logger = structlog.get_logger()
 
@@ -64,7 +63,8 @@ class SavingsService:
         # -------------------------------------------------------------------
         # Aggregate totals (total / weekly / monthly) in a single query
         # -------------------------------------------------------------------
-        agg_sql = text(f"""
+        agg_sql = text(
+            f"""
             SELECT
                 COALESCE(SUM(amount), 0)                                          AS total,
                 COALESCE(SUM(amount) FILTER (
@@ -77,7 +77,8 @@ class SavingsService:
             FROM user_savings
             WHERE user_id = :user_id
             {region_clause}
-        """)
+        """
+        )
         agg_result = await self.db.execute(agg_sql, base_params)
         agg_row = agg_result.mappings().first()
 
@@ -100,14 +101,16 @@ class SavingsService:
         # Streak: fetch distinct active days (most recent first, limited to a
         # practical window of 365 days to bound the query cost)
         # -------------------------------------------------------------------
-        streak_sql = text(f"""
+        streak_sql = text(
+            f"""
             SELECT DISTINCT DATE(created_at AT TIME ZONE 'UTC') AS day
             FROM user_savings
             WHERE user_id = :user_id
               AND created_at >= NOW() - INTERVAL '365 days'
             {region_clause}
             ORDER BY day DESC
-        """)
+        """
+        )
         streak_result = await self.db.execute(streak_sql, base_params)
         streak_rows = streak_result.fetchall()
 
@@ -165,14 +168,16 @@ class SavingsService:
 
         # Paginated records
         rows_result = await self.db.execute(
-            text("""
+            text(
+                """
                 SELECT id, user_id, savings_type, amount, currency,
                        description, region, period_start, period_end, created_at
                 FROM user_savings
                 WHERE user_id = :user_id
                 ORDER BY created_at DESC
                 LIMIT :limit OFFSET :offset
-            """),
+            """
+            ),
             {"user_id": user_id, "limit": page_size, "offset": offset},
         )
         rows = rows_result.mappings().all()
@@ -222,7 +227,8 @@ class SavingsService:
         record_id = str(uuid4())
 
         result = await self.db.execute(
-            text("""
+            text(
+                """
                 INSERT INTO user_savings
                     (id, user_id, savings_type, amount, currency,
                      description, region, period_start, period_end)
@@ -231,7 +237,8 @@ class SavingsService:
                      :description, :region, :period_start, :period_end)
                 RETURNING id, user_id, savings_type, amount, currency,
                           description, region, period_start, period_end, created_at
-            """),
+            """
+            ),
             {
                 "id": record_id,
                 "user_id": user_id,

@@ -10,7 +10,7 @@ configurations to ``price_alert_configs`` and trigger events to
 ``alert_history`` (migration 014).
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -182,9 +182,7 @@ class AlertService:
         window_end_price = forecast_prices[best_start + window_hours - 1]
 
         # Calculate average price across all hours for savings estimate
-        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(
-            forecast_prices
-        )
+        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(forecast_prices)
         estimated_savings = (all_avg - best_avg) * window_hours
 
         triggered = []
@@ -358,7 +356,8 @@ class AlertService:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=cooldown_hours)
 
         result = await db.execute(
-            text("""
+            text(
+                """
                 SELECT triggered_at
                 FROM alert_history
                 WHERE user_id    = :user_id
@@ -367,7 +366,8 @@ class AlertService:
                   AND triggered_at >= :cutoff
                 ORDER BY triggered_at DESC
                 LIMIT 1
-            """),
+            """
+            ),
             {
                 "user_id": user_id,
                 "alert_type": alert_type,
@@ -401,7 +401,8 @@ class AlertService:
                 notification_frequency
         """
         result = await db.execute(
-            text("""
+            text(
+                """
                 SELECT
                     pac.id,
                     pac.user_id,
@@ -420,7 +421,8 @@ class AlertService:
                 WHERE pac.is_active = TRUE
                   AND u.is_active   = TRUE
                 ORDER BY pac.created_at
-            """),
+            """
+            ),
         )
         rows = result.mappings().all()
         return [
@@ -430,8 +432,12 @@ class AlertService:
                 "email": row["email"],
                 "region": row["region"],
                 "currency": row["currency"],
-                "price_below": Decimal(str(row["price_below"])) if row["price_below"] is not None else None,
-                "price_above": Decimal(str(row["price_above"])) if row["price_above"] is not None else None,
+                "price_below": Decimal(str(row["price_below"]))
+                if row["price_below"] is not None
+                else None,
+                "price_above": Decimal(str(row["price_above"]))
+                if row["price_above"] is not None
+                else None,
                 "notify_optimal_windows": row["notify_optimal_windows"],
                 "notification_frequency": row["notification_frequency"] or "daily",
             }
@@ -458,14 +464,16 @@ class AlertService:
             List of alert config dicts ordered by created_at DESC.
         """
         result = await db.execute(
-            text("""
+            text(
+                """
                 SELECT id, user_id, region, currency,
                        price_below, price_above, notify_optimal_windows,
                        is_active, created_at, updated_at
                 FROM price_alert_configs
                 WHERE user_id = :user_id
                 ORDER BY created_at DESC
-            """),
+            """
+            ),
             {"user_id": user_id},
         )
         rows = result.mappings().all()
@@ -501,7 +509,8 @@ class AlertService:
         total = count_result.scalar() or 0
 
         rows_result = await db.execute(
-            text("""
+            text(
+                """
                 SELECT id, user_id, alert_config_id, alert_type,
                        current_price, threshold, region, supplier, currency,
                        optimal_window_start, optimal_window_end, estimated_savings,
@@ -510,7 +519,8 @@ class AlertService:
                 WHERE user_id = :user_id
                 ORDER BY triggered_at DESC
                 LIMIT :limit OFFSET :offset
-            """),
+            """
+            ),
             {"user_id": user_id, "limit": page_size, "offset": offset},
         )
         rows = rows_result.mappings().all()
@@ -561,7 +571,8 @@ class AlertService:
             )
 
         result = await db.execute(
-            text("""
+            text(
+                """
                 INSERT INTO price_alert_configs
                     (id, user_id, region, currency,
                      price_below, price_above, notify_optimal_windows)
@@ -571,7 +582,8 @@ class AlertService:
                 RETURNING id, user_id, region, currency,
                           price_below, price_above, notify_optimal_windows,
                           is_active, created_at, updated_at
-            """),
+            """
+            ),
             {
                 "id": str(uuid4()),
                 "user_id": user_id,
@@ -610,20 +622,26 @@ class AlertService:
             Updated alert dict, or None if the alert was not found / not owned.
         """
         allowed_fields = {
-            "region", "currency", "price_below", "price_above",
-            "notify_optimal_windows", "is_active",
+            "region",
+            "currency",
+            "price_below",
+            "price_above",
+            "notify_optimal_windows",
+            "is_active",
         }
         filtered = {k: v for k, v in updates.items() if k in allowed_fields}
         if not filtered:
             # No valid fields to update — return existing record unchanged
             rows = await db.execute(
-                text("""
+                text(
+                    """
                     SELECT id, user_id, region, currency,
                            price_below, price_above, notify_optimal_windows,
                            is_active, created_at, updated_at
                     FROM price_alert_configs
                     WHERE id = :id AND user_id = :user_id
-                """),
+                """
+                ),
                 {"id": alert_id, "user_id": user_id},
             )
             row = rows.mappings().first()
@@ -638,14 +656,16 @@ class AlertService:
                 params[key] = str(params[key])
 
         result = await db.execute(
-            text(f"""
+            text(
+                f"""
                 UPDATE price_alert_configs
                 SET {set_clauses}, updated_at = NOW()
                 WHERE id = :id AND user_id = :user_id
                 RETURNING id, user_id, region, currency,
                           price_below, price_above, notify_optimal_windows,
                           is_active, created_at, updated_at
-            """),
+            """
+            ),
             params,
         )
         await db.commit()
@@ -672,10 +692,12 @@ class AlertService:
             True if the alert was deleted, False if it was not found.
         """
         result = await db.execute(
-            text("""
+            text(
+                """
                 DELETE FROM price_alert_configs
                 WHERE id = :id AND user_id = :user_id
-            """),
+            """
+            ),
             {"id": alert_id, "user_id": user_id},
         )
         await db.commit()
@@ -708,7 +730,8 @@ class AlertService:
             Dict representation of the inserted history row.
         """
         result = await db.execute(
-            text("""
+            text(
+                """
                 INSERT INTO alert_history
                     (id, user_id, alert_config_id, alert_type,
                      current_price, threshold, region, supplier, currency,
@@ -723,7 +746,8 @@ class AlertService:
                           current_price, threshold, region, supplier, currency,
                           optimal_window_start, optimal_window_end, estimated_savings,
                           triggered_at, email_sent
-            """),
+            """
+            ),
             {
                 "id": str(uuid4()),
                 "user_id": user_id,
@@ -773,9 +797,7 @@ class AlertService:
         return {
             "id": str(row["id"]),
             "user_id": str(row["user_id"]),
-            "alert_config_id": (
-                str(row["alert_config_id"]) if row["alert_config_id"] else None
-            ),
+            "alert_config_id": (str(row["alert_config_id"]) if row["alert_config_id"] else None),
             "alert_type": row["alert_type"],
             "current_price": float(row["current_price"]),
             "threshold": float(row["threshold"]) if row["threshold"] is not None else None,
@@ -783,20 +805,14 @@ class AlertService:
             "supplier": row["supplier"],
             "currency": row["currency"],
             "optimal_window_start": (
-                row["optimal_window_start"].isoformat()
-                if row.get("optimal_window_start")
-                else None
+                row["optimal_window_start"].isoformat() if row.get("optimal_window_start") else None
             ),
             "optimal_window_end": (
-                row["optimal_window_end"].isoformat()
-                if row.get("optimal_window_end")
-                else None
+                row["optimal_window_end"].isoformat() if row.get("optimal_window_end") else None
             ),
             "estimated_savings": (
                 float(row["estimated_savings"]) if row["estimated_savings"] is not None else None
             ),
-            "triggered_at": (
-                row["triggered_at"].isoformat() if row.get("triggered_at") else None
-            ),
+            "triggered_at": (row["triggered_at"].isoformat() if row.get("triggered_at") else None),
             "email_sent": row["email_sent"],
         }
