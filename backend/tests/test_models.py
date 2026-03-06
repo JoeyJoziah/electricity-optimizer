@@ -9,11 +9,11 @@ Tests for:
 RED phase: These tests should FAIL initially until models are implemented.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from pydantic import ValidationError
 
+import pytest
+from pydantic import ValidationError
 
 # =============================================================================
 # PRICE MODEL TESTS
@@ -33,7 +33,7 @@ class TestPriceModel:
             supplier="Eversource Energy",
             price_per_kwh=Decimal("0.26"),
             timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            currency="USD",
         )
 
         assert price.region == PriceRegion.US_CT
@@ -52,7 +52,7 @@ class TestPriceModel:
                 supplier="Test Supplier",
                 price_per_kwh=Decimal("-0.10"),  # Invalid negative price
                 timestamp=datetime.now(timezone.utc),
-                currency="USD"
+                currency="USD",
             )
 
         assert "price_per_kwh" in str(exc_info.value)
@@ -68,7 +68,7 @@ class TestPriceModel:
             supplier="Test Supplier",
             price_per_kwh=Decimal("0.00"),
             timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            currency="USD",
         )
 
         assert price.price_per_kwh == Decimal("0.00")
@@ -84,7 +84,7 @@ class TestPriceModel:
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=datetime.now(timezone.utc),
-                currency="INVALID"  # Should be 3-letter code
+                currency="INVALID",  # Should be 3-letter code
             )
 
     def test_price_model_validates_region_enum(self):
@@ -98,7 +98,7 @@ class TestPriceModel:
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=datetime.now(timezone.utc),
-                currency="USD"
+                currency="USD",
             )
 
     def test_price_model_auto_generates_id(self):
@@ -110,7 +110,7 @@ class TestPriceModel:
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            currency="USD",
         )
 
         assert price.id is not None
@@ -125,7 +125,7 @@ class TestPriceModel:
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            currency="USD",
         )
 
         assert price.is_peak is None
@@ -143,7 +143,7 @@ class TestPriceModel:
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=timestamp,
-            currency="USD"
+            currency="USD",
         )
 
         data = price.model_dump()
@@ -178,7 +178,7 @@ class TestPriceForecastModel:
 
     def test_forecast_creation(self):
         """Test PriceForecast model creation"""
-        from models.price import PriceForecast, Price, PriceRegion
+        from models.price import Price, PriceForecast, PriceRegion
 
         base_time = datetime.now(timezone.utc)
         prices = [
@@ -187,7 +187,7 @@ class TestPriceForecastModel:
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=base_time + timedelta(hours=i),
-                currency="USD"
+                currency="USD",
             )
             for i in range(24)
         ]
@@ -197,7 +197,7 @@ class TestPriceForecastModel:
             generated_at=base_time,
             horizon_hours=24,
             prices=prices,
-            confidence=0.85
+            confidence=0.85,
         )
 
         assert len(forecast.prices) == 24
@@ -214,7 +214,7 @@ class TestPriceForecastModel:
                 generated_at=datetime.now(timezone.utc),
                 horizon_hours=24,
                 prices=[],
-                confidence=1.5  # Invalid - must be <= 1.0
+                confidence=1.5,  # Invalid - must be <= 1.0
             )
 
 
@@ -230,12 +230,7 @@ class TestUserModel:
         """Test User model can be created with valid data"""
         from models.user import User
 
-        user = User(
-            id="user_123",
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(id="user_123", email="test@example.com", name="Test User", region="us_ct")
 
         assert user.email == "test@example.com"
         assert user.name == "Test User"
@@ -250,18 +245,14 @@ class TestUserModel:
                 id="user_123",
                 email="invalid-email",  # Invalid email format
                 name="Test User",
-                region="us_ct"
+                region="us_ct",
             )
 
     def test_user_model_auto_generates_id(self):
         """Test User model auto-generates UUID if not provided"""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(email="test@example.com", name="Test User", region="us_ct")
 
         assert user.id is not None
 
@@ -269,11 +260,7 @@ class TestUserModel:
         """Test User model has default empty preferences"""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(email="test@example.com", name="Test User", region="us_ct")
 
         assert user.preferences is not None
         assert isinstance(user.preferences, dict)
@@ -282,11 +269,7 @@ class TestUserModel:
         """Test User model has created_at timestamp"""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(email="test@example.com", name="Test User", region="us_ct")
 
         assert user.created_at is not None
         assert isinstance(user.created_at, datetime)
@@ -303,7 +286,7 @@ class TestUserPreferencesModel:
             preferred_suppliers=["Eversource Energy", "United Illuminating"],
             notification_enabled=True,
             cost_threshold=Decimal("0.30"),
-            auto_switch_enabled=False
+            auto_switch_enabled=False,
         )
 
         assert len(prefs.preferred_suppliers) == 2
@@ -337,7 +320,7 @@ class TestSupplierModel:
             name="Eversource Energy",
             regions=["us_ct"],
             tariff_types=["variable", "fixed"],
-            api_available=True
+            api_available=True,
         )
 
         assert supplier.name == "Eversource Energy"
@@ -353,7 +336,7 @@ class TestSupplierModel:
                 id="supplier_123",
                 name="",  # Empty name should fail
                 regions=["us_ct"],
-                tariff_types=["variable"]
+                tariff_types=["variable"],
             )
 
     def test_supplier_model_validates_regions_not_empty(self):
@@ -365,7 +348,7 @@ class TestSupplierModel:
                 id="supplier_123",
                 name="Test Supplier",
                 regions=[],  # Empty regions should fail
-                tariff_types=["variable"]
+                tariff_types=["variable"],
             )
 
     def test_supplier_model_contact_info(self):
@@ -375,14 +358,11 @@ class TestSupplierModel:
         contact = SupplierContact(
             email="support@eversource.com",
             phone="+1 800 286 2000",
-            website="https://eversource.com"
+            website="https://eversource.com",
         )
 
         supplier = Supplier(
-            name="Eversource Energy",
-            regions=["us_ct"],
-            tariff_types=["variable"],
-            contact=contact
+            name="Eversource Energy", regions=["us_ct"], tariff_types=["variable"], contact=contact
         )
 
         assert supplier.contact.email == "support@eversource.com"
@@ -403,7 +383,7 @@ class TestTariffModel:
             base_rate=Decimal("0.10"),
             unit_rate=Decimal("0.25"),
             standing_charge=Decimal("0.40"),
-            green_energy_percentage=100
+            green_energy_percentage=100,
         )
 
         assert tariff.name == "Standard Service"
@@ -421,7 +401,7 @@ class TestTariffModel:
                 type=TariffType.FIXED,
                 base_rate=Decimal("-0.10"),  # Invalid negative rate
                 unit_rate=Decimal("0.25"),
-                standing_charge=Decimal("0.40")
+                standing_charge=Decimal("0.40"),
             )
 
 
@@ -443,7 +423,7 @@ class TestAPISchemas:
             currency="USD",
             region="us_ct",
             supplier="Eversource Energy",
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc),
         )
 
         assert response.ticker == "ELEC-US-CT"
@@ -460,16 +440,11 @@ class TestAPISchemas:
                 currency="USD",
                 region="us_ct",
                 supplier="Test",
-                updated_at=datetime.now(timezone.utc)
+                updated_at=datetime.now(timezone.utc),
             )
         ]
 
-        response = PriceListResponse(
-            prices=prices,
-            total=100,
-            page=1,
-            page_size=10
-        )
+        response = PriceListResponse(prices=prices, total=100, page=1, page_size=10)
 
         assert len(response.prices) == 1
         assert response.total == 100
