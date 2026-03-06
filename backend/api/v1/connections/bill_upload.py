@@ -23,26 +23,19 @@ import asyncio
 import sys
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+import structlog
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
+                     UploadFile, status)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
-from models.connections import (
-    BillUploadListResponse,
-    BillUploadResponse,
-    ConnectionResponse,
-    CreateUploadConnectionRequest,
-)
-from services.bill_parser import (
-    BillParserService,
-    MAX_FILE_SIZE_BYTES,
-    build_storage_key,
-    validate_upload_file,
-)
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import (BillUploadListResponse, BillUploadResponse,
+                                ConnectionResponse,
+                                CreateUploadConnectionRequest)
+from services.bill_parser import (MAX_FILE_SIZE_BYTES, BillParserService,
+                                  build_storage_key, validate_upload_file)
 
 logger = structlog.get_logger(__name__)
 
@@ -112,12 +105,14 @@ async def create_upload_connection(
     connection_id = str(uuid4())
 
     await db.execute(
-        text("""
+        text(
+            """
             INSERT INTO user_connections
                 (id, user_id, connection_type, label, status, created_at)
             VALUES
                 (:id, :uid, 'manual_upload', :label, 'active', NOW())
-        """),
+        """
+        ),
         {
             "id": connection_id,
             "uid": current_user.user_id,
@@ -237,14 +232,16 @@ async def upload_bill_file(
 
     # Insert bill_uploads record
     await db.execute(
-        text("""
+        text(
+            """
             INSERT INTO bill_uploads
                 (id, connection_id, user_id, file_name, file_type,
                  file_size_bytes, storage_key, parse_status, created_at, updated_at)
             VALUES
                 (:id, :connection_id, :user_id, :file_name, :file_type,
                  :file_size_bytes, :storage_key, 'pending', NOW(), NOW())
-        """),
+        """
+        ),
         {
             "id": upload_id,
             "connection_id": connection_id,
@@ -304,7 +301,8 @@ async def list_bill_uploads(
         )
 
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id, connection_id, file_name, file_type, file_size_bytes,
                    parse_status, detected_supplier, detected_rate_per_kwh,
                    detected_billing_period_start, detected_billing_period_end,
@@ -313,7 +311,8 @@ async def list_bill_uploads(
             FROM bill_uploads
             WHERE connection_id = :cid
             ORDER BY created_at DESC
-        """),
+        """
+        ),
         {"cid": connection_id},
     )
     rows = result.mappings().all()
@@ -354,7 +353,8 @@ async def get_bill_upload(
 ) -> BillUploadResponse:
     """Return a single bill upload record (for polling parse status)."""
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT bu.id, bu.connection_id, bu.file_name, bu.file_type,
                    bu.file_size_bytes, bu.parse_status, bu.detected_supplier,
                    bu.detected_rate_per_kwh, bu.detected_billing_period_start,
@@ -363,7 +363,8 @@ async def get_bill_upload(
             FROM bill_uploads bu
             JOIN user_connections uc ON bu.connection_id = uc.id
             WHERE bu.id = :uid AND bu.connection_id = :cid AND uc.user_id = :user_id
-        """),
+        """
+        ),
         {"uid": upload_id, "cid": connection_id, "user_id": current_user.user_id},
     )
     row = result.mappings().first()
@@ -412,6 +413,7 @@ async def reparse_bill_upload(
     # Resolve _run_background_parse through the package namespace so test patches
     # on ``api.v1.connections._run_background_parse`` are observed at call time.
     import api.v1.connections as _pkg
+
     background_parse_fn = _pkg._run_background_parse
 
     # Verify connection ownership
@@ -427,7 +429,8 @@ async def reparse_bill_upload(
 
     # Fetch the upload record (must belong to this connection)
     upload_result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id, connection_id, file_name, file_type, file_size_bytes,
                    storage_key, parse_status, detected_supplier, detected_rate_per_kwh,
                    detected_billing_period_start, detected_billing_period_end,
@@ -435,7 +438,8 @@ async def reparse_bill_upload(
                    parse_error, created_at
             FROM bill_uploads
             WHERE id = :upload_id AND connection_id = :cid
-        """),
+        """
+        ),
         {"upload_id": upload_id, "cid": connection_id},
     )
     row = upload_result.mappings().first()
@@ -449,14 +453,16 @@ async def reparse_bill_upload(
 
     # Reset parse_status to pending
     await db.execute(
-        text("""
+        text(
+            """
             UPDATE bill_uploads
             SET parse_status = 'pending',
                 parse_error  = NULL,
                 parsed_at    = NULL,
                 updated_at   = NOW()
             WHERE id = :upload_id
-        """),
+        """
+        ),
         {"upload_id": upload_id},
     )
     await db.commit()

@@ -9,10 +9,10 @@ Ciphertext format: nonce (12 bytes) || ciphertext || tag (16 bytes)
 
 import os
 import re
+
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from config.settings import settings
-
 
 _NONCE_SIZE = 12  # 96-bit nonce for GCM
 
@@ -23,7 +23,7 @@ def _get_key() -> bytes:
     if not key_hex:
         raise RuntimeError(
             "FIELD_ENCRYPTION_KEY is not configured. "
-            "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
         )
     key_bytes = bytes.fromhex(key_hex)
     if len(key_bytes) != 32:

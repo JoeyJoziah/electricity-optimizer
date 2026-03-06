@@ -10,12 +10,12 @@ Provides state-level energy regulation data including:
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from api.dependencies import get_db_session
-from models.regulation import StateRegulationResponse, StateRegulationListResponse
+from models.regulation import (StateRegulationListResponse,
+                               StateRegulationResponse)
 from repositories.supplier_repository import StateRegulationRepository
-
 
 router = APIRouter(tags=["Regulations"])
 
@@ -34,7 +34,9 @@ async def list_regulations(
     electricity: Optional[bool] = Query(None, description="Filter by electricity deregulation"),
     gas: Optional[bool] = Query(None, description="Filter by gas deregulation"),
     oil: Optional[bool] = Query(None, description="Filter by oil market competition"),
-    community_solar: Optional[bool] = Query(None, description="Filter by community solar availability"),
+    community_solar: Optional[bool] = Query(
+        None, description="Filter by community solar availability"
+    ),
     db=Depends(get_db_session),
 ):
     """
@@ -67,7 +69,9 @@ async def list_regulations(
     },
 )
 async def get_state_regulation(
-    state_code: str = Path(..., pattern=r"^[A-Z]{2}$", description="Two-letter state code (e.g., CT, MA)"),
+    state_code: str = Path(
+        ..., pattern=r"^[A-Z]{2}$", description="Two-letter state code (e.g., CT, MA)"
+    ),
     db=Depends(get_db_session),
 ):
     """
@@ -82,7 +86,7 @@ async def get_state_regulation(
     if not state:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No regulation data for state '{state_code.upper()}'"
+            detail=f"No regulation data for state '{state_code.upper()}'",
         )
 
     return StateRegulationResponse(**state)

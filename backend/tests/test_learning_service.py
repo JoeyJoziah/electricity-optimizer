@@ -13,9 +13,8 @@ Covers all public methods:
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import numpy as np
-
+import pytest
 
 # =============================================================================
 # SHARED FIXTURES
@@ -26,9 +25,14 @@ import numpy as np
 def mock_obs():
     """Mock ObservationService with all async methods."""
     obs = AsyncMock()
-    obs.get_forecast_accuracy = AsyncMock(return_value={
-        "total": 0, "mape": None, "rmse": None, "coverage": None,
-    })
+    obs.get_forecast_accuracy = AsyncMock(
+        return_value={
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
+        }
+    )
     obs.get_hourly_bias = AsyncMock(return_value=[])
     obs.get_model_accuracy_by_version = AsyncMock(return_value=[])
     return obs
@@ -58,6 +62,7 @@ def mock_redis():
 def service(mock_obs, mock_vs, mock_redis):
     """LearningService with all mocked dependencies."""
     from services.learning_service import LearningService
+
     return LearningService(
         observation_service=mock_obs,
         vector_store=mock_vs,
@@ -69,6 +74,7 @@ def service(mock_obs, mock_vs, mock_redis):
 def service_no_redis(mock_obs, mock_vs):
     """LearningService without Redis."""
     from services.learning_service import LearningService
+
     return LearningService(
         observation_service=mock_obs,
         vector_store=mock_vs,
@@ -88,7 +94,10 @@ class TestComputeRollingAccuracy:
     async def test_delegates_to_observation_service(self, service, mock_obs):
         """Should call get_forecast_accuracy with correct args and return result."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 50, "mape": 3.5, "rmse": 0.012, "coverage": 88.0,
+            "total": 50,
+            "mape": 3.5,
+            "rmse": 0.012,
+            "coverage": 88.0,
         }
 
         result = await service.compute_rolling_accuracy("US", days=14)
@@ -377,7 +386,9 @@ class TestStoreBiasCorrection:
         # Only hour 12 should have a non-zero value
         assert raw_bias[12] == pytest.approx(0.01, abs=1e-6)
         # All others should be zero (including that nothing was set for -1 or 24)
-        assert sum(abs(v) for i, v in enumerate(raw_bias) if i != 12) == pytest.approx(0.0, abs=1e-6)
+        assert sum(abs(v) for i, v in enumerate(raw_bias) if i != 12) == pytest.approx(
+            0.0, abs=1e-6
+        )
 
 
 # =============================================================================
@@ -429,7 +440,10 @@ class TestRunFullCycle:
     async def test_default_regions_is_us(self, service, mock_obs, mock_vs):
         """Should default to ['US'] when no regions specified."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -443,7 +457,10 @@ class TestRunFullCycle:
     async def test_multi_region_loop(self, service, mock_obs, mock_vs):
         """Should process each region in the list."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 10, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
+            "total": 10,
+            "mape": 5.0,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -460,7 +477,10 @@ class TestRunFullCycle:
     async def test_weights_updated_populated(self, service, mock_obs, mock_vs, mock_redis):
         """Should populate weights_updated when model stats available."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 100, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
+            "total": 100,
+            "mape": 5.0,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = [
             {"model_version": "v2.1", "mape": 5.0, "count": 50},
@@ -476,7 +496,10 @@ class TestRunFullCycle:
     async def test_bias_corrections_populated(self, service, mock_obs, mock_vs):
         """Should populate bias_corrections when bias data available."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 50, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
+            "total": 50,
+            "mape": 5.0,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = [
@@ -492,7 +515,10 @@ class TestRunFullCycle:
     async def test_pruning_happens_once(self, service, mock_obs, mock_vs):
         """Pruning should happen once, not per-region."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -507,7 +533,10 @@ class TestRunFullCycle:
     async def test_redis_mape_update(self, service, mock_obs, mock_vs, mock_redis):
         """Should store primary region's MAPE in Redis."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 100, "mape": 4.5, "rmse": 0.01, "coverage": 90.0,
+            "total": 100,
+            "mape": 4.5,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -524,7 +553,10 @@ class TestRunFullCycle:
     async def test_redis_mape_skipped_when_none(self, service, mock_obs, mock_vs, mock_redis):
         """Should NOT write MAPE to Redis when accuracy returns None."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -540,7 +572,10 @@ class TestRunFullCycle:
     async def test_redis_mape_error_does_not_raise(self, service, mock_obs, mock_vs, mock_redis):
         """Redis failure during MAPE store should not crash the cycle."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 100, "mape": 4.5, "rmse": 0.01, "coverage": 90.0,
+            "total": 100,
+            "mape": 4.5,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -556,7 +591,10 @@ class TestRunFullCycle:
     async def test_no_redis_still_completes(self, service_no_redis, mock_obs, mock_vs):
         """Full cycle should complete even without Redis."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 50, "mape": 3.0, "rmse": 0.005, "coverage": 95.0,
+            "total": 50,
+            "mape": 3.0,
+            "rmse": 0.005,
+            "coverage": 95.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -570,7 +608,10 @@ class TestRunFullCycle:
     async def test_full_cycle_summary_structure(self, service, mock_obs, mock_vs):
         """Result dict should have all expected keys."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -586,7 +627,10 @@ class TestRunFullCycle:
     async def test_full_cycle_custom_days(self, service, mock_obs, mock_vs):
         """Should pass days parameter through to all sub-calls."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
