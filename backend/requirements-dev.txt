@@ -34,7 +34,7 @@ mkdocstrings[python]==0.24.0
 
 # Debugging
 ipdb==0.13.13
-rich==13.7.0
+rich==14.3.3
 
 # Pre-commit hooks
 pre-commit==3.6.0

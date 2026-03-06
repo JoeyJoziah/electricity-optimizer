@@ -11,19 +11,19 @@ Uses 1Password CLI (op) for secure secrets management in production.
 
 import os
 import subprocess
-from typing import Optional, Dict
 from functools import lru_cache
+from typing import Dict, Optional
 
 import structlog
 
 from config.settings import settings
-
 
 logger = structlog.get_logger()
 
 
 class SecretsError(Exception):
     """Exception raised when secret retrieval fails"""
+
     pass
 
 
@@ -153,7 +153,8 @@ class SecretsManager:
         try:
             result = subprocess.run(
                 [
-                    "op", "read",
+                    "op",
+                    "read",
                     f"op://{self.OP_VAULT}/{item_field}",
                 ],
                 capture_output=True,
