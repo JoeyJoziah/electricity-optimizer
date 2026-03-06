@@ -7,7 +7,7 @@
 ## Executive Summary
 
 9 cross-service automation workflows designed using 16 Composio/Rube MCP connections.
-7 approved (5 unconditional, 2 conditional), 2 rejected. 4 prerequisite blockers require ~9-11 hours of development before user-facing workflows can ship.
+7 approved (5 unconditional, 2 conditional), 2 rejected. All 4 prerequisite blockers resolved. All 7 approved workflows implemented and deployed (~27 hours total). 3 items remain for future work: NotificationDispatcher, ML weight persistence, and in-app notifications.
 
 ---
 
@@ -77,7 +77,7 @@ All 3 workflows live via Rube recipes. No application code changes required.
 - **Weather**: `.github/workflows/fetch-weather.yml` — every 6 hours, all 51 US regions
 - **Market research**: `.github/workflows/market-research.yml` — daily at 2am UTC, top 10 regions
 - **Rate scraping**: `.github/workflows/scrape-rates.yml` — daily at 3am UTC, auto-discovers suppliers
-- **Status**: GHA files created, awaiting merge to main to activate schedules
+- **Status**: GHA files merged to main, schedules active
 
 ### Workflow 8: Connection Sync Scheduler ✅
 - **Endpoint**: `POST /internal/sync-connections` → calls `ConnectionSyncService.sync_all_due()`
@@ -122,13 +122,15 @@ All 3 workflows live via Rube recipes. No application code changes required.
 - **Revisit when**: Project upgrades to paid Render plan (always-on instances)
 - **Alternative**: Use Render's built-in health check notifications for now
 
-### Rate Scraping at Full Scale — DEFERRED
-- **Reason**: 37 suppliers × 12s rate limit = 444s minimum. Incompatible with current middleware + Rube 4-min timeout.
-- **Revisit when**: Middleware exclusion for `/internal/*` is implemented (Workflow 1, Option B)
+### Rate Scraping at Full Scale — DEFERRED (UNBLOCKED)
+- **Reason**: 37 suppliers × 12s rate limit = 444s minimum. Originally incompatible with middleware + Rube 4-min timeout.
+- **Status**: Middleware exclusion for `/api/v1/internal/` is now implemented (Phase 2). Full-scale scraping via GHA cron is now feasible — current `scrape-rates.yml` uses auto-discovery but could be extended to all 37 suppliers since GHA has no 30s timeout.
+- **Next step**: Test full 37-supplier run via `workflow_dispatch`, measure duration, adjust if needed
 
 ### In-App Notifications — DEFERRED
 - **Reason**: No `notifications` table, no WebSocket/SSE channel, no polling endpoint. Users without push/email have zero notification channels.
-- **Revisit when**: After Phase 2 workflows are stable. Design as separate feature (notifications table + SSE endpoint).
+- **Status**: Phase 2 and 3 workflows are now stable. This is the natural next feature to build.
+- **Next step**: Design `notifications` table + SSE/polling endpoint. Build as part of NotificationDispatcher (see Architectural Changes #2).
 
 ---
 
@@ -226,3 +228,41 @@ After deployment, track:
 - ✅ `backend/api/v1/internal.py` — sync-connections endpoint + scrape-rates auto-discovery
 - ✅ `frontend/lib/notifications/onesignal.ts` — `OneSignal.login(userId)` post-auth
 - ✅ `frontend/lib/hooks/useAuth.tsx` — trigger OneSignal login/logout
+
+---
+
+## What's Next
+
+All 7 approved workflows are deployed. The remaining work falls into three categories:
+
+### 1. NotificationDispatcher (Architectural Change #2) — HIGH PRIORITY
+- **What**: Centralized notification routing with Push (OneSignal) → Email (Resend) → Log fallback chain
+- **Why**: Currently alerts only send email. Users with push enabled get no push notifications. Dedup logic would be duplicated if added per-workflow.
+- **Effort**: ~4-6 hours
+- **File**: `backend/services/notification_dispatcher.py`
+- **Dependencies**: None — OneSignal binding (B2) and email (B1) are already working
+
+### 2. ML Weight Persistence (Architectural Change #3) — MEDIUM PRIORITY
+- **What**: Persist `LearningService` ensemble weights to PostgreSQL instead of ephemeral Redis
+- **Why**: Weights are lost on every restart, silently degrading prediction quality
+- **Effort**: ~2-3 hours
+- **Approach**: Create `model_config` table with JSON column (Option B — no new infrastructure)
+- **Dependencies**: None
+
+### 3. Full-Scale Rate Scraping — LOW PRIORITY
+- **What**: Extend `scrape-rates.yml` to run all 37 suppliers (currently auto-discovers subset with websites)
+- **Why**: Middleware timeout exclusion is now in place; GHA has no 30s limit
+- **Effort**: ~1-2 hours (test full run, adjust concurrency/batching if needed)
+- **Dependencies**: None — blocker resolved in Phase 2
+
+### 4. In-App Notifications — LOW PRIORITY
+- **What**: `notifications` table + SSE/polling endpoint for users without push/email
+- **Why**: Zero notification channels for users who haven't enabled push or provided email
+- **Effort**: ~6-8 hours (new feature: schema, API, frontend component)
+- **Dependencies**: NotificationDispatcher (#1 above) should be built first
+
+### 5. Custom Email Domain — OPERATIONAL
+- **What**: Purchase domain for Resend, configure DKIM/SPF/DMARC, update `EMAIL_FROM_ADDRESS`
+- **Why**: Currently using `onboarding@resend.dev` sandbox (only delivers to account email). All email workflows are technically functional but limited to dev delivery.
+- **Effort**: ~1 hour (purchase + DNS config) + propagation time
+- **Dependencies**: None — purely operational
