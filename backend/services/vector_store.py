@@ -7,16 +7,16 @@ optimization caching, and recommendation learning.
 Uses numpy for vector operations and sqlite3 for persistence.
 """
 
-import os
-import json
-import sqlite3
 import hashlib
+import json
 import logging
+import os
+import sqlite3
 import threading
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Tuple
 from collections import OrderedDict
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -48,7 +48,8 @@ class VectorStore:
         """Initialize SQLite database with vector storage schema."""
         os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
         with sqlite3.connect(self._db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS vectors (
                     id TEXT PRIMARY KEY,
                     domain TEXT NOT NULL,
@@ -60,15 +61,20 @@ class VectorStore:
                     created_at TEXT NOT NULL,
                     last_used TEXT NOT NULL
                 )
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_vectors_domain
                 ON vectors(domain)
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_vectors_confidence
                 ON vectors(confidence DESC)
-            """)
+            """
+            )
             conn.commit()
 
     def _vector_to_bytes(self, vector: np.ndarray) -> bytes:
