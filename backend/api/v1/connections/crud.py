@@ -11,20 +11,16 @@ Routes (mounted under the /connections prefix in router.py):
 from typing import List, Optional
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
-from models.connections import (
-    ConnectionListResponse,
-    ConnectionResponse,
-    CreateDirectConnectionRequest,
-    DeleteConnectionResponse,
-)
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import (ConnectionListResponse, ConnectionResponse,
+                                CreateDirectConnectionRequest,
+                                DeleteConnectionResponse)
 
 logger = structlog.get_logger(__name__)
 
@@ -47,14 +43,16 @@ async def list_connections(
 ) -> ConnectionListResponse:
     """Return all active connections belonging to the current user."""
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id, user_id, connection_type, supplier_id, supplier_name,
                    status, account_number_masked, meter_number_masked,
                    email_provider, label, created_at
             FROM user_connections
             WHERE user_id = :uid
             ORDER BY created_at DESC
-        """),
+        """
+        ),
         {"uid": current_user.user_id},
     )
     rows = result.mappings().all()
@@ -105,13 +103,15 @@ async def create_direct_connection(
 
     # Duplicate-active-connection guard
     dup_result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id FROM user_connections
             WHERE user_id = :uid
               AND supplier_id = :sid
               AND connection_type = 'direct'
               AND status = 'active'
-        """),
+        """
+        ),
         {"uid": current_user.user_id, "sid": supplier_id_str},
     )
     if dup_result.fetchone() is not None:
@@ -133,7 +133,8 @@ async def create_direct_connection(
         masked_meter = mask_account_number(payload.meter_number)
 
     await db.execute(
-        text("""
+        text(
+            """
             INSERT INTO user_connections
                 (id, user_id, connection_type, supplier_id, supplier_name,
                  status, account_number_encrypted, account_number_masked,
@@ -142,7 +143,8 @@ async def create_direct_connection(
                 (:id, :uid, 'direct', :sid, :sname,
                  'active', :enc_acct, :masked_acct,
                  :enc_meter, :masked_meter, NOW())
-        """),
+        """
+        ),
         {
             "id": connection_id,
             "uid": current_user.user_id,
@@ -185,13 +187,15 @@ async def get_connection(
 ) -> ConnectionResponse:
     """Return a single connection record, scoped to the current user."""
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id, user_id, connection_type, supplier_id, supplier_name,
                    status, account_number_masked, meter_number_masked,
                    email_provider, label, created_at
             FROM user_connections
             WHERE id = :cid AND user_id = :uid
-        """),
+        """
+        ),
         {"cid": connection_id, "uid": current_user.user_id},
     )
     row = result.mappings().first()
@@ -220,10 +224,12 @@ async def delete_connection(
 ) -> DeleteConnectionResponse:
     """Mark a connection as disconnected (soft delete), scoped to the current user."""
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id FROM user_connections
             WHERE id = :cid AND user_id = :uid
-        """),
+        """
+        ),
         {"cid": connection_id, "uid": current_user.user_id},
     )
     if result.fetchone() is None:
@@ -233,10 +239,12 @@ async def delete_connection(
         )
 
     await db.execute(
-        text("""
+        text(
+            """
             UPDATE user_connections SET status = 'disconnected'
             WHERE id = :cid AND user_id = :uid
-        """),
+        """
+        ),
         {"cid": connection_id, "uid": current_user.user_id},
     )
     await db.commit()

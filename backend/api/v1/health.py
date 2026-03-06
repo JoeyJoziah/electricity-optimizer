@@ -91,14 +91,10 @@ def _check_external_apis() -> Dict[str, Dict[str, str]]:
         "utilityapi": {"status": _configured(settings.utilityapi_key)},
         "resend": {"status": _configured(settings.resend_api_key)},
         "gmail_oauth": {
-            "status": _configured(
-                settings.gmail_client_id and settings.gmail_client_secret
-            )
+            "status": _configured(settings.gmail_client_id and settings.gmail_client_secret)
         },
         "outlook_oauth": {
-            "status": _configured(
-                settings.outlook_client_id and settings.outlook_client_secret
-            )
+            "status": _configured(settings.outlook_client_id and settings.outlook_client_secret)
         },
         "field_encryption": {"status": _configured(settings.field_encryption_key)},
         "internal_api_key": {"status": _configured(settings.internal_api_key)},
@@ -220,9 +216,7 @@ async def check_integrations(
 
     live_statuses = [checks["database"]["status"], checks["redis"]["status"]]
     overall = (
-        "healthy"
-        if all(s in ("healthy", "not_configured") for s in live_statuses)
-        else "degraded"
+        "healthy" if all(s in ("healthy", "not_configured") for s in live_statuses) else "degraded"
     )
 
     http_status = 200 if overall == "healthy" else 503

@@ -10,12 +10,12 @@ Covers:
 """
 
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -118,6 +118,7 @@ class TestDatabaseResilience:
 
     def _cleanup(self) -> None:
         from main import app
+
         app.dependency_overrides.pop(get_current_user, None)
         app.dependency_overrides.pop(get_db_session, None)
 
@@ -126,14 +127,12 @@ class TestDatabaseResilience:
         A generic exception from db.execute() should be caught by the global
         exception handler and return HTTP 500 — not crash the process.
         """
-        client = self._client_with_erroring_db(
-            Exception("DB connection refused"), "db-err"
-        )
+        client = self._client_with_erroring_db(Exception("DB connection refused"), "db-err")
         try:
             response = client.get("/api/v1/savings/summary")
-            assert response.status_code == 500, (
-                f"Expected 500, got {response.status_code}: {response.text}"
-            )
+            assert (
+                response.status_code == 500
+            ), f"Expected 500, got {response.status_code}: {response.text}"
         finally:
             self._cleanup()
 
@@ -145,16 +144,15 @@ class TestDatabaseResilience:
         exceptions.  Either status is acceptable — the key invariant is that
         the server returns a JSON error rather than crashing.
         """
-        client = self._client_with_erroring_db(
-            asyncio.TimeoutError(), "db-timeout"
-        )
+        client = self._client_with_erroring_db(asyncio.TimeoutError(), "db-timeout")
         try:
             response = client.get("/api/v1/savings/summary")
             # 504 = RequestTimeoutMiddleware caught it
             # 500 = global exception handler caught it
-            assert response.status_code in (500, 504), (
-                f"Expected 500 or 504, got {response.status_code}: {response.text}"
-            )
+            assert response.status_code in (
+                500,
+                504,
+            ), f"Expected 500 or 504, got {response.status_code}: {response.text}"
             # Response body must be parseable JSON with a 'detail' key
             body = response.json()
             assert "detail" in body
@@ -166,16 +164,12 @@ class TestDatabaseResilience:
         The 500 error response must be valid JSON with a 'detail' key so that
         the frontend can display a sensible error message.
         """
-        client = self._client_with_erroring_db(
-            RuntimeError("connection pool exhausted"), "db-json"
-        )
+        client = self._client_with_erroring_db(RuntimeError("connection pool exhausted"), "db-json")
         try:
             response = client.get("/api/v1/savings/summary")
             assert response.status_code == 500
             body = response.json()
-            assert "detail" in body, (
-                f"Missing 'detail' key in error body: {body}"
-            )
+            assert "detail" in body, f"Missing 'detail' key in error body: {body}"
         finally:
             self._cleanup()
 
@@ -184,9 +178,7 @@ class TestDatabaseResilience:
         DB failures on the savings history endpoint should also return 500,
         confirming the global handler covers all routes — not just /summary.
         """
-        client = self._client_with_erroring_db(
-            Exception("disk I/O error"), "db-hist"
-        )
+        client = self._client_with_erroring_db(Exception("disk I/O error"), "db-hist")
         try:
             response = client.get("/api/v1/savings/history")
             assert response.status_code == 500
@@ -198,9 +190,7 @@ class TestDatabaseResilience:
         A ValueError raised inside the service layer (e.g. from malformed data)
         should also produce HTTP 500 rather than a 422 or crash.
         """
-        client = self._client_with_erroring_db(
-            ValueError("unexpected DB value"), "db-val"
-        )
+        client = self._client_with_erroring_db(ValueError("unexpected DB value"), "db-val")
         try:
             response = client.get("/api/v1/savings/summary")
             assert response.status_code == 500
@@ -236,9 +226,7 @@ class TestRateLimiterResilience:
 
         allowed = {200, 429, 500}
         unexpected = [s for s in statuses if s not in allowed]
-        assert not unexpected, (
-            f"Unexpected status codes in rapid-request test: {unexpected}"
-        )
+        assert not unexpected, f"Unexpected status codes in rapid-request test: {unexpected}"
 
     def test_rate_limit_or_success_on_burst(self, basic_auth_client):
         """
@@ -256,9 +244,7 @@ class TestRateLimiterResilience:
 
         # Only 200, 429, or 500 are acceptable
         limiter_errors = [s for s in statuses if s not in {200, 429, 500}]
-        assert not limiter_errors, (
-            f"Unexpected codes during burst: {limiter_errors}"
-        )
+        assert not limiter_errors, f"Unexpected codes during burst: {limiter_errors}"
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +268,7 @@ class TestHNSWFallback:
         independently.
         """
         import numpy as np
+
         from services.vector_store import VectorStore
 
         db_path = str(tmp_path / "test.db")
@@ -319,6 +306,7 @@ class TestHNSWFallback:
         raising an exception.
         """
         import numpy as np
+
         import services.hnsw_vector_store as hnsw_module
 
         db_path = str(tmp_path / "hnsw_search.db")
@@ -339,6 +327,7 @@ class TestHNSWFallback:
         a list for an empty store.
         """
         import numpy as np
+
         from services.hnsw_vector_store import HNSWVectorStore
 
         db_path = str(tmp_path / "hnsw_empty.db")

@@ -5,12 +5,12 @@ Provides token bucket and sliding window rate limiting for API calls.
 Supports both in-memory and Redis-backed rate limiting for distributed systems.
 """
 
+import asyncio
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
-import asyncio
-import time
 
 import structlog
 
@@ -117,10 +117,7 @@ class TokenBucketLimiter(RateLimiter):
         """Refill tokens based on elapsed time"""
         now = time.monotonic()
         elapsed = now - bucket["last_update"]
-        bucket["tokens"] = min(
-            self.capacity,
-            bucket["tokens"] + (elapsed * self.rate)
-        )
+        bucket["tokens"] = min(self.capacity, bucket["tokens"] + (elapsed * self.rate))
         bucket["last_update"] = now
 
     async def acquire(self, key: str = "default", tokens: int = 1) -> bool:
@@ -228,9 +225,7 @@ class SlidingWindowLimiter(RateLimiter):
             return
 
         cutoff = time.monotonic() - self.window_seconds
-        self._windows[key] = [
-            ts for ts in self._windows[key] if ts > cutoff
-        ]
+        self._windows[key] = [ts for ts in self._windows[key] if ts > cutoff]
 
     async def acquire(self, key: str = "default", tokens: int = 1) -> bool:
         """Attempt to acquire tokens"""
