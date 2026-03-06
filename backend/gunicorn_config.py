@@ -35,7 +35,7 @@ max_requests_jitter = 50  # Add randomness to avoid thundering herd
 
 # Logging
 accesslog = "-"  # stdout
-errorlog = "-"   # stderr
+errorlog = "-"  # stderr
 loglevel = os.getenv("LOG_LEVEL", "info")
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)sμs'
 
@@ -57,23 +57,28 @@ tmp_upload_dir = None
 # keyfile = None
 # certfile = None
 
+
 # Server hooks
 def on_starting(server):
     """Called just before the master process is initialized"""
     server.log.info("Starting Electricity Optimizer API...")
     server.log.info(f"Workers: {workers}, Timeout: {timeout}s")
 
+
 def on_reload(server):
     """Called to recycle workers during a reload"""
     server.log.info("Reloading workers...")
+
 
 def when_ready(server):
     """Called just after the server is started"""
     server.log.info("Server is ready. Spawning workers...")
 
+
 def worker_int(worker):
     """Called when worker receives SIGINT or SIGQUIT"""
     worker.log.info("Worker received SIGINT, shutting down gracefully...")
+
 
 def worker_abort(worker):
     """Called when worker receives SIGTERM"""

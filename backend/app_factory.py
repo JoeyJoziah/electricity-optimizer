@@ -14,11 +14,10 @@ create_app() -> tuple[FastAPI, UserRateLimiter]
 
 import asyncio
 import json
+import time
 from contextlib import asynccontextmanager
 
 import structlog
-import time
-
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,8 +26,8 @@ from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from config.settings import settings
 from config.database import db_manager
+from config.settings import settings
 
 logger = structlog.get_logger()
 
@@ -150,14 +149,16 @@ class RequestBodySizeLimitMiddleware:
         body = json.dumps(
             {"detail": f"Request body too large. Maximum size is {max_mb} MB."}
         ).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 413,
-            "headers": [
-                [b"content-type", b"application/json"],
-                [b"content-length", str(len(body)).encode()],
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(body)).encode()],
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
 
 
@@ -201,14 +202,16 @@ class RequestTimeoutMiddleware:
             )
         except asyncio.TimeoutError:
             body = json.dumps({"detail": "Request timed out"}).encode("utf-8")
-            await send({
-                "type": "http.response.start",
-                "status": 504,
-                "headers": [
-                    [b"content-type", b"application/json"],
-                    [b"content-length", str(len(body)).encode()],
-                ],
-            })
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 504,
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                        [b"content-length", str(len(body)).encode()],
+                    ],
+                }
+            )
             await send({"type": "http.response.body", "body": body})
 
 
@@ -251,9 +254,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
             logger.info("database_connections_initialized")
         except Exception as e:
             logger.error("database_init_failed", error=str(e))
-            logger.warning(
-                "continuing_without_full_db", environment=settings.environment
-            )
+            logger.warning("continuing_without_full_db", environment=settings.environment)
 
         # Wire Redis into the rate limiter for distributed rate limiting.
         # Skipped in the test environment to prevent cross-test state leakage.
@@ -403,18 +404,14 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     # ------------------------------------------------------------------
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(
-        request: Request, exc: RequestValidationError
-    ):
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
         """Handle validation errors — never echo back potentially sensitive input."""
         sanitized_errors = []
         for err in exc.errors():
             sanitized = {k: v for k, v in err.items() if k not in ("input", "ctx")}
             sanitized_errors.append(sanitized)
 
-        logger.warning(
-            "validation_error", errors=sanitized_errors, path=request.url.path
-        )
+        logger.warning("validation_error", errors=sanitized_errors, path=request.url.path)
 
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -451,14 +448,9 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     async def protect_metrics(request: Request, call_next):
         """Require API key for /metrics to prevent information leakage."""
         if request.url.path.startswith("/metrics"):
-            api_key = (
-                request.headers.get("X-API-Key")
-                or request.query_params.get("api_key")
-            )
+            api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
             if settings.internal_api_key and api_key != settings.internal_api_key:
-                return JSONResponse(
-                    status_code=403, content={"detail": "Forbidden"}
-                )
+                return JSONResponse(status_code=403, content={"detail": "Forbidden"})
         return await call_next(request)
 
     app.mount("/metrics", metrics_app)
@@ -485,27 +477,27 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     # API routers
     # ------------------------------------------------------------------
 
-    from routers import predictions
+    from api.v1 import alerts as alerts_v1
+    from api.v1 import auth as auth_v1
+    from api.v1 import beta as beta_v1
+    from api.v1 import billing as billing_v1
+    from api.v1 import compliance as compliance_v1
+    from api.v1 import connections as connections_v1
+    from api.v1 import health as health_v1
+    from api.v1 import internal as internal_v1
+    from api.v1 import notifications as notifications_v1
     from api.v1 import prices as prices_v1
-    from api.v1 import suppliers as suppliers_v1
     from api.v1 import prices_analytics as prices_analytics_v1
     from api.v1 import prices_sse as prices_sse_v1
-    from api.v1 import beta as beta_v1
-    from api.v1 import auth as auth_v1
-    from api.v1 import compliance as compliance_v1
-    from api.v1 import user as user_v1
     from api.v1 import recommendations as recommendations_v1
-    from api.v1 import billing as billing_v1
-    from api.v1 import internal as internal_v1
     from api.v1 import regulations as regulations_v1
-    from api.v1 import user_supplier as user_supplier_v1
-    from api.v1 import webhooks as webhooks_v1
-    from api.v1 import connections as connections_v1
-    from api.v1 import users as users_v1
     from api.v1 import savings as savings_v1
-    from api.v1 import alerts as alerts_v1
-    from api.v1 import notifications as notifications_v1
-    from api.v1 import health as health_v1
+    from api.v1 import suppliers as suppliers_v1
+    from api.v1 import user as user_v1
+    from api.v1 import user_supplier as user_supplier_v1
+    from api.v1 import users as users_v1
+    from api.v1 import webhooks as webhooks_v1
+    from routers import predictions
 
     app.include_router(
         predictions.router,

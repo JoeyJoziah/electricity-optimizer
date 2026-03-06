@@ -21,7 +21,7 @@ import io
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 from uuid import uuid4
 
 import pytest
@@ -119,7 +119,7 @@ def client():
 @pytest.fixture(autouse=True)
 def _clean_overrides():
     """Reset dependency_overrides and rate limiter around every test."""
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -130,9 +130,9 @@ def _clean_overrides():
 
 def _install_auth(user_id: str = TEST_USER_ID) -> AsyncMock:
     """Override require_paid_tier and get_db_session; return the db mock."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id)
     db = _mock_db()
@@ -421,9 +421,7 @@ class TestBillParserService:
         db = _mock_db()
         service = self._make_service(db, tmp_path)
 
-        result = await service.parse(
-            TEST_UPLOAD_ID, TEST_CONNECTION_ID, "nonexistent/file.pdf"
-        )
+        result = await service.parse(TEST_UPLOAD_ID, TEST_CONNECTION_ID, "nonexistent/file.pdf")
 
         assert result["parse_status"] == "failed"
         assert "not found" in result["parse_error"].lower()
@@ -515,14 +513,13 @@ class TestUploadBillFileEndpoint:
         db.execute = AsyncMock(
             side_effect=[
                 _found_result(),  # ownership check
-                MagicMock(),      # INSERT bill_uploads
+                MagicMock(),  # INSERT bill_uploads
             ]
         )
 
-        with patch("api.v1.connections._UPLOADS_DIR", new=Path("/tmp/test_uploads")), \
-             patch("pathlib.Path.mkdir"), \
-             patch("pathlib.Path.write_bytes"), \
-             patch("api.v1.connections._run_background_parse"):
+        with patch("api.v1.connections._UPLOADS_DIR", new=Path("/tmp/test_uploads")), patch(
+            "pathlib.Path.mkdir"
+        ), patch("pathlib.Path.write_bytes"), patch("api.v1.connections._run_background_parse"):
             response = client.post(
                 f"{BASE}/{TEST_CONNECTION_ID}/upload",
                 **self._make_upload(),
@@ -539,14 +536,11 @@ class TestUploadBillFileEndpoint:
     def test_upload_png_returns_202(self, client):
         """Valid PNG upload is accepted."""
         db = _install_auth()
-        db.execute = AsyncMock(
-            side_effect=[_found_result(), MagicMock()]
-        )
+        db.execute = AsyncMock(side_effect=[_found_result(), MagicMock()])
 
-        with patch("api.v1.connections._UPLOADS_DIR", new=Path("/tmp/test_uploads")), \
-             patch("pathlib.Path.mkdir"), \
-             patch("pathlib.Path.write_bytes"), \
-             patch("api.v1.connections._run_background_parse"):
+        with patch("api.v1.connections._UPLOADS_DIR", new=Path("/tmp/test_uploads")), patch(
+            "pathlib.Path.mkdir"
+        ), patch("pathlib.Path.write_bytes"), patch("api.v1.connections._run_background_parse"):
             response = client.post(
                 f"{BASE}/{TEST_CONNECTION_ID}/upload",
                 **self._make_upload(
@@ -618,9 +612,9 @@ class TestUploadBillFileEndpoint:
 
     def test_upload_requires_paid_tier(self, client):
         """Unauthenticated or free-tier users are rejected."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         app.dependency_overrides.pop(require_paid_tier, None)
 
@@ -652,16 +646,13 @@ class TestUploadBillFileEndpoint:
     def test_upload_file_size_tracked(self, client):
         """file_size_bytes in the response matches the actual payload size."""
         db = _install_auth()
-        db.execute = AsyncMock(
-            side_effect=[_found_result(), MagicMock()]
-        )
+        db.execute = AsyncMock(side_effect=[_found_result(), MagicMock()])
 
         pdf_data = PDF_MAGIC + SAMPLE_BILL_TEXT.encode()
 
-        with patch("api.v1.connections._UPLOADS_DIR", new=Path("/tmp/test_uploads")), \
-             patch("pathlib.Path.mkdir"), \
-             patch("pathlib.Path.write_bytes"), \
-             patch("api.v1.connections._run_background_parse"):
+        with patch("api.v1.connections._UPLOADS_DIR", new=Path("/tmp/test_uploads")), patch(
+            "pathlib.Path.mkdir"
+        ), patch("pathlib.Path.write_bytes"), patch("api.v1.connections._run_background_parse"):
             response = client.post(
                 f"{BASE}/{TEST_CONNECTION_ID}/upload",
                 **self._make_upload(data=pdf_data),
@@ -701,9 +692,7 @@ class TestListBillUploads:
     def test_list_uploads_empty(self, client):
         """New connection with no uploads returns empty list."""
         db = _install_auth()
-        db.execute = AsyncMock(
-            side_effect=[_found_result(), _mapping_result([])]
-        )
+        db.execute = AsyncMock(side_effect=[_found_result(), _mapping_result([])])
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/uploads")
 
@@ -716,9 +705,7 @@ class TestListBillUploads:
         """All uploads for the connection are returned."""
         db = _install_auth()
         rows = [self._upload_row(), self._upload_row()]
-        db.execute = AsyncMock(
-            side_effect=[_found_result(), _mapping_result(rows)]
-        )
+        db.execute = AsyncMock(side_effect=[_found_result(), _mapping_result(rows)])
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/uploads")
 
@@ -745,9 +732,7 @@ class TestListBillUploads:
         pending_row["detected_supplier"] = None
         pending_row["detected_rate_per_kwh"] = None
 
-        db.execute = AsyncMock(
-            side_effect=[_found_result(), _mapping_result([pending_row])]
-        )
+        db.execute = AsyncMock(side_effect=[_found_result(), _mapping_result([pending_row])])
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/uploads")
 
@@ -791,16 +776,14 @@ class TestReparseBillUpload:
         row = self._upload_row()
         db.execute = AsyncMock(
             side_effect=[
-                _found_result(),             # connection ownership
-                _mapping_result([row]),      # fetch upload
-                MagicMock(),                 # UPDATE parse_status = pending
+                _found_result(),  # connection ownership
+                _mapping_result([row]),  # fetch upload
+                MagicMock(),  # UPDATE parse_status = pending
             ]
         )
 
         with patch("api.v1.connections._run_background_parse"):
-            response = client.post(
-                f"{BASE}/{TEST_CONNECTION_ID}/uploads/{TEST_UPLOAD_ID}/reparse"
-            )
+            response = client.post(f"{BASE}/{TEST_CONNECTION_ID}/uploads/{TEST_UPLOAD_ID}/reparse")
 
         assert response.status_code == 202
         data = response.json()
@@ -812,14 +795,12 @@ class TestReparseBillUpload:
         db = _install_auth()
         db.execute = AsyncMock(
             side_effect=[
-                _found_result(),    # connection ownership
-                _empty_result(),    # upload not found
+                _found_result(),  # connection ownership
+                _empty_result(),  # upload not found
             ]
         )
 
-        response = client.post(
-            f"{BASE}/{TEST_CONNECTION_ID}/uploads/{str(uuid4())}/reparse"
-        )
+        response = client.post(f"{BASE}/{TEST_CONNECTION_ID}/uploads/{str(uuid4())}/reparse")
 
         assert response.status_code == 404
 
@@ -828,9 +809,7 @@ class TestReparseBillUpload:
         db = _install_auth()
         db.execute = AsyncMock(return_value=_empty_result())
 
-        response = client.post(
-            f"{BASE}/{str(uuid4())}/uploads/{TEST_UPLOAD_ID}/reparse"
-        )
+        response = client.post(f"{BASE}/{str(uuid4())}/uploads/{TEST_UPLOAD_ID}/reparse")
 
         assert response.status_code == 404
 
@@ -884,7 +863,8 @@ class TestBillUploadModels:
         assert dumped["parse_error"] is None
 
     def test_bill_upload_list_response_valid(self):
-        from models.connections import BillUploadResponse, BillUploadListResponse
+        from models.connections import (BillUploadListResponse,
+                                        BillUploadResponse)
 
         now = datetime.now(timezone.utc)
         uploads = [

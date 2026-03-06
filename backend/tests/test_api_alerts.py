@@ -23,15 +23,15 @@ accumulation across tests.
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from services.alert_service import AlertService, PriceAlert
 
 # ---------------------------------------------------------------------------
@@ -155,8 +155,14 @@ class _MockAlertDB:
         if row is None:
             return self._mapping_first(None)
         # Apply permitted fields
-        for key in ("region", "currency", "price_below", "price_above",
-                    "notify_optimal_windows", "is_active"):
+        for key in (
+            "region",
+            "currency",
+            "price_below",
+            "price_above",
+            "notify_optimal_windows",
+            "is_active",
+        ):
             if key in params:
                 val = params[key]
                 if key in ("price_below", "price_above") and val is not None:
@@ -191,7 +197,7 @@ class _MockAlertDB:
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
         rows = [r for r in self._configs if str(r["user_id"]) == str(uid)]
-        return self._mapping_all(rows[offset: offset + limit])
+        return self._mapping_all(rows[offset : offset + limit])
 
     # -----------------------------------------------------------------------
     # History handlers
@@ -205,9 +211,7 @@ class _MockAlertDB:
             "alert_config_id": params.get("alert_config_id"),
             "alert_type": params["alert_type"],
             "current_price": Decimal(str(params["current_price"])),
-            "threshold": (
-                Decimal(str(params["threshold"])) if params.get("threshold") else None
-            ),
+            "threshold": (Decimal(str(params["threshold"])) if params.get("threshold") else None),
             "region": params["region"],
             "supplier": params.get("supplier"),
             "currency": params.get("currency", "USD"),
@@ -236,7 +240,7 @@ class _MockAlertDB:
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
         rows = [r for r in self._history if str(r["user_id"]) == str(uid)]
-        return self._mapping_all(rows[offset: offset + limit])
+        return self._mapping_all(rows[offset : offset + limit])
 
     # -----------------------------------------------------------------------
     # Helpers
@@ -480,9 +484,7 @@ class TestAlertServiceDBMethods:
             self.db.seed_history(user_id=TEST_USER_ID)
         self.db.seed_history(user_id=OTHER_USER_ID)  # should not appear
 
-        result = await self.service.get_alert_history(
-            TEST_USER_ID, self.db, page=1, page_size=2
-        )
+        result = await self.service.get_alert_history(TEST_USER_ID, self.db, page=1, page_size=2)
         assert result["total"] == 5
         assert len(result["items"]) == 2
         assert result["pages"] == 3
@@ -541,8 +543,16 @@ class TestGetAlerts:
         response = auth_client.get("/api/v1/alerts")
         assert response.status_code == 200
         item = response.json()["alerts"][0]
-        for key in ("id", "user_id", "region", "currency", "price_below",
-                    "notify_optimal_windows", "is_active", "created_at"):
+        for key in (
+            "id",
+            "user_id",
+            "region",
+            "currency",
+            "price_below",
+            "notify_optimal_windows",
+            "is_active",
+            "created_at",
+        ):
             assert key in item, f"Missing key: {key}"
 
 
@@ -670,8 +680,15 @@ class TestAlertHistory:
         response = auth_client.get("/api/v1/alerts/history")
         assert response.status_code == 200
         item = response.json()["items"][0]
-        for key in ("id", "user_id", "alert_type", "current_price", "region",
-                    "triggered_at", "email_sent"):
+        for key in (
+            "id",
+            "user_id",
+            "alert_type",
+            "current_price",
+            "region",
+            "triggered_at",
+            "email_sent",
+        ):
             assert key in item, f"Missing key: {key}"
 
     def test_history_requires_auth(self, unauth_client):
