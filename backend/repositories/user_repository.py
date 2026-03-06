@@ -6,13 +6,13 @@ Implements the repository pattern with caching support.
 """
 
 from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.user import User, UserPreferences
+from repositories.base import BaseRepository, NotFoundError, RepositoryError
 
 
 class UserRepository(BaseRepository[User]):
@@ -45,9 +45,7 @@ class UserRepository(BaseRepository[User]):
             User if found, None otherwise
         """
         try:
-            result = await self._db.execute(
-                select(User).where(User.id == id)
-            )
+            result = await self._db.execute(select(User).where(User.id == id))
             return result.scalar_one_or_none()
 
         except Exception as e:
@@ -64,9 +62,7 @@ class UserRepository(BaseRepository[User]):
             User if found, None otherwise
         """
         try:
-            result = await self._db.execute(
-                select(User).where(User.email == email.lower())
-            )
+            result = await self._db.execute(select(User).where(User.email == email.lower()))
             return result.scalar_one_or_none()
 
         except Exception as e:
@@ -151,12 +147,7 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete user: {str(e)}", e)
 
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[User]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> List[User]:
         """
         List users with pagination.
 
@@ -218,9 +209,7 @@ class UserRepository(BaseRepository[User]):
     # ==========================================================================
 
     async def update_preferences(
-        self,
-        user_id: str,
-        preferences: UserPreferences
+        self, user_id: str, preferences: UserPreferences
     ) -> Optional[User]:
         """
         Update user preferences.
@@ -300,10 +289,7 @@ class UserRepository(BaseRepository[User]):
             raise RepositoryError(f"Failed to verify email: {str(e)}", e)
 
     async def record_consent(
-        self,
-        user_id: str,
-        consent_given: bool = True,
-        data_processing_agreed: bool = True
+        self, user_id: str, consent_given: bool = True, data_processing_agreed: bool = True
     ) -> bool:
         """
         Record user's GDPR consent.
@@ -352,11 +338,7 @@ class UserRepository(BaseRepository[User]):
         except Exception as e:
             raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e)
 
-    async def get_users_by_region(
-        self,
-        region: str,
-        active_only: bool = True
-    ) -> List[User]:
+    async def get_users_by_region(self, region: str, active_only: bool = True) -> List[User]:
         """
         Get all users in a region.
 

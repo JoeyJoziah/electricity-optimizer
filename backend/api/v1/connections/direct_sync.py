@@ -11,19 +11,15 @@ IMPORTANT: /direct/callback MUST be registered in router.py BEFORE the
 connection_id path parameter.
 """
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
-from models.connections import (
-    AuthorizationCallbackResponse,
-    SyncResultResponse,
-    SyncStatusResponse,
-)
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier, verify_callback_state
+from models.connections import (AuthorizationCallbackResponse,
+                                SyncResultResponse, SyncStatusResponse)
 
 logger = structlog.get_logger(__name__)
 
@@ -66,9 +62,9 @@ async def utilityapi_callback(
     4. Set connection status to ``active``.
     5. Trigger an initial data sync in the background.
     """
-    from utils.encryption import encrypt_field
     from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
     from services.connection_sync_service import ConnectionSyncService
+    from utils.encryption import encrypt_field
 
     connection_id, state_user_id = verify_callback_state(state)
     log = logger.bind(connection_id=connection_id, authorization_uid=authorization_uid)

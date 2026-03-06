@@ -19,13 +19,13 @@ Cache invalidation is explicit via clear_cache() / clear_registry_cache().
 
 import json
 from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
-from sqlalchemy import select, and_, text
+from sqlalchemy import and_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.supplier import Supplier, Tariff
+from repositories.base import BaseRepository, NotFoundError, RepositoryError
 
 # 1-hour TTL for all supplier / supplier-registry caches.
 _SUPPLIER_CACHE_TTL = 3600
@@ -113,9 +113,7 @@ class SupplierRepository(BaseRepository[Supplier]):
             Supplier if found, None otherwise
         """
         try:
-            result = await self._db.execute(
-                select(Supplier).where(Supplier.id == id)
-            )
+            result = await self._db.execute(select(Supplier).where(Supplier.id == id))
             return result.scalar_one_or_none()
 
         except Exception as e:
@@ -146,9 +144,7 @@ class SupplierRepository(BaseRepository[Supplier]):
                 pass
 
         try:
-            result = await self._db.execute(
-                select(Supplier).where(Supplier.name == name)
-            )
+            result = await self._db.execute(select(Supplier).where(Supplier.name == name))
             supplier = result.scalar_one_or_none()
 
             if supplier is not None:
@@ -245,12 +241,7 @@ class SupplierRepository(BaseRepository[Supplier]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete supplier: {str(e)}", e)
 
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[Supplier]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> List[Supplier]:
         """
         List suppliers with pagination.
 
@@ -306,11 +297,7 @@ class SupplierRepository(BaseRepository[Supplier]):
     # Supplier-specific methods
     # ==========================================================================
 
-    async def list_by_region(
-        self,
-        region: str,
-        active_only: bool = True
-    ) -> List[Supplier]:
+    async def list_by_region(self, region: str, active_only: bool = True) -> List[Supplier]:
         """
         Get all suppliers available in a region.
 
@@ -352,11 +339,7 @@ class SupplierRepository(BaseRepository[Supplier]):
         except Exception as e:
             raise RepositoryError(f"Failed to list suppliers by region: {str(e)}", e)
 
-    async def get_tariffs(
-        self,
-        supplier_id: str,
-        available_only: bool = True
-    ) -> List[Tariff]:
+    async def get_tariffs(self, supplier_id: str, available_only: bool = True) -> List[Tariff]:
         """
         Get all tariffs for a supplier.
 
@@ -404,9 +387,7 @@ class SupplierRepository(BaseRepository[Supplier]):
             raise RepositoryError(f"Failed to create tariff: {str(e)}", e)
 
     async def get_green_suppliers(
-        self,
-        region: str,
-        min_renewable_percentage: int = 50
+        self, region: str, min_renewable_percentage: int = 50
     ) -> List[Supplier]:
         """
         Get suppliers with high renewable energy percentage.
@@ -424,13 +405,11 @@ class SupplierRepository(BaseRepository[Supplier]):
             conditions = [
                 region.lower() == any_(Supplier.regions),
                 Supplier.is_active == True,
-                Supplier.green_energy_provider == True
+                Supplier.green_energy_provider == True,
             ]
 
             if min_renewable_percentage > 0:
-                conditions.append(
-                    Supplier.average_renewable_percentage >= min_renewable_percentage
-                )
+                conditions.append(Supplier.average_renewable_percentage >= min_renewable_percentage)
 
             query = (
                 select(Supplier)

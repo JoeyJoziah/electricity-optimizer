@@ -11,19 +11,14 @@ Implements GDPR compliance functionality:
 """
 
 import hashlib
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import structlog
 
-from models.consent import (
-    ConsentRecord,
-    DeletionLog,
-    UserDataExport,
-    ConsentPurpose,
-)
-
+from models.consent import (ConsentPurpose, ConsentRecord, DeletionLog,
+                            UserDataExport)
 
 logger = structlog.get_logger()
 
@@ -35,6 +30,7 @@ logger = structlog.get_logger()
 
 class GDPRError(Exception):
     """Base exception for GDPR compliance errors"""
+
     pass
 
 
@@ -48,16 +44,19 @@ class UserNotFoundError(GDPRError):
 
 class ConsentError(GDPRError):
     """Raised when consent operation fails"""
+
     pass
 
 
 class DataExportError(GDPRError):
     """Raised when data export fails"""
+
     pass
 
 
 class DataDeletionError(GDPRError):
     """Raised when data deletion fails"""
+
     pass
 
 
@@ -197,10 +196,7 @@ class GDPRComplianceService:
             ConsentError: If consent recording fails
         """
         logger.info(
-            "recording_consent",
-            user_id=user_id,
-            purpose=purpose,
-            consent_given=consent_given
+            "recording_consent", user_id=user_id, purpose=purpose, consent_given=consent_given
         )
 
         try:
@@ -219,22 +215,12 @@ class GDPRComplianceService:
 
             await self.consent_repo.create(record)
 
-            logger.info(
-                "consent_recorded",
-                consent_id=record.id,
-                user_id=user_id,
-                purpose=purpose
-            )
+            logger.info("consent_recorded", consent_id=record.id, user_id=user_id, purpose=purpose)
 
             return record
 
         except Exception as e:
-            logger.error(
-                "consent_recording_failed",
-                user_id=user_id,
-                purpose=purpose,
-                error=str(e)
-            )
+            logger.error("consent_recording_failed", user_id=user_id, purpose=purpose, error=str(e))
             raise ConsentError(f"Failed to record consent: {str(e)}") from e
 
     async def get_consent_history(
@@ -256,20 +242,14 @@ class GDPRComplianceService:
 
         try:
             if purpose:
-                records = await self.consent_repo.get_by_user_and_purpose(
-                    user_id, purpose
-                )
+                records = await self.consent_repo.get_by_user_and_purpose(user_id, purpose)
             else:
                 records = await self.consent_repo.get_by_user_id(user_id)
 
             return records
 
         except Exception as e:
-            logger.error(
-                "consent_history_fetch_failed",
-                user_id=user_id,
-                error=str(e)
-            )
+            logger.error("consent_history_fetch_failed", user_id=user_id, error=str(e))
             raise
 
     async def get_current_consent_status(
@@ -292,11 +272,7 @@ class GDPRComplianceService:
             return status
 
         except Exception as e:
-            logger.error(
-                "consent_status_fetch_failed",
-                user_id=user_id,
-                error=str(e)
-            )
+            logger.error("consent_status_fetch_failed", user_id=user_id, error=str(e))
             raise
 
     async def withdraw_all_consents(
@@ -327,15 +303,11 @@ class GDPRComplianceService:
                 consent_given=False,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                metadata={"bulk_withdrawal": True}
+                metadata={"bulk_withdrawal": True},
             )
             withdrawals.append(record)
 
-        logger.info(
-            "all_consents_withdrawn",
-            user_id=user_id,
-            withdrawal_count=len(withdrawals)
-        )
+        logger.info("all_consents_withdrawn", user_id=user_id, withdrawal_count=len(withdrawals))
 
         return withdrawals
 
@@ -445,7 +417,9 @@ class GDPRComplianceService:
             if self.db_session:
                 try:
                     from sqlalchemy import text as sa_text
-                    from utils.encryption import decrypt_field, mask_account_number
+
+                    from utils.encryption import (decrypt_field,
+                                                  mask_account_number)
 
                     result = await self.db_session.execute(
                         sa_text("""
@@ -505,16 +479,18 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in conn_result.mappings().all():
-                        connections_data.append({
-                            "id": str(row["id"]),
-                            "connection_type": row["connection_type"],
-                            "connection_method": row.get("connection_method"),
-                            "supplier_name": row.get("supplier_name"),
-                            "label": row.get("label"),
-                            "status": row["status"],
-                            "created_at": str(row["created_at"]),
-                            "updated_at": str(row.get("updated_at")),
-                        })
+                        connections_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "connection_type": row["connection_type"],
+                                "connection_method": row.get("connection_method"),
+                                "supplier_name": row.get("supplier_name"),
+                                "label": row.get("label"),
+                                "status": row["status"],
+                                "created_at": str(row["created_at"]),
+                                "updated_at": str(row.get("updated_at")),
+                            }
+                        )
 
                     # Bill uploads
                     bill_result = await self.db_session.execute(
@@ -528,14 +504,16 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in bill_result.mappings().all():
-                        bill_uploads_data.append({
-                            "id": str(row["id"]),
-                            "connection_id": str(row["connection_id"]),
-                            "filename": row["filename"],
-                            "file_size": row.get("file_size"),
-                            "status": row["status"],
-                            "created_at": str(row["created_at"]),
-                        })
+                        bill_uploads_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "connection_id": str(row["connection_id"]),
+                                "filename": row["filename"],
+                                "file_size": row.get("file_size"),
+                                "status": row["status"],
+                                "created_at": str(row["created_at"]),
+                            }
+                        )
 
                     # Extracted rates
                     rates_result = await self.db_session.execute(
@@ -549,14 +527,16 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in rates_result.mappings().all():
-                        extracted_rates_data.append({
-                            "id": str(row["id"]),
-                            "connection_id": str(row["connection_id"]),
-                            "rate_amount": str(row.get("rate_amount")),
-                            "rate_unit": row.get("rate_unit"),
-                            "effective_date": str(row.get("effective_date")),
-                            "utility_type": row.get("utility_type"),
-                        })
+                        extracted_rates_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "connection_id": str(row["connection_id"]),
+                                "rate_amount": str(row.get("rate_amount")),
+                                "rate_unit": row.get("rate_unit"),
+                                "effective_date": str(row.get("effective_date")),
+                                "utility_type": row.get("utility_type"),
+                            }
+                        )
                 except Exception as e:
                     logger.warning("connection_data_export_failed", error=str(e))
 
@@ -576,22 +556,14 @@ class GDPRComplianceService:
                 "extracted_rates": extracted_rates_data,
             }
 
-            logger.info(
-                "user_data_exported",
-                user_id=user_id,
-                data_categories=list(export.keys())
-            )
+            logger.info("user_data_exported", user_id=user_id, data_categories=list(export.keys()))
 
             return export
 
         except UserNotFoundError:
             raise
         except Exception as e:
-            logger.error(
-                "data_export_failed",
-                user_id=user_id,
-                error=str(e)
-            )
+            logger.error("data_export_failed", user_id=user_id, error=str(e))
             raise DataExportError(f"Failed to export user data: {str(e)}") from e
 
     # -------------------------------------------------------------------------
@@ -630,7 +602,7 @@ class GDPRComplianceService:
             "deleting_user_data",
             user_id=user_id,
             deleted_by=deleted_by or user_id,
-            anonymize_retained=anonymize_retained
+            anonymize_retained=anonymize_retained,
         )
 
         try:
@@ -693,6 +665,7 @@ class GDPRComplianceService:
                     for row in bill_result.mappings().all():
                         try:
                             import os
+
                             upload_path = os.path.join("uploads", str(row["id"]))
                             if os.path.exists(upload_path):
                                 os.remove(upload_path)
@@ -756,22 +729,14 @@ class GDPRComplianceService:
             # Tracked as tech debt — implement DeletionLogRepository and wire it in.
             # await self.deletion_log_repo.create(deletion_log)
 
-            logger.info(
-                "user_data_deleted",
-                user_id=user_id,
-                categories_deleted=deleted_categories
-            )
+            logger.info("user_data_deleted", user_id=user_id, categories_deleted=deleted_categories)
 
             return deletion_log
 
         except UserNotFoundError:
             raise
         except Exception as e:
-            logger.error(
-                "data_deletion_failed",
-                user_id=user_id,
-                error=str(e)
-            )
+            logger.error("data_deletion_failed", user_id=user_id, error=str(e))
             raise DataDeletionError(f"Failed to delete user data: {str(e)}") from e
 
 
@@ -842,8 +807,7 @@ class DataRetentionService:
 
         if self.activity_log_repo:
             count = await self.activity_log_repo.delete_before_date(
-                cutoff_date,
-                respect_legal_holds=respect_legal_holds
+                cutoff_date, respect_legal_holds=respect_legal_holds
             )
             purged["activity_logs"] = count
 

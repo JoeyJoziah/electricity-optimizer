@@ -6,7 +6,8 @@ Uses pydantic-settings for type-safe configuration from environment variables.
 
 import json as _json
 import os
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,7 +29,7 @@ class Settings(BaseSettings):
     # comma-separated env var values.  Parsed into a list via the property.
     cors_origins_raw: str = Field(
         default='["http://localhost:3000","http://localhost:3001","http://localhost:8000"]',
-        validation_alias="CORS_ORIGINS"
+        validation_alias="CORS_ORIGINS",
     )
 
     @property
@@ -53,7 +54,9 @@ class Settings(BaseSettings):
     redis_password: Optional[str] = Field(default=None, validation_alias="REDIS_PASSWORD")
 
     # Internal API Key (HMAC signing for service-to-service auth)
-    jwt_secret: str = Field(default="dev-secret-change-in-production", validation_alias="JWT_SECRET")
+    jwt_secret: str = Field(
+        default="dev-secret-change-in-production", validation_alias="JWT_SECRET"
+    )
 
     # Service-to-service API key (must NOT be the same as jwt_secret)
     internal_api_key: Optional[str] = Field(default=None, validation_alias="INTERNAL_API_KEY")
@@ -68,7 +71,9 @@ class Settings(BaseSettings):
     eia_api_key: Optional[str] = Field(default=None, validation_alias="EIA_API_KEY")
     utilityapi_key: Optional[str] = Field(default=None, validation_alias="UTILITYAPI_KEY")
     openvolt_api_key: Optional[str] = Field(default=None, validation_alias="OPENVOLT_API_KEY")
-    openweathermap_api_key: Optional[str] = Field(default=None, validation_alias="OPENWEATHERMAP_API_KEY")
+    openweathermap_api_key: Optional[str] = Field(
+        default=None, validation_alias="OPENWEATHERMAP_API_KEY"
+    )
 
     # Rate Scraping (Diffbot — free tier, 10K credits/month)
     diffbot_api_token: str = Field(default="", validation_alias="DIFFBOT_API_TOKEN")
@@ -98,8 +103,12 @@ class Settings(BaseSettings):
     # ML Model Configuration
     model_path: Optional[str] = Field(default=None, validation_alias="MODEL_PATH")
     model_forecast_hours: int = Field(default=24, validation_alias="MODEL_FORECAST_HOURS")
-    model_retrain_interval_days: int = Field(default=7, validation_alias="MODEL_RETRAIN_INTERVAL_DAYS")
-    model_accuracy_threshold_mape: float = Field(default=10.0, validation_alias="MODEL_ACCURACY_THRESHOLD_MAPE")
+    model_retrain_interval_days: int = Field(
+        default=7, validation_alias="MODEL_RETRAIN_INTERVAL_DAYS"
+    )
+    model_accuracy_threshold_mape: float = Field(
+        default=10.0, validation_alias="MODEL_ACCURACY_THRESHOLD_MAPE"
+    )
 
     # Email - Resend (primary)
     resend_api_key: Optional[str] = Field(default=None, validation_alias="RESEND_API_KEY")
@@ -109,14 +118,22 @@ class Settings(BaseSettings):
     smtp_username: Optional[str] = Field(default=None, validation_alias="SMTP_USERNAME")
     smtp_password: Optional[str] = Field(default=None, validation_alias="SMTP_PASSWORD")
     # Email - Common
-    email_from_address: str = Field(default="onboarding@resend.dev", validation_alias="EMAIL_FROM_ADDRESS")
-    email_from_name: str = Field(default="Electricity Optimizer", validation_alias="EMAIL_FROM_NAME")
+    email_from_address: str = Field(
+        default="onboarding@resend.dev", validation_alias="EMAIL_FROM_ADDRESS"
+    )
+    email_from_name: str = Field(
+        default="Electricity Optimizer", validation_alias="EMAIL_FROM_NAME"
+    )
 
     # Stripe Billing
     stripe_secret_key: Optional[str] = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
-    stripe_webhook_secret: Optional[str] = Field(default=None, validation_alias="STRIPE_WEBHOOK_SECRET")
+    stripe_webhook_secret: Optional[str] = Field(
+        default=None, validation_alias="STRIPE_WEBHOOK_SECRET"
+    )
     stripe_price_pro: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_PRO")
-    stripe_price_business: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_BUSINESS")
+    stripe_price_business: Optional[str] = Field(
+        default=None, validation_alias="STRIPE_PRICE_BUSINESS"
+    )
 
     # Billing redirect domain allowlist — stored as str to avoid pydantic-settings
     # JSON-parse failures on comma-separated env var values. Parsed by the property.
@@ -140,22 +157,34 @@ class Settings(BaseSettings):
         return [domain.strip() for domain in raw.split(",") if domain.strip()]
 
     # Field-level encryption (AES-256-GCM for account numbers etc.)
-    field_encryption_key: Optional[str] = Field(default=None, validation_alias="FIELD_ENCRYPTION_KEY")
+    field_encryption_key: Optional[str] = Field(
+        default=None, validation_alias="FIELD_ENCRYPTION_KEY"
+    )
 
     # GitHub Webhook
-    github_webhook_secret: Optional[str] = Field(default=None, validation_alias="GITHUB_WEBHOOK_SECRET")
+    github_webhook_secret: Optional[str] = Field(
+        default=None, validation_alias="GITHUB_WEBHOOK_SECRET"
+    )
 
     # Email OAuth (Gmail + Outlook)
     gmail_client_id: Optional[str] = Field(default=None, validation_alias="GMAIL_CLIENT_ID")
     gmail_client_secret: Optional[str] = Field(default=None, validation_alias="GMAIL_CLIENT_SECRET")
     outlook_client_id: Optional[str] = Field(default=None, validation_alias="OUTLOOK_CLIENT_ID")
-    outlook_client_secret: Optional[str] = Field(default=None, validation_alias="OUTLOOK_CLIENT_SECRET")
-    oauth_redirect_base_url: str = Field(default="http://localhost:8000", validation_alias="OAUTH_REDIRECT_BASE_URL")
+    outlook_client_secret: Optional[str] = Field(
+        default=None, validation_alias="OUTLOOK_CLIENT_SECRET"
+    )
+    oauth_redirect_base_url: str = Field(
+        default="http://localhost:8000", validation_alias="OAUTH_REDIRECT_BASE_URL"
+    )
 
     # Feature Flags
     enable_auto_switching: bool = Field(default=False, validation_alias="ENABLE_AUTO_SWITCHING")
-    enable_load_optimization: bool = Field(default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION")
-    enable_real_time_updates: bool = Field(default=True, validation_alias="ENABLE_REAL_TIME_UPDATES")
+    enable_load_optimization: bool = Field(
+        default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION"
+    )
+    enable_real_time_updates: bool = Field(
+        default=True, validation_alias="ENABLE_REAL_TIME_UPDATES"
+    )
 
     # Monitoring
     sentry_dsn: Optional[str] = Field(default=None, validation_alias="SENTRY_DSN")
@@ -187,14 +216,12 @@ class Settings(BaseSettings):
             if not v:
                 raise ValueError(
                     "CRITICAL: FIELD_ENCRYPTION_KEY must be set in production. "
-                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                    'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
                 )
             try:
                 key_bytes = bytes.fromhex(v)
             except ValueError:
-                raise ValueError(
-                    "FIELD_ENCRYPTION_KEY must be a valid hex string."
-                )
+                raise ValueError("FIELD_ENCRYPTION_KEY must be a valid hex string.")
             if len(key_bytes) != 32:
                 raise ValueError(
                     "FIELD_ENCRYPTION_KEY must be exactly 32 bytes (64 hex characters)."
@@ -219,9 +246,7 @@ class Settings(BaseSettings):
                 "Do not use default/development secrets."
             )
         if env == "production" and len(v) < 32:
-            raise ValueError(
-                "JWT_SECRET must be at least 32 characters in production."
-            )
+            raise ValueError("JWT_SECRET must be at least 32 characters in production.")
         return v
 
     @field_validator("better_auth_secret")
@@ -239,11 +264,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_api_key_differs_from_jwt(self) -> "Settings":
         """Ensure INTERNAL_API_KEY and JWT_SECRET are not identical."""
-        if (
-            self.internal_api_key
-            and self.jwt_secret
-            and self.internal_api_key == self.jwt_secret
-        ):
+        if self.internal_api_key and self.jwt_secret and self.internal_api_key == self.jwt_secret:
             raise ValueError(
                 "INTERNAL_API_KEY must differ from JWT_SECRET to maintain "
                 "separation of concerns between user auth and service auth."

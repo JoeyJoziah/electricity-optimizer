@@ -15,19 +15,16 @@ import base64
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
-from models.connections import (
-    CreateEmailConnectionRequest,
-    EmailConnectionInitResponse,
-)
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import (CreateEmailConnectionRequest,
+                                EmailConnectionInitResponse)
 
 logger = structlog.get_logger(__name__)
 
@@ -54,7 +51,9 @@ async def create_email_connection(
     Initiate an email-import connection.
     Creates a pending connection and returns the OAuth consent URL.
     """
-    from services.email_oauth_service import get_gmail_consent_url, get_outlook_consent_url, settings as _oauth_settings
+    from services.email_oauth_service import (get_gmail_consent_url,
+                                              get_outlook_consent_url)
+    from services.email_oauth_service import settings as _oauth_settings
 
     # Fail fast if OAuth credentials are not configured for the requested provider
     if payload.provider == "gmail":
@@ -117,13 +116,12 @@ async def email_oauth_callback(
     Exchanges code for tokens, encrypts and stores them,
     then redirects to the frontend connections page.
     """
-    from services.email_oauth_service import (
-        verify_oauth_state,
-        exchange_gmail_code,
-        exchange_outlook_code,
-        encrypt_tokens,
-    )
     import httpx as _httpx
+
+    from services.email_oauth_service import (encrypt_tokens,
+                                              exchange_gmail_code,
+                                              exchange_outlook_code,
+                                              verify_oauth_state)
 
     # Verify state
     connection_id = verify_oauth_state(state)
@@ -187,6 +185,7 @@ async def email_oauth_callback(
     # Access settings through the package namespace so that
     # ``patch("api.v1.connections.settings")`` in tests is observed at call time.
     import api.v1.connections as _pkg
+
     _settings = _pkg.settings
     # TODO (tech debt): oauth_redirect_base_url currently points to the backend
     # (default: http://localhost:8000). The redirect after OAuth must land on the
@@ -220,9 +219,11 @@ async def trigger_email_scan(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Trigger a scan of the connected email inbox for utility bills."""
-    from utils.encryption import decrypt_field as _decrypt_field
-    from services.email_scanner_service import scan_gmail_inbox, scan_outlook_inbox
     import httpx as _httpx
+
+    from services.email_scanner_service import (scan_gmail_inbox,
+                                                scan_outlook_inbox)
+    from utils.encryption import decrypt_field as _decrypt_field
 
     result = await db.execute(
         text("""
@@ -246,7 +247,10 @@ async def trigger_email_scan(
     # Check if token expired and refresh if needed
     if row["oauth_token_expires_at"] and row["oauth_token_expires_at"] < datetime.now(timezone.utc):
         if row["oauth_refresh_token"]:
-            from services.email_oauth_service import refresh_gmail_token, refresh_outlook_token, encrypt_tokens
+            from services.email_oauth_service import (encrypt_tokens,
+                                                      refresh_gmail_token,
+                                                      refresh_outlook_token)
+
             enc_refresh = base64.b64decode(row["oauth_refresh_token"])
             try:
                 if row["email_provider"] == "gmail":
@@ -271,7 +275,9 @@ async def trigger_email_scan(
                     {
                         "cid": connection_id,
                         "access": base64.b64encode(new_enc_access).decode(),
-                        "refresh": base64.b64encode(new_enc_refresh).decode() if new_enc_refresh else None,
+                        "refresh": (
+                            base64.b64encode(new_enc_refresh).decode() if new_enc_refresh else None
+                        ),
                         "expires": new_tokens.get("expires_in", 3600),
                     },
                 )
@@ -279,7 +285,9 @@ async def trigger_email_scan(
             except Exception:
                 raise HTTPException(status_code=502, detail="Token refresh failed")
         else:
-            raise HTTPException(status_code=401, detail="Token expired and no refresh token available")
+            raise HTTPException(
+                status_code=401, detail="Token expired and no refresh token available"
+            )
 
     # Scan inbox
     try:

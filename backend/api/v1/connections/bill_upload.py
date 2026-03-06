@@ -23,26 +23,19 @@ import asyncio
 import sys
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+import structlog
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
+                     UploadFile, status)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
-from models.connections import (
-    BillUploadListResponse,
-    BillUploadResponse,
-    ConnectionResponse,
-    CreateUploadConnectionRequest,
-)
-from services.bill_parser import (
-    BillParserService,
-    MAX_FILE_SIZE_BYTES,
-    build_storage_key,
-    validate_upload_file,
-)
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import (BillUploadListResponse, BillUploadResponse,
+                                ConnectionResponse,
+                                CreateUploadConnectionRequest)
+from services.bill_parser import (MAX_FILE_SIZE_BYTES, BillParserService,
+                                  build_storage_key, validate_upload_file)
 
 logger = structlog.get_logger(__name__)
 
@@ -412,6 +405,7 @@ async def reparse_bill_upload(
     # Resolve _run_background_parse through the package namespace so test patches
     # on ``api.v1.connections._run_background_parse`` are observed at call time.
     import api.v1.connections as _pkg
+
     background_parse_fn = _pkg._run_background_parse
 
     # Verify connection ownership

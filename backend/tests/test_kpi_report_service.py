@@ -15,7 +15,6 @@ import pytest
 
 from services.kpi_report_service import KPIReportService
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -62,22 +61,28 @@ class TestAggregateMetrics:
     @pytest.mark.asyncio
     async def test_happy_path(self, mock_db):
         """aggregate_metrics should return all expected keys."""
-        mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(42),       # active_users_7d
-            _scalar_result(100),      # total_users
-            _scalar_result(5000),     # prices_tracked
-            _scalar_result(15),       # alerts_sent_today
-            _rows_result([            # connections status
-                {"status": "active", "cnt": 10},
-                {"status": "error", "cnt": 2},
-            ]),
-            _rows_result([            # subscription breakdown
-                {"tier": "free", "cnt": 80},
-                {"tier": "pro", "cnt": 15},
-                {"tier": "business", "cnt": 5},
-            ]),
-            _scalar_result(6.5),      # weather freshness
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _scalar_result(42),  # active_users_7d
+                _scalar_result(100),  # total_users
+                _scalar_result(5000),  # prices_tracked
+                _scalar_result(15),  # alerts_sent_today
+                _rows_result(
+                    [  # connections status
+                        {"status": "active", "cnt": 10},
+                        {"status": "error", "cnt": 2},
+                    ]
+                ),
+                _rows_result(
+                    [  # subscription breakdown
+                        {"tier": "free", "cnt": 80},
+                        {"tier": "pro", "cnt": 15},
+                        {"tier": "business", "cnt": 5},
+                    ]
+                ),
+                _scalar_result(6.5),  # weather freshness
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()
@@ -103,15 +108,17 @@ class TestEmptyTables:
     @pytest.mark.asyncio
     async def test_returns_zeros(self, mock_db):
         """All zeros when tables are empty."""
-        mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(0),        # active_users_7d
-            _scalar_result(0),        # total_users
-            _scalar_result(0),        # prices_tracked
-            _scalar_result(0),        # alerts_sent_today
-            _rows_result([]),         # connections
-            _rows_result([]),         # subscriptions
-            _scalar_result(None),     # weather freshness
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _scalar_result(0),  # active_users_7d
+                _scalar_result(0),  # total_users
+                _scalar_result(0),  # prices_tracked
+                _scalar_result(0),  # alerts_sent_today
+                _rows_result([]),  # connections
+                _rows_result([]),  # subscriptions
+                _scalar_result(None),  # weather freshness
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()
@@ -136,18 +143,22 @@ class TestSubscriptionBreakdown:
     @pytest.mark.asyncio
     async def test_groups_correctly(self, mock_db):
         """Subscription breakdown should group by tier."""
-        mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _rows_result([]),
-            _rows_result([
-                {"tier": "free", "cnt": 50},
-                {"tier": "pro", "cnt": 25},
-            ]),
-            _scalar_result(None),
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _scalar_result(0),
+                _scalar_result(0),
+                _scalar_result(0),
+                _scalar_result(0),
+                _rows_result([]),
+                _rows_result(
+                    [
+                        {"tier": "free", "cnt": 50},
+                        {"tier": "pro", "cnt": 25},
+                    ]
+                ),
+                _scalar_result(None),
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()
@@ -190,15 +201,17 @@ class TestWeatherFreshness:
     @pytest.mark.asyncio
     async def test_returns_none_when_no_data(self, mock_db):
         """Should return None when no price data exists."""
-        mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _rows_result([]),
-            _rows_result([]),
-            _scalar_result(None),
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _scalar_result(0),
+                _scalar_result(0),
+                _scalar_result(0),
+                _scalar_result(0),
+                _rows_result([]),
+                _rows_result([]),
+                _scalar_result(None),
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()

@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session
 
-
 BASE_URL = "/api/v1/regulations"
 
 
@@ -193,9 +192,7 @@ class TestListRegulations:
         mock_repo.list_deregulated = AsyncMock(return_value=[_make_ct_regulation()])
         mock_repo_cls.return_value = mock_repo
 
-        response = client.get(
-            f"{BASE_URL}?electricity=true&gas=true&community_solar=true"
-        )
+        response = client.get(f"{BASE_URL}?electricity=true&gas=true&community_solar=true")
 
         assert response.status_code == 200
         data = response.json()
@@ -378,11 +375,19 @@ class TestResponseSchema:
 
         state = data["states"][0]
         expected_fields = [
-            "state_code", "state_name",
-            "electricity_deregulated", "gas_deregulated",
-            "oil_competitive", "community_solar_enabled",
-            "licensing_required", "bond_required", "bond_amount",
-            "puc_name", "puc_website", "comparison_tool_url", "notes",
+            "state_code",
+            "state_name",
+            "electricity_deregulated",
+            "gas_deregulated",
+            "oil_competitive",
+            "community_solar_enabled",
+            "licensing_required",
+            "bond_required",
+            "bond_amount",
+            "puc_name",
+            "puc_website",
+            "comparison_tool_url",
+            "notes",
         ]
         for field in expected_fields:
             assert field in state, f"Missing field: {field}"
@@ -399,11 +404,19 @@ class TestResponseSchema:
         assert response.status_code == 200
         data = response.json()
         expected_fields = [
-            "state_code", "state_name",
-            "electricity_deregulated", "gas_deregulated",
-            "oil_competitive", "community_solar_enabled",
-            "licensing_required", "bond_required", "bond_amount",
-            "puc_name", "puc_website", "comparison_tool_url", "notes",
+            "state_code",
+            "state_name",
+            "electricity_deregulated",
+            "gas_deregulated",
+            "oil_competitive",
+            "community_solar_enabled",
+            "licensing_required",
+            "bond_required",
+            "bond_amount",
+            "puc_name",
+            "puc_website",
+            "comparison_tool_url",
+            "notes",
         ]
         for field in expected_fields:
             assert field in data, f"Missing field: {field}"
@@ -420,9 +433,12 @@ class TestResponseSchema:
         assert response.status_code == 200
         data = response.json()
         bool_fields = [
-            "electricity_deregulated", "gas_deregulated",
-            "oil_competitive", "community_solar_enabled",
-            "licensing_required", "bond_required",
+            "electricity_deregulated",
+            "gas_deregulated",
+            "oil_competitive",
+            "community_solar_enabled",
+            "licensing_required",
+            "bond_required",
         ]
         for field in bool_fields:
             assert isinstance(data[field], bool), f"{field} should be bool, got {type(data[field])}"

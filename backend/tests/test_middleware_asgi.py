@@ -14,24 +14,23 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def client():
     """Function-scoped test client to avoid rate limiter accumulation."""
-    from main import app
+    # Reset rate limiter for clean state
+    from main import _app_rate_limiter, app
     from middleware.rate_limiter import UserRateLimiter
 
-    # Reset rate limiter for clean state
-    from main import _app_rate_limiter
     _app_rate_limiter.reset()
     _app_rate_limiter.__init__()
 
@@ -54,6 +53,7 @@ def mock_auth():
 # ---------------------------------------------------------------------------
 # SecurityHeadersMiddleware tests
 # ---------------------------------------------------------------------------
+
 
 class TestSecurityHeadersASGI:
     """Verify security headers are injected on all responses."""
@@ -87,6 +87,7 @@ class TestSecurityHeadersASGI:
 # RateLimitMiddleware tests
 # ---------------------------------------------------------------------------
 
+
 class TestRateLimitASGI:
     """Verify rate limit headers are present and 429 is returned correctly."""
 
@@ -111,6 +112,7 @@ class TestRateLimitASGI:
 # RequestBodySizeLimitMiddleware tests
 # ---------------------------------------------------------------------------
 
+
 class TestBodySizeLimitASGI:
     """Verify body size enforcement works without buffering."""
 
@@ -130,12 +132,14 @@ class TestBodySizeLimitASGI:
 # RequestTimeoutMiddleware tests
 # ---------------------------------------------------------------------------
 
+
 class TestTimeoutASGI:
     """Verify SSE and internal paths are excluded from timeout enforcement."""
 
     def test_internal_paths_excluded_from_timeout(self, client, mock_auth):
         """Internal batch endpoints should bypass the 30s timeout middleware."""
         from app_factory import RequestTimeoutMiddleware
+
         assert "/api/v1/internal/" in RequestTimeoutMiddleware.TIMEOUT_EXCLUDED_PREFIXES
 
     def test_sse_endpoint_excluded_from_timeout(self, client, mock_auth):
@@ -144,9 +148,11 @@ class TestTimeoutASGI:
         We verify this by checking that the /prices/stream endpoint returns
         a streaming response (200 with text/event-stream) rather than 504.
         """
-        with patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1), \
-             patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock), \
-             patch("api.dependencies.get_current_user", return_value=mock_auth):
+        with (
+            patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1),
+            patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock),
+            patch("api.dependencies.get_current_user", return_value=mock_auth),
+        ):
             # Use stream=True to not wait for full response
             with client.stream("GET", "/api/v1/prices/stream?region=us_ct&interval=10") as resp:
                 # If timeout middleware were applied, we'd get 504
@@ -160,14 +166,17 @@ class TestTimeoutASGI:
 # SSE streaming through full middleware stack
 # ---------------------------------------------------------------------------
 
+
 class TestSSEMiddlewareStack:
     """Verify SSE works end-to-end through all 4 middleware layers."""
 
     def test_sse_gets_security_headers(self, client, mock_auth):
         """SSE response includes security headers from the middleware stack."""
-        with patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1), \
-             patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock), \
-             patch("api.dependencies.get_current_user", return_value=mock_auth):
+        with (
+            patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1),
+            patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock),
+            patch("api.dependencies.get_current_user", return_value=mock_auth),
+        ):
             with client.stream("GET", "/api/v1/prices/stream?region=us_ct&interval=10") as resp:
                 if resp.status_code == 200:
                     assert resp.headers.get("x-frame-options") == "DENY"
@@ -175,9 +184,11 @@ class TestSSEMiddlewareStack:
 
     def test_sse_gets_rate_limit_headers(self, client, mock_auth):
         """SSE response includes rate limit headers."""
-        with patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1), \
-             patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock), \
-             patch("api.dependencies.get_current_user", return_value=mock_auth):
+        with (
+            patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1),
+            patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock),
+            patch("api.dependencies.get_current_user", return_value=mock_auth),
+        ):
             with client.stream("GET", "/api/v1/prices/stream?region=us_ct&interval=10") as resp:
                 if resp.status_code == 200:
                     assert "x-ratelimit-limit" in resp.headers

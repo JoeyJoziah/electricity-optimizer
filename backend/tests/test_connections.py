@@ -18,13 +18,12 @@ is used.  Auth is injected by overriding ``get_current_user`` and
 ``get_db_session`` in ``app.dependency_overrides``.
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Stable test IDs
@@ -147,7 +146,7 @@ def _clean_overrides():
     in-memory rate limiter store so no test is throttled by a prior test's
     requests.  Mirrors the conftest.py ``reset_rate_limiter`` fixture.
     """
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     # Reset BEFORE the test (pick up any state left by previous tests)
     _app_rate_limiter.reset()
@@ -171,9 +170,9 @@ def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
     performs its own DB query; overriding it avoids the need for every test
     to mock two separate execute() calls just for the tier check.
     """
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id, tier=tier)
     db = _mock_db()
@@ -196,9 +195,9 @@ def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
 
 def _remove_auth():
     """Remove all auth-related overrides."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     app.dependency_overrides.pop(get_current_user, None)
     app.dependency_overrides.pop(get_db_session, None)
@@ -224,9 +223,9 @@ class TestPaidTierGate:
 
     def test_connections_requires_paid_tier_free_user(self, client):
         """Free-tier user must be rejected with 403."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         # Remove any pro override so require_paid_tier runs the real logic
         app.dependency_overrides.pop(require_paid_tier, None)
@@ -259,9 +258,9 @@ class TestPaidTierGate:
 
     def test_connections_rejects_null_tier(self, client):
         """User with no subscription_tier row must be rejected with 403."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         app.dependency_overrides.pop(require_paid_tier, None)
 
@@ -380,14 +379,14 @@ class TestCreateDirectConnection:
         no_dup_result = _empty_mapping_result()
         insert_result = MagicMock()
 
-        db.execute = AsyncMock(
-            side_effect=[supplier_result, no_dup_result, insert_result]
-        )
+        db.execute = AsyncMock(side_effect=[supplier_result, no_dup_result, insert_result])
 
         # encrypt_field / mask_account_number are imported locally inside the
         # route handler, so we patch at the source module level.
-        with patch("utils.encryption.encrypt_field", return_value=b"encrypted"), \
-             patch("utils.encryption.mask_account_number", return_value="******5678"):
+        with (
+            patch("utils.encryption.encrypt_field", return_value=b"encrypted"),
+            patch("utils.encryption.mask_account_number", return_value="******5678"),
+        ):
             response = client.post(
                 f"{BASE}/direct",
                 json={
@@ -451,8 +450,10 @@ class TestCreateDirectConnection:
 
         db.execute = AsyncMock(side_effect=[supplier_result, dup_result])
 
-        with patch("utils.encryption.encrypt_field", return_value=b"encrypted"), \
-             patch("utils.encryption.mask_account_number", return_value="******1234"):
+        with (
+            patch("utils.encryption.encrypt_field", return_value=b"encrypted"),
+            patch("utils.encryption.mask_account_number", return_value="******1234"),
+        ):
             response = client.post(
                 f"{BASE}/direct",
                 json={
@@ -475,8 +476,10 @@ class TestCreateDirectConnection:
         db.execute = AsyncMock(side_effect=[supplier_result, no_dup, insert_result])
 
         # Patch at source module so the locally-imported name is intercepted.
-        with patch("utils.encryption.encrypt_field") as mock_encrypt, \
-             patch("utils.encryption.mask_account_number", return_value="******9999"):
+        with (
+            patch("utils.encryption.encrypt_field") as mock_encrypt,
+            patch("utils.encryption.mask_account_number", return_value="******9999"),
+        ):
             mock_encrypt.return_value = b"super-encrypted"
 
             client.post(
@@ -896,9 +899,7 @@ class TestGetRates:
         data_result = _mapping_result([rate_row])
         db.execute = AsyncMock(side_effect=[count_result, data_result])
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=2&page_size=20"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page=2&page_size=20")
 
         assert response.status_code == 200
         data = response.json()
@@ -928,9 +929,7 @@ class TestGetRates:
         data_result = _mapping_result(rows)
         db.execute = AsyncMock(side_effect=[count_result, data_result])
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=1&page_size=5"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page=1&page_size=5")
 
         assert response.status_code == 200
         data = response.json()
@@ -943,9 +942,7 @@ class TestGetRates:
         """page_size above 100 is rejected with 422."""
         _install_auth()
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page_size=101"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page_size=101")
 
         assert response.status_code == 422
 
@@ -953,9 +950,7 @@ class TestGetRates:
         """page=0 is rejected with 422."""
         _install_auth()
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=0"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page=0")
 
         assert response.status_code == 422
 

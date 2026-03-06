@@ -10,7 +10,7 @@ configurations to ``price_alert_configs`` and trigger events to
 ``alert_history`` (migration 014).
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -182,9 +182,7 @@ class AlertService:
         window_end_price = forecast_prices[best_start + window_hours - 1]
 
         # Calculate average price across all hours for savings estimate
-        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(
-            forecast_prices
-        )
+        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(forecast_prices)
         estimated_savings = (all_avg - best_avg) * window_hours
 
         triggered = []
@@ -430,8 +428,12 @@ class AlertService:
                 "email": row["email"],
                 "region": row["region"],
                 "currency": row["currency"],
-                "price_below": Decimal(str(row["price_below"])) if row["price_below"] is not None else None,
-                "price_above": Decimal(str(row["price_above"])) if row["price_above"] is not None else None,
+                "price_below": (
+                    Decimal(str(row["price_below"])) if row["price_below"] is not None else None
+                ),
+                "price_above": (
+                    Decimal(str(row["price_above"])) if row["price_above"] is not None else None
+                ),
                 "notify_optimal_windows": row["notify_optimal_windows"],
                 "notification_frequency": row["notification_frequency"] or "daily",
             }
@@ -610,8 +612,12 @@ class AlertService:
             Updated alert dict, or None if the alert was not found / not owned.
         """
         allowed_fields = {
-            "region", "currency", "price_below", "price_above",
-            "notify_optimal_windows", "is_active",
+            "region",
+            "currency",
+            "price_below",
+            "price_above",
+            "notify_optimal_windows",
+            "is_active",
         }
         filtered = {k: v for k, v in updates.items() if k in allowed_fields}
         if not filtered:
@@ -773,9 +779,7 @@ class AlertService:
         return {
             "id": str(row["id"]),
             "user_id": str(row["user_id"]),
-            "alert_config_id": (
-                str(row["alert_config_id"]) if row["alert_config_id"] else None
-            ),
+            "alert_config_id": (str(row["alert_config_id"]) if row["alert_config_id"] else None),
             "alert_type": row["alert_type"],
             "current_price": float(row["current_price"]),
             "threshold": float(row["threshold"]) if row["threshold"] is not None else None,
@@ -783,20 +787,14 @@ class AlertService:
             "supplier": row["supplier"],
             "currency": row["currency"],
             "optimal_window_start": (
-                row["optimal_window_start"].isoformat()
-                if row.get("optimal_window_start")
-                else None
+                row["optimal_window_start"].isoformat() if row.get("optimal_window_start") else None
             ),
             "optimal_window_end": (
-                row["optimal_window_end"].isoformat()
-                if row.get("optimal_window_end")
-                else None
+                row["optimal_window_end"].isoformat() if row.get("optimal_window_end") else None
             ),
             "estimated_savings": (
                 float(row["estimated_savings"]) if row["estimated_savings"] is not None else None
             ),
-            "triggered_at": (
-                row["triggered_at"].isoformat() if row.get("triggered_at") else None
-            ),
+            "triggered_at": (row["triggered_at"].isoformat() if row.get("triggered_at") else None),
             "email_sent": row["email_sent"],
         }
