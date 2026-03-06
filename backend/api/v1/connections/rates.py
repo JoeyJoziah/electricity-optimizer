@@ -21,9 +21,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, SessionData
-from models.connections import ExtractedRateResponse, ExtractedRateListResponse
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import ExtractedRateListResponse, ExtractedRateResponse
 
 router = APIRouter()
 

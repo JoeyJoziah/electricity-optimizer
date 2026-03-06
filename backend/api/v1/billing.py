@@ -6,13 +6,14 @@ Stripe integration for subscription management.
 
 from typing import Optional
 from urllib.parse import urlparse
+
+import stripe
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
-import stripe
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from config.settings import settings
 from repositories.user_repository import UserRepository
 from services.stripe_service import StripeService, apply_webhook_action
@@ -40,10 +41,7 @@ class CheckoutSessionRequest(BaseModel):
         allowed = settings.allowed_redirect_domains
         parsed = urlparse(str(v))
         hostname = parsed.hostname or ""
-        if not any(
-            hostname == d or hostname.endswith(f".{d}")
-            for d in allowed
-        ):
+        if not any(hostname == d or hostname.endswith(f".{d}") for d in allowed):
             raise ValueError(
                 f"Redirect URL domain '{hostname}' is not allowed. "
                 f"Must be one of: {', '.join(allowed)}"
@@ -69,10 +67,7 @@ class PortalSessionRequest(BaseModel):
         allowed = settings.allowed_redirect_domains
         parsed = urlparse(str(v))
         hostname = parsed.hostname or ""
-        if not any(
-            hostname == d or hostname.endswith(f".{d}")
-            for d in allowed
-        ):
+        if not any(hostname == d or hostname.endswith(f".{d}") for d in allowed):
             raise ValueError(
                 f"Redirect URL domain '{hostname}' is not allowed. "
                 f"Must be one of: {', '.join(allowed)}"

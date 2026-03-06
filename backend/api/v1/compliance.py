@@ -14,20 +14,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from compliance.gdpr import GDPRComplianceService, UserNotFoundError
 from compliance.repositories import ConsentRepository, DeletionLogRepository
+from models.consent import (ConsentHistoryResponse, ConsentRequest,
+                            ConsentResponse, ConsentStatusResponse,
+                            DataDeletionRequest, DataDeletionResponse,
+                            UserDataExport)
 from repositories.user_repository import UserRepository
-from models.consent import (
-    ConsentRequest,
-    ConsentResponse,
-    ConsentHistoryResponse,
-    ConsentStatusResponse,
-    DataDeletionRequest,
-    DataDeletionResponse,
-    UserDataExport,
-)
-
 
 router = APIRouter(tags=["Compliance"])
 
@@ -58,7 +52,7 @@ async def get_gdpr_service(session=Depends(get_db_session)):
     response_model=ConsentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Record consent decision",
-    description="Record a user's consent decision for a specific purpose"
+    description="Record a user's consent decision for a specific purpose",
 )
 async def record_consent(
     request: Request,
@@ -93,13 +87,13 @@ async def record_consent(
             purpose=record.purpose,
             consent_given=record.consent_given,
             timestamp=record.timestamp,
-            message=f"Consent {action} for {record.purpose}"
+            message=f"Consent {action} for {record.purpose}",
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to record consent: {str(e)}"
+            detail=f"Failed to record consent: {str(e)}",
         )
 
 
@@ -107,7 +101,7 @@ async def record_consent(
     "/gdpr/consents",
     response_model=ConsentHistoryResponse,
     summary="Get consent history",
-    description="Retrieve complete consent history for the current user"
+    description="Retrieve complete consent history for the current user",
 )
 async def get_consent_history(
     current_user: SessionData = Depends(get_current_user),
@@ -120,15 +114,13 @@ async def get_consent_history(
         records = await gdpr_service.get_consent_history(current_user.user_id)
 
         return ConsentHistoryResponse(
-            user_id=current_user.user_id,
-            consents=records,
-            total_count=len(records)
+            user_id=current_user.user_id, consents=records, total_count=len(records)
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve consent history: {str(e)}"
+            detail=f"Failed to retrieve consent history: {str(e)}",
         )
 
 
@@ -136,7 +128,7 @@ async def get_consent_history(
     "/gdpr/consents/status",
     response_model=ConsentStatusResponse,
     summary="Get current consent status",
-    description="Get current consent status for all purposes"
+    description="Get current consent status for all purposes",
 )
 async def get_consent_status(
     current_user: SessionData = Depends(get_current_user),
@@ -153,13 +145,13 @@ async def get_consent_status(
         return ConsentStatusResponse(
             user_id=current_user.user_id,
             consents=status_dict,
-            last_updated=datetime.now(timezone.utc)
+            last_updated=datetime.now(timezone.utc),
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve consent status: {str(e)}"
+            detail=f"Failed to retrieve consent status: {str(e)}",
         )
 
 
@@ -172,7 +164,7 @@ async def get_consent_status(
     "/gdpr/export",
     response_model=UserDataExport,
     summary="Export all user data",
-    description="Export all user data in machine-readable JSON format (GDPR Article 15, 20)"
+    description="Export all user data in machine-readable JSON format (GDPR Article 15, 20)",
 )
 async def export_user_data(
     current_user: SessionData = Depends(get_current_user),
@@ -208,14 +200,11 @@ async def export_user_data(
         )
 
     except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export user data: {str(e)}"
+            detail=f"Failed to export user data: {str(e)}",
         )
 
 
@@ -228,7 +217,7 @@ async def export_user_data(
     "/gdpr/delete-my-data",
     response_model=DataDeletionResponse,
     summary="Delete all user data",
-    description="Permanently delete all user data (GDPR Article 17 - Right to Erasure)"
+    description="Permanently delete all user data (GDPR Article 17 - Right to Erasure)",
 )
 async def delete_user_data(
     request: Request,
@@ -250,7 +239,7 @@ async def delete_user_data(
     if not deletion_request.confirmation:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Deletion requires explicit confirmation"
+            detail="Deletion requires explicit confirmation",
         )
 
     # Get client information for audit trail
@@ -276,14 +265,11 @@ async def delete_user_data(
         )
 
     except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete user data: {str(e)}"
+            detail=f"Failed to delete user data: {str(e)}",
         )
 
 
@@ -296,7 +282,7 @@ async def delete_user_data(
     "/gdpr/delete",
     response_model=DataDeletionResponse,
     summary="Delete account (no-body variant)",
-    description="Permanently delete the authenticated user's account and all associated data (GDPR Article 17). Confirmation is implied by calling this endpoint."
+    description="Permanently delete the authenticated user's account and all associated data (GDPR Article 17). Confirmation is implied by calling this endpoint.",
 )
 async def delete_account(
     request: Request,
@@ -332,14 +318,11 @@ async def delete_account(
         )
 
     except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete user data: {str(e)}"
+            detail=f"Failed to delete user data: {str(e)}",
         )
 
 
@@ -352,7 +335,7 @@ async def delete_account(
     "/gdpr/withdraw-all-consents",
     response_model=ConsentHistoryResponse,
     summary="Withdraw all consents",
-    description="Withdraw consent for all purposes (GDPR Article 21)"
+    description="Withdraw consent for all purposes (GDPR Article 21)",
 )
 async def withdraw_all_consents(
     request: Request,
@@ -379,11 +362,11 @@ async def withdraw_all_consents(
         return ConsentHistoryResponse(
             user_id=current_user.user_id,
             consents=withdrawal_records,
-            total_count=len(withdrawal_records)
+            total_count=len(withdrawal_records),
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to withdraw consents: {str(e)}"
+            detail=f"Failed to withdraw consents: {str(e)}",
         )

@@ -7,16 +7,16 @@ optimization caching, and recommendation learning.
 Uses numpy for vector operations and sqlite3 for persistence.
 """
 
-import os
-import json
-import sqlite3
 import hashlib
+import json
 import logging
+import os
+import sqlite3
 import threading
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Tuple
 from collections import OrderedDict
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
