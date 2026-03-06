@@ -50,16 +50,18 @@ class ForecastObservationRepository:
                 ts = datetime.fromisoformat(ts)
             hour = ts.hour if ts else 0
 
-            rows.append({
-                "id": str(uuid4()),
-                "forecast_id": forecast_id,
-                "region": region.lower(),
-                "forecast_hour": hour,
-                "predicted_price": pred["predicted_price"],
-                "confidence_lower": pred.get("confidence_lower"),
-                "confidence_upper": pred.get("confidence_upper"),
-                "model_version": model_version,
-            })
+            rows.append(
+                {
+                    "id": str(uuid4()),
+                    "forecast_id": forecast_id,
+                    "region": region.lower(),
+                    "forecast_hour": hour,
+                    "predicted_price": pred["predicted_price"],
+                    "confidence_lower": pred.get("confidence_lower"),
+                    "confidence_upper": pred.get("confidence_upper"),
+                    "model_version": model_version,
+                }
+            )
 
         # Insert in explicit multi-row VALUE chunks to minimise round-trips.
         for chunk_start in range(0, len(rows), self._INSERT_BATCH_SIZE):
@@ -99,7 +101,8 @@ class ForecastObservationRepository:
     async def backfill_actuals(self, region: Optional[str] = None) -> int:
         """Match unobserved forecasts to actual prices."""
         if region:
-            query = text("""
+            query = text(
+                """
                 UPDATE forecast_observations fo
                 SET
                     actual_price = ep.price_per_kwh,
@@ -111,10 +114,12 @@ class ForecastObservationRepository:
                   AND ep.timestamp >= fo.created_at - INTERVAL '1 hour'
                   AND ep.timestamp <= fo.created_at + INTERVAL '25 hours'
                   AND fo.region = :region
-            """)
+            """
+            )
             params: Dict[str, Any] = {"region": region}
         else:
-            query = text("""
+            query = text(
+                """
                 UPDATE forecast_observations fo
                 SET
                     actual_price = ep.price_per_kwh,
@@ -125,7 +130,8 @@ class ForecastObservationRepository:
                   AND fo.forecast_hour = EXTRACT(HOUR FROM ep.timestamp)
                   AND ep.timestamp >= fo.created_at - INTERVAL '1 hour'
                   AND ep.timestamp <= fo.created_at + INTERVAL '25 hours'
-            """)
+            """
+            )
             params = {}
 
         result = await self._db.execute(query, params)
@@ -140,19 +146,24 @@ class ForecastObservationRepository:
     ) -> str:
         """Record a recommendation served to a user. Returns the outcome ID."""
         outcome_id = str(uuid4())
-        query = text("""
+        query = text(
+            """
             INSERT INTO recommendation_outcomes
                 (id, user_id, recommendation_type, recommendation_data)
             VALUES
                 (:id, :user_id, :recommendation_type, :recommendation_data)
-        """)
+        """
+        )
 
-        await self._db.execute(query, {
-            "id": outcome_id,
-            "user_id": user_id,
-            "recommendation_type": recommendation_type,
-            "recommendation_data": json.dumps(recommendation_data, default=str),
-        })
+        await self._db.execute(
+            query,
+            {
+                "id": outcome_id,
+                "user_id": user_id,
+                "recommendation_type": recommendation_type,
+                "recommendation_data": json.dumps(recommendation_data, default=str),
+            },
+        )
         await self._db.commit()
         return outcome_id
 
@@ -163,28 +174,32 @@ class ForecastObservationRepository:
         actual_savings: Optional[float] = None,
     ) -> bool:
         """Update a recommendation outcome with user response."""
-        query = text("""
+        query = text(
+            """
             UPDATE recommendation_outcomes
             SET was_accepted = :accepted,
                 actual_savings = :actual_savings,
                 responded_at = now()
             WHERE id = :outcome_id
               AND responded_at IS NULL
-        """)
+        """
+        )
 
-        result = await self._db.execute(query, {
-            "outcome_id": outcome_id,
-            "accepted": accepted,
-            "actual_savings": actual_savings,
-        })
+        result = await self._db.execute(
+            query,
+            {
+                "outcome_id": outcome_id,
+                "accepted": accepted,
+                "actual_savings": actual_savings,
+            },
+        )
         await self._db.commit()
         return result.rowcount > 0
 
-    async def get_accuracy_metrics(
-        self, region: str, days: int = 7
-    ) -> Dict[str, Any]:
+    async def get_accuracy_metrics(self, region: str, days: int = 7) -> Dict[str, Any]:
         """Compute accuracy metrics for observed forecasts."""
-        query = text("""
+        query = text(
+            """
             SELECT
                 COUNT(*) as total,
                 AVG(ABS(predicted_price - actual_price) / NULLIF(actual_price, 0)) * 100 as mape,
@@ -197,7 +212,8 @@ class ForecastObservationRepository:
             WHERE observed_at IS NOT NULL
               AND region = :region
               AND created_at >= now() - make_interval(days => :days)
-        """)
+        """
+        )
 
         result = await self._db.execute(query, {"region": region.lower(), "days": days})
         row = result.fetchone()
@@ -212,11 +228,10 @@ class ForecastObservationRepository:
             "coverage": round(float(row.coverage), 1) if row.coverage else None,
         }
 
-    async def get_hourly_bias(
-        self, region: str, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    async def get_hourly_bias(self, region: str, days: int = 7) -> List[Dict[str, Any]]:
         """Compute per-hour bias (predicted - actual)."""
-        query = text("""
+        query = text(
+            """
             SELECT
                 forecast_hour as hour,
                 AVG(predicted_price - actual_price) as avg_bias,
@@ -227,7 +242,8 @@ class ForecastObservationRepository:
               AND created_at >= now() - make_interval(days => :days)
             GROUP BY forecast_hour
             ORDER BY forecast_hour
-        """)
+        """
+        )
 
         result = await self._db.execute(query, {"region": region.lower(), "days": days})
         return [
@@ -239,9 +255,7 @@ class ForecastObservationRepository:
             for row in result.fetchall()
         ]
 
-    async def get_accuracy_by_version(
-        self, region: str, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    async def get_accuracy_by_version(self, region: str, days: int = 7) -> List[Dict[str, Any]]:
         """Compute accuracy breakdown by model_version using SQL GROUP BY.
 
         All aggregation (MAPE, RMSE, coverage) is performed in the database,
@@ -253,7 +267,8 @@ class ForecastObservationRepository:
         The ORDER BY mape ASC means callers can rely on the first entry being
         the best-performing model without any additional sorting.
         """
-        query = text("""
+        query = text(
+            """
             SELECT
                 model_version,
                 COUNT(*) AS count,
@@ -274,7 +289,8 @@ class ForecastObservationRepository:
               AND model_version IS NOT NULL
             GROUP BY model_version
             ORDER BY mape ASC NULLS LAST
-        """)
+        """
+        )
 
         result = await self._db.execute(query, {"region": region.lower(), "days": days})
         return [

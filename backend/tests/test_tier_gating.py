@@ -14,12 +14,12 @@ runs its real logic against a mock DB that returns the appropriate tier.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -118,7 +118,8 @@ def _session():
 @pytest.fixture(autouse=True)
 def _clean_overrides():
     """Clear dependency overrides after each test."""
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
+
     _app_rate_limiter.reset()
     yield
     for dep in list(app.dependency_overrides.keys()):
@@ -129,6 +130,7 @@ def _clean_overrides():
 def _install(tier: str, alert_count: int = 0):
     """Install auth + DB dependency overrides for the given tier."""
     from main import app
+
     session = _session()
     db = _make_db(tier, alert_count=alert_count)
     app.dependency_overrides[get_current_user] = lambda: session
@@ -138,6 +140,7 @@ def _install(tier: str, alert_count: int = 0):
 
 def _client():
     from main import app
+
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -181,7 +184,6 @@ class TestPriceForecastTierGating:
 
 
 class TestSavingsSummaryTierGating:
-
     def test_free_user_gets_403(self):
         _install("free")
         client = _client()
@@ -201,7 +203,6 @@ class TestSavingsSummaryTierGating:
 
 
 class TestSavingsHistoryTierGating:
-
     def test_free_user_gets_403(self):
         _install("free")
         client = _client()
@@ -221,7 +222,6 @@ class TestSavingsHistoryTierGating:
 
 
 class TestRecommendationsSwitchingTierGating:
-
     def test_free_user_gets_403(self):
         _install("free")
         client = _client()
@@ -248,7 +248,6 @@ class TestRecommendationsSwitchingTierGating:
 
 
 class TestRecommendationsUsageTierGating:
-
     def test_free_user_gets_403(self):
         _install("free")
         client = _client()
@@ -275,7 +274,6 @@ class TestRecommendationsUsageTierGating:
 
 
 class TestRecommendationsDailyTierGating:
-
     def test_free_user_gets_403(self):
         _install("free")
         client = _client()
@@ -323,6 +321,7 @@ class TestPriceStreamTierGating:
         TestClient doesn't hang on the infinite generator loop.
         """
         from unittest.mock import patch
+
         from api.dependencies import get_price_service
         from main import app
 
