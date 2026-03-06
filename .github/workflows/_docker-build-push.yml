@@ -86,3 +86,13 @@ jobs:
           cache-to: type=gha,mode=max
           target: ${{ inputs.target }}
           build-args: ${{ inputs.build-args }}
+
+      - name: Scan image for vulnerabilities
+        if: inputs.push
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true

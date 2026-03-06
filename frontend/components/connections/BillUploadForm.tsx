@@ -1,85 +1,18 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { cn } from '@/lib/utils/cn'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { API_ORIGIN } from '@/lib/config/env'
-import {
-  Upload,
-  FileText,
-  X,
-  AlertCircle,
-  CheckCircle2,
-  Loader2,
-  RotateCcw,
-  Image as ImageIcon,
-  File,
-  Zap,
-  Calendar,
-  DollarSign,
-  Gauge,
-} from 'lucide-react'
+import { Upload, AlertCircle } from 'lucide-react'
+import { ACCEPTED_TYPES, MAX_FILE_SIZE, formatFileSize } from './BillUploadTypes'
+import type { BillUploadFormProps, ParseResult } from './BillUploadTypes'
+import { BillUploadDropZone } from './BillUploadDropZone'
+import { BillUploadFilePreview } from './BillUploadFilePreview'
+import { BillUploadProgressBar, BillUploadProcessingStatus } from './BillUploadProgress'
+import { BillUploadSuccess, BillUploadFailure } from './BillUploadResults'
 
-interface BillUploadFormProps {
-  connectionId: string
-  onUploadComplete: () => void
-  onComplete: () => void
-}
-
-interface ExtractedData {
-  rate_per_kwh: number | null
-  supplier_name: string | null
-  period_start: string | null
-  period_end: string | null
-  usage_kwh: number | null
-  amount: number | null
-  currency: string
-}
-
-interface ParseResult {
-  status: 'pending' | 'processing' | 'complete' | 'failed'
-  extracted_data: ExtractedData | null
-  error_message: string | null
-}
-
-const ACCEPTED_TYPES = [
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-]
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
-
-const FILE_TYPE_ICONS: Record<string, React.ElementType> = {
-  'application/pdf': FileText,
-  'image/png': ImageIcon,
-  'image/jpeg': ImageIcon,
-  'image/jpg': ImageIcon,
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'USD',
-  }).format(amount)
-}
+export type { BillUploadFormProps }
 
 export function BillUploadForm({
   connectionId,
@@ -341,247 +274,56 @@ export function BillUploadForm({
       <div className="space-y-6">
         {/* Drop zone - hide when processing or complete */}
         {!isProcessing && !isComplete && (
-          <>
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  fileInputRef.current?.click()
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              aria-label="Upload a bill file"
-              className={cn(
-                'flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8',
-                'transition-colors duration-200',
-                'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                dragActive
-                  ? 'border-primary-400 bg-primary-50'
-                  : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'
-              )}
-            >
-              <Upload
-                className={cn(
-                  'h-8 w-8',
-                  dragActive ? 'text-primary-500' : 'text-gray-400'
-                )}
-              />
-              <p className="mt-3 text-sm font-medium text-gray-700">
-                {dragActive
-                  ? 'Drop file here'
-                  : 'Drag and drop your bill here'}
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                or click to browse files
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <Badge variant="default">PDF</Badge>
-                <Badge variant="default">PNG</Badge>
-                <Badge variant="default">JPG</Badge>
-              </div>
-              <p className="mt-2 text-xs text-gray-400">
-                Max file size: 10 MB
-              </p>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={handleInputChange}
-              className="hidden"
-              aria-hidden="true"
-            />
-          </>
+          <BillUploadDropZone
+            dragActive={dragActive}
+            fileInputRef={fileInputRef}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onInputChange={handleInputChange}
+          />
         )}
 
         {/* Selected file preview */}
         {selectedFile && !isComplete && (
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
-                {React.createElement(
-                  FILE_TYPE_ICONS[selectedFile.type] || File,
-                  { className: 'h-5 w-5 text-gray-500' }
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  {selectedFile.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatFileSize(selectedFile.size)} &middot;{' '}
-                  {selectedFile.type === 'application/pdf'
-                    ? 'PDF'
-                    : selectedFile.type.split('/')[1]?.toUpperCase()}
-                </p>
-              </div>
-            </div>
-            {!uploading && !isProcessing && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  clearFile()
-                }}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                aria-label="Remove selected file"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <BillUploadFilePreview
+            file={selectedFile}
+            uploading={uploading}
+            isProcessing={!!isProcessing}
+            onClear={clearFile}
+          />
         )}
 
         {/* Upload progress bar */}
-        {(uploading || (uploadProgress > 0 && uploadProgress < 100)) && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>Uploading...</span>
-              <span>{uploadProgress}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-full rounded-full bg-primary-500 transition-all duration-300 ease-out"
-                style={{ width: `${uploadProgress}%` }}
-                role="progressbar"
-                aria-valuenow={uploadProgress}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="Upload progress"
-              />
-            </div>
-          </div>
-        )}
+        <BillUploadProgressBar
+          uploading={uploading}
+          uploadProgress={uploadProgress}
+        />
 
         {/* Processing status */}
-        {isProcessing && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-primary-200 bg-primary-50 p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-            <p className="mt-4 text-sm font-medium text-primary-700">
-              {parseResult?.status === 'pending'
-                ? 'Queued for processing...'
-                : 'Analyzing your bill...'}
-            </p>
-            <p className="mt-1 text-xs text-primary-500">
-              This usually takes 10-30 seconds
-            </p>
-            {pollCount > 10 && (
-              <p className="mt-2 text-xs text-primary-400">
-                Still working on it...
-              </p>
-            )}
-          </div>
+        {isProcessing && parseResult && (
+          <BillUploadProcessingStatus
+            parseResult={parseResult}
+            pollCount={pollCount}
+          />
         )}
 
         {/* Extracted data on success */}
         {isComplete && parseResult?.extracted_data && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-lg border border-success-200 bg-success-50 p-3">
-              <CheckCircle2 className="h-5 w-5 text-success-500 shrink-0" />
-              <p className="text-sm font-medium text-success-700">
-                Bill processed successfully
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {parseResult.extracted_data.rate_per_kwh !== null && (
-                <ExtractedField
-                  icon={Zap}
-                  label="Rate"
-                  value={`${(parseResult.extracted_data.rate_per_kwh * 100).toFixed(2)} c/kWh`}
-                  highlight
-                />
-              )}
-              {parseResult.extracted_data.supplier_name && (
-                <ExtractedField
-                  icon={File}
-                  label="Supplier"
-                  value={parseResult.extracted_data.supplier_name}
-                />
-              )}
-              {parseResult.extracted_data.period_start &&
-                parseResult.extracted_data.period_end && (
-                  <ExtractedField
-                    icon={Calendar}
-                    label="Period"
-                    value={`${formatDate(parseResult.extracted_data.period_start)} - ${formatDate(parseResult.extracted_data.period_end)}`}
-                  />
-                )}
-              {parseResult.extracted_data.usage_kwh !== null && (
-                <ExtractedField
-                  icon={Gauge}
-                  label="Usage"
-                  value={`${parseResult.extracted_data.usage_kwh.toLocaleString()} kWh`}
-                />
-              )}
-              {parseResult.extracted_data.amount !== null && (
-                <ExtractedField
-                  icon={DollarSign}
-                  label="Amount"
-                  value={formatCurrency(
-                    parseResult.extracted_data.amount,
-                    parseResult.extracted_data.currency
-                  )}
-                />
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={onComplete}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Done
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  clearFile()
-                }}
-              >
-                Upload Another
-              </Button>
-            </div>
-          </div>
+          <BillUploadSuccess
+            extractedData={parseResult.extracted_data}
+            onComplete={onComplete}
+            onClearFile={clearFile}
+          />
         )}
 
         {/* Parse failure */}
         {isFailed && (
-          <div className="space-y-4">
-            <div className="flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 p-4">
-              <AlertCircle className="mt-0.5 h-5 w-5 text-danger-500 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-danger-700">
-                  Failed to process bill
-                </p>
-                <p className="mt-1 text-sm text-danger-600">
-                  {parseResult?.error_message ||
-                    'We could not extract data from this file. Please ensure it is a clear utility bill.'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="primary" onClick={handleRetry}>
-                <RotateCcw className="h-4 w-4" />
-                Retry Upload
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  clearFile()
-                }}
-              >
-                Choose Different File
-              </Button>
-            </div>
-          </div>
+          <BillUploadFailure
+            errorMessage={parseResult?.error_message || null}
+            onRetry={handleRetry}
+            onClearFile={clearFile}
+          />
         )}
 
         {/* Error */}
@@ -606,53 +348,5 @@ export function BillUploadForm({
         )}
       </div>
     </Card>
-  )
-}
-
-function ExtractedField({
-  icon: Icon,
-  label,
-  value,
-  highlight = false,
-}: {
-  icon: React.ElementType
-  label: string
-  value: string
-  highlight?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-start gap-3 rounded-lg border p-3',
-        highlight
-          ? 'border-primary-200 bg-primary-50'
-          : 'border-gray-200 bg-gray-50'
-      )}
-    >
-      <div
-        className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-          highlight ? 'bg-primary-100' : 'bg-gray-100'
-        )}
-      >
-        <Icon
-          className={cn(
-            'h-4 w-4',
-            highlight ? 'text-primary-600' : 'text-gray-500'
-          )}
-        />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-gray-500">{label}</p>
-        <p
-          className={cn(
-            'text-sm font-semibold truncate',
-            highlight ? 'text-primary-900' : 'text-gray-900'
-          )}
-        >
-          {value}
-        </p>
-      </div>
-    </div>
   )
 }

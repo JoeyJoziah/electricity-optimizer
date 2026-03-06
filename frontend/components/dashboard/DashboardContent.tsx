@@ -1,41 +1,26 @@
 'use client'
 
 import React from 'react'
-import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
-import dynamic from 'next/dynamic'
-
-const PriceLineChart = dynamic(
-  () => import('@/components/charts/PriceLineChart').then((m) => m.PriceLineChart),
-  { ssr: false, loading: () => <ChartSkeleton /> }
-)
-const ForecastChart = dynamic(
-  () => import('@/components/charts/ForecastChart').then((m) => m.ForecastChart),
-  { ssr: false, loading: () => <ChartSkeleton /> }
-)
-import { SupplierCard } from '@/components/suppliers/SupplierCard'
 import { useCurrentPrices, usePriceHistory, usePriceForecast } from '@/lib/hooks/usePrices'
 import { useSuppliers } from '@/lib/hooks/useSuppliers'
 import { useRealtimePrices } from '@/lib/hooks/useRealtime'
 import { useSavingsSummary } from '@/lib/hooks/useSavings'
-import { SavingsTracker } from '@/components/gamification/SavingsTracker'
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist'
 import { useSettingsStore } from '@/lib/store/settings'
-import { formatCurrency } from '@/lib/utils/format'
-import { cn } from '@/lib/utils/cn'
 import {
   TrendingDown,
   TrendingUp,
   Minus,
-  ArrowRight,
-  Zap,
-  Clock,
 } from 'lucide-react'
 import type { TimeRange, Supplier, RawPricePoint, RawForecastPriceEntry, RawSupplierRecord } from '@/types'
+
+import { DashboardStatsRow } from './DashboardStatsRow'
+import { DashboardCharts } from './DashboardCharts'
+import { DashboardForecast } from './DashboardForecast'
+import { DashboardSchedule } from './DashboardSchedule'
+import type { CurrentPriceInfo, OptimalWindow } from './DashboardTypes'
 
 // Map time range labels to hours for API calls
 const TIME_RANGE_HOURS: Record<TimeRange, number> = {
@@ -89,7 +74,7 @@ export default function DashboardContent() {
 
   // Get current price info (handle backend field names: current_price vs price)
   const rawPrice = pricesData?.prices?.[0] as RawPricePoint | undefined
-  const currentPrice = rawPrice ? {
+  const currentPrice: CurrentPriceInfo | null = rawPrice ? {
     price: Number(rawPrice.price ?? rawPrice.price_per_kwh ?? 0),
     trend: rawPrice.trend || 'stable',
     changePercent: rawPrice.changePercent ?? (rawPrice.price_change_24h ? Number(rawPrice.price_change_24h) : null),
@@ -105,7 +90,7 @@ export default function DashboardContent() {
         : Minus
 
   // Compute cheapest 4-hour window from forecast data
-  const optimalWindow = React.useMemo(() => {
+  const optimalWindow: OptimalWindow | null = React.useMemo(() => {
     if (!forecastData?.forecast) return null
     const forecastObj = forecastData.forecast as RawForecastPriceEntry[] | { prices?: RawForecastPriceEntry[] }
     const prices: RawForecastPriceEntry[] = Array.isArray(forecastObj)
@@ -134,7 +119,7 @@ export default function DashboardContent() {
   }, [forecastData])
 
   // Top 2 suppliers for quick comparison (map backend fields to frontend types)
-  const topSuppliers = React.useMemo(() => (suppliersData?.suppliers?.slice(0, 2) || []).map((s: RawSupplierRecord) => ({
+  const topSuppliers: Supplier[] = React.useMemo(() => (suppliersData?.suppliers?.slice(0, 2) || []).map((s: RawSupplierRecord) => ({
     id: s.id,
     name: s.name,
     logo: s.logo || s.logo_url,
@@ -203,241 +188,38 @@ export default function DashboardContent() {
         </div>
 
         {/* Quick stats row */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Current Price */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-500">
-                  Current Price
-                </p>
-                <Zap className="h-5 w-5 text-primary-500" />
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <p
-                  data-testid="current-price"
-                  className="text-2xl font-bold text-gray-900"
-                >
-                  {currentPrice
-                    ? formatCurrency(currentPrice.price)
-                    : '--'}
-                </p>
-                <span className="text-sm text-gray-500">/kWh</span>
-              </div>
-              <div
-                data-testid="price-trend"
-                className={cn(
-                  'mt-2 flex items-center gap-1 text-sm',
-                  trend === 'increasing'
-                    ? 'text-danger-600'
-                    : trend === 'decreasing'
-                      ? 'text-success-600'
-                      : 'text-gray-500'
-                )}
-              >
-                <TrendIcon className="h-4 w-4" />
-                <span>
-                  {currentPrice?.changePercent
-                    ? `${currentPrice.changePercent > 0 ? '+' : ''}${currentPrice.changePercent.toFixed(1)}%`
-                    : 'Stable'}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+        <DashboardStatsRow
+          currentPrice={currentPrice}
+          trend={trend}
+          TrendIcon={TrendIcon}
+          savingsData={savingsData}
+          optimalWindow={optimalWindow}
+          forecastLoading={forecastLoading}
+          suppliersCount={suppliersData?.suppliers?.length || 0}
+          currentSupplier={currentSupplier}
+          topSuppliers={topSuppliers}
+        />
 
-          {/* Total Saved with streak */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-500">
-                  Total Saved
-                </p>
-                {savingsData && savingsData.streak_days > 0 && (
-                  <Badge variant="success">{savingsData.streak_days}-day streak</Badge>
-                )}
-              </div>
-              <p className="mt-2 text-2xl font-bold text-success-600">
-                {savingsData ? formatCurrency(savingsData.monthly) : '--'}
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                {savingsData
-                  ? `${formatCurrency(savingsData.weekly / 7)} today`
-                  : 'Start saving to track'}
-              </p>
-            </CardContent>
-          </Card>
+        {/* Main content grid: Price chart + Savings tracker */}
+        <DashboardCharts
+          chartData={chartData}
+          historyLoading={historyLoading}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+          savingsData={savingsData}
+        />
 
-          {/* Optimal Times - computed from forecast */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-500">
-                  Optimal Times
-                </p>
-                <Clock className="h-5 w-5 text-warning-500" />
-              </div>
-              {optimalWindow ? (
-                <>
-                  <p className="mt-2 text-lg font-semibold text-gray-900">
-                    {optimalWindow.startLabel} - {optimalWindow.endLabel}
-                  </p>
-                  <p className="mt-1 text-sm text-success-600">
-                    Avg {formatCurrency(optimalWindow.avgPrice)}/kWh
-                  </p>
-                </>
-              ) : forecastLoading ? (
-                <p className="mt-2 text-lg text-gray-400">Loading forecast...</p>
-              ) : (
-                <p className="mt-2 text-lg text-gray-400">No forecast data</p>
-              )}
-            </CardContent>
-          </Card>
+        {/* Second row: Forecast + Top suppliers */}
+        <DashboardForecast
+          forecastData={forecastData}
+          forecastLoading={forecastLoading}
+          currentPrice={currentPrice}
+          topSuppliers={topSuppliers}
+          currentSupplier={currentSupplier}
+        />
 
-          {/* Suppliers */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-500">
-                  Suppliers
-                </p>
-                {currentSupplier && topSuppliers.some(s => s.estimatedAnnualCost < currentSupplier.estimatedAnnualCost) ? (
-                  <Badge variant="success">Cheaper available</Badge>
-                ) : null}
-              </div>
-              <p className="mt-2 text-lg font-semibold text-gray-900">
-                {suppliersData?.suppliers?.length || 0} options
-              </p>
-              <Link
-                href="/suppliers"
-                className="mt-1 inline-flex items-center text-sm text-primary-600 hover:text-primary-700"
-              >
-                Compare all
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main content grid */}
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {/* Price chart - 2 columns */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Price History</CardTitle>
-                <Link href="/prices">
-                  <Button variant="ghost" size="sm">
-                    View all prices
-                    <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <PriceLineChart
-                data={chartData}
-                loading={historyLoading}
-                timeRange={timeRange}
-                onTimeRangeChange={setTimeRange}
-                showCurrentPrice
-                showTrend
-                highlightOptimal
-                height={300}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Savings tracker with gamification */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Savings & Streaks</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SavingsTracker
-                dailySavings={savingsData ? savingsData.weekly / 7 : 0}
-                weeklySavings={savingsData?.weekly ?? 0}
-                monthlySavings={savingsData?.monthly ?? 0}
-                streakDays={savingsData?.streak_days ?? 0}
-                bestStreak={savingsData?.streak_days ?? 0}
-                optimizationScore={0}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Second row */}
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {/* 24-hour forecast */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>24-Hour Forecast</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {forecastLoading ? (
-                <Skeleton variant="rectangular" height={250} />
-              ) : forecastData?.forecast ? (
-                <ForecastChart
-                  forecast={
-                    Array.isArray(forecastData.forecast)
-                      ? forecastData.forecast
-                      : ((forecastData.forecast as { prices?: RawForecastPriceEntry[] }).prices || []).map((p: RawForecastPriceEntry, i: number) => ({
-                          hour: i + 1,
-                          price: Number(p.price_per_kwh ?? p.price ?? 0),
-                          confidence: [
-                            Number(p.price_per_kwh ?? p.price ?? 0) * 0.85,
-                            Number(p.price_per_kwh ?? p.price ?? 0) * 1.15,
-                          ] as [number, number],
-                          timestamp: p.timestamp || new Date().toISOString(),
-                        }))
-                  }
-                  currentPrice={currentPrice?.price}
-                  showConfidence
-                  height={250}
-                />
-              ) : (
-                <div className="flex h-64 items-center justify-center text-gray-500">
-                  Forecast unavailable
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Top suppliers */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Top Suppliers</CardTitle>
-                <Link href="/suppliers">
-                  <Button variant="ghost" size="sm">
-                    View all
-                  </Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {topSuppliers.map((supplier) => (
-                <SupplierCard
-                  key={supplier.id}
-                  supplier={supplier}
-                  isCurrent={supplier.id === currentSupplier?.id}
-                  currentAnnualCost={currentSupplier?.estimatedAnnualCost}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Schedule section - empty state until appliances are configured */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Today&apos;s Schedule</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-32 items-center justify-center text-gray-400">
-              <p>No optimization schedule set. Configure appliances in Settings to get started.</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Schedule section */}
+        <DashboardSchedule />
       </div>
     </div>
   )

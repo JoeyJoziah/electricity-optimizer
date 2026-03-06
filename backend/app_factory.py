@@ -263,8 +263,19 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
                 if redis:
                     app_rate_limiter.redis = redis
                     logger.info("rate_limiter_redis_wired")
+                else:
+                    logger.warning(
+                        "rate_limiter_redis_unavailable",
+                        fallback="in-memory",
+                        detail="Redis client returned None; rate limiting will use in-memory store (not shared across workers)",
+                    )
             except Exception as e:
-                logger.warning("rate_limiter_redis_wire_failed", error=str(e))
+                logger.warning(
+                    "rate_limiter_redis_wire_failed",
+                    error=str(e),
+                    fallback="in-memory",
+                    detail="Rate limiting will use in-memory store (not shared across workers)",
+                )
 
         # Initialise Sentry if configured (lazy import to reduce startup time)
         if settings.sentry_dsn:

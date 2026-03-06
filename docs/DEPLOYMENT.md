@@ -227,38 +227,67 @@ The CI/CD pipeline triggers Render deployments via deploy hooks:
 
 ## Rollback Procedures
 
-### Automatic Rollback
+### Automatic Rollback (CI/CD)
 
-If smoke tests fail, the CI/CD pipeline automatically rolls back to the previous version.
+The `deploy-production.yml` workflow includes automatic rollback on smoke test failure:
 
-### Manual Rollback
+1. Smoke tests poll `/health` and `/api/v1/prices/current` after deploy
+2. On failure, the rollback job fetches the last successful deploy ID via Render API
+3. Triggers `POST /services/{id}/deploys/{deploy_id}/rollback` to restore the backend
+4. Waits 120s and verifies health before declaring rollback complete
 
+### Manual Application Rollback
+
+**Via Render Dashboard:**
+1. Navigate to the backend service (`srv-d649uhur433s73d557cg`)
+2. Click "Deploys" tab
+3. Find the last successful deploy and click "Rollback to this deploy"
+
+**Via Render API:**
 ```bash
-# SSH to production server
-ssh user@production-server
+# List recent deploys
+curl -H "Authorization: Bearer $RENDER_API_KEY" \
+  "https://api.render.com/v1/services/srv-d649uhur433s73d557cg/deploys?limit=10"
 
-# Rollback to previous version
-cd /app/electricity-optimizer
-
-# Option 1: Use previous image tag
-docker compose -f docker-compose.prod.yml pull
-export VERSION=v0.9.0  # Previous version
-docker compose -f docker-compose.prod.yml up -d
-
-# Option 2: Restore from backup
-./scripts/restore.sh
+# Rollback to a specific deploy
+curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
+  "https://api.render.com/v1/services/srv-d649uhur433s73d557cg/deploys/{deploy_id}/rollback"
 ```
 
-### Database Rollback
+**Frontend (Vercel):**
+- Navigate to Vercel dashboard > Deployments
+- Click the three-dot menu on the previous successful deployment
+- Select "Promote to Production"
 
+### Database Migration Rollback
+
+Neon PostgreSQL provides point-in-time recovery via branching. The project has 24 forward-only migrations (`backend/migrations/001_init_neon.sql` through `024_payment_retry_history.sql`).
+
+**Rollback strategy by migration type:**
+
+| Migration Type | Rollback Approach |
+|---------------|-------------------|
+| Add column (nullable) | Safe to leave in place; no rollback needed |
+| Add column (NOT NULL) | `ALTER TABLE ... DROP COLUMN ...` |
+| Add index | `DROP INDEX ...` |
+| Add table | `DROP TABLE ...` (verify no FK references first) |
+| Alter column type | Restore from Neon branch (see below) |
+| Drop column/table | **Irreversible** — must restore from Neon branch |
+
+**Using Neon branching for rollback:**
 ```bash
-# Neon PostgreSQL supports point-in-time recovery and branching.
-# Create a branch from a past point for recovery:
-# See https://neon.tech/docs/manage/branches
+# Create a recovery branch from a point before the bad migration
+# Use the Neon console or API:
+# https://neon.tech/docs/manage/branches
 
-# For local dev, restore from a pg_dump backup:
-psql "$DATABASE_URL" < /backups/neon_YYYYMMDD.sql
+# 1. Note the timestamp BEFORE the migration was applied
+# 2. Create a branch from that timestamp
+# 3. Update DATABASE_URL to point to the recovery branch
+# 4. Verify data integrity
+# 5. Promote the recovery branch if needed
 ```
+
+**Important:** Always test destructive migrations on a Neon branch first before applying to production.
 
 ---
 

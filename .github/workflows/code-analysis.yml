@@ -47,9 +47,21 @@ jobs:
 
       - name: Security scan
         run: |
-          claude-flow security scan --format json > security.json || true
+          claude-flow security scan --format json > security.json
           echo "## Security Scan" >> $GITHUB_STEP_SUMMARY
           cat security.json >> $GITHUB_STEP_SUMMARY || echo "No security report generated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for high-severity findings
+        run: |
+          if [ -f security.json ]; then
+            HIGH_COUNT=$(jq '[.findings[]? | select(.severity == "high" or .severity == "critical")] | length' security.json 2>/dev/null || echo "0")
+            if [ "$HIGH_COUNT" -gt "0" ]; then
+              echo "::error::Found $HIGH_COUNT high/critical severity findings in security scan"
+              jq '.findings[] | select(.severity == "high" or .severity == "critical")' security.json
+              exit 1
+            fi
+            echo "No high/critical severity findings"
+          fi
 
       - name: Upload analysis reports
         uses: actions/upload-artifact@v4
