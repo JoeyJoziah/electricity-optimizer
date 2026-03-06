@@ -6,14 +6,13 @@ Tests cover:
 - POST /preferences - update user preferences (DB-backed)
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, SessionData
+from api.dependencies import SessionData, get_current_user
 from config.database import get_timescale_session
-
 
 TEST_USER = SessionData(user_id="user-prefs-1", email="prefs@example.com")
 
@@ -133,7 +132,9 @@ class TestUpdatePreferences:
         """Updating one preference should persist and return the merged result."""
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(return_value=_make_mock_user())
-        mock_repo.update_preferences = AsyncMock(return_value=_make_mock_user({"notification_enabled": False}))
+        mock_repo.update_preferences = AsyncMock(
+            return_value=_make_mock_user({"notification_enabled": False})
+        )
         mock_repo_cls.return_value = mock_repo
 
         response = auth_client.post(

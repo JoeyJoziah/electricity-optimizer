@@ -44,7 +44,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
-from utils.encryption import encrypt_field, decrypt_field
+from utils.encryption import decrypt_field, encrypt_field
 
 logger = structlog.get_logger(__name__)
 
@@ -273,7 +273,8 @@ class ConnectionSyncService:
 
         try:
             result = await self._db.execute(
-                text("""
+                text(
+                    """
                     SELECT id
                     FROM user_connections
                     WHERE status = 'active'
@@ -284,7 +285,8 @@ class ConnectionSyncService:
                                <= NOW()
                           )
                     ORDER BY COALESCE(last_sync_at, '1970-01-01') ASC
-                """),
+                """
+                ),
                 {"default_freq": _DEFAULT_SYNC_FREQUENCY_HOURS},
             )
             rows = result.fetchall()
@@ -333,14 +335,16 @@ class ConnectionSyncService:
         """
         try:
             result = await self._db.execute(
-                text("""
+                text(
+                    """
                     SELECT id,
                            last_sync_at,
                            last_sync_error,
                            COALESCE(sync_frequency_hours, :default_freq) AS sync_frequency_hours
                     FROM user_connections
                     WHERE id = :cid
-                """),
+                """
+                ),
                 {"cid": connection_id, "default_freq": _DEFAULT_SYNC_FREQUENCY_HOURS},
             )
             row = result.mappings().first()
@@ -386,7 +390,8 @@ class ConnectionSyncService:
     async def _fetch_connection(self, connection_id: str) -> Optional[dict]:
         """Load a connection row with all sync-related columns."""
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT id, status,
                        utilityapi_auth_uid_encrypted,
                        last_sync_at,
@@ -394,7 +399,8 @@ class ConnectionSyncService:
                        COALESCE(sync_frequency_hours, :default_freq) AS sync_frequency_hours
                 FROM user_connections
                 WHERE id = :cid
-            """),
+            """
+            ),
             {"cid": connection_id, "default_freq": _DEFAULT_SYNC_FREQUENCY_HOURS},
         )
         row = result.mappings().first()
@@ -418,9 +424,7 @@ class ConnectionSyncService:
         placeholders = []
         params: dict = {}
         for i, rate_data in enumerate(rate_records):
-            placeholders.append(
-                f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})"
-            )
+            placeholders.append(f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})")
             params[f"id{i}"] = str(uuid4())
             params[f"cid{i}"] = connection_id
             params[f"rate{i}"] = rate_data["rate_per_kwh"]
@@ -438,9 +442,7 @@ class ConnectionSyncService:
             params,
         )
 
-    async def _insert_extracted_rate(
-        self, connection_id: str, rate_data: dict
-    ) -> None:
+    async def _insert_extracted_rate(self, connection_id: str, rate_data: dict) -> None:
         """Insert a single rate row into ``connection_extracted_rates``.
 
         Prefer ``_batch_insert_extracted_rates`` when inserting multiple rows.
@@ -464,13 +466,15 @@ class ConnectionSyncService:
 
         try:
             await self._db.execute(
-                text("""
+                text(
+                    """
                     UPDATE user_connections
                     SET last_sync_at    = :synced_at,
                         last_sync_error = :error,
                         status          = :status
                     WHERE id = :cid
-                """),
+                """
+                ),
                 {
                     "synced_at": synced_at,
                     "error": error,

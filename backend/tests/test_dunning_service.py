@@ -10,14 +10,13 @@ Covers:
 - handle_payment_failure full flow / dedup blocks
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-from services.dunning_service import DunningService, DUNNING_COOLDOWN_HOURS
-
+from services.dunning_service import DUNNING_COOLDOWN_HOURS, DunningService
 
 # =============================================================================
 # Fixtures
@@ -68,7 +67,6 @@ def dunning(mock_db, mock_email_service):
 
 
 class TestRecordPaymentFailure:
-
     @pytest.mark.asyncio
     async def test_creates_row(self, dunning, mock_db):
         """record_payment_failure should INSERT a row and commit."""
@@ -89,10 +87,19 @@ class TestRecordPaymentFailure:
             "updated_at": datetime.now(timezone.utc),
         }[key]
         row.keys = lambda: [
-            "id", "user_id", "stripe_invoice_id", "stripe_customer_id",
-            "retry_count", "retry_type", "amount_owed", "currency",
-            "email_sent", "email_sent_at", "escalation_action",
-            "created_at", "updated_at",
+            "id",
+            "user_id",
+            "stripe_invoice_id",
+            "stripe_customer_id",
+            "retry_count",
+            "retry_type",
+            "amount_owed",
+            "currency",
+            "email_sent",
+            "email_sent_at",
+            "escalation_action",
+            "created_at",
+            "updated_at",
         ]
 
         # get_retry_count returns 0 (first failure)
@@ -122,7 +129,6 @@ class TestRecordPaymentFailure:
 
 
 class TestGetRetryCount:
-
     @pytest.mark.asyncio
     async def test_returns_count(self, dunning, mock_db):
         """Should return the count for a known invoice."""
@@ -150,7 +156,6 @@ class TestGetRetryCount:
 
 
 class TestShouldSendDunning:
-
     @pytest.mark.asyncio
     async def test_true_when_no_recent_email(self, dunning, mock_db):
         """Should return True when no email was sent in the cooldown window."""
@@ -180,7 +185,6 @@ class TestShouldSendDunning:
 
 
 class TestSendDunningEmail:
-
     @pytest.mark.asyncio
     async def test_soft_template_when_under_3(self, dunning, mock_email_service):
         """retry_count < 3 should use dunning_soft.html template."""
@@ -230,7 +234,6 @@ class TestSendDunningEmail:
 
 
 class TestEscalateIfNeeded:
-
     @pytest.mark.asyncio
     async def test_downgrades_after_3_failures(self, dunning, mock_user_repo):
         """User on paid tier should be downgraded after 3 failures."""
@@ -261,7 +264,6 @@ class TestEscalateIfNeeded:
 
 
 class TestHandlePaymentFailure:
-
     @pytest.mark.asyncio
     async def test_full_flow(self, mock_db, mock_email_service, mock_user_repo):
         """Full flow: record → check cooldown → send email → no escalation (first failure)."""
@@ -329,9 +331,7 @@ class TestHandlePaymentFailure:
         cooldown_result = MagicMock()
         cooldown_result.first.return_value = cooldown_row
 
-        mock_db.execute = AsyncMock(
-            side_effect=[count_result, insert_result, cooldown_result]
-        )
+        mock_db.execute = AsyncMock(side_effect=[count_result, insert_result, cooldown_result])
 
         dunning = DunningService(mock_db, email_service=mock_email_service)
         result = await dunning.handle_payment_failure(
