@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-06 (Self-Healing CI/CD COMPLETE — auto-format, retry-curl, notify-slack, migration validation, self-healing monitor, E2E resilience. Phase 3 COMPLETE — 7/7 automation workflows. 25 migrations deployed)
+> Last validated: 2026-03-06 (Tier 1+2 COMPLETE — revenue gating on 7 endpoints, /alerts UI page, frontend perf optimizations, CI/CD fixes + Dependabot. 25 migrations deployed. Backend 1,475 tests, Frontend 1,420 tests)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -104,11 +104,11 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 21 public + 9 neon_auth tables (25 migrations: init_neon through 025_data_cache_tables — all deployed to production)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://electricity-optimizer.onrender.com` (server-side)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
-- **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id
+- **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id. **Plan gating**: `require_tier("pro"/"business")` dependency on 7 endpoints (forecast, savings, recommendations=pro; prices/stream=business). Free tier: 1 alert limit
 - **Email**: Resend (primary) + Gmail SMTP fallback (smtp.gmail.com:587, TLS, App Password). Frontend uses nodemailer for SMTP
 - **Notifications**: OneSignal push (user binding via login(userId) post-auth) + email alerts
-- **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)
-- **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). Phase 0 (prereqs) DONE, Phase 1 (zero-risk) COMPLETE — 3 Rube recipes live. Phase 2 COMPLETE — 5 GHA cron workflows. Phase 3 COMPLETE — Stripe dunning + KPI report (2 GHA cron workflows + 2 endpoints + migration 024). 7/7 approved workflows done. Self-Healing CI/CD: auto-format (PRs), retry-curl + notify-slack (12 cron workflows), validate-migrations, self-healing-monitor (daily), E2E resilience
+- **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d). **UI**: `/alerts` page with CRUD, history tabs, AlertForm (region/thresholds/optimal windows). Sidebar Bell icon
+- **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). ALL PHASES COMPLETE (0-3), 7/7 workflows live. Self-Healing CI/CD: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. **Dependabot**: `.github/dependabot.yml` (pip/npm/github-actions, weekly Monday, grouped minor+patch)
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **Board Sync**: GitHub Projects #4 (local hooks). Notion via Rube recipe only (every 6h, rcp_73Kc9K65YC5T). Hub page: `31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7`, Tracker DB: `31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f`
 
