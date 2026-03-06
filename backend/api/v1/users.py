@@ -8,15 +8,15 @@ annual_usage_kwh, onboarding_completed).
 These columns are added by migration 013_user_profile_columns.sql.
 """
 
+from typing import List, Optional
+
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
-import structlog
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 logger = structlog.get_logger()
 
@@ -39,18 +39,77 @@ class UserProfile(BaseModel):
 
 
 VALID_REGIONS = {
-    'us_al', 'us_ak', 'us_az', 'us_ar', 'us_ca', 'us_co', 'us_ct', 'us_de',
-    'us_dc', 'us_fl', 'us_ga', 'us_hi', 'us_id', 'us_il', 'us_in', 'us_ia',
-    'us_ks', 'us_ky', 'us_la', 'us_me', 'us_md', 'us_ma', 'us_mi', 'us_mn',
-    'us_ms', 'us_mo', 'us_mt', 'us_ne', 'us_nv', 'us_nh', 'us_nj', 'us_nm',
-    'us_ny', 'us_nc', 'us_nd', 'us_oh', 'us_ok', 'us_or', 'us_pa', 'us_ri',
-    'us_sc', 'us_sd', 'us_tn', 'us_tx', 'us_ut', 'us_vt', 'us_va', 'us_wa',
-    'us_wv', 'us_wi', 'us_wy',
-    'uk', 'uk_scotland', 'uk_wales', 'ie', 'de', 'fr', 'es', 'it', 'nl',
-    'be', 'at', 'jp', 'au', 'ca', 'cn', 'in', 'br',
+    "us_al",
+    "us_ak",
+    "us_az",
+    "us_ar",
+    "us_ca",
+    "us_co",
+    "us_ct",
+    "us_de",
+    "us_dc",
+    "us_fl",
+    "us_ga",
+    "us_hi",
+    "us_id",
+    "us_il",
+    "us_in",
+    "us_ia",
+    "us_ks",
+    "us_ky",
+    "us_la",
+    "us_me",
+    "us_md",
+    "us_ma",
+    "us_mi",
+    "us_mn",
+    "us_ms",
+    "us_mo",
+    "us_mt",
+    "us_ne",
+    "us_nv",
+    "us_nh",
+    "us_nj",
+    "us_nm",
+    "us_ny",
+    "us_nc",
+    "us_nd",
+    "us_oh",
+    "us_ok",
+    "us_or",
+    "us_pa",
+    "us_ri",
+    "us_sc",
+    "us_sd",
+    "us_tn",
+    "us_tx",
+    "us_ut",
+    "us_vt",
+    "us_va",
+    "us_wa",
+    "us_wv",
+    "us_wi",
+    "us_wy",
+    "uk",
+    "uk_scotland",
+    "uk_wales",
+    "ie",
+    "de",
+    "fr",
+    "es",
+    "it",
+    "nl",
+    "be",
+    "at",
+    "jp",
+    "au",
+    "ca",
+    "cn",
+    "in",
+    "br",
 }
 
-VALID_UTILITY_TYPES = {'electricity', 'natural_gas', 'heating_oil', 'propane', 'community_solar'}
+VALID_UTILITY_TYPES = {"electricity", "natural_gas", "heating_oil", "propane", "community_solar"}
 
 
 class UserProfileUpdate(BaseModel):
@@ -61,20 +120,20 @@ class UserProfileUpdate(BaseModel):
     annual_usage_kwh: Optional[int] = Field(None, ge=0, le=1000000)
     onboarding_completed: Optional[bool] = None
 
-    @field_validator('region')
+    @field_validator("region")
     @classmethod
     def validate_region(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.lower() not in VALID_REGIONS:
-            raise ValueError(f'Invalid region: {v}')
+            raise ValueError(f"Invalid region: {v}")
         return v.lower() if v else v
 
-    @field_validator('utility_types')
+    @field_validator("utility_types")
     @classmethod
     def validate_utility_types(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         if v is not None:
             for t in v:
                 if t not in VALID_UTILITY_TYPES:
-                    raise ValueError(f'Invalid utility type: {t}')
+                    raise ValueError(f"Invalid utility type: {t}")
         return v
 
 
@@ -109,7 +168,15 @@ async def get_profile(
             detail="User profile not found",
         )
 
-    email, name, region, utility_types_raw, current_supplier_id, annual_usage_kwh, onboarding_completed = row
+    (
+        email,
+        name,
+        region,
+        utility_types_raw,
+        current_supplier_id,
+        annual_usage_kwh,
+        onboarding_completed,
+    ) = row
 
     # utility_types is stored as a comma-separated string; split on read
     utility_types: Optional[List[str]] = None
@@ -123,7 +190,9 @@ async def get_profile(
         utility_types=utility_types,
         current_supplier_id=str(current_supplier_id) if current_supplier_id else None,
         annual_usage_kwh=annual_usage_kwh,
-        onboarding_completed=bool(onboarding_completed) if onboarding_completed is not None else False,
+        onboarding_completed=bool(onboarding_completed)
+        if onboarding_completed is not None
+        else False,
     )
 
 

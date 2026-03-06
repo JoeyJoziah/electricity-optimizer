@@ -20,6 +20,7 @@ pytestmark = pytest.mark.slow
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_db_session():
     """Return a mock async DB session."""
     session = AsyncMock()
@@ -34,6 +35,7 @@ def _mock_db_session():
 def _get_test_client():
     """Create an httpx.AsyncClient wired to the ASGI app."""
     from main import app
+
     transport = httpx.ASGITransport(app=app)
     return httpx.AsyncClient(transport=transport, base_url="http://test")
 
@@ -55,9 +57,9 @@ class TestConcurrentHealth:
             responses = await asyncio.gather(*tasks)
             elapsed = time.monotonic() - start
 
-        assert all(r.status_code == 200 for r in responses), (
-            f"Some health checks failed: {[r.status_code for r in responses if r.status_code != 200]}"
-        )
+        assert all(
+            r.status_code == 200 for r in responses
+        ), f"Some health checks failed: {[r.status_code for r in responses if r.status_code != 200]}"
         assert elapsed < 2.0, f"50 health checks took {elapsed:.2f}s (limit 2s)"
 
     @pytest.mark.asyncio
@@ -89,17 +91,14 @@ class TestConcurrentPriceEndpoints:
         async with _get_test_client() as client:
             start = time.monotonic()
             tasks = [
-                client.get("/api/v1/prices/current", params={"region": "us_ct"})
-                for _ in range(20)
+                client.get("/api/v1/prices/current", params={"region": "us_ct"}) for _ in range(20)
             ]
             responses = await asyncio.gather(*tasks)
             elapsed = time.monotonic() - start
 
         # All should return a valid HTTP status (not 500)
         server_errors = [r for r in responses if r.status_code >= 500]
-        assert len(server_errors) == 0, (
-            f"{len(server_errors)} server errors out of 20 requests"
-        )
+        assert len(server_errors) == 0, f"{len(server_errors)} server errors out of 20 requests"
         assert elapsed < 3.0, f"20 price requests took {elapsed:.2f}s (limit 3s)"
 
     @pytest.mark.asyncio
@@ -109,15 +108,13 @@ class TestConcurrentPriceEndpoints:
             tasks = []
             for _ in range(10):
                 tasks.append(client.get("/health"))
-                tasks.append(
-                    client.get("/api/v1/prices/current", params={"region": "us_ct"})
-                )
+                tasks.append(client.get("/api/v1/prices/current", params={"region": "us_ct"}))
             responses = await asyncio.gather(*tasks)
 
         server_errors = [r for r in responses if r.status_code >= 500]
-        assert len(server_errors) == 0, (
-            f"{len(server_errors)} server errors out of {len(responses)} mixed requests"
-        )
+        assert (
+            len(server_errors) == 0
+        ), f"{len(server_errors)} server errors out of {len(responses)} mixed requests"
 
 
 class TestLatencyBudget:

@@ -11,19 +11,15 @@ IMPORTANT: /direct/callback MUST be registered in router.py BEFORE the
 connection_id path parameter.
 """
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
-from models.connections import (
-    AuthorizationCallbackResponse,
-    SyncResultResponse,
-    SyncStatusResponse,
-)
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier, verify_callback_state
+from models.connections import (AuthorizationCallbackResponse,
+                                SyncResultResponse, SyncStatusResponse)
 
 logger = structlog.get_logger(__name__)
 
@@ -66,9 +62,9 @@ async def utilityapi_callback(
     4. Set connection status to ``active``.
     5. Trigger an initial data sync in the background.
     """
-    from utils.encryption import encrypt_field
     from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
     from services.connection_sync_service import ConnectionSyncService
+    from utils.encryption import encrypt_field
 
     connection_id, state_user_id = verify_callback_state(state)
     log = logger.bind(connection_id=connection_id, authorization_uid=authorization_uid)
@@ -76,10 +72,12 @@ async def utilityapi_callback(
 
     # 1. Verify connection exists and is still pending
     conn_result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id, user_id, status FROM user_connections
             WHERE id = :cid AND connection_type = 'direct'
-        """),
+        """
+        ),
         {"cid": connection_id},
     )
     row = conn_result.mappings().first()
@@ -116,11 +114,13 @@ async def utilityapi_callback(
         log.error("utilityapi_callback_auth_verify_failed", error=str(exc))
         # Mark connection as error but still return 200 so UtilityAPI doesn't retry
         await db.execute(
-            text("""
+            text(
+                """
                 UPDATE user_connections
                 SET status = 'error'
                 WHERE id = :cid
-            """),
+            """
+            ),
             {"cid": connection_id},
         )
         await db.commit()
@@ -158,12 +158,14 @@ async def utilityapi_callback(
         ) from exc
 
     await db.execute(
-        text("""
+        text(
+            """
             UPDATE user_connections
             SET status                          = 'active',
                 utilityapi_auth_uid_encrypted   = :enc_uid
             WHERE id = :cid
-        """),
+        """
+        ),
         {"enc_uid": encrypted_uid, "cid": connection_id},
     )
     await db.commit()
@@ -214,10 +216,12 @@ async def trigger_sync(
 
     # Verify ownership
     conn_result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id FROM user_connections
             WHERE id = :cid AND user_id = :uid
-        """),
+        """
+        ),
         {"cid": connection_id, "uid": current_user.user_id},
     )
     if conn_result.fetchone() is None:
@@ -266,10 +270,12 @@ async def get_sync_status(
 
     # Verify ownership first
     conn_result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id FROM user_connections
             WHERE id = :cid AND user_id = :uid
-        """),
+        """
+        ),
         {"cid": connection_id, "uid": current_user.user_id},
     )
     if conn_result.fetchone() is None:

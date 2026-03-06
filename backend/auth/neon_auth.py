@@ -12,18 +12,16 @@ Session tokens arrive via:
 
 import hashlib
 import json
-from typing import Optional
 from dataclasses import dataclass
-
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from typing import Optional
 
 import structlog
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.database import get_timescale_session, db_manager
-
+from config.database import db_manager, get_timescale_session
 
 logger = structlog.get_logger()
 
@@ -41,6 +39,7 @@ SESSION_COOKIE_NAME_SECURE = "__Secure-better-auth.session_token"
 @dataclass
 class SessionData:
     """Authenticated user session data from neon_auth schema."""
+
     user_id: str
     email: str
     name: str = ""
@@ -78,7 +77,8 @@ async def _get_session_from_token(
         except Exception:
             pass  # Cache miss or error — fall through to DB
 
-    query = text("""
+    query = text(
+        """
         SELECT
             u.id AS user_id,
             u.email,
@@ -90,7 +90,8 @@ async def _get_session_from_token(
         WHERE s.token = :token
           AND s."expiresAt" > NOW()
           AND (u.banned IS NULL OR u.banned = false)
-    """)
+    """
+    )
 
     result = await db.execute(query, {"token": session_token})
     row = result.fetchone()
@@ -112,13 +113,15 @@ async def _get_session_from_token(
             await redis.setex(
                 cache_key,
                 _SESSION_CACHE_TTL,
-                json.dumps({
-                    "user_id": session_data.user_id,
-                    "email": session_data.email,
-                    "name": session_data.name,
-                    "email_verified": session_data.email_verified,
-                    "role": session_data.role,
-                }),
+                json.dumps(
+                    {
+                        "user_id": session_data.user_id,
+                        "email": session_data.email,
+                        "name": session_data.name,
+                        "email_verified": session_data.email_verified,
+                        "role": session_data.role,
+                    }
+                ),
             )
         except Exception:
             pass  # Non-fatal — next request will just re-query
@@ -174,9 +177,8 @@ async def get_current_user(
         session_token = credentials.credentials
     else:
         # Check both cookie names: plain (HTTP/dev) and __Secure- prefixed (HTTPS/prod)
-        session_token = (
-            request.cookies.get(SESSION_COOKIE_NAME)
-            or request.cookies.get(SESSION_COOKIE_NAME_SECURE)
+        session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.cookies.get(
+            SESSION_COOKIE_NAME_SECURE
         )
 
     if not session_token:
@@ -240,12 +242,16 @@ async def ensure_user_profile(
     """
     # Single upsert — ON CONFLICT DO NOTHING handles existing users atomically,
     # eliminating the redundant SELECT round-trip on every request.
-    insert = text("""
+    insert = text(
+        """
         INSERT INTO public.users (id, email, name, region, is_active, created_at, updated_at)
         VALUES (:id, :email, :name, NULL, true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
-    """)
-    result = await db.execute(insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""})
+    """
+    )
+    result = await db.execute(
+        insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""}
+    )
     await db.commit()
     if result.rowcount > 0:
         logger.info("user_profile_synced", user_id=neon_user_id, email=email)
