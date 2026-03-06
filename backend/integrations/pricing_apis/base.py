@@ -9,15 +9,15 @@ Provides common functionality for all pricing API integrations including:
 - Data model definitions
 """
 
+import asyncio
+import hashlib
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional, TypeVar, Generic
-import asyncio
-import hashlib
-import json
+from typing import Any, Generic, Optional, TypeVar
 
 import httpx
 import structlog
@@ -33,15 +33,13 @@ T = TypeVar("T")
 # =============================================================================
 
 
-# PriceUnit imported from canonical source in models.utility
-from models.utility import PriceUnit  # noqa: E402
-
-
 # Import unified Region as PricingRegion for backward compatibility.
 # The canonical definition lives in models.region; all new code should
 # import from there.  Existing pricing-API code continues to work via
 # this alias.
 from models.region import Region as PricingRegion  # noqa: E402
+# PriceUnit imported from canonical source in models.utility
+from models.utility import PriceUnit  # noqa: E402
 
 
 class CircuitState(str, Enum):
@@ -265,8 +263,12 @@ class ForecastData:
             prices=[PriceData.from_dict(p) for p in data.get("prices", [])],
             model_version=data.get("model_version"),
             confidence_level=data.get("confidence_level"),
-            lower_bound=[Decimal(b) for b in data["lower_bound"]] if data.get("lower_bound") else None,
-            upper_bound=[Decimal(b) for b in data["upper_bound"]] if data.get("upper_bound") else None,
+            lower_bound=[Decimal(b) for b in data["lower_bound"]]
+            if data.get("lower_bound")
+            else None,
+            upper_bound=[Decimal(b) for b in data["upper_bound"]]
+            if data.get("upper_bound")
+            else None,
         )
 
 
@@ -414,8 +416,7 @@ class RetryConfig:
         import random
 
         delay = min(
-            self.base_delay_seconds * (self.exponential_base ** attempt),
-            self.max_delay_seconds
+            self.base_delay_seconds * (self.exponential_base**attempt), self.max_delay_seconds
         )
 
         if self.jitter:

@@ -8,13 +8,13 @@ Supports electricity, natural gas, heating oil, propane, and community solar.
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, List
+from typing import List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from models.region import Region
-from models.utility import UtilityType, PriceUnit
+from models.utility import PriceUnit, UtilityType
 
 # Backward-compatible alias
 PriceRegion = Region
@@ -22,6 +22,7 @@ PriceRegion = Region
 
 class EnergySource(str, Enum):
     """Energy source types"""
+
     RENEWABLE = "renewable"
     FOSSIL = "fossil"
     NUCLEAR = "nuclear"
@@ -37,9 +38,7 @@ class Price(BaseModel):
     """
 
     model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str},
-        use_enum_values=True
+        from_attributes=True, json_encoders={Decimal: str}, use_enum_values=True
     )
 
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -106,9 +105,7 @@ class PriceForecast(BaseModel):
     """
 
     model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str},
-        use_enum_values=True
+        from_attributes=True, json_encoders={Decimal: str}, use_enum_values=True
     )
 
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -139,10 +136,7 @@ class PriceForecast(BaseModel):
 class PriceResponse(BaseModel):
     """Response schema for single price"""
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str}
-    )
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
     ticker: str
     current_price: Decimal

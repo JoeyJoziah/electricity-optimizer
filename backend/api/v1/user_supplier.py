@@ -8,20 +8,15 @@ All endpoints require authentication and filter by the authenticated user's ID.
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-
-from api.dependencies import get_current_user, get_db_session, SessionData
-from models.user_supplier import (
-    SetSupplierRequest,
-    LinkAccountRequest,
-    UserSupplierResponse,
-    LinkedAccountResponse,
-)
-from utils.encryption import encrypt_field, decrypt_field, mask_account_number
-
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.dependencies import SessionData, get_current_user, get_db_session
+from models.user_supplier import (LinkAccountRequest, LinkedAccountResponse,
+                                  SetSupplierRequest, UserSupplierResponse)
+from utils.encryption import decrypt_field, encrypt_field, mask_account_number
 
 logger = structlog.get_logger()
 
@@ -32,13 +27,16 @@ router = APIRouter(tags=["User Supplier"])
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _get_supplier_by_id(db: AsyncSession, supplier_id: str) -> Optional[dict]:
     """Fetch a supplier from supplier_registry by ID."""
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT id, name, regions, rating, green_energy, website, is_active
             FROM supplier_registry WHERE id = :id
-        """),
+        """
+        ),
         {"id": supplier_id},
     )
     row = result.mappings().first()
@@ -63,6 +61,7 @@ async def _ensure_user_exists(db: AsyncSession, user_id: str) -> None:
 # ---------------------------------------------------------------------------
 # PUT /user/supplier — Set current supplier
 # ---------------------------------------------------------------------------
+
 
 @router.put("/supplier", response_model=UserSupplierResponse)
 async def set_current_supplier(
@@ -109,13 +108,15 @@ async def set_current_supplier(
 
     # Update both current_supplier (name, backward compat) and current_supplier_id (FK)
     await db.execute(
-        text("""
+        text(
+            """
             UPDATE public.users
             SET current_supplier = :name,
                 current_supplier_id = :supplier_id,
                 updated_at = NOW()
             WHERE id = :user_id
-        """),
+        """
+        ),
         {
             "name": supplier["name"],
             "supplier_id": supplier_id_str,
@@ -140,6 +141,7 @@ async def set_current_supplier(
 # GET /user/supplier — Get current supplier
 # ---------------------------------------------------------------------------
 
+
 @router.get("/supplier")
 async def get_current_supplier(
     current_user: SessionData = Depends(get_current_user),
@@ -147,14 +149,16 @@ async def get_current_supplier(
 ):
     """Get the authenticated user's current supplier."""
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT u.current_supplier_id, u.current_supplier,
                    sr.id AS sr_id, sr.name, sr.regions, sr.rating,
                    sr.green_energy, sr.website
             FROM public.users u
             LEFT JOIN supplier_registry sr ON u.current_supplier_id = sr.id
             WHERE u.id = :user_id
-        """),
+        """
+        ),
         {"user_id": current_user.user_id},
     )
     row = result.mappings().first()
@@ -178,6 +182,7 @@ async def get_current_supplier(
 # DELETE /user/supplier — Remove current supplier
 # ---------------------------------------------------------------------------
 
+
 @router.delete("/supplier")
 async def remove_current_supplier(
     current_user: SessionData = Depends(get_current_user),
@@ -185,13 +190,15 @@ async def remove_current_supplier(
 ):
     """Remove the authenticated user's current supplier."""
     await db.execute(
-        text("""
+        text(
+            """
             UPDATE public.users
             SET current_supplier = NULL,
                 current_supplier_id = NULL,
                 updated_at = NOW()
             WHERE id = :user_id
-        """),
+        """
+        ),
         {"user_id": current_user.user_id},
     )
     await db.commit()
@@ -204,6 +211,7 @@ async def remove_current_supplier(
 # ---------------------------------------------------------------------------
 # POST /user/supplier/link — Link utility account
 # ---------------------------------------------------------------------------
+
 
 @router.post("/supplier/link", response_model=LinkedAccountResponse)
 async def link_supplier_account(
@@ -229,7 +237,8 @@ async def link_supplier_account(
 
     try:
         await db.execute(
-            text("""
+            text(
+                """
                 INSERT INTO user_supplier_accounts
                     (user_id, supplier_id, account_number_encrypted, meter_number_encrypted,
                      service_zip, account_nickname, is_primary)
@@ -242,7 +251,8 @@ async def link_supplier_account(
                     service_zip = EXCLUDED.service_zip,
                     account_nickname = EXCLUDED.account_nickname,
                     updated_at = NOW()
-            """),
+            """
+            ),
             {
                 "user_id": current_user.user_id,
                 "supplier_id": supplier_id_str,
@@ -292,6 +302,7 @@ async def link_supplier_account(
 # GET /user/supplier/accounts — Get linked accounts (masked)
 # ---------------------------------------------------------------------------
 
+
 @router.get("/supplier/accounts")
 async def get_linked_accounts(
     current_user: SessionData = Depends(get_current_user),
@@ -299,7 +310,8 @@ async def get_linked_accounts(
 ):
     """Get all linked supplier accounts for the authenticated user (masked)."""
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT usa.supplier_id, sr.name AS supplier_name,
                    usa.account_number_encrypted, usa.meter_number_encrypted,
                    usa.service_zip, usa.account_nickname, usa.is_primary,
@@ -308,7 +320,8 @@ async def get_linked_accounts(
             JOIN supplier_registry sr ON usa.supplier_id = sr.id
             WHERE usa.user_id = :user_id
             ORDER BY usa.is_primary DESC, usa.created_at DESC
-        """),
+        """
+        ),
         {"user_id": current_user.user_id},
     )
 
@@ -352,6 +365,7 @@ async def get_linked_accounts(
 # DELETE /user/supplier/accounts/{supplier_id} — Unlink specific account
 # ---------------------------------------------------------------------------
 
+
 @router.delete("/supplier/accounts/{supplier_id}")
 async def unlink_supplier_account(
     supplier_id: UUID,
@@ -360,11 +374,13 @@ async def unlink_supplier_account(
 ):
     """Unlink a specific supplier account."""
     result = await db.execute(
-        text("""
+        text(
+            """
             DELETE FROM user_supplier_accounts
             WHERE user_id = :user_id AND supplier_id = :supplier_id
             RETURNING id
-        """),
+        """
+        ),
         {"user_id": current_user.user_id, "supplier_id": str(supplier_id)},
     )
     deleted = result.scalar_one_or_none()

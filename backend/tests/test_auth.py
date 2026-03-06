@@ -8,13 +8,13 @@ Comprehensive tests for Neon Auth session validation:
 - Auth API endpoints
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-import sys
-from pathlib import Path
+import pytest
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -48,7 +48,7 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_session_from_token_valid(self, mock_db_session):
         """Test valid session token returns SessionData"""
-        from auth.neon_auth import _get_session_from_token, SessionData
+        from auth.neon_auth import SessionData, _get_session_from_token
 
         # Mock the DB result row
         mock_row = MagicMock()
@@ -126,8 +126,9 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_from_bearer_header(self, mock_db_session, mock_request):
         """Test extracting session token from Authorization header"""
-        from auth.neon_auth import get_current_user, SessionData
         from fastapi.security import HTTPAuthorizationCredentials
+
+        from auth.neon_auth import SessionData, get_current_user
 
         mock_row = MagicMock()
         mock_row.user_id = "user-789"
@@ -152,7 +153,7 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_from_cookie(self, mock_db_session, mock_request):
         """Test extracting session token from cookie"""
-        from auth.neon_auth import get_current_user, SESSION_COOKIE_NAME
+        from auth.neon_auth import SESSION_COOKIE_NAME, get_current_user
 
         mock_request.cookies = {SESSION_COOKIE_NAME: "cookie-session-token"}
 
@@ -175,7 +176,7 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_from_secure_cookie(self, mock_db_session, mock_request):
         """Test extracting session token from __Secure- prefixed cookie (HTTPS/production)"""
-        from auth.neon_auth import get_current_user, SESSION_COOKIE_NAME_SECURE
+        from auth.neon_auth import SESSION_COOKIE_NAME_SECURE, get_current_user
 
         mock_request.cookies = {SESSION_COOKIE_NAME_SECURE: "secure-session-token"}
 
@@ -199,8 +200,9 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_no_token_raises_401(self, mock_db_session, mock_request):
         """Test missing session token raises 401"""
-        from auth.neon_auth import get_current_user
         from fastapi import HTTPException
+
+        from auth.neon_auth import get_current_user
 
         mock_request.cookies = {}
 
@@ -212,18 +214,17 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_invalid_token_raises_401(self, mock_db_session, mock_request):
         """Test invalid session token raises 401"""
-        from auth.neon_auth import get_current_user
         from fastapi import HTTPException
         from fastapi.security import HTTPAuthorizationCredentials
+
+        from auth.neon_auth import get_current_user
 
         # DB returns no matching session
         mock_result = MagicMock()
         mock_result.fetchone.return_value = None
         mock_db_session.execute.return_value = mock_result
 
-        credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="invalid-token"
-        )
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="invalid-token")
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(mock_request, credentials, mock_db_session)
@@ -233,13 +234,12 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_no_db_raises_503(self, mock_request):
         """Test missing database connection raises 503"""
-        from auth.neon_auth import get_current_user
         from fastapi import HTTPException
         from fastapi.security import HTTPAuthorizationCredentials
 
-        credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="valid-token"
-        )
+        from auth.neon_auth import get_current_user
+
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="valid-token")
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(mock_request, credentials, None)
@@ -264,7 +264,8 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_optional_returns_user(self, mock_db_session, mock_request):
         """Test optional auth returns SessionData when authenticated"""
-        from auth.neon_auth import get_current_user_optional, SESSION_COOKIE_NAME
+        from auth.neon_auth import (SESSION_COOKIE_NAME,
+                                    get_current_user_optional)
 
         mock_request.cookies = {SESSION_COOKIE_NAME: "token"}
 
@@ -301,15 +302,14 @@ class TestNeonAuthSessionValidation:
         """Test SessionData with role"""
         from auth.neon_auth import SessionData
 
-        data = SessionData(
-            user_id="u1", email="e@e.com", role="admin"
-        )
+        data = SessionData(user_id="u1", email="e@e.com", role="admin")
         assert data.role == "admin"
 
     @pytest.mark.asyncio
     async def test_session_cache_key_uses_sha256(self, mock_db_session):
         """Test that session cache key uses SHA-256 hash, not token prefix (P0-2 fix)."""
         import hashlib
+
         from auth.neon_auth import _get_session_from_token
 
         mock_redis = AsyncMock()
@@ -331,6 +331,7 @@ class TestNeonAuthSessionValidation:
     async def test_similar_tokens_produce_different_cache_keys(self, mock_db_session):
         """Two tokens sharing the same 16-char prefix must produce different cache keys."""
         import hashlib
+
         from auth.neon_auth import _get_session_from_token
 
         # Two tokens with identical first 16 chars but different suffixes
@@ -347,7 +348,8 @@ class TestNeonAuthSessionValidation:
     async def test_session_cache_stores_with_sha256_key(self, mock_db_session):
         """Verify Redis SET uses SHA-256 cache key on cache miss + DB hit."""
         import hashlib
-        from auth.neon_auth import _get_session_from_token, _SESSION_CACHE_TTL
+
+        from auth.neon_auth import _SESSION_CACHE_TTL, _get_session_from_token
 
         mock_redis = AsyncMock()
         mock_redis.get.return_value = None
@@ -382,6 +384,7 @@ class TestNeonAuthSessionValidation:
     async def test_invalidate_session_cache_deletes_key(self):
         """Test invalidate_session_cache deletes the Redis entry."""
         import hashlib
+
         from auth.neon_auth import invalidate_session_cache
 
         mock_redis = AsyncMock()
@@ -430,9 +433,10 @@ class TestAuthAPI:
     @pytest.mark.asyncio
     async def test_me_endpoint_requires_auth(self):
         """Test GET /api/v1/auth/me returns 401 without auth"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
@@ -448,17 +452,17 @@ class TestAuthAPI:
     @pytest.mark.asyncio
     async def test_password_check_strength_strong(self):
         """Test password strength check with strong password"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
 
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/auth/password/check-strength",
-                json={"password": "ValidPass123!"}
+                "/api/v1/auth/password/check-strength", json={"password": "ValidPass123!"}
             )
             assert response.status_code == 200
             data = response.json()
@@ -470,17 +474,17 @@ class TestAuthAPI:
     @pytest.mark.asyncio
     async def test_password_check_strength_weak(self):
         """Test password strength check with weak password"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
 
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/auth/password/check-strength",
-                json={"password": "weak"}
+                "/api/v1/auth/password/check-strength", json={"password": "weak"}
             )
             assert response.status_code == 200
             data = response.json()
@@ -489,18 +493,16 @@ class TestAuthAPI:
     @pytest.mark.asyncio
     async def test_password_check_strength_empty_rejected(self):
         """Test password strength check rejects empty password"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
 
         with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/auth/password/check-strength",
-                json={"password": ""}
-            )
+            response = client.post("/api/v1/auth/password/check-strength", json={"password": ""})
             assert response.status_code == 422
 
 

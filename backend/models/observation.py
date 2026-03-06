@@ -7,11 +7,13 @@ Used by the adaptive learning pipeline.
 
 from datetime import datetime
 from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
 
 
 class ForecastObservation(BaseModel):
     """A single forecast prediction with optional actual price backfill."""
+
     id: str
     forecast_id: str
     region: str
@@ -27,6 +29,7 @@ class ForecastObservation(BaseModel):
 
 class RecommendationOutcome(BaseModel):
     """A recommendation served to a user with outcome tracking."""
+
     id: str
     user_id: str
     recommendation_type: str
@@ -39,6 +42,7 @@ class RecommendationOutcome(BaseModel):
 
 class AccuracyMetrics(BaseModel):
     """Forecast accuracy metrics for a region."""
+
     total: int
     mape: Optional[float] = Field(None, description="Mean Absolute Percentage Error")
     rmse: Optional[float] = Field(None, description="Root Mean Square Error")
@@ -47,6 +51,7 @@ class AccuracyMetrics(BaseModel):
 
 class HourlyBias(BaseModel):
     """Per-hour prediction bias."""
+
     hour: int
     avg_bias: float
     count: int
