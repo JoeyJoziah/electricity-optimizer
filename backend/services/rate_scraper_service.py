@@ -5,10 +5,10 @@ Free tier: 10,000 credits/month (recurring), 5 calls/min. No card required.
 """
 
 import asyncio
+from typing import Optional
 
 import httpx
 import structlog
-from typing import Optional
 
 from config.settings import get_settings
 
@@ -40,9 +40,7 @@ class RateScraperService:
             resp.raise_for_status()
             return resp.json()
 
-    async def scrape_supplier_rates(
-        self, supplier_urls: list[dict]
-    ) -> list[dict]:
+    async def scrape_supplier_rates(self, supplier_urls: list[dict]) -> list[dict]:
         """Scrape multiple supplier URLs with rate limiting.
 
         Args:
@@ -55,11 +53,13 @@ class RateScraperService:
         for item in supplier_urls:
             try:
                 data = await self.extract_rates_from_url(item["url"])
-                results.append({
-                    "supplier_id": item["supplier_id"],
-                    "extracted_data": data,
-                    "success": True,
-                })
+                results.append(
+                    {
+                        "supplier_id": item["supplier_id"],
+                        "extracted_data": data,
+                        "success": True,
+                    }
+                )
             except Exception as e:
                 logger.error(
                     "scrape_failed",
@@ -67,11 +67,13 @@ class RateScraperService:
                     url=item["url"],
                     error=str(e),
                 )
-                results.append({
-                    "supplier_id": item["supplier_id"],
-                    "extracted_data": None,
-                    "success": False,
-                })
+                results.append(
+                    {
+                        "supplier_id": item["supplier_id"],
+                        "extracted_data": None,
+                        "success": False,
+                    }
+                )
             # Rate limit: 5 calls/min = 12s between calls
             await asyncio.sleep(12)
         return results

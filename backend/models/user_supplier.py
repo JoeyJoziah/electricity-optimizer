@@ -13,11 +13,13 @@ from pydantic import BaseModel, Field, field_validator
 
 class SetSupplierRequest(BaseModel):
     """Request to set the user's current supplier."""
+
     supplier_id: UUID
 
 
 class LinkAccountRequest(BaseModel):
     """Request to link a utility account to a supplier."""
+
     supplier_id: UUID
     account_number: str = Field(..., min_length=4, max_length=30)
     meter_number: Optional[str] = Field(default=None, max_length=30)
@@ -29,14 +31,18 @@ class LinkAccountRequest(BaseModel):
     @classmethod
     def validate_account_number(cls, v: str) -> str:
         if not re.match(r"^[A-Za-z0-9\-\s]{4,30}$", v):
-            raise ValueError("Account number must be 4-30 alphanumeric characters, hyphens, or spaces")
+            raise ValueError(
+                "Account number must be 4-30 alphanumeric characters, hyphens, or spaces"
+            )
         return v
 
     @field_validator("meter_number")
     @classmethod
     def validate_meter_number(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and not re.match(r"^[A-Za-z0-9\-\s]{1,30}$", v):
-            raise ValueError("Meter number must be 1-30 alphanumeric characters, hyphens, or spaces")
+            raise ValueError(
+                "Meter number must be 1-30 alphanumeric characters, hyphens, or spaces"
+            )
         return v
 
     @field_validator("consent_given")
@@ -49,6 +55,7 @@ class LinkAccountRequest(BaseModel):
 
 class UserSupplierResponse(BaseModel):
     """Response for user's current supplier."""
+
     supplier_id: str
     supplier_name: str
     regions: list[str] = []
@@ -59,6 +66,7 @@ class UserSupplierResponse(BaseModel):
 
 class LinkedAccountResponse(BaseModel):
     """Response for a linked supplier account (masked)."""
+
     supplier_id: str
     supplier_name: str
     account_number_masked: Optional[str] = None
