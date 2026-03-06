@@ -57,54 +57,58 @@ class KPIReportService:
 
     async def _count_active_users_7d(self) -> int:
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT COUNT(DISTINCT "userId") FROM neon_auth.session
                 WHERE "updatedAt" >= NOW() - INTERVAL '7 days'
-            """)
+            """
+            )
         )
         return result.scalar() or 0
 
     async def _count_total_users(self) -> int:
-        result = await self._db.execute(
-            text("SELECT COUNT(*) FROM users WHERE is_active = TRUE")
-        )
+        result = await self._db.execute(text("SELECT COUNT(*) FROM users WHERE is_active = TRUE"))
         return result.scalar() or 0
 
     async def _count_prices_tracked(self) -> int:
-        result = await self._db.execute(
-            text("SELECT COUNT(*) FROM electricity_prices")
-        )
+        result = await self._db.execute(text("SELECT COUNT(*) FROM electricity_prices"))
         return result.scalar() or 0
 
     async def _count_alerts_sent_today(self) -> int:
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT COUNT(*) FROM alert_history
                 WHERE triggered_at >= CURRENT_DATE
                   AND email_sent = TRUE
-            """)
+            """
+            )
         )
         return result.scalar() or 0
 
     async def _connection_status_breakdown(self) -> Dict[str, int]:
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT status, COUNT(*) AS cnt
                 FROM user_connections
                 GROUP BY status
-            """)
+            """
+            )
         )
         rows = result.mappings().all()
         return {row["status"]: row["cnt"] for row in rows}
 
     async def _subscription_breakdown(self) -> Dict[str, int]:
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT COALESCE(subscription_tier, 'free') AS tier, COUNT(*) AS cnt
                 FROM users
                 WHERE is_active = TRUE
                 GROUP BY subscription_tier
-            """)
+            """
+            )
         )
         rows = result.mappings().all()
         return {row["tier"]: row["cnt"] for row in rows}
@@ -118,10 +122,12 @@ class KPIReportService:
     async def _weather_freshness_hours(self) -> Optional[float]:
         try:
             result = await self._db.execute(
-                text("""
+                text(
+                    """
                     SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp))) / 3600.0
                     FROM electricity_prices
-                """)
+                """
+                )
             )
             val = result.scalar()
             if val is None:

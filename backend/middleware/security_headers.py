@@ -123,9 +123,7 @@ class SecurityHeadersMiddleware:
 
                 # Cache-Control: Prevent caching of sensitive data
                 if is_api_path:
-                    headers["Cache-Control"] = (
-                        "no-store, no-cache, must-revalidate, private"
-                    )
+                    headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
                     headers["Pragma"] = "no-cache"
                     headers["Expires"] = "0"
 

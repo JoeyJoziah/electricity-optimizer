@@ -31,7 +31,8 @@ Rationale for each ordering decision:
 
 from fastapi import APIRouter
 
-from api.v1.connections import analytics, email_oauth, bill_upload, direct_sync, rates, crud
+from api.v1.connections import (analytics, bill_upload, crud, direct_sync,
+                                email_oauth, rates)
 
 router = APIRouter()
 
