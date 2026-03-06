@@ -13,6 +13,7 @@ import {
   Building2,
   Link2,
   Calendar,
+  Bell,
   Settings,
   Zap,
   LogOut,
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Suppliers', href: '/suppliers', icon: Building2 },
   { name: 'Connections', href: '/connections', icon: Link2 },
   { name: 'Optimize', href: '/optimize', icon: Calendar },
+  { name: 'Alerts', href: '/alerts', icon: Bell },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

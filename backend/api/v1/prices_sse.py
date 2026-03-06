@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 
 from models.price import PriceRegion
 from services.price_service import PriceService
-from api.dependencies import get_current_user, get_price_service, SessionData
+from api.dependencies import get_current_user, get_price_service, require_tier, SessionData
 from config.settings import get_settings
 
 import structlog
@@ -174,7 +174,7 @@ async def stream_prices(
     request: Request,
     region: PriceRegion = Query(..., description="Price region"),
     interval: int = Query(30, ge=10, le=300, description="Update interval in seconds"),
-    current_user: SessionData = Depends(get_current_user),
+    current_user: SessionData = Depends(require_tier("business")),
     price_service: PriceService = Depends(get_price_service),
 ):
     """

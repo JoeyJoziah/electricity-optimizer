@@ -27,7 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.price_service import PriceService
 from api.dependencies import (
     get_price_service,
+    require_tier,
     verify_api_key,
+    SessionData,
 )
 from config.database import get_timescale_session
 from config.settings import get_settings
@@ -325,6 +327,7 @@ async def get_price_forecast(
     region: PriceRegion = Query(..., description="Price region"),
     hours: int = Query(24, ge=1, le=168, description="Forecast horizon in hours"),
     supplier: Optional[str] = Query(None, description="Filter by supplier"),
+    current_user: SessionData = Depends(require_tier("pro")),
     price_service: PriceService = Depends(get_price_service),
 ):
     """

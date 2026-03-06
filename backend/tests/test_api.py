@@ -243,7 +243,8 @@ class TestPriceEndpoints:
             }
         )
 
-        assert response.status_code in [200, 404, 500]
+        # 401 expected: forecast now requires Pro tier (require_tier("pro"))
+        assert response.status_code in [200, 401, 403, 404, 500]
 
         if response.status_code == 200:
             data = response.json()

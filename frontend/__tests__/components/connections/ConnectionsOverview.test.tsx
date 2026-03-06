@@ -1,5 +1,7 @@
+import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectionsOverview } from '@/components/connections/ConnectionsOverview'
 import '@testing-library/jest-dom'
 
@@ -75,6 +77,20 @@ const mockConnections = [
   },
 ]
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+    },
+  })
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  }
+}
+
 describe('ConnectionsOverview', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -83,14 +99,14 @@ describe('ConnectionsOverview', () => {
 
   it('shows loading state initially', () => {
     mockFetch.mockImplementation(() => new Promise(() => {}))
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     expect(screen.getByText('Loading connections...')).toBeInTheDocument()
   })
 
   it('shows error state on fetch failure', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 500 })
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       expect(
@@ -103,7 +119,7 @@ describe('ConnectionsOverview', () => {
 
   it('shows paid feature gate on 403 error', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 403 })
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       expect(screen.getByText('Unlock Utility Connections')).toBeInTheDocument()
@@ -121,7 +137,7 @@ describe('ConnectionsOverview', () => {
       json: () => Promise.resolve({ connections: mockConnections }),
     })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
@@ -137,7 +153,7 @@ describe('ConnectionsOverview', () => {
       json: () => Promise.resolve({ connections: [] }),
     })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       expect(screen.getByText('Get Started')).toBeInTheDocument()
@@ -155,7 +171,7 @@ describe('ConnectionsOverview', () => {
       json: () => Promise.resolve({ connections: mockConnections }),
     })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       expect(screen.getByText('Add Another Connection')).toBeInTheDocument()
@@ -168,7 +184,7 @@ describe('ConnectionsOverview', () => {
       json: () => Promise.resolve({ connections: [] }),
     })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     const tablist = screen.getByRole('tablist', { name: /connection views/i })
     expect(tablist).toBeInTheDocument()
@@ -187,7 +203,7 @@ describe('ConnectionsOverview', () => {
       json: () => Promise.resolve({ connections: [] }),
     })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     const connectionsTab = screen.getByRole('tab', { name: /connections/i })
     expect(connectionsTab).toHaveAttribute('aria-selected', 'true')
@@ -226,7 +242,7 @@ describe('ConnectionsOverview', () => {
       })
     })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       expect(screen.getByText('Get Started')).toBeInTheDocument()
@@ -250,7 +266,7 @@ describe('ConnectionsOverview', () => {
         json: () => Promise.resolve({ connections: mockConnections }),
       })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       expect(
@@ -271,7 +287,7 @@ describe('ConnectionsOverview', () => {
       json: () => Promise.resolve({ connections: [] }),
     })
 
-    render(<ConnectionsOverview />)
+    render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
       const tabpanel = screen.getByRole('tabpanel')

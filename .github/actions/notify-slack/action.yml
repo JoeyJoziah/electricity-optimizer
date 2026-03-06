@@ -1,0 +1,66 @@
+name: 'Notify Slack'
+description: 'Sends failure notification to Slack'
+inputs:
+  webhook-url:
+    description: 'Slack incoming webhook URL'
+    required: true
+  workflow-name:
+    description: 'Name of the workflow that failed'
+    required: true
+  severity:
+    description: 'Severity level: critical, warning, or info'
+    required: true
+  run-url:
+    description: 'Link to the failed run'
+    required: false
+    default: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Slack notification
+      shell: bash
+      run: |
+        # Map severity to color
+        case "${{ inputs.severity }}" in
+          critical) COLOR="danger" ;;
+          warning)  COLOR="warning" ;;
+          info)     COLOR="#439FE0" ;;
+          *)        COLOR="#439FE0" ;;
+        esac
+
+        # Map severity to emoji
+        case "${{ inputs.severity }}" in
+          critical) EMOJI=":rotating_light:" ;;
+          warning)  EMOJI=":warning:" ;;
+          info)     EMOJI=":information_source:" ;;
+          *)        EMOJI=":information_source:" ;;
+        esac
+
+        TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+
+        PAYLOAD=$(cat <<EOF
+        {
+          "attachments": [{
+            "color": "${COLOR}",
+            "blocks": [{
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "${EMOJI} *CI/CD Alert: ${{ inputs.workflow-name }}*\nSeverity: ${{ inputs.severity }}\n<${{ inputs.run-url }}|View Run Logs>"
+              }
+            }, {
+              "type": "context",
+              "elements": [{
+                "type": "mrkdwn",
+                "text": "Triggered at ${TIMESTAMP} | Repository: ${{ github.repository }}"
+              }]
+            }]
+          }]
+        }
+        EOF
+        )
+
+        curl -fsS -X POST \
+          -H 'Content-Type: application/json' \
+          -d "${PAYLOAD}" \
+          "${{ inputs.webhook-url }}" || true

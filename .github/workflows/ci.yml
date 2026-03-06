@@ -53,7 +53,7 @@ jobs:
               - '.github/**'
 
   # ===========================================================================
-  # Backend: lint + tests (reusable workflow)
+  # Backend: auto-format + lint + tests (reusable workflow)
   # ===========================================================================
   backend-lint:
     name: Backend Lint
@@ -61,9 +61,14 @@ jobs:
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+          token: ${{ github.token }}
 
       - name: Setup Python environment
         uses: ./.github/actions/setup-python-env
@@ -73,11 +78,32 @@ jobs:
       - name: Install linting tools
         run: pip install black isort flake8 mypy
 
-      - name: Check formatting with Black
-        run: cd backend && black --check .
+      - name: Auto-format with Black and isort
+        id: format
+        run: |
+          cd backend
+          black .
+          isort .
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Check import sorting with isort
-        run: cd backend && isort --check-only .
+      - name: Commit formatting fixes (PR only)
+        if: steps.format.outputs.has_changes == 'true' && github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: auto-format with black + isort"
+          git push
+
+      - name: Fail on unformatted code pushed to main
+        if: steps.format.outputs.has_changes == 'true' && github.event_name == 'push'
+        run: |
+          echo "::error::Unformatted code pushed to main. Run 'black . && isort .' locally before pushing."
+          exit 1
 
       - name: Lint with flake8
         run: |
@@ -144,14 +170,45 @@ jobs:
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+          token: ${{ github.token }}
 
       - name: Setup Node.js environment
         uses: ./.github/actions/setup-node-env
 
-      - name: Lint with ESLint
+      - name: Auto-fix with ESLint
+        id: lint
+        run: |
+          cd frontend
+          npx next lint --fix || true
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit lint fixes (PR only)
+        if: steps.lint.outputs.has_changes == 'true' && github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: auto-fix ESLint issues"
+          git push
+
+      - name: Fail on unfixed lint pushed to main
+        if: steps.lint.outputs.has_changes == 'true' && github.event_name == 'push'
+        run: |
+          echo "::error::ESLint issues found on main. Run 'npx next lint --fix' locally before pushing."
+          exit 1
+
+      - name: Verify lint passes
         run: cd frontend && npm run lint
 
   frontend-test:
@@ -254,6 +311,53 @@ jobs:
           path: |
             bandit-report.json
             bandit-report-ml.json
+
+  # ===========================================================================
+  # Migration Validation
+  # ===========================================================================
+  migration-check:
+    name: Migration Validation
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convention checks
+        uses: ./.github/actions/validate-migrations
+
+      - name: Apply all migrations sequentially
+        run: |
+          echo "Applying all migrations to verify SQL syntax..."
+          # Apply init_neon first
+          PGPASSWORD=postgres psql -h localhost -U postgres -d migration_test \
+            -v ON_ERROR_STOP=1 -f backend/migrations/init_neon.sql
+          echo "Applied: init_neon.sql"
+
+          # Apply numbered migrations in order
+          for f in $(ls backend/migrations/[0-9]*.sql | sort); do
+            PGPASSWORD=postgres psql -h localhost -U postgres -d migration_test \
+              -v ON_ERROR_STOP=1 -f "$f"
+            echo "Applied: $(basename $f)"
+          done
+          echo "All migrations applied successfully."
 
   # ===========================================================================
   # Docker Build Validation (no push — tests must pass first)

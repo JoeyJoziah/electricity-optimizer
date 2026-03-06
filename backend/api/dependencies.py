@@ -159,6 +159,49 @@ def require_paid_tier():
     return check_tier
 
 
+# Tier ordering for require_tier comparisons
+_TIER_ORDER: dict[str, int] = {"free": 0, "pro": 1, "business": 2}
+
+
+def require_tier(min_tier: str):
+    """
+    Factory for tier-gating dependencies.
+
+    Args:
+        min_tier: Minimum subscription tier required ('free', 'pro', or 'business').
+
+    Returns:
+        Dependency function that checks the user's subscription tier.
+        Returns 403 if the user's tier is below min_tier.
+
+    Examples:
+        require_tier("pro")      — allows pro + business
+        require_tier("business") — allows business only
+    """
+    async def check_tier(
+        current_user: SessionData = Depends(get_current_user),
+        db=Depends(get_db_session),
+    ) -> SessionData:
+        from sqlalchemy import text
+
+        result = await db.execute(
+            text("SELECT subscription_tier FROM public.users WHERE id = :id"),
+            {"id": current_user.user_id},
+        )
+        user_tier = result.scalar_one_or_none() or "free"
+        user_level = _TIER_ORDER.get(user_tier, 0)
+        required_level = _TIER_ORDER.get(min_tier, 0)
+
+        if user_level < required_level:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This feature requires a {min_tier.title()} or higher subscription",
+            )
+        return current_user
+
+    return check_tier
+
+
 # =============================================================================
 # Service Dependencies
 # =============================================================================

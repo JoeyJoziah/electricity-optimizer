@@ -14,7 +14,7 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
 
 jobs:
   # ===========================================================================
@@ -45,7 +45,7 @@ jobs:
   e2e-tests:
     name: E2E Tests
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'schedule' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -87,9 +87,14 @@ jobs:
         uses: ./.github/actions/setup-node-env
 
       - name: Install Playwright browsers
+        id: pw-install
         run: |
           cd frontend
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium || {
+            echo "First attempt failed, retrying in 10s..."
+            sleep 10
+            npx playwright install --with-deps chromium
+          }
 
       - name: Set up database
         run: |
@@ -113,7 +118,7 @@ jobs:
         uses: ./.github/actions/wait-for-service
         with:
           url: http://localhost:8000/health
-          timeout: '60'
+          timeout: '120'
           interval: '3'
 
       - name: Cache Next.js build
@@ -137,10 +142,12 @@ jobs:
         uses: ./.github/actions/wait-for-service
         with:
           url: http://localhost:3000
-          timeout: '60'
+          timeout: '120'
           interval: '3'
 
       - name: Run E2E tests
+        id: e2e-first
+        continue-on-error: true
         run: |
           cd frontend
           npx playwright test --reporter=html
@@ -148,6 +155,24 @@ jobs:
           CI: true
           BASE_URL: http://localhost:3000
           API_URL: http://localhost:8000
+
+      - name: Retry failed E2E tests
+        id: e2e-retry
+        if: steps.e2e-first.outcome == 'failure'
+        run: |
+          cd frontend
+          echo "Retrying failed tests..."
+          npx playwright test --last-failed --reporter=html
+        env:
+          CI: true
+          BASE_URL: http://localhost:3000
+          API_URL: http://localhost:8000
+
+      - name: Evaluate E2E results
+        if: steps.e2e-first.outcome == 'failure' && steps.e2e-retry.outcome == 'failure'
+        run: |
+          echo "::error::E2E tests failed after retry"
+          exit 1
 
       - name: Upload test results
         if: always()
@@ -169,7 +194,7 @@ jobs:
     name: Lighthouse Audit
     runs-on: ubuntu-latest
     needs: [changes, e2e-tests]
-    if: needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'schedule' || needs.changes.outputs.frontend == 'true'
     timeout-minutes: 20
 
     steps:

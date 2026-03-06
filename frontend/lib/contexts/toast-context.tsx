@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useState, useRef, useEffect } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useState, useRef, useEffect } from 'react'
 import { Toast, ToastVariant } from '@/components/ui/toast'
 
 interface ToastItem {
@@ -93,8 +93,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [toast]
   )
 
+  const contextValue = useMemo(
+    () => ({ toast, success, error, warning, info }),
+    [toast, success, error, warning, info]
+  )
+
   return (
-    <ToastContext.Provider value={{ toast, success, error, warning, info }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <div
         aria-live="polite"

@@ -15,8 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
       - name: Check data pipeline health
+        id: health
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/health-data
+          method: GET
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+
+      - name: Validate health response
         run: |
+          # Re-fetch to parse the JSON body (retry-curl only outputs status code)
           RESPONSE=$(curl -fsS -X GET \
             -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
             "${{ secrets.BACKEND_URL }}/api/v1/internal/health-data")
@@ -29,3 +43,11 @@ jobs:
             echo "::error::Critical tables are empty: $(echo "$RESPONSE" | jq -r '.critical_empty | join(", ")')"
             exit 1
           fi
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Data Health Check"
+          severity: warning

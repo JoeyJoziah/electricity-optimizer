@@ -15,10 +15,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
       - name: Backfill actual prices into forecast observations
-        run: |
-          curl -fsS -X POST \
-            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{}' \
-            "${{ secrets.BACKEND_URL }}/api/v1/internal/observe-forecasts" || exit 1
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/observe-forecasts
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Observe Forecast Actuals"
+          severity: info

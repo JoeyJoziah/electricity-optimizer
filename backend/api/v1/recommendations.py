@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from typing import Optional
 
-from api.dependencies import get_current_user, get_recommendation_service, SessionData
+from api.dependencies import get_current_user, get_recommendation_service, require_tier, SessionData
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ router = APIRouter(tags=["Recommendations"])
 
 @router.get("/switching")
 async def get_switching_recommendation(
-    current_user: SessionData = Depends(get_current_user),
+    current_user: SessionData = Depends(require_tier("pro")),
     service: RecommendationService = Depends(get_recommendation_service),
 ):
     """Get supplier switching recommendation for the current user"""
@@ -49,7 +49,7 @@ async def get_switching_recommendation(
 async def get_usage_recommendation(
     appliance: str = Query(..., description="Appliance type"),
     duration_hours: float = Query(..., ge=0.25, le=24, description="Duration in hours"),
-    current_user: SessionData = Depends(get_current_user),
+    current_user: SessionData = Depends(require_tier("pro")),
     service: RecommendationService = Depends(get_recommendation_service),
 ):
     """Get usage timing recommendation for an appliance"""
@@ -81,7 +81,7 @@ async def get_usage_recommendation(
 
 @router.get("/daily")
 async def get_daily_recommendations(
-    current_user: SessionData = Depends(get_current_user),
+    current_user: SessionData = Depends(require_tier("pro")),
     service: RecommendationService = Depends(get_recommendation_service),
 ):
     """Get all daily recommendations for the current user"""

@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import get_current_user, get_db_session, require_tier, SessionData
 from services.savings_service import SavingsService
 
 router = APIRouter(prefix="/savings", tags=["Savings"])
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/savings", tags=["Savings"])
 @router.get("/summary")
 async def get_savings_summary(
     region: Optional[str] = Query(default=None, description="Filter by region code (e.g. US_CT)"),
-    current_user: SessionData = Depends(get_current_user),
+    current_user: SessionData = Depends(require_tier("pro")),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -55,7 +55,7 @@ async def get_savings_summary(
 async def get_savings_history(
     page: int = Query(default=1, ge=1, description="1-based page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Records per page (max 100)"),
-    current_user: SessionData = Depends(get_current_user),
+    current_user: SessionData = Depends(require_tier("pro")),
     db: AsyncSession = Depends(get_db_session),
 ):
     """

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import { Card, CardContent } from '@/components/ui/card'
@@ -70,7 +70,7 @@ export default function SuppliersContent() {
   const recommendation = recommendationData?.recommendation
 
   // Handle supplier selection
-  const handleSelectSupplier = (supplier: Supplier) => {
+  const handleSelectSupplier = useCallback((supplier: Supplier) => {
     setSelectedSupplier(supplier)
 
     if (!currentSupplier) {
@@ -80,10 +80,10 @@ export default function SuppliersContent() {
       // Has current supplier — show full switch wizard
       setShowWizard(true)
     }
-  }
+  }, [currentSupplier])
 
   // Handle first-time supplier set (from SetSupplierDialog)
-  const handleSetSupplier = async (supplier: Supplier) => {
+  const handleSetSupplier = useCallback(async (supplier: Supplier) => {
     try {
       await setSupplierMutation.mutateAsync(supplier.id)
     } catch {
@@ -92,10 +92,10 @@ export default function SuppliersContent() {
     setCurrentSupplierStore(supplier)
     setShowSetDialog(false)
     setSelectedSupplier(null)
-  }
+  }, [setSupplierMutation, setCurrentSupplierStore])
 
   // Handle switch completion (from SwitchWizard)
-  const handleSwitchComplete = async () => {
+  const handleSwitchComplete = useCallback(async () => {
     if (!selectedSupplier) return
 
     try {
@@ -117,7 +117,7 @@ export default function SuppliersContent() {
     setCurrentSupplierStore(selectedSupplier)
     setShowWizard(false)
     setSelectedSupplier(null)
-  }
+  }, [selectedSupplier, setSupplierMutation, initiateSwitch, currentSupplier, setCurrentSupplierStore])
 
   // Find cheapest and greenest suppliers
   const cheapestSupplier = suppliers.length

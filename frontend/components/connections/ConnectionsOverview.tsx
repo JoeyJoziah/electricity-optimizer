@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import { ConnectionMethodPicker } from './ConnectionMethodPicker'
 import { ConnectionCard } from './ConnectionCard'
 import { DirectLoginForm } from './DirectLoginForm'
@@ -9,7 +9,8 @@ import { ConnectionUploadFlow } from './ConnectionUploadFlow'
 import { ConnectionRates } from './ConnectionRates'
 import { ConnectionAnalytics } from './ConnectionAnalytics'
 import { cn } from '@/lib/utils/cn'
-import { API_ORIGIN } from '@/lib/config/env'
+import { useConnections } from '@/lib/hooks/useConnections'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link2, ArrowLeft, Loader2 } from 'lucide-react'
 
 type View =
@@ -36,47 +37,29 @@ interface Connection {
 export function ConnectionsOverview() {
   const [view, setView] = useState<View>('overview')
   const [tab, setTab] = useState<Tab>('connections')
-  const [connections, setConnections] = useState<Connection[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
 
-  const fetchConnections = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const res = await fetch(`${API_ORIGIN}/api/v1/connections`, {
-        credentials: 'include',
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setConnections(data.connections || [])
-      } else if (res.status === 403) {
-        setError('upgrade')
-      } else {
-        setError('Failed to load connections')
-      }
-    } catch {
-      setError('Failed to load connections')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const queryClient = useQueryClient()
+  const { data, isLoading: loading, error: queryError } = useConnections()
 
-  useEffect(() => {
-    fetchConnections()
-  }, [fetchConnections])
+  const connections: Connection[] = data?.connections || []
+  const is403 = queryError && 'status' in queryError && (queryError as { status: number }).status === 403
+  const error = is403 ? 'upgrade' : queryError ? (queryError as Error).message : null
 
-  const handleViewRates = (connectionId: string) => {
+  const refetchConnections = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['connections'] })
+  }, [queryClient])
+
+  const handleViewRates = useCallback((connectionId: string) => {
     setSelectedConnectionId(connectionId)
     setView('viewing-rates')
-  }
+  }, [])
 
-  const handleBackToOverview = () => {
+  const handleBackToOverview = useCallback(() => {
     setView('overview')
     setSelectedConnectionId(null)
-    fetchConnections()
-  }
+    refetchConnections()
+  }, [refetchConnections])
 
   if (error === 'upgrade') {
     return <PaidFeatureGate />
@@ -192,7 +175,7 @@ export function ConnectionsOverview() {
             <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-center" role="alert">
               <p className="text-sm text-danger-700">{error}</p>
               <button
-                onClick={fetchConnections}
+                onClick={refetchConnections}
                 className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
                 aria-label="Retry loading connections"
               >
@@ -212,9 +195,9 @@ export function ConnectionsOverview() {
                   <ConnectionCard
                     key={conn.id}
                     connection={conn}
-                    onDelete={fetchConnections}
+                    onDelete={refetchConnections}
                     onViewRates={handleViewRates}
-                    onRefresh={fetchConnections}
+                    onRefresh={refetchConnections}
                   />
                 ))}
               </div>

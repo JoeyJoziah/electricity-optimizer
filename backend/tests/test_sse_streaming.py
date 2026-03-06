@@ -122,19 +122,27 @@ class TestSSEMaxConnections:
     def app_client(self):
         """TestClient with auth and price_service dependencies overridden."""
         from main import app
-        from api.dependencies import get_current_user, get_price_service, get_redis
+        from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
 
         token = _make_token_data("user-maxconn")
         mock_svc = AsyncMock()
         mock_svc.get_current_prices = AsyncMock(return_value=[_make_price_obj()])
 
+        # Mock DB that returns "business" tier for require_tier("business")
+        mock_db = AsyncMock()
+        tier_result = MagicMock()
+        tier_result.scalar_one_or_none.return_value = "business"
+        mock_db.execute = AsyncMock(return_value=tier_result)
+
         app.dependency_overrides[get_current_user] = lambda: token
+        app.dependency_overrides[get_db_session] = lambda: mock_db
         app.dependency_overrides[get_price_service] = lambda: mock_svc
         app.dependency_overrides[get_redis] = lambda: None
 
         yield TestClient(app, raise_server_exceptions=False)
 
         app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_db_session, None)
         app.dependency_overrides.pop(get_price_service, None)
         app.dependency_overrides.pop(get_redis, None)
 
@@ -366,14 +374,21 @@ class TestSSEEndpoint:
         as it detects the disconnection, so the test does not hang.
         """
         from main import app
-        from api.dependencies import get_current_user, get_price_service, get_redis
+        from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
         from api.v1 import prices_sse
 
         token = _make_token_data("user-headers")
         mock_svc = AsyncMock()
         mock_svc.get_current_prices = AsyncMock(return_value=[_make_price_obj()])
 
+        # Mock DB that returns "business" tier for require_tier("business")
+        mock_db = AsyncMock()
+        tier_result = MagicMock()
+        tier_result.scalar_one_or_none.return_value = "business"
+        mock_db.execute = AsyncMock(return_value=tier_result)
+
         app.dependency_overrides[get_current_user] = lambda: token
+        app.dependency_overrides[get_db_session] = lambda: mock_db
         app.dependency_overrides[get_price_service] = lambda: mock_svc
         app.dependency_overrides[get_redis] = lambda: None
 
@@ -418,6 +433,7 @@ class TestSSEEndpoint:
                         response.read()
         finally:
             app.dependency_overrides.pop(get_current_user, None)
+            app.dependency_overrides.pop(get_db_session, None)
             app.dependency_overrides.pop(get_price_service, None)
             app.dependency_overrides.pop(get_redis, None)
             prices_sse._sse_connections.clear()

@@ -68,6 +68,8 @@ class _MockDB:
     # ------------------------------------------------------------------
 
     def _dispatch(self, sql: str, params: dict) -> MagicMock:
+        if "SUBSCRIPTION_TIER" in sql:
+            return self._handle_tier()
         if sql.startswith("INSERT INTO USER_SAVINGS"):
             return self._handle_insert(params)
         if "COALESCE(SUM(AMOUNT)" in sql:
@@ -80,6 +82,16 @@ class _MockDB:
             return self._handle_paginated(params)
         # Fallback — empty result
         return self._empty_result()
+
+    # ------------------------------------------------------------------
+    # Handler: subscription tier (for require_tier dependency)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _handle_tier() -> MagicMock:
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = "pro"
+        return result
 
     # ------------------------------------------------------------------
     # Handler: INSERT

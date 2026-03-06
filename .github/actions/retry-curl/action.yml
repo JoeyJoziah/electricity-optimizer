@@ -1,0 +1,127 @@
+name: 'Retry Curl'
+description: 'Makes an HTTP request with exponential backoff retry on failure'
+
+inputs:
+  url:
+    description: 'URL to call'
+    required: true
+  method:
+    description: 'HTTP method'
+    required: false
+    default: 'POST'
+  headers:
+    description: 'Newline-separated headers (e.g. "X-API-Key: abc\nContent-Type: application/json")'
+    required: false
+    default: ''
+  body:
+    description: 'Request body'
+    required: false
+    default: '{}'
+  max-retries:
+    description: 'Max retry attempts'
+    required: false
+    default: '3'
+  initial-delay:
+    description: 'Initial delay in seconds'
+    required: false
+    default: '5'
+  max-delay:
+    description: 'Max delay in seconds'
+    required: false
+    default: '60'
+  timeout:
+    description: 'Curl timeout in seconds'
+    required: false
+    default: '120'
+
+outputs:
+  status-code:
+    description: 'HTTP status code from final attempt'
+    value: ${{ steps.curl-with-retry.outputs.status-code }}
+  attempts:
+    description: 'Number of attempts made'
+    value: ${{ steps.curl-with-retry.outputs.attempts }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Execute curl with retry
+      id: curl-with-retry
+      shell: bash
+      run: |
+        URL="${{ inputs.url }}"
+        METHOD="${{ inputs.method }}"
+        HEADERS="${{ inputs.headers }}"
+        BODY="${{ inputs.body }}"
+        MAX_RETRIES=${{ inputs.max-retries }}
+        INITIAL_DELAY=${{ inputs.initial-delay }}
+        MAX_DELAY=${{ inputs.max-delay }}
+        CURL_TIMEOUT=${{ inputs.timeout }}
+
+        STATUS="000"
+        ATTEMPTS=0
+        MAX_ATTEMPTS=$((MAX_RETRIES + 1))
+
+        for attempt in $(seq 0 $MAX_RETRIES); do
+          ATTEMPTS=$((attempt + 1))
+
+          # Build curl command
+          CURL_CMD="curl -s -o /dev/null -w '%{http_code}' -X ${METHOD} --max-time ${CURL_TIMEOUT}"
+
+          # Add headers (split by newline)
+          if [ -n "$HEADERS" ]; then
+            while IFS= read -r header; do
+              if [ -n "$header" ]; then
+                CURL_CMD="$CURL_CMD -H \"$header\""
+              fi
+            done <<< "$HEADERS"
+          fi
+
+          # Add body for methods that support it
+          UPPER_METHOD=$(echo "$METHOD" | tr '[:lower:]' '[:upper:]')
+          if [ "$UPPER_METHOD" = "POST" ] || [ "$UPPER_METHOD" = "PUT" ] || [ "$UPPER_METHOD" = "PATCH" ]; then
+            CURL_CMD="$CURL_CMD -d '${BODY}'"
+          fi
+
+          CURL_CMD="$CURL_CMD \"${URL}\""
+
+          echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: ${METHOD} ${URL}"
+          STATUS=$(eval $CURL_CMD 2>/dev/null) || STATUS="000"
+          echo "  Response: HTTP ${STATUS}"
+
+          # 2xx success
+          if [[ "$STATUS" =~ ^2 ]]; then
+            echo "status-code=${STATUS}" >> "$GITHUB_OUTPUT"
+            echo "attempts=${ATTEMPTS}" >> "$GITHUB_OUTPUT"
+            echo "Success on attempt ${ATTEMPTS} (HTTP ${STATUS})"
+            exit 0
+          fi
+
+          # 4xx (non-retryable) — except 429 (rate limit) and 408 (request timeout)
+          if [[ "$STATUS" =~ ^4 ]] && [ "$STATUS" != "429" ] && [ "$STATUS" != "408" ]; then
+            echo "status-code=${STATUS}" >> "$GITHUB_OUTPUT"
+            echo "attempts=${ATTEMPTS}" >> "$GITHUB_OUTPUT"
+            echo "Non-retryable error on attempt ${ATTEMPTS} (HTTP ${STATUS})"
+            exit 1
+          fi
+
+          # If this was the last attempt, stop here
+          if [ $attempt -ge $MAX_RETRIES ]; then
+            break
+          fi
+
+          # 5xx, 429, 408, or 000 — calculate backoff with jitter and retry
+          JITTER=$((RANDOM % INITIAL_DELAY))
+          DELAY=$(( INITIAL_DELAY * (1 << attempt) + JITTER ))
+          if [ $DELAY -gt $MAX_DELAY ]; then
+            DELAY=$MAX_DELAY
+          fi
+
+          echo "  Retrying in ${DELAY}s (status: ${STATUS})..."
+          sleep $DELAY
+        done
+
+        echo "status-code=${STATUS}" >> "$GITHUB_OUTPUT"
+        echo "attempts=${ATTEMPTS}" >> "$GITHUB_OUTPUT"
+        echo "All ${ATTEMPTS} attempts exhausted (final status: HTTP ${STATUS})"
+        exit 1

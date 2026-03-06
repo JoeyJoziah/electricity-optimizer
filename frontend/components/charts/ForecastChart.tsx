@@ -22,6 +22,8 @@ const tooltipStyle = {
   borderRadius: '8px',
 }
 
+const CHART_MARGIN = { top: 10, right: 30, left: 0, bottom: 0 }
+
 export interface ForecastChartProps {
   forecast: PriceForecast[] | Record<string, unknown>
   showConfidence?: boolean
@@ -116,7 +118,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
-            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+            margin={CHART_MARGIN}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis

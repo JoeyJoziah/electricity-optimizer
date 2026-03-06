@@ -14,7 +14,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_recommendation_service, SessionData
+from api.dependencies import get_current_user, get_db_session, get_recommendation_service, SessionData
+
+
+def _tier_db_mock(tier: str = "pro"):
+    """Return an AsyncMock DB session whose subscription_tier query returns `tier`."""
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = tier
+    db.execute = AsyncMock(return_value=result)
+    db.commit = AsyncMock()
+    return db
 
 
 @pytest.fixture
@@ -30,17 +40,23 @@ def mock_recommendation_service():
 
 @pytest.fixture
 def auth_client(mock_recommendation_service):
-    """Create a TestClient with authenticated user and mocked service."""
+    """Create a TestClient with authenticated user and mocked service.
+
+    Endpoints now use require_tier("pro"), so we must also override
+    get_db_session with a mock that returns tier="pro".
+    """
     from main import app
 
     test_user = SessionData(user_id="test-user-123", email="test@example.com")
     app.dependency_overrides[get_current_user] = lambda: test_user
+    app.dependency_overrides[get_db_session] = lambda: _tier_db_mock("pro")
     app.dependency_overrides[get_recommendation_service] = lambda: mock_recommendation_service
 
     client = TestClient(app)
     yield client
 
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_db_session, None)
     app.dependency_overrides.pop(get_recommendation_service, None)
 
 
@@ -51,6 +67,7 @@ def unauth_client():
 
     # Make sure override is cleared
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_db_session, None)
     app.dependency_overrides.pop(get_recommendation_service, None)
     client = TestClient(app)
     yield client

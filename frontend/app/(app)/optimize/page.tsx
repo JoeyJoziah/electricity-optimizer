@@ -28,6 +28,11 @@ import {
 } from 'lucide-react'
 import type { Appliance } from '@/types'
 
+const PRICE_ZONES = [
+  { start: '01:00', end: '06:00', type: 'cheap' as const },
+  { start: '17:00', end: '21:00', type: 'expensive' as const },
+]
+
 const DEFAULT_APPLIANCES: Partial<Appliance>[] = [
   { name: 'Washing Machine', powerKw: 2.0, typicalDurationHours: 2, priority: 'medium' },
   { name: 'Dishwasher', powerKw: 1.5, typicalDurationHours: 1.5, priority: 'low' },
@@ -462,10 +467,7 @@ export default function OptimizePage() {
                       schedules={schedules}
                       showCurrentTime
                       showSavings
-                      priceZones={[
-                        { start: '01:00', end: '06:00', type: 'cheap' },
-                        { start: '17:00', end: '21:00', type: 'expensive' },
-                      ]}
+                      priceZones={PRICE_ZONES}
                     />
                   </CardContent>
                 </Card>

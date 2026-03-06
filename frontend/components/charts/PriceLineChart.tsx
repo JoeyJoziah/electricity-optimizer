@@ -28,6 +28,8 @@ const tooltipStyle = {
   boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
 }
 
+const CHART_MARGIN = { top: 5, right: 30, left: 20, bottom: 5 }
+
 export interface PriceLineChartProps {
   data: PriceDataPoint[]
   showForecast?: boolean
@@ -227,7 +229,7 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            margin={CHART_MARGIN}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis

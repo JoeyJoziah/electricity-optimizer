@@ -39,7 +39,11 @@ def _make_erroring_db(exc: Exception) -> AsyncMock:
 
 
 def _empty_mock_db() -> AsyncMock:
-    """Return a mock async DB session that returns empty results."""
+    """Return a mock async DB session that returns empty results.
+
+    scalar_one_or_none returns "pro" so that require_tier() passes the tier
+    gate (subscription_tier query) — the rest of the result stays empty.
+    """
     mock_db = AsyncMock()
     empty_result = MagicMock()
     mapping = MagicMock()
@@ -48,6 +52,7 @@ def _empty_mock_db() -> AsyncMock:
     empty_result.mappings.return_value = mapping
     empty_result.fetchall.return_value = []
     empty_result.scalar.return_value = 0
+    empty_result.scalar_one_or_none.return_value = "pro"
     mock_db.execute = AsyncMock(return_value=empty_result)
     mock_db.commit = AsyncMock()
     return mock_db

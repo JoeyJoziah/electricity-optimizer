@@ -1,13 +1,13 @@
 # Automation Workflows — Implementation Plan
 
 > Generated: 2026-03-05
-> Status: COMPLETE — Phase 0 DONE, Phase 1 COMPLETE, Phase 2 COMPLETE, Phase 3 COMPLETE
+> Status: COMPLETE — Phase 0 DONE, Phase 1 COMPLETE, Phase 2 COMPLETE, Phase 3 COMPLETE, Self-Healing CI/CD COMPLETE
 > Source: Multi-agent brainstorming (5 agents: Designer, Skeptic, Constraint Guardian, User Advocate, Arbiter)
 
 ## Executive Summary
 
 9 cross-service automation workflows designed using 16 Composio/Rube MCP connections.
-7 approved (5 unconditional, 2 conditional), 2 rejected. All 4 prerequisite blockers resolved. All 7 approved workflows implemented and deployed (~27 hours total). 3 items remain for future work: NotificationDispatcher, ML weight persistence, and in-app notifications.
+7 approved (5 unconditional, 2 conditional), 2 rejected. All 4 prerequisite blockers resolved. All 7 approved workflows implemented and deployed (~27 hours total). Self-Healing CI/CD system added: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. 3 items remain for future work: NotificationDispatcher, ML weight persistence, and in-app notifications.
 
 ---
 
@@ -115,6 +115,64 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ---
 
+## Self-Healing CI/CD System — COMPLETE ✅ (2026-03-06)
+
+Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, and proactive monitoring across all 23 GHA workflows.
+
+### Deliverable 1: CI Auto-Format ✅
+- **Modified**: `.github/workflows/ci.yml` — `backend-lint` and `frontend-lint` jobs
+- **Behavior**: Runs `black .` + `isort .` in fix mode. If files changed on PR → auto-commit via `github-actions[bot]`. If files changed on push to main → fail (main should be pre-formatted).
+- **Safety**: `cancel-in-progress: true` on CI prevents commit loop. `permissions: contents: write` on lint jobs.
+
+### Deliverable 2: Retry-Curl Composite Action ✅
+- **Created**: `.github/actions/retry-curl/action.yml`
+- **Inputs**: url, method (POST), headers, body ({}), max-retries (3), initial-delay (5s), max-delay (60s), timeout (120s)
+- **Logic**: 2xx → success. 4xx (except 429/408) → fail immediately. 5xx/429/408/000 → exponential backoff with jitter, retry.
+- **Outputs**: status-code, attempts
+- **Applied to**: All 12 cron workflows (check-alerts, fetch-weather, market-research, sync-connections, scrape-rates, dunning-cycle, kpi-report, price-sync, observe-forecasts, nightly-learning, data-retention, data-health-check)
+
+### Deliverable 3: Notify-Slack Composite Action ✅
+- **Created**: `.github/actions/notify-slack/action.yml`
+- **Inputs**: webhook-url, workflow-name, severity (critical/warning/info), run-url (auto-populated)
+- **Severity mapping**: critical → danger color + 🚨, warning → warning color + ⚠️, info → blue + ℹ️
+- **Secret**: `SLACK_INCIDENTS_WEBHOOK_URL` (Slack incoming webhook → `#incidents` C0AJPR769H9)
+- **Applied to**: All 12 cron workflows + deploy-production rollback
+
+### Deliverable 4: Validate-Migrations Composite Action ✅
+- **Created**: `.github/actions/validate-migrations/action.yml`
+- **Convention checks**: (1) Sequential numbering (no gaps). (2) `IF NOT EXISTS` on CREATE TABLE. (3) GRANT uses `neondb_owner` role. (4) No SERIAL/BIGSERIAL (UUID PKs only).
+- **Added to CI**: `migration-check` job with PostgreSQL 15 service (full SQL application)
+- **Added to deploy-production**: `migration-gate` job (convention checks only, no DB)
+
+### Deliverable 5: Self-Healing Monitor ✅
+- **Created**: `.github/workflows/self-healing-monitor.yml`
+- **Schedule**: Daily 9am UTC (after overnight crons)
+- **Logic**: Matrix strategy over 13 monitored workflows. Counts failures in last 24h via `gh run list`. If ≥3 failures → creates GitHub issue with `self-healing` + `automated` labels. If 3 consecutive successes → auto-closes issue.
+- **Permissions**: `issues: write`, `actions: read`
+
+### Deliverable 6: E2E Test Resilience ✅
+- **Modified**: `.github/workflows/e2e-tests.yml`
+- **Changes**: Two-step Playwright install (try → retry with 10s delay). Extended wait-for-service timeout (60s → 120s). After failure → rerun only failed tests with `--last-failed`. `continue-on-error: true` on first run.
+
+### Files Summary
+**New (4)**:
+- `.github/actions/retry-curl/action.yml` — Curl with exponential backoff
+- `.github/actions/notify-slack/action.yml` — Slack failure alerts
+- `.github/actions/validate-migrations/action.yml` — Migration convention checks
+- `.github/workflows/self-healing-monitor.yml` — Daily failure monitor + auto-issues
+
+**Modified (15)**:
+- `.github/workflows/ci.yml` — Auto-format lint, migration-check job
+- `.github/workflows/deploy-production.yml` — Migration-gate, Slack rollback alert
+- `.github/workflows/e2e-tests.yml` — Retry install, extended waits, rerun failures
+- 12 cron workflows — retry-curl + notify-slack added
+
+### New Secrets & Labels
+- **Secret**: `SLACK_INCIDENTS_WEBHOOK_URL` — Slack incoming webhook for #incidents channel
+- **Labels**: `self-healing`, `automated` — used by self-healing-monitor for issue lifecycle
+
+---
+
 ## Phase 4: Deferred / Rejected
 
 ### Workflow 7: UptimeRobot Incident Bridge — REJECTED
@@ -154,7 +212,7 @@ All 3 workflows live via Rube recipes. No application code changes required.
 **Recommended**: Option B (no new infrastructure dependency)
 
 ### 4. GitHub Actions Workflow Files ✅ (2026-03-06)
-All 7 cron workflows created:
+All 12 cron workflows created:
 - `check-alerts.yml` (every 15 min) — price alert pipeline
 - `fetch-weather.yml` (every 6 hours) — all 51 US regions
 - `market-research.yml` (daily 2am UTC) — top 10 regions
@@ -162,6 +220,7 @@ All 7 cron workflows created:
 - `scrape-rates.yml` (daily 3am UTC) — auto-discover suppliers
 - `dunning-cycle.yml` (daily 7am UTC) — overdue payment escalation
 - `kpi-report.yml` (daily 6am UTC) — nightly business metrics
+- `self-healing-monitor.yml` (daily 9am UTC) — check 13 workflows for failures, auto-manage issues
 
 ---
 
@@ -172,7 +231,8 @@ All 7 cron workflows created:
 | 1 | 0 + 1 | 4 blockers fixed + 3 zero-risk workflows live | 12-15h | ✅ DONE |
 | 2 | 2 | Scheduled endpoints + connection sync + price alerts | 7-8h | ✅ DONE (code + GHA) |
 | 3 | 3 | Stripe dunning + KPI reports live | 5-6h | ✅ DONE |
-| Total | | 7 workflows live, 2 deferred | ~27h | 7/7 done |
+| 3+ | Self-Healing | Auto-format, retry, notify, validate, monitor, E2E resilience | 6-8h | ✅ DONE |
+| Total | | 7 workflows live, 2 deferred | ~33-35h | 7/7 done |
 
 ---
 

@@ -1,0 +1,124 @@
+name: 'Validate Migrations'
+description: 'Checks migration files for convention compliance'
+inputs:
+  migration-dir:
+    description: 'Directory containing SQL migration files'
+    required: false
+    default: 'backend/migrations'
+outputs:
+  passed:
+    description: 'Whether all checks passed'
+    value: ${{ steps.validate.outputs.passed }}
+  violations:
+    description: 'List of violations found'
+    value: ${{ steps.validate.outputs.violations }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate migration conventions
+      id: validate
+      shell: bash
+      run: |
+        MIGRATION_DIR="${{ inputs.migration-dir }}"
+        VIOLATIONS=""
+
+        if [ ! -d "$MIGRATION_DIR" ]; then
+          echo "ERROR: Migration directory '$MIGRATION_DIR' does not exist"
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "violations=Migration directory '$MIGRATION_DIR' does not exist" >> "$GITHUB_OUTPUT"
+          exit 1
+        fi
+
+        # ── Check 1: Sequential numbering ────────────────────────────────────
+        # Expect: init_neon.sql (treated as #1), then 002_*.sql through 025_*.sql with no gaps
+        echo "==> Check 1: Sequential numbering"
+
+        # Collect numbered files (002_ and above)
+        NUMBERED_FILES=$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null \
+          | xargs -n1 basename \
+          | grep -E '^[0-9]{3}_' \
+          | sort)
+
+        PREV_NUM=1
+        while IFS= read -r filename; do
+          NUM=$(echo "$filename" | grep -oE '^[0-9]{3}' | sed 's/^0*//')
+          # Handle files that are all zeros (e.g. 000_)
+          [ -z "$NUM" ] && NUM=0
+          EXPECTED=$((PREV_NUM + 1))
+          if [ "$NUM" -ne "$EXPECTED" ]; then
+            VIOLATIONS="${VIOLATIONS}Sequential gap: expected migration $(printf '%03d' "$EXPECTED") but found $filename\n"
+          fi
+          PREV_NUM=$NUM
+        done <<< "$NUMBERED_FILES"
+
+        # Also verify init_neon.sql exists (required as migration #1)
+        if [ ! -f "$MIGRATION_DIR/init_neon.sql" ]; then
+          VIOLATIONS="${VIOLATIONS}Missing: init_neon.sql (required as migration #1)\n"
+        fi
+
+        # ── Check 2: IF NOT EXISTS on CREATE TABLE ────────────────────────────
+        # Skip init_neon.sql; all others must use CREATE TABLE IF NOT EXISTS
+        # Only inspect non-comment lines (skip lines starting with --)
+        echo "==> Check 2: CREATE TABLE IF NOT EXISTS"
+
+        for filepath in "$MIGRATION_DIR"/*.sql; do
+          filename=$(basename "$filepath")
+          [ "$filename" = "init_neon.sql" ] && continue
+
+          while IFS=: read -r lineno line; do
+            # Skip SQL comment lines
+            stripped=$(echo "$line" | sed 's/^[[:space:]]*//')
+            echo "$stripped" | grep -q '^--' && continue
+            # Flag CREATE TABLE statements missing IF NOT EXISTS
+            if ! echo "$stripped" | grep -qi 'IF NOT EXISTS'; then
+              VIOLATIONS="${VIOLATIONS}${filename}:${lineno}: CREATE TABLE missing IF NOT EXISTS: ${stripped}\n"
+            fi
+          done < <(grep -in 'CREATE TABLE' "$filepath" || true)
+        done
+
+        # ── Check 3: GRANT uses neondb_owner ─────────────────────────────────
+        # Only inspect non-comment lines; GRANT ... TO must reference neondb_owner
+        echo "==> Check 3: GRANT references neondb_owner"
+
+        for filepath in "$MIGRATION_DIR"/*.sql; do
+          filename=$(basename "$filepath")
+
+          while IFS=: read -r lineno line; do
+            # Skip SQL comment lines
+            stripped=$(echo "$line" | sed 's/^[[:space:]]*//')
+            echo "$stripped" | grep -q '^--' && continue
+            # Only inspect actual GRANT statements that have a TO clause
+            if echo "$stripped" | grep -qi '^GRANT' && echo "$stripped" | grep -qi ' TO ' && ! echo "$stripped" | grep -qi 'neondb_owner'; then
+              VIOLATIONS="${VIOLATIONS}${filename}:${lineno}: GRANT references role other than neondb_owner: ${stripped}\n"
+            fi
+          done < <(grep -in 'GRANT' "$filepath" || true)
+        done
+
+        # ── Check 4: UUID primary keys (no SERIAL / BIGSERIAL) ────────────────
+        # Only inspect non-comment lines
+        echo "==> Check 4: No SERIAL or BIGSERIAL primary keys"
+
+        for filepath in "$MIGRATION_DIR"/*.sql; do
+          filename=$(basename "$filepath")
+
+          while IFS=: read -r lineno line; do
+            stripped=$(echo "$line" | sed 's/^[[:space:]]*//')
+            echo "$stripped" | grep -q '^--' && continue
+            VIOLATIONS="${VIOLATIONS}${filename}:${lineno}: SERIAL/BIGSERIAL found (use UUID instead): ${stripped}\n"
+          done < <(grep -in '\bBIGSERIAL\b\|\bSERIAL\b' "$filepath" || true)
+        done
+
+        # ── Results ───────────────────────────────────────────────────────────
+        if [ -z "$VIOLATIONS" ]; then
+          echo "All migration convention checks passed."
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "violations=" >> "$GITHUB_OUTPUT"
+        else
+          echo "Migration convention violations found:"
+          printf "%b" "$VIOLATIONS"
+          # Write multiline-safe output (replace newlines with %0A for GITHUB_OUTPUT)
+          VIOLATIONS_ENCODED=$(printf "%b" "$VIOLATIONS" | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "violations=${VIOLATIONS_ENCODED}" >> "$GITHUB_OUTPUT"
+          exit 1
+        fi

@@ -1,58 +1,106 @@
-# DNS Email Setup — electricity-optimizer.app
+# DNS & Email Setup — electricity-optimizer.app
 
-> **STATUS (2026-03-06):** Domain `electricity-optimizer.app` was never purchased (NXDOMAIN).
+> **STATUS (2026-03-06):** Domain `electricity-optimizer.app` has NOT been purchased yet (NXDOMAIN).
 > Currently using Gmail SMTP fallback with `Electricity Optimizer <autodailynewsletterintake@gmail.com>`.
-> This delivers to any recipient via Gmail SMTP (500/day free). The guide below applies AFTER a domain is purchased.
+> This delivers to any recipient via Gmail SMTP (500/day free). Follow this guide end-to-end once ready to purchase.
 
-> Purpose: Configure DNS records so Resend can send transactional email from
-> `onboarding@resend.dev (temporary; see status above)` (email verification, magic links).
+> Purpose: Purchase domain, configure DNS for frontend/backend, set up Resend custom domain email,
+> and provision SSL -- all in one actionable checklist.
 >
-> Last updated: 2026-03-05
+> Last updated: 2026-03-06
 
 ---
 
-## Current DNS State
+## Pre-Purchase Checklist
 
-Run these commands to check what is already published before making any changes.
+- [ ] Budget approved for `.app` domain (~$14-20/year via Cloudflare Registrar)
+- [ ] Cloudflare account created (free plan is sufficient)
+- [ ] Access to Resend dashboard (https://resend.com/domains)
+- [ ] Access to Render + Vercel env var settings
+
+---
+
+## Step 0 — Purchase the Domain
+
+1. Go to [Cloudflare Registrar](https://dash.cloudflare.com/?to=/:account/domains/register) (recommended -- at-cost pricing, integrated DNS)
+2. Search for `electricity-optimizer.app`
+3. Complete purchase (`.app` domains enforce HTTPS by default via HSTS preload)
+4. Domain will be automatically added to your Cloudflare account with DNS management
+
+> **Alternative registrars**: Namecheap, Google Domains, Porkbun. If using a non-Cloudflare registrar, add the domain to Cloudflare afterward and update nameservers to Cloudflare's (for free DNS + CDN + SSL).
+
+---
+
+## Step 0.5 — Configure Cloudflare DNS (Frontend + Backend)
+
+After the domain is active in Cloudflare, add these DNS records to route traffic to Render (backend) and Vercel (frontend).
+
+### Frontend (Vercel)
+
+| Type  | Name | Value                          | Proxy | TTL  |
+|-------|------|--------------------------------|-------|------|
+| CNAME | `@`  | `cname.vercel-dns.com`         | DNS only (gray cloud) | Auto |
+| CNAME | `www` | `cname.vercel-dns.com`        | DNS only (gray cloud) | Auto |
+
+Then in Vercel dashboard: **Settings > Domains** -- add `electricity-optimizer.app` and `www.electricity-optimizer.app`. Vercel will auto-provision SSL.
+
+> **Note**: Vercel requires DNS-only mode (gray cloud) for their SSL provisioning to work. Do NOT enable Cloudflare proxy (orange cloud) for Vercel domains.
+
+### Backend (Render)
+
+| Type  | Name  | Value                                    | Proxy | TTL  |
+|-------|-------|------------------------------------------|-------|------|
+| CNAME | `api` | `electricity-optimizer.onrender.com`     | DNS only (gray cloud) | Auto |
+
+Then in Render dashboard: **Settings > Custom Domains** -- add `api.electricity-optimizer.app`. Render will auto-provision SSL.
+
+### Verification
 
 ```bash
-dig electricity-optimizer.app MX
-dig electricity-optimizer.app TXT
-dig _dmarc.electricity-optimizer.app TXT
+dig electricity-optimizer.app CNAME +short
+dig www.electricity-optimizer.app CNAME +short
+dig api.electricity-optimizer.app CNAME +short
 ```
-
-At time of writing no MX, SPF, DKIM, or DMARC records were confirmed — add all
-four record groups below.
 
 ---
 
-## Step 1 — Add the Domain in Resend
+## Step 1 — SSL Certificates
+
+SSL is handled automatically:
+
+- **Cloudflare**: Free Universal SSL for any proxied records (if you later enable orange cloud)
+- **Vercel**: Auto-provisions Let's Encrypt certs for custom domains
+- **Render**: Auto-provisions Let's Encrypt certs for custom domains
+- **`.app` TLD**: HSTS-preloaded by Google -- browsers will ONLY connect via HTTPS (no action needed)
+
+No manual certificate configuration is required.
+
+---
+
+## Step 2 — Add the Domain in Resend
 
 1. Go to https://resend.com/domains
 2. Click **Add Domain** and enter `electricity-optimizer.app`
 3. Resend will display three DKIM CNAME records unique to your account.
-   Copy those values before leaving the page — you need them for Step 2.
+   Copy those values before leaving the page — you need them for Step 3.
 
 ---
 
-## Step 2 — DNS Records to Add at Your Registrar
+## Step 3 — DNS Records for Email (Cloudflare DNS Panel)
 
-Add all records below in your DNS provider's control panel
-(Cloudflare, Namecheap, Google Domains, etc.).
+Add all records below in Cloudflare DNS management for `electricity-optimizer.app`.
 
 ### SPF — authorize Resend's sending servers
 
-Resend routes through Amazon SES infrastructure.
-
-| Type | Host / Name           | Value                            | TTL  |
-|------|-----------------------|----------------------------------|------|
-| TXT  | `electricity-optimizer.app` (or `@`) | `v=spf1 include:amazonses.com ~all` | 3600 |
+| Type | Name | Value                            | TTL  |
+|------|------|----------------------------------|------|
+| TXT  | `@`  | `v=spf1 include:_spf.resend.com ~all` | Auto |
 
 If an SPF record already exists for the root domain, **do not create a second
 one** — merge the include into the existing record:
 
 ```
-v=spf1 include:amazonses.com [existing includes] ~all
+v=spf1 include:_spf.resend.com [existing includes] ~all
 ```
 
 ---
@@ -91,20 +139,19 @@ lists it for your account.
 ### DMARC — policy and aggregate reporting
 
 DMARC tells receiving mail servers what to do with messages that fail SPF/DKIM.
-Start with `p=none` (monitor only) and tighten after confirming delivery works.
 
-| Type | Host / Name                          | Value                                                                      | TTL  |
-|------|--------------------------------------|----------------------------------------------------------------------------|------|
-| TXT  | `_dmarc.electricity-optimizer.app`   | `v=DMARC1; p=none; rua=mailto:dmarc@electricity-optimizer.app`             | 3600 |
+| Type | Name     | Value                                                                           | TTL  |
+|------|----------|---------------------------------------------------------------------------------|------|
+| TXT  | `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:dmarc@electricity-optimizer.app`            | Auto |
 
-Policy progression once verified:
-1. `p=none` — monitor, no action (start here)
-2. `p=quarantine` — suspicious mail goes to spam
-3. `p=reject` — unauthenticated mail is refused
+Policy progression (tighten over time):
+1. `p=none` — monitor, no action
+2. `p=quarantine` — suspicious mail goes to spam (recommended starting point)
+3. `p=reject` — unauthenticated mail is refused (after 2-4 weeks of clean reports)
 
 ---
 
-## Step 3 — Verify Domain in Resend
+## Step 4 — Verify Domain in Resend
 
 After all records are published:
 
@@ -115,7 +162,7 @@ After all records are published:
 
 ---
 
-## Step 4 — Propagation Checks
+## Step 5 — Propagation Checks
 
 DNS propagation can take a few minutes to 48 hours. Use these commands to
 confirm each record is live.
@@ -138,14 +185,28 @@ You can also use https://mxtoolbox.com/SuperTool.aspx for a web-based check.
 
 ---
 
-## Environment Variables
+## Step 6 — Update Environment Variables
 
-Once the domain is verified, set these in your deployment environment
-(Vercel Settings > Environment Variables and 1Password vault: "Electricity Optimizer"):
+Once the domain is verified in Resend, update `EMAIL_FROM_ADDRESS` on **both** Render and Vercel to use the new domain:
+
+### Render (Backend)
+
+1. Go to Render dashboard > `srv-d649uhur433s73d557cg` > Environment
+2. Update: `EMAIL_FROM_ADDRESS=Electricity Optimizer <noreply@electricity-optimizer.app>`
+3. Redeploy the service
+
+### Vercel (Frontend)
+
+1. Go to Vercel dashboard > Settings > Environment Variables
+2. Update: `EMAIL_FROM_ADDRESS=Electricity Optimizer <noreply@electricity-optimizer.app>`
+3. Redeploy (or push a commit to trigger)
+
+### Other env vars to verify
 
 ```
-RESEND_API_KEY=re_xxxxxxxxxxxx          # from https://resend.com/api-keys
-EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
+RESEND_API_KEY=re_xxxxxxxxxxxx          # from https://resend.com/api-keys (unchanged)
+NEXT_PUBLIC_APP_URL=https://electricity-optimizer.app   # if used anywhere
+BACKEND_URL=https://api.electricity-optimizer.app       # if migrating from .onrender.com
 ```
 
 ### Implementation Notes:
@@ -153,7 +214,7 @@ EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
 - `RESEND_API_KEY` is used by the backend (FastAPI) when sending emails via `resend.emails.send()`
 - `RESEND_API_KEY` is also used by the frontend (Next.js) in `lib/email/send.ts` for email verification, magic links, and password reset
 - `EMAIL_FROM_ADDRESS` is used by the frontend (Next.js) in `lib/email/send.ts` (defaults to the domain email if not set)
-- The `EMAIL_FROM_ADDRESS` value must use the verified domain — using an unverified domain will cause Resend to reject send requests
+- The `EMAIL_FROM_ADDRESS` value must use the verified domain -- using an unverified domain will cause Resend to reject send requests
 - **CRITICAL**: `RESEND_API_KEY` must be non-empty in both Render and Vercel environment variables. If empty or missing:
   - Email verification will fail silently (no error, but emails won't be sent)
   - Magic links will fail
@@ -162,6 +223,17 @@ EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
 - Store both secrets in 1Password ("Electricity Optimizer" vault) and set them as environment variables in Vercel and Render
 
 See `/frontend/.env.example` for reference, and `/backend/config/settings.py` for backend email configuration.
+
+---
+
+## Step 7 — Update Deploy Workflow URLs (if applicable)
+
+If migrating the backend from `electricity-optimizer.onrender.com` to `api.electricity-optimizer.app`:
+
+1. Update `BACKEND_URL` in Vercel env vars
+2. Update `secrets.BACKEND_URL` in GitHub Actions repository secrets
+3. Update any hardcoded URLs in `.github/workflows/deploy-production.yml`
+4. Verify all GHA cron workflows still reach the backend (check `/internal/health-data`)
 
 ---
 
@@ -213,18 +285,33 @@ These are set on Render backend (34 env vars total) alongside the Resend variabl
 
 ## Summary Checklist
 
+### Domain & DNS
+- [ ] `electricity-optimizer.app` purchased via Cloudflare Registrar
+- [ ] Cloudflare DNS: CNAME `@` and `www` pointing to `cname.vercel-dns.com`
+- [ ] Cloudflare DNS: CNAME `api` pointing to `electricity-optimizer.onrender.com`
+- [ ] Vercel custom domain added (`electricity-optimizer.app` + `www`)
+- [ ] Render custom domain added (`api.electricity-optimizer.app`)
+- [ ] SSL certificates auto-provisioned (Vercel + Render)
+
+### Email (Resend)
 - [ ] Domain added in Resend dashboard (https://resend.com/domains)
-- [ ] SPF TXT record added at root domain
+- [ ] SPF TXT record: `v=spf1 include:_spf.resend.com ~all`
 - [ ] All three DKIM CNAME records added (values from Resend dashboard)
+- [ ] DMARC TXT record: `v=DMARC1; p=quarantine; rua=mailto:dmarc@electricity-optimizer.app`
 - [ ] Return-path CNAME added if required by Resend for your account
-- [ ] DMARC TXT record added at `_dmarc` subdomain
 - [ ] Resend domain status shows **Verified**
-- [ ] `RESEND_API_KEY` set in Vercel (Settings > Environment Variables) and 1Password
-- [ ] `RESEND_API_KEY` set in Render (Environment > Environment Variables) and 1Password
-- [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <autodailynewsletterintake@gmail.com>` in Vercel
-- [ ] Both variables marked as available in Production, Preview, and Development environments (Vercel)
-- [ ] `RESEND_API_KEY` value verified with `vercel env pull` on frontend (must be non-empty)
-- [ ] `RESEND_API_KEY` value verified in Render dashboard (must be non-empty, no trailing whitespace)
-- [ ] Frontend redeployed after setting variables
-- [ ] Backend redeployed after setting variables
-- [ ] Test email sent and received successfully
+
+### Environment Variables
+- [ ] `EMAIL_FROM_ADDRESS` updated to `Electricity Optimizer <noreply@electricity-optimizer.app>` on Render
+- [ ] `EMAIL_FROM_ADDRESS` updated to `Electricity Optimizer <noreply@electricity-optimizer.app>` on Vercel
+- [ ] `RESEND_API_KEY` verified non-empty in both Render and Vercel
+- [ ] `BACKEND_URL` updated if migrating to `api.electricity-optimizer.app`
+- [ ] `secrets.BACKEND_URL` updated in GitHub Actions if applicable
+- [ ] Both services redeployed after env var changes
+
+### Verification
+- [ ] `dig electricity-optimizer.app CNAME +short` resolves correctly
+- [ ] `dig api.electricity-optimizer.app CNAME +short` resolves correctly
+- [ ] `dig electricity-optimizer.app TXT +short` shows SPF record
+- [ ] `dig _dmarc.electricity-optimizer.app TXT +short` shows DMARC record
+- [ ] Test email sent and received successfully via Resend
