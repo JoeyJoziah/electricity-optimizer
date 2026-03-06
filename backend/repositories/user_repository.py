@@ -333,6 +333,25 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to record consent: {str(e)}", e)
 
+    async def get_by_stripe_customer_id(self, customer_id: str) -> Optional[User]:
+        """
+        Look up user by their Stripe customer ID.
+
+        Args:
+            customer_id: Stripe customer ID (e.g. cus_xxx)
+
+        Returns:
+            User if found, None otherwise
+        """
+        try:
+            result = await self._db.execute(
+                select(User).where(User.stripe_customer_id == customer_id)
+            )
+            return result.scalar_one_or_none()
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e)
+
     async def get_users_by_region(
         self,
         region: str,

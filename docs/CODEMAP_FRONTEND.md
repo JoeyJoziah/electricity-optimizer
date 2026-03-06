@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-05 (Loading skeletons verified, type safety audit completed, test counts updated)
+**Last Updated:** 2026-03-05 (Email dual-provider, OneSignal login/logout, useAuth OneSignal wiring, nodemailer added)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -114,7 +114,7 @@ frontend/
       DangerZone.tsx            # Delete account button
   lib/
     hooks/
-      useAuth.tsx               # Custom hook: auth state + sign in/up/out + magic link + email verification
+      useAuth.tsx               # Custom hook: auth state + sign in/up/out + magic link + email verification + OneSignal login/logout
       useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false)
       useLocalStorage.ts        # Persist state to browser storage
       useDarkMode.ts            # Dark mode toggle (future)
@@ -136,7 +136,9 @@ frontend/
       server.ts                 # Better Auth server instance (emailVerification, magicLink plugin, password reset)
       client.ts                 # Better Auth client instance (magicLinkClient plugin)
     email/
-      send.ts                   # Resend email utility (lazy singleton, verification + magic link + password reset)
+      send.ts                   # Dual-provider email: Resend (primary) + nodemailer SMTP (fallback). getResend() returns null when key missing. sendViaSMTP() uses SMTP_HOST/PORT/USERNAME/PASSWORD
+    notifications/
+      onesignal.ts              # OneSignal push: loginOneSignal(userId), logoutOneSignal(). Uses v3+ API (login() replaces deprecated setExternalUserId())
     config/
       env.ts                    # Centralized NEXT_PUBLIC_* validation
   styles/
@@ -159,7 +161,7 @@ frontend/
   tailwind.config.ts            # Tailwind CSS theme config
   tsconfig.json                 # TypeScript config
   next.config.js                # Next.js config (CSP, HSTS headers)
-  package.json                  # Dependencies, scripts, dev tools
+  package.json                  # Dependencies, scripts, dev tools (includes nodemailer + @types/nodemailer)
 ```
 
 ---
@@ -711,7 +713,7 @@ Without token (default):
 **Frontend Auth Stack:**
 - **Client Library:** `better-auth` package (React hooks + client) with `magicLinkClient` plugin
 - **Server:** `frontend/lib/auth/server.ts` (Better Auth server with emailVerification, magicLink plugin, password reset)
-- **Email:** `frontend/lib/email/send.ts` (Resend SDK for verification, magic link, password reset emails)
+- **Email:** `frontend/lib/email/send.ts` (Resend primary + nodemailer SMTP fallback for verification, magic link, password reset emails)
 - **Backend:** `backend/auth/neon_auth.py` (FastAPI session validation dependency)
 - **API Route:** `app/api/auth/[...all]/route.ts` (NextAuth-style catch-all)
 - **Session Management:** HTTP-only cookies (`better-auth.session_token` + `__Secure-` variant on HTTPS)
@@ -817,6 +819,7 @@ const {
 - Persists auth state to localStorage (Zustand store)
 - Syncs with Better Auth session
 - Handles 401 errors with 3-layer redirect guard
+- Wires OneSignal push: `loginOneSignal(userId)` on session init + signIn, `logoutOneSignal()` on signOut
 
 ### React Query Integration
 
@@ -1135,8 +1138,8 @@ BETTER_AUTH_URL=...                      # (Server-only)
 
 ### Auth System Fix (2026-03-04)
 
-1. **Email Verification via Resend**
-   - Created `lib/email/send.ts`: Resend SDK with lazy singleton pattern (avoids build-time env var issues)
+1. **Email Verification via Resend + SMTP Fallback**
+   - Created `lib/email/send.ts`: Dual-provider — Resend SDK (primary, lazy singleton) + nodemailer SMTP fallback (`sendViaSMTP()` using SMTP_HOST/PORT/USERNAME/PASSWORD). `getResend()` returns null (not throw) when RESEND_API_KEY missing
    - Added `emailVerification` config to `lib/auth/server.ts`: `sendOnSignUp: true`, `autoSignInAfterVerification: true`
    - Branded HTML email template for verification emails
 
@@ -1195,6 +1198,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 3. **Email Service Logging (`frontend/lib/email/send.ts`)**
    - Added structured logging before send: `[Email] Sending to=... subject=... from=...`
    - Added logging after successful send: `[Email] Sent successfully id=...`
+   - SMTP fallback logs: `[Email] Resend unavailable, falling back to SMTP`
    - Helps diagnose email delivery failures
 
 4. **Auth Server Logging (`frontend/lib/auth/server.ts`)**

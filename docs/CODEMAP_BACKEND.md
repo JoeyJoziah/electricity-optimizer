@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-05 (DB audit: migration 023 indexes/retention/consent FK, bulk_create multi-row INSERT, check_thresholds O(n+m) optimization, meter_number storage fix, dead fallback removal)
+> Last updated: 2026-03-05 (alert dedup pipeline, payment_failed user resolution via stripe_customer_id, test count 1407; prior: DB audit, migration 023, bulk_create, check_thresholds O(n+m), meter_number fix)
 
 ## Directory Structure
 
@@ -48,7 +48,7 @@ backend/
 │       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
 │       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
 │       ├── users.py                 # User profile management (get, update, delete account)
-│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup (prices + observations)
+│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline)
 │
 ├── routers/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
@@ -70,15 +70,15 @@ backend/
 │   ├── price_repository.py          # PriceRepository: CRUD, bulk_create, statistics (utility_type filter)
 │   ├── supplier_repository.py       # SupplierRegistryRepository + StateRegulationRepository; SQL-injection-safe WHERE clauses
 │   ├── forecast_observation_repository.py  # ForecastObservationRepository: observation queries
-│   └── user_repository.py           # UserRepository: by-email, preferences, consent
+│   └── user_repository.py           # UserRepository: by-email, by-stripe-customer-id, preferences, consent
 │
 ├── services/
 │   ├── price_service.py             # Business logic: comparison, forecast, optimal windows
 │   ├── analytics_service.py         # Trends, volatility, peak hours, supplier comparison
 │   ├── recommendation_service.py    # Switching + usage recommendations
-│   ├── alert_service.py             # Price threshold alerts + email notifications
+│   ├── alert_service.py             # Price threshold alerts + email notifications + deduplication + active config loading
 │   ├── email_service.py             # Resend (primary) + SMTP (fallback) + Jinja2
-│   ├── stripe_service.py            # Checkout, portal, subscriptions, webhooks
+│   ├── stripe_service.py            # Checkout, portal, subscriptions, webhooks (payment_failed resolves user via stripe_customer_id)
 │   ├── vector_store.py              # SQLite-backed vector store for price pattern matching
 │   ├── hnsw_vector_store.py         # HNSW-indexed wrapper (O(log n) ANN, fallback); get_vector_store_singleton()
 │   ├── observation_service.py       # Record forecasts, backfill actuals, track recommendation outcomes
@@ -176,7 +176,7 @@ backend/
     ├── test_observation_service.py  # ObservationService tests (31 tests)
     ├── test_learning_service.py     # LearningService tests (32 tests)
     ├── test_performance.py          # Performance tests (18 tests: query counts, caching, async operations)
-    ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn)
+    ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn, check-alerts dedup pipeline)
     ├── test_api_regulations.py      # State regulation API tests
     ├── test_analytics_service.py    # AnalyticsService tests
     ├── test_encryption.py           # AES-256-GCM encryption tests
@@ -576,6 +576,8 @@ for both `get_recommendation_service` and `get_learning_service`.
 | Cancel | `cancel_subscription()` | `stripe.Subscription.cancel` / `.modify` |
 | Webhook | `handle_webhook_event()` | Processes checkout.session.completed, subscription.updated/deleted, invoice.payment_failed |
 
+**payment_failed fix**: Resolves user_id from `stripe_customer_id` via `UserRepository.get_by_stripe_customer_id()` when invoice webhook lacks user metadata.
+
 
 ## Models
 
@@ -969,7 +971,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1393 passed, 2 skipped, 0 failures (as of 2026-03-05). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics), weather service circuit breaker, maintenance service cleanup operations.
+**Test status:** 1407 passed, 2 skipped, 0 failures (as of 2026-03-05). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics), weather service circuit breaker, maintenance service cleanup operations.
 
 
 ## Scripts & Automation

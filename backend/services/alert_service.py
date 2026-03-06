@@ -309,6 +309,136 @@ class AlertService:
         """
 
     # =========================================================================
+    # Deduplication helpers (require db: AsyncSession)
+    # =========================================================================
+
+    # Cooldown windows keyed by notification_frequency value
+    _COOLDOWN_HOURS: dict = {
+        "immediate": 1,
+        "hourly": 1,
+        "daily": 24,
+        "weekly": 24 * 7,
+    }
+
+    async def _should_send_alert(
+        self,
+        user_id: str,
+        alert_type: str,
+        region: str,
+        notification_frequency: str,
+        db: AsyncSession,
+    ) -> bool:
+        """
+        Return True when a new alert should be sent (not inside cooldown window).
+
+        Looks up the most recent alert_history row for this user+alert_type+region
+        combination and compares its triggered_at timestamp against the cooldown
+        duration derived from the user's notification_frequency preference.
+
+        Cooldown windows:
+            immediate / hourly  →  1 hour
+            daily               →  24 hours
+            weekly              →  7 days
+
+        If notification_frequency is unrecognised, the hourly cooldown (1 h) is used
+        as a safe default.
+
+        Args:
+            user_id:                UUID string of the user.
+            alert_type:             One of "price_drop", "price_spike", "optimal_window".
+            region:                 Region code matched by the alert config.
+            notification_frequency: User preference string.
+            db:                     Async SQLAlchemy session.
+
+        Returns:
+            True  — no recent alert found; caller may send.
+            False — a recent alert was sent within the cooldown window; caller should skip.
+        """
+        cooldown_hours = self._COOLDOWN_HOURS.get(notification_frequency, 1)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=cooldown_hours)
+
+        result = await db.execute(
+            text("""
+                SELECT triggered_at
+                FROM alert_history
+                WHERE user_id    = :user_id
+                  AND alert_type = :alert_type
+                  AND region     = :region
+                  AND triggered_at >= :cutoff
+                ORDER BY triggered_at DESC
+                LIMIT 1
+            """),
+            {
+                "user_id": user_id,
+                "alert_type": alert_type,
+                "region": region,
+                "cutoff": cutoff,
+            },
+        )
+        row = result.first()
+        # If a row exists the alert is still within the cooldown window → skip
+        return row is None
+
+    # =========================================================================
+    # Bulk-load helpers for the check-alerts cron endpoint
+    # =========================================================================
+
+    async def get_active_alert_configs(
+        self,
+        db: AsyncSession,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return all active price_alert_configs joined with the owning user's
+        email and notification_frequency preference.
+
+        Used by POST /internal/check-alerts to build AlertThreshold objects
+        without a separate per-user query.
+
+        Returns:
+            List of dicts with keys:
+                id, user_id, email, region, currency,
+                price_below, price_above, notify_optimal_windows,
+                notification_frequency
+        """
+        result = await db.execute(
+            text("""
+                SELECT
+                    pac.id,
+                    pac.user_id,
+                    u.email,
+                    pac.region,
+                    pac.currency,
+                    pac.price_below,
+                    pac.price_above,
+                    pac.notify_optimal_windows,
+                    COALESCE(
+                        (u.preferences->>'notification_frequency'),
+                        'daily'
+                    ) AS notification_frequency
+                FROM price_alert_configs pac
+                JOIN public.users u ON u.id = pac.user_id
+                WHERE pac.is_active = TRUE
+                  AND u.is_active   = TRUE
+                ORDER BY pac.created_at
+            """),
+        )
+        rows = result.mappings().all()
+        return [
+            {
+                "id": str(row["id"]),
+                "user_id": str(row["user_id"]),
+                "email": row["email"],
+                "region": row["region"],
+                "currency": row["currency"],
+                "price_below": Decimal(str(row["price_below"])) if row["price_below"] is not None else None,
+                "price_above": Decimal(str(row["price_above"])) if row["price_above"] is not None else None,
+                "notify_optimal_windows": row["notify_optimal_windows"],
+                "notification_frequency": row["notification_frequency"] or "daily",
+            }
+            for row in rows
+        ]
+
+    # =========================================================================
     # DB-backed CRUD methods (require db: AsyncSession)
     # =========================================================================
 

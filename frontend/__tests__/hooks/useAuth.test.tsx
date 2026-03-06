@@ -62,6 +62,14 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
 }))
 
+// Mock OneSignal notifications
+const mockLoginOneSignal = jest.fn()
+const mockLogoutOneSignal = jest.fn()
+jest.mock('@/lib/notifications/onesignal', () => ({
+  loginOneSignal: (...args: unknown[]) => mockLoginOneSignal(...args),
+  logoutOneSignal: (...args: unknown[]) => mockLogoutOneSignal(...args),
+}))
+
 // Import after mocks are set up
 import { AuthProvider, useAuth, useRequireAuth } from '@/lib/hooks/useAuth'
 
@@ -171,6 +179,42 @@ describe('useAuth hook', () => {
       emailVerified: true,
       createdAt: expect.any(String),
     })
+  })
+
+  it('calls loginOneSignal with user id on session init', async () => {
+    mockGetSession.mockResolvedValue({
+      data: {
+        user: {
+          id: 'user-onesignal',
+          email: 'push@example.com',
+          name: 'Push User',
+          emailVerified: true,
+          createdAt: new Date('2026-01-01'),
+        },
+        session: { id: 'sess-1' },
+      },
+      error: null,
+    })
+
+    const wrapper = createWrapper()
+    renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(mockLoginOneSignal).toHaveBeenCalledWith('user-onesignal')
+    })
+  })
+
+  it('does not call loginOneSignal when no session exists', async () => {
+    mockGetSession.mockResolvedValue({ data: null, error: null })
+
+    const wrapper = createWrapper()
+    renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(mockGetSession).toHaveBeenCalled()
+    })
+
+    expect(mockLoginOneSignal).not.toHaveBeenCalled()
   })
 
   it('syncs supplier to settings store when session and supplier both succeed', async () => {
@@ -328,6 +372,34 @@ describe('useAuth hook', () => {
     expect(result.current.user?.email).toBe('login@example.com')
     // Redirects via window.location.href
     expect(window.location.href).toBe('/dashboard')
+  })
+
+  it('signIn calls loginOneSignal with user id on success', async () => {
+    mockSignInEmail.mockResolvedValue({
+      data: {
+        user: {
+          id: 'user-signin-456',
+          email: 'signin@example.com',
+          name: 'SignIn User',
+          emailVerified: true,
+          createdAt: new Date('2026-02-01'),
+        },
+      },
+      error: null,
+    })
+
+    const wrapper = createWrapper()
+    const { result } = renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    await act(async () => {
+      await result.current.signIn('signin@example.com', 'password123')
+    })
+
+    expect(mockLoginOneSignal).toHaveBeenCalledWith('user-signin-456')
   })
 
   it('signIn uses callbackUrl from query params when safe', async () => {
@@ -599,6 +671,36 @@ describe('useAuth hook', () => {
     expect(result.current.user).toBeNull()
     expect(result.current.isAuthenticated).toBe(false)
     expect(mockPush).toHaveBeenCalledWith('/auth/login')
+  })
+
+  it('signOut calls logoutOneSignal', async () => {
+    mockGetSession.mockResolvedValue({
+      data: {
+        user: {
+          id: 'user-os-logout',
+          email: 'push@example.com',
+          emailVerified: true,
+          createdAt: new Date(),
+        },
+      },
+    })
+    mockSignOut.mockResolvedValue({})
+
+    const wrapper = createWrapper()
+    const { result } = renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true)
+    })
+
+    // Clear mocks from init (loginOneSignal was called during session init)
+    mockLogoutOneSignal.mockClear()
+
+    await act(async () => {
+      await result.current.signOut()
+    })
+
+    expect(mockLogoutOneSignal).toHaveBeenCalledTimes(1)
   })
 
   it('signOut calls backend logout for cache invalidation', async () => {

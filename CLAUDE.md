@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-05
+> Last validated: 2026-03-05 (automation plan prereqs, Gmail SMTP, OneSignal binding, Stripe fix, alert system)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -87,7 +87,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Sources**: 15 GitHub repos (7 curated + 7 vendor + 1 existing)
 - **Vendor skills** (37): Vercel (4), Better Auth (6), Neon (2), Stripe (2), Sentry (8), Trail of Bits (12), Cloudflare (3)
 - **Curated** (1,087): Antigravity bundles (ag-* prefix for 136 conflicts)
-- **App automations** (832): Composio (composio-* prefix) — active connections: gmail, googledrive, googlesheets; pending OAuth: vercel, render, resend
+- **App automations** (832): Composio (composio-* prefix) — 16 active connections (gmail, github, firecrawl, sentry, vercel, resend, stripe, render, googlesheets, googledrive, uptimerobot, onesignal, better_stack, slack, notion, neon)
 - **Commands** (23 new): hesreallyhim slash commands (acc-* prefix for 1 conflict)
 - **Routing optimizer**: `~/.claude/skills/skill-router/` — SKILL.md + registry.json + swarm-routes.json
 - **Priority**: vendor-first > project-specific > curated bundles > general
@@ -104,7 +104,11 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 20 public + 9 neon_auth tables (23 migrations: init_neon through 023_db_audit_indexes — all deployed to production)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://electricity-optimizer.onrender.com` (server-side)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
-- **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business)
+- **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id
+- **Email**: Resend (primary) + Gmail SMTP fallback (smtp.gmail.com:587, TLS, App Password). Frontend uses nodemailer for SMTP
+- **Notifications**: OneSignal push (user binding via login(userId) post-auth) + email alerts
+- **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)
+- **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md), Phase 0 prerequisites all resolved
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **Board Sync**: GitHub Projects #4 + Notion roadmap (auto-sync on edits)
 
@@ -122,6 +126,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 ## Cron Jobs & Maintenance
 
 - **db-maintenance**: Weekly Sunday 3am UTC — database optimization, vacuum, analyze, index maintenance
+- **Planned (Phase 1-2)**: check-alerts (15min), fetch-weather (6h), market-research (daily 2am), sync-connections (2h), scrape-rates (daily) — see docs/AUTOMATION_PLAN.md
 
 ## Autonomous Workflow (when Loki is driving)
 

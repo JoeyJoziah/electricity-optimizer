@@ -180,7 +180,17 @@ class User(BaseModel):
 | `checkout.session.completed`     | Activate subscription               | `tier`, `stripe_customer_id` |
 | `customer.subscription.updated`  | Update subscription                 | `tier` (based on status)     |
 | `customer.subscription.deleted`  | Downgrade to free                   | `tier = "free"`              |
-| `invoice.payment_failed`         | Log warning, notify user (TODO)     | None (keep tier for grace)   |
+| `invoice.payment_failed`         | Resolve user via `stripe_customer_id`, log warning, notify user | None (keep tier for grace)   |
+
+### Webhook Processing Details (2026-03-05)
+
+**`payment_failed` handler fix:** The `invoice.payment_failed` webhook event does not include `client_reference_id`. The handler now resolves the `user_id` from `stripe_customer_id` via `UserRepository.get_by_stripe_customer_id()`.
+
+**`apply_webhook_action()` two-stage guard:** All webhook handlers use a two-stage guard pattern:
+1. Check if the event has already been handled (idempotency)
+2. Resolve the customer identity from `stripe_customer_id` before processing
+
+This prevents duplicate processing and ensures the user can always be identified even for events that lack a direct user reference.
 
 ## Error Handling
 
@@ -364,7 +374,7 @@ Metrics to monitor:
 
 ---
 
-**Last Updated**: 2026-03-02
+**Last Updated**: 2026-03-05
 
 **Key Changes**:
 - Environment variable `ALLOWED_REDIRECT_DOMAINS` now controls billing redirect domains (previously hardcoded)

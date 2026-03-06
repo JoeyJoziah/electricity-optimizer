@@ -14,6 +14,7 @@ import { getUserSupplier } from '@/lib/api/suppliers'
 import { getUserProfile } from '@/lib/api/profile'
 import { useSettingsStore } from '@/lib/store/settings'
 import { API_URL } from '@/lib/config/env'
+import { loginOneSignal, logoutOneSignal } from '@/lib/notifications/onesignal'
 
 // Auth user type
 export interface AuthUser {
@@ -82,6 +83,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             createdAt: session.user.createdAt?.toString() || '',
           })
 
+          // Bind OneSignal push subscription to this user
+          loginOneSignal(session.user.id)
+
           // Sync supplier if fetched successfully
           if (supplierResult.status === 'fulfilled' && supplierResult.value.supplier) {
             const supplier = supplierResult.value.supplier
@@ -149,6 +153,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           emailVerified: data.user.emailVerified,
           createdAt: data.user.createdAt?.toString() || '',
         })
+
+        // Bind OneSignal push subscription to this user
+        loginOneSignal(data.user.id)
       }
 
       // Honor callbackUrl if the middleware set one, otherwise go to dashboard.
@@ -209,6 +216,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Sign out
   const signOut = useCallback(async () => {
     setIsLoading(true)
+
+    // Unbind OneSignal push subscription from this user
+    logoutOneSignal()
 
     // Invalidate backend Redis session cache first (best-effort).
     // Without this, the cached session remains valid for up to 30s

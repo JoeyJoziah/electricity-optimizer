@@ -1,12 +1,12 @@
 # Testing Guide
 
-**Last Updated**: 2026-03-04
+**Last Updated**: 2026-03-05
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 1393 passed, 2 skipped (pytest, 57 test files)
-**Frontend Tests**: 1398 across 95 suites (Jest)
+**Backend Tests**: 1407 passed, 2 skipped (pytest, 57 test files)
+**Frontend Tests**: 1391 across 95 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: 3,402+ tests passing
+**Total**: 3,409+ tests passing
 
 ---
 
@@ -14,8 +14,8 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1393 passed, 2 skipped | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1398 (95 suites) | 78%+ | Jest + RTL |
+| **Backend Unit/Integration** | 1407 passed, 2 skipped | 86%+ | pytest |
+| **Frontend Component + Lib Tests** | 1391 (95 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
 | **E2E Tests** | 634 passed, 5 skipped | Critical flows | Playwright |
@@ -72,11 +72,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1393 passed, 2 skipped)
+# Backend tests (1407 passed, 2 skipped)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (1398 tests across 95 suites)
+# Frontend unit tests (1391 tests across 95 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -101,7 +101,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 1393 passed, 2 skipped
+**Count**: 1407 passed, 2 skipped
 **Coverage Target**: 86%+
 
 **Test Files** (57 files):
@@ -119,13 +119,13 @@ cd tests/load && ./run_load_test.sh quick
 - `test_security_adversarial.py` - Adversarial security tests (42 tests)
 - `test_gdpr_compliance.py` - GDPR compliance tests
 - `test_alert_service.py` - Alert service tests
-- `test_stripe_service.py` - Stripe service tests
+- `test_stripe_service.py` - Stripe service tests (+6 new: payment_failed handler with customer resolution, two-stage webhook guard)
 - `test_weather_service.py` - Weather service tests
 - `test_config.py` - Settings validation tests
 - `test_observation_service.py` - Forecast recording, actuals backfill, recommendation tracking, accuracy metrics (31 tests)
 - `test_learning_service.py` - Rolling accuracy, bias detection, ensemble weight tuning, bias correction vectors, full learning cycle (32 tests)
 - `test_hnsw_vector_store.py` - HNSW vector store singleton, search, fallback, pruning
-- `test_api_internal.py` - Internal API endpoints (observe-forecasts, learn, observation-stats)
+- `test_api_internal.py` - Internal API endpoints (observe-forecasts, learn, observation-stats, +8 new alert tests)
 - `test_api_regulations.py` - State regulation API endpoints
 - `test_load.py` - Load/stress test helpers
 - `test_multi_utility.py` - Multi-utility expansion tests (39 tests)
@@ -158,7 +158,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1398 tests across 95 suites
+**Count**: 1391 tests across 95 suites
 **Coverage Target**: 78%+
 
 **Accessibility Testing**: 51 tests using `jest-axe` for automated WCAG 2.1 AA compliance checks. Tests are located in `__tests__/a11y/` and cover color contrast, ARIA attributes, keyboard navigation, focus management, and semantic HTML across all major components.
@@ -192,7 +192,7 @@ pytest tests/ -v --cov=. --cov-report=html
 - `pages/suppliers.test.tsx` - Suppliers page rendering
 - `pages/prices.test.tsx` - Prices page rendering
 - `hooks/useDiagrams.test.tsx` - Diagram React Query hooks (list, get, save, create)
-- `hooks/useAuth.test.tsx` - Auth hooks
+- `hooks/useAuth.test.tsx` - Auth hooks (+4 new OneSignal push notification integration tests)
 - `hooks/useOptimization.test.ts` - Optimization hooks
 - `hooks/useRealtime.test.ts` - Realtime/SSE hooks
 - `hooks/useSuppliers.test.ts` - Supplier hooks
@@ -746,7 +746,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1393 backend, 1398 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 1407 backend, 1391 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 
@@ -797,4 +797,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-03-04
+**Last Updated**: 2026-03-05

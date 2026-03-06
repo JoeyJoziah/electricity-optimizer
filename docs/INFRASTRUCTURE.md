@@ -302,6 +302,11 @@ All services communicate over the internal Docker bridge network. Only the follo
 | `INTERNAL_API_KEY` | Generated | `openssl rand -hex 32` |
 | `ALLOWED_REDIRECT_DOMAINS` | Config | JSON array or comma-separated (Stripe redirect domains) |
 | `FIELD_ENCRYPTION_KEY` | Generated | 64 hex chars / 32 bytes (AES-256-GCM, required in production) |
+| `SMTP_HOST` | Config | Gmail SMTP fallback (`smtp.gmail.com`) |
+| `SMTP_PORT` | Config | SMTP port (`587` for TLS) |
+| `SMTP_USERNAME` | Gmail | Gmail address used as SMTP sender |
+| `SMTP_PASSWORD` | Gmail | Gmail App Password (requires 2FA on Google account) |
+| `EMAIL_FROM_ADDRESS` | Config | Sender address for outbound emails |
 
 **Render CLI:**
 ```bash
@@ -537,6 +542,7 @@ deploy:
 | OAuth Providers | Login | `google_client_id`, `google_client_secret` | OAuth provider credentials for social login |
 | Email OAuth | Login | `gmail_client_id`, `gmail_client_secret`, `outlook_client_id`, `outlook_client_secret` | Email OAuth credentials for connection import |
 | Resend | Login | `resend_api_key`, `email_from_address` | Transactional email service (backend + frontend auth emails) |
+| Gmail SMTP | Login | `smtp_host`, `smtp_port`, `smtp_username`, `smtp_password` | Gmail SMTP fallback (smtp.gmail.com:587, TLS, App Password) |
 | CORS and Redirects | Login | `allowed_origins`, `allowed_redirect_domains` | CORS origin whitelist and Stripe redirect domain config |
 
 **SecretsManager** (`backend/config/secrets.py`): 27 mappings covering all environment variables sourced from 1Password. Each mapping specifies the vault item, field name, and target env var.
@@ -695,4 +701,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-03-04
+**Last Updated**: 2026-03-05

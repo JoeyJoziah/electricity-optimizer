@@ -7,7 +7,7 @@
 > Purpose: Configure DNS records so Resend can send transactional email from
 > `onboarding@resend.dev (temporary; see status above)` (email verification, magic links).
 >
-> Last updated: 2026-03-04
+> Last updated: 2026-03-05
 
 ---
 
@@ -162,6 +162,52 @@ EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
 - Store both secrets in 1Password ("Electricity Optimizer" vault) and set them as environment variables in Vercel and Render
 
 See `/frontend/.env.example` for reference, and `/backend/config/settings.py` for backend email configuration.
+
+---
+
+## Gmail SMTP Fallback (No Domain Required)
+
+While the Resend custom domain setup above is the ideal long-term solution, Gmail SMTP works as an immediate fallback that requires no domain purchase or DNS configuration.
+
+### How It Works
+
+The backend email service (`backend/services/email_service.py`) uses Resend as the primary provider and falls back to Gmail SMTP when Resend is unavailable or fails. Gmail SMTP sends email directly from a Gmail address.
+
+### Configuration
+
+| Setting | Value |
+|---------|-------|
+| SMTP Host | `smtp.gmail.com` |
+| SMTP Port | `587` (STARTTLS) |
+| Authentication | Gmail App Password (NOT the regular Gmail password) |
+| Daily Send Limit | 500 emails/day (Google free tier) |
+
+### Prerequisites
+
+1. **2FA must be enabled** on the Google account used for sending
+2. Generate an **App Password** at https://myaccount.google.com/apppasswords
+   - Select "Mail" as the app and your device type
+   - Google generates a 16-character password
+3. Use that App Password as `SMTP_PASSWORD` (not the account password)
+
+### Environment Variables
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-gmail@gmail.com
+SMTP_PASSWORD=xxxx-xxxx-xxxx-xxxx    # App Password from Google
+EMAIL_FROM_ADDRESS=Electricity Optimizer <your-gmail@gmail.com>
+```
+
+These are set on Render backend (34 env vars total) alongside the Resend variables. The email service tries Resend first, then falls back to SMTP.
+
+### Limitations
+
+- 500 emails/day sending limit (sufficient for early-stage)
+- Emails come from a `@gmail.com` address (less professional than a custom domain)
+- Google may flag high-volume sending or require CAPTCHA verification
+- Not suitable for production scale -- migrate to Resend with a verified custom domain once a domain is purchased
 
 ---
 

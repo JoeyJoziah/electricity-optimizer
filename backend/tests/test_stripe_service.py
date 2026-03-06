@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, AsyncMock
 import pytest
 import stripe
 
-from services.stripe_service import StripeService
+from services.stripe_service import StripeService, apply_webhook_action
 from config.settings import settings
 
 
@@ -470,3 +470,134 @@ def test_get_price_id_for_tier_invalid(stripe_service):
     """Test getting price ID for invalid tier."""
     price_id = stripe_service._get_price_id_for_tier("invalid")
     assert price_id is None
+
+
+# =============================================================================
+# apply_webhook_action Tests
+# =============================================================================
+
+
+def _make_user(user_id: str = "user_123", customer_id: str = "cus_test_456") -> Mock:
+    """Build a minimal mock User object."""
+    user = Mock()
+    user.id = user_id
+    user.subscription_tier = "pro"
+    user.stripe_customer_id = customer_id
+    return user
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_payment_failed_resolves_user_by_customer_id():
+    """payment_failed: user_id missing → resolved via get_by_stripe_customer_id."""
+    user = _make_user()
+    user_repo = AsyncMock()
+    user_repo.get_by_stripe_customer_id = AsyncMock(return_value=user)
+    user_repo.get_by_id = AsyncMock(return_value=user)
+
+    result = {
+        "handled": True,
+        "action": "payment_failed",
+        "user_id": None,
+        "customer_id": "cus_test_456",
+        "subscription_id": "sub_test_123",
+    }
+
+    applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is True
+    user_repo.get_by_stripe_customer_id.assert_awaited_once_with("cus_test_456")
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_payment_failed_customer_not_found():
+    """payment_failed: unknown customer_id → returns False without error."""
+    user_repo = AsyncMock()
+    user_repo.get_by_stripe_customer_id = AsyncMock(return_value=None)
+
+    result = {
+        "handled": True,
+        "action": "payment_failed",
+        "user_id": None,
+        "customer_id": "cus_unknown",
+        "subscription_id": "sub_test_123",
+    }
+
+    applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is False
+    user_repo.get_by_stripe_customer_id.assert_awaited_once_with("cus_unknown")
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_payment_failed_no_customer_id():
+    """payment_failed: no customer_id at all → returns False immediately."""
+    user_repo = AsyncMock()
+    user_repo.get_by_stripe_customer_id = AsyncMock(return_value=None)
+
+    result = {
+        "handled": True,
+        "action": "payment_failed",
+        "user_id": None,
+        "customer_id": None,
+        "subscription_id": "sub_test_123",
+    }
+
+    applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is False
+    user_repo.get_by_stripe_customer_id.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_not_handled():
+    """Unhandled events → returns False immediately."""
+    user_repo = AsyncMock()
+    result = {"handled": False, "action": None, "user_id": None, "customer_id": None}
+
+    applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is False
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_activate_subscription():
+    """activate_subscription: sets tier and customer_id on user."""
+    user = _make_user()
+    user.subscription_tier = "free"
+    user_repo = AsyncMock()
+    user_repo.get_by_id = AsyncMock(return_value=user)
+    user_repo.update = AsyncMock(return_value=user)
+
+    result = {
+        "handled": True,
+        "action": "activate_subscription",
+        "user_id": "user_123",
+        "tier": "pro",
+        "customer_id": "cus_test_456",
+    }
+
+    applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is True
+    assert user.subscription_tier == "pro"
+    assert user.stripe_customer_id == "cus_test_456"
+    user_repo.update.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_user_not_found():
+    """When user_id is present but user is missing from DB → returns False."""
+    user_repo = AsyncMock()
+    user_repo.get_by_id = AsyncMock(return_value=None)
+
+    result = {
+        "handled": True,
+        "action": "activate_subscription",
+        "user_id": "user_ghost",
+        "tier": "pro",
+        "customer_id": "cus_test_456",
+    }
+
+    applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is False

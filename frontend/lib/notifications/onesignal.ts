@@ -17,6 +17,30 @@ export async function initOneSignal() {
   initialized = true
 }
 
+export async function loginOneSignal(userId: string): Promise<void> {
+  if (!initialized || typeof window === 'undefined') return
+
+  try {
+    const OneSignalModule = await import('react-onesignal')
+    await OneSignalModule.default.login(userId)
+    console.log('[OneSignal] User logged in:', userId)
+  } catch (err) {
+    console.warn('[OneSignal] Failed to login user:', err)
+  }
+}
+
+export async function logoutOneSignal(): Promise<void> {
+  if (!initialized || typeof window === 'undefined') return
+
+  try {
+    const OneSignalModule = await import('react-onesignal')
+    await OneSignalModule.default.logout()
+    console.log('[OneSignal] User logged out')
+  } catch (err) {
+    console.warn('[OneSignal] Failed to logout user:', err)
+  }
+}
+
 export async function requestPermission(): Promise<boolean> {
   if (typeof window === 'undefined') return false
   try {

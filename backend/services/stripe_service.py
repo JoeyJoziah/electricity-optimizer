@@ -486,11 +486,28 @@ async def apply_webhook_action(
     Returns:
         True if a DB update was applied, False otherwise.
     """
-    if not result.get("handled") or not result.get("user_id"):
+    if not result.get("handled"):
         return False
 
     action = result["action"]
-    user_id = result["user_id"]
+    user_id = result.get("user_id")
+
+    # payment_failed events come from invoices which carry no user metadata.
+    # Resolve the user via the stripe_customer_id column instead.
+    if not user_id and action == "payment_failed" and result.get("customer_id"):
+        customer_id_for_lookup = result["customer_id"]
+        resolved = await user_repo.get_by_stripe_customer_id(customer_id_for_lookup)
+        if resolved:
+            user_id = str(resolved.id)
+        else:
+            logger.warning(
+                "payment_failed_customer_not_found",
+                customer_id=customer_id_for_lookup,
+            )
+            return False
+
+    if not user_id:
+        return False
     tier = result.get("tier")
     customer_id = result.get("customer_id")
 
