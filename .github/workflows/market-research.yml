@@ -1,0 +1,24 @@
+name: Market Intelligence Scan
+
+on:
+  schedule:
+    # Daily at 2 AM UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: market-research
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run energy market intelligence scan
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"regions": ["NY","CA","TX","FL","IL","PA","OH","GA","NC","MI"]}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/market-research" || exit 1

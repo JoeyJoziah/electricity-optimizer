@@ -1,0 +1,24 @@
+name: Sync User Connections
+
+on:
+  schedule:
+    # Every 2 hours
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-connections
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sync all due connections
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/sync-connections" || exit 1

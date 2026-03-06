@@ -65,6 +65,22 @@ text/content changes and can trigger webhooks.
 3. Configure text change detection on pricing sections
 4. Optional: Set webhook to `POST /api/v1/internal/scrape-rates` to trigger Diffbot extraction on change
 
+## Automated Alert Workflows (Phase 1 — Live)
+
+Three Rube MCP recipes provide automated monitoring notifications via Composio integrations.
+
+| Workflow | Recipe ID | Schedule | Action |
+|----------|-----------|----------|--------|
+| Sentry→Slack Bridge | `rcp_sQ1NKouFdXIe` | Every 15 min | Fetches unresolved Sentry issues, classifies by severity, posts to Slack `#incidents` (C0AJPR769H9) |
+| Deploy Notifications | `rcp_9f8mVE2Z_DSP` | Every hour | Checks Render backend + frontend status, posts to Slack `#deployments` (C0AJPR7MQV9), creates Better Stack incident on failures |
+| GitHub→Notion Sync | `rcp_73Kc9K65YC5T` | Every 6 hours | Syncs open GitHub issues/PRs to Notion roadmap database |
+
+**Rube session**: `drew` (16 active Composio connections)
+
+**Slack channels**:
+- `#incidents` (C0AJPR769H9) — Sentry error alerts
+- `#deployments` (C0AJPR7MQV9) — Deploy status notifications
+
 ## Environment Variables
 
 | Variable | Service | Location |

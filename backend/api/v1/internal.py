@@ -197,22 +197,54 @@ async def get_observation_stats(
 
 class ScrapeRequest(BaseModel):
     supplier_urls: List[dict] = Field(
-        ..., description='[{"supplier_id": "...", "url": "..."}, ...]'
+        default_factory=list,
+        description='[{"supplier_id": "...", "url": "..."}, ...]. '
+        "If empty, auto-discovers active suppliers with websites from DB.",
     )
 
 
 @router.post("/scrape-rates", tags=["Internal"])
-async def scrape_supplier_rates(request: ScrapeRequest):
+async def scrape_supplier_rates(
+    request: ScrapeRequest = ScrapeRequest(),
+    db: AsyncSession = Depends(get_db_session),
+):
     """Scrape supplier rate pages via Diffbot Extract API.
+
+    When called with no body (or empty supplier_urls), auto-discovers active
+    suppliers from the database that have a website URL.
 
     Each URL uses 1 Diffbot credit. Rate limited to 5 calls/min.
     Free tier: 10,000 credits/month.
     """
     from services.rate_scraper_service import RateScraperService
+    from sqlalchemy import text
+
+    supplier_urls = request.supplier_urls
+
+    # Auto-discover suppliers with website URLs when no explicit list provided
+    if not supplier_urls:
+        result = await db.execute(
+            text("""
+                SELECT id, name, contact->>'website' AS website
+                FROM suppliers
+                WHERE is_active = true
+                  AND contact->>'website' IS NOT NULL
+                  AND contact->>'website' != ''
+                ORDER BY name
+            """)
+        )
+        rows = result.fetchall()
+        supplier_urls = [
+            {"supplier_id": str(row[0]), "url": row[2]}
+            for row in rows
+        ]
+
+    if not supplier_urls:
+        return {"status": "ok", "results": [], "message": "No suppliers with website URLs found"}
 
     service = RateScraperService()
-    results = await service.scrape_supplier_rates(request.supplier_urls)
-    return {"status": "ok", "results": results}
+    results = await service.scrape_supplier_rates(supplier_urls)
+    return {"status": "ok", "results": results, "total": len(results)}
 
 
 # =============================================================================
@@ -292,6 +324,42 @@ async def geocode_address(request: GeocodeRequest):
     if not result:
         raise HTTPException(status_code=404, detail="Could not geocode address")
     return {"status": "ok", "result": result}
+
+
+# =============================================================================
+# Connection Sync Scheduler
+# =============================================================================
+
+
+@router.post("/sync-connections", tags=["Internal"])
+async def sync_connections(db: AsyncSession = Depends(get_db_session)):
+    """
+    Find all active connections due for sync and trigger sync for each.
+
+    A connection is "due" when last_sync_at + sync_frequency_hours <= NOW()
+    or when it has never been synced (last_sync_at IS NULL).
+
+    Protected by the router-level X-API-Key dependency.
+    """
+    from services.connection_sync_service import ConnectionSyncService
+
+    service = ConnectionSyncService(db)
+    try:
+        results = await service.sync_all_due()
+        succeeded = sum(1 for r in results if r.get("success"))
+        failed = len(results) - succeeded
+        return {
+            "status": "ok",
+            "total": len(results),
+            "succeeded": succeeded,
+            "failed": failed,
+            "results": results,
+        }
+    except Exception as exc:
+        logger.error("sync_connections_failed", error=str(exc))
+        raise HTTPException(
+            status_code=500, detail=f"Connection sync failed: {str(exc)}"
+        )
 
 
 # =============================================================================

@@ -1,0 +1,24 @@
+name: Check Price Alerts
+
+on:
+  schedule:
+    # Every 15 minutes
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: check-alerts
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run price alert pipeline
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/check-alerts" || exit 1

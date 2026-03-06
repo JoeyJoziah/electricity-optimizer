@@ -670,3 +670,155 @@ class TestCheckAlerts:
         mock_svc.send_alerts.assert_awaited_once_with([(t1, a1)])
         # Only one history record written
         mock_svc.record_triggered_alert.assert_awaited_once()
+
+
+# =============================================================================
+# POST /internal/sync-connections
+# =============================================================================
+
+
+class TestSyncConnections:
+    """Tests for POST /api/v1/internal/sync-connections."""
+
+    @patch("services.connection_sync_service.ConnectionSyncService")
+    def test_sync_happy_path(self, mock_svc_cls, auth_client, mock_db):
+        """Syncing due connections should return totals."""
+        mock_svc = MagicMock()
+        mock_svc.sync_all_due = AsyncMock(return_value=[
+            {"connection_id": "c1", "success": True, "records": 5},
+            {"connection_id": "c2", "success": True, "records": 3},
+        ])
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/sync-connections")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["total"] == 2
+        assert data["succeeded"] == 2
+        assert data["failed"] == 0
+
+        mock_svc.sync_all_due.assert_awaited_once()
+
+    @patch("services.connection_sync_service.ConnectionSyncService")
+    def test_sync_partial_failure(self, mock_svc_cls, auth_client, mock_db):
+        """When some syncs fail, counts should reflect the split."""
+        mock_svc = MagicMock()
+        mock_svc.sync_all_due = AsyncMock(return_value=[
+            {"connection_id": "c1", "success": True, "records": 5},
+            {"connection_id": "c2", "success": False, "error": "API timeout"},
+        ])
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/sync-connections")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert data["succeeded"] == 1
+        assert data["failed"] == 1
+
+    @patch("services.connection_sync_service.ConnectionSyncService")
+    def test_sync_no_due_connections(self, mock_svc_cls, auth_client, mock_db):
+        """When no connections are due, return empty results."""
+        mock_svc = MagicMock()
+        mock_svc.sync_all_due = AsyncMock(return_value=[])
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/sync-connections")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert data["succeeded"] == 0
+        assert data["failed"] == 0
+
+    @patch("services.connection_sync_service.ConnectionSyncService")
+    def test_sync_service_error(self, mock_svc_cls, auth_client, mock_db):
+        """Service exception should return 500."""
+        mock_svc = MagicMock()
+        mock_svc.sync_all_due = AsyncMock(
+            side_effect=RuntimeError("UtilityAPI down")
+        )
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/sync-connections")
+
+        assert response.status_code == 500
+        assert "Connection sync failed" in response.json()["detail"]
+
+    def test_sync_requires_api_key(self, unauth_client):
+        """Request without X-API-Key header must be rejected."""
+        response = unauth_client.post(f"{BASE_URL}/sync-connections")
+        assert response.status_code == 401
+
+
+# =============================================================================
+# POST /internal/scrape-rates (auto-discovery)
+# =============================================================================
+
+
+class TestScrapeRatesAutoDiscovery:
+    """Tests for the auto-discovery behavior when no supplier_urls provided."""
+
+    @patch("services.rate_scraper_service.RateScraperService")
+    def test_explicit_urls(self, mock_svc_cls, auth_client, mock_db):
+        """Providing explicit supplier_urls should use them directly."""
+        mock_svc = MagicMock()
+        mock_svc.scrape_supplier_rates = AsyncMock(return_value=[
+            {"supplier_id": "s1", "extracted_data": {}, "success": True}
+        ])
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(
+            f"{BASE_URL}/scrape-rates",
+            json={"supplier_urls": [{"supplier_id": "s1", "url": "https://example.com"}]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["total"] == 1
+
+        mock_svc.scrape_supplier_rates.assert_awaited_once_with(
+            [{"supplier_id": "s1", "url": "https://example.com"}]
+        )
+
+    @patch("services.rate_scraper_service.RateScraperService")
+    def test_empty_body_auto_discovers(self, mock_svc_cls, auth_client, mock_db):
+        """Empty body should trigger DB auto-discovery of suppliers with websites."""
+        # Mock DB execute to return suppliers with websites
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [
+            ("id-1", "SupplierA", "https://a.com/rates"),
+            ("id-2", "SupplierB", "https://b.com/rates"),
+        ]
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        mock_svc = MagicMock()
+        mock_svc.scrape_supplier_rates = AsyncMock(return_value=[
+            {"supplier_id": "id-1", "success": True},
+            {"supplier_id": "id-2", "success": True},
+        ])
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/scrape-rates")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+
+    @patch("services.rate_scraper_service.RateScraperService")
+    def test_no_suppliers_found(self, mock_svc_cls, auth_client, mock_db):
+        """When no suppliers have websites, return empty results."""
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = auth_client.post(f"{BASE_URL}/scrape-rates")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["results"] == []
+        assert "No suppliers" in data.get("message", "")

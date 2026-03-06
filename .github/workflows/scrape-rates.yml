@@ -1,0 +1,25 @@
+name: Scrape Supplier Rates
+
+on:
+  schedule:
+    # Daily at 3 AM UTC (after market research at 2 AM)
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: scrape-rates
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    # 37 suppliers x 12s rate limit = ~7.5 min. Allow 15 min for safety.
+    timeout-minutes: 15
+    steps:
+      - name: Scrape all supplier rate pages
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/scrape-rates" || exit 1

@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-05 (automation plan prereqs, Gmail SMTP, OneSignal binding, Stripe fix, alert system)
+> Last validated: 2026-03-06 (Phase 1 automation live, sync-connections endpoint, timeout exclusion, weather parallelization)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -108,7 +108,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Email**: Resend (primary) + Gmail SMTP fallback (smtp.gmail.com:587, TLS, App Password). Frontend uses nodemailer for SMTP
 - **Notifications**: OneSignal push (user binding via login(userId) post-auth) + email alerts
 - **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)
-- **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md), Phase 0 prerequisites all resolved
+- **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). Phase 0 (prereqs) DONE, Phase 1 (zero-risk) COMPLETE — 3 Rube recipes live. Phase 2-3 pending
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **Board Sync**: GitHub Projects #4 + Notion roadmap (auto-sync on edits)
 
@@ -126,7 +126,8 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 ## Cron Jobs & Maintenance
 
 - **db-maintenance**: Weekly Sunday 3am UTC — database optimization, vacuum, analyze, index maintenance
-- **Planned (Phase 1-2)**: check-alerts (15min), fetch-weather (6h), market-research (daily 2am), sync-connections (2h), scrape-rates (daily) — see docs/AUTOMATION_PLAN.md
+- **Phase 1 LIVE**: Sentry→Slack (15min, `rcp_sQ1NKouFdXIe`), Deploy→Slack (hourly, `rcp_9f8mVE2Z_DSP`), GitHub→Notion (6h, `rcp_73Kc9K65YC5T`). Rube session: `drew`
+- **Phase 2 (planned)**: check-alerts (15min), fetch-weather (6h), market-research (daily 2am), sync-connections (2h), scrape-rates (daily) — see docs/AUTOMATION_PLAN.md
 
 ## Autonomous Workflow (when Loki is driving)
 

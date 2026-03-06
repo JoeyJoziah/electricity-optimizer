@@ -131,7 +131,12 @@ class TestBodySizeLimitASGI:
 # ---------------------------------------------------------------------------
 
 class TestTimeoutASGI:
-    """Verify SSE is excluded from timeout enforcement."""
+    """Verify SSE and internal paths are excluded from timeout enforcement."""
+
+    def test_internal_paths_excluded_from_timeout(self, client, mock_auth):
+        """Internal batch endpoints should bypass the 30s timeout middleware."""
+        from app_factory import RequestTimeoutMiddleware
+        assert "/api/v1/internal/" in RequestTimeoutMiddleware.TIMEOUT_EXCLUDED_PREFIXES
 
     def test_sse_endpoint_excluded_from_timeout(self, client, mock_auth):
         """SSE endpoint should not be killed by timeout middleware.

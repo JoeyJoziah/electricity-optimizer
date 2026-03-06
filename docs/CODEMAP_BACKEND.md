@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-05 (alert dedup pipeline, payment_failed user resolution via stripe_customer_id, test count 1407; prior: DB audit, migration 023, bulk_create, check_thresholds O(n+m), meter_number fix)
+> Last updated: 2026-03-06 (sync-connections endpoint, timeout middleware exclusion for /internal/*, weather parallelization; prior: alert dedup pipeline, payment_failed user resolution, test count 1407)
 
 ## Directory Structure
 
@@ -48,7 +48,7 @@ backend/
 │       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
 │       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
 │       ├── users.py                 # User profile management (get, update, delete account)
-│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline)
+│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline), sync-connections (batch sync scheduler), geocode-address
 │
 ├── routers/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
@@ -684,7 +684,7 @@ Applied in reverse order (last added = first executed):
 1. **TracingMiddleware** -- Request tracing with correlation IDs, timing, structured logging
 2. **Request ID + Timing** -- UUID per request, X-Process-Time header (dev only)
 3. **Metrics Auth** -- API key required for `/metrics` endpoint
-4. **RequestTimeoutMiddleware** -- 30s timeout per request (SSE `/prices/stream` excluded); pure ASGI with `asyncio.wait_for`
+4. **RequestTimeoutMiddleware** -- 30s timeout per request (SSE `/prices/stream` and `/api/v1/internal/*` excluded); pure ASGI with `asyncio.wait_for`
 5. **RequestBodySizeLimitMiddleware** -- 1 MB limit (10 MB for `/connections/upload`); pure ASGI with Content-Length fast path + chunked `counting_receive` wrapper
 6. **RateLimitMiddleware** -- Per-user/IP sliding window (Redis or in-memory fallback); pure ASGI, extracts identifier from raw `scope["headers"]`
 7. **SecurityHeadersMiddleware** -- CSP, HSTS, X-Frame-Options, Permissions-Policy, cache-control for `/api/*`; pure ASGI

@@ -162,11 +162,17 @@ class RequestBodySizeLimitMiddleware:
 
 
 class RequestTimeoutMiddleware:
-    """Enforce a per-request wall-clock timeout.  SSE streaming is excluded.
+    """Enforce a per-request wall-clock timeout.
+
+    Excluded paths (no timeout):
+    - ``/prices/stream`` — SSE streaming
+    - ``/api/v1/internal/`` — batch jobs with different latency profiles
 
     Pure ASGI middleware — does not buffer responses, so it is safe alongside
     SSE and other long-lived streaming endpoints.
     """
+
+    TIMEOUT_EXCLUDED_PREFIXES = ("/api/v1/internal/",)
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -180,6 +186,11 @@ class RequestTimeoutMiddleware:
 
         # SSE endpoint must never be subject to a hard timeout
         if path.endswith("/prices/stream"):
+            await self.app(scope, receive, send)
+            return
+
+        # Internal batch jobs (scraping, syncing) need longer execution times
+        if any(path.startswith(p) for p in self.TIMEOUT_EXCLUDED_PREFIXES):
             await self.app(scope, receive, send)
             return
 

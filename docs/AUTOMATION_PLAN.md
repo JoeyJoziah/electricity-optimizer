@@ -1,7 +1,7 @@
 # Automation Workflows — Implementation Plan
 
 > Generated: 2026-03-05
-> Status: REVISE (4 prerequisite blockers must be resolved before user-facing workflows go live)
+> Status: IN_PROGRESS — Phase 0 DONE, Phase 1 COMPLETE, Phase 2 IN PROGRESS
 > Source: Multi-agent brainstorming (5 agents: Designer, Skeptic, Constraint Guardian, User Advocate, Arbiter)
 
 ## Executive Summary
@@ -11,65 +11,58 @@
 
 ---
 
-## Prerequisite Blockers (Phase 0)
+## Prerequisite Blockers (Phase 0) — ALL RESOLVED ✅ (2026-03-05)
 
-### B1: Resend Domain Verification
-- **Problem**: Currently using `onboarding@resend.dev` (Resend sandbox). Can only deliver to account email (`autodailynewsletterintake@gmail.com`). All real users get no emails.
-- **Fix**: Purchase domain, verify in Resend (DKIM/SPF/DMARC DNS records), update `EMAIL_FROM_ADDRESS` in Vercel env + `frontend/lib/email/send.ts` + `backend/config/settings.py`
-- **Effort**: 2-4 hours
-- **Blocks**: Workflows 2, 3, 6
+### B1: Email Delivery ✅
+- **Resolution**: Gmail SMTP fallback added (smtp.gmail.com:587, TLS, App Password). `frontend/lib/email/send.ts` uses Resend primary → nodemailer SMTP fallback. Env vars on Render + Vercel.
+- **Note**: Resend domain purchase still recommended for production (custom from address, DKIM/SPF/DMARC). Gmail SMTP unblocks all workflows.
 
-### B2: OneSignal User Binding
-- **Problem**: `frontend/lib/notifications/onesignal.ts` calls `OneSignal.init()` but never `OneSignal.login(userId)`. Backend targets pushes via `include_external_user_ids: [user_id]` — but OneSignal has no mapping from user_id to push subscription.
-- **Fix**: After successful authentication (post-login), call `OneSignal.login(userId)`. Best location: `useAuth` hook or auth callback.
-- **Effort**: 1 hour
-- **Blocks**: Workflows 2, 3
+### B2: OneSignal User Binding ✅
+- **Resolution**: `loginOneSignal(userId)` / `logoutOneSignal()` added to `frontend/lib/notifications/onesignal.ts`, wired in `useAuth.tsx` post-auth. +4 tests.
 
-### B3: Stripe User ID Resolution
-- **Problem**: `stripe_service.py` `payment_failed` handler extracts `customer_id` from invoice but never resolves `user_id`. No `get_by_stripe_customer_id()` method exists in user repository. `apply_webhook_action()` returns `False` because `user_id` is never set.
-- **Fix**:
-  1. Add `UserRepository.get_by_stripe_customer_id(customer_id: str) -> Optional[User]`
-  2. In `payment_failed` handler, resolve user via `stripe_customer_id` column (indexed in migration 004)
-  3. Set `result["user_id"]` before returning
-- **Effort**: 2 hours
-- **Blocks**: Workflow 3
+### B3: Stripe User ID Resolution ✅
+- **Resolution**: `get_by_stripe_customer_id()` added to `user_repository.py`. `apply_webhook_action()` in `stripe_service.py` now resolves user for `payment_failed` events. +6 tests.
 
-### B4: Alert System Wiring
-- **Problem**: `check_thresholds()` and `send_alerts()` exist in `alert_service.py` but are never called from any endpoint. No deduplication — same breach triggers repeated notifications. `notification_frequency` field on user model is never enforced.
-- **Fix**:
-  1. Create `/internal/check-alerts` endpoint (API-key-protected)
-  2. Wire: load active `price_alert_configs` → fetch current prices → `check_thresholds()` → deduplicate against `alert_history` → `send_alerts()` → `record_triggered_alert()`
-  3. Implement cooldown: query `alert_history` for recent alerts of same type/region/user. Minimum 1 hour for `immediate`, respect `notification_frequency` otherwise
-- **Effort**: 4 hours
-- **Blocks**: Workflow 2
+### B4: Alert System Wiring ✅
+- **Resolution**: `POST /internal/check-alerts` endpoint with full pipeline: load configs → fetch prices → check thresholds → dedup (cooldown: immediate=1h, daily=24h, weekly=7d) → send → record. +8 tests.
 
 ---
 
-## Phase 1: Zero-Risk Integrations (Week 1, parallel with Phase 0)
+## Phase 1: Zero-Risk Integrations — COMPLETE ✅ (2026-03-06)
 
-These require no application code changes. Pure external integrations via Composio/Rube recipes.
+All 3 workflows live via Rube recipes. No application code changes required.
 
-### Workflow 4: Sentry-to-Slack Bridge
-- **Trigger**: Sentry webhook (new error event)
-- **Action**: Format error details → post to Slack `#incidents` channel
-- **Implementation**: Rube recipe using `SENTRY_*` + `SLACKBOT_SEND_SLACK_MESSAGE`
-- **Routing**: P0/P1 errors to `#incidents`, P2/P3 to weekly digest
-- **Effort**: 1 hour
-- **Risk**: None
+### Workflow 4: Sentry-to-Slack Bridge ✅
+- **Recipe**: `rcp_sQ1NKouFdXIe` ([view](https://rube.app/recipe-hub/sentry-to-slack-bridge))
+- **Schedule**: Every 15 min (`*/15 * * * *`), ID: `2bbd63bd-0a7f-401b-a0e4-12f8d19c873f`
+- **Action**: Fetches unresolved Sentry issues → classifies P0/P1 (critical) vs P2/P3 (digest) → posts to Slack `#incidents` (C0AJPR769H9)
+- **Tools**: `SENTRY_LIST_AN_ORGANIZATIONS_ISSUES` (with required `start`/`end` params) + `SLACK_SEND_MESSAGE`
+- **Test result**: 0 issues found, "All Clear" posted to #incidents
 
-### Workflow 5: Deploy Notifications
-- **Trigger**: Render/Vercel deploy webhook (status change)
-- **Action**: Post deploy status to Slack `#deployments` + update Better Stack
-- **Implementation**: Rube recipe using `RENDER_*` + `VERCEL_*` + `SLACKBOT_*` + `BETTER_STACK_*`
-- **Effort**: 1-2 hours
-- **Risk**: None
+### Workflow 5: Deploy Notifications ✅
+- **Recipe**: `rcp_9f8mVE2Z_DSP` ([view](https://rube.app/recipe-hub/deploy-notifications))
+- **Schedule**: Every hour (`0 * * * *`), ID: `06777ec8-c936-4a79-941b-36ed57d449e7`
+- **Action**: Checks Render backend + frontend status → posts to Slack `#deployments` (C0AJPR7MQV9) → creates Better Stack incident on failures (status page 239822)
+- **Tools**: `RENDER_LIST_SERVICES` + `SLACK_SEND_MESSAGE` + `BETTER_STACK_CREATE_STATUS_PAGE_REPORT`
+- **Test result**: Backend OK, Frontend OK, no incident created
 
-### Workflow 9: Notion Roadmap Sync
-- **Trigger**: Cron (every 6 hours) or GitHub webhook (project card change)
-- **Action**: Sync GitHub Projects #4 board items to Notion roadmap
-- **Implementation**: Existing `.claude/hooks/board-sync/` scripts + Rube recipe wrapper
-- **Effort**: 1 hour
-- **Risk**: None
+### Workflow 9: Notion Roadmap Sync ✅
+- **Recipe**: `rcp_73Kc9K65YC5T` ([view](https://rube.app/recipe-hub/github-notion-roadmap-sync))
+- **Schedule**: Every 6 hours (`0 */6 * * *`), ID: `8bfb807b-64d3-4694-8f12-6f9bdf569d5a`
+- **Action**: Fetches open GitHub issues/PRs via GraphQL → maps labels to priority/category → inserts into Notion roadmap database (24bcbe22-37de-449f-b694-3544f0d864e3)
+- **Tools**: `GITHUB_RUN_GRAPH_QL_QUERY` + `NOTION_INSERT_ROW_DATABASE`
+- **Test result**: 2/2 issues synced, 0/0 PRs synced
+
+### Infrastructure Created
+- Slack `#incidents` channel: C0AJPR769H9
+- Slack `#deployments` channel: C0AJPR7MQV9
+- Rube session: `drew` (16 active Composio connections)
+
+### API Learnings
+- Sentry `SENTRY_LIST_AN_ORGANIZATIONS_ISSUES`: `start` and `end` params are REQUIRED; `sort` must be date|freq|inbox|new|trends|user (NOT "priority")
+- Slack: Use `SLACK_SEND_MESSAGE` (not `SLACKBOT_SEND_A_MESSAGE_TO_A_SLACK_CHANNEL`); requires channel ID not name
+- Notion `NOTION_INSERT_ROW_DATABASE`: `data` dict with property names as keys; select fields need `{"name": "value"}` format
+- Notion `NOTION_UPSERT_ROW_DATABASE`: requires `items[]` with `match`/`create.properties`/`update.properties` (complex format)
 
 ---
 

@@ -137,20 +137,26 @@ class WeatherService:
     ) -> dict[str, dict]:
         """Fetch current weather for multiple US state regions.
 
-        Budget: 1 call per region. 51 regions = 51 calls/day (5.1% of daily limit).
+        Uses asyncio.gather with a Semaphore(10) to parallelize calls while
+        staying within rate limits. Budget: 1 call per region.
+        51 regions = 51 calls/day (5.1% of daily limit).
         """
+        sem = asyncio.Semaphore(10)
         results: dict[str, dict] = {}
-        for region in regions:
+
+        async def _fetch_one(region: str) -> None:
             coords = STATE_COORDS.get(region)
             if not coords:
-                continue
-            try:
-                weather = await self.get_current_weather(*coords)
-                if weather:
-                    results[region] = weather
-            except Exception as e:
-                logger.warning(
-                    "weather_fetch_failed", region=region, error=str(e)
-                )
-            await asyncio.sleep(0.1)  # Gentle throttle
+                return
+            async with sem:
+                try:
+                    weather = await self.get_current_weather(*coords)
+                    if weather:
+                        results[region] = weather
+                except Exception as e:
+                    logger.warning(
+                        "weather_fetch_failed", region=region, error=str(e)
+                    )
+
+        await asyncio.gather(*[_fetch_one(r) for r in regions])
         return results
