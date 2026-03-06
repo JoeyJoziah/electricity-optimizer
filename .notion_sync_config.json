@@ -1,14 +1,13 @@
 {
   "notion": {
-    "database_id": "24bcbe22-37de-449f-b694-3544f0d864e3",
-    "database_name": "Electricity Optimizer - Project Roadmap",
-    "database_url": "https://www.notion.so/24bcbe2237de449fb6943544f0d864e3",
+    "hub_page_id": "31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7",
+    "project_tracker_id": "31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f",
+    "automation_workflows_id": "31bb9fc9-1d9d-81ba-bb42-cf59a7abe679",
+    "architecture_decisions_id": "31bb9fc9-1d9d-8174-bb56-c73d65fc3a0e",
+    "old_database_id": "24bcbe22-37de-449f-b694-3544f0d864e3",
     "api_key_path": "~/.config/notion/api_key",
-    "sync_interval_minutes": 15
-  },
-  "local": {
-    "todo_file": "TODO.md",
-    "project_root": "/Users/devinmcgrath/projects/electricity-optimizer"
+    "sync_method": "rube_recipe_only",
+    "sync_note": "Notion sync handled exclusively by Rube recipe rcp_73Kc9K65YC5T (every 6h). Local hooks and GHA workflows removed 2026-03-06."
   },
   "github": {
     "enabled": true,
@@ -19,44 +18,42 @@
     "closed_lookback_days": 30
   },
   "field_mappings": {
-    "title": "Title",
+    "title": "Name",
     "status": "Status",
     "phase": "Phase",
     "priority": "Priority",
     "category": "Category",
     "milestone": "Milestone",
-    "assignee": "Assignee",
-    "start_date": "Start Date",
-    "due_date": "Due Date",
-    "progress": "Progress",
+    "date_completed": "Date Completed",
+    "tests_added": "Tests Added",
+    "github_url": "GitHub URL",
+    "commit": "Commit",
     "notes": "Notes",
-    "github_issue": "GitHub Issue",
-    "related_prs": "Related PRs"
+    "source": "Source"
   },
   "status_mapping": {
     "not_started": "Not Started",
-    "planning": "Planning",
     "in_progress": "In Progress",
+    "done": "Done",
     "blocked": "Blocked",
-    "review": "Review",
-    "done": "Done"
+    "archived": "Archived"
   },
   "github_label_mappings": {
     "priority": {
-      "critical": "Critical",
-      "priority: critical": "Critical",
-      "priority: high": "High",
-      "high": "High",
-      "priority: medium": "Medium",
-      "medium": "Medium",
-      "priority: low": "Low",
-      "low": "Low"
+      "critical": "P0-Critical",
+      "priority: critical": "P0-Critical",
+      "priority: high": "P1-High",
+      "high": "P1-High",
+      "priority: medium": "P2-Medium",
+      "medium": "P2-Medium",
+      "priority: low": "P3-Low",
+      "low": "P3-Low"
     },
     "category": {
       "backend": "Backend",
       "frontend": "Frontend",
-      "data/ml": "Data/ML",
-      "ml": "Data/ML",
+      "data/ml": "ML",
+      "ml": "ML",
       "infrastructure": "Infrastructure",
       "infra": "Infrastructure",
       "security": "Security",
@@ -64,7 +61,12 @@
       "documentation": "Documentation",
       "docs": "Documentation",
       "bug": "Backend",
-      "enhancement": "Backend"
+      "enhancement": "Backend",
+      "automation": "Automation",
+      "auth": "Auth",
+      "billing": "Billing",
+      "connections": "Connections",
+      "ui/ux": "UI/UX"
     }
   },
   "github_project": {
@@ -72,5 +74,6 @@
     "owner": "JoeyJoziah"
   },
   "created_at": "2026-02-06T20:55:09.789Z",
-  "version": "1.1.0"
+  "rebuilt_at": "2026-03-06T00:00:00.000Z",
+  "version": "2.0.0"
 }

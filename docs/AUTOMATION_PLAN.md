@@ -49,7 +49,7 @@ All 3 workflows live via Rube recipes. No application code changes required.
 ### Workflow 9: Notion Roadmap Sync ✅
 - **Recipe**: `rcp_73Kc9K65YC5T` ([view](https://rube.app/recipe-hub/github-notion-roadmap-sync))
 - **Schedule**: Every 6 hours (`0 */6 * * *`), ID: `8bfb807b-64d3-4694-8f12-6f9bdf569d5a`
-- **Action**: Fetches open GitHub issues/PRs via GraphQL → maps labels to priority/category → inserts into Notion roadmap database (24bcbe22-37de-449f-b694-3544f0d864e3)
+- **Action**: Fetches open GitHub issues/PRs via GraphQL → maps labels to priority/category → inserts into Notion Project Tracker database (31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f)
 - **Tools**: `GITHUB_RUN_GRAPH_QL_QUERY` + `NOTION_INSERT_ROW_DATABASE`
 - **Test result**: 2/2 issues synced, 0/0 PRs synced
 

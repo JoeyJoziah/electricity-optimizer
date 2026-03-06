@@ -85,7 +85,6 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
 | nightly-learning.yml | `0 4 * * *` | Adaptive learning: accuracy, bias detection, weight tuning |
 | model-retrain.yml | Weekly Sun 2AM UTC | ML model retraining pipeline |
-| notion-sync.yml | Events + every 30min | GitHub-Notion roadmap sync |
 | keepalive.yml | Every 14min | Render backend keep-alive ping |
 | code-analysis.yml | PRs to main | Claude Flow diff risk, complexity, security analysis |
 | check-alerts.yml | Every 15 min | Price alert pipeline (Phase 2) |
@@ -112,15 +111,14 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 
 ### Board Sync (Local Automation)
 
-The board-sync system keeps GitHub Projects board #4 and the Notion roadmap in sync with development activity. It runs locally via git hooks and Claude Code hooks.
+The board-sync system keeps GitHub Projects board #4 in sync with development activity. It runs locally via git hooks and Claude Code hooks. **Notion sync is handled exclusively by Rube recipe `rcp_73Kc9K65YC5T` (every 6h) — no local hooks or GHA workflows.**
 
 **Orchestrator:** `.claude/hooks/board-sync/sync-boards.sh`
 
 | Subcommand | Description |
 |------------|-------------|
-| `all` | Sync GitHub Projects + Notion (default) |
+| `all` | Sync GitHub Projects (default) |
 | `github` | Sync GitHub Projects only |
-| `notion` | Sync Notion only (delegates to `scripts/github_notion_sync.py`) |
 | `status` | Show last sync time, lock state, queue depth |
 | `logs` | Tail sync log (`.claude/logs/board-sync.log`) |
 | `queue` | Show queued sync requests |
@@ -148,36 +146,19 @@ The board-sync system keeps GitHub Projects board #4 and the Notion roadmap in s
 
 **Config:** GitHub project number and owner stored in `.notion_sync_config.json` under the `github_project` key.
 
-**Notion Database Schema:**
+**Notion Integration (2026-03-06 Rebuild):**
 
-The Notion roadmap database has 13 properties, provisioned by `scripts/notion_setup_schema.py`:
+Notion sync was rebuilt on 2026-03-06. The old local sync scripts (`notion_sync.py`, `github_notion_sync.py`, `notion_setup_schema.py`) and GHA workflow (`notion-sync.yml`) were deleted. Notion is now synced exclusively via Rube recipe `rcp_73Kc9K65YC5T` (every 6h, GitHub -> Notion).
 
-| Property | Type | Notes |
-|----------|------|-------|
-| Title | title | Renamed from Notion default `Name` |
-| Status | select | Not Started, Planning, In Progress, Blocked, Review, Done |
-| Phase | select | Phase 1-5 (Backend, Frontend, Data/ML, Infrastructure, Security) |
-| Priority | select | Critical, High, Medium, Low |
-| Category | select | Backend, Frontend, Data/ML, Infrastructure, Security, Testing, Documentation |
-| Milestone | select | MVP, Beta, v1.0 |
-| Assignee | select | Dynamic |
-| Start Date | date | -- |
-| Due Date | date | -- |
-| Progress | number | Percent format |
-| Notes | rich_text | -- |
-| GitHub Issue | url | Links to GitHub issue |
-| Related PRs | url | Links to GitHub PR |
+| Resource | ID |
+|----------|-----|
+| Hub Page | `31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7` |
+| Project Tracker DB | `31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f` (32 entries) |
+| Automation Workflows DB | `31bb9fc9-1d9d-81ba-bb42-cf59a7abe679` (11 entries) |
+| Architecture Decisions DB | `31bb9fc9-1d9d-8174-bb56-c73d65fc3a0e` (15 entries) |
+| Old Database (archived) | `24bcbe22-37de-449f-b694-3544f0d864e3` |
 
-**Sync Scripts:**
-
-| Script | Source | Trigger |
-|--------|--------|---------|
-| `scripts/notion_setup_schema.py` | -- | Manual (one-time setup, idempotent) |
-| `scripts/notion_sync.py --once` | TODO.md | Board-sync orchestrator / manual |
-| `scripts/github_notion_sync.py --mode full` | GitHub API | Scheduled (every 30 min) / manual |
-| `scripts/github_notion_sync.py --mode event` | GitHub webhook | `notion-sync.yml` on issue/PR events |
-
-**API Version:** All scripts use Notion API version `2022-06-28`. Version `2025-09-03` omits `properties` from database responses and must not be used.
+**Setup script:** `scripts/notion_hub_setup.py` (rerunnable — detects existing hub page).
 
 ### Supplier Registry Caching
 
@@ -255,9 +236,9 @@ All services communicate over the internal Docker bridge network. Only the follo
 | Preview Branch | `vercel-dev` (br-little-salad-ainqjnuj) — for Vercel preview deployments |
 | Pooled Endpoint | `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (PgBouncer) |
 | Direct Endpoint | `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (for DDL/migrations) |
-| Public Tables | 20 (see CODEMAP_BACKEND.md for full list) |
+| Public Tables | 21 (see CODEMAP_BACKEND.md for full list) |
 | Auth Tables | 9 (neon_auth schema — managed by Better Auth) |
-| Migrations | Up to migration 023 (as of 2026-03-05) |
+| Migrations | Up to migration 024 (as of 2026-03-06) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 

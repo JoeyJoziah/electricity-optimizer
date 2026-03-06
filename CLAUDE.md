@@ -110,7 +110,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)
 - **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). Phase 0 (prereqs) DONE, Phase 1 (zero-risk) COMPLETE — 3 Rube recipes live. Phase 2 COMPLETE — 5 GHA cron workflows. Phase 3 COMPLETE — Stripe dunning + KPI report (2 GHA cron workflows + 2 endpoints + migration 024). 7/7 approved workflows done
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
-- **Board Sync**: GitHub Projects #4 + Notion roadmap (auto-sync on edits)
+- **Board Sync**: GitHub Projects #4 (local hooks). Notion via Rube recipe only (every 6h, rcp_73Kc9K65YC5T). Hub page: `31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7`, Tracker DB: `31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f`
 
 ## Critical Reminders
 
@@ -147,7 +147,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 After every completed task, automatically:
 1. Run affected test suites
 2. Update docs/codemaps if code changed
-3. Trigger board sync (GitHub Projects + Notion)
+3. Trigger board sync (GitHub Projects only — Notion via Rube recipe)
 4. Persist memory to Claude Flow
 5. Extract learning patterns
 6. Commit with descriptive message + Co-Authored-By headers

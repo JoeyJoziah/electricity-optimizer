@@ -1,6 +1,6 @@
 # Loki Mode Integration Architecture
 
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-06
 **Loki Version:** v5.53.0
 **Provider:** Claude (Opus 4.6)
 
@@ -11,9 +11,9 @@
 Loki Mode provides autonomous RARV (Research, Act, Review, Verify) orchestration
 for the Electricity Optimizer project. It integrates with Claude Flow for persistent
 memory, AgentDB for vector-backed semantic search, and the board sync pipeline for
-GitHub Projects and Notion synchronization. The system runs as an MCP server
-registered in `.mcp.json` and activates automatically on each Claude Code session
-via shell hooks.
+GitHub Projects synchronization. Notion sync is handled separately by Rube recipe
+`rcp_73Kc9K65YC5T` (every 6h). The system runs as an MCP server registered in
+`.mcp.json` and activates automatically on each Claude Code session via shell hooks.
 
 ### Integration chain
 
@@ -22,7 +22,8 @@ Loki Mode (MCP server)
   --> Claude Flow (daemon + 384-dim vector memory)
   --> AgentDB (HNSW vector store)
   --> Board Sync (sync-boards.sh)
-  --> GitHub Projects #4 + Notion Roadmap
+  --> GitHub Projects #4
+  --> Notion (via Rube recipe rcp_73Kc9K65YC5T, every 6h — not local hooks)
 ```
 
 ---
@@ -391,10 +392,11 @@ ls .loki/events/pending/*.json 2>/dev/null | wc -l   # check count
 after completed cycles. Check `.loki/learning/signals/` for JSON files, then
 manually store via `npx claude-flow memory store -k "loki_manual_sync" -v "..." --namespace project`.
 
-**Board sync not triggering** -- GitHub/Notion not updated:
+**Board sync not triggering** -- GitHub Projects not updated:
 1. Check executable: `ls -la .claude/hooks/board-sync/sync-boards.sh`
 2. Check log: `.claude/logs/loki-board-sync.log`
-3. Verify auth: `gh auth status` and `cat ~/.config/notion/api_key`
+3. Verify auth: `gh auth status`
+4. Note: Notion sync is via Rube recipe only (not local hooks). Check recipe `rcp_73Kc9K65YC5T` status in Rube dashboard
 
 ---
 

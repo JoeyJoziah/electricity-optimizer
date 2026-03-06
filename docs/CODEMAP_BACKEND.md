@@ -996,9 +996,7 @@ with `credentials: 'include'` for cookie-based session auth.
 | `deploy.sh` | One-command deployment (validates `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `INTERNAL_API_KEY`) |
 | `health-check.sh` | Service health verification: Backend API, Frontend, Redis (configurable via `REDIS_HOST`/`REDIS_PORT`) |
 | `db_maintenance.py` | Scheduled database maintenance cron job. Runs `cleanup_old_prices(365)` and `cleanup_old_observations(90)` via asyncpg. Designed for Render cron jobs |
-| `notion_setup_schema.py` | Idempotent Notion database schema provisioning (13 properties). Supports `--dry-run` |
-| `notion_sync.py` | Syncs TODO.md tasks to Notion (`--once` or continuous). Uses `database_id` query endpoint |
-| `github_notion_sync.py` | Syncs GitHub issues/PRs to Notion roadmap (`--mode full` or `--mode event`) |
+| `notion_hub_setup.py` | Creates Notion Hub page + 3 databases (Project Tracker, Automation Workflows, Architecture Decisions). Rerunnable — detects existing hub page. Outputs `.notion_hub_ids.json` |
 | `install-hooks.sh` | Installs git hooks from `.claude/hooks/board-sync/` templates |
 | `loki-feature.sh` | Automated feature pipeline: PRD → branch → RARV → verify → draft PR |
 | `loki-decompose.py` | Parse PRD markdown into JSON task list for RARV orchestrator |
@@ -1010,7 +1008,7 @@ Local board-sync infrastructure. See [Infrastructure](./INFRASTRUCTURE.md#board-
 
 | File | Purpose |
 |------|---------|
-| `sync-boards.sh` | Central orchestrator (lock, debounce, queue, GitHub + Notion sync) |
+| `sync-boards.sh` | Central orchestrator (lock, debounce, queue, GitHub Projects sync). Notion sync removed 2026-03-06 — handled by Rube recipe only |
 | `activate-orchestration.sh` | Claude PreToolUse hook — Claude Flow MCP detect + Loki init + hooks pretrain |
 | `session-end-orchestration.sh` | Claude Stop hook — state persist + SONA metrics export + marker cleanup |
 | `post-edit-sync.sh` | Claude PostToolUse hook — queues sync on Edit/Write/MultiEdit |

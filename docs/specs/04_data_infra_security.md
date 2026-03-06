@@ -142,7 +142,7 @@ PSEUDOCODE redis_usage:
 | `price-sync.yml`       | cron 0 */6 * * *                 | POST /prices/refresh with X-API-Key header |
 | `model-retrain.yml`    | cron Sunday 2AM                  | ML pipeline validation with production data |
 | `keepalive.yml`        | cron */14 * * * *                | Ping /health (prevents Render free-tier spin-down) |
-| `notion-sync.yml`      | issue/PR events + */30 * * * *   | Sync GitHub issues/PRs to Notion database |
+| ~~`notion-sync.yml`~~  | ~~issue/PR events + */30 * * * *~~ | **DELETED** (2026-03-06). Notion sync now via Rube recipe `rcp_73Kc9K65YC5T` every 6h |
 
 ```
 PSEUDOCODE deploy_production_pipeline:

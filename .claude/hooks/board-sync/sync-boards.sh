@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # sync-boards.sh — Central board-sync orchestrator
-# Syncs GitHub Projects + Notion from git/Claude hooks
+# Syncs GitHub Projects from git/Claude hooks
+# (Notion sync removed 2026-03-06 — now via Rube recipe only)
 #
 # Usage:
 #   sync-boards.sh [subcommand] [flags]
 #
 # Subcommands:
-#   all       (default) Sync GitHub Projects + Notion
+#   all       (default) Sync GitHub Projects
 #   github    Sync GitHub Projects only
-#   notion    Sync Notion only
+#   notion    (deprecated — prints notice)
 #   status    Show last sync time and state
 #   logs      Tail the sync log
 #   queue     Show queued sync requests
@@ -154,45 +155,17 @@ sync_github() {
 }
 
 # ---------------------------------------------------------------------------
-# Notion sync (delegates to existing script)
+# Notion sync — REMOVED (2026-03-06)
+# Notion sync is now handled exclusively by Rube recipe (every 6h).
+# Local hooks no longer touch Notion to avoid deadlocks and 400 errors.
+# See: Electricity Optimizer Hub in Notion
 # ---------------------------------------------------------------------------
-sync_notion() {
-    log "Starting Notion sync"
-
-    local sync_script="$REPO_ROOT/scripts/github_notion_sync.py"
-    if [[ ! -f "$sync_script" ]]; then
-        log "WARN: $sync_script not found, skipping Notion sync"
-        echo "[board-sync] Warning: github_notion_sync.py not found, skipping Notion sync."
-        return 0
-    fi
-
-    # Prefer project venv, fall back to system python3
-    local python_cmd="python3"
-    if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
-        python_cmd="$REPO_ROOT/.venv/bin/python"
-    fi
-
-    if ! command -v "$python_cmd" &>/dev/null && [[ "$python_cmd" == "python3" ]]; then
-        log "WARN: python3 not found, skipping Notion sync"
-        echo "[board-sync] Warning: python3 not found, skipping Notion sync."
-        return 0
-    fi
-
-    if "$python_cmd" "$sync_script" --mode full >> "$LOG_FILE" 2>&1; then
-        log "Notion sync complete"
-        echo "[board-sync] Notion sync complete."
-    else
-        log "WARN: Notion sync failed (exit $?)"
-        echo "[board-sync] Warning: Notion sync encountered errors (check logs)."
-    fi
-}
 
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
 cmd_all() {
     sync_github
-    sync_notion
     record_sync_time
     log "Full sync complete"
 }
@@ -204,9 +177,8 @@ cmd_github() {
 }
 
 cmd_notion() {
-    sync_notion
-    record_sync_time
-    log "Notion-only sync complete"
+    echo "[board-sync] Notion sync removed. Notion is now synced via Rube recipe (every 6h)."
+    log "Notion sync skipped (removed — use Rube recipe)"
 }
 
 cmd_status() {
