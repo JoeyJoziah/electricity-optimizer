@@ -28,7 +28,6 @@ import pytest
 
 from services.savings_service import SavingsService
 
-
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -318,8 +317,8 @@ class TestGetSavingsHistory:
         """A user with no records should get an empty items list."""
         db.execute = AsyncMock(
             side_effect=[
-                _make_scalar(0),         # COUNT
-                _make_mapping_all([]),   # paginated rows
+                _make_scalar(0),  # COUNT
+                _make_mapping_all([]),  # paginated rows
             ]
         )
 
