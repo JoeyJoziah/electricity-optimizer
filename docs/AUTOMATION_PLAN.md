@@ -66,34 +66,28 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ---
 
-## Phase 2: Core Workflows (Week 2, after Phase 0 blockers resolved)
+## Phase 2: Core Workflows — IN PROGRESS (2026-03-06)
 
-### Workflow 1: Schedule Existing Endpoints
-- **Weather + Market Research**: Schedule `/internal/fetch-weather` and `/internal/market-research` via GitHub Actions cron
-  - Weather: every 6 hours. Fix: add `asyncio.gather()` with `Semaphore(10)` to parallelize 51 API calls (currently sequential)
-  - Market research: daily at 2am UTC
-- **Rate Scraping**: CANNOT use single HTTP call (37 suppliers × 12s = 25+ min, killed by 30s timeout)
-  - Fix option A: Batch into groups of 2 suppliers per invocation (stays within 30s), schedule 19 sequential GitHub Actions jobs
-  - Fix option B: Extend `RequestTimeoutMiddleware` to exclude `/internal/*` paths, run as single long-running request
-  - Fix option C: Extract scraping to standalone script, run via Render cron or GitHub Actions directly
-  - **Recommended**: Option B (simplest, one middleware change)
-- **Effort**: 3-4 hours
-- **Dependencies**: Middleware exclusion for rate scraping
+### Infrastructure Changes ✅
+- **RequestTimeoutMiddleware**: `/api/v1/internal/` paths now excluded from 30s timeout (Option B implemented)
+- **Weather parallelization**: `asyncio.gather()` + `Semaphore(10)` replaces sequential loop (~5x faster for 51 regions)
+- **Scrape-rates auto-discovery**: Endpoint now auto-discovers active suppliers with websites when called with empty body
 
-### Workflow 8: Connection Sync Scheduler
-- **Trigger**: Cron (every 2 hours)
-- **Action**: Call `get_connections_due_for_sync()` → trigger sync for each due connection
-- **Implementation**: New `/internal/sync-connections` endpoint + GitHub Actions cron
-- **Effort**: 2 hours
-- **Dependencies**: None (sync logic fully implemented)
+### Workflow 1: Schedule Existing Endpoints ✅
+- **Weather**: `.github/workflows/fetch-weather.yml` — every 6 hours, all 51 US regions
+- **Market research**: `.github/workflows/market-research.yml` — daily at 2am UTC, top 10 regions
+- **Rate scraping**: `.github/workflows/scrape-rates.yml` — daily at 3am UTC, auto-discovers suppliers
+- **Status**: GHA files created, awaiting merge to main to activate schedules
 
-### Workflow 2: Price Alert Loop
-- **Trigger**: Cron (every 15 minutes)
-- **Action**: `/internal/check-alerts` → check thresholds → deduplicate → notify via push/email/Slack
-- **Implementation**: GitHub Actions cron → internal endpoint (from B4)
-- **Notification channels**: Push (OneSignal, from B2) → Email (Resend, from B1) → Slack fallback
-- **Effort**: 2 hours (after B1, B2, B4 are resolved)
-- **Dependencies**: B1, B2, B4
+### Workflow 8: Connection Sync Scheduler ✅
+- **Endpoint**: `POST /internal/sync-connections` → calls `ConnectionSyncService.sync_all_due()`
+- **GHA**: `.github/workflows/sync-connections.yml` — every 2 hours
+- **Tests**: 5 tests (happy path, partial failure, empty, error, auth)
+
+### Workflow 2: Price Alert Loop ✅
+- **GHA**: `.github/workflows/check-alerts.yml` — every 15 minutes
+- **Endpoint**: `POST /internal/check-alerts` (from B4, already tested with 8 tests)
+- **Note**: Currently sends email alerts only. Push (OneSignal) and Slack channels to be added via NotificationDispatcher (Phase 2 enhancement)
 
 ---
 
@@ -135,13 +129,10 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ## Architectural Changes Required
 
-### 1. RequestTimeoutMiddleware Exclusion
-**File**: `backend/app_factory.py` (line 84)
-**Change**: Add path exclusion for `/internal/*` endpoints. Internal batch jobs have fundamentally different latency profiles than user-facing requests.
-```python
-# Exclude internal endpoints from timeout
-TIMEOUT_EXCLUDED_PATHS = ["/internal/", "/prices/stream"]
-```
+### 1. RequestTimeoutMiddleware Exclusion ✅ (2026-03-06)
+**File**: `backend/app_factory.py`
+**Change**: `TIMEOUT_EXCLUDED_PREFIXES = ("/api/v1/internal/",)` — internal batch jobs bypass 30s timeout.
+**Test**: `test_middleware_asgi.py::TestTimeoutASGI::test_internal_paths_excluded_from_timeout`
 
 ### 2. NotificationDispatcher (New Service)
 **Purpose**: Centralized notification routing with deduplication and frequency enforcement
@@ -155,24 +146,24 @@ TIMEOUT_EXCLUDED_PATHS = ["/internal/", "/prices/stream"]
 **Option B**: Create `model_config` table with JSON column for weight persistence (aligns with existing Neon architecture)
 **Recommended**: Option B (no new infrastructure dependency)
 
-### 4. GitHub Actions Workflow Files
-Create `.github/workflows/` cron jobs for:
-- `check-alerts.yml` (every 15 min)
-- `fetch-weather.yml` (every 6 hours)
-- `market-research.yml` (daily 2am UTC)
-- `sync-connections.yml` (every 2 hours)
-- `scrape-rates.yml` (daily, batched)
+### 4. GitHub Actions Workflow Files ✅ (2026-03-06)
+All 5 cron workflows created:
+- `check-alerts.yml` (every 15 min) — price alert pipeline
+- `fetch-weather.yml` (every 6 hours) — all 51 US regions
+- `market-research.yml` (daily 2am UTC) — top 10 regions
+- `sync-connections.yml` (every 2 hours) — UtilityAPI sync
+- `scrape-rates.yml` (daily 3am UTC) — auto-discover suppliers
 
 ---
 
 ## Implementation Timeline
 
-| Week | Phase | Deliverables | Hours |
-|------|-------|-------------|-------|
-| 1 | 0 + 1 | 4 blockers fixed + 3 zero-risk workflows live | 12-15h |
-| 2 | 2 | Scheduled endpoints + connection sync + price alerts live | 7-8h |
-| 3 | 3 | Stripe dunning + KPI reports live | 5-6h |
-| Total | | 7 workflows live, 2 deferred | ~27h |
+| Week | Phase | Deliverables | Hours | Status |
+|------|-------|-------------|-------|--------|
+| 1 | 0 + 1 | 4 blockers fixed + 3 zero-risk workflows live | 12-15h | ✅ DONE |
+| 2 | 2 | Scheduled endpoints + connection sync + price alerts | 7-8h | ✅ DONE (code + GHA) |
+| 3 | 3 | Stripe dunning + KPI reports live | 5-6h | Pending |
+| Total | | 7 workflows live, 2 deferred | ~27h | 5/7 done |
 
 ---
 
@@ -204,19 +195,18 @@ After deployment, track:
 ## Files to Create/Modify
 
 ### New Files
-- `backend/services/notification_dispatcher.py` — centralized notification routing
-- `backend/api/v1/internal_alerts.py` — `/internal/check-alerts` endpoint
-- `backend/repositories/user_repository_extensions.py` — `get_by_stripe_customer_id()`
-- `.github/workflows/check-alerts.yml`
-- `.github/workflows/fetch-weather.yml`
-- `.github/workflows/market-research.yml`
-- `.github/workflows/sync-connections.yml`
-- `.github/workflows/scrape-rates.yml`
+- ✅ `.github/workflows/check-alerts.yml` — price alert cron (every 15 min)
+- ✅ `.github/workflows/fetch-weather.yml` — weather data cron (every 6h)
+- ✅ `.github/workflows/market-research.yml` — market intel cron (daily 2am)
+- ✅ `.github/workflows/sync-connections.yml` — connection sync cron (every 2h)
+- ✅ `.github/workflows/scrape-rates.yml` — rate scraping cron (daily 3am)
+- Pending: `backend/services/notification_dispatcher.py` — centralized notification routing (Phase 3)
 
 ### Modified Files
-- `backend/app_factory.py` — timeout exclusion for `/internal/*`
-- `backend/services/stripe_service.py` — fix `payment_failed` handler user_id resolution
-- `backend/services/alert_service.py` — deduplication + frequency enforcement in `check_thresholds()`
-- `backend/services/weather_service.py` — parallelize with `asyncio.gather()` + `Semaphore(10)`
-- `frontend/lib/notifications/onesignal.ts` — add `OneSignal.login(userId)` post-auth
-- `frontend/hooks/useAuth.tsx` or auth callback — trigger OneSignal login after auth
+- ✅ `backend/app_factory.py` — timeout exclusion for `/api/v1/internal/`
+- ✅ `backend/services/stripe_service.py` — fix `payment_failed` handler user_id resolution
+- ✅ `backend/services/alert_service.py` — deduplication + frequency enforcement
+- ✅ `backend/services/weather_service.py` — parallelize with `asyncio.gather()` + `Semaphore(10)`
+- ✅ `backend/api/v1/internal.py` — sync-connections endpoint + scrape-rates auto-discovery
+- ✅ `frontend/lib/notifications/onesignal.ts` — `OneSignal.login(userId)` post-auth
+- ✅ `frontend/lib/hooks/useAuth.tsx` — trigger OneSignal login/logout

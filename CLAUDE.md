@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-06 (Phase 1 automation live, sync-connections endpoint, timeout exclusion, weather parallelization)
+> Last validated: 2026-03-06 (Phase 1 live via Rube, Phase 2 code complete — 5 GHA cron workflows, 5 internal endpoints, timeout exclusion, weather parallelization)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -108,7 +108,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Email**: Resend (primary) + Gmail SMTP fallback (smtp.gmail.com:587, TLS, App Password). Frontend uses nodemailer for SMTP
 - **Notifications**: OneSignal push (user binding via login(userId) post-auth) + email alerts
 - **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)
-- **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). Phase 0 (prereqs) DONE, Phase 1 (zero-risk) COMPLETE — 3 Rube recipes live. Phase 2-3 pending
+- **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). Phase 0 (prereqs) DONE, Phase 1 (zero-risk) COMPLETE — 3 Rube recipes live. Phase 2 CODE COMPLETE — 5 GHA cron workflows + 5 internal endpoints. Phase 3 pending
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **Board Sync**: GitHub Projects #4 + Notion roadmap (auto-sync on edits)
 
@@ -122,12 +122,19 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 6. **UUID PKs**: All primary keys use UUID type; GRANTs use `neondb_owner` role
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
 8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
+9. **Internal endpoints**: All `/api/v1/internal/*` routes require `X-API-Key` header and are excluded from RequestTimeoutMiddleware (30s). GHA workflows use `INTERNAL_API_KEY` repo secret
 
 ## Cron Jobs & Maintenance
 
 - **db-maintenance**: Weekly Sunday 3am UTC — database optimization, vacuum, analyze, index maintenance
 - **Phase 1 LIVE**: Sentry→Slack (15min, `rcp_sQ1NKouFdXIe`), Deploy→Slack (hourly, `rcp_9f8mVE2Z_DSP`), GitHub→Notion (6h, `rcp_73Kc9K65YC5T`). Rube session: `drew`
-- **Phase 2 (planned)**: check-alerts (15min), fetch-weather (6h), market-research (daily 2am), sync-connections (2h), scrape-rates (daily) — see docs/AUTOMATION_PLAN.md
+- **Phase 2 CODE COMPLETE** (5 GHA cron workflows):
+  - `check-alerts.yml`: Every 15 min — `POST /internal/check-alerts` (price threshold alerts with dedup)
+  - `fetch-weather.yml`: Every 6 hours — `POST /internal/fetch-weather` (parallelized with asyncio.gather + Semaphore(10))
+  - `market-research.yml`: Daily 2am UTC — `POST /internal/market-research` (Tavily + Diffbot)
+  - `sync-connections.yml`: Every 2 hours — `POST /internal/sync-connections` (UtilityAPI auto-sync)
+  - `scrape-rates.yml`: Daily 3am UTC — `POST /internal/scrape-rates` (auto-discovers suppliers with empty body)
+  - All use `INTERNAL_API_KEY` secret, `/api/v1/internal/` paths excluded from RequestTimeoutMiddleware
 
 ## Autonomous Workflow (when Loki is driving)
 

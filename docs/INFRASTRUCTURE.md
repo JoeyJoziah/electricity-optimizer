@@ -88,6 +88,11 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | notion-sync.yml | Events + every 30min | GitHub-Notion roadmap sync |
 | keepalive.yml | Every 14min | Render backend keep-alive ping |
 | code-analysis.yml | PRs to main | Claude Flow diff risk, complexity, security analysis |
+| check-alerts.yml | Every 15 min | Price alert pipeline (Phase 2) |
+| fetch-weather.yml | Every 6 hours | Weather data ingestion for all 51 US regions (Phase 2) |
+| market-research.yml | Daily 2am UTC | Top 10 regions market intelligence (Phase 2) |
+| sync-connections.yml | Every 2 hours | UtilityAPI connection sync (Phase 2) |
+| scrape-rates.yml | Daily 3am UTC | Auto-discover suppliers and scrape rates (Phase 2) |
 | _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
 | _docker-build-push.yml | (callable) | Reusable Docker build + GHCR push |
 
@@ -701,4 +706,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-06

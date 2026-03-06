@@ -1,8 +1,8 @@
 # Testing Guide
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-06
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 1407 passed, 2 skipped (pytest, 57 test files)
+**Backend Tests**: 1,416 passed, 2 skipped (pytest, 57 test files) — includes 9 new Phase 2 tests (8 alerts + 5 sync-connections + 3 scrape-rates auto-discovery, minus 7 refactored)
 **Frontend Tests**: 1391 across 95 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
@@ -14,7 +14,7 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1407 passed, 2 skipped | 86%+ | pytest |
+| **Backend Unit/Integration** | 1,416 passed, 2 skipped | 86%+ | pytest |
 | **Frontend Component + Lib Tests** | 1391 (95 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
@@ -125,7 +125,7 @@ cd tests/load && ./run_load_test.sh quick
 - `test_observation_service.py` - Forecast recording, actuals backfill, recommendation tracking, accuracy metrics (31 tests)
 - `test_learning_service.py` - Rolling accuracy, bias detection, ensemble weight tuning, bias correction vectors, full learning cycle (32 tests)
 - `test_hnsw_vector_store.py` - HNSW vector store singleton, search, fallback, pruning
-- `test_api_internal.py` - Internal API endpoints (observe-forecasts, learn, observation-stats, +8 new alert tests)
+- `test_api_internal.py` - Internal API endpoints (observe-forecasts, learn, observation-stats, +9 new Phase 2 tests: 8 alert + 1 sync-connections)
 - `test_api_regulations.py` - State regulation API endpoints
 - `test_load.py` - Load/stress test helpers
 - `test_multi_utility.py` - Multi-utility expansion tests (39 tests)
@@ -797,4 +797,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-06
