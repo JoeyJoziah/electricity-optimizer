@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 20 public + 9 neon_auth tables (23 migrations: init_neon through 023_db_audit_indexes, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
+- **NeonDBAgent**: 21 public + 9 neon_auth tables (24 migrations: init_neon through 024_payment_retry_history, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 

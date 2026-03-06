@@ -1,0 +1,31 @@
+name: Data Health Check
+
+on:
+  schedule:
+    # Daily at 8am UTC
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: data-health-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check data pipeline health
+        run: |
+          RESPONSE=$(curl -fsS -X GET \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/health-data")
+
+          echo "$RESPONSE" | jq .
+
+          # Fail if critical tables are empty
+          CRITICAL=$(echo "$RESPONSE" | jq -r '.critical_empty | length')
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::Critical tables are empty: $(echo "$RESPONSE" | jq -r '.critical_empty | join(", ")')"
+            exit 1
+          fi

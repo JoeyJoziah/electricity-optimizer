@@ -6,10 +6,12 @@ API-key-protected endpoints for scheduled jobs:
 - learn: Run the nightly adaptive learning cycle
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Optional, List
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from api.dependencies import verify_api_key, get_db_session, get_redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -218,7 +220,6 @@ async def scrape_supplier_rates(
     Free tier: 10,000 credits/month.
     """
     from services.rate_scraper_service import RateScraperService
-    from sqlalchemy import text
 
     supplier_urls = request.supplier_urls
 
@@ -226,11 +227,11 @@ async def scrape_supplier_rates(
     if not supplier_urls:
         result = await db.execute(
             text("""
-                SELECT id, name, contact->>'website' AS website
-                FROM suppliers
+                SELECT id, name, website
+                FROM supplier_registry
                 WHERE is_active = true
-                  AND contact->>'website' IS NOT NULL
-                  AND contact->>'website' != ''
+                  AND website IS NOT NULL
+                  AND website != ''
                 ORDER BY name
             """)
         )
@@ -245,7 +246,37 @@ async def scrape_supplier_rates(
 
     service = RateScraperService()
     results = await service.scrape_supplier_rates(supplier_urls)
-    return {"status": "ok", "results": results, "total": len(results)}
+
+    # Persist scraped rates to scraped_rates table
+    persisted = 0
+    if db and results:
+        # Build a lookup from supplier_urls for name and source URL
+        url_lookup = {item.get("supplier_id"): item.get("url") for item in supplier_urls}
+        name_lookup = {}
+        for item in supplier_urls:
+            name_lookup[item.get("supplier_id")] = item.get("name")
+
+        insert_sql = text("""
+            INSERT INTO scraped_rates (supplier_id, supplier_name, source_url, extracted_data, success)
+            VALUES (:sid, :name, :url, :data, :success)
+        """)
+        for r in results:
+            sid = r.get("supplier_id")
+            try:
+                await db.execute(insert_sql, {
+                    "sid": sid,
+                    "name": name_lookup.get(sid),
+                    "url": url_lookup.get(sid),
+                    "data": json.dumps(r.get("extracted_data")),
+                    "success": r.get("success", False),
+                })
+                persisted += 1
+            except Exception as e:
+                logger.warning("scraped_rate_insert_failed", supplier_id=sid, error=str(e))
+        await db.commit()
+        logger.info("scraped_rates_persisted", count=persisted)
+
+    return {"status": "ok", "results": results, "total": len(results), "persisted": persisted}
 
 
 # =============================================================================
@@ -260,7 +291,10 @@ class WeatherRequest(BaseModel):
 
 
 @router.post("/fetch-weather", tags=["Internal"])
-async def fetch_weather_data(request: WeatherRequest):
+async def fetch_weather_data(
+    request: WeatherRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
     """Fetch current weather for US state regions.
 
     Budget: 1 call per region. 51 regions = 51 calls/day (5.1% of daily limit).
@@ -270,9 +304,34 @@ async def fetch_weather_data(request: WeatherRequest):
 
     service = WeatherService()
     results = await service.fetch_weather_for_regions(request.regions)
+
+    # Persist weather data to weather_cache table
+    persisted = 0
+    if db and results:
+        insert_sql = text("""
+            INSERT INTO weather_cache (state_code, temperature_f, humidity, wind_speed_mph, conditions, raw_data)
+            VALUES (:state, :temp, :humidity, :wind, :conditions, :raw)
+        """)
+        for state, data in results.items():
+            try:
+                await db.execute(insert_sql, {
+                    "state": state,
+                    "temp": data.get("temp_f"),
+                    "humidity": data.get("humidity"),
+                    "wind": data.get("wind_mph"),
+                    "conditions": data.get("description"),
+                    "raw": json.dumps(data),
+                })
+                persisted += 1
+            except Exception as e:
+                logger.warning("weather_cache_insert_failed", state=state, error=str(e))
+        await db.commit()
+        logger.info("weather_data_persisted", count=persisted)
+
     return {
         "status": "ok",
         "regions_fetched": len(results),
+        "persisted": persisted,
         "data": results,
     }
 
@@ -290,7 +349,10 @@ class MarketResearchRequest(BaseModel):
 
 
 @router.post("/market-research", tags=["Internal"])
-async def run_market_research(request: MarketResearchRequest):
+async def run_market_research(
+    request: MarketResearchRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
     """Run weekly energy market intelligence scan via Tavily AI search.
 
     Budget: ~10 searches/week = 40/month (4% of free tier quota).
@@ -300,7 +362,36 @@ async def run_market_research(request: MarketResearchRequest):
 
     service = MarketIntelligenceService()
     results = await service.weekly_market_scan(request.regions)
-    return {"status": "ok", "results": results}
+
+    # Persist market research results to market_intelligence table
+    persisted = 0
+    if db and results:
+        insert_sql = text("""
+            INSERT INTO market_intelligence (query, region, title, url, content, score, raw_data)
+            VALUES (:query, :region, :title, :url, :content, :score, :raw)
+        """)
+        for item in results:
+            query_str = item.get("query", "")
+            # Extract region from query (first token, e.g. "NY electricity rate...")
+            region = query_str.split()[0] if query_str else None
+            for result in item.get("data", {}).get("results", []):
+                try:
+                    await db.execute(insert_sql, {
+                        "query": query_str[:500],
+                        "region": region,
+                        "title": (result.get("title") or "")[:500],
+                        "url": (result.get("url") or "")[:1000],
+                        "content": result.get("content"),
+                        "score": result.get("score"),
+                        "raw": json.dumps(result),
+                    })
+                    persisted += 1
+                except Exception as e:
+                    logger.warning("market_intel_insert_failed", query=query_str, error=str(e))
+        await db.commit()
+        logger.info("market_intelligence_persisted", count=persisted)
+
+    return {"status": "ok", "results": results, "persisted": persisted}
 
 
 # =============================================================================
@@ -639,3 +730,72 @@ async def generate_kpi_report(
     except Exception as exc:
         logger.error("kpi_report_failed", error=str(exc))
         raise HTTPException(status_code=500, detail=f"KPI report failed: {str(exc)}")
+
+
+# =============================================================================
+# Data Health Monitoring
+# =============================================================================
+
+
+@router.get("/health-data", tags=["Internal"])
+async def data_health_check(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Return row counts and last-write timestamps for key data tables.
+
+    Provides a quick health overview without direct DB access.
+    Protected by the router-level X-API-Key dependency.
+    """
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    tables = [
+        ("electricity_prices", "timestamp"),
+        ("supplier_registry", "updated_at"),
+        ("weather_cache", "fetched_at"),
+        ("market_intelligence", "fetched_at"),
+        ("scraped_rates", "fetched_at"),
+        ("alert_history", "created_at"),
+        ("users", "created_at"),
+        ("user_connections", "updated_at"),
+        ("forecast_observations", "created_at"),
+        ("payment_retry_history", "created_at"),
+    ]
+
+    health = {}
+    for table_name, ts_col in tables:
+        try:
+            count_result = await db.execute(
+                text(f"SELECT COUNT(*) FROM {table_name}")
+            )
+            count = count_result.scalar() or 0
+
+            last_write = None
+            if count > 0:
+                ts_result = await db.execute(
+                    text(f"SELECT MAX({ts_col}) FROM {table_name}")
+                )
+                last_write_val = ts_result.scalar()
+                if last_write_val:
+                    last_write = str(last_write_val)
+
+            health[table_name] = {
+                "count": count,
+                "last_write": last_write,
+            }
+        except Exception as e:
+            health[table_name] = {"count": -1, "error": str(e)}
+
+    # Flag critical tables that should not be empty
+    critical_empty = [
+        t for t in ["electricity_prices", "supplier_registry", "weather_cache"]
+        if health.get(t, {}).get("count", 0) == 0
+    ]
+
+    return {
+        "status": "warning" if critical_empty else "ok",
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "critical_empty": critical_empty,
+        "tables": health,
+    }

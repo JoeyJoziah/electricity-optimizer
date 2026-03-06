@@ -58,9 +58,8 @@ class KPIReportService:
     async def _count_active_users_7d(self) -> int:
         result = await self._db.execute(
             text("""
-                SELECT COUNT(*) FROM users
-                WHERE last_login_at >= NOW() - INTERVAL '7 days'
-                  AND is_active = TRUE
+                SELECT COUNT(DISTINCT "userId") FROM neon_auth.session
+                WHERE "updatedAt" >= NOW() - INTERVAL '7 days'
             """)
         )
         return result.scalar() or 0

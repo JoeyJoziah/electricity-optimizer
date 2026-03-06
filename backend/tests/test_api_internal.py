@@ -949,3 +949,245 @@ class TestKPIReport:
         """Request without X-API-Key header must be rejected."""
         response = unauth_client.post(f"{BASE_URL}/kpi-report")
         assert response.status_code == 401
+
+
+# =============================================================================
+# POST /internal/fetch-weather (persistence)
+# =============================================================================
+
+
+class TestFetchWeatherPersistence:
+    """Tests for weather data persistence in POST /api/v1/internal/fetch-weather."""
+
+    @patch("services.weather_service.WeatherService")
+    def test_weather_persists_to_db(self, mock_svc_cls, auth_client, mock_db):
+        """Weather results should be inserted into weather_cache table."""
+        mock_svc = MagicMock()
+        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={
+            "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "partly cloudy"},
+            "CA": {"temp_f": 85.0, "humidity": 30, "wind_mph": 3.1, "description": "clear sky"},
+        })
+        mock_svc_cls.return_value = mock_svc
+
+        mock_db.execute = AsyncMock(return_value=None)
+        mock_db.commit = AsyncMock(return_value=None)
+
+        response = auth_client.post(
+            f"{BASE_URL}/fetch-weather",
+            json={"regions": ["NY", "CA"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["regions_fetched"] == 2
+        assert data["persisted"] == 2
+
+        # Verify 2 INSERT calls were made
+        assert mock_db.execute.await_count == 2
+        mock_db.commit.assert_awaited_once()
+
+    @patch("services.weather_service.WeatherService")
+    def test_weather_no_results_no_persist(self, mock_svc_cls, auth_client, mock_db):
+        """Empty weather results should not trigger any DB writes."""
+        mock_svc = MagicMock()
+        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={})
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(
+            f"{BASE_URL}/fetch-weather",
+            json={"regions": ["NY"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["persisted"] == 0
+        mock_db.execute.assert_not_awaited()
+
+    @patch("services.weather_service.WeatherService")
+    def test_weather_persist_error_tolerated(self, mock_svc_cls, auth_client, mock_db):
+        """DB insert failures should be logged and tolerated, not cause 500."""
+        mock_svc = MagicMock()
+        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={
+            "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "clear"},
+        })
+        mock_svc_cls.return_value = mock_svc
+
+        mock_db.execute = AsyncMock(side_effect=RuntimeError("DB write failed"))
+        mock_db.commit = AsyncMock(return_value=None)
+
+        response = auth_client.post(
+            f"{BASE_URL}/fetch-weather",
+            json={"regions": ["NY"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["regions_fetched"] == 1
+        assert data["persisted"] == 0
+
+
+# =============================================================================
+# POST /internal/market-research (persistence)
+# =============================================================================
+
+
+class TestMarketResearchPersistence:
+    """Tests for market research data persistence."""
+
+    @patch("services.market_intelligence_service.MarketIntelligenceService")
+    def test_market_research_persists_to_db(self, mock_svc_cls, auth_client, mock_db):
+        """Market scan results should be inserted into market_intelligence table."""
+        mock_svc = MagicMock()
+        mock_svc.weekly_market_scan = AsyncMock(return_value=[
+            {
+                "query": "NY electricity rate change 2026",
+                "data": {
+                    "answer": "Rates are increasing",
+                    "results": [
+                        {"title": "NY Rate Hike", "url": "https://example.com/1", "content": "..."},
+                        {"title": "Energy Report", "url": "https://example.com/2", "content": "..."},
+                    ],
+                },
+            },
+        ])
+        mock_svc_cls.return_value = mock_svc
+
+        mock_db.execute = AsyncMock(return_value=None)
+        mock_db.commit = AsyncMock(return_value=None)
+
+        response = auth_client.post(
+            f"{BASE_URL}/market-research",
+            json={"regions": ["NY"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["persisted"] == 2  # 2 results in the scan
+
+        assert mock_db.execute.await_count == 2
+        mock_db.commit.assert_awaited_once()
+
+    @patch("services.market_intelligence_service.MarketIntelligenceService")
+    def test_market_research_no_results_no_persist(self, mock_svc_cls, auth_client, mock_db):
+        """Empty market scan should not trigger DB writes."""
+        mock_svc = MagicMock()
+        mock_svc.weekly_market_scan = AsyncMock(return_value=[])
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(
+            f"{BASE_URL}/market-research",
+            json={"regions": ["NY"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["persisted"] == 0
+
+
+# =============================================================================
+# POST /internal/scrape-rates (persistence)
+# =============================================================================
+
+
+class TestScrapeRatesPersistence:
+    """Tests for scraped rates data persistence."""
+
+    @patch("services.rate_scraper_service.RateScraperService")
+    def test_scrape_results_persisted(self, mock_svc_cls, auth_client, mock_db):
+        """Scrape results should be inserted into scraped_rates table."""
+        mock_svc = MagicMock()
+        mock_svc.scrape_supplier_rates = AsyncMock(return_value=[
+            {"supplier_id": "s1", "extracted_data": {"rates": [1.5]}, "success": True},
+        ])
+        mock_svc_cls.return_value = mock_svc
+
+        mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
+        mock_db.commit = AsyncMock(return_value=None)
+
+        response = auth_client.post(
+            f"{BASE_URL}/scrape-rates",
+            json={"supplier_urls": [{"supplier_id": "s1", "url": "https://example.com", "name": "Test"}]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["persisted"] == 1
+
+        mock_db.commit.assert_awaited_once()
+
+
+# =============================================================================
+# GET /internal/health-data
+# =============================================================================
+
+
+class TestDataHealthCheck:
+    """Tests for GET /api/v1/internal/health-data endpoint."""
+
+    def test_health_check_happy_path(self, auth_client, mock_db):
+        """Health check should return table counts and status."""
+        # Mock scalar returns for COUNT and MAX queries
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 37
+
+        mock_ts_result = MagicMock()
+        mock_ts_result.scalar.return_value = "2026-03-06T12:00:00+00:00"
+
+        mock_db.execute = AsyncMock(side_effect=[
+            mock_count_result, mock_ts_result,  # electricity_prices
+            mock_count_result, mock_ts_result,  # supplier_registry
+            mock_count_result, mock_ts_result,  # weather_cache
+            mock_count_result, mock_ts_result,  # market_intelligence
+            mock_count_result, mock_ts_result,  # scraped_rates
+            mock_count_result, mock_ts_result,  # alert_history
+            mock_count_result, mock_ts_result,  # users
+            mock_count_result, mock_ts_result,  # user_connections
+            mock_count_result, mock_ts_result,  # forecast_observations
+            mock_count_result, mock_ts_result,  # payment_retry_history
+        ])
+
+        response = auth_client.get(f"{BASE_URL}/health-data")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "tables" in data
+        assert "checked_at" in data
+        assert data["critical_empty"] == []
+
+    def test_health_check_flags_empty_critical(self, auth_client, mock_db):
+        """Critical empty tables should be flagged in the response."""
+        mock_zero_result = MagicMock()
+        mock_zero_result.scalar.return_value = 0
+
+        # All tables return 0 rows
+        mock_db.execute = AsyncMock(return_value=mock_zero_result)
+
+        response = auth_client.get(f"{BASE_URL}/health-data")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "warning"
+        assert len(data["critical_empty"]) > 0
+        assert "weather_cache" in data["critical_empty"]
+
+    def test_health_check_db_unavailable(self, auth_client):
+        """When DB is None, should return 503."""
+        from main import app
+        app.dependency_overrides[get_db_session] = lambda: None
+
+        response = auth_client.get(f"{BASE_URL}/health-data")
+
+        assert response.status_code == 503
+
+        # Restore mock db
+        from unittest.mock import AsyncMock
+        app.dependency_overrides[get_db_session] = lambda: AsyncMock()
+
+    def test_health_check_requires_api_key(self, unauth_client):
+        """Request without X-API-Key header must be rejected."""
+        response = unauth_client.get(f"{BASE_URL}/health-data")
+        assert response.status_code == 401

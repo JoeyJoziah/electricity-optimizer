@@ -42,7 +42,10 @@ class DatabaseManager:
         """Initialize database connection pool (Neon PostgreSQL)"""
         db_url = settings.database_url
         if not db_url:
-            logger.info("database_not_configured")
+            logger.warning(
+                "database_not_configured",
+                msg="DATABASE_URL not set — all DB operations will be skipped",
+            )
             return
 
         try:

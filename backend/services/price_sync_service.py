@@ -92,6 +92,13 @@ async def sync_prices(
                 ))
                 regions_covered.append(region.value)
 
+            if prices_to_store and not session:
+                logger.error(
+                    "price_sync_no_db_session: %d prices fetched but cannot persist — no database session",
+                    len(prices_to_store),
+                )
+                errors.append("Database session unavailable — prices not persisted")
+
             if prices_to_store and session:
                 repo = PriceRepository(session)
                 synced_count = await repo.bulk_create(prices_to_store)
