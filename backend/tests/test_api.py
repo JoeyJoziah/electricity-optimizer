@@ -10,13 +10,13 @@ Tests for:
 RED phase: These tests should FAIL initially until endpoints are implemented.
 """
 
-import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-
 
 # =============================================================================
 # MODULE-SCOPED CLIENT FIXTURE
@@ -27,6 +27,7 @@ from httpx import AsyncClient
 def client():
     """Module-scoped TestClient — avoids 28 redundant ASGI lifespan startups."""
     from main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -108,13 +109,7 @@ class TestPriceEndpoints:
 
     def test_get_price_history(self, client):
         """Test GET /api/v1/prices/history endpoint"""
-        response = client.get(
-            "/api/v1/prices/history",
-            params={
-                "region": "uk",
-                "days": 7
-            }
-        )
+        response = client.get("/api/v1/prices/history", params={"region": "uk", "days": 7})
 
         assert response.status_code in [200, 404, 500]
 
@@ -235,13 +230,7 @@ class TestPriceEndpoints:
 
     def test_get_price_forecast(self, client):
         """Test GET /api/v1/prices/forecast endpoint"""
-        response = client.get(
-            "/api/v1/prices/forecast",
-            params={
-                "region": "uk",
-                "hours": 24
-            }
-        )
+        response = client.get("/api/v1/prices/forecast", params={"region": "uk", "hours": 24})
 
         # 401 expected: forecast now requires Pro tier (require_tier("pro"))
         assert response.status_code in [200, 401, 403, 404, 500]
@@ -318,8 +307,7 @@ class TestAuthenticationEndpoints:
     def test_protected_endpoint_with_invalid_token(self, client):
         """Test protected endpoints reject invalid tokens"""
         response = client.get(
-            "/api/v1/user/preferences",
-            headers={"Authorization": "Bearer invalid_token"}
+            "/api/v1/user/preferences", headers={"Authorization": "Bearer invalid_token"}
         )
 
         # 401 = auth rejected (token invalid/expired)
@@ -329,10 +317,7 @@ class TestAuthenticationEndpoints:
 
     def test_user_preferences_endpoint(self, client):
         """Test POST /api/v1/user/preferences requires auth"""
-        response = client.post(
-            "/api/v1/user/preferences",
-            json={"notification_enabled": True}
-        )
+        response = client.post("/api/v1/user/preferences", json={"notification_enabled": True})
 
         assert response.status_code == 401
 
@@ -355,7 +340,7 @@ class TestRecommendationEndpoints:
         """Test usage recommendation endpoint requires authentication"""
         response = client.get(
             "/api/v1/recommendations/usage",
-            params={"appliance": "washing_machine", "duration_hours": 2}
+            params={"appliance": "washing_machine", "duration_hours": 2},
         )
 
         assert response.status_code == 401
@@ -424,7 +409,7 @@ class TestCORS:
             headers={
                 "Origin": "http://localhost:3000",
                 "Access-Control-Request-Method": "GET",
-            }
+            },
         )
 
         # CORS preflight should return 200 or 204 or 405
@@ -433,10 +418,7 @@ class TestCORS:
 
     def test_cors_allows_configured_origins(self, client):
         """Test CORS allows configured origins"""
-        response = client.get(
-            "/health",
-            headers={"Origin": "http://localhost:3000"}
-        )
+        response = client.get("/health", headers={"Origin": "http://localhost:3000"})
 
         assert response.status_code == 200
         # Access-Control-Allow-Origin should be present

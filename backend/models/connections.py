@@ -10,11 +10,10 @@ users to link utility accounts via three mechanisms:
 """
 
 from datetime import datetime, timezone
-from typing import Optional, List, Literal
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Enums (expressed as Literal types to stay Pydantic-native)
@@ -42,6 +41,7 @@ class CreateDirectConnectionRequest(BaseModel):
     @classmethod
     def validate_account_number(cls, v: str) -> str:
         import re
+
         if not re.match(r"^[A-Za-z0-9\-\s]{4,30}$", v):
             raise ValueError(
                 "Account number must be 4-30 alphanumeric characters, hyphens, or spaces"
@@ -102,9 +102,7 @@ class ConnectionResponse(BaseModel):
     meter_number_masked: Optional[str] = None
     email_provider: Optional[str] = None
     label: Optional[str] = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class EmailConnectionInitResponse(BaseModel):
@@ -173,9 +171,7 @@ class BillUploadResponse(BaseModel):
     detected_total_kwh: Optional[float] = None
     detected_total_amount: Optional[float] = None
     parse_error: Optional[str] = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BillUploadListResponse(BaseModel):
