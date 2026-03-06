@@ -1,8 +1,8 @@
 # DNS Email Setup — electricity-optimizer.app
 
-> **STATUS (2026-03-04):** Domain `electricity-optimizer.app` was never purchased (NXDOMAIN).
-> Currently using Resend's built-in `onboarding@resend.dev` sender as a temporary workaround.
-> This only delivers to the Resend account email. The guide below applies AFTER a domain is purchased.
+> **STATUS (2026-03-06):** Domain `electricity-optimizer.app` was never purchased (NXDOMAIN).
+> Currently using Gmail SMTP fallback with `Electricity Optimizer <autodailynewsletterintake@gmail.com>`.
+> This delivers to any recipient via Gmail SMTP (500/day free). The guide below applies AFTER a domain is purchased.
 
 > Purpose: Configure DNS records so Resend can send transactional email from
 > `onboarding@resend.dev (temporary; see status above)` (email verification, magic links).
@@ -221,7 +221,7 @@ These are set on Render backend (34 env vars total) alongside the Resend variabl
 - [ ] Resend domain status shows **Verified**
 - [ ] `RESEND_API_KEY` set in Vercel (Settings > Environment Variables) and 1Password
 - [ ] `RESEND_API_KEY` set in Render (Environment > Environment Variables) and 1Password
-- [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <onboarding@resend.dev>` in Vercel
+- [ ] `EMAIL_FROM_ADDRESS` set to `Electricity Optimizer <autodailynewsletterintake@gmail.com>` in Vercel
 - [ ] Both variables marked as available in Production, Preview, and Development environments (Vercel)
 - [ ] `RESEND_API_KEY` value verified with `vercel env pull` on frontend (must be non-empty)
 - [ ] `RESEND_API_KEY` value verified in Render dashboard (must be non-empty, no trailing whitespace)

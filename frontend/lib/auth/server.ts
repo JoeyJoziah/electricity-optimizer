@@ -29,7 +29,7 @@ function createAuth() {
   const connectionString = buildConnectionString()
 
   return betterAuth({
-    database: new Pool({ connectionString }),
+    database: new Pool({ connectionString, max: 2 }),
 
     // Explicit secret for token signing (Better Auth reads BETTER_AUTH_SECRET by default)
     secret: process.env.BETTER_AUTH_SECRET,
@@ -107,11 +107,12 @@ function createAuth() {
       },
     },
 
-    // Trusted origins for CORS
+    // Trusted origins for CORS — localhost only in development
     trustedOrigins: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      ...(APP_URL !== "http://localhost:3000" ? [APP_URL] : []),
+      ...(process.env.NODE_ENV === "development"
+        ? ["http://localhost:3000", "http://localhost:3001"]
+        : []),
+      ...(APP_URL && APP_URL !== "http://localhost:3000" ? [APP_URL] : []),
     ],
 
     // Tell Better Auth the DB uses UUID columns (neon_auth schema)
