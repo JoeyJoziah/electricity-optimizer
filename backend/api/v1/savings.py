@@ -12,7 +12,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, require_tier, SessionData
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              require_tier)
 from services.savings_service import SavingsService
 
 router = APIRouter(prefix="/savings", tags=["Savings"])

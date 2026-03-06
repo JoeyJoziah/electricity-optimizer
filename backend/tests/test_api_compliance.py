@@ -10,15 +10,14 @@ Tests cover:
 - POST /gdpr/withdraw-all-consents - withdraw all consents
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from models.consent import ConsentRecord, DeletionLog
-
 
 TEST_USER = SessionData(user_id="gdpr-user-1", email="gdpr@example.com")
 
@@ -33,8 +32,8 @@ def mock_gdpr_service():
 @pytest.fixture
 def compliance_client(mock_gdpr_service):
     """Create a TestClient with mocked dependencies."""
-    from main import app
     from api.v1.compliance import get_gdpr_service
+    from main import app
 
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
     app.dependency_overrides[get_db_session] = lambda: AsyncMock()
@@ -98,9 +97,7 @@ class TestRecordConsent:
 
     def test_record_consent_withdrawal(self, compliance_client, mock_gdpr_service):
         """Recording consent withdrawal should return appropriate message."""
-        mock_gdpr_service.record_consent.return_value = _make_consent_record(
-            consent_given=False
-        )
+        mock_gdpr_service.record_consent.return_value = _make_consent_record(consent_given=False)
 
         response = compliance_client.post(
             "/api/v1/compliance/consent",
@@ -224,9 +221,7 @@ class TestDataExport:
         """Should return 404 when user not found."""
         from compliance.gdpr import UserNotFoundError
 
-        mock_gdpr_service.export_user_data.side_effect = UserNotFoundError(
-            TEST_USER.user_id
-        )
+        mock_gdpr_service.export_user_data.side_effect = UserNotFoundError(TEST_USER.user_id)
 
         response = compliance_client.get("/api/v1/compliance/gdpr/export")
         assert response.status_code == 404
@@ -282,9 +277,7 @@ class TestDataDeletion:
         """Should return 404 when user not found."""
         from compliance.gdpr import UserNotFoundError
 
-        mock_gdpr_service.delete_user_data.side_effect = UserNotFoundError(
-            TEST_USER.user_id
-        )
+        mock_gdpr_service.delete_user_data.side_effect = UserNotFoundError(TEST_USER.user_id)
 
         response = compliance_client.request(
             "DELETE",
@@ -310,9 +303,7 @@ class TestWithdrawAllConsents:
         ]
         mock_gdpr_service.withdraw_all_consents.return_value = withdrawals
 
-        response = compliance_client.post(
-            "/api/v1/compliance/gdpr/withdraw-all-consents"
-        )
+        response = compliance_client.post("/api/v1/compliance/gdpr/withdraw-all-consents")
         assert response.status_code == 200
         data = response.json()
         assert data["user_id"] == TEST_USER.user_id
@@ -322,7 +313,5 @@ class TestWithdrawAllConsents:
 
     def test_withdraw_all_requires_auth(self, unauth_client):
         """Request without auth should return 401."""
-        response = unauth_client.post(
-            "/api/v1/compliance/gdpr/withdraw-all-consents"
-        )
+        response = unauth_client.post("/api/v1/compliance/gdpr/withdraw-all-consents")
         assert response.status_code == 401
