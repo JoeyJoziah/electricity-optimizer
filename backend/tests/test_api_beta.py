@@ -8,12 +8,12 @@ Tests cover:
 - POST /beta/verify-code - verify beta access code
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 
 class _MockDB:
@@ -38,13 +38,15 @@ class _MockDB:
             return result
 
         if sql.startswith("INSERT INTO BETA_SIGNUPS"):
-            self._rows.append({
-                "id": params.get("id", "test-id"),
-                "email": params.get("email", ""),
-                "name": params.get("name", ""),
-                "interest": params.get("interest", ""),
-                "created_at": "2026-02-25T12:00:00",
-            })
+            self._rows.append(
+                {
+                    "id": params.get("id", "test-id"),
+                    "email": params.get("email", ""),
+                    "name": params.get("name", ""),
+                    "interest": params.get("interest", ""),
+                    "created_at": "2026-02-25T12:00:00",
+                }
+            )
             return result
 
         if "COUNT(*)" in sql:
