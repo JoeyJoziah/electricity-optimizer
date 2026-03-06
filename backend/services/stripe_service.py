@@ -451,18 +451,30 @@ class StripeService:
             invoice = data
             customer_id = invoice.get("customer")
             subscription_id = invoice.get("subscription")
+            amount_due = invoice.get("amount_due", 0)
+            currency = invoice.get("currency", "usd").upper()
+            invoice_id = invoice.get("id")
+
+            # Convert amount from cents to dollars
+            if amount_due and isinstance(amount_due, (int, float)):
+                amount_due = amount_due / 100.0
 
             result.update({
                 "handled": True,
                 "action": "payment_failed",
                 "customer_id": customer_id,
                 "subscription_id": subscription_id,
+                "amount_due": amount_due,
+                "currency": currency,
+                "invoice_id": invoice_id,
             })
 
             logger.warning(
                 "payment_failed",
                 customer_id=customer_id,
                 subscription_id=subscription_id,
+                amount_due=amount_due,
+                invoice_id=invoice_id,
             )
 
         else:
@@ -475,6 +487,7 @@ class StripeService:
 async def apply_webhook_action(
     result: Dict[str, Any],
     user_repo: Any,
+    db: Any = None,
 ) -> bool:
     """
     Apply a webhook action to the user's subscription in the database.
@@ -527,11 +540,30 @@ async def apply_webhook_action(
         user.subscription_tier = "free"
         await user_repo.update(user_id, user)
     elif action == "payment_failed":
-        logger.warning(
-            "payment_failed_notification",
-            user_id=user_id,
-            customer_id=customer_id,
-        )
+        if db is not None:
+            from services.dunning_service import DunningService
+
+            dunning = DunningService(db)
+            user = await user_repo.get_by_id(user_id)
+            user_email = user.email if user else ""
+            user_name = user.name if user else ""
+
+            await dunning.handle_payment_failure(
+                user_id=user_id,
+                stripe_invoice_id=result.get("invoice_id", ""),
+                stripe_customer_id=customer_id or "",
+                amount_owed=result.get("amount_due"),
+                currency=result.get("currency", "USD"),
+                user_email=user_email,
+                user_name=user_name or "",
+                user_repo=user_repo,
+            )
+        else:
+            logger.warning(
+                "payment_failed_no_db_session",
+                user_id=user_id,
+                customer_id=customer_id,
+            )
     else:
         return False
 

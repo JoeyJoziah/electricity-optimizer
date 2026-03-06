@@ -1,0 +1,24 @@
+name: Nightly KPI Report
+
+on:
+  schedule:
+    # Daily at 6am UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: kpi-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Generate KPI report
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/kpi-report" || exit 1

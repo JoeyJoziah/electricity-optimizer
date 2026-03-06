@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-06 (sync-connections endpoint, timeout middleware exclusion for /internal/*, weather parallelization; prior: alert dedup pipeline, payment_failed user resolution, test count 1407)
+> Last updated: 2026-03-06 (Phase 3 complete: dunning service, KPI report, 2 GHA cron workflows; prior: sync-connections endpoint, timeout middleware exclusion, weather parallelization, test count 1443)
 
 ## Directory Structure
 
@@ -48,7 +48,7 @@ backend/
 │       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
 │       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
 │       ├── users.py                 # User profile management (get, update, delete account)
-│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline), sync-connections (batch sync scheduler), geocode-address
+│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline), sync-connections (batch sync scheduler), dunning-cycle (overdue payment escalation), kpi-report (business metrics aggregation), geocode-address
 │
 ├── routers/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
@@ -93,7 +93,9 @@ backend/
 │   ├── maintenance_service.py       # Data retention cleanup (activity logs 365d, uploads 730d, prices 365d, observations 90d, parameterized SQL + PL/pgSQL)
 │   ├── notification_service.py      # Notification creation, delivery, preference management
 │   ├── savings_service.py           # Savings calculation and tracking
-│   └── feature_flag_service.py      # Feature flag evaluation and management
+│   ├── feature_flag_service.py      # Feature flag evaluation and management
+│   ├── dunning_service.py           # Stripe dunning: record failure, 24h cooldown, soft/final email, escalate to free after 3 failures
+│   └── kpi_report_service.py        # KPI metrics aggregation: active users, MRR, subscription breakdown, data freshness
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -142,11 +144,20 @@ backend/
 │   ├── 014_alert_tables.sql         # Alert configuration and history tables
 │   ├── 015_notifications.sql        # Notification tables
 │   ├── 016_feature_flags.sql        # Feature flag tables
-│   └── 017_additional_indexes.sql   # Performance indexes
+│   ├── 017_additional_indexes.sql   # Performance indexes
+│   ├── 018_add_region_to_user.sql   # Add region column to users table
+│   ├── 019_savings_columns.sql      # Savings tracking columns
+│   ├── 020_connection_sync_log.sql  # Connection sync log table
+│   ├── 021_connection_fixes.sql     # Connection feature bug fixes
+│   ├── 022_bill_upload_fixes.sql    # Bill upload improvements
+│   ├── 023_db_audit_indexes.sql     # Database audit indexes, bulk_create refactor
+│   └── 024_payment_retry_history.sql # Dunning retry tracking: UUID PK, retry_count, escalation_action, email tracking
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
-│   └── price_alert.html             # Jinja2 price alert notification
+│   ├── price_alert.html             # Jinja2 price alert notification
+│   ├── dunning_soft.html            # Jinja2 soft dunning email (amber gradient, empathetic tone)
+│   └── dunning_final.html           # Jinja2 final dunning email (red gradient, grace period warning)
 │
 └── tests/
     ├── conftest.py                  # Shared fixtures (mock_sqlalchemy_select, reset_rate_limiter)
@@ -176,7 +187,7 @@ backend/
     ├── test_observation_service.py  # ObservationService tests (31 tests)
     ├── test_learning_service.py     # LearningService tests (32 tests)
     ├── test_performance.py          # Performance tests (18 tests: query counts, caching, async operations)
-    ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn, check-alerts dedup pipeline)
+    ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn, check-alerts, sync-connections, dunning-cycle, kpi-report)
     ├── test_api_regulations.py      # State regulation API tests
     ├── test_analytics_service.py    # AnalyticsService tests
     ├── test_encryption.py           # AES-256-GCM encryption tests
@@ -201,6 +212,8 @@ backend/
     ├── test_resilience.py           # Resilience/circuit breaker tests
     ├── test_savings_service.py      # SavingsService calculation & tracking tests (52 tests)
     ├── test_forecast_observation_repository.py # ForecastObservationRepository with new coverage/accuracy class methods
+    ├── test_dunning_service.py      # DunningService tests (13 tests: record, cooldown, email template selection, escalation, full flow)
+    ├── test_kpi_report_service.py   # KPIReportService tests (7 tests: happy path, empty tables, subscription breakdown, MRR calculation, weather freshness)
     └── test_load.py                 # Load/stress test helpers
 ```
 

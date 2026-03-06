@@ -1,0 +1,24 @@
+name: Dunning Cycle
+
+on:
+  schedule:
+    # Daily at 7am UTC
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: dunning-cycle
+  cancel-in-progress: false
+
+jobs:
+  dunning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run dunning cycle
+        run: |
+          curl -fsS -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/dunning-cycle" || exit 1

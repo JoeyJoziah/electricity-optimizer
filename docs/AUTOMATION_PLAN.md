@@ -1,7 +1,7 @@
 # Automation Workflows — Implementation Plan
 
 > Generated: 2026-03-05
-> Status: IN_PROGRESS — Phase 0 DONE, Phase 1 COMPLETE, Phase 2 IN PROGRESS
+> Status: COMPLETE — Phase 0 DONE, Phase 1 COMPLETE, Phase 2 COMPLETE, Phase 3 COMPLETE
 > Source: Multi-agent brainstorming (5 agents: Designer, Skeptic, Constraint Guardian, User Advocate, Arbiter)
 
 ## Executive Summary
@@ -66,7 +66,7 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ---
 
-## Phase 2: Core Workflows — IN PROGRESS (2026-03-06)
+## Phase 2: Core Workflows — COMPLETE ✅ (2026-03-06)
 
 ### Infrastructure Changes ✅
 - **RequestTimeoutMiddleware**: `/api/v1/internal/` paths now excluded from 30s timeout (Option B implemented)
@@ -91,22 +91,27 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ---
 
-## Phase 3: Revenue Protection (Week 3)
+## Phase 3: Revenue Protection — COMPLETE ✅ (2026-03-06)
 
-### Workflow 3: Stripe Dunning
-- **Trigger**: Stripe webhook `invoice.payment_failed`
-- **Action**: Resolve user (from B3) → send empathetic dunning email with payment update link → log attempt
-- **Email template**: Acknowledge failure without blame, Stripe Customer Portal link, grace period (7 days), escalation after 3 failures
-- **Implementation**: Fix `payment_failed` handler (B3) + dunning email template + retry tracking
-- **Effort**: 3 hours (after B1, B3)
-- **Dependencies**: B1, B3
+### Workflow 3: Stripe Dunning ✅
+- **Trigger**: Stripe webhook `invoice.payment_failed` + daily cron escalation
+- **Action**: Record failure → 24h cooldown check → send empathetic dunning email (soft < 3 attempts, final >= 3) → escalate to free after 3 failures
+- **Migration**: `024_payment_retry_history` — UUID PK, retry tracking, email history, escalation audit
+- **Service**: `backend/services/dunning_service.py` — DunningService with record/cooldown/email/escalate/orchestrator methods
+- **Templates**: `dunning_soft.html` (amber gradient, "Update Payment Method") + `dunning_final.html` (red gradient, grace period warning, downgrade notice)
+- **Endpoint**: `POST /internal/dunning-cycle` — daily at 7am UTC, finds overdue accounts (>7 days), sends final email, downgrades
+- **GHA**: `.github/workflows/dunning-cycle.yml` — daily 7am UTC
+- **Wiring**: `stripe_service.py` `handle_webhook_event()` now extracts `amount_due`, `currency`, `invoice_id`; `apply_webhook_action()` accepts `db` param and calls `DunningService.handle_payment_failure()`; `billing.py` passes `db` through
+- **Tests**: 13 dunning service tests + 4 endpoint tests = 17 tests
 
-### Workflow 6: Nightly KPI Report
+### Workflow 6: Nightly KPI Report ✅
 - **Trigger**: Cron (daily at 6am UTC)
-- **Action**: Aggregate metrics (active users, prices tracked, alerts sent, revenue) → append to Google Sheets → post summary to Slack `#metrics`
-- **Implementation**: Rube recipe using `GOOGLEDRIVE_*` + `SLACKBOT_*` + backend API calls
-- **Effort**: 2-3 hours
-- **Dependencies**: Workflows 1, 2 should be running to provide meaningful data
+- **Action**: Aggregate metrics → return JSON (active users 7d, total users, prices tracked, alerts sent today, connection status, subscription breakdown, estimated MRR, data freshness)
+- **Service**: `backend/services/kpi_report_service.py` — KPIReportService with `aggregate_metrics()` method, all queries via `sqlalchemy.text()`
+- **Endpoint**: `POST /internal/kpi-report` — returns `{status, generated_at, metrics}`
+- **GHA**: `.github/workflows/kpi-report.yml` — daily 6am UTC
+- **Delivery**: Rube recipe `rcp_wu9mVLIZRM_n` ([view](https://rube.app/recipe-hub/nightly-kpi-report)), scheduled daily 6:05am UTC (schedule ID: `51f1bdd6-b2a3-42a4-b5df-e936637aaf07`). Posts to Slack `#metrics` (C0AKDD7P2HX) + appends to Google Sheet "KPI Dashboard" (`15JGyCAThhP2lUKLvuEsdarRXDBa5TjlWKDwD9mztITA`)
+- **Tests**: 7 KPI service tests + 3 endpoint tests = 10 tests
 
 ---
 
@@ -147,12 +152,14 @@ All 3 workflows live via Rube recipes. No application code changes required.
 **Recommended**: Option B (no new infrastructure dependency)
 
 ### 4. GitHub Actions Workflow Files ✅ (2026-03-06)
-All 5 cron workflows created:
+All 7 cron workflows created:
 - `check-alerts.yml` (every 15 min) — price alert pipeline
 - `fetch-weather.yml` (every 6 hours) — all 51 US regions
 - `market-research.yml` (daily 2am UTC) — top 10 regions
 - `sync-connections.yml` (every 2 hours) — UtilityAPI sync
 - `scrape-rates.yml` (daily 3am UTC) — auto-discover suppliers
+- `dunning-cycle.yml` (daily 7am UTC) — overdue payment escalation
+- `kpi-report.yml` (daily 6am UTC) — nightly business metrics
 
 ---
 
@@ -162,8 +169,8 @@ All 5 cron workflows created:
 |------|-------|-------------|-------|--------|
 | 1 | 0 + 1 | 4 blockers fixed + 3 zero-risk workflows live | 12-15h | ✅ DONE |
 | 2 | 2 | Scheduled endpoints + connection sync + price alerts | 7-8h | ✅ DONE (code + GHA) |
-| 3 | 3 | Stripe dunning + KPI reports live | 5-6h | Pending |
-| Total | | 7 workflows live, 2 deferred | ~27h | 5/7 done |
+| 3 | 3 | Stripe dunning + KPI reports live | 5-6h | ✅ DONE |
+| Total | | 7 workflows live, 2 deferred | ~27h | 7/7 done |
 
 ---
 
@@ -200,7 +207,16 @@ After deployment, track:
 - ✅ `.github/workflows/market-research.yml` — market intel cron (daily 2am)
 - ✅ `.github/workflows/sync-connections.yml` — connection sync cron (every 2h)
 - ✅ `.github/workflows/scrape-rates.yml` — rate scraping cron (daily 3am)
-- Pending: `backend/services/notification_dispatcher.py` — centralized notification routing (Phase 3)
+- ✅ `backend/migrations/024_payment_retry_history.sql` — dunning retry tracking table
+- ✅ `backend/services/dunning_service.py` — DunningService (record, cooldown, email, escalate)
+- ✅ `backend/services/kpi_report_service.py` — KPIReportService (aggregate business metrics)
+- ✅ `backend/templates/emails/dunning_soft.html` — soft dunning email (amber, empathetic)
+- ✅ `backend/templates/emails/dunning_final.html` — final dunning email (red, grace period warning)
+- ✅ `backend/tests/test_dunning_service.py` — 13 dunning service tests
+- ✅ `backend/tests/test_kpi_report_service.py` — 7 KPI service tests
+- ✅ `.github/workflows/dunning-cycle.yml` — daily 7am UTC dunning cron
+- ✅ `.github/workflows/kpi-report.yml` — daily 6am UTC KPI cron
+- Pending: `backend/services/notification_dispatcher.py` — centralized notification routing (future)
 
 ### Modified Files
 - ✅ `backend/app_factory.py` — timeout exclusion for `/api/v1/internal/`

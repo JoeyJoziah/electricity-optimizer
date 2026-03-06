@@ -180,7 +180,7 @@ class User(BaseModel):
 | `checkout.session.completed`     | Activate subscription               | `tier`, `stripe_customer_id` |
 | `customer.subscription.updated`  | Update subscription                 | `tier` (based on status)     |
 | `customer.subscription.deleted`  | Downgrade to free                   | `tier = "free"`              |
-| `invoice.payment_failed`         | Resolve user via `stripe_customer_id`, log warning, notify user | None (keep tier for grace)   |
+| `invoice.payment_failed`         | Resolve user via `stripe_customer_id`, trigger DunningService (record, cooldown check, send dunning email, escalate after 3 failures) | `tier = "free"` after 3 failures |
 
 ### Webhook Processing Details (2026-03-05)
 
@@ -191,6 +191,29 @@ class User(BaseModel):
 2. Resolve the customer identity from `stripe_customer_id` before processing
 
 This prevents duplicate processing and ensures the user can always be identified even for events that lack a direct user reference.
+
+### Dunning Service (Phase 3 — 2026-03-06)
+
+**`invoice.payment_failed` → DunningService flow:**
+
+1. `handle_webhook_event()` extracts `amount_due` (cents → dollars), `currency`, `invoice_id` from invoice data
+2. `apply_webhook_action()` calls `DunningService.handle_payment_failure()` with resolved user
+3. DunningService orchestrates:
+   - `record_payment_failure()` — INSERT into `payment_retry_history` table
+   - `should_send_dunning()` — 24h cooldown check (prevents email spam)
+   - `send_dunning_email()` — soft template (< 3 attempts, amber) or final template (>= 3, red)
+   - `escalate_if_needed()` — downgrade to free tier after 3 failures
+
+**Daily dunning cycle** (`POST /internal/dunning-cycle`, GHA daily 7am UTC):
+- Finds accounts with payment failing > 7 days and still on paid tier
+- Sends final dunning email
+- Downgrades to free tier
+
+**Email templates:**
+- `dunning_soft.html` — amber gradient header, empathetic tone, "Update Payment Method" CTA
+- `dunning_final.html` — red gradient header, grace period warning, downgrade date notice
+
+**Migration:** `024_payment_retry_history.sql` — UUID PK, retry tracking, email history, escalation audit
 
 ## Error Handling
 

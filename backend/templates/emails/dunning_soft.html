@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Update Required</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        .amount-box {
+            background: #fffbeb;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .amount-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #d97706;
+            margin: 5px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white !important;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 24px;">Payment Update Needed</h1>
+        <p style="margin: 5px 0 0 0; opacity: 0.9;">We had trouble processing your payment</p>
+    </div>
+
+    <div class="content">
+        <p>Hi {{ user_name or "there" }},</p>
+
+        <p>We noticed that your recent payment didn't go through. This can happen for a number of reasons — an expired card, insufficient funds, or a temporary bank issue. No worries, it's easy to fix.</p>
+
+        <div class="amount-box">
+            <div style="color: #92400e; font-size: 14px;">Amount Due</div>
+            <div class="amount-value">${{ amount }} {{ currency }}</div>
+            <div style="color: #92400e; font-size: 14px;">Attempt {{ retry_count }} of 3</div>
+        </div>
+
+        <p>To keep your subscription active and avoid any interruption to your service, please update your payment method:</p>
+
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="{{ billing_url }}" class="button">
+                Update Payment Method
+            </a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px;">If you've already updated your payment information, please disregard this email. Your next payment will be retried automatically.</p>
+    </div>
+
+    <div class="footer">
+        <p>You're receiving this because your Electricity Optimizer subscription payment failed.</p>
+        <p><a href="{{ billing_url }}" style="color: #667eea;">Manage billing</a></p>
+    </div>
+</body>
+</html>

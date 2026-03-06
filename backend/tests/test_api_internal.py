@@ -822,3 +822,130 @@ class TestScrapeRatesAutoDiscovery:
         data = response.json()
         assert data["results"] == []
         assert "No suppliers" in data.get("message", "")
+
+
+# =============================================================================
+# POST /internal/dunning-cycle
+# =============================================================================
+
+
+class TestDunningCycle:
+    """Tests for POST /api/v1/internal/dunning-cycle."""
+
+    @patch("services.dunning_service.DunningService")
+    @patch("repositories.user_repository.UserRepository")
+    def test_no_overdue_accounts(self, mock_repo_cls, mock_svc_cls, auth_client):
+        """No overdue accounts returns all zeros."""
+        mock_svc = MagicMock()
+        mock_svc.get_overdue_accounts = AsyncMock(return_value=[])
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/dunning-cycle")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["overdue_accounts"] == 0
+        assert data["escalated"] == 0
+        assert data["emails_sent"] == 0
+
+    @patch("services.dunning_service.DunningService")
+    @patch("repositories.user_repository.UserRepository")
+    def test_happy_path_with_overdue(self, mock_repo_cls, mock_svc_cls, auth_client):
+        """Overdue accounts should be emailed and escalated."""
+        mock_svc = MagicMock()
+        mock_svc.get_overdue_accounts = AsyncMock(return_value=[
+            {
+                "user_id": "user-1",
+                "email": "test@example.com",
+                "name": "Test",
+                "retry_count": 3,
+                "amount_owed": 4.99,
+                "currency": "USD",
+                "subscription_tier": "pro",
+            },
+        ])
+        mock_svc.send_dunning_email = AsyncMock(return_value=True)
+        mock_svc.escalate_if_needed = AsyncMock(return_value="downgraded_to_free")
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/dunning-cycle")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["overdue_accounts"] == 1
+        assert data["escalated"] == 1
+        assert data["emails_sent"] == 1
+
+    @patch("services.dunning_service.DunningService")
+    @patch("repositories.user_repository.UserRepository")
+    def test_service_error(self, mock_repo_cls, mock_svc_cls, auth_client):
+        """Service exception should return 500."""
+        mock_svc = MagicMock()
+        mock_svc.get_overdue_accounts = AsyncMock(
+            side_effect=RuntimeError("DB error")
+        )
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/dunning-cycle")
+
+        assert response.status_code == 500
+        assert "Dunning cycle failed" in response.json()["detail"]
+
+    def test_requires_api_key(self, unauth_client):
+        """Request without X-API-Key header must be rejected."""
+        response = unauth_client.post(f"{BASE_URL}/dunning-cycle")
+        assert response.status_code == 401
+
+
+# =============================================================================
+# POST /internal/kpi-report
+# =============================================================================
+
+
+class TestKPIReport:
+    """Tests for POST /api/v1/internal/kpi-report."""
+
+    @patch("services.kpi_report_service.KPIReportService")
+    def test_happy_path(self, mock_svc_cls, auth_client):
+        """KPI report should return status + metrics."""
+        mock_svc = MagicMock()
+        mock_svc.aggregate_metrics = AsyncMock(return_value={
+            "active_users_7d": 42,
+            "total_users": 100,
+            "prices_tracked": 5000,
+            "alerts_sent_today": 15,
+            "connections_active": {"active": 10},
+            "subscription_breakdown": {"free": 80, "pro": 15, "business": 5},
+            "estimated_mrr": 149.80,
+            "weather_freshness_hours": 3.2,
+        })
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/kpi-report")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "generated_at" in data
+        assert data["metrics"]["active_users_7d"] == 42
+        assert data["metrics"]["estimated_mrr"] == 149.80
+
+    @patch("services.kpi_report_service.KPIReportService")
+    def test_service_error(self, mock_svc_cls, auth_client):
+        """Service exception should return 500."""
+        mock_svc = MagicMock()
+        mock_svc.aggregate_metrics = AsyncMock(
+            side_effect=RuntimeError("Query failed")
+        )
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/kpi-report")
+
+        assert response.status_code == 500
+        assert "KPI report failed" in response.json()["detail"]
+
+    def test_requires_api_key(self, unauth_client):
+        """Request without X-API-Key header must be rejected."""
+        response = unauth_client.post(f"{BASE_URL}/kpi-report")
+        assert response.status_code == 401

@@ -44,7 +44,7 @@ This document describes the infrastructure architecture, service dependencies, a
 
            +-------------GitHub Actions------------------+
            |                                              |
-           |  price-sync, CI/CD, scheduled workflows      |
+           |  price-sync, CI/CD, Phase 2+3 automation      |
            |  (replaces Airflow -- removed 2026-02-12)    |
            |                                              |
            +----------------------------------------------+
@@ -93,6 +93,8 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | market-research.yml | Daily 2am UTC | Top 10 regions market intelligence (Phase 2) |
 | sync-connections.yml | Every 2 hours | UtilityAPI connection sync (Phase 2) |
 | scrape-rates.yml | Daily 3am UTC | Auto-discover suppliers and scrape rates (Phase 2) |
+| dunning-cycle.yml | Daily 7am UTC | Overdue payment escalation — find failing accounts, send final dunning email, downgrade (Phase 3) |
+| kpi-report.yml | Daily 6am UTC | Nightly business metrics aggregation (Phase 3) |
 | _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
 | _docker-build-push.yml | (callable) | Reusable Docker build + GHCR push |
 

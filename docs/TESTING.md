@@ -2,11 +2,11 @@
 
 **Last Updated**: 2026-03-06
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 1,416 passed, 2 skipped (pytest, 57 test files) — includes 9 new Phase 2 tests (8 alerts + 5 sync-connections + 3 scrape-rates auto-discovery, minus 7 refactored)
+**Backend Tests**: 1,443 passed, 2 skipped (pytest, 59 test files) — includes Phase 3 tests (13 dunning + 7 KPI + 7 endpoint = 27 new tests)
 **Frontend Tests**: 1391 across 95 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: 3,409+ tests passing
+**Total**: 3,445+ tests passing
 
 ---
 
@@ -14,7 +14,7 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1,416 passed, 2 skipped | 86%+ | pytest |
+| **Backend Unit/Integration** | 1,443 passed, 2 skipped | 86%+ | pytest |
 | **Frontend Component + Lib Tests** | 1391 (95 suites) | 78%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
@@ -72,7 +72,7 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1407 passed, 2 skipped)
+# Backend tests (1443 passed, 2 skipped)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 

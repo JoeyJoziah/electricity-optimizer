@@ -380,7 +380,7 @@ async def handle_stripe_webhook(
             )
 
             user_repo = UserRepository(db)
-            await apply_webhook_action(result, user_repo)
+            await apply_webhook_action(result, user_repo, db=db)
 
         return WebhookEventResponse(
             received=True,

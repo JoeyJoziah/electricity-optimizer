@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Payment Notice</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        .amount-box {
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .amount-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #dc2626;
+            margin: 5px 0;
+        }
+        .warning-box {
+            background: #fffbeb;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #dc2626;
+            color: white !important;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 24px;">Final Payment Notice</h1>
+        <p style="margin: 5px 0 0 0; opacity: 0.9;">Your subscription is at risk of being downgraded</p>
+    </div>
+
+    <div class="content">
+        <p>Hi {{ user_name or "there" }},</p>
+
+        <p>We've attempted to process your payment {{ retry_count }} times without success. We understand things happen, and we want to help you keep your subscription active.</p>
+
+        <div class="amount-box">
+            <div style="color: #991b1b; font-size: 14px;">Amount Due</div>
+            <div class="amount-value">${{ amount }} {{ currency }}</div>
+            <div style="color: #991b1b; font-size: 14px;">{{ retry_count }} failed attempts</div>
+        </div>
+
+        <div class="warning-box">
+            <p style="margin: 0; font-weight: 600; color: #92400e;">What happens next:</p>
+            <p style="margin: 5px 0 0 0; color: #78350f;">If we're unable to process your payment within the next <strong>7 days</strong>, your account will be automatically downgraded to the Free plan. You'll lose access to premium features including unlimited alerts, ML forecasts, and optimization tools.</p>
+        </div>
+
+        <p>Please update your payment method now to avoid any disruption:</p>
+
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="{{ billing_url }}" class="button">
+                Update Payment Method Now
+            </a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px;">Need help? Reply to this email and our team will assist you. We're here to help you keep saving on your electricity bills.</p>
+    </div>
+
+    <div class="footer">
+        <p>You're receiving this because your Electricity Optimizer subscription payment has failed multiple times.</p>
+        <p><a href="{{ billing_url }}" style="color: #667eea;">Manage billing</a></p>
+    </div>
+</body>
+</html>
