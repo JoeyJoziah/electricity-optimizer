@@ -127,10 +127,10 @@ export default function LandingPage() {
               Start Saving Today
             </Link>
             <Link
-              href="/dashboard"
+              href="/auth/signup"
               className="rounded-lg border border-gray-300 px-6 py-3 text-base font-medium text-gray-700 hover:bg-gray-50"
             >
-              View Demo
+              Try It Free
             </Link>
           </div>
         </div>

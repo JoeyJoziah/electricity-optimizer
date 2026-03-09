@@ -73,7 +73,7 @@ export default function PrivacyPage() {
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">8. Contact</h2>
           <p className="mt-3 text-gray-600">
-            For privacy-related inquiries, please contact us at privacy@electricity-optimizer.com.
+            For privacy-related inquiries, please contact us at autodailynewsletterintake@gmail.com.
           </p>
         </div>
       </main>
