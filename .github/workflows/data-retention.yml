@@ -2,8 +2,8 @@ name: Weekly Data Retention Cleanup
 
 on:
   schedule:
-    # Run every Sunday at 3 AM UTC
-    - cron: "0 3 * * 0"
+    # Run every Sunday at 4 AM UTC (avoids scrape-rates at 3am)
+    - cron: "0 4 * * 0"
   workflow_dispatch:
 
 concurrency:

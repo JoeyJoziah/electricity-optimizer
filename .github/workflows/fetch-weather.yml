@@ -2,8 +2,8 @@ name: Fetch Weather Data
 
 on:
   schedule:
-    # Every 6 hours
-    - cron: "0 */6 * * *"
+    # Every 6 hours (offset 15min from price-sync to avoid collision)
+    - cron: "15 */6 * * *"
   workflow_dispatch:
 
 concurrency:

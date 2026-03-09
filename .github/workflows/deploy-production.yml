@@ -68,10 +68,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
         with:
-          python-version: '3.12'
+          working-directory: backend
 
       - name: Bandit high-severity check
         run: |
@@ -162,26 +162,21 @@ jobs:
           timeout: '300'
           interval: '15'
 
-      - name: Verify API endpoints
-        id: smoke
-        run: |
-          FAILURES=0
-          for endpoint in /health /api/v1/prices/current; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_API_URL }}${endpoint}" 2>/dev/null) || STATUS="000"
-            if [ "$STATUS" != "200" ] && [ "$STATUS" != "401" ]; then
-              echo "FAIL: ${endpoint} returned ${STATUS}"
-              FAILURES=$((FAILURES + 1))
-            else
-              echo "OK: ${endpoint} returned ${STATUS}"
-            fi
-          done
-          echo "failures=$FAILURES" >> $GITHUB_OUTPUT
+      - name: Verify health endpoint
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.PROD_API_URL }}/health
+          method: GET
+          max-retries: 3
+          initial-delay: 10
 
-      - name: Fail if smoke tests detected issues
-        if: steps.smoke.outputs.failures != '0'
-        run: |
-          echo "::error::Smoke tests failed (${{ steps.smoke.outputs.failures }} endpoint(s) unhealthy). Triggering rollback."
-          exit 1
+      - name: Verify prices endpoint
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.PROD_API_URL }}/api/v1/prices/current
+          method: GET
+          max-retries: 2
+          initial-delay: 5
 
   # ===========================================================================
   # Rollback on Failure
@@ -301,6 +296,17 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Notify Slack of successful deploy
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Production Deploy ${{ needs.validate.outputs.version }}"
+          severity: info
+
       - name: Production deployment successful
         run: |
           echo "Production deployment successful!"

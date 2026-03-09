@@ -2,7 +2,7 @@ name: Weekly Model Retraining
 
 on:
   schedule:
-    - cron: "0 2 * * 0"  # Sunday 2:00 AM UTC
+    - cron: "0 5 * * 0"  # Sunday 5:00 AM UTC (avoids 2am data pipeline cluster)
   workflow_dispatch:
 
 concurrency:
@@ -16,16 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
         with:
-          python-version: "3.12"
-          cache: "pip"
+          working-directory: backend
 
-      - name: Install dependencies
-        run: |
-          pip install -r backend/requirements.txt
-          pip install -r ml/requirements.txt 2>/dev/null || true
+      - name: Install ML dependencies
+        run: pip install -r ml/requirements.txt 2>/dev/null || true
 
       - name: Run model retraining
         env:
@@ -48,4 +45,8 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        run: echo "::warning::Model retraining failed - manual investigation needed"
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Weekly Model Retraining"
+          severity: warning

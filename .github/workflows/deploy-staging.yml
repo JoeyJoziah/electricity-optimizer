@@ -4,12 +4,6 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
-    inputs:
-      skip_tests:
-        description: 'Skip tests before deployment'
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
   group: deploy-staging
@@ -26,7 +20,6 @@ jobs:
   # ===========================================================================
   test:
     name: Run Tests
-    if: github.event.inputs.skip_tests != 'true'
     uses: ./.github/workflows/_backend-tests.yml
     with:
       coverage: false
@@ -38,7 +31,7 @@ jobs:
   build-backend:
     name: Build Backend Image
     needs: [test]
-    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    if: needs.test.result == 'success'
     uses: ./.github/workflows/_docker-build-push.yml
     with:
       context: ./backend
@@ -52,7 +45,7 @@ jobs:
   build-frontend:
     name: Build Frontend Image
     needs: [test]
-    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    if: needs.test.result == 'success'
     uses: ./.github/workflows/_docker-build-push.yml
     with:
       context: ./frontend
@@ -140,7 +133,19 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Notify result
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Notify Slack on failure
+        if: needs.smoke-tests.result != 'success'
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Deploy to Staging"
+          severity: warning
+
+      - name: Log result
         run: |
           if [ "${{ needs.smoke-tests.result }}" = "success" ]; then
             echo "Staging deployment successful!"

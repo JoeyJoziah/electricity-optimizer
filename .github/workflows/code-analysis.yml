@@ -19,13 +19,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node-env
 
       - name: Install claude-flow
-        run: npm install -g claude-flow@3.1.0-alpha.44
+        run: npm install -g claude-flow@latest
 
       - name: Analyze diff risk
         run: |
