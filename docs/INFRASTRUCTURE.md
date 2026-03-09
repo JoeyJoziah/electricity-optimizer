@@ -94,6 +94,10 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | scrape-rates.yml | Daily 3am UTC | Auto-discover suppliers and scrape rates (Phase 2) |
 | dunning-cycle.yml | Daily 7am UTC | Overdue payment escalation — find failing accounts, send final dunning email, downgrade (Phase 3) |
 | kpi-report.yml | Daily 6am UTC | Nightly business metrics aggregation (Phase 3) |
+| data-health-check.yml | Daily | Data pipeline health check — row counts, last-write timestamps, empty table flags |
+| self-healing-monitor.yml | Daily 9am UTC | Monitors 13 workflows for repeated failures; auto-creates/closes GitHub issues |
+| db-maintenance.yml | Weekly Sunday 3am UTC | Database optimization — vacuum, analyze, index maintenance |
+| secret-scan.yml | PRs + push to main | Gitleaks secret scanning |
 | _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
 | _docker-build-push.yml | (callable) | Reusable Docker build + GHCR push |
 
@@ -104,8 +108,11 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | `setup-python-env` | Python + pip cache + requirements install (replaces duplicated setup across 5+ workflows) |
 | `setup-node-env` | Node.js + npm cache + `npm ci` in frontend/ |
 | `wait-for-service` | Health-check polling with configurable timeout/interval (replaces all `sleep` calls) |
+| `retry-curl` | Curl with exponential backoff and jitter; 4xx fail-fast (except 429/408); retries on 5xx/429/408/000 |
+| `notify-slack` | Color-coded Slack failure alerts (critical=danger, warning, info=blue) via incoming webhook to `#incidents` |
+| `validate-migrations` | Convention checks: sequential numbering, IF NOT EXISTS on CREATE TABLE, GRANT TO neondb_owner, no SERIAL/BIGSERIAL |
 
-**Concurrency Controls**: All 11 workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
+**Concurrency Controls**: All 23 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
 
 **Render Deploy Hooks**: Production and staging deploy workflows trigger Render builds via deploy hook URLs stored in GitHub secrets (`RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`). Deploy workflows include self-healing smoke tests that auto-retry on failure.
 

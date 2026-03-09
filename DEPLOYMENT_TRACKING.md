@@ -1,9 +1,9 @@
 # LIVE DEPLOYMENT TRACKING
 
 **Started**: 2026-02-07
-**Platform**: Render.com (Frontend static site + Backend web service)
-**Target Cost**: $11/month
-**Status**: IN PROGRESS
+**Platform**: Backend on Render.com, Frontend on Vercel
+**Target Cost**: $25-50/month
+**Status**: LIVE IN PRODUCTION
 
 ---
 
@@ -15,20 +15,25 @@
 
 ### Accounts Needed
 - [x] Neon PostgreSQL account (free tier) - https://neon.tech
-- [ ] Render account (paid) - https://render.com
-- [ ] Flatpeak API key (UK prices) - https://flatpeak.com
-- [ ] NREL API key (US prices) - https://developer.nrel.gov
-- [ ] IEA API key (optional) - https://iea.org
+- [x] Render account (paid) - https://render.com
+- [x] Flatpeak API key (UK prices) - https://flatpeak.com
+- [x] NREL API key (US prices) - https://developer.nrel.gov
+- [x] IEA API key (optional) - https://iea.org
+- [x] Stripe account (payments) - https://stripe.com
+- [x] Resend account (email) - https://resend.com
+- [x] Vercel account (frontend) - https://vercel.com
 
 ---
 
 ## Deployment Steps
 
 ### Step 1: Neon PostgreSQL Setup (5 min)
-- [ ] Create account at https://neon.tech
+- [x] Create account at https://neon.tech
 - [x] Neon project: "energyoptimize" (project ID: cold-rice-23455092)
 - [x] Connection string from 1Password vault "Electricity Optimizer"
 - [x] Production branch: `production` (br-shy-sun-aibo9dns), Preview branch: `vercel-dev`
+- [x] 25 migrations deployed (latest: 025_data_cache_tables)
+- [x] 21 public + 9 neon_auth + 3 cache = 33 tables total
 
 **Notes**:
 ```
@@ -36,58 +41,45 @@ DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c
 ```
 
 ### Step 2: API Keys Setup (10 min)
-- [ ] **Flatpeak** (UK electricity prices):
-  - Register at https://flatpeak.com
-  - Get API key from dashboard
-  - Copy: `FLATPEAK_API_KEY=fp_xxx`
-
-- [ ] **NREL** (US utility rates):
-  - Register at https://developer.nrel.gov/signup
-  - Get API key from dashboard
-  - Copy: `NREL_API_KEY=xxx`
-
-- [ ] **IEA** (optional, global data):
-  - Register at https://iea.org/api
-  - Copy: `IEA_API_KEY=xxx`
+- [x] **Flatpeak** (UK electricity prices) — API key in 1Password
+- [x] **NREL** (US utility rates) — API key in 1Password
+- [x] **EIA** (US energy data) — API key in 1Password
+- [x] **OpenWeatherMap** — API key in 1Password
+- [x] **Stripe** — Secret key + webhook secret in 1Password
+- [x] **Resend** — API key in 1Password
+- [x] **Sentry** — DSN in 1Password
 
 ### Step 3: Generate Secrets (1 min)
-- [ ] Generate JWT secret (used for internal API key validation only — not user authentication; Better Auth handles user sessions):
-```bash
-openssl rand -hex 32
-```
-Copy: `JWT_SECRET=xxx`
+- [x] JWT_SECRET generated (internal API key validation only)
+- [x] INTERNAL_API_KEY generated
+- [x] BETTER_AUTH_SECRET generated (32+ chars)
+- [x] FIELD_ENCRYPTION_KEY generated (AES-256-GCM)
 
-- [ ] Generate Redis password:
-```bash
-openssl rand -hex 16
-```
-Copy: `REDIS_PASSWORD=xxx`
+### Step 4: Render.com Backend Deployment (10 min)
+- [x] Backend deployed as Web Service on Render
+- [x] URL: https://electricity-optimizer.onrender.com (srv-d649uhur433s73d557cg)
+- [x] 34 environment variables configured
+- [x] Auto-deploy on push to `main` via deploy hooks
 
-### Step 4: Render.com Deployment (10 min)
-- [ ] Push code to GitHub (Render deploys from repo)
-- [ ] Create new Web Service on Render Dashboard for backend
-- [ ] Render auto-detects `render.yaml` blueprint
-- [ ] Configure environment variables in Render Dashboard
-- [ ] Deploy backend web service
-- [ ] Copy backend URL (e.g., `https://electricity-optimizer-api.onrender.com`)
-
-### Step 5: Render.com Static Site Deployment (5 min)
-- [ ] Create new Static Site on Render Dashboard for frontend
-- [ ] Set build command: `cd frontend && npm install && npm run build`
-- [ ] Set publish directory: `frontend/out` or `frontend/.next`
-- [ ] Configure environment variables (NEXT_PUBLIC_API_URL)
-- [ ] Copy frontend URL (e.g., `https://electricity-optimizer.onrender.com`)
+### Step 5: Vercel Frontend Deployment (5 min)
+- [x] Frontend deployed to Vercel (migrated from Render static site)
+- [x] URL: https://electricity-optimizer.vercel.app
+- [x] Framework: Next.js 14 (auto-detected by Vercel)
+- [x] Environment variables set on Vercel (including SMTP)
+- [x] Preview deployments use `vercel-dev` Neon branch
 
 ### Step 6: Verification (5 min)
-- [ ] Test backend health: `curl https://electricity-optimizer-api.onrender.com/health`
-- [ ] Test frontend: Open frontend URL in browser
-- [ ] Test API: Try dashboard
-- [ ] Check logs in Render Dashboard
+- [x] Backend health: `curl https://electricity-optimizer.onrender.com/health` → 200
+- [x] Frontend: https://electricity-optimizer.vercel.app loads
+- [x] API: Dashboard renders for authenticated users
+- [x] Logs: Render Dashboard shows healthy service
 
-### Step 7: Beta Signup (1 min)
-- [ ] Navigate to: `https://electricity-optimizer.onrender.com/beta-signup`
-- [ ] Test signup flow
-- [ ] Verify welcome email sent
+### Step 7: Post-Launch Verification
+- [x] Stripe checkout flow working (Free/Pro/Business)
+- [x] Email delivery: Resend primary + Gmail SMTP fallback
+- [x] Alert system: check-alerts cron running every 15 min
+- [x] 7/7 automation workflows operational
+- [x] Self-healing CI/CD monitoring 13 workflows
 
 ---
 
@@ -181,15 +173,18 @@ NEXT_PUBLIC_API_URL=
 
 ## Success Criteria
 
-- [ ] Backend responding at /health endpoint
-- [ ] Frontend loads without errors
-- [ ] Can sign up for beta at /beta-signup (welcome email sends via Resend/SMTP)
-- [ ] Dashboard displays mock data
-- [ ] API endpoints return 200 OK
-- [ ] Monitoring dashboards accessible
-- [ ] Cost under $15/month
+- [x] Backend responding at /health endpoint
+- [x] Frontend loads without errors
+- [x] API endpoints return 200 OK
+- [x] Stripe checkout/portal/webhook functional
+- [x] Alert system running (check-alerts every 15 min)
+- [x] 7/7 automation workflows live
+- [x] Self-healing CI/CD operational (23 GHA workflows)
+- [ ] Custom domain purchased (electricity-optimizer.app)
+- [ ] DKIM/SPF/DMARC configured for Resend
+- [ ] Resend custom domain email (replace Gmail SMTP fallback)
 
 ---
 
-**Last Updated**: 2026-03-04
-**Next Step**: DNS records for email delivery (SPF/DKIM/DMARC for Resend) + OAuth provider setup (Google/GitHub client IDs in Render env vars)
+**Last Updated**: 2026-03-09
+**Next Step**: Purchase custom domain (electricity-optimizer.app), configure DKIM/SPF/DMARC for Resend, switch from Gmail SMTP fallback to Resend custom domain for production email delivery

@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-05 (Email dual-provider, OneSignal login/logout, useAuth OneSignal wiring, nodemailer added)
+**Last Updated:** 2026-03-09 (Alerts UI, tier gating upgrade CTAs, useAlerts/useConnections hooks, favicon files, perf optimizations)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -20,6 +20,8 @@ frontend/
     global-error.tsx            # Global error boundary (catches layout-level errors)
     not-found.tsx               # 404 page
     manifest.ts                 # PWA manifest (standalone, blue theme)
+    icon.tsx                    # Favicon 32x32 (next/og ImageResponse, blue bolt icon)
+    apple-icon.tsx              # Apple touch icon 180x180 (gradient blue, rounded)
     robots.ts                   # robots.txt (disallows /api/, /dashboard/)
     sitemap.ts                  # Sitemap (/, /pricing, /dashboard, /privacy, /terms)
     globals.css                 # Global styles + design system CSS variables + animations
@@ -29,6 +31,7 @@ frontend/
     api/
       auth/[...all]/route.ts    # Better Auth API handler (sign-in, sign-up, sign-out, OAuth, etc.)
       checkout/route.ts         # POST /api/checkout - proxies to backend billing/checkout
+      pwa-icon/route.tsx        # GET /api/pwa-icon?size=192|512 — dynamic PWA icon (ImageResponse)
     (app)/                      # Route group: authenticated app pages (sidebar layout)
       layout.tsx                # Sidebar layout + navigation
       dashboard/
@@ -48,6 +51,8 @@ frontend/
       connections/
         page.tsx                # Connections overview (bills, utilities, direct sync)
         loading.tsx             # Connection cards + method picker skeleton
+      alerts/
+        page.tsx                # Alerts CRUD page (/alerts) — wrapper for AlertsContent
       auth/                     # Authentication pages (route group within (app))
         layout.tsx              # Auth layout (centered cards, no sidebar)
         login/page.tsx          # Sign in form (email/password, OAuth, magic link)
@@ -107,6 +112,9 @@ frontend/
       UploadFlow.tsx            # Multi-step upload wizard
       Rates.tsx                 # Imported rates table (sortable)
       Analytics.tsx             # Rate comparison + savings dashboard
+    alerts/
+      AlertsContent.tsx         # Main alerts component: My Alerts tab (CRUD) + History tab (paginated)
+      AlertForm.tsx             # Create alert form: region select, price thresholds, optimal windows checkbox
     settings/
       ProfileForm.tsx           # Edit user info
       RegionSelector.tsx        # Change region with 50 states + DC support
@@ -115,6 +123,8 @@ frontend/
   lib/
     hooks/
       useAuth.tsx               # Custom hook: auth state + sign in/up/out + magic link + email verification + OneSignal login/logout
+      useAlerts.ts              # TanStack Query hooks: useAlerts, useAlertHistory, useCreateAlert, useUpdateAlert, useDeleteAlert (staleTime: 30s)
+      useConnections.ts         # TanStack Query hook: useConnections — migrated from useEffect+fetch (retry: false, staleTime: 30s, 403 gate preserved)
       useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false)
       useLocalStorage.ts        # Persist state to browser storage
       useDarkMode.ts            # Dark mode toggle (future)
@@ -130,6 +140,7 @@ frontend/
       error.ts                  # Error message extraction + logging
     api/
       client.ts                 # Fetch wrapper + 401 handler (3-layer callbackUrl guard)
+      alerts.ts                 # Alerts API: getAlerts, createAlert, updateAlert, deleteAlert, getAlertHistory. Types: Alert, AlertHistoryItem, GetAlertsResponse, GetAlertHistoryResponse
       __tests__/
         client-401-redirect.test.ts  # 9 tests for 401 edge cases
     auth/
@@ -604,13 +615,14 @@ Without token (default):
 
 **Main navigation for authenticated app pages.**
 
-**Routes:**
-- `/dashboard` → Dashboard icon + "Dashboard"
-- `/prices` → Price chart icon + "Prices"
-- `/suppliers` → Building icon + "Suppliers"
-- `/optimize` → Zap icon + "Optimize"
-- `/connections` → Plug icon + "Connections"
-- `/settings` → Cog icon + "Settings"
+**Routes (7 items):**
+- `/dashboard` → LayoutDashboard icon + "Dashboard"
+- `/prices` → TrendingUp icon + "Prices"
+- `/suppliers` → Building2 icon + "Suppliers"
+- `/connections` → Link2 icon + "Connections"
+- `/optimize` → Calendar icon + "Optimize"
+- `/alerts` → Bell icon + "Alerts"
+- `/settings` → Settings icon + "Settings"
 
 **Features:**
 - Hover highlight on current route
@@ -695,6 +707,59 @@ Without token (default):
 #### Analytics (`components/connections/Analytics.tsx`)
 
 **Rate comparison + savings calculator (kWh input styled with `bg-white text-gray-900`).**
+
+---
+
+### Alerts Components (2 files)
+
+#### AlertsContent (`components/alerts/AlertsContent.tsx`)
+
+**Main alerts page content with two tabs.**
+
+**Tabs:**
+- **My Alerts**: CRUD list of configured alert rules. Each card shows region, active/paused badge, price thresholds, and optimal-window flag. Toggle-active (ToggleLeft/ToggleRight icons) and delete (Trash2 icon) per card. "Add Alert" button shows inline AlertForm. Free-tier note: "Free plan: 1 alert. Upgrade for unlimited" visible when alerts.length >= 1.
+- **History**: Paginated table of triggered alerts — Type badge (price_drop/price_spike/optimal_window), Region, Price, Threshold, Triggered timestamp. Previous/Next pagination with page count.
+
+**State:**
+- `activeTab`: 'alerts' | 'history'
+- Uses `useAlerts`, `useAlertHistory(page)`, `useDeleteAlert`, `useUpdateAlert` hooks
+
+**UI Structure:**
+```
+Header ("Alerts")
+  └─ Tab nav: My Alerts | History
+     ├─ My Alerts:
+     │   ├─ Free-tier note + Add Alert button
+     │   ├─ AlertForm (inline, shown when showForm=true)
+     │   └─ Alert cards (region, status badge, thresholds, toggle, delete)
+     └─ History:
+         ├─ Table (Type | Region | Price | Threshold | Triggered)
+         └─ Pagination (Previous / Next)
+```
+
+**Test IDs:** `free-tier-note`, `empty-alerts`, `alert-card`, `toggle-alert`, `delete-alert`, `empty-history`, `history-row`
+
+#### AlertForm (`components/alerts/AlertForm.tsx`)
+
+**Create new alert configuration form.**
+
+**Fields:**
+- Region: `<select>` with US_REGIONS grouped by state (optgroup)
+- Price Below: `<Input>` type=number step=0.0001, labelSuffix="($/kWh)"
+- Price Above: `<Input>` type=number step=0.0001, labelSuffix="($/kWh)"
+- Notify optimal windows: `<Checkbox>` (default: checked)
+
+**Validation:**
+- Region required
+- At least one condition must be set (price_below, price_above, or optimal windows)
+- price_below/price_above must be positive numbers if provided
+
+**Error Handling:**
+- Validation errors: shown as `role="alert"` paragraph
+- 403 (tier limit): Amber upgrade prompt with link to `/pricing` — "Free plan is limited to 1 alert. Upgrade to Pro for unlimited alerts."
+- Other mutation errors: danger text
+
+**Test IDs:** `alert-form`, `region-select`, `form-error`, `tier-limit-error`, `submit-alert`
 
 ---
 
@@ -821,6 +886,37 @@ const {
 - Handles 401 errors with 3-layer redirect guard
 - Wires OneSignal push: `loginOneSignal(userId)` on session init + signIn, `logoutOneSignal()` on signOut
 
+### Alerts Hooks (`lib/hooks/useAlerts.ts`)
+
+**TanStack Query hooks for alert CRUD and history. All queries use staleTime: 30s.**
+
+```typescript
+// Fetch all alert configurations for current user
+useAlerts()           // queryKey: ['alerts']
+
+// Fetch paginated alert trigger history
+useAlertHistory(page, pageSize)  // queryKey: ['alerts', 'history', page]
+
+// Create a new alert configuration
+useCreateAlert()      // mutationFn: createAlert(body), invalidates ['alerts']
+
+// Update an alert (toggle is_active, change thresholds, etc.)
+useUpdateAlert()      // mutationFn: updateAlert({ id, body }), invalidates ['alerts']
+
+// Delete an alert configuration
+useDeleteAlert()      // mutationFn: deleteAlert(id), invalidates ['alerts']
+```
+
+### Connections Hook (`lib/hooks/useConnections.ts`)
+
+**Migrated from manual useEffect+fetch to TanStack Query.**
+
+```typescript
+const { data, isLoading, error } = useConnections()
+// queryKey: ['connections'], staleTime: 30s, retry: false
+// 403 preserved: throws error with { status: 403 } for tier-gate display
+```
+
 ### React Query Integration
 
 **Used for server state (API calls):**
@@ -828,6 +924,7 @@ const {
 - User profile data
 - Recommendations list
 - Connection status
+- Alert configurations and history
 
 **Query hooks pattern:**
 ```typescript
@@ -866,6 +963,38 @@ const { data, isLoading, error } = useQuery({
 - 401 → Trigger redirect guard
 - Unknown → "Something went wrong"
 
+### Alerts API Client (`lib/api/alerts.ts`)
+
+**CRUD functions for price alert configurations and trigger history.**
+
+**Types exported:**
+```typescript
+interface Alert {
+  id: string; user_id: string; region: string; currency: string;
+  price_below: number | null; price_above: number | null;
+  notify_optimal_windows: boolean; is_active: boolean;
+  created_at: string | null; updated_at: string | null;
+}
+
+interface AlertHistoryItem {
+  id: string; user_id: string; alert_config_id: string | null;
+  alert_type: string; current_price: number; threshold: number | null;
+  region: string; supplier: string | null; currency: string;
+  optimal_window_start: string | null; optimal_window_end: string | null;
+  estimated_savings: number | null; triggered_at: string | null;
+  email_sent: boolean;
+}
+```
+
+**Functions:**
+```typescript
+getAlerts()                              // GET /alerts
+createAlert(body: CreateAlertRequest)    // POST /alerts
+updateAlert(id, body: UpdateAlertRequest) // PUT /alerts/{id}
+deleteAlert(id)                          // DELETE /alerts/{id}
+getAlertHistory(page, pageSize)          // GET /alerts/history?page=&page_size=
+```
+
 ---
 
 ## Testing
@@ -873,7 +1002,7 @@ const { data, isLoading, error } = useQuery({
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1,391 tests across 95 suites (zero failures)
+- **Coverage:** 1,430 tests across 97 suites (3 pre-existing failures in send.test.ts)
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
@@ -881,9 +1010,10 @@ const { data, isLoading, error } = useQuery({
 - `__tests__/components/auth/LoginForm.test.tsx` (magic link failure, conditional OAuth)
 - `__tests__/components/auth/SignupForm.test.tsx` (conditional OAuth)
 - `__tests__/hooks/useAuth.test.tsx` (email verification redirect, real magic link, clearError)
-- `__tests__/lib/email/send.test.ts` (Resend SDK: send, error handling, missing API key)
+- `__tests__/lib/email/send.test.ts` (Resend SDK: send, error handling, missing API key — 3 pre-existing failures)
 - `lib/api/__tests__/client-401-redirect.test.ts` (9 tests for 401 edge cases)
 - `__tests__/a11y/` (51 jest-axe tests)
+- `__tests__/components/alerts/` (+27 new tests for AlertsContent, AlertForm)
 
 ### E2E Tests (Playwright)
 
@@ -893,6 +1023,7 @@ const { data, isLoading, error } = useQuery({
 - **Data attributes for selectors:**
   - `data-testid="sign-out-button"` on Sidebar
   - `data-testid="appliance-card-settings"` on optimize page
+  - `data-testid="alert-form"`, `data-testid="alert-card"` on alerts page
 
 **Skipped tests (legitimate):**
 - Email validation smoke tests
@@ -921,6 +1052,13 @@ const { data, isLoading, error } = useQuery({
 **Component Loading:**
 - Skeleton loaders on async components
 - Lazy load heavy components (e.g., Excalidraw on `/architecture`)
+
+### React Query Optimizations (2026-03-09)
+
+- **Hoisted inline props:** Frequently-rendered components no longer create new object/function references on every render
+- **Memoized callbacks:** `useCallback` applied to handlers in high-frequency render paths
+- **Memoized context values:** `useMemo` applied to context value objects to prevent unnecessary re-renders
+- **ConnectionsOverview migrated to useQuery:** Removed manual `useEffect + fetch + useState` pattern; now uses `useConnections()` hook with TanStack Query caching (staleTime: 30s, retry: false)
 
 ### Code Splitting
 
@@ -1016,6 +1154,12 @@ const { data, isLoading, error } = useQuery({
 - `frontend/app/(app)/auth/callback/page.tsx` (a11y)
 - `frontend/playwright.config.ts` (retries: 1)
 
+### send.test.ts Pre-Existing Failures
+
+**Issue:** 3 tests in `__tests__/lib/email/send.test.ts` fail consistently. These are pre-existing failures related to Resend SDK mocking and do not reflect production email behavior.
+
+**Status:** Known + tracked. Not blocking CI. Production email verified working via Gmail SMTP fallback.
+
 ---
 
 ## Development Workflow
@@ -1110,7 +1254,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 - [x] DevBanner
 - [x] StatsCard
 
-### Feature Components (Count: 20+)
+### Feature Components (Count: 22+)
 
 - [x] Connection components (9)
 - [x] Supplier components (3)
@@ -1118,23 +1262,93 @@ BETTER_AUTH_URL=...                      # (Server-only)
 - [x] Dashboard components (3)
 - [x] Prices components (4)
 - [x] Optimize components (3)
+- [x] Alerts components (AlertsContent, AlertForm)
 
 ---
 
 ## File Statistics
 
-- **Total Pages:** 19 (root + (app) + (dev) + auth routes)
+- **Total Pages:** 20 (root + (app) including /alerts + (dev) + auth routes)
 - **Total Layouts:** 3 (root, app, dev, auth)
-- **Total Components:** 50+ (UI + feature-specific)
+- **Total Components:** 52+ (UI + feature-specific)
 - **Loading Skeletons:** 5 (dashboard, prices, suppliers, optimize, connections)
-- **Total Tests:** 1,391 across 95 suites (zero failures)
+- **Total Tests:** 1,430 across 97 suites (3 pre-existing failures in send.test.ts)
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
-- **Total Test Coverage:** 3,378+ tests (frontend + backend + ML + E2E)
+- **Total Test Coverage:** 4,150+ tests (frontend + backend + ML + E2E)
 
 ---
 
-## Recent Updates (2026-03-04)
+## Recent Updates (2026-03-09)
+
+### Alerts UI (2026-03-09)
+
+1. **New Page: `/alerts`** (`app/(app)/alerts/page.tsx`)
+   - Wrapper page with metadata: `title: 'Alerts | Electricity Optimizer'`
+   - Renders `<AlertsContent />` — no layout logic in page itself
+
+2. **AlertsContent** (`components/alerts/AlertsContent.tsx`)
+   - Tab navigation: "My Alerts" | "History"
+   - My Alerts tab: alert card list with toggle-active (ToggleRight/ToggleLeft) + delete (Trash2), inline AlertForm, empty state with Bell icon, free-tier note when >= 1 alert
+   - History tab: paginated table — Type badge, Region, Price, Threshold, Triggered At — with Previous/Next pagination
+   - Skeleton loading states for both tabs
+
+3. **AlertForm** (`components/alerts/AlertForm.tsx`)
+   - Region `<select>` with US_REGIONS grouped by optgroup
+   - Price Below / Price Above: `<Input>` with labelSuffix="($/kWh)"
+   - Notify optimal windows: `<Checkbox>` (default checked)
+   - 403 tier-limit error: amber upgrade prompt linking to `/pricing`
+   - Uses `useCreateAlert()` mutation with cache invalidation
+
+4. **Alerts API Client** (`lib/api/alerts.ts`)
+   - Exports: `getAlerts`, `createAlert`, `updateAlert`, `deleteAlert`, `getAlertHistory`
+   - Types: `Alert`, `AlertHistoryItem`, `GetAlertsResponse`, `GetAlertHistoryResponse`, `CreateAlertRequest`, `UpdateAlertRequest`
+
+5. **useAlerts hooks** (`lib/hooks/useAlerts.ts`)
+   - `useAlerts()` — staleTime: 30s
+   - `useAlertHistory(page, pageSize)` — staleTime: 30s
+   - `useCreateAlert()` — invalidates ['alerts'] on success
+   - `useUpdateAlert()` — invalidates ['alerts'] on success
+   - `useDeleteAlert()` — invalidates ['alerts'] on success
+
+6. **Sidebar Bell icon**
+   - Alerts added as 6th nav item (Bell icon from lucide-react)
+   - Navigation array now has 7 items: Dashboard, Prices, Suppliers, Connections, Optimize, Alerts, Settings
+
+### Tier Gating Upgrade CTAs (2026-03-09)
+
+- `DashboardForecast.tsx`: Detects 403 response → shows "Unlock forecasts with Pro" upgrade card instead of error
+- `AlertForm.tsx`: 403 on createAlert → amber banner "Free plan is limited to 1 alert. Upgrade to Pro for unlimited alerts."
+- `AlertsContent.tsx`: Shows "Free plan: 1 alert. Upgrade for unlimited" note when user already has 1 alert configured
+
+### Favicon Files (2026-03-09)
+
+1. **`app/icon.tsx`** — 32x32 PNG favicon via `next/og` ImageResponse
+   - Blue (#2563eb) rounded square background
+   - White lightning bolt SVG (path: M13 2L3 14h9l-1 10 10-12h-9l1-10z)
+
+2. **`app/apple-icon.tsx`** — 180x180 Apple touch icon
+   - Gradient blue (#2563eb → #1d4ed8), 36px border radius
+   - White lightning bolt SVG at 120x120
+
+3. **`app/api/pwa-icon/route.tsx`** — Dynamic PWA icon endpoint
+   - Accepts `?size=192` or `?size=512` (validated set — 400 on other values)
+   - Returns ImageResponse with proportional lightning bolt
+   - Used by `manifest.ts` for PWA icon entries
+
+### useConnections Hook Migration (2026-03-09)
+
+- **Before:** ConnectionsOverview used `useEffect + fetch + useState` pattern
+- **After:** Uses `useConnections()` hook from `lib/hooks/useConnections.ts`
+- **Benefits:** TanStack Query caching (staleTime: 30s), automatic deduplication, no manual cleanup
+- **403 preserved:** `fetchConnections()` throws `{ status: 403 }` error object for tier-gate display in parent
+
+### Performance Optimizations (2026-03-09)
+
+- Hoisted inline object/function props from frequently-rendered components
+- Applied `useCallback` to event handlers in render-heavy paths
+- Applied `useMemo` to context value objects
+- ConnectionsOverview manual data-fetching replaced with `useConnections()` hook
 
 ### Auth System Fix (2026-03-04)
 
@@ -1173,7 +1387,6 @@ BETTER_AUTH_URL=...                      # (Server-only)
    - Updated: `useAuth.test.tsx` (signup redirect, real magic link, clearError flow)
    - Updated: `LoginForm.test.tsx` (conditional OAuth, magic link failure)
    - Updated: `SignupForm.test.tsx` (conditional OAuth)
-   - Frontend total: 1,385 → 1,398 tests
 
 ### Email Verification Fix (Commit fd13207, 2026-03-04)
 
@@ -1213,7 +1426,6 @@ BETTER_AUTH_URL=...                      # (Server-only)
      - UI states: check email screen, resent confirmation (2 tests)
      - Form behavior: pre-filled email, empty email disables button (2 tests)
      - Re-render guard: useRef prevents double-verify in StrictMode (1 test)
-   - Frontend total: 1,398 → 1,417 tests
 
 ### UI/UX Overhaul (Commit b3cdf76, 2026-03-03)
 
@@ -1349,6 +1561,25 @@ const confirmPasswordMatch = Boolean(confirmPassword && password === confirmPass
 />
 ```
 
+### TanStack Query Alerts Pattern
+
+```typescript
+// In component:
+const { data, isLoading, isError } = useAlerts()
+const createMutation = useCreateAlert()
+const deleteMutation = useDeleteAlert()
+const updateMutation = useUpdateAlert()
+
+// Create:
+createMutation.mutate({ region, price_below, price_above, notify_optimal_windows })
+
+// Delete:
+deleteMutation.mutate(alertId)
+
+// Toggle active:
+updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
+```
+
 ---
 
 ## Style Guide
@@ -1384,6 +1615,6 @@ const confirmPasswordMatch = Boolean(confirmPassword && password === confirmPass
 
 ---
 
-**Last Reviewed:** 2026-03-04 by documentation engineer
-**Status:** Current with email verification fix and all recent changes
-**Test Coverage:** 1398 tests (frontend), 3,402 total (all layers)
+**Last Reviewed:** 2026-03-09 by documentation engineer
+**Status:** Current with alerts UI, tier gating, favicon, performance optimizations
+**Test Coverage:** 1,430 tests (frontend), 4,150+ total (all layers)

@@ -167,11 +167,19 @@ class User(BaseModel):
 
 ### Subscription Tiers
 
-| Tier     | Price    | Features                                            |
-|----------|----------|-----------------------------------------------------|
-| Free     | $0       | Basic price view, 1 alert, manual scheduling       |
-| Pro      | $4.99/mo | Unlimited alerts, ML forecasts, optimization       |
-| Business | $14.99/mo| Pro + API access, multi-property, priority support |
+| Tier     | Price    | Features                                                                          |
+|----------|----------|-----------------------------------------------------------------------------------|
+| Free     | $0       | Basic price view, 1 alert (hard limit), manual scheduling                        |
+| Pro      | $4.99/mo | Unlimited alerts, ML forecasts (forecast/savings/recommendations), optimization   |
+| Business | $14.99/mo| Pro + API access (prices/stream), multi-property, priority support                |
+
+**Tier gating** (`backend/api/dependencies.py`): `require_tier(min_tier)` factory creates a FastAPI Depends that queries `subscription_tier` from the users table and compares against `_TIER_ORDER = {"free": 0, "pro": 1, "business": 2}`. Returns HTTP 403 if the user's tier is below `min_tier`.
+
+**Gated endpoints (7 total):**
+- `require_tier("pro")`: `/forecast`, `/savings/summary`, `/savings/history`, `/savings/goals`, `/recommendations/switching`, `/recommendations/usage`, `/recommendations/daily`
+- `require_tier("business")`: `/prices/stream`
+
+**Free tier alert limit**: `POST /api/v1/alerts` checks alert count for free users. If `COUNT(*) >= 1`, returns HTTP 403 "Free plan limited to 1 alert. Upgrade to Pro for unlimited."
 
 ## Webhook Events and Actions
 
@@ -397,7 +405,7 @@ Metrics to monitor:
 
 ---
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-09
 
 **Key Changes**:
 - Environment variable `ALLOWED_REDIRECT_DOMAINS` now controls billing redirect domains (previously hardcoded)

@@ -205,23 +205,26 @@ Before deploying to production:
 - [ ] Vercel environment variables verified with `vercel env pull` (all values non-empty, especially `BETTER_AUTH_SECRET` and `RESEND_API_KEY`)
 - [ ] Render environment variables verified (all 34 present and non-empty)
 - [ ] 1Password vault in sync with production secrets
+- [ ] `SLACK_INCIDENTS_WEBHOOK_URL` GitHub secret set (required by `notify-slack` composite action and `self-healing-monitor`)
 
 ### Render Deploy Hooks
 
 The CI/CD pipeline triggers Render deployments via deploy hooks:
 
 1. `deploy-production.yml` runs a security gate (Bandit high-severity + npm audit critical)
-2. GHCR images built and pushed for archival
-3. Render deploy hooks triggered for both backend and frontend services
-4. Self-healing smoke tests poll health endpoints (300s timeout, 15s interval)
-5. On smoke test failure, deploy hooks are re-triggered once automatically
-6. All workflows have concurrency groups to prevent overlapping deploys
+2. **Migration-gate job**: convention checks run via `validate-migrations` composite action before any deploy proceeds
+3. GHCR images built and pushed for archival
+4. Render deploy hooks triggered for both backend and frontend services
+5. Self-healing smoke tests poll health endpoints (300s timeout, 15s interval)
+6. On smoke test failure, deploy hooks are re-triggered once automatically; a Slack rollback notification is sent to `#incidents` via `notify-slack`
+7. All workflows have concurrency groups to prevent overlapping deploys
 
 **GitHub Secrets Required**:
 - `RENDER_DEPLOY_HOOK_BACKEND` — deploy hook URL for backend service
 - `RENDER_DEPLOY_HOOK_FRONTEND` — deploy hook URL for frontend service
 - `PROD_API_URL` — production backend URL for smoke tests
 - `PROD_FRONTEND_URL` — production frontend URL for smoke tests
+- `SLACK_INCIDENTS_WEBHOOK_URL` — Slack incoming webhook for `#incidents` channel (used by `notify-slack` composite action and `self-healing-monitor` workflow)
 
 ---
 
@@ -261,7 +264,7 @@ curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
 
 ### Database Migration Rollback
 
-Neon PostgreSQL provides point-in-time recovery via branching. The project has 24 forward-only migrations (`backend/migrations/001_init_neon.sql` through `024_payment_retry_history.sql`).
+Neon PostgreSQL provides point-in-time recovery via branching. The project has 25 forward-only migrations (`backend/migrations/001_init_neon.sql` through `025_data_cache_tables.sql`).
 
 **Rollback strategy by migration type:**
 
@@ -366,7 +369,7 @@ render logs --service srv-d649uhur433s73d557cg
 ### Secrets Management
 
 - Never commit secrets to version control
-- All production secrets stored in 1Password vault "Electricity Optimizer" (21 items, 27 SecretsManager mappings)
+- All production secrets stored in 1Password vault "Electricity Optimizer" (28 items, 27 SecretsManager mappings)
 - `SecretsManager` in `backend/config/secrets.py` has 27 mappings covering all environment variables
 - Rotate keys every 90 days
 - INTERNAL_API_KEY required for service-to-service auth (price-sync workflow)
@@ -422,7 +425,7 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 ---
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-09
 
 ## Production Services (Live)
 

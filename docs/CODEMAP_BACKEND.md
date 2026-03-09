@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-06 (Phase 3 complete: dunning service, KPI report, 2 GHA cron workflows; prior: sync-connections endpoint, timeout middleware exclusion, weather parallelization, test count 1443)
+> Last updated: 2026-03-09 (Tier 1+2 complete: require_tier dependency, 7 gated endpoints, free-tier alert limit, /internal/health-data endpoint, migration 025 data cache tables, test count 1475)
 
 ## Directory Structure
 
@@ -19,7 +19,7 @@ backend/
 │   └── secrets.py                   # SecretsManager: 27 SECRET_MAPPINGS, 1Password (prod) / env vars (dev)
 │
 ├── api/
-│   ├── dependencies.py              # FastAPI DI: auth, DB sessions, service factories
+│   ├── dependencies.py              # FastAPI DI: auth, DB sessions, service factories; require_tier() factory (_TIER_ORDER: free=0, pro=1, business=2) for revenue gating on 7 endpoints
 │   └── v1/
 │       ├── prices.py                # Price CRUD endpoints (current, history, forecast, compare, refresh)
 │       ├── prices_analytics.py      # Price analytics (statistics, optimal-windows, trends, peak-hours)
@@ -984,7 +984,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1407 passed, 2 skipped, 0 failures (as of 2026-03-05). 55+ test files. Test organization: connections split into 8 endpoint files (crud/analytics/oauth/upload/rates/etc.), supplier caching, savings service, connection service, forecast observation repository class methods (coverage/accuracy metrics), weather service circuit breaker, maintenance service cleanup operations.
+**Test status:** 1,475 passed, 2 skipped, 0 failures (as of 2026-03-09). 59+ test files. Includes: tier gating (require_tier, 7 endpoints, free alert limit), health-data endpoint, data cache table tests. Prior: connections split into 8 endpoint files, supplier caching, savings service, connection service, forecast observation repository, weather service circuit breaker, maintenance service cleanup.
 
 
 ## Scripts & Automation

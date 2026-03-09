@@ -78,8 +78,82 @@ Three Rube MCP recipes provide automated monitoring notifications via Composio i
 **Rube session**: `drew` (16 active Composio connections)
 
 **Slack channels**:
-- `#incidents` (C0AJPR769H9) — Sentry error alerts
-- `#deployments` (C0AJPR7MQV9) — Deploy status notifications
+- `#incidents` (C0AJPR769H9) — Sentry error alerts + GHA cron workflow failure notifications (via `notify-slack` composite action)
+- `#deployments` (C0AJPR7MQV9) — Deploy status + rollback notifications
+- `#metrics` (C0AKDD7P2HX) — Nightly KPI report (business metrics digest)
+
+
+## Self-Healing Monitor
+
+**Workflow**: `.github/workflows/self-healing-monitor.yml` — Daily 9am UTC
+
+The self-healing monitor automatically tracks workflow health across all cron and critical GHA workflows. It runs as a matrix job over 13 monitored workflows and manages a lifecycle of GitHub issues to surface repeated failures.
+
+| Trigger | Action |
+|---------|--------|
+| 3+ failures in 24h | Creates a GitHub issue with `self-healing` + `automated` labels |
+| 3 consecutive successes | Auto-closes the open issue |
+
+**Monitored workflows** (13): `check-alerts`, `fetch-weather`, `market-research`, `sync-connections`, `scrape-rates`, `dunning-cycle`, `kpi-report`, `price-sync`, `observe-forecasts`, `nightly-learning`, `data-retention`, `data-health-check`, `deploy-production`
+
+**Issue permissions**: `issues: write`, `actions: read`
+
+### Composite Actions (Self-Healing Infrastructure)
+
+| Action | File | Purpose |
+|--------|------|---------|
+| `retry-curl` | `.github/actions/retry-curl/action.yml` | Exponential backoff for HTTP calls (4xx fail-fast, 5xx/429/408/000 retry up to 3x) |
+| `notify-slack` | `.github/actions/notify-slack/action.yml` | Color-coded Slack failure alerts to `#incidents`; severity: critical/warning/info |
+| `validate-migrations` | `.github/actions/validate-migrations/action.yml` | Convention checks: sequential numbering, IF NOT EXISTS, neondb_owner grants, no SERIAL |
+
+**Secret required**: `SLACK_INCIDENTS_WEBHOOK_URL` — Slack incoming webhook URL pointing to `#incidents` (C0AJPR769H9)
+
+All 12 cron workflows and `deploy-production` use `retry-curl` + `notify-slack`. The `migration-gate` job in `deploy-production` uses `validate-migrations` before any deploy proceeds.
+
+## Data Health Check
+
+**Workflow**: `.github/workflows/data-health-check.yml` — Daily cron
+
+Calls `GET /internal/health-data` to verify data pipeline integrity:
+
+- Checks row counts for key tables (`weather_cache`, `market_intelligence`, `scraped_rates`, `electricity_prices`, `user_alert_configs`)
+- Reports last-write timestamps to detect stale data
+- Flags critical empty tables that indicate a pipeline failure
+- Uses `retry-curl` composite action with exponential backoff
+- Sends Slack alert to `#incidents` on failure via `notify-slack`
+
+## Nightly KPI Report
+
+**Rube recipe**: `rcp_wu9mVLIZRM_n` — Daily 6:05am UTC (schedule ID: `51f1bdd6-b2a3-42a4-b5df-e936637aaf07`)
+
+Fetches `POST /internal/kpi-report` from the backend, then delivers results to two destinations:
+
+| Destination | Details |
+|-------------|---------|
+| Slack `#metrics` (C0AKDD7P2HX) | Formatted KPI summary with key metrics |
+| Google Sheet "KPI Dashboard" | Appends a new row (`15JGyCAThhP2lUKLvuEsdarRXDBa5TjlWKDwD9mztITA`) |
+
+**Metrics tracked**: Active Users (7d), Total Users, Prices Tracked, Alerts Sent, Pro Count, Business Count, Est. MRR ($), Weather Freshness (hrs), Connections Active, Connections Error
+
+**GHA companion**: `.github/workflows/kpi-report.yml` runs the backend endpoint daily at 6am UTC; the Rube recipe fires 5 minutes later (6:05am) to consume and distribute the results.
+
+## GHA Workflow Inventory
+
+**Total workflows**: 23 (as of 2026-03-09)
+
+| Category | Count | Workflows |
+|----------|-------|-----------|
+| CI/CD | 3 | `ci.yml`, `deploy-production.yml`, `e2e-tests.yml` |
+| Cron — Data | 5 | `check-alerts`, `fetch-weather`, `market-research`, `sync-connections`, `scrape-rates` |
+| Cron — Revenue | 2 | `dunning-cycle`, `kpi-report` |
+| Cron — ML | 2 | `observe-forecasts`, `nightly-learning` |
+| Cron — Ops | 3 | `price-sync`, `data-retention`, `data-health-check` |
+| Self-Healing | 1 | `self-healing-monitor` |
+| Security | 2 | `secret-scan`, `code-analysis` |
+| Docker | 1 | `_docker-build-push` |
+| Automation | 4 | `db-maintenance`, `notify-*, retry-curl`, `validate-migrations` (composite actions) |
+
+All 12 cron workflows use the `retry-curl` + `notify-slack` composite actions for resilience and observability.
 
 ## Environment Variables
 
