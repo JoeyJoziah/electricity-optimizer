@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { Input, Checkbox } from '@/components/ui/input'
 import { useCreateAlert } from '@/lib/hooks/useAlerts'
+import { ApiClientError } from '@/lib/api/client'
 import { US_REGIONS } from '@/lib/constants/regions'
 
 interface AlertFormProps {
@@ -17,6 +19,11 @@ export function AlertForm({ onSuccess }: AlertFormProps) {
   const [priceAbove, setPriceAbove] = useState('')
   const [notifyOptimalWindows, setNotifyOptimalWindows] = useState(true)
   const [validationError, setValidationError] = useState('')
+
+  const isTierLimitError =
+    createMutation.isError &&
+    createMutation.error instanceof ApiClientError &&
+    createMutation.error.status === 403
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -136,8 +143,26 @@ export function AlertForm({ onSuccess }: AlertFormProps) {
         </p>
       )}
 
-      {/* Mutation error */}
-      {createMutation.isError && (
+      {/* Tier limit error (403) — styled as an upgrade prompt */}
+      {isTierLimitError && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800"
+          role="alert"
+          data-testid="tier-limit-error"
+        >
+          Free plan is limited to 1 alert.{' '}
+          <Link
+            href="/pricing"
+            className="font-medium text-amber-900 underline hover:no-underline"
+          >
+            Upgrade to Pro
+          </Link>{' '}
+          for unlimited alerts.
+        </div>
+      )}
+
+      {/* Mutation error (non-403) */}
+      {createMutation.isError && !isTierLimitError && (
         <p className="text-sm text-danger-600" role="alert">
           {createMutation.error?.message ?? 'Failed to create alert. Please try again.'}
         </p>

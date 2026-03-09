@@ -51,6 +51,7 @@ export interface DashboardChartsProps {
   timeRange: TimeRange
   onTimeRangeChange: (range: TimeRange) => void
   savingsData: SavingsSummary | null | undefined
+  savingsError?: Error | null
 }
 
 /**
@@ -59,6 +60,7 @@ export interface DashboardChartsProps {
 export interface DashboardForecastProps {
   forecastData: unknown
   forecastLoading: boolean
+  forecastError?: Error | null
   currentPrice: CurrentPriceInfo | null
   topSuppliers: Supplier[]
   currentSupplier: { id: string; estimatedAnnualCost: number } | null

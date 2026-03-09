@@ -281,6 +281,7 @@ function setDefaultHookReturns() {
 // Import the component under test (after all mocks are declared)
 // ---------------------------------------------------------------------------
 import DashboardContent from '@/components/dashboard/DashboardContent'
+import { ApiClientError } from '@/lib/api/client'
 
 // ---------------------------------------------------------------------------
 // Test wrapper
@@ -731,5 +732,108 @@ describe('DashboardContent', () => {
     render(<DashboardContent />, { wrapper: createWrapper() })
 
     expect(screen.getByText('Top Suppliers')).toBeInTheDocument()
+  })
+
+  // --- Upgrade CTA for tier-gated features (403 errors) ---
+
+  it('shows forecast upgrade CTA when forecast returns 403', () => {
+    const forecastError = new ApiClientError({
+      message: 'Pro plan required',
+      status: 403,
+    })
+    mockUsePriceForecast.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: forecastError,
+    })
+
+    render(<DashboardContent />, { wrapper: createWrapper() })
+
+    expect(screen.getByTestId('forecast-upgrade-cta')).toBeInTheDocument()
+    expect(screen.getByText('Unlock ML-Powered Forecasts')).toBeInTheDocument()
+    expect(screen.getByText(/upgrade to pro to see 24-hour price predictions/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /upgrade to pro/i })).toHaveAttribute('href', '/pricing')
+  })
+
+  it('shows Forecast unavailable for non-403 errors', () => {
+    mockUsePriceForecast.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: new Error('Server Error'),
+    })
+
+    render(<DashboardContent />, { wrapper: createWrapper() })
+
+    expect(screen.queryByTestId('forecast-upgrade-cta')).not.toBeInTheDocument()
+    expect(screen.getByText('Forecast unavailable')).toBeInTheDocument()
+  })
+
+  it('shows savings upgrade CTA when savings returns 403', () => {
+    const savingsError = new ApiClientError({
+      message: 'Pro plan required',
+      status: 403,
+    })
+    mockUseSavingsSummary.mockReturnValue({
+      data: null,
+      error: savingsError,
+    })
+
+    render(<DashboardContent />, { wrapper: createWrapper() })
+
+    expect(screen.getByTestId('savings-upgrade-cta')).toBeInTheDocument()
+    expect(screen.getByText('Track Your Savings')).toBeInTheDocument()
+    expect(screen.getByText(/upgrade to pro to see savings tracking/i)).toBeInTheDocument()
+  })
+
+  it('shows SavingsTracker when savings error is not 403', () => {
+    mockUseSavingsSummary.mockReturnValue({
+      data: null,
+      error: new Error('Network Error'),
+    })
+
+    render(<DashboardContent />, { wrapper: createWrapper() })
+
+    expect(screen.queryByTestId('savings-upgrade-cta')).not.toBeInTheDocument()
+    expect(screen.getByTestId('savings-tracker')).toBeInTheDocument()
+  })
+
+  it('does not show upgrade CTAs when data loads successfully', () => {
+    render(<DashboardContent />, { wrapper: createWrapper() })
+
+    expect(screen.queryByTestId('forecast-upgrade-cta')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('savings-upgrade-cta')).not.toBeInTheDocument()
+    expect(screen.getByTestId('forecast-chart')).toBeInTheDocument()
+    expect(screen.getByTestId('savings-tracker')).toBeInTheDocument()
+  })
+
+  it('shows both upgrade CTAs simultaneously for free-tier users', () => {
+    const forecastError = new ApiClientError({
+      message: 'Pro plan required',
+      status: 403,
+    })
+    const savingsError = new ApiClientError({
+      message: 'Pro plan required',
+      status: 403,
+    })
+    mockUsePriceForecast.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: forecastError,
+    })
+    mockUseSavingsSummary.mockReturnValue({
+      data: null,
+      error: savingsError,
+    })
+
+    render(<DashboardContent />, { wrapper: createWrapper() })
+
+    expect(screen.getByTestId('forecast-upgrade-cta')).toBeInTheDocument()
+    expect(screen.getByTestId('savings-upgrade-cta')).toBeInTheDocument()
+
+    // Both should link to /pricing
+    const pricingLinks = screen
+      .getAllByRole('link')
+      .filter((el) => el.getAttribute('href') === '/pricing')
+    expect(pricingLinks.length).toBe(2)
   })
 })

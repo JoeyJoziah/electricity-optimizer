@@ -35,14 +35,6 @@ export default function BetaSignupPage() {
       }
 
       setSubmitted(true)
-
-      // Track signup event
-      if (typeof window !== 'undefined' && window.gtag) {
-        window.gtag('event', 'beta_signup', {
-          event_category: 'engagement',
-          event_label: formData.currentSupplier,
-        })
-      }
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -91,8 +83,8 @@ export default function BetaSignupPage() {
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600">
                 Questions? Email{' '}
-                <a href="mailto:support@electricity-optimizer.app" className="text-blue-600 hover:underline">
-                  support@electricity-optimizer.app
+                <a href="mailto:autodailynewsletterintake@gmail.com" className="text-blue-600 hover:underline">
+                  autodailynewsletterintake@gmail.com
                 </a>
               </p>
             </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import { useAlerts, useAlertHistory, useDeleteAlert, useUpdateAlert } from '@/lib/hooks/useAlerts'
 import { AlertForm } from '@/components/alerts/AlertForm'
@@ -79,8 +80,18 @@ function MyAlertsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Add Alert button */}
-      <div className="flex justify-end">
+      {/* Add Alert button + free-tier note */}
+      <div className="flex items-center justify-between">
+        {alerts.length >= 1 ? (
+          <p className="text-xs text-gray-500" data-testid="free-tier-note">
+            Free plan: 1 alert.{' '}
+            <Link href="/pricing" className="text-primary-600 hover:underline">
+              Upgrade for unlimited
+            </Link>
+          </p>
+        ) : (
+          <div />
+        )}
         <button
           onClick={() => setShowForm(!showForm)}
           className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"

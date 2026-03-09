@@ -4,6 +4,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
 import { SupplierCard } from '@/components/suppliers/SupplierCard'
+import { TrendingUp, ArrowRight } from 'lucide-react'
+import { ApiClientError } from '@/lib/api/client'
 import dynamic from 'next/dynamic'
 import type { RawForecastPriceEntry } from '@/types'
 import type { DashboardForecastProps } from './DashboardTypes'
@@ -20,12 +22,17 @@ const ForecastChart = dynamic(
 export function DashboardForecast({
   forecastData,
   forecastLoading,
+  forecastError,
   currentPrice,
   topSuppliers,
   currentSupplier,
 }: DashboardForecastProps) {
   // Safely access nested forecast shape
   const forecastObj = (forecastData as { forecast?: unknown })?.forecast
+
+  // Determine if the error is a 403 tier-gating response
+  const isTierGated =
+    forecastError instanceof ApiClientError && forecastError.status === 403
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-3">
@@ -56,6 +63,27 @@ export function DashboardForecast({
               showConfidence
               height={250}
             />
+          ) : isTierGated ? (
+            <div
+              className="flex h-64 flex-col items-center justify-center rounded-lg border border-primary-200 bg-primary-50 px-6 text-center"
+              data-testid="forecast-upgrade-cta"
+            >
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
+                <TrendingUp className="h-6 w-6 text-primary-600" />
+              </div>
+              <h4 className="text-lg font-semibold text-primary-900">
+                Unlock ML-Powered Forecasts
+              </h4>
+              <p className="mt-1 max-w-sm text-sm text-primary-700">
+                Upgrade to Pro to see 24-hour price predictions and save more on your electricity bill.
+              </p>
+              <Link href="/pricing" className="mt-4">
+                <Button variant="primary" size="sm">
+                  Upgrade to Pro
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           ) : (
             <div className="flex h-64 items-center justify-center text-gray-500">
               Forecast unavailable

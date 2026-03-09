@@ -66,15 +66,30 @@ const defaultSavingsResponse = {
   currency: 'USD',
 }
 
-// Mock the API client used by useSavingsSummary
-jest.mock('@/lib/api/client', () => ({
-  apiClient: {
-    get: jest.fn(() => Promise.resolve(defaultSavingsResponse)),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-  },
-}))
+// Mock the API client used by useSavingsSummary — include ApiClientError for instanceof checks
+jest.mock('@/lib/api/client', () => {
+  class MockApiClientError extends Error {
+    status: number
+    details?: Record<string, unknown>
+
+    constructor(error: { message: string; status: number; details?: Record<string, unknown> }) {
+      super(error.message)
+      this.name = 'ApiClientError'
+      this.status = error.status
+      this.details = error.details
+    }
+  }
+
+  return {
+    ApiClientError: MockApiClientError,
+    apiClient: {
+      get: jest.fn(() => Promise.resolve(defaultSavingsResponse)),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn(),
+    },
+  }
+})
 
 // Mock useSettingsStore so the component receives a valid region and queries fire
 jest.mock('@/lib/store/settings', () => ({

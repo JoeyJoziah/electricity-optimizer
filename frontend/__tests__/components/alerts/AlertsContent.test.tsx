@@ -30,6 +30,7 @@ jest.mock('@/lib/api/alerts', () => ({
 
 // Import after mocks are set up
 import AlertsContent from '@/components/alerts/AlertsContent'
+import { ApiClientError } from '@/lib/api/client'
 
 // Default mock data
 const defaultAlertsResponse = {
@@ -60,6 +61,24 @@ const defaultAlertsResponse = {
     },
   ],
   total: 2,
+}
+
+const singleAlertResponse = {
+  alerts: [
+    {
+      id: 'alert-1',
+      user_id: 'user-1',
+      region: 'us_ct',
+      currency: 'USD',
+      price_below: 0.2,
+      price_above: null,
+      notify_optimal_windows: true,
+      is_active: true,
+      created_at: '2026-03-01T10:00:00Z',
+      updated_at: '2026-03-01T10:00:00Z',
+    },
+  ],
+  total: 1,
 }
 
 const defaultHistoryResponse = {
@@ -110,6 +129,7 @@ describe('AlertsContent', () => {
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false, gcTime: 0 },
+        mutations: { retry: false },
       },
     })
 
@@ -286,6 +306,100 @@ describe('AlertsContent', () => {
         screen.getByText('Failed to load alerts. Please try again.')
       ).toBeInTheDocument()
     })
+  })
+
+  // --- My Alerts: Free Tier Note ---
+
+  it('shows free-tier note when user has alerts', async () => {
+    render(<AlertsContent />, { wrapper })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('free-tier-note')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Free plan: 1 alert\./)).toBeInTheDocument()
+    const upgradeLink = screen.getByText('Upgrade for unlimited')
+    expect(upgradeLink).toBeInTheDocument()
+    expect(upgradeLink.closest('a')).toHaveAttribute('href', '/pricing')
+  })
+
+  it('does not show free-tier note when no alerts exist', async () => {
+    mockGetAlerts.mockResolvedValue({ alerts: [], total: 0 })
+
+    render(<AlertsContent />, { wrapper })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('empty-alerts')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByTestId('free-tier-note')).not.toBeInTheDocument()
+  })
+
+  // --- My Alerts: 403 Tier Limit in Form ---
+
+  it('shows tier limit upgrade banner when create returns 403', async () => {
+    mockGetAlerts.mockResolvedValue(singleAlertResponse)
+    mockCreateAlert.mockRejectedValue(
+      new ApiClientError({
+        message: 'Free plan limited to 1 alert. Upgrade to Pro for unlimited.',
+        status: 403,
+      })
+    )
+
+    const user = userEvent.setup()
+    render(<AlertsContent />, { wrapper })
+
+    // Wait for alerts to load
+    await waitFor(() => {
+      expect(screen.getAllByTestId('alert-card')).toHaveLength(1)
+    })
+
+    // Open form
+    await user.click(screen.getByText('Add Alert'))
+    expect(screen.getByTestId('alert-form')).toBeInTheDocument()
+
+    // Fill form minimally
+    await user.selectOptions(screen.getByTestId('region-select'), 'us_tx')
+
+    // Submit
+    await user.click(screen.getByTestId('submit-alert'))
+
+    // Should show the amber tier-limit banner
+    await waitFor(() => {
+      expect(screen.getByTestId('tier-limit-error')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Free plan is limited to 1 alert\./)).toBeInTheDocument()
+    const upgradeLink = screen.getByText('Upgrade to Pro')
+    expect(upgradeLink.closest('a')).toHaveAttribute('href', '/pricing')
+  })
+
+  it('shows generic error for non-403 create failures', async () => {
+    mockGetAlerts.mockResolvedValue(singleAlertResponse)
+    mockCreateAlert.mockRejectedValue(
+      new ApiClientError({
+        message: 'Internal server error',
+        status: 500,
+      })
+    )
+
+    const user = userEvent.setup()
+    render(<AlertsContent />, { wrapper })
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('alert-card')).toHaveLength(1)
+    })
+
+    await user.click(screen.getByText('Add Alert'))
+    await user.selectOptions(screen.getByTestId('region-select'), 'us_tx')
+    await user.click(screen.getByTestId('submit-alert'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Internal server error')).toBeInTheDocument()
+    })
+
+    // Should NOT show the tier-limit banner
+    expect(screen.queryByTestId('tier-limit-error')).not.toBeInTheDocument()
   })
 
   // --- History Tab ---

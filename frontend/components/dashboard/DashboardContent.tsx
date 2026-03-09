@@ -47,12 +47,12 @@ export default function DashboardContent() {
     region,
     TIME_RANGE_HOURS[timeRange]
   )
-  const { data: forecastData, isLoading: forecastLoading } = usePriceForecast(
+  const { data: forecastData, isLoading: forecastLoading, error: forecastError } = usePriceForecast(
     region,
     24
   )
   const { data: suppliersData } = useSuppliers(region, annualUsage)
-  const { data: savingsData } = useSavingsSummary()
+  const { data: savingsData, error: savingsError } = useSavingsSummary()
 
   // Realtime connection (hook must be called for SSE side-effects)
   useRealtimePrices(region)
@@ -207,12 +207,14 @@ export default function DashboardContent() {
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
           savingsData={savingsData}
+          savingsError={savingsError}
         />
 
         {/* Second row: Forecast + Top suppliers */}
         <DashboardForecast
           forecastData={forecastData}
           forecastLoading={forecastLoading}
+          forecastError={forecastError}
           currentPrice={currentPrice}
           topSuppliers={topSuppliers}
           currentSupplier={currentSupplier}
