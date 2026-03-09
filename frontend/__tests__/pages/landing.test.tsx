@@ -52,9 +52,9 @@ describe('LandingPage', () => {
     expect(ctaLink).toHaveAttribute('href', '/auth/signup')
   })
 
-  it('renders View Demo link to dashboard', () => {
-    const demoLink = screen.getByRole('link', { name: /view demo/i })
-    expect(demoLink).toHaveAttribute('href', '/dashboard')
+  it('renders Try It Free link to signup', () => {
+    const tryFreeLink = screen.getByRole('link', { name: /try it free/i })
+    expect(tryFreeLink).toHaveAttribute('href', '/auth/signup')
   })
 
   it('renders all 6 feature cards', () => {

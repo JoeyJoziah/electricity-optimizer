@@ -57,7 +57,7 @@ describe('PrivacyPage', () => {
   })
 
   it('renders privacy contact email', () => {
-    expect(screen.getByText(/privacy@electricity-optimizer\.com/i)).toBeInTheDocument()
+    expect(screen.getByText(/autodailynewsletterintake@gmail\.com/i)).toBeInTheDocument()
   })
 
   it('renders footer navigation links', () => {
