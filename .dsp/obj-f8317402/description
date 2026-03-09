@@ -1,0 +1,3 @@
+source: .github/actions/setup-python-env/action.yml
+kind: object
+purpose: Composite action: Python environment setup with caching

@@ -1,0 +1,3 @@
+source: scripts/backup.sh
+kind: object
+purpose: Database backup script

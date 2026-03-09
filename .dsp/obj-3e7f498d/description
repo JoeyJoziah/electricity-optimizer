@@ -1,0 +1,3 @@
+source: scripts/install-hooks.sh
+kind: object
+purpose: Git hooks installation script

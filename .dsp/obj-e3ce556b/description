@@ -1,0 +1,3 @@
+source: xgboost
+kind: external
+purpose: XGBoost gradient boosting library

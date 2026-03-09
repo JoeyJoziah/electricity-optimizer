@@ -1,0 +1,3 @@
+source: docs/INFRASTRUCTURE.md
+kind: object
+purpose: Infrastructure architecture documentation

@@ -1,0 +1,3 @@
+source: frontend/components/dashboard/DashboardStatsRow.tsx
+kind: object
+purpose: Stats summary row with key metrics

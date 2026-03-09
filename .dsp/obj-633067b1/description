@@ -1,0 +1,3 @@
+source: .github/workflows/nightly-learning.yml
+kind: object
+purpose: Nightly ML learning workflow

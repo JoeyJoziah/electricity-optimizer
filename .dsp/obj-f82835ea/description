@@ -1,0 +1,3 @@
+source: frontend/tailwind.config.ts
+kind: object
+purpose: Tailwind CSS configuration with custom design tokens

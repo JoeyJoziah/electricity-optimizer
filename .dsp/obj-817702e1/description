@@ -1,0 +1,3 @@
+source: backend/services/connection_sync_service.py
+kind: object
+purpose: Utility API connection synchronization

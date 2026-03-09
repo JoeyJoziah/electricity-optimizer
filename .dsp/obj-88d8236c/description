@@ -1,0 +1,3 @@
+source: backend/services/geocoding_service.py
+kind: object
+purpose: Geocoding service for location resolution

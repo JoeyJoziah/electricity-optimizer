@@ -1,0 +1,3 @@
+source: frontend/lib/hooks/useGeocoding.ts
+kind: object
+purpose: Hooks for geocoding location data

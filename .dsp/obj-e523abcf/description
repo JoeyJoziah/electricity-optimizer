@@ -1,0 +1,3 @@
+source: backend/integrations/weather_service.py
+kind: object
+purpose: Weather API integration with asyncio.gather parallelization

@@ -1,0 +1,3 @@
+source: backend/integrations/pricing_apis/nrel.py
+kind: object
+purpose: NREL electricity rate API integration

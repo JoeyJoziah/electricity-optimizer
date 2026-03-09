@@ -1,0 +1,3 @@
+source: frontend/components/ui/card.tsx
+kind: object
+purpose: Card component with header and content sections

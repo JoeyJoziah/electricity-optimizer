@@ -1,0 +1,3 @@
+source: docs/TESTING.md
+kind: object
+purpose: Testing strategy and framework documentation

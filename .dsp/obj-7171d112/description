@@ -1,0 +1,3 @@
+source: .github/workflows/self-healing-monitor.yml
+kind: object
+purpose: Self-healing monitor: auto-issues after 3+ failures

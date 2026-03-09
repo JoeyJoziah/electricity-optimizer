@@ -1,0 +1,3 @@
+source: @tanstack/react-query
+kind: external
+purpose: TanStack React Query for server state management

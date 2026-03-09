@@ -1,0 +1,3 @@
+source: .github/workflows/ci.yml
+kind: object
+purpose: Main CI pipeline — lint, type check, build

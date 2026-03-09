@@ -1,0 +1,3 @@
+source: stripe
+kind: external
+purpose: Stripe payment processing SDK

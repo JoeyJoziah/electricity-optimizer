@@ -1,0 +1,3 @@
+source: backend/services/market_intelligence_service.py
+kind: object
+purpose: Market research via Tavily and Diffbot

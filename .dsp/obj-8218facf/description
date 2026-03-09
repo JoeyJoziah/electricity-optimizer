@@ -1,0 +1,3 @@
+source: ml/optimization/switching_decision.py
+kind: object
+purpose: Supplier switching decision logic

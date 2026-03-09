@@ -1,0 +1,3 @@
+source: .github/dependabot.yml
+kind: object
+purpose: Dependabot config: pip, npm, github-actions weekly Monday

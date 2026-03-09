@@ -1,0 +1,3 @@
+source: ml/training/train_forecaster.py
+kind: object
+purpose: CNN-LSTM training pipeline orchestration

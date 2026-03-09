@@ -1,0 +1,3 @@
+source: react
+kind: external
+purpose: React UI library for building component-based interfaces

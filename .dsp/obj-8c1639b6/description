@@ -1,0 +1,3 @@
+source: frontend/components/auth/SignupForm.tsx
+kind: object
+purpose: Signup form with email verification

@@ -1,0 +1,3 @@
+source: frontend/components/layout/NotificationBell.tsx
+kind: object
+purpose: Notification bell icon with unread count

@@ -1,0 +1,3 @@
+source: frontend/components/connections/ConnectionUploadFlow.tsx
+kind: object
+purpose: Bill upload wizard flow

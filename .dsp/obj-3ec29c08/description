@@ -1,0 +1,3 @@
+source: backend/api/v1/connections/router.py
+kind: object
+purpose: Connections sub-router aggregating all connection endpoints

@@ -1,0 +1,3 @@
+source: ml/optimization/appliance_models.py
+kind: object
+purpose: Appliance energy consumption models

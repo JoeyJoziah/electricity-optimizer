@@ -1,0 +1,3 @@
+source: backend/api/v1/alerts.py
+kind: object
+purpose: Alert configuration CRUD endpoints

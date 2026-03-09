@@ -1,0 +1,3 @@
+source: backend/models/regulation.py
+kind: object
+purpose: Regulation model for utility regulations

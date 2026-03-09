@@ -1,0 +1,3 @@
+source: backend/models/base.py
+kind: object
+purpose: SQLAlchemy declarative Base class

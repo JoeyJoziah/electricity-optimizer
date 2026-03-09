@@ -1,0 +1,3 @@
+source: .github/workflows/e2e-tests.yml
+kind: object
+purpose: E2E Playwright tests with full stack
