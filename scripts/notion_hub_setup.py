@@ -475,8 +475,8 @@ def backfill_automation_workflows(api_key: str, db_id: str):
 
     workflows = [
         # Phase 1 — Rube recipes
-        {"name": "Sentry-to-Slack Bridge", "status": "Active", "type": "Rube Recipe", "schedule": "*/15 * * * *", "recipe_id": "rcp_sQ1NKouFdXIe", "phase": "Phase 1", "channels": ["Slack #incidents"], "notes": "Fetches unresolved Sentry issues, classifies P0-P3, posts to #incidents (C0AJPR769H9)"},
-        {"name": "Deploy Notifications", "status": "Active", "type": "Rube Recipe", "schedule": "0 * * * *", "recipe_id": "rcp_9f8mVE2Z_DSP", "phase": "Phase 1", "channels": ["Slack #deployments"], "notes": "Checks Render backend+frontend status, posts to #deployments (C0AJPR7MQV9), creates Better Stack incident on failures"},
+        {"name": "Sentry-to-Slack Bridge", "status": "Active", "type": "Rube Recipe", "schedule": "*/15 * * * *", "recipe_id": "rcp_sQ1NKouFdXIe", "phase": "Phase 1", "channels": ["Slack #incidents"], "notes": "Fetches unresolved Sentry issues, classifies P0-P3, posts to #incidents (C0AKV2TK257)"},
+        {"name": "Deploy Notifications", "status": "Active", "type": "Rube Recipe", "schedule": "0 * * * *", "recipe_id": "rcp_9f8mVE2Z_DSP", "phase": "Phase 1", "channels": ["Slack #deployments"], "notes": "Checks Render backend+frontend status, posts to #deployments (C0AKCN6T02Z), creates Better Stack incident on failures"},
         {"name": "GitHub-to-Notion Roadmap Sync", "status": "Active", "type": "Rube Recipe", "schedule": "0 */6 * * *", "recipe_id": "rcp_73Kc9K65YC5T", "phase": "Phase 1", "channels": [], "notes": "Syncs GitHub issues/PRs to Notion Project Tracker. Will be replaced with new recipe targeting new Hub"},
         # Phase 2 — GHA crons
         {"name": "Check Alerts", "status": "Active", "type": "GHA Cron", "schedule": "*/15 * * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/check-alerts", "workflow_file": ".github/workflows/check-alerts.yml", "phase": "Phase 2", "channels": ["Email"], "notes": "Price threshold alerts with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)"},
@@ -669,8 +669,8 @@ def create_dashboard_pages(api_key: str, hub_id: str, db_ids: dict):
             {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": rich_text("kpi-report (daily 6am) — Business metrics → Slack #metrics + Google Sheets")}},
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": rich_text("Slack Channels")}},
-            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": rich_text("#incidents (C0AJPR769H9) — Sentry alerts")}},
-            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": rich_text("#deployments (C0AJPR7MQV9) — Deploy status")}},
+            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": rich_text("#incidents (C0AKV2TK257) — Sentry alerts")}},
+            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": rich_text("#deployments (C0AKCN6T02Z) — Deploy status")}},
             {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": rich_text("#metrics (C0AKDD7P2HX) — KPI reports")}},
         ]
     })

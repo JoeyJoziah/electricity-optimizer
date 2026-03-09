@@ -71,15 +71,15 @@ Three Rube MCP recipes provide automated monitoring notifications via Composio i
 
 | Workflow | Recipe ID | Schedule | Action |
 |----------|-----------|----------|--------|
-| Sentry→Slack Bridge | `rcp_sQ1NKouFdXIe` | Every 15 min | Fetches unresolved Sentry issues, classifies by severity, posts to Slack `#incidents` (C0AJPR769H9) |
-| Deploy Notifications | `rcp_9f8mVE2Z_DSP` | Every hour | Checks Render backend + frontend status, posts to Slack `#deployments` (C0AJPR7MQV9), creates Better Stack incident on failures |
+| Sentry→Slack Bridge | `rcp_sQ1NKouFdXIe` | Every 15 min | Fetches unresolved Sentry issues, classifies by severity, posts to Slack `#incidents` (C0AKV2TK257) |
+| Deploy Notifications | `rcp_9f8mVE2Z_DSP` | Every hour | Checks Render backend + frontend status, posts to Slack `#deployments` (C0AKCN6T02Z), creates Better Stack incident on failures |
 | GitHub→Notion Sync | `rcp_73Kc9K65YC5T` | Every 6 hours | Syncs open GitHub issues/PRs to Notion roadmap database |
 
 **Rube session**: `drew` (16 active Composio connections)
 
 **Slack channels**:
-- `#incidents` (C0AJPR769H9) — Sentry error alerts + GHA cron workflow failure notifications (via `notify-slack` composite action)
-- `#deployments` (C0AJPR7MQV9) — Deploy status + rollback notifications
+- `#incidents` (C0AKV2TK257) — Sentry error alerts + GHA cron workflow failure notifications (via `notify-slack` composite action)
+- `#deployments` (C0AKCN6T02Z) — Deploy status + rollback notifications
 - `#metrics` (C0AKDD7P2HX) — Nightly KPI report (business metrics digest)
 
 
@@ -106,7 +106,7 @@ The self-healing monitor automatically tracks workflow health across all cron an
 | `notify-slack` | `.github/actions/notify-slack/action.yml` | Color-coded Slack failure alerts to `#incidents`; severity: critical/warning/info |
 | `validate-migrations` | `.github/actions/validate-migrations/action.yml` | Convention checks: sequential numbering, IF NOT EXISTS, neondb_owner grants, no SERIAL |
 
-**Secret required**: `SLACK_INCIDENTS_WEBHOOK_URL` — Slack incoming webhook URL pointing to `#incidents` (C0AJPR769H9)
+**Secret required**: `SLACK_INCIDENTS_WEBHOOK_URL` — Slack incoming webhook URL pointing to `#incidents` (C0AKV2TK257)
 
 All 12 cron workflows and `deploy-production` use `retry-curl` + `notify-slack`. The `migration-gate` job in `deploy-production` uses `validate-migrations` before any deploy proceeds.
 

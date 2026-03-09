@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-06 (Tier 1+2 COMPLETE — revenue gating on 7 endpoints, /alerts UI page, frontend perf optimizations, CI/CD fixes + Dependabot. 25 migrations deployed. Backend 1,475 tests, Frontend 1,420 tests)
+> Last validated: 2026-03-09 (Slack workspace migration to electricityoptimizer.slack.com complete. All channel IDs updated. Tier 1+2 COMPLETE. 25 migrations deployed. Backend 1,475 tests, Frontend 1,420 tests)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -110,6 +110,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d). **UI**: `/alerts` page with CRUD, history tabs, AlertForm (region/thresholds/optimal windows). Sidebar Bell icon
 - **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). ALL PHASES COMPLETE (0-3), 7/7 workflows live. Self-Healing CI/CD: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. **Dependabot**: `.github/dependabot.yml` (pip/npm/github-actions, weekly Monday, grouped minor+patch)
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
+- **Slack**: Workspace `electricityoptimizer.slack.com` (T0AK0AJV5NE). Channels: `#incidents` (C0AKV2TK257), `#deployments` (C0AKCN6T02Z), `#metrics` (C0AKDD7P2HX). Webhook: `SLACK_INCIDENTS_WEBHOOK_URL` GHA secret + 1Password. Composio connection: `ca_jI3-cs-HrXPY`
 - **Board Sync**: GitHub Projects #4 (local hooks). Notion via Rube recipe only (every 6h, rcp_73Kc9K65YC5T). Hub page: `31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7`, Tracker DB: `31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f`
 
 ## Critical Reminders
@@ -145,7 +146,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Self-Healing CI/CD** (implemented 2026-03-06):
   - `self-healing-monitor.yml`: Daily 9am UTC — checks 13 workflows for repeated failures, auto-creates/closes GitHub issues
   - `retry-curl` composite action: Exponential backoff with jitter, 4xx fail-fast, 3 retries
-  - `notify-slack` composite action: Color-coded severity alerts to `#incidents` (C0AJPR769H9)
+  - `notify-slack` composite action: Color-coded severity alerts to `#incidents` (C0AKV2TK257)
   - `validate-migrations` composite action: Sequential numbering, IF NOT EXISTS, neondb_owner, no SERIAL
   - CI auto-format: Black + isort auto-fix on PRs (commit bot), fail on main
   - E2E resilience: Retry Playwright install, extended timeouts, rerun failed tests

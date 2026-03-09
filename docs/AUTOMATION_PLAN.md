@@ -35,14 +35,14 @@ All 3 workflows live via Rube recipes. No application code changes required.
 ### Workflow 4: Sentry-to-Slack Bridge ✅
 - **Recipe**: `rcp_sQ1NKouFdXIe` ([view](https://rube.app/recipe-hub/sentry-to-slack-bridge))
 - **Schedule**: Every 15 min (`*/15 * * * *`), ID: `2bbd63bd-0a7f-401b-a0e4-12f8d19c873f`
-- **Action**: Fetches unresolved Sentry issues → classifies P0/P1 (critical) vs P2/P3 (digest) → posts to Slack `#incidents` (C0AJPR769H9)
+- **Action**: Fetches unresolved Sentry issues → classifies P0/P1 (critical) vs P2/P3 (digest) → posts to Slack `#incidents` (C0AKV2TK257)
 - **Tools**: `SENTRY_LIST_AN_ORGANIZATIONS_ISSUES` (with required `start`/`end` params) + `SLACK_SEND_MESSAGE`
 - **Test result**: 0 issues found, "All Clear" posted to #incidents
 
 ### Workflow 5: Deploy Notifications ✅
 - **Recipe**: `rcp_9f8mVE2Z_DSP` ([view](https://rube.app/recipe-hub/deploy-notifications))
 - **Schedule**: Every hour (`0 * * * *`), ID: `06777ec8-c936-4a79-941b-36ed57d449e7`
-- **Action**: Checks Render backend + frontend status → posts to Slack `#deployments` (C0AJPR7MQV9) → creates Better Stack incident on failures (status page 239822)
+- **Action**: Checks Render backend + frontend status → posts to Slack `#deployments` (C0AKCN6T02Z) → creates Better Stack incident on failures (status page 239822)
 - **Tools**: `RENDER_LIST_SERVICES` + `SLACK_SEND_MESSAGE` + `BETTER_STACK_CREATE_STATUS_PAGE_REPORT`
 - **Test result**: Backend OK, Frontend OK, no incident created
 
@@ -54,8 +54,8 @@ All 3 workflows live via Rube recipes. No application code changes required.
 - **Test result**: 2/2 issues synced, 0/0 PRs synced
 
 ### Infrastructure Created
-- Slack `#incidents` channel: C0AJPR769H9
-- Slack `#deployments` channel: C0AJPR7MQV9
+- Slack `#incidents` channel: C0AKV2TK257
+- Slack `#deployments` channel: C0AKCN6T02Z
 - Rube session: `drew` (16 active Composio connections)
 
 ### API Learnings
@@ -135,7 +135,7 @@ Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, a
 - **Created**: `.github/actions/notify-slack/action.yml`
 - **Inputs**: webhook-url, workflow-name, severity (critical/warning/info), run-url (auto-populated)
 - **Severity mapping**: critical → danger color + 🚨, warning → warning color + ⚠️, info → blue + ℹ️
-- **Secret**: `SLACK_INCIDENTS_WEBHOOK_URL` (Slack incoming webhook → `#incidents` C0AJPR769H9)
+- **Secret**: `SLACK_INCIDENTS_WEBHOOK_URL` (Slack incoming webhook → `#incidents` C0AKV2TK257)
 - **Applied to**: All 12 cron workflows + deploy-production rollback
 
 ### Deliverable 4: Validate-Migrations Composite Action ✅
