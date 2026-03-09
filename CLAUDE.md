@@ -131,8 +131,8 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **db-maintenance**: Weekly Sunday 3am UTC — database optimization, vacuum, analyze, index maintenance
 - **Phase 1 LIVE**: Sentry→Slack (15min, `rcp_sQ1NKouFdXIe`), Deploy→Slack (hourly, `rcp_9f8mVE2Z_DSP`), GitHub→Notion (6h, `rcp_73Kc9K65YC5T`). Rube session: `drew`
 - **Phase 2 COMPLETE** (5 GHA cron workflows):
-  - `check-alerts.yml`: Every 15 min — `POST /internal/check-alerts` (price threshold alerts with dedup)
-  - `fetch-weather.yml`: Every 6 hours — `POST /internal/fetch-weather` (parallelized with asyncio.gather + Semaphore(10))
+  - `check-alerts.yml`: Every 30 min — `POST /internal/check-alerts` (price threshold alerts with dedup)
+  - `fetch-weather.yml`: Every 6 hours (offset :15) — `POST /internal/fetch-weather` (parallelized with asyncio.gather + Semaphore(10))
   - `market-research.yml`: Daily 2am UTC — `POST /internal/market-research` (Tavily + Diffbot)
   - `sync-connections.yml`: Every 2 hours — `POST /internal/sync-connections` (UtilityAPI auto-sync)
   - `scrape-rates.yml`: Daily 3am UTC — `POST /internal/scrape-rates` (auto-discovers suppliers with empty body)
