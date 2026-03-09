@@ -1,21 +1,15 @@
 """Tests for the Weather Service integration."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 
-from integrations.weather_service import (
-    CircuitState,
-    WeatherCircuitBreaker,
-    WeatherData,
-    WeatherForecast,
-    WeatherService,
-    CT_LAT,
-    CT_LON,
-    DEGREE_DAY_BASE_F,
-)
+from integrations.weather_service import (CT_LAT, CT_LON, DEGREE_DAY_BASE_F,
+                                          CircuitState, WeatherCircuitBreaker,
+                                          WeatherData, WeatherForecast,
+                                          WeatherService)
 
 
 class TestWeatherData:
@@ -78,7 +72,7 @@ class TestWeatherData:
         assert features[2] == 10.0  # wind
         assert features[3] == 40.0  # clouds
         assert features[4] == 15.0  # HDD (65-50)
-        assert features[5] == 0.0   # CDD
+        assert features[5] == 0.0  # CDD
 
 
 class TestWeatherService:

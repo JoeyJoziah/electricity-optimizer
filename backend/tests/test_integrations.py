@@ -11,48 +11,36 @@ Tests cover:
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+import json
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
-import json
 
 import httpx
 import pytest
 
 # Import all components to test
-from integrations.pricing_apis.base import (
-    BasePricingClient,
-    PriceData,
-    ForecastData,
-    ForecastData as PriceForecast,  # backward-compat alias used in tests below
-    PricingRegion,
-    PriceUnit,
-    APIError,
-    RateLimitError,
-    AuthenticationError,
-    ServiceUnavailableError,
-    CircuitBreakerOpenError,
-    CircuitBreaker,
-    CircuitState,
-    CircuitBreakerConfig,
-    RetryConfig,
-)
+from integrations.pricing_apis.base import (APIError, AuthenticationError,
+                                            BasePricingClient, CircuitBreaker,
+                                            CircuitBreakerConfig,
+                                            CircuitBreakerOpenError,
+                                            CircuitState)
+from integrations.pricing_apis.base import ForecastData
+from integrations.pricing_apis.base import \
+    ForecastData as PriceForecast  # backward-compat alias used in tests below
+from integrations.pricing_apis.base import (PriceData, PriceUnit,
+                                            PricingRegion, RateLimitError,
+                                            RetryConfig,
+                                            ServiceUnavailableError)
+from integrations.pricing_apis.cache import (CacheConfig, CacheEntry,
+                                             InMemoryCache, PricingCache)
 from integrations.pricing_apis.flatpeak import FlatpeakClient
-from integrations.pricing_apis.nrel import NRELClient
 from integrations.pricing_apis.iea import IEAClient
-from integrations.pricing_apis.cache import (
-    PricingCache,
-    InMemoryCache,
-    CacheConfig,
-    CacheEntry,
-)
-from integrations.pricing_apis.rate_limiter import (
-    TokenBucketLimiter,
-    SlidingWindowLimiter,
-    CompositeRateLimiter,
-    create_api_rate_limiter,
-)
-
+from integrations.pricing_apis.nrel import NRELClient
+from integrations.pricing_apis.rate_limiter import (CompositeRateLimiter,
+                                                    SlidingWindowLimiter,
+                                                    TokenBucketLimiter,
+                                                    create_api_rate_limiter)
 
 # =============================================================================
 # FIXTURES
@@ -539,6 +527,7 @@ class TestInMemoryCache:
     @pytest.mark.asyncio
     async def test_fetch_on_miss(self, memory_cache):
         """Test fetch function is called on cache miss"""
+
         async def fetch():
             return {"price": 0.30}
 
@@ -969,6 +958,7 @@ class TestRetryLogic:
         call_count = 0
 
         with patch("httpx.AsyncClient") as MockClient:
+
             async def mock_request(*args, **kwargs):
                 nonlocal call_count
                 call_count += 1
