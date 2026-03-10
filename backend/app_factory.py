@@ -172,7 +172,7 @@ class RequestTimeoutMiddleware:
     SSE and other long-lived streaming endpoints.
     """
 
-    TIMEOUT_EXCLUDED_PREFIXES = ("/api/v1/internal/",)
+    TIMEOUT_EXCLUDED_PREFIXES = ("/api/v1/internal/", "/api/v1/agent/")
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -249,6 +249,16 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         try:
             await db_manager.initialize()
             logger.info("database_connections_initialized")
+
+            # Instrument the SQLAlchemy engine for tracing once it is
+            # available.  No-op when OTEL_ENABLED is false.
+            if settings.otel_enabled and db_manager.timescale_engine is not None:
+                try:
+                    from observability import instrument_sqlalchemy_engine
+
+                    instrument_sqlalchemy_engine(db_manager.timescale_engine)
+                except Exception as _sa_exc:
+                    logger.warning("otel_sqlalchemy_wire_failed", error=str(_sa_exc))
         except Exception as e:
             logger.error("database_init_failed", error=str(e))
             logger.warning(
@@ -321,6 +331,26 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         redoc_url=None if settings.is_production else "/redoc",
         lifespan=lifespan,
     )
+
+    # ------------------------------------------------------------------
+    # OpenTelemetry instrumentation (opt-in via OTEL_ENABLED=true)
+    #
+    # Must be called after the FastAPI instance is created so that the
+    # FastAPI instrumentor can wrap the application directly.  The call
+    # is a no-op when OTEL_ENABLED is false (default), so there is zero
+    # overhead in environments that have not opted in.
+    # ------------------------------------------------------------------
+    if settings.otel_enabled:
+        try:
+            from observability import init_telemetry, instrument_fastapi_app
+
+            init_telemetry(app)
+            # instrument_fastapi_app instruments the specific app instance
+            # so route-level spans carry the correct operation names.
+            instrument_fastapi_app(app)
+            logger.info("otel_wired_into_app")
+        except Exception as _otel_exc:
+            logger.warning("otel_wire_failed", error=str(_otel_exc))
 
     # ------------------------------------------------------------------
     # Middleware (registration order matters — last registered = outermost
@@ -507,6 +537,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import notifications as notifications_v1
     from api.v1 import health as health_v1
     from api.v1 import feedback as feedback_v1
+    from api.v1 import agent as agent_v1
 
     app.include_router(
         predictions.router,
@@ -622,6 +653,11 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         feedback_v1.router,
         prefix=f"{settings.api_prefix}",
         tags=["Feedback"],
+    )
+    app.include_router(
+        agent_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Agent"],
     )
 
     return app, app_rate_limiter

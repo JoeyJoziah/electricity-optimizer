@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     # Billing redirect domain allowlist — stored as str to avoid pydantic-settings
     # JSON-parse failures on comma-separated env var values. Parsed by the property.
     allowed_redirect_domains_raw: str = Field(
-        default='["electricity-optimizer.vercel.app","electricity-optimizer-frontend.onrender.com","localhost"]',
+        default='["rateshift.app","localhost"]',
         validation_alias="ALLOWED_REDIRECT_DOMAINS",
     )
 
@@ -152,6 +152,14 @@ class Settings(BaseSettings):
     outlook_client_secret: Optional[str] = Field(default=None, validation_alias="OUTLOOK_CLIENT_SECRET")
     oauth_redirect_base_url: str = Field(default="http://localhost:8000", validation_alias="OAUTH_REDIRECT_BASE_URL")
 
+    # AI Agent (Gemini primary + Groq fallback + Composio tools)
+    gemini_api_key: Optional[str] = Field(default=None, validation_alias="GEMINI_API_KEY")
+    groq_api_key: Optional[str] = Field(default=None, validation_alias="GROQ_API_KEY")
+    composio_api_key: Optional[str] = Field(default=None, validation_alias="COMPOSIO_API_KEY")
+    enable_ai_agent: bool = Field(default=False, validation_alias="ENABLE_AI_AGENT")
+    agent_free_daily_limit: int = Field(default=3, validation_alias="AGENT_FREE_DAILY_LIMIT")
+    agent_pro_daily_limit: int = Field(default=20, validation_alias="AGENT_PRO_DAILY_LIMIT")
+
     # Feature Flags
     enable_auto_switching: bool = Field(default=False, validation_alias="ENABLE_AUTO_SWITCHING")
     enable_load_optimization: bool = Field(default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION")
@@ -160,6 +168,16 @@ class Settings(BaseSettings):
     # Monitoring
     sentry_dsn: Optional[str] = Field(default=None, validation_alias="SENTRY_DSN")
     prometheus_port: int = Field(default=9090, validation_alias="PROMETHEUS_PORT")
+
+    # OpenTelemetry — opt-in distributed tracing
+    # Set OTEL_ENABLED=true to activate instrumentation.
+    # Set OTEL_EXPORTER_OTLP_ENDPOINT to ship traces to a collector (e.g.
+    # http://localhost:4318).  When the endpoint is absent but OTEL_ENABLED
+    # is true, traces are written to stdout (debug) or discarded (prod).
+    otel_enabled: bool = Field(default=False, validation_alias="OTEL_ENABLED")
+    otel_endpoint: Optional[str] = Field(
+        default=None, validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
