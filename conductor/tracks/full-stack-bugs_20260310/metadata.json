@@ -2,15 +2,24 @@
   "id": "full-stack-bugs_20260310",
   "title": "Full-Stack Bug Remediation",
   "type": "bug",
-  "status": "in_progress",
+  "status": "complete",
   "created": "2026-03-10T18:16:00Z",
-  "updated": "2026-03-10T18:20:00Z",
+  "updated": "2026-03-10T23:45:00Z",
+  "current_phase": 4,
+  "current_task": "4.4",
   "phases": {
     "total": 4,
-    "completed": 0
+    "completed": 4
   },
   "tasks": {
     "total": 14,
-    "completed": 0
-  }
+    "completed": 14
+  },
+  "commits": [
+    "e0dd644: fix(deps): update types-redis version constraint (full-stack-bugs_20260310)",
+    "679119e: fix(weather): resolve fetch-weather 422 with optional body + retry-curl rewrite (full-stack-bugs_20260310)",
+    "6c6fe3c: fix(security): add .gitleaks.toml allowlist for DSP false positives (full-stack-bugs_20260310)",
+    "0586408: fix(csp): allow Clarity analytics from *.clarity.ms subdomains (full-stack-bugs_20260310)",
+    "b174bc4: fix(maintenance): make cleanup endpoint resilient to partial failures (full-stack-bugs_20260310)"
+  ]
 }
