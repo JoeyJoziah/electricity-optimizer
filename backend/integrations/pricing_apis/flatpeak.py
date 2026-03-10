@@ -20,18 +20,11 @@ from typing import Optional
 
 import structlog
 
-from .base import (
-    BasePricingClient,
-    PriceData,
-    PriceForecast,
-    PricingRegion,
-    PriceUnit,
-    APIError,
-    RetryConfig,
-    CircuitBreakerConfig,
-)
-from .rate_limiter import RateLimiter, create_api_rate_limiter
+from .base import (APIError, BasePricingClient, CircuitBreakerConfig,
+                   PriceData, PriceForecast, PriceUnit, PricingRegion,
+                   RetryConfig)
 from .cache import PricingCache
+from .rate_limiter import RateLimiter, create_api_rate_limiter
 
 logger = structlog.get_logger(__name__)
 
@@ -181,8 +174,12 @@ class FlatpeakClient(BasePricingClient):
             supplier=data.get("supplier"),
             tariff_name=data.get("tariff_name"),
             source_api="flatpeak",
-            energy_cost=Decimal(str(breakdown.get("energy", 0))) if breakdown.get("energy") else None,
-            network_cost=Decimal(str(breakdown.get("network", 0))) if breakdown.get("network") else None,
+            energy_cost=Decimal(str(breakdown.get("energy", 0)))
+            if breakdown.get("energy")
+            else None,
+            network_cost=Decimal(str(breakdown.get("network", 0)))
+            if breakdown.get("network")
+            else None,
             taxes=Decimal(str(breakdown.get("taxes", 0))) if breakdown.get("taxes") else None,
             levies=Decimal(str(breakdown.get("levies", 0))) if breakdown.get("levies") else None,
             is_peak=data.get("is_peak"),

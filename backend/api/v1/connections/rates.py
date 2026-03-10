@@ -21,9 +21,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, SessionData
-from models.connections import ExtractedRateResponse, ExtractedRateListResponse
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import ExtractedRateListResponse, ExtractedRateResponse
 
 router = APIRouter()
 
@@ -66,15 +66,18 @@ async def get_rates(
 
     params = {"cid": connection_id, "uid": current_user.user_id}
 
-    count_query = text("""
+    count_query = text(
+        """
         SELECT COUNT(*)
         FROM connection_extracted_rates cer
         JOIN user_connections uc ON cer.connection_id = uc.id
         WHERE cer.connection_id = :cid
           AND uc.user_id = :uid
-    """)
+    """
+    )
 
-    data_query = text("""
+    data_query = text(
+        """
         SELECT cer.id, cer.connection_id, cer.rate_per_kwh,
                cer.effective_date, cer.source, cer.raw_label
         FROM connection_extracted_rates cer
@@ -83,7 +86,8 @@ async def get_rates(
           AND uc.user_id = :uid
         ORDER BY cer.effective_date DESC
         LIMIT :limit OFFSET :offset
-    """)
+    """
+    )
 
     count_result, data_result = await asyncio.gather(
         db.execute(count_query, params),
@@ -140,7 +144,8 @@ async def get_current_rate(
     distinguishes the two cases only when the JOIN returns nothing.
     """
     result = await db.execute(
-        text("""
+        text(
+            """
             SELECT cer.id, cer.connection_id, cer.rate_per_kwh,
                    cer.effective_date, cer.source, cer.raw_label
             FROM connection_extracted_rates cer
@@ -149,7 +154,8 @@ async def get_current_rate(
               AND uc.user_id = :uid
             ORDER BY cer.effective_date DESC
             LIMIT 1
-        """),
+        """
+        ),
         {"cid": connection_id, "uid": current_user.user_id},
     )
     row = result.mappings().first()

@@ -9,9 +9,9 @@ Evaluates and manages feature flags with support for:
 
 import hashlib
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -41,8 +41,7 @@ class FeatureFlagService:
         """
         result = await self._db.execute(
             text(
-                "SELECT enabled, tier_required, percentage"
-                " FROM feature_flags WHERE name = :name"
+                "SELECT enabled, tier_required, percentage" " FROM feature_flags WHERE name = :name"
             ),
             {"name": flag_name},
         )

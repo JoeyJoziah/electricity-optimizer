@@ -4,8 +4,8 @@ Connection analytics service — rate comparison, history, and savings calculati
 Provides analytics endpoints for comparing user's extracted rates against market
 prices, historical rate trends, and estimated savings calculations.
 """
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +69,8 @@ class ConnectionAnalyticsService:
 
         # --- Query 2: market aggregate for the user's region (last 30 days) ---
         market_result = await self.db.execute(
-            text("""
+            text(
+                """
                 SELECT AVG(price_per_kwh) AS avg_price,
                        MIN(price_per_kwh) AS min_price,
                        MAX(price_per_kwh) AS max_price,
@@ -77,14 +78,21 @@ class ConnectionAnalyticsService:
                 FROM electricity_prices
                 WHERE region = :region
                   AND timestamp >= NOW() - INTERVAL '30 days'
-            """),
+            """
+            ),
             {"region": user_region},
         )
         market_row = market_result.mappings().first()
 
-        market_avg = float(market_row["avg_price"]) if market_row and market_row["avg_price"] else user_rate
-        market_min = float(market_row["min_price"]) if market_row and market_row["min_price"] else user_rate
-        market_max = float(market_row["max_price"]) if market_row and market_row["max_price"] else user_rate
+        market_avg = (
+            float(market_row["avg_price"]) if market_row and market_row["avg_price"] else user_rate
+        )
+        market_min = (
+            float(market_row["min_price"]) if market_row and market_row["min_price"] else user_rate
+        )
+        market_max = (
+            float(market_row["max_price"]) if market_row and market_row["max_price"] else user_rate
+        )
 
         delta = user_rate - market_avg
         pct_diff = (delta / market_avg * 100) if market_avg else 0
@@ -136,14 +144,16 @@ class ConnectionAnalyticsService:
 
         data_points = []
         for row in rows:
-            data_points.append({
-                "date": row["effective_date"].isoformat() if row["effective_date"] else None,
-                "rate": float(row["rate_per_kwh"]) if row["rate_per_kwh"] else None,
-                "supplier": row["supplier_name"],
-                "connection_id": row["connection_id"],
-                "connection_label": row["label"],
-                "source": row["source"],
-            })
+            data_points.append(
+                {
+                    "date": row["effective_date"].isoformat() if row["effective_date"] else None,
+                    "rate": float(row["rate_per_kwh"]) if row["rate_per_kwh"] else None,
+                    "supplier": row["supplier_name"],
+                    "connection_id": row["connection_id"],
+                    "connection_label": row["label"],
+                    "source": row["source"],
+                }
+            )
 
         return {
             "data_points": data_points,
@@ -201,7 +211,8 @@ class ConnectionAnalyticsService:
     ) -> List[Dict[str, Any]]:
         """Find connections that haven't synced in >30 days."""
         result = await self.db.execute(
-            text("""
+            text(
+                """
                 SELECT id, connection_type, label, email_provider,
                        status, last_scan_at, updated_at, created_at
                 FROM user_connections
@@ -211,7 +222,8 @@ class ConnectionAnalyticsService:
                     last_scan_at IS NULL
                     OR last_scan_at < NOW() - make_interval(days => :threshold)
                   )
-            """),
+            """
+            ),
             {"uid": user_id, "threshold": stale_threshold_days},
         )
         rows = result.mappings().all()
@@ -241,7 +253,8 @@ class ConnectionAnalyticsService:
     ) -> List[Dict[str, Any]]:
         """Detect significant rate changes (>threshold%) between consecutive extractions."""
         result = await self.db.execute(
-            text("""
+            text(
+                """
                 SELECT cer.rate_per_kwh, uc.supplier_name, cer.effective_date,
                        uc.id as connection_id, uc.label,
                        LAG(cer.rate_per_kwh) OVER (
@@ -251,7 +264,8 @@ class ConnectionAnalyticsService:
                 JOIN user_connections uc ON cer.connection_id = uc.id
                 WHERE uc.user_id = :uid
                 ORDER BY cer.connection_id, cer.effective_date DESC
-            """),
+            """
+            ),
             {"uid": user_id},
         )
         rows = result.mappings().all()
@@ -266,15 +280,19 @@ class ConnectionAnalyticsService:
                 continue
             change_pct = abs((current - previous) / previous) * 100
             if change_pct >= threshold_pct:
-                alerts.append({
-                    "connection_id": row["connection_id"],
-                    "connection_label": row["label"],
-                    "supplier": row["supplier_name"],
-                    "previous_rate": round(previous, 4),
-                    "current_rate": round(current, 4),
-                    "change_percentage": round(change_pct, 2),
-                    "direction": "increase" if current > previous else "decrease",
-                    "detected_at": row["effective_date"].isoformat() if row["effective_date"] else None,
-                })
+                alerts.append(
+                    {
+                        "connection_id": row["connection_id"],
+                        "connection_label": row["label"],
+                        "supplier": row["supplier_name"],
+                        "previous_rate": round(previous, 4),
+                        "current_rate": round(current, 4),
+                        "change_percentage": round(change_pct, 2),
+                        "direction": "increase" if current > previous else "decrease",
+                        "detected_at": row["effective_date"].isoformat()
+                        if row["effective_date"]
+                        else None,
+                    }
+                )
 
         return alerts
