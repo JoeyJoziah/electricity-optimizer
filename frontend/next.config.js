@@ -43,9 +43,9 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline' https://www.clarity.ms https://cdn.onesignal.com${isDev ? " 'unsafe-eval'" : ''}`,
+              `script-src 'self' 'unsafe-inline' https://*.clarity.ms https://cdn.onesignal.com${isDev ? " 'unsafe-eval'" : ''}`,
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.electricity-optimizer.com",
+              "img-src 'self' data: blob: https://*.electricity-optimizer.com https://*.clarity.ms",
               `font-src 'self'${isDev ? ' data:' : ''}`,
               `connect-src 'self' https://*.electricity-optimizer.com https://*.onrender.com https://*.vercel.app https://www.clarity.ms https://*.clarity.ms https://onesignal.com https://*.onesignal.com${isDev ? ' http://localhost:* ws://localhost:*' : ''}`,
               "worker-src 'self'",
