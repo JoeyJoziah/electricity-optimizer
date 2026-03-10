@@ -1,0 +1,11 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+[allowlist]
+  description = "Global allowlist"
+
+  # DSP (Data Structure Protocol) UID map contains auto-generated object hashes
+  # that trigger false positives on generic-api-key rules
+  paths = [
+    '''.dsp/.*''',
+  ]
