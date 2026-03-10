@@ -1211,3 +1211,52 @@ class TestDataHealthCheck:
         """Request without X-API-Key header must be rejected."""
         response = unauth_client.get(f"{BASE_URL}/health-data")
         assert response.status_code == 401
+
+
+# =============================================================================
+# POST /internal/maintenance/cleanup (resilience)
+# =============================================================================
+
+
+class TestMaintenanceCleanup:
+    """Tests for data retention cleanup endpoint."""
+
+    @patch("services.maintenance_service.MaintenanceService")
+    def test_cleanup_all_succeed(self, mock_svc_cls, auth_client):
+        """All cleanup tasks succeed — status ok."""
+        mock_svc = MagicMock()
+        mock_svc.cleanup_activity_logs = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_expired_uploads = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["activity_logs"]["deleted"] == 0
+
+    @patch("services.maintenance_service.MaintenanceService")
+    def test_cleanup_partial_failure_no_500(self, mock_svc_cls, auth_client):
+        """One task failing should not crash the entire endpoint."""
+        mock_svc = MagicMock()
+        mock_svc.cleanup_activity_logs = AsyncMock(return_value={"deleted": 5})
+        mock_svc.cleanup_expired_uploads = AsyncMock(side_effect=RuntimeError("DB timeout"))
+        mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
+        mock_svc_cls.return_value = mock_svc
+
+        response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "partial"
+        assert data["activity_logs"]["deleted"] == 5
+        assert "error" in data["uploads"]
+
+    def test_cleanup_requires_api_key(self, unauth_client):
+        """Request without X-API-Key header must be rejected."""
+        response = unauth_client.post(f"{BASE_URL}/maintenance/cleanup")
+        assert response.status_code == 401

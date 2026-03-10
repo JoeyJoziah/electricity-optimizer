@@ -154,16 +154,24 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
     from services.maintenance_service import MaintenanceService
 
     svc = MaintenanceService(db)
-    logs = await svc.cleanup_activity_logs()
-    uploads = await svc.cleanup_expired_uploads()
-    prices = await svc.cleanup_old_prices()
-    observations = await svc.cleanup_old_observations()
-    return {
-        "activity_logs": logs,
-        "uploads": uploads,
-        "prices": prices,
-        "observations": observations,
-    }
+    results = {}
+    errors = []
+
+    for task_name, task_fn in [
+        ("activity_logs", svc.cleanup_activity_logs),
+        ("uploads", svc.cleanup_expired_uploads),
+        ("prices", svc.cleanup_old_prices),
+        ("observations", svc.cleanup_old_observations),
+    ]:
+        try:
+            results[task_name] = await task_fn()
+        except Exception as e:
+            logger.warning("maintenance_task_failed", task=task_name, error=str(e))
+            results[task_name] = {"error": str(e)}
+            errors.append(task_name)
+
+    results["status"] = "partial" if errors else "ok"
+    return results
 
 
 @router.get("/observation-stats", tags=["Internal"])
