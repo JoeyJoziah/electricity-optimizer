@@ -10,6 +10,7 @@ from enum import Enum
 
 class UtilityType(str, Enum):
     """Types of utilities supported by the platform"""
+
     ELECTRICITY = "electricity"
     NATURAL_GAS = "natural_gas"
     HEATING_OIL = "heating_oil"
@@ -24,9 +25,10 @@ class PriceUnit(str, Enum):
     All modules must import PriceUnit from here. The lowercase values are
     used for storage and internal comparison; display labels are in UNIT_LABELS.
     """
+
     # Electricity
-    KWH = "kwh"           # kilowatt-hour (electricity)
-    MWH = "mwh"           # megawatt-hour (wholesale electricity)
+    KWH = "kwh"  # kilowatt-hour (electricity)
+    MWH = "mwh"  # megawatt-hour (wholesale electricity)
     CENTS_KWH = "cents_kwh"  # cents per kWh (EIA format)
 
     # Currency-qualified electricity (international APIs)
@@ -35,13 +37,13 @@ class PriceUnit(str, Enum):
     USD_KWH = "usd_kwh"  # USD per kWh (US explicit)
 
     # Natural gas
-    THERM = "therm"       # 100,000 BTU (residential gas)
-    MCF = "mcf"           # 1,000 cubic feet (gas)
-    MMBTU = "mmbtu"       # million BTU (wholesale gas)
-    CCF = "ccf"           # 100 cubic feet (gas utility billing)
+    THERM = "therm"  # 100,000 BTU (residential gas)
+    MCF = "mcf"  # 1,000 cubic feet (gas)
+    MMBTU = "mmbtu"  # million BTU (wholesale gas)
+    CCF = "ccf"  # 100 cubic feet (gas utility billing)
 
     # Heating oil & propane
-    GALLON = "gallon"     # gallon (heating oil, propane)
+    GALLON = "gallon"  # gallon (heating oil, propane)
 
     # Community solar
     CREDIT_KWH = "credit_kwh"  # solar credit per kWh

@@ -4,9 +4,10 @@ Energy market intelligence via Tavily AI search.
 Free tier: 1,000 credits/month. No card required.
 """
 
+from typing import Optional
+
 import httpx
 import structlog
-from typing import Optional
 
 from config.settings import get_settings
 
@@ -20,9 +21,7 @@ class MarketIntelligenceService:
         self._settings = settings or get_settings()
         self._api_key = self._settings.tavily_api_key
 
-    async def search_energy_news(
-        self, query: str, max_results: int = 5
-    ) -> Optional[dict]:
+    async def search_energy_news(self, query: str, max_results: int = 5) -> Optional[dict]:
         """Search for energy market news. Uses 1 credit per basic search."""
         if not self._api_key:
             return None
@@ -67,7 +66,5 @@ class MarketIntelligenceService:
                 if data:
                     results.append({"query": query, "data": data})
             except Exception as e:
-                logger.warning(
-                    "tavily_search_failed", query=query, error=str(e)
-                )
+                logger.warning("tavily_search_failed", query=query, error=str(e))
         return results
