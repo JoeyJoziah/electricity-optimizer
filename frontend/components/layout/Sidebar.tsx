@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils/cn'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useSidebar } from '@/lib/contexts/sidebar-context'
 import { useSettingsStore } from '@/lib/store/settings'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -81,6 +82,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           )
         })}
       </nav>
+
+      {/* Notification Bell row (above footer) */}
+      <div className="border-t border-gray-200 px-4 py-2">
+        <div className="flex items-center justify-between rounded-lg px-2 py-1">
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Notifications
+          </span>
+          <NotificationBell />
+        </div>
+      </div>
 
       {/* Footer -- User menu */}
       <div className="border-t border-gray-200 p-4">

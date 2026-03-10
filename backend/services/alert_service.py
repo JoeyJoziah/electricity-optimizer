@@ -8,11 +8,17 @@ DB-backed methods (get_user_alerts, get_alert_history, create_alert,
 update_alert, delete_alert, record_triggered_alert) persist alert
 configurations to ``price_alert_configs`` and trigger events to
 ``alert_history`` (migration 014).
+
+Notification routing:
+    When a NotificationDispatcher is supplied to the constructor, alerts
+    are routed through all configured channels (IN_APP, PUSH, EMAIL).
+    If the dispatcher is not supplied (or fails), the service falls back
+    to direct EmailService delivery so existing callers are unaffected.
 """
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import uuid4
 
 import structlog
@@ -20,6 +26,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.email_service import EmailService
+
+if TYPE_CHECKING:
+    from services.notification_dispatcher import NotificationDispatcher
 
 logger = structlog.get_logger(__name__)
 
@@ -80,10 +89,20 @@ class AlertService:
         service = AlertService()
         alerts = service.check_thresholds(current_prices, user_thresholds)
         await service.send_alerts(alerts)
+
+    When a NotificationDispatcher is provided, send_alerts() routes each
+    notification through all configured channels (in-app, push, email).
+    The legacy EmailService path is retained as a fallback and for callers
+    that do not supply a dispatcher.
     """
 
-    def __init__(self, email_service: Optional[EmailService] = None):
+    def __init__(
+        self,
+        email_service: Optional[EmailService] = None,
+        dispatcher: Optional["NotificationDispatcher"] = None,
+    ):
         self._email_service = email_service or EmailService()
+        self._dispatcher = dispatcher
 
     def check_thresholds(
         self,
@@ -214,24 +233,89 @@ class AlertService:
 
     async def send_alerts(self, triggered: List[tuple]) -> int:
         """
-        Send email alerts for triggered thresholds.
+        Send alerts for triggered thresholds via all configured channels.
+
+        When a NotificationDispatcher was supplied at construction time the
+        alert is routed through it (in-app + push + email).  If the dispatcher
+        call raises an exception, or no dispatcher was supplied, the service
+        falls back to direct EmailService delivery so existing callers are
+        unaffected.
+
+        The dedup_key written to the dispatcher is
+        ``price_alert:<user_id>:<alert_type>:<region>`` so that the
+        dispatcher's built-in cooldown deduplicate check complements (but does
+        not replace) the AlertService._should_send_alert cooldown logic already
+        applied by check_alerts before calling this method.
 
         Args:
             triggered: List of (AlertThreshold, PriceAlert) tuples
 
         Returns:
-            Number of alerts successfully sent
+            Number of alerts successfully sent (at least one channel succeeded)
         """
+        from services.notification_dispatcher import NotificationChannel
+
         sent = 0
         for threshold, alert in triggered:
             try:
                 html = self._render_alert_email(threshold, alert)
                 subject = self._get_alert_subject(alert)
-                success = await self._email_service.send(
-                    to=threshold.email,
-                    subject=subject,
-                    html_body=html,
-                )
+                success = False
+
+                if self._dispatcher is not None:
+                    try:
+                        dedup_key = (
+                            f"price_alert:{threshold.user_id}"
+                            f":{alert.alert_type}:{alert.region}"
+                        )
+                        dispatch_result = await self._dispatcher.send(
+                            user_id=threshold.user_id,
+                            type="price_alert",
+                            title=subject,
+                            body=f"Current price: ${alert.current_price}/kWh"
+                                 + (f" (threshold: ${alert.threshold}/kWh)" if alert.threshold else ""),
+                            channels=[
+                                NotificationChannel.IN_APP,
+                                NotificationChannel.PUSH,
+                                NotificationChannel.EMAIL,
+                            ],
+                            metadata={
+                                "alert_type": alert.alert_type,
+                                "region": alert.region,
+                                "current_price": str(alert.current_price),
+                                "threshold": str(alert.threshold) if alert.threshold else None,
+                                "supplier": alert.supplier,
+                            },
+                            dedup_key=dedup_key,
+                            email_to=threshold.email,
+                            email_subject=subject,
+                            email_html=html,
+                        )
+                        # Consider the alert sent if it was not deduplicated
+                        # and at least one channel succeeded.
+                        if not dispatch_result.get("skipped_dedup", False):
+                            channel_results = dispatch_result.get("channels", {})
+                            success = any(channel_results.values())
+                    except Exception as dispatch_exc:
+                        logger.warning(
+                            "alert_dispatcher_failed_falling_back",
+                            user_id=threshold.user_id,
+                            error=str(dispatch_exc),
+                        )
+                        # Fall through to direct email below
+                        success = await self._email_service.send(
+                            to=threshold.email,
+                            subject=subject,
+                            html_body=html,
+                        )
+                else:
+                    # Legacy path: direct email when no dispatcher is configured
+                    success = await self._email_service.send(
+                        to=threshold.email,
+                        subject=subject,
+                        html_body=html,
+                    )
+
                 if success:
                     sent += 1
                     logger.info(
@@ -239,6 +323,7 @@ class AlertService:
                         user_id=threshold.user_id,
                         alert_type=alert.alert_type,
                         price=str(alert.current_price),
+                        via_dispatcher=self._dispatcher is not None,
                     )
             except Exception as e:
                 logger.error(

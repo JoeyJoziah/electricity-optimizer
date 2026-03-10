@@ -11,6 +11,11 @@ jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
 }))
 
+// Mock NotificationBell to avoid QueryClientProvider requirement
+jest.mock('@/components/layout/NotificationBell', () => ({
+  NotificationBell: () => <div data-testid="notification-bell-sidebar">notifications</div>,
+}))
+
 // Mock next/link
 jest.mock('next/link', () => {
   const MockLink = ({ children, href, className, onClick, ...props }: { children: React.ReactNode; href: string; className?: string; onClick?: () => void }) => (

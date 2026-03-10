@@ -34,6 +34,11 @@ jest.mock('@/lib/utils/cn', () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
 }))
 
+// Mock NotificationBell to avoid QueryClientProvider requirement
+jest.mock('@/components/layout/NotificationBell', () => ({
+  NotificationBell: () => <div>notifications</div>,
+}))
+
 jest.mock('@/lib/hooks/useAuth', () => ({
   useAuth: () => ({
     user: { name: 'Test User', email: 'test@example.com' },

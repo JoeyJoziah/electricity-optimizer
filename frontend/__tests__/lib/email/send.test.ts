@@ -43,7 +43,7 @@ describe('sendEmail', () => {
     })
 
     expect(mockSend).toHaveBeenCalledWith({
-      from: expect.stringContaining('autodailynewsletterintake@gmail.com'),
+      from: expect.stringContaining('noreply@rateshift.app'),
       to: 'user@example.com',
       subject: 'Test Subject',
       html: '<p>Hello</p>',
@@ -106,7 +106,7 @@ describe('sendEmail', () => {
     expect(mockSend).toHaveBeenCalled()
     // SMTP fallback was used
     expect(mockSendMail).toHaveBeenCalledWith({
-      from: expect.stringContaining('autodailynewsletterintake@gmail.com'),
+      from: expect.stringContaining('noreply@rateshift.app'),
       to: 'user@example.com',
       subject: 'Fallback Test',
       html: '<p>Fallback</p>',
@@ -138,7 +138,7 @@ describe('sendEmail', () => {
     expect(mockSend).not.toHaveBeenCalled()
     // SMTP was used directly
     expect(mockSendMail).toHaveBeenCalledWith({
-      from: expect.stringContaining('autodailynewsletterintake@gmail.com'),
+      from: expect.stringContaining('noreply@rateshift.app'),
       to: 'user@example.com',
       subject: 'SMTP Direct',
       html: '<p>Direct</p>',

@@ -216,7 +216,55 @@ See `/frontend/.env.example` for reference, and `/backend/config/settings.py` fo
 
 ---
 
-## Step 7 — Update Deploy Workflow URLs (if applicable)
+## Step 7 — Update CORS_ORIGINS on Render (LAUNCH-003)
+
+When the app goes live under the `rateshift.app` domain, the backend's CORS allowlist must
+include both the apex and `www` variants.  The backend reads the `CORS_ORIGINS` environment
+variable from Render at startup (see `backend/config/settings.py`).
+
+### What to update
+
+In the Render dashboard for service `srv-d649uhur433s73d557cg`:
+
+**Environment → `CORS_ORIGINS`**
+
+```
+["https://rateshift.app","https://www.rateshift.app","https://electricity-optimizer-frontend.onrender.com","https://electricity-optimizer.vercel.app"]
+```
+
+The value must be a valid JSON array (the parser also accepts a comma-separated string,
+but JSON is unambiguous).  Keep any existing origins so staging / Vercel preview deployments
+continue to work.
+
+### How `CORS_ORIGINS` is parsed
+
+`backend/config/settings.py` stores the raw env var string in `cors_origins_raw`
+and exposes a `cors_origins` property that handles both formats:
+
+- **JSON array** — `["https://a.com","https://b.com"]` (preferred)
+- **Comma-separated** — `https://a.com,https://b.com`
+
+The parsed list is passed directly to FastAPI's `CORSMiddleware` inside `app_factory.py`.
+
+### Steps
+
+1. Go to Render dashboard → service `srv-d649uhur433s73d557cg` → **Environment**
+2. Find (or create) the `CORS_ORIGINS` variable
+3. Set the value to the JSON array above, appending `https://rateshift.app` and `https://www.rateshift.app`
+4. Click **Save Changes** — Render will trigger an automatic redeploy
+5. Verify with:
+
+```bash
+curl -sI -H "Origin: https://rateshift.app" https://electricity-optimizer.onrender.com/api/v1/prices/current | grep -i "access-control"
+# Expected: Access-Control-Allow-Origin: https://rateshift.app
+```
+
+> **Note**: `CORS_ORIGINS` is backend-only.  The frontend's `NEXT_PUBLIC_API_URL` (`/api/v1`) uses
+> the same-origin proxy via Next.js rewrites, so no Vercel change is needed for CORS itself.
+
+---
+
+## Step 8 — Update Deploy Workflow URLs (if applicable)
 
 If migrating the backend from `electricity-optimizer.onrender.com` to `api.rateshift.app`:
 
@@ -325,6 +373,10 @@ These are set on Render backend (34 env vars total) alongside the Resend variabl
 - [ ] DMARC TXT record: `v=DMARC1; p=quarantine; rua=mailto:dmarc@rateshift.app`
 - [ ] Return-path CNAME added if required by Resend for your account
 - [ ] Resend domain status shows **Verified**
+
+### CORS (LAUNCH-003)
+- [ ] `CORS_ORIGINS` on Render updated to include `https://rateshift.app` and `https://www.rateshift.app`
+- [ ] Verified with `curl -sI -H "Origin: https://rateshift.app" <BACKEND_URL>/api/v1/prices/current | grep access-control`
 
 ### Environment Variables
 - [ ] `EMAIL_FROM_ADDRESS` updated to `RateShift <noreply@rateshift.app>` on Render

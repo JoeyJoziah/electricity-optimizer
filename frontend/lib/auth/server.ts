@@ -113,6 +113,8 @@ function createAuth() {
         ? ["http://localhost:3000", "http://localhost:3001"]
         : []),
       ...(APP_URL && APP_URL !== "http://localhost:3000" ? [APP_URL] : []),
+      "https://rateshift.app",
+      "https://www.rateshift.app",
     ],
 
     // Tell Better Auth the DB uses UUID columns (neon_auth schema)

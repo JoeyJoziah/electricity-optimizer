@@ -6,10 +6,16 @@ Records retry history, enforces cooldown windows (24 h between emails),
 and escalates to free tier after 3 consecutive failures.
 
 Migration: 024_payment_retry_history.sql
+
+Notification routing:
+    When a NotificationDispatcher is supplied to the constructor,
+    send_dunning_email() routes through it using the EMAIL channel
+    (and optionally PUSH).  If the dispatcher raises or is absent,
+    the service falls back to direct EmailService delivery.
 """
 
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import uuid4
 
 import structlog
@@ -17,6 +23,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.email_service import EmailService
+
+if TYPE_CHECKING:
+    from services.notification_dispatcher import NotificationDispatcher
 
 logger = structlog.get_logger(__name__)
 
@@ -31,15 +40,22 @@ class DunningService:
     Usage:
         service = DunningService(db)
         await service.handle_payment_failure(user_id, invoice_id, customer_id, amount, currency, user_repo)
+
+    When a NotificationDispatcher is provided, dunning emails are routed
+    through it (EMAIL channel, plus optional PUSH) instead of calling
+    EmailService directly.  Direct EmailService delivery is retained as a
+    fallback so existing callers are unaffected.
     """
 
     def __init__(
         self,
         db: AsyncSession,
         email_service: Optional[EmailService] = None,
+        dispatcher: Optional["NotificationDispatcher"] = None,
     ):
         self._db = db
         self._email_service = email_service or EmailService()
+        self._dispatcher = dispatcher
 
     async def record_payment_failure(
         self,
@@ -136,12 +152,34 @@ class DunningService:
         retry_count: int,
         amount: Optional[float] = None,
         currency: str = "USD",
+        user_id: Optional[str] = None,
     ) -> bool:
         """
-        Send a dunning email — soft (<3 retries) or final (>=3).
+        Send a dunning notification — soft (<3 retries) or final (>=3).
 
-        Returns True on success.
+        When a NotificationDispatcher was supplied at construction time the
+        notification is routed through it using EMAIL (and optionally PUSH)
+        channels.  The dispatcher's dedup window uses the dunning cooldown
+        (24 h) so back-to-back webhook events do not trigger duplicate sends.
+
+        Falls back to direct EmailService delivery if the dispatcher is absent
+        or raises an exception.
+
+        Args:
+            user_email:  Recipient email address.
+            user_name:   Display name for the email template.
+            retry_count: Number of payment retries so far (selects template).
+            amount:      Amount owed in the invoice (optional).
+            currency:    ISO 4217 currency code (default 'USD').
+            user_id:     UUID string of the user — required for dispatcher
+                         routing and in-app/push channels.  When omitted the
+                         dispatcher path is skipped even if one is configured.
+
+        Returns:
+            True on success.
         """
+        from services.notification_dispatcher import NotificationChannel
+
         template = "dunning_final.html" if retry_count >= 3 else "dunning_soft.html"
         subject = (
             "Action Required: Update your payment method"
@@ -158,17 +196,75 @@ class DunningService:
                 billing_url=BILLING_URL,
                 retry_count=retry_count,
             )
-            success = await self._email_service.send(
-                to=user_email,
-                subject=subject,
-                html_body=html,
-            )
+
+            success = False
+
+            if self._dispatcher is not None and user_id is not None:
+                try:
+                    dedup_key = f"dunning:{user_id}:{template}"
+                    cooldown_seconds = DUNNING_COOLDOWN_HOURS * 3600
+                    dispatch_result = await self._dispatcher.send(
+                        user_id=user_id,
+                        type="dunning",
+                        title=subject,
+                        body=(
+                            f"Payment of {currency} {amount:.2f} could not be processed. "
+                            "Please update your payment method."
+                        ) if amount else subject,
+                        channels=[
+                            NotificationChannel.EMAIL,
+                            NotificationChannel.PUSH,
+                        ],
+                        metadata={
+                            "retry_count": retry_count,
+                            "template": template,
+                            "amount": amount,
+                            "currency": currency,
+                        },
+                        dedup_key=dedup_key,
+                        cooldown_seconds=cooldown_seconds,
+                        email_to=user_email,
+                        email_subject=subject,
+                        email_html=html,
+                    )
+                    if dispatch_result.get("skipped_dedup", False):
+                        logger.info(
+                            "dunning_email_deduped_by_dispatcher",
+                            email=user_email,
+                            dedup_key=dedup_key,
+                        )
+                        # Treat dedup-skipped as success to avoid re-marking
+                        # the record when the 24 h window is already covered.
+                        return True
+                    channel_results = dispatch_result.get("channels", {})
+                    success = channel_results.get(NotificationChannel.EMAIL.value, False)
+                except Exception as dispatch_exc:
+                    logger.warning(
+                        "dunning_dispatcher_failed_falling_back",
+                        email=user_email,
+                        error=str(dispatch_exc),
+                    )
+                    # Fall through to direct email
+                    success = await self._email_service.send(
+                        to=user_email,
+                        subject=subject,
+                        html_body=html,
+                    )
+            else:
+                # Legacy path: direct email when no dispatcher is configured
+                success = await self._email_service.send(
+                    to=user_email,
+                    subject=subject,
+                    html_body=html,
+                )
+
             if success:
                 logger.info(
                     "dunning_email_sent",
                     email=user_email,
                     template=template,
                     retry_count=retry_count,
+                    via_dispatcher=self._dispatcher is not None and user_id is not None,
                 )
             return success
         except Exception as e:
@@ -249,13 +345,14 @@ class DunningService:
             )
             return result
 
-        # 3. Send dunning email
+        # 3. Send dunning email (pass user_id so the dispatcher can route push/in-app too)
         email_sent = await self.send_dunning_email(
             user_email=user_email,
             user_name=user_name,
             retry_count=retry_count,
             amount=amount_owed,
             currency=currency,
+            user_id=user_id,
         )
         result["email_sent"] = email_sent
 

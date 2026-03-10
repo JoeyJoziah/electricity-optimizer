@@ -348,3 +348,169 @@ class TestHandlePaymentFailure:
         assert result["recorded"] is True
         assert result["email_sent"] is False
         mock_email_service.send.assert_not_awaited()
+
+
+# =============================================================================
+# TestDunningServiceWithDispatcher — dispatcher integration
+# =============================================================================
+
+
+class TestDunningServiceWithDispatcher:
+    """Tests for DunningService.send_dunning_email() when a NotificationDispatcher is wired in."""
+
+    def _make_dispatcher(self, send_return=None, skipped=False):
+        """Build a mock dispatcher."""
+        if send_return is None:
+            send_return = {
+                "skipped_dedup": skipped,
+                "channels": {"email": not skipped, "push": not skipped},
+            }
+        dispatcher = MagicMock()
+        dispatcher.send = AsyncMock(return_value=send_return)
+        return dispatcher
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_called_when_user_id_provided(self, mock_db, mock_email_service):
+        """When a dispatcher and user_id are supplied, dispatcher.send() should be called."""
+        dispatcher = self._make_dispatcher()
+        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+
+        result = await svc.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=1,
+            amount=4.99,
+            user_id="user-1",
+        )
+
+        assert result is True
+        dispatcher.send.assert_awaited_once()
+        # Direct email service should NOT be called
+        mock_email_service.send.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_uses_email_and_push_channels(self, mock_db, mock_email_service):
+        """The dispatcher call should include EMAIL and PUSH channels."""
+        from services.notification_dispatcher import NotificationChannel
+
+        dispatcher = self._make_dispatcher()
+        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+
+        await svc.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=2,
+            amount=4.99,
+            user_id="user-1",
+        )
+
+        call_kwargs = dispatcher.send.call_args.kwargs
+        channels = call_kwargs.get("channels", [])
+        assert NotificationChannel.EMAIL in channels
+        assert NotificationChannel.PUSH in channels
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_dedup_skip_returns_true(self, mock_db, mock_email_service):
+        """When the dispatcher deduplicates a dunning send, the method should return True."""
+        dispatcher = self._make_dispatcher(skipped=True)
+        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+
+        result = await svc.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=1,
+            amount=4.99,
+            user_id="user-1",
+        )
+
+        # Dedup-skipped is treated as success (no re-send needed)
+        assert result is True
+        mock_email_service.send.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_failure_falls_back_to_email_service(self, mock_db, mock_email_service):
+        """When the dispatcher raises, DunningService should fall back to direct email."""
+        dispatcher = MagicMock()
+        dispatcher.send = AsyncMock(side_effect=Exception("Dispatcher down"))
+
+        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+
+        result = await svc.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=1,
+            amount=4.99,
+            user_id="user-1",
+        )
+
+        assert result is True
+        mock_email_service.send.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_no_dispatcher_path_unchanged(self, dunning, mock_email_service):
+        """Without a dispatcher, the legacy email path should still work."""
+        result = await dunning.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=1,
+            amount=4.99,
+            # user_id intentionally omitted
+        )
+
+        assert result is True
+        mock_email_service.send.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_skipped_when_no_user_id(self, mock_db, mock_email_service):
+        """Dispatcher should be skipped when user_id is not provided (legacy callers)."""
+        dispatcher = self._make_dispatcher()
+        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+
+        result = await svc.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=1,
+            amount=4.99,
+            # user_id intentionally omitted
+        )
+
+        assert result is True
+        # Dispatcher not called because user_id was missing
+        dispatcher.send.assert_not_awaited()
+        mock_email_service.send.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_dedup_key_includes_user_and_template(self, mock_db, mock_email_service):
+        """The dedup_key should embed user_id and the template name."""
+        dispatcher = self._make_dispatcher()
+        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+
+        await svc.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=1,
+            amount=4.99,
+            user_id="user-42",
+        )
+
+        call_kwargs = dispatcher.send.call_args.kwargs
+        dedup_key = call_kwargs.get("dedup_key", "")
+        assert "user-42" in dedup_key
+        assert "dunning_soft.html" in dedup_key
+
+    @pytest.mark.asyncio
+    async def test_dispatcher_cooldown_is_24_hours(self, mock_db, mock_email_service):
+        """The dispatcher cooldown_seconds should match DUNNING_COOLDOWN_HOURS * 3600."""
+        dispatcher = self._make_dispatcher()
+        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+
+        await svc.send_dunning_email(
+            user_email="test@example.com",
+            user_name="Test User",
+            retry_count=1,
+            amount=4.99,
+            user_id="user-1",
+        )
+
+        call_kwargs = dispatcher.send.call_args.kwargs
+        assert call_kwargs.get("cooldown_seconds") == DUNNING_COOLDOWN_HOURS * 3600

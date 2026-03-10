@@ -502,12 +502,28 @@ async def check_alerts(
     """
     from decimal import Decimal
     from services.alert_service import AlertService, AlertThreshold
+    from services.notification_dispatcher import NotificationDispatcher, NotificationChannel
+    from services.notification_service import NotificationService
+    from services.push_notification_service import PushNotificationService
+    from services.email_service import EmailService
     from repositories.price_repository import PriceRepository
 
     if db is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
-    service = AlertService()
+    # Build a NotificationDispatcher so alert sends reach all channels.
+    try:
+        dispatcher = NotificationDispatcher(
+            db=db,
+            notification_service=NotificationService(db),
+            push_service=PushNotificationService(),
+            email_service=EmailService(),
+        )
+    except Exception as exc:
+        logger.warning("check_alerts_dispatcher_init_failed", error=str(exc))
+        dispatcher = None
+
+    service = AlertService(dispatcher=dispatcher)
     price_repo = PriceRepository(db)
 
     try:
@@ -656,9 +672,25 @@ async def run_dunning_cycle(
     Protected by the router-level X-API-Key dependency.
     """
     from services.dunning_service import DunningService
+    from services.notification_dispatcher import NotificationDispatcher
+    from services.notification_service import NotificationService
+    from services.push_notification_service import PushNotificationService
+    from services.email_service import EmailService
     from repositories.user_repository import UserRepository
 
-    dunning = DunningService(db)
+    # Build a NotificationDispatcher so dunning notifications reach all channels.
+    try:
+        dunning_dispatcher = NotificationDispatcher(
+            db=db,
+            notification_service=NotificationService(db),
+            push_service=PushNotificationService(),
+            email_service=EmailService(),
+        )
+    except Exception as exc:
+        logger.warning("dunning_cycle_dispatcher_init_failed", error=str(exc))
+        dunning_dispatcher = None
+
+    dunning = DunningService(db, dispatcher=dunning_dispatcher)
     user_repo = UserRepository(db)
 
     try:
@@ -679,13 +711,14 @@ async def run_dunning_cycle(
             user_id = str(account["user_id"])
             retry_count = account.get("retry_count", 3)
 
-            # Send final dunning email
+            # Send final dunning notification (email + push via dispatcher when available)
             email_sent = await dunning.send_dunning_email(
                 user_email=account["email"],
                 user_name=account.get("name", ""),
                 retry_count=max(retry_count, 3),
                 amount=float(account["amount_owed"]) if account.get("amount_owed") else None,
                 currency=account.get("currency", "USD"),
+                user_id=user_id,
             )
             if email_sent:
                 emails_sent += 1
