@@ -253,22 +253,23 @@ async def scrape_supplier_rates(
         return {"status": "ok", "results": [], "message": "No suppliers with website URLs found"}
 
     service = RateScraperService()
-    results = await service.scrape_supplier_rates(supplier_urls)
+    batch = await service.scrape_supplier_rates(supplier_urls)
+
+    # batch is now a summary dict: {total, succeeded, failed, errors, results}
+    raw_results = batch.get("results", [])
 
     # Persist scraped rates to scraped_rates table
     persisted = 0
-    if db and results:
+    if db and raw_results:
         # Build a lookup from supplier_urls for name and source URL
         url_lookup = {item.get("supplier_id"): item.get("url") for item in supplier_urls}
-        name_lookup = {}
-        for item in supplier_urls:
-            name_lookup[item.get("supplier_id")] = item.get("name")
+        name_lookup = {item.get("supplier_id"): item.get("name") for item in supplier_urls}
 
         insert_sql = text("""
             INSERT INTO scraped_rates (supplier_id, supplier_name, source_url, extracted_data, success)
             VALUES (:sid, :name, :url, :data, :success)
         """)
-        for r in results:
+        for r in raw_results:
             sid = r.get("supplier_id")
             try:
                 await db.execute(insert_sql, {
@@ -284,7 +285,15 @@ async def scrape_supplier_rates(
         await db.commit()
         logger.info("scraped_rates_persisted", count=persisted)
 
-    return {"status": "ok", "results": results, "total": len(results), "persisted": persisted}
+    return {
+        "status": "ok",
+        "total": batch["total"],
+        "succeeded": batch["succeeded"],
+        "failed": batch["failed"],
+        "errors": batch["errors"],
+        "persisted": persisted,
+        "results": raw_results,
+    }
 
 
 # =============================================================================

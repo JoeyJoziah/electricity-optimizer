@@ -20,8 +20,14 @@ With 5 parallel workers the wall-clock time for 37 suppliers drops to:
 
     ceil(37 / 5) × 12 s = 8 × 12 s = 96 s  (best case, fast responses)
 
-Each individual Diffbot call is wrapped with a 60-second asyncio timeout
+Each individual Diffbot call is wrapped with a 30-second asyncio timeout
 so a single slow or hung supplier cannot block the batch indefinitely.
+
+Error isolation
+---------------
+Per-supplier failures are caught inside ``_scrape_one`` and recorded as
+``success=False`` entries.  ``scrape_supplier_rates`` always returns a
+batch summary rather than raising so callers can report partial success.
 """
 
 import asyncio
@@ -40,7 +46,7 @@ DIFFBOT_EXTRACT_URL = "https://api.diffbot.com/v3/analyze"
 _RATE_LIMIT_SLEEP_S: float = 12.0
 
 # Hard ceiling per individual supplier call (network + Diffbot processing)
-_PER_SUPPLIER_TIMEOUT_S: float = 60.0
+_PER_SUPPLIER_TIMEOUT_S: float = 30.0
 
 # Maximum parallel in-flight requests (must not exceed Diffbot's 5/min burst)
 _MAX_CONCURRENCY: int = 5
@@ -77,9 +83,12 @@ class RateScraperService:
         """Scrape a single supplier URL, respecting the shared rate-limit semaphore.
 
         Acquires the semaphore slot, calls Diffbot, sleeps the mandatory
-        inter-call gap, then releases the slot.  A per-call asyncio timeout
-        of ``_PER_SUPPLIER_TIMEOUT_S`` prevents a single hung request from
-        holding the slot indefinitely.
+        inter-call gap (to stay within Diffbot's 5 calls/min), then releases
+        the slot.  A per-call asyncio timeout of ``_PER_SUPPLIER_TIMEOUT_S``
+        prevents a single hung request from holding the slot indefinitely.
+
+        Failures are caught here and returned as a result dict with
+        ``success=False`` so the batch is never aborted by one bad supplier.
         """
         supplier_id = item["supplier_id"]
         url = item["url"]
@@ -138,23 +147,61 @@ class RateScraperService:
         self,
         supplier_urls: list[dict],
         max_concurrency: int = _MAX_CONCURRENCY,
-    ) -> list[dict]:
+    ) -> dict:
         """Scrape multiple supplier URLs with concurrent rate limiting.
+
+        Uses asyncio.Semaphore(max_concurrency) to cap parallel in-flight
+        Diffbot calls and asyncio.gather to run them all concurrently.
+        Individual supplier failures are isolated — they record
+        ``success=False`` without aborting the batch.
 
         Args:
             supplier_urls: [{"supplier_id": str, "url": str}, ...]
-            max_concurrency: max parallel Diffbot calls (default 5, Diffbot limit).
+            max_concurrency: max parallel Diffbot calls (default 5).
 
         Returns:
-            [{"supplier_id": str, "extracted_data": dict|None, "success": bool}, ...]
+            {
+                "total": int,       # total suppliers attempted
+                "succeeded": int,   # suppliers with success=True
+                "failed": int,      # suppliers with success=False
+                "errors": [         # non-empty only when failures occurred
+                    {"supplier_id": str, "error": str}, ...
+                ],
+                "results": [        # raw per-supplier result dicts
+                    {"supplier_id": str, "extracted_data": dict|None,
+                     "success": bool, ...}, ...
+                ],
+            }
 
         Timing estimate (37 suppliers, max_concurrency=5):
             ceil(37 / 5) * 12 s ≈ 96 s  (vs. 444 s sequential)
         """
         if not supplier_urls:
-            return []
+            return {"total": 0, "succeeded": 0, "failed": 0, "errors": [], "results": []}
 
         semaphore = asyncio.Semaphore(max_concurrency)
         tasks = [self._scrape_one(item, semaphore) for item in supplier_urls]
-        results = await asyncio.gather(*tasks, return_exceptions=False)
-        return list(results)
+        raw_results: list[dict] = list(await asyncio.gather(*tasks, return_exceptions=False))
+
+        succeeded = sum(1 for r in raw_results if r.get("success"))
+        failed = len(raw_results) - succeeded
+        errors = [
+            {"supplier_id": r["supplier_id"], "error": r.get("error", "unknown")}
+            for r in raw_results
+            if not r.get("success")
+        ]
+
+        logger.info(
+            "scrape_batch_complete",
+            total=len(raw_results),
+            succeeded=succeeded,
+            failed=failed,
+        )
+
+        return {
+            "total": len(raw_results),
+            "succeeded": succeeded,
+            "failed": failed,
+            "errors": errors,
+            "results": raw_results,
+        }

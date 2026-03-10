@@ -4,26 +4,124 @@
 
 The Electricity Optimizer uses a multi-layer monitoring stack, all on free tiers.
 
-## UptimeRobot (Primary Uptime Monitoring)
+## UptimeRobot (Primary External Uptime Monitoring)
 
-**Free tier**: 50 monitors, 5-min checks, email/webhook alerts. No card required.
+**Free tier**: 50 monitors, 5-minute checks, email/webhook alerts. No card required.
+**Composio connection**: Active (`uptimerobot` toolkit in `.composio.lock`).
+
+### SLA Target
+
+**99.5% monthly uptime** across all three production monitors.
+
+| Period | Max allowable downtime |
+|--------|------------------------|
+| Monthly | 219 min (~3h 39m) |
+| Weekly | 50 min |
+| Daily | 7 min (~432s) |
+
+A monitor check interval of 5 minutes means a single missed check represents 0.35% of daily budget. Alert threshold is set to **2 consecutive failures** before paging to avoid noise from transient probe errors.
 
 ### Monitors
 
-| # | Name | URL | Type |
-|---|------|-----|------|
-| 1 | Backend Health | `https://api.rateshift.app/health` | HTTP |
-| 2 | Frontend | `https://rateshift.app` | HTTP |
-| 3 | Neon DB Ping | `https://ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` | Ping |
-| 4 | API Smoke Test | `https://api.rateshift.app/api/v1/prices/current?region=US` | HTTP |
-| 5 | SSL Certificate | Vercel domain | SSL expiry |
+Three monitors cover the full request path from end user to database.
 
-### Setup
+| # | Name | URL | Type | Keyword | Alert Threshold |
+|---|------|-----|------|---------|-----------------|
+| 1 | RateShift Frontend | `https://rateshift.app` | Keyword | `RateShift` (must exist) | 2 consecutive failures |
+| 2 | RateShift API Health | `https://api.rateshift.app/api/v1/health` | Keyword | `healthy` (must exist) | 2 consecutive failures |
+| 3 | RateShift API Prices | `https://api.rateshift.app/api/v1/prices/current?region=CT` | HTTP | HTTP 200 or 422 accepted | 2 consecutive failures |
 
-1. Create account at https://uptimerobot.com (free, no card)
-2. Add monitors from the table above
-3. Configure email alerts for downtime
-4. Optional: Set `UPTIMEROBOT_API_KEY` in backend `.env` for programmatic access
+**Monitor type rationale:**
+
+- **Frontend (Keyword)**: Checks that the Vercel CDN returns the page AND that it contains the string "RateShift". A bare HTTP check would pass even if Vercel served a generic error page. The keyword check verifies the Next.js app actually rendered.
+
+- **API Health (Keyword)**: The `/api/v1/health` endpoint returns `{"status": "healthy", ...}` when the FastAPI process, database connection, and core systems are operational. Checking for the keyword `healthy` distinguishes a real healthy response from an HTTP 200 with an error body (e.g., a misconfigured reverse proxy returning a 200 splash page).
+
+- **API Prices (HTTP)**: An unauthenticated probe to the prices endpoint returns HTTP 422 (Unprocessable Entity — missing auth token). On UptimeRobot's HTTP monitor type, 4xx responses are counted as UP by default because they prove the application received, parsed, and responded to the request. A 5xx or connection error means the Render service or routing layer has failed.
+
+### Setup (Automated)
+
+Use the setup script to create all three monitors idempotently:
+
+```bash
+# 1. Get your Read/Write API key from:
+#    https://dashboard.uptimerobot.com -> Account -> API Settings
+
+export UPTIMEROBOT_API_KEY="ur1234567-abcdefghijklmnopqrstuvwx"
+
+# 2. Optional: route alerts to Slack #incidents
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/T.../B.../..."
+
+# 3. Dry run first to verify the plan:
+python3 scripts/setup_uptimerobot.py --dry-run
+
+# 4. Apply:
+python3 scripts/setup_uptimerobot.py
+```
+
+The script (`scripts/setup_uptimerobot.py`) is idempotent — re-running it detects existing monitors by URL and skips creation. It will update alert contacts on existing monitors if a new Slack webhook is provided.
+
+### Alert Routing
+
+UptimeRobot alerts flow to Slack `#incidents` (C0AKV2TK257):
+
+```
+UptimeRobot probe fails (2x consecutive)
+    → UptimeRobot outgoing webhook
+        → Slack #incidents channel
+```
+
+Alert contact type: Slack (type 11). Alert threshold: 2 consecutive failures before notification. Recurrence: notify on status change only (no repeat spam while down).
+
+**To verify routing is active**: In the UptimeRobot dashboard, navigate to Alert Contacts and confirm a contact named "RateShift Slack #incidents" exists with type Slack.
+
+### Viewing Status
+
+| Method | URL |
+|--------|-----|
+| UptimeRobot dashboard | https://dashboard.uptimerobot.com |
+| Public status page (if configured) | https://status.rateshift.app (set up via UptimeRobot dashboard) |
+| Programmatic (API) | `GET https://api.uptimerobot.com/v2/getMonitors` with API key |
+
+To check current monitor status via the API:
+
+```bash
+curl -X POST https://api.uptimerobot.com/v2/getMonitors \
+  -d "api_key=$UPTIMEROBOT_API_KEY&format=json&logs=1" \
+  | python3 -m json.tool
+```
+
+### SLA Calculation
+
+UptimeRobot calculates uptime ratio over rolling windows (7d, 30d, 3m, 6m, 1y). To check compliance against the 99.5% target:
+
+1. Open the UptimeRobot dashboard
+2. Select each monitor
+3. Check the "Last 30 days" ratio in the monitor detail view
+4. All three monitors must show >= 99.5% to be SLA-compliant
+
+An error budget burn rate > 1x (consuming budget faster than it accrues) triggers escalation. See the error budget policy below.
+
+### Error Budget Policy
+
+| Burn rate | Remaining budget | Action |
+|-----------|-----------------|--------|
+| < 1x | > 50% remaining | No action — healthy |
+| 1–2x | 25–50% remaining | Awareness — review in weekly SRE meeting |
+| 2–5x | 10–25% remaining | Warning — investigate root cause, post-mortem if incident |
+| > 5x | < 10% remaining | Feature freeze on infrastructure changes; focus on reliability |
+| Budget exhausted | 0% | Incident bridge until budget restores; stakeholder communication |
+
+### Composio Integration
+
+The UptimeRobot Composio toolkit (`uptimerobot` in `.composio.lock`) can be used for automated monitor management via Rube recipes or direct MCP tool calls. For manual programmatic access, `scripts/setup_uptimerobot.py` uses the UptimeRobot REST API v2 directly (no Composio dependency) to keep the setup self-contained.
+
+### Environment Variables
+
+| Variable | Purpose | Where to store |
+|----------|---------|----------------|
+| `UPTIMEROBOT_API_KEY` | UptimeRobot Read/Write API key | 1Password vault "Electricity Optimizer", GHA secret |
+| `SLACK_WEBHOOK_URL` | Slack incoming webhook for alert routing | GHA secret `SLACK_INCIDENTS_WEBHOOK_URL` (already set) |
 
 ## Better Stack (Status Page + Incident Logs)
 
@@ -157,9 +255,12 @@ All 12 cron workflows use the `retry-curl` + `notify-slack` composite actions fo
 
 ## Environment Variables
 
-| Variable | Service | Location |
-|----------|---------|----------|
-| `UPTIMEROBOT_API_KEY` | UptimeRobot | `backend/.env` |
+| Variable | Service | Where to set |
+|----------|---------|--------------|
+| `UPTIMEROBOT_API_KEY` | UptimeRobot API access | 1Password "Electricity Optimizer" vault + GHA secret |
+| `SLACK_INCIDENTS_WEBHOOK_URL` | Slack `#incidents` incoming webhook | GHA secret (already configured) |
+| `BACKEND_URL` | Backend origin for internal cron calls | GHA secret + Render env var |
+| `INTERNAL_API_KEY` | Internal endpoint authentication | GHA secret + 1Password vault |
 
-All monitoring services are configured via their respective dashboards. API keys
-are optional and only needed for programmatic access.
+All monitoring services are configured via their respective dashboards. The UptimeRobot
+monitors can be provisioned programmatically via `scripts/setup_uptimerobot.py`.
