@@ -8,16 +8,18 @@ Supports multi-utility types and multi-region suppliers.
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, List
+from typing import List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, HttpUrl, EmailStr, ConfigDict
+from pydantic import (BaseModel, ConfigDict, EmailStr, Field, HttpUrl,
+                      field_validator)
 
 from models.utility import UtilityType
 
 
 class TariffType(str, Enum):
     """Types of electricity tariffs"""
+
     FIXED = "fixed"
     VARIABLE = "variable"
     TIME_OF_USE = "time_of_use"
@@ -28,6 +30,7 @@ class TariffType(str, Enum):
 
 class ContractLength(str, Enum):
     """Contract length options"""
+
     MONTHLY = "monthly"
     ANNUAL = "annual"
     TWO_YEAR = "two_year"
@@ -55,9 +58,7 @@ class Tariff(BaseModel):
     """
 
     model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str},
-        use_enum_values=True
+        from_attributes=True, json_encoders={Decimal: str}, use_enum_values=True
     )
 
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -106,10 +107,7 @@ class Supplier(BaseModel):
     Represents an energy supplier/provider.
     """
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        use_enum_values=True
-    )
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(..., min_length=1, max_length=200)
@@ -214,10 +212,7 @@ class SupplierListResponse(BaseModel):
 class TariffResponse(BaseModel):
     """Response schema for tariff"""
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str}
-    )
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
     id: str
     supplier_id: str

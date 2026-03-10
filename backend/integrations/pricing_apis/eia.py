@@ -17,19 +17,13 @@ from typing import Optional
 
 import structlog
 
-from .base import (
-    BasePricingClient,
-    PriceData,
-    PriceForecast,
-    PricingRegion,
-    PriceUnit,
-    APIError,
-    RetryConfig,
-    CircuitBreakerConfig,
-)
-from .rate_limiter import RateLimiter, create_api_rate_limiter
-from .cache import PricingCache
 from models.utility import UtilityType
+
+from .base import (APIError, BasePricingClient, CircuitBreakerConfig,
+                   PriceData, PriceForecast, PriceUnit, PricingRegion,
+                   RetryConfig)
+from .cache import PricingCache
+from .rate_limiter import RateLimiter, create_api_rate_limiter
 
 logger = structlog.get_logger(__name__)
 
@@ -49,7 +43,7 @@ def _gas_series(state: str) -> str:
 # EIA petroleum product prices (heating oil, propane)
 # Uses the weekly survey data
 HEATING_OIL_SERIES = "PET.W_EPD2F_PRS_NUS_DPG.W"  # US average
-PROPANE_SERIES = "PET.W_EPLLPA_PRS_NUS_DPG.W"      # US average
+PROPANE_SERIES = "PET.W_EPLLPA_PRS_NUS_DPG.W"  # US average
 
 # State-level heating oil series (Northeast states)
 HEATING_OIL_STATE_SERIES = {
@@ -136,7 +130,8 @@ class EIAClient(BasePricingClient):
     async def _check_rate_limit(self) -> None:
         if self.rate_limiter:
             acquired = await self.rate_limiter.wait_for_token(
-                key="eia", timeout=30.0,
+                key="eia",
+                timeout=30.0,
             )
             if not acquired:
                 raise APIError("Rate limit timeout", api_name="eia")
@@ -204,7 +199,9 @@ class EIAClient(BasePricingClient):
 
         if self.cache:
             await self.cache.set_current_price(
-                api="eia_elec", region=region.value, data=result.to_dict(),
+                api="eia_elec",
+                region=region.value,
+                data=result.to_dict(),
             )
 
         return result
@@ -265,7 +262,9 @@ class EIAClient(BasePricingClient):
 
         if self.cache:
             await self.cache.set_current_price(
-                api="eia_gas", region=region.value, data=result.to_dict(),
+                api="eia_gas",
+                region=region.value,
+                data=result.to_dict(),
             )
 
         return result
@@ -274,9 +273,7 @@ class EIAClient(BasePricingClient):
     # Heating Oil
     # ------------------------------------------------------------------
 
-    async def get_heating_oil_price(
-        self, region: PricingRegion
-    ) -> PriceData:
+    async def get_heating_oil_price(self, region: PricingRegion) -> PriceData:
         """
         Get latest heating oil price ($/gallon).
 
@@ -294,9 +291,7 @@ class EIAClient(BasePricingClient):
                 return PriceData.from_dict(cached)
 
         # Use state-specific or national series
-        series_id = HEATING_OIL_STATE_SERIES.get(
-            state, HEATING_OIL_SERIES
-        )
+        series_id = HEATING_OIL_STATE_SERIES.get(state, HEATING_OIL_SERIES)
 
         data = await self._fetch_series(
             route="/petroleum/pri/wfr/data/",
@@ -312,9 +307,7 @@ class EIAClient(BasePricingClient):
 
         rows = data.get("response", {}).get("data", [])
         if not rows:
-            raise APIError(
-                f"No heating oil data for {state}", api_name="eia"
-            )
+            raise APIError(f"No heating oil data for {state}", api_name="eia")
 
         row = rows[0]
         price_gallon = Decimal(str(row.get("value", 0)))
@@ -331,7 +324,9 @@ class EIAClient(BasePricingClient):
 
         if self.cache:
             await self.cache.set_current_price(
-                api="eia_oil", region=region.value, data=result.to_dict(),
+                api="eia_oil",
+                region=region.value,
+                data=result.to_dict(),
             )
 
         return result
@@ -390,7 +385,9 @@ class EIAClient(BasePricingClient):
 
         if self.cache:
             await self.cache.set_current_price(
-                api="eia_propane", region=region.value, data=result.to_dict(),
+                api="eia_propane",
+                region=region.value,
+                data=result.to_dict(),
             )
 
         return result
@@ -417,9 +414,7 @@ class EIAClient(BasePricingClient):
         }
         handler = dispatch.get(utility_type)
         if not handler:
-            raise ValueError(
-                f"Utility type {utility_type} not supported by EIA client"
-            )
+            raise ValueError(f"Utility type {utility_type} not supported by EIA client")
         return await handler(region)
 
     # ------------------------------------------------------------------
@@ -431,7 +426,9 @@ class EIAClient(BasePricingClient):
         return await self.get_electricity_price(region)
 
     async def get_price_forecast(
-        self, region: PricingRegion, hours: int = 24,
+        self,
+        region: PricingRegion,
+        hours: int = 24,
     ) -> PriceForecast:
         """
         EIA does not provide forecasts. Returns current price projected forward.

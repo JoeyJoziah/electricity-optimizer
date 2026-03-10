@@ -12,7 +12,7 @@ import asyncio
 import os
 import ssl
 import sys
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import asyncpg
 

@@ -7,18 +7,16 @@ Provides per-user and per-IP rate limiting using Redis-backed sliding window.
 import hashlib
 import json
 import time
-from typing import Optional
 from datetime import datetime, timezone
-
-from fastapi import HTTPException, status
-from starlette.datastructures import MutableHeaders
-from starlette.types import ASGIApp, Receive, Scope, Send
-from redis import asyncio as aioredis
+from typing import Optional
 
 import structlog
+from fastapi import HTTPException, status
+from redis import asyncio as aioredis
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from config.settings import settings
-
 
 logger = structlog.get_logger()
 
@@ -161,10 +159,7 @@ class UserRateLimiter:
             self._memory_store[key] = []
 
         # Remove old entries
-        self._memory_store[key] = [
-            t for t in self._memory_store[key]
-            if t > window_start
-        ]
+        self._memory_store[key] = [t for t in self._memory_store[key] if t > window_start]
 
         # Evict empty keys to prevent unbounded memory growth
         if not self._memory_store[key]:
@@ -298,18 +293,14 @@ class RateLimitMiddleware:
         identifier = self._get_identifier(scope)
 
         # Check per-minute limit
-        allowed, remaining = await self.rate_limiter.check_rate_limit(
-            identifier, "minute"
-        )
+        allowed, remaining = await self.rate_limiter.check_rate_limit(identifier, "minute")
 
         if not allowed:
             await self._send_429(send, retry_after=60)
             return
 
         # Check per-hour limit
-        allowed, _ = await self.rate_limiter.check_rate_limit(
-            identifier, "hour"
-        )
+        allowed, _ = await self.rate_limiter.check_rate_limit(identifier, "hour")
 
         if not allowed:
             await self._send_429(send, retry_after=3600)
@@ -334,15 +325,17 @@ class RateLimitMiddleware:
         body = json.dumps(
             {"detail": f"Rate limit exceeded. Retry after {retry_after} seconds."}
         ).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 429,
-            "headers": [
-                [b"content-type", b"application/json"],
-                [b"content-length", str(len(body)).encode()],
-                [b"retry-after", str(retry_after).encode()],
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 429,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(body)).encode()],
+                    [b"retry-after", str(retry_after).encode()],
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
 
     def _get_identifier(self, scope: Scope) -> str:

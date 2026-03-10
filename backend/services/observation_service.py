@@ -7,12 +7,13 @@ Adds logging and business-level coordination on top of raw data operations.
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.forecast_observation_repository import ForecastObservationRepository
+from repositories.forecast_observation_repository import \
+    ForecastObservationRepository
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +35,7 @@ class ObservationService:
         model_version: Optional[str] = None,
     ) -> int:
         """Batch-INSERT forecast predictions into forecast_observations."""
-        count = await self._repo.insert_forecasts(
-            forecast_id, region, predictions, model_version
-        )
+        count = await self._repo.insert_forecasts(forecast_id, region, predictions, model_version)
         if count > 0:
             logger.info(
                 "forecast_recorded",
@@ -145,13 +144,17 @@ class ObservationService:
 
     async def get_observation_summary(self):
         """Get summary statistics for observations."""
-        result = await self._repo._db.execute(text("""
+        result = await self._repo._db.execute(
+            text(
+                """
             SELECT
                 COUNT(*) as total,
                 MIN(created_at) as oldest,
                 MAX(created_at) as newest
             FROM forecast_observations
-        """))
+        """
+            )
+        )
         row = result.fetchone()
         if not row or not row[0]:
             return {"total": 0, "oldest": None, "newest": None}

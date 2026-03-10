@@ -8,15 +8,15 @@ API-key-protected endpoints for scheduled jobs:
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Optional, List
+from typing import Any, List, Optional
+
+import structlog
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-
-from api.dependencies import verify_api_key, get_db_session, get_redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
+from api.dependencies import get_db_session, get_redis, verify_api_key
 
 logger = structlog.get_logger(__name__)
 
@@ -30,7 +30,9 @@ class ObserveRequest(BaseModel):
 
 
 class LearnRequest(BaseModel):
-    regions: Optional[List[str]] = Field(None, description="Regions to process (defaults to ['US'])")
+    regions: Optional[List[str]] = Field(
+        None, description="Regions to process (defaults to ['US'])"
+    )
     days: int = Field(default=7, ge=1, le=90, description="Lookback window in days")
 
 
@@ -73,9 +75,9 @@ async def run_learning_cycle(
     Computes rolling accuracy, detects bias, updates ensemble weights in Redis,
     stores bias correction vectors, and prunes stale patterns.
     """
-    from services.observation_service import ObservationService
     from services.hnsw_vector_store import HNSWVectorStore
     from services.learning_service import LearningService
+    from services.observation_service import ObservationService
 
     obs = ObservationService(db)
     vs = HNSWVectorStore()
@@ -234,20 +236,19 @@ async def scrape_supplier_rates(
     # Auto-discover suppliers with website URLs when no explicit list provided
     if not supplier_urls:
         result = await db.execute(
-            text("""
+            text(
+                """
                 SELECT id, name, website
                 FROM supplier_registry
                 WHERE is_active = true
                   AND website IS NOT NULL
                   AND website != ''
                 ORDER BY name
-            """)
+            """
+            )
         )
         rows = result.fetchall()
-        supplier_urls = [
-            {"supplier_id": str(row[0]), "url": row[2]}
-            for row in rows
-        ]
+        supplier_urls = [{"supplier_id": str(row[0]), "url": row[2]} for row in rows]
 
     if not supplier_urls:
         return {"status": "ok", "results": [], "message": "No suppliers with website URLs found"}
@@ -264,20 +265,25 @@ async def scrape_supplier_rates(
         for item in supplier_urls:
             name_lookup[item.get("supplier_id")] = item.get("name")
 
-        insert_sql = text("""
+        insert_sql = text(
+            """
             INSERT INTO scraped_rates (supplier_id, supplier_name, source_url, extracted_data, success)
             VALUES (:sid, :name, :url, :data, :success)
-        """)
+        """
+        )
         for r in results:
             sid = r.get("supplier_id")
             try:
-                await db.execute(insert_sql, {
-                    "sid": sid,
-                    "name": name_lookup.get(sid),
-                    "url": url_lookup.get(sid),
-                    "data": json.dumps(r.get("extracted_data")),
-                    "success": r.get("success", False),
-                })
+                await db.execute(
+                    insert_sql,
+                    {
+                        "sid": sid,
+                        "name": name_lookup.get(sid),
+                        "url": url_lookup.get(sid),
+                        "data": json.dumps(r.get("extracted_data")),
+                        "success": r.get("success", False),
+                    },
+                )
                 persisted += 1
             except Exception as e:
                 logger.warning("scraped_rate_insert_failed", supplier_id=sid, error=str(e))
@@ -327,20 +333,25 @@ async def fetch_weather_data(
     # Persist weather data to weather_cache table
     persisted = 0
     if db and results:
-        insert_sql = text("""
+        insert_sql = text(
+            """
             INSERT INTO weather_cache (state_code, temperature_f, humidity, wind_speed_mph, conditions, raw_data)
             VALUES (:state, :temp, :humidity, :wind, :conditions, :raw)
-        """)
+        """
+        )
         for state, data in results.items():
             try:
-                await db.execute(insert_sql, {
-                    "state": state,
-                    "temp": data.get("temp_f"),
-                    "humidity": data.get("humidity"),
-                    "wind": data.get("wind_mph"),
-                    "conditions": data.get("description"),
-                    "raw": json.dumps(data),
-                })
+                await db.execute(
+                    insert_sql,
+                    {
+                        "state": state,
+                        "temp": data.get("temp_f"),
+                        "humidity": data.get("humidity"),
+                        "wind": data.get("wind_mph"),
+                        "conditions": data.get("description"),
+                        "raw": json.dumps(data),
+                    },
+                )
                 persisted += 1
             except Exception as e:
                 logger.warning("weather_cache_insert_failed", state=state, error=str(e))
@@ -385,25 +396,30 @@ async def run_market_research(
     # Persist market research results to market_intelligence table
     persisted = 0
     if db and results:
-        insert_sql = text("""
+        insert_sql = text(
+            """
             INSERT INTO market_intelligence (query, region, title, url, content, score, raw_data)
             VALUES (:query, :region, :title, :url, :content, :score, :raw)
-        """)
+        """
+        )
         for item in results:
             query_str = item.get("query", "")
             # Extract region from query (first token, e.g. "NY electricity rate...")
             region = query_str.split()[0] if query_str else None
             for result in item.get("data", {}).get("results", []):
                 try:
-                    await db.execute(insert_sql, {
-                        "query": query_str[:500],
-                        "region": region,
-                        "title": (result.get("title") or "")[:500],
-                        "url": (result.get("url") or "")[:1000],
-                        "content": result.get("content"),
-                        "score": result.get("score"),
-                        "raw": json.dumps(result),
-                    })
+                    await db.execute(
+                        insert_sql,
+                        {
+                            "query": query_str[:500],
+                            "region": region,
+                            "title": (result.get("title") or "")[:500],
+                            "url": (result.get("url") or "")[:1000],
+                            "content": result.get("content"),
+                            "score": result.get("score"),
+                            "raw": json.dumps(result),
+                        },
+                    )
                     persisted += 1
                 except Exception as e:
                     logger.warning("market_intel_insert_failed", query=query_str, error=str(e))
@@ -468,9 +484,7 @@ async def sync_connections(db: AsyncSession = Depends(get_db_session)):
         }
     except Exception as exc:
         logger.error("sync_connections_failed", error=str(exc))
-        raise HTTPException(
-            status_code=500, detail=f"Connection sync failed: {str(exc)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Connection sync failed: {str(exc)}")
 
 
 # =============================================================================
@@ -501,8 +515,9 @@ async def check_alerts(
     Protected by the router-level X-API-Key dependency.
     """
     from decimal import Decimal
-    from services.alert_service import AlertService, AlertThreshold
+
     from repositories.price_repository import PriceRepository
+    from services.alert_service import AlertService, AlertThreshold
 
     if db is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
@@ -655,8 +670,8 @@ async def run_dunning_cycle(
 
     Protected by the router-level X-API-Key dependency.
     """
-    from services.dunning_service import DunningService
     from repositories.user_repository import UserRepository
+    from services.dunning_service import DunningService
 
     dunning = DunningService(db)
     user_repo = UserRepository(db)
@@ -785,16 +800,12 @@ async def data_health_check(
     health = {}
     for table_name, ts_col in tables:
         try:
-            count_result = await db.execute(
-                text(f"SELECT COUNT(*) FROM {table_name}")
-            )
+            count_result = await db.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
             count = count_result.scalar() or 0
 
             last_write = None
             if count > 0:
-                ts_result = await db.execute(
-                    text(f"SELECT MAX({ts_col}) FROM {table_name}")
-                )
+                ts_result = await db.execute(text(f"SELECT MAX({ts_col}) FROM {table_name}"))
                 last_write_val = ts_result.scalar()
                 if last_write_val:
                     last_write = str(last_write_val)
@@ -808,7 +819,8 @@ async def data_health_check(
 
     # Flag critical tables that should not be empty
     critical_empty = [
-        t for t in ["electricity_prices", "supplier_registry", "weather_cache"]
+        t
+        for t in ["electricity_prices", "supplier_registry", "weather_cache"]
         if health.get(t, {}).get("count", 0) == 0
     ]
 
