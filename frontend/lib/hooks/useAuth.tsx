@@ -65,12 +65,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const isAuthPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/')
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
+        const isAuthPage = pathname.startsWith('/auth/')
+        const isPublicPage = isAuthPage || pathname === '/' || pathname === '/pricing' || pathname === '/privacy' || pathname === '/terms'
 
         const [sessionResult, supplierResult, profileResult] = await Promise.allSettled([
           authClient.getSession(),
-          isAuthPage ? Promise.resolve({ supplier: null }) : getUserSupplier(),
-          isAuthPage ? Promise.resolve({ region: null, onboarding_completed: false }) : getUserProfile(),
+          isPublicPage ? Promise.resolve({ supplier: null }) : getUserSupplier(),
+          isPublicPage ? Promise.resolve({ region: null, onboarding_completed: false }) : getUserProfile(),
         ])
 
         if (sessionResult.status === 'fulfilled' && sessionResult.value.data?.user) {
