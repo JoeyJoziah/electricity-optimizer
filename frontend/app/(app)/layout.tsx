@@ -1,5 +1,6 @@
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarProvider } from '@/lib/contexts/sidebar-context'
+import { FeedbackWidget } from '@/components/feedback/FeedbackWidget'
 
 export default function AppLayout({
   children,
@@ -18,6 +19,7 @@ export default function AppLayout({
         <Sidebar />
         <main id="main-content" className="flex-1 lg:pl-64">{children}</main>
       </div>
+      <FeedbackWidget />
     </SidebarProvider>
   )
 }

@@ -88,18 +88,82 @@ class EnsemblePredictor:
         self._load_metadata()
 
     def _load_weights(self) -> Dict[str, Dict]:
-        """Load weights from Redis (set by LearningService), metadata file, or defaults."""
-        # Try Redis first (dynamic weights from nightly learning)
+        """Load weights from Redis, PostgreSQL (fallback), metadata file, or defaults.
+
+        Load order:
+        1. Redis (fast, set by LearningService on every nightly cycle).
+        2. PostgreSQL model_config table (durable, survives Render restarts).
+        3. metadata.yaml on disk.
+        4. Hard-coded DEFAULT_WEIGHTS.
+        """
+        # 1. Try Redis first (dynamic weights from nightly learning)
         try:
-            import json as _json  # noqa: F401 — imported for side-effect availability
             redis_weights = self._load_weights_from_redis()
             if redis_weights:
                 logger.info("ensemble_weights_loaded_from_redis")
                 return redis_weights
         except Exception as e:
-            logger.warning(f"Failed to load model weights from Redis: {e}, using defaults")
+            logger.warning(f"Failed to load model weights from Redis: {e}, trying PostgreSQL")
+
+        # 2. Try PostgreSQL (durable fallback that survives restarts)
+        try:
+            db_weights = self._load_weights_from_db()
+            if db_weights:
+                logger.info("ensemble_weights_loaded_from_db")
+                return db_weights
+        except Exception as e:
+            logger.warning(f"Failed to load model weights from DB: {e}, using file/defaults")
 
         return self._load_weights_from_file()
+
+    @staticmethod
+    def _load_weights_from_db() -> Optional[Dict[str, Dict]]:
+        """
+        Synchronously load ensemble weights from PostgreSQL model_config table.
+
+        Uses a raw psycopg2 connection so that no async event-loop is required
+        at EnsemblePredictor construction time (which may run outside an async
+        context, e.g. during a Gunicorn worker startup).
+
+        The DATABASE_URL environment variable must be set.  If it is absent or
+        the query fails the method returns None so the caller can fall back to
+        the file/default path.
+        """
+        try:
+            import json as _json
+            import os
+            import psycopg2
+
+            db_url = os.environ.get("DATABASE_URL", "")
+            if not db_url:
+                return None
+
+            conn = psycopg2.connect(db_url)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT weights_json
+                          FROM model_config
+                         WHERE model_name = 'ensemble'
+                           AND is_active = true
+                         ORDER BY created_at DESC
+                         LIMIT 1
+                        """
+                    )
+                    row = cur.fetchone()
+                    if row is None:
+                        return None
+                    weights_raw = row[0]
+                    # psycopg2 may return a dict (JSON type) or a string
+                    if isinstance(weights_raw, str):
+                        return _json.loads(weights_raw)
+                    return weights_raw
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.warning(f"Failed to load model weights from DB: {e}")
+        return None
 
     @staticmethod
     def _load_weights_from_redis() -> Optional[Dict[str, Dict]]:

@@ -506,6 +506,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import alerts as alerts_v1
     from api.v1 import notifications as notifications_v1
     from api.v1 import health as health_v1
+    from api.v1 import feedback as feedback_v1
 
     app.include_router(
         predictions.router,
@@ -616,6 +617,11 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         health_v1.router,
         prefix="",
         tags=["Health"],
+    )
+    app.include_router(
+        feedback_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Feedback"],
     )
 
     return app, app_rate_limiter

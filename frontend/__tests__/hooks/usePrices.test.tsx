@@ -22,26 +22,66 @@ jest.mock('@/lib/api/prices', () => ({
   getOptimalPeriods: (...args: unknown[]) => mockGetOptimalPeriods(...args),
 }))
 
-// Reusable mock data
+// Reusable mock data — shapes match backend API types (snake_case, Decimal strings)
 const mockPricesData = {
   prices: [
-    { region: 'US_CT', price: 0.25, timestamp: '2026-02-24T12:00:00Z' },
+    {
+      ticker: 'ELEC-US_CT',
+      current_price: '0.2500',
+      currency: 'USD',
+      region: 'us_ct',
+      supplier: 'Eversource Energy',
+      updated_at: '2026-02-24T12:00:00Z',
+      is_peak: false,
+      carbon_intensity: null,
+      price_change_24h: null,
+    },
   ],
+  price: null,
+  region: 'us_ct',
+  timestamp: '2026-02-24T12:00:00Z',
+  source: 'live',
 }
 
 const mockHistoryData = {
+  region: 'us_ct',
+  supplier: null,
+  start_date: '2026-02-24T10:00:00Z',
+  end_date: '2026-02-24T12:00:00Z',
   prices: [
-    { time: '2026-02-24T10:00:00Z', price: 0.28 },
-    { time: '2026-02-24T11:00:00Z', price: 0.26 },
-    { time: '2026-02-24T12:00:00Z', price: 0.25 },
+    { id: '1', region: 'us_ct', supplier: 'Eversource Energy', price_per_kwh: '0.2800', timestamp: '2026-02-24T10:00:00Z', currency: 'USD', utility_type: 'electricity', unit: 'kwh', is_peak: null, carbon_intensity: null, energy_source: null, tariff_name: null, energy_cost: null, network_cost: null, taxes: null, levies: null, source_api: null, created_at: '2026-02-24T10:00:00Z' },
+    { id: '2', region: 'us_ct', supplier: 'Eversource Energy', price_per_kwh: '0.2600', timestamp: '2026-02-24T11:00:00Z', currency: 'USD', utility_type: 'electricity', unit: 'kwh', is_peak: null, carbon_intensity: null, energy_source: null, tariff_name: null, energy_cost: null, network_cost: null, taxes: null, levies: null, source_api: null, created_at: '2026-02-24T11:00:00Z' },
+    { id: '3', region: 'us_ct', supplier: 'Eversource Energy', price_per_kwh: '0.2500', timestamp: '2026-02-24T12:00:00Z', currency: 'USD', utility_type: 'electricity', unit: 'kwh', is_peak: null, carbon_intensity: null, energy_source: null, tariff_name: null, energy_cost: null, network_cost: null, taxes: null, levies: null, source_api: null, created_at: '2026-02-24T12:00:00Z' },
   ],
+  average_price: '0.2633',
+  min_price: '0.2500',
+  max_price: '0.2800',
+  source: 'live',
+  total: 3,
+  page: 1,
+  page_size: 24,
+  pages: 1,
 }
 
 const mockForecastData = {
-  forecast: [
-    { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-    { hour: 2, price: 0.20, confidence: [0.18, 0.22] },
-  ],
+  region: 'us_ct',
+  forecast: {
+    id: 'abc',
+    region: 'us_ct',
+    generated_at: '2026-02-24T12:00:00Z',
+    horizon_hours: 24,
+    prices: [
+      { id: '1', region: 'us_ct', supplier: 'Eversource Energy', price_per_kwh: '0.2300', timestamp: '2026-02-24T13:00:00Z', currency: 'USD', utility_type: 'electricity', unit: 'kwh', is_peak: null, carbon_intensity: null, energy_source: null, tariff_name: null, energy_cost: null, network_cost: null, taxes: null, levies: null, source_api: null, created_at: '2026-02-24T12:00:00Z' },
+      { id: '2', region: 'us_ct', supplier: 'Eversource Energy', price_per_kwh: '0.2000', timestamp: '2026-02-24T14:00:00Z', currency: 'USD', utility_type: 'electricity', unit: 'kwh', is_peak: null, carbon_intensity: null, energy_source: null, tariff_name: null, energy_cost: null, network_cost: null, taxes: null, levies: null, source_api: null, created_at: '2026-02-24T12:00:00Z' },
+    ],
+    confidence: 0.85,
+    model_version: 'v1',
+    source_api: null,
+  },
+  generated_at: '2026-02-24T12:00:00Z',
+  horizon_hours: 24,
+  confidence: 0.85,
+  source: 'live',
 }
 
 const mockOptimalData = {
@@ -86,8 +126,9 @@ describe('usePrices hooks', () => {
     })
 
     expect(result.current.data).toEqual(mockPricesData)
-    expect(result.current.data?.prices[0].price).toBe(0.25)
-    expect(mockGetCurrentPrices).toHaveBeenCalledWith('us_ct')
+    // current_price is a Decimal string from the backend
+    expect(result.current.data?.prices?.[0].current_price).toBe('0.2500')
+    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' })
   })
 
   it('useCurrentPrices handles error', async () => {
@@ -113,7 +154,8 @@ describe('usePrices hooks', () => {
 
     expect(result.current.data).toEqual(mockHistoryData)
     expect(result.current.data?.prices).toHaveLength(3)
-    expect(mockGetPriceHistory).toHaveBeenCalledWith('us_ct', 24)
+    // Hook converts hours→days: 24h = 1 day
+    expect(mockGetPriceHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 1 })
   })
 
   it('usePriceHistory respects hours parameter', async () => {
@@ -123,7 +165,8 @@ describe('usePrices hooks', () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockGetPriceHistory).toHaveBeenCalledWith('us_ct', 48)
+    // Hook converts hours→days: 48h = 2 days
+    expect(mockGetPriceHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 2 })
   })
 
   it('usePriceForecast returns forecast data', async () => {
@@ -134,9 +177,10 @@ describe('usePrices hooks', () => {
     })
 
     expect(result.current.data).toEqual(mockForecastData)
-    expect(result.current.data?.forecast).toHaveLength(2)
-    expect(result.current.data?.forecast[0].price).toBe(0.23)
-    expect(mockGetPriceForecast).toHaveBeenCalledWith('us_ct', 24)
+    // forecast is now an ApiPriceForecastModel object, not an array
+    expect(result.current.data?.forecast.prices).toHaveLength(2)
+    expect(result.current.data?.forecast.prices[0].price_per_kwh).toBe('0.2300')
+    expect(mockGetPriceForecast).toHaveBeenCalledWith({ region: 'us_ct', hours: 24 })
   })
 
   it('usePriceForecast handles missing forecast', async () => {
@@ -178,13 +222,13 @@ describe('usePrices hooks', () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockGetCurrentPrices).toHaveBeenCalledWith('us_ct')
+    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' })
 
     // Change region
     rerender({ region: 'us_ny' })
 
     await waitFor(() => {
-      expect(mockGetCurrentPrices).toHaveBeenCalledWith('us_ny')
+      expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ny' })
     })
 
     // Should have been called with both regions
@@ -296,6 +340,6 @@ describe('usePrices hooks', () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockGetCurrentPrices).toHaveBeenCalledWith('us_ct')
+    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' })
   })
 })

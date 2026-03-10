@@ -4,9 +4,7 @@ const isDev = process.env.NODE_ENV === 'development'
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  experimental: {
-    optimizePackageImports: ['date-fns', 'lucide-react', 'recharts', 'better-auth'],
-  },
+  optimizePackageImports: ['date-fns', 'lucide-react', 'recharts', 'better-auth'],
 
   // Production optimizations
   poweredByHeader: false,

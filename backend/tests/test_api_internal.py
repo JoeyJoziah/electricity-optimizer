@@ -12,8 +12,10 @@ Note: internal.py uses lazy imports (inside endpoint functions), so patches
 target the service modules directly rather than api.v1.internal.
 """
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -1137,6 +1139,169 @@ class TestScrapeRatesPersistence:
         assert data["persisted"] == 1
 
         mock_db.commit.assert_awaited_once()
+
+
+# =============================================================================
+# RateScraperService unit tests (concurrency + timeout behaviour)
+# =============================================================================
+
+
+class TestRateScraperServiceConcurrency:
+    """Unit tests for the concurrent scraping logic in RateScraperService."""
+
+    @pytest.mark.asyncio
+    async def test_scrape_all_succeed(self):
+        """All suppliers succeed — results contain success=True entries."""
+        from services.rate_scraper_service import RateScraperService
+
+        svc = RateScraperService.__new__(RateScraperService)
+        svc._token = "tok"
+
+        async def _fast_extract(url):
+            return {"objects": [{"type": "price", "text": "$.12/kWh"}]}
+
+        with patch.object(svc, "extract_rates_from_url", side_effect=_fast_extract):
+            # Zero-out the 12-second rate-limit sleep so the test runs fast
+            with patch("services.rate_scraper_service._RATE_LIMIT_SLEEP_S", 0.001):
+                results = await svc.scrape_supplier_rates(
+                    [
+                        {"supplier_id": "s1", "url": "https://a.com"},
+                        {"supplier_id": "s2", "url": "https://b.com"},
+                        {"supplier_id": "s3", "url": "https://c.com"},
+                    ]
+                )
+
+        assert len(results) == 3
+        assert all(r["success"] for r in results)
+        sids = {r["supplier_id"] for r in results}
+        assert sids == {"s1", "s2", "s3"}
+
+    @pytest.mark.asyncio
+    async def test_partial_failure_does_not_block_batch(self):
+        """A failing supplier should record success=False without crashing others."""
+        from services.rate_scraper_service import RateScraperService
+
+        svc = RateScraperService.__new__(RateScraperService)
+        svc._token = "tok"
+
+        async def _flaky_extract(url):
+            if "bad" in url:
+                raise httpx.HTTPStatusError(
+                    "503", request=MagicMock(), response=MagicMock(status_code=503)
+                )
+            return {"objects": []}
+
+        with patch.object(svc, "extract_rates_from_url", side_effect=_flaky_extract):
+            with patch("services.rate_scraper_service._RATE_LIMIT_SLEEP_S", 0.001):
+                results = await svc.scrape_supplier_rates(
+                    [
+                        {"supplier_id": "ok1", "url": "https://good.com"},
+                        {"supplier_id": "fail1", "url": "https://bad.com"},
+                        {"supplier_id": "ok2", "url": "https://good2.com"},
+                    ]
+                )
+
+        assert len(results) == 3
+        by_id = {r["supplier_id"]: r for r in results}
+        assert by_id["ok1"]["success"] is True
+        assert by_id["fail1"]["success"] is False
+        assert by_id["ok2"]["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_per_supplier_timeout_recorded(self):
+        """Suppliers that exceed the per-call timeout are recorded with success=False."""
+        from services.rate_scraper_service import RateScraperService
+
+        svc = RateScraperService.__new__(RateScraperService)
+        svc._token = "tok"
+
+        async def _hung_extract(url):
+            # Simulate a hung connection: sleep longer than the patched timeout.
+            # We use the real asyncio.sleep here (not the module-level mock) so
+            # asyncio.wait_for can actually cancel this coroutine.
+            await asyncio.sleep(10)
+
+        # Patch only the rate-limit sleep in the service module (the one called
+        # after releasing the semaphore); leave the real asyncio.wait_for + real
+        # asyncio.sleep so the cancellation path works correctly.
+        with patch.object(svc, "extract_rates_from_url", side_effect=_hung_extract):
+            with patch("services.rate_scraper_service._PER_SUPPLIER_TIMEOUT_S", 0.01):
+                # Zero-out the post-call rate-limit sleep so the test completes fast
+                with patch("services.rate_scraper_service._RATE_LIMIT_SLEEP_S", 0.001):
+                    results = await svc.scrape_supplier_rates(
+                        [{"supplier_id": "hung1", "url": "https://slow.com"}]
+                    )
+
+        assert len(results) == 1
+        assert results[0]["success"] is False
+        assert results[0].get("error") == "timeout"
+
+    @pytest.mark.asyncio
+    async def test_empty_input_returns_empty_list(self):
+        """An empty supplier list should return an empty result without calling Diffbot."""
+        from services.rate_scraper_service import RateScraperService
+
+        svc = RateScraperService.__new__(RateScraperService)
+        svc._token = "tok"
+
+        with patch.object(svc, "extract_rates_from_url", new=AsyncMock()) as mock_extract:
+            results = await svc.scrape_supplier_rates([])
+
+        assert results == []
+        mock_extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_no_token_returns_none_for_extracted_data(self):
+        """When DIFFBOT_API_TOKEN is not configured, extract returns None gracefully."""
+        from services.rate_scraper_service import RateScraperService
+
+        svc = RateScraperService.__new__(RateScraperService)
+        svc._token = ""  # empty = not configured
+
+        # Patch the rate-limit sleep to avoid a 12-second wait in unit tests
+        with patch("services.rate_scraper_service._RATE_LIMIT_SLEEP_S", 0.001):
+            results = await svc.scrape_supplier_rates(
+                [{"supplier_id": "s1", "url": "https://example.com"}]
+            )
+
+        assert len(results) == 1
+        # extract_rates_from_url returns None when not configured — the service
+        # treats data=None as not-successful.
+        assert results[0]["extracted_data"] is None
+        assert results[0]["success"] is False
+
+    @pytest.mark.asyncio
+    async def test_concurrency_respects_semaphore_limit(self):
+        """Peak concurrent calls must not exceed max_concurrency."""
+        import asyncio as _asyncio
+        from services.rate_scraper_service import RateScraperService
+
+        svc = RateScraperService.__new__(RateScraperService)
+        svc._token = "tok"
+
+        peak_concurrent = 0
+        current_concurrent = 0
+
+        async def _counting_extract(url):
+            nonlocal peak_concurrent, current_concurrent
+            current_concurrent += 1
+            peak_concurrent = max(peak_concurrent, current_concurrent)
+            await _asyncio.sleep(0.01)  # tiny delay so concurrency overlaps
+            current_concurrent -= 1
+            return {"objects": []}
+
+        with patch.object(svc, "extract_rates_from_url", side_effect=_counting_extract):
+            with patch("services.rate_scraper_service._RATE_LIMIT_SLEEP_S", 0.001):
+                # 10 suppliers with max_concurrency=3
+                suppliers = [
+                    {"supplier_id": f"s{i}", "url": f"https://s{i}.com"}
+                    for i in range(10)
+                ]
+                await svc.scrape_supplier_rates(suppliers, max_concurrency=3)
+
+        assert peak_concurrent <= 3, (
+            f"Peak concurrent calls ({peak_concurrent}) exceeded semaphore limit (3)"
+        )
 
 
 # =============================================================================

@@ -109,35 +109,103 @@ jest.mock('@/lib/api/prices', () => ({
 // Import after mocks are set up
 import PricesContent from '@/components/prices/PricesContent'
 
-// Default mock data
+// Helper to build an ApiPriceResponse mock (used in current prices response)
+function mockPriceResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    ticker: 'ELEC-US_CT',
+    current_price: '0.25',
+    currency: 'USD',
+    region: 'US_CT',
+    supplier: 'Eversource',
+    updated_at: '2026-02-24T12:00:00Z',
+    is_peak: null,
+    carbon_intensity: null,
+    price_change_24h: null,
+    ...overrides,
+  }
+}
+
+// Helper to build an ApiPrice mock (used in history and forecast responses)
+function mockApiPrice(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'price-1',
+    region: 'US_CT',
+    supplier: 'Eversource',
+    price_per_kwh: '0.25',
+    timestamp: '2026-02-24T12:00:00Z',
+    currency: 'USD',
+    utility_type: 'electricity',
+    unit: 'kWh',
+    is_peak: null,
+    carbon_intensity: null,
+    energy_source: null,
+    tariff_name: null,
+    energy_cost: null,
+    network_cost: null,
+    taxes: null,
+    levies: null,
+    source_api: null,
+    created_at: '2026-02-24T12:00:00Z',
+    ...overrides,
+  }
+}
+
+// Default mock data — using new ApiPriceResponse / ApiPrice / ApiPriceForecastModel shapes
 const defaultPricesResponse = {
+  price: null,
   prices: [
-    {
-      region: 'US_CT',
-      price: 0.25,
-      timestamp: '2026-02-24T12:00:00Z',
-      trend: 'stable',
-      changePercent: -1.2,
-    },
+    mockPriceResponse({
+      current_price: '0.25',
+      price_change_24h: '-1.2',
+    }),
   ],
+  region: 'US_CT',
+  timestamp: '2026-02-24T12:00:00Z',
+  source: null,
 }
 
 const defaultHistoryResponse = {
+  region: 'US_CT',
+  supplier: null,
+  start_date: '2026-02-24T00:00:00Z',
+  end_date: '2026-02-24T12:00:00Z',
   prices: [
-    { time: '2026-02-24T08:00:00Z', price: 0.28 },
-    { time: '2026-02-24T09:00:00Z', price: 0.22 },
-    { time: '2026-02-24T10:00:00Z', price: 0.19 },
-    { time: '2026-02-24T11:00:00Z', price: 0.26 },
-    { time: '2026-02-24T12:00:00Z', price: 0.25 },
+    mockApiPrice({ id: 'h1', price_per_kwh: '0.28', timestamp: '2026-02-24T08:00:00Z' }),
+    mockApiPrice({ id: 'h2', price_per_kwh: '0.22', timestamp: '2026-02-24T09:00:00Z' }),
+    mockApiPrice({ id: 'h3', price_per_kwh: '0.19', timestamp: '2026-02-24T10:00:00Z' }),
+    mockApiPrice({ id: 'h4', price_per_kwh: '0.26', timestamp: '2026-02-24T11:00:00Z' }),
+    mockApiPrice({ id: 'h5', price_per_kwh: '0.25', timestamp: '2026-02-24T12:00:00Z' }),
   ],
+  average_price: '0.24',
+  min_price: '0.19',
+  max_price: '0.28',
+  source: null,
+  total: 5,
+  page: 1,
+  page_size: 24,
+  pages: 1,
 }
 
 const defaultForecastResponse = {
-  forecast: [
-    { hour: 1, price: 0.23, confidence: [0.21, 0.25], timestamp: '2026-02-24T13:00:00Z' },
-    { hour: 2, price: 0.20, confidence: [0.18, 0.22], timestamp: '2026-02-24T14:00:00Z' },
-    { hour: 3, price: 0.18, confidence: [0.16, 0.20], timestamp: '2026-02-24T15:00:00Z' },
-  ],
+  region: 'US_CT',
+  forecast: {
+    id: 'forecast-1',
+    region: 'US_CT',
+    generated_at: '2026-02-24T12:00:00Z',
+    horizon_hours: 48,
+    prices: [
+      mockApiPrice({ id: 'f1', price_per_kwh: '0.23', timestamp: '2026-02-24T13:00:00Z' }),
+      mockApiPrice({ id: 'f2', price_per_kwh: '0.20', timestamp: '2026-02-24T14:00:00Z' }),
+      mockApiPrice({ id: 'f3', price_per_kwh: '0.18', timestamp: '2026-02-24T15:00:00Z' }),
+    ],
+    confidence: 0.85,
+    model_version: 'v1',
+    source_api: null,
+  },
+  generated_at: '2026-02-24T12:00:00Z',
+  horizon_hours: 48,
+  confidence: 0.85,
+  source: null,
 }
 
 const defaultOptimalResponse = {
@@ -478,15 +546,16 @@ describe('PricesContent', () => {
 
   it('displays positive change percent with + sign', async () => {
     mockGetCurrentPrices.mockResolvedValue({
+      price: null,
       prices: [
-        {
-          region: 'US_CT',
-          price: 0.31,
-          timestamp: '2026-02-24T12:00:00Z',
-          trend: 'increasing',
-          changePercent: 5.3,
-        },
+        mockPriceResponse({
+          current_price: '0.31',
+          price_change_24h: '5.3',
+        }),
       ],
+      region: 'US_CT',
+      timestamp: '2026-02-24T12:00:00Z',
+      source: null,
     })
 
     render(<PricesContent />, { wrapper })
@@ -529,10 +598,22 @@ describe('PricesContent', () => {
   it('handles backend field names (price_per_kwh) in history data', async () => {
     // Use values that do not collide with alert thresholds ($0.20 / $0.30)
     mockGetPriceHistory.mockResolvedValue({
+      region: 'US_CT',
+      supplier: null,
+      start_date: '2026-02-24T00:00:00Z',
+      end_date: '2026-02-24T12:00:00Z',
       prices: [
-        { timestamp: '2026-02-24T08:00:00Z', price_per_kwh: '0.21' },
-        { timestamp: '2026-02-24T09:00:00Z', price_per_kwh: '0.33' },
+        mockApiPrice({ id: 'bh1', price_per_kwh: '0.21', timestamp: '2026-02-24T08:00:00Z' }),
+        mockApiPrice({ id: 'bh2', price_per_kwh: '0.33', timestamp: '2026-02-24T09:00:00Z' }),
       ],
+      average_price: '0.27',
+      min_price: '0.21',
+      max_price: '0.33',
+      source: null,
+      total: 2,
+      page: 1,
+      page_size: 24,
+      pages: 1,
     })
 
     render(<PricesContent />, { wrapper })
@@ -546,13 +627,15 @@ describe('PricesContent', () => {
 
   it('handles backend field names (current_price) for current price', async () => {
     mockGetCurrentPrices.mockResolvedValue({
+      price: null,
       prices: [
-        {
-          region: 'US_CT',
-          current_price: 0.27,
-          timestamp: '2026-02-24T12:00:00Z',
-        },
+        mockPriceResponse({
+          current_price: '0.27',
+        }),
       ],
+      region: 'US_CT',
+      timestamp: '2026-02-24T12:00:00Z',
+      source: null,
     })
 
     render(<PricesContent />, { wrapper })

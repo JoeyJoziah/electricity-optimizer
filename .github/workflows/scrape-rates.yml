@@ -13,8 +13,9 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    # 37 suppliers x 12s rate limit = ~7.5 min. Allow 15 min for safety.
-    timeout-minutes: 15
+    # Concurrent scraper: ceil(37/5) * 12s ≈ 96s. Backend Render timeout
+    # adds overhead; allow 10 min for Render cold-start + 3 retry attempts.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,6 +29,8 @@ jobs:
             X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
             Content-Type: application/json
           body: '{}'
+          # Concurrent scraper completes in ~96s; give 3 min for Render cold start
+          timeout: '180'
 
       - name: Notify on failure
         if: failure()

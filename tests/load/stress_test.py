@@ -278,14 +278,72 @@ async def stress_test_ml_inference(
     return result
 
 
+def _get_pass_criteria(scenario: str) -> Dict[str, Any]:
+    """
+    Return pass/fail thresholds for a given test scenario.
+
+    Scenarios
+    ---------
+    '1000'  — Original baseline (1000 concurrent, free tier)
+    '2000'  — 2x scale test (2000 concurrent, requires Standard tier + Redis)
+
+    Analysis reference: .project-intelligence/reports/load-test-analysis.md
+    """
+    if scenario == '2000':
+        return {
+            # Relaxed DB criteria: pool exhaustion will cause some failures.
+            # Success-rate target drops to 95% (5% pool-queue timeouts expected
+            # until pool_size and Neon tier are upgraded per recommendations).
+            'db_success_rate': 95.0,
+            'db_p95_seconds': 1.0,   # Queue-wait adds ~500 ms vs 1000-user baseline
+            # ML inference is more CPU-sensitive at 2x scale; event-loop
+            # contention from 200 simultaneous asyncio tasks degrades p95.
+            'ml_success_rate': 90.0,
+            'ml_p95_seconds': 3.0,
+        }
+    # Default: 1000-user baseline thresholds
+    return {
+        'db_success_rate': 99.0,
+        'db_p95_seconds': 0.5,
+        'ml_success_rate': 95.0,
+        'ml_p95_seconds': 2.0,
+    }
+
+
 async def run_full_stress_test(
     base_url: str = 'http://localhost:8000',
     db_concurrent: int = 1000,
     ml_concurrent: int = 100,
+    scenario: str = '1000',
 ) -> Dict[str, Any]:
-    """Run complete stress test suite."""
+    """
+    Run complete stress test suite.
+
+    Args:
+        base_url: Target server base URL
+        db_concurrent: Concurrent requests for DB-heavy endpoint tests
+        ml_concurrent: Concurrent requests for ML inference tests
+        scenario: Pass/fail threshold profile — '1000' (default) or '2000'.
+                  Use '2000' when running the 2x capacity scenario.
+                  See .project-intelligence/reports/load-test-analysis.md for
+                  the full bottleneck analysis and infrastructure requirements.
+
+    Examples:
+        # Baseline 1000-user test (free tier, existing thresholds)
+        python tests/load/stress_test.py --host http://localhost:8000
+
+        # 2000-user capacity test (requires Standard tier + Redis + pool tuning)
+        python tests/load/stress_test.py \\
+            --host https://electricity-optimizer.onrender.com \\
+            --db-concurrent 2000 \\
+            --ml-concurrent 200 \\
+            --scenario 2000
+    """
+    criteria = _get_pass_criteria(scenario)
+
     print("\n" + "=" * 70)
-    print("ELECTRICITY OPTIMIZER - FULL STRESS TEST")
+    print(f"ELECTRICITY OPTIMIZER - FULL STRESS TEST (scenario: {scenario})")
+    print(f"DB concurrent: {db_concurrent}  |  ML concurrent: {ml_concurrent}")
     print("=" * 70)
 
     all_results = {}
@@ -303,30 +361,44 @@ async def run_full_stress_test(
     print("STRESS TEST SUMMARY")
     print("=" * 70)
 
+    db_success_target = criteria['db_success_rate']
+    db_p95_target = criteria['db_p95_seconds']
+    ml_success_target = criteria['ml_success_rate']
+    ml_p95_target = criteria['ml_p95_seconds']
+
     # Check pass/fail criteria
     passed = True
     for name, result in db_results.items():
-        status = "PASS" if result.success_rate >= 99 and result.p95_latency < 0.5 else "FAIL"
+        status = (
+            "PASS"
+            if result.success_rate >= db_success_target and result.p95_latency < db_p95_target
+            else "FAIL"
+        )
         if status == "FAIL":
             passed = False
         print(f"\n{name}:")
         print(f"  Status: {status}")
-        print(f"  Success Rate: {result.success_rate:.2f}% (target: >99%)")
-        print(f"  p95 Latency: {result.p95_latency * 1000:.2f}ms (target: <500ms)")
+        print(f"  Success Rate: {result.success_rate:.2f}% (target: >{db_success_target}%)")
+        print(f"  p95 Latency: {result.p95_latency * 1000:.2f}ms (target: <{db_p95_target * 1000:.0f}ms)")
 
-    ml_status = "PASS" if ml_result.success_rate >= 95 and ml_result.p95_latency < 2.0 else "FAIL"
+    ml_status = (
+        "PASS"
+        if ml_result.success_rate >= ml_success_target and ml_result.p95_latency < ml_p95_target
+        else "FAIL"
+    )
     if ml_status == "FAIL":
         passed = False
 
     print(f"\nML Inference:")
     print(f"  Status: {ml_status}")
-    print(f"  Success Rate: {ml_result.success_rate:.2f}% (target: >95%)")
-    print(f"  p95 Latency: {ml_result.p95_latency * 1000:.2f}ms (target: <2000ms)")
+    print(f"  Success Rate: {ml_result.success_rate:.2f}% (target: >{ml_success_target}%)")
+    print(f"  p95 Latency: {ml_result.p95_latency * 1000:.2f}ms (target: <{ml_p95_target * 1000:.0f}ms)")
 
     print("\n" + "=" * 70)
     print(f"OVERALL RESULT: {'PASS' if passed else 'FAIL'}")
     print("=" * 70)
 
+    all_results['scenario'] = scenario
     all_results['overall_passed'] = passed
     return all_results
 
@@ -338,6 +410,16 @@ if __name__ == '__main__':
     parser.add_argument('--host', default='http://localhost:8000', help='Target host')
     parser.add_argument('--db-concurrent', type=int, default=1000, help='DB test concurrent requests')
     parser.add_argument('--ml-concurrent', type=int, default=100, help='ML test concurrent requests')
+    parser.add_argument(
+        '--scenario',
+        default='1000',
+        choices=['1000', '2000'],
+        help=(
+            "Pass/fail threshold profile. '2000' uses relaxed thresholds "
+            "calibrated for 2x capacity test (95%% success, p95<1000ms for DB). "
+            "See .project-intelligence/reports/load-test-analysis.md."
+        ),
+    )
     parser.add_argument('--output', default=None, help='Output JSON file')
 
     args = parser.parse_args()
@@ -346,6 +428,7 @@ if __name__ == '__main__':
         base_url=args.host,
         db_concurrent=args.db_concurrent,
         ml_concurrent=args.ml_concurrent,
+        scenario=args.scenario,
     ))
 
     if args.output:

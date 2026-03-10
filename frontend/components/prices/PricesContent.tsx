@@ -29,22 +29,8 @@ import {
   Bell,
   AlertCircle,
 } from 'lucide-react'
-import type { TimeRange, RawPricePoint, RawForecastPriceEntry } from '@/types'
-
-/**
- * Shape of each forecast item after normalization from the backend.
- * Used when mapping raw forecast data into chart-ready points.
- */
-interface ForecastItem {
-  hour: number
-  price: number
-}
-
-/**
- * Backend forecast response may be a flat array of ForecastItem[]
- * or an object with a nested `prices` array.
- */
-type ForecastPayload = ForecastItem[] | { prices: RawForecastPriceEntry[] }
+import type { TimeRange } from '@/types'
+import type { ApiPrice, ApiPriceResponse, ApiPriceForecastModel } from '@/types/generated/api'
 
 export default function PricesContent() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>('24h')
@@ -77,38 +63,36 @@ export default function PricesContent() {
   )
   const { data: optimalData } = useOptimalPeriods(region, 24)
 
-  // Process chart data (handle both frontend and backend field names)
+  // Process chart data — historyData.prices are ApiPrice (price_per_kwh is DecimalStr)
   const chartData = React.useMemo(() => {
     if (!historyData?.prices) return []
 
-    const history: { time: string; price: number | null; forecast: number | null; isOptimal: boolean }[] = historyData.prices.map((p: RawPricePoint) => {
-      const time = p.time || p.timestamp
-      const price = p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null)
-      return {
-        time: typeof time === 'string' ? time : new Date(time as number).toISOString(),
-        price,
-        forecast: null as number | null,
-        isOptimal: price !== null && price < 0.22,
-      }
-    })
+    const history: { time: string; price: number | null; forecast: number | null; isOptimal: boolean }[] =
+      historyData.prices.map((p: ApiPrice) => {
+        const price = p.price_per_kwh != null ? parseFloat(p.price_per_kwh) : null
+        return {
+          time: p.timestamp,
+          price,
+          forecast: null as number | null,
+          isOptimal: price !== null && price < 0.22,
+        }
+      })
 
-    // Add forecast data (handle both array and backend object shape)
+    // Add forecast data — forecastData.forecast is ApiPriceForecastModel
     if (forecastData?.forecast) {
-      const fc = forecastData.forecast as ForecastPayload
-      const forecastItems: ForecastItem[] = Array.isArray(fc)
-        ? fc
-        : (fc.prices || []).map((p: RawForecastPriceEntry, i: number) => ({
-            hour: i + 1,
-            price: Number(p.price_per_kwh ?? p.price ?? 0),
-          }))
-      const now = new Date()
-      forecastItems.forEach((f: ForecastItem) => {
-        const forecastTime = new Date(now.getTime() + f.hour * 60 * 60 * 1000)
+      const forecastModel = forecastData.forecast as ApiPriceForecastModel
+      const forecastPrices: ApiPrice[] = forecastModel.prices || []
+      forecastPrices.forEach((p: ApiPrice, i: number) => {
+        const price = parseFloat(p.price_per_kwh)
+        // Use the price's own timestamp if available, otherwise project from now
+        const forecastTime = p.timestamp
+          ? p.timestamp
+          : new Date(Date.now() + (i + 1) * 60 * 60 * 1000).toISOString()
         history.push({
-          time: forecastTime.toISOString(),
+          time: forecastTime,
           price: null,
-          forecast: f.price,
-          isOptimal: f.price < 0.20,
+          forecast: price,
+          isOptimal: price < 0.20,
         })
       })
     }
@@ -116,15 +100,23 @@ export default function PricesContent() {
     return history
   }, [historyData, forecastData])
 
-  // Map current price from backend fields
-  const rawPrice = pricesData?.prices?.[0] as RawPricePoint | undefined
+  // Map current price from backend fields — pricesData.prices are ApiPriceResponse
+  const rawPrice = pricesData?.prices?.[0] as ApiPriceResponse | undefined
   const currentPrice = rawPrice ? {
-    price: Number(rawPrice.price ?? rawPrice.current_price ?? rawPrice.price_per_kwh ?? 0),
-    trend: rawPrice.trend || 'stable' as const,
-    changePercent: rawPrice.changePercent ?? (rawPrice.price_change_24h ? Number(rawPrice.price_change_24h) : null),
+    price: parseFloat(rawPrice.current_price),
+    // Backend ApiPriceResponse does not include a trend field.
+    // Derive a basic trend from price_change_24h when available.
+    trend: (rawPrice.price_change_24h != null
+      ? (parseFloat(rawPrice.price_change_24h) > 0.005
+        ? 'increasing'
+        : parseFloat(rawPrice.price_change_24h) < -0.005
+          ? 'decreasing'
+          : 'stable')
+      : 'stable') as 'increasing' | 'decreasing' | 'stable',
+    changePercent: rawPrice.price_change_24h != null ? parseFloat(rawPrice.price_change_24h) : null,
     region: rawPrice.region,
   } : null
-  const trend = currentPrice?.trend || 'stable'
+  const trend: 'increasing' | 'decreasing' | 'stable' = currentPrice?.trend ?? 'stable'
   const TrendIcon =
     trend === 'increasing'
       ? TrendingUp
@@ -132,13 +124,13 @@ export default function PricesContent() {
         ? TrendingDown
         : Minus
 
-  // Calculate price statistics (handle backend field names)
+  // Calculate price statistics — price_per_kwh is a Decimal string
   const stats = React.useMemo(() => {
     if (!historyData?.prices) return null
 
     const prices = historyData.prices
-      .map((p: RawPricePoint) => p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null))
-      .filter((p: number | null): p is number => p !== null)
+      .map((p: ApiPrice) => (p.price_per_kwh != null ? parseFloat(p.price_per_kwh) : null))
+      .filter((p: number | null): p is number => p !== null && !isNaN(p))
 
     if (prices.length === 0) return null
 

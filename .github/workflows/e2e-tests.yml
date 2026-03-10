@@ -196,6 +196,8 @@ jobs:
     needs: [changes, e2e-tests]
     if: github.event_name == 'schedule' || needs.changes.outputs.frontend == 'true'
     timeout-minutes: 20
+    permissions:
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -233,11 +235,221 @@ jobs:
           interval: '3'
 
       - name: Run Lighthouse CI
+        id: lhci
         run: |
           cd frontend
-          lhci autorun
+          lhci autorun 2>&1 | tee lhci-output.log
+          LHCI_EXIT=${PIPESTATUS[0]}
+          echo "lhci_exit_code=${LHCI_EXIT}" >> "$GITHUB_OUTPUT"
+
+          # Extract scores from the JSON reports in .lighthouseci/
+          # lhci collect outputs lhr-*.json files
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const dir = '.lighthouseci';
+
+          if (!fs.existsSync(dir)) {
+            console.log('No .lighthouseci directory found');
+            process.exit(0);
+          }
+
+          const files = fs.readdirSync(dir).filter(f => f.startsWith('lhr-') && f.endsWith('.json'));
+          if (files.length === 0) {
+            console.log('No Lighthouse JSON reports found');
+            process.exit(0);
+          }
+
+          // Aggregate scores across all runs and URLs
+          let totalPerf = 0, totalA11y = 0, totalBp = 0, totalSeo = 0;
+          let count = 0;
+          const urlScores = {};
+
+          for (const file of files) {
+            try {
+              const report = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+              const url = report.finalUrl || report.requestedUrl || 'unknown';
+              const perf = Math.round((report.categories?.performance?.score || 0) * 100);
+              const a11y = Math.round((report.categories?.accessibility?.score || 0) * 100);
+              const bp = Math.round((report.categories?.['best-practices']?.score || 0) * 100);
+              const seo = Math.round((report.categories?.seo?.score || 0) * 100);
+
+              totalPerf += perf;
+              totalA11y += a11y;
+              totalBp += bp;
+              totalSeo += seo;
+              count++;
+
+              // Track per-URL (average across runs)
+              if (!urlScores[url]) urlScores[url] = { perf: [], a11y: [], bp: [], seo: [] };
+              urlScores[url].perf.push(perf);
+              urlScores[url].a11y.push(a11y);
+              urlScores[url].bp.push(bp);
+              urlScores[url].seo.push(seo);
+            } catch (e) {
+              console.error('Error parsing ' + file + ': ' + e.message);
+            }
+          }
+
+          if (count === 0) {
+            console.log('No valid reports parsed');
+            process.exit(0);
+          }
+
+          const avg = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+
+          const avgPerf = Math.round(totalPerf / count);
+          const avgA11y = Math.round(totalA11y / count);
+          const avgBp = Math.round(totalBp / count);
+          const avgSeo = Math.round(totalSeo / count);
+
+          // Write scores to GITHUB_OUTPUT
+          const output = process.env.GITHUB_OUTPUT;
+          if (output) {
+            fs.appendFileSync(output, 'perf_score=' + avgPerf + '\n');
+            fs.appendFileSync(output, 'a11y_score=' + avgA11y + '\n');
+            fs.appendFileSync(output, 'bp_score=' + avgBp + '\n');
+            fs.appendFileSync(output, 'seo_score=' + avgSeo + '\n');
+          }
+
+          // Build per-URL markdown table for PR comment
+          let table = '| URL | Performance | Accessibility | Best Practices | SEO |\n';
+          table += '|-----|:-----------:|:-------------:|:--------------:|:---:|\n';
+          for (const [url, scores] of Object.entries(urlScores)) {
+            const shortUrl = url.replace('http://localhost:3000', '');
+            const p = avg(scores.perf);
+            const a = avg(scores.a11y);
+            const b = avg(scores.bp);
+            const s = avg(scores.seo);
+            table += '| ' + (shortUrl || '/') + ' | ' + p + ' | ' + a + ' | ' + b + ' | ' + s + ' |\n';
+          }
+
+          // Write table to a file for the PR comment step
+          fs.writeFileSync('.lighthouseci/scores-table.md', table);
+
+          console.log('Average scores - Performance: ' + avgPerf + ', Accessibility: ' + avgA11y + ', Best Practices: ' + avgBp + ', SEO: ' + avgSeo);
+          "
+
+          exit ${LHCI_EXIT}
         env:
           LHCI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enforce Lighthouse score thresholds
+        if: always() && steps.lhci.outputs.perf_score != ''
+        run: |
+          PERF=${{ steps.lhci.outputs.perf_score }}
+          A11Y=${{ steps.lhci.outputs.a11y_score }}
+          BP=${{ steps.lhci.outputs.bp_score }}
+          SEO=${{ steps.lhci.outputs.seo_score }}
+
+          FAILED=0
+          echo "=== Lighthouse Score Thresholds ==="
+          echo "Performance:    ${PERF}/100 (threshold: 85)"
+          echo "Accessibility:  ${A11Y}/100 (threshold: 90)"
+          echo "Best Practices: ${BP}/100 (threshold: 85)"
+          echo "SEO:            ${SEO}/100 (threshold: 90)"
+          echo "=================================="
+
+          if [ "${PERF}" -lt 85 ]; then
+            echo "::error::Performance score ${PERF} is below threshold of 85"
+            FAILED=1
+          fi
+          if [ "${A11Y}" -lt 90 ]; then
+            echo "::error::Accessibility score ${A11Y} is below threshold of 90"
+            FAILED=1
+          fi
+          if [ "${BP}" -lt 85 ]; then
+            echo "::error::Best Practices score ${BP} is below threshold of 85"
+            FAILED=1
+          fi
+          if [ "${SEO}" -lt 90 ]; then
+            echo "::error::SEO score ${SEO} is below threshold of 90"
+            FAILED=1
+          fi
+
+          if [ "${FAILED}" -eq 1 ]; then
+            echo "::error::Lighthouse scores below required thresholds"
+            exit 1
+          fi
+
+          echo "All Lighthouse scores meet thresholds"
+
+      - name: Comment Lighthouse scores on PR
+        if: always() && github.event_name == 'pull_request' && steps.lhci.outputs.perf_score != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const perf = parseInt('${{ steps.lhci.outputs.perf_score }}') || 0;
+            const a11y = parseInt('${{ steps.lhci.outputs.a11y_score }}') || 0;
+            const bp = parseInt('${{ steps.lhci.outputs.bp_score }}') || 0;
+            const seo = parseInt('${{ steps.lhci.outputs.seo_score }}') || 0;
+
+            // Thresholds
+            const thresholds = { Performance: 85, Accessibility: 90, 'Best Practices': 85, SEO: 90 };
+            const scores = { Performance: perf, Accessibility: a11y, 'Best Practices': bp, SEO: seo };
+
+            // Score emoji helper
+            const emoji = (score, threshold) => {
+              if (score >= threshold) return ':white_check_mark:';
+              if (score >= threshold - 5) return ':warning:';
+              return ':x:';
+            };
+
+            // Check for drops > 5 points below threshold
+            let hasSignificantDrop = false;
+            for (const [name, score] of Object.entries(scores)) {
+              if (score < thresholds[name] - 5) hasSignificantDrop = true;
+            }
+
+            // Build comment body
+            let body = '## :lighthouse: Lighthouse CI Results\n\n';
+            body += '| Category | Score | Threshold | Status |\n';
+            body += '|----------|:-----:|:---------:|:------:|\n';
+            for (const [name, score] of Object.entries(scores)) {
+              const threshold = thresholds[name];
+              body += `| ${name} | **${score}** | ${threshold} | ${emoji(score, threshold)} |\n`;
+            }
+
+            if (hasSignificantDrop) {
+              body += '\n> :rotating_light: **Warning:** One or more scores dropped more than 5 points below the threshold. Please investigate before merging.\n';
+            }
+
+            // Read per-URL table if available
+            const tablePath = 'frontend/.lighthouseci/scores-table.md';
+            if (fs.existsSync(tablePath)) {
+              const table = fs.readFileSync(tablePath, 'utf8');
+              body += '\n<details>\n<summary>Per-URL Breakdown</summary>\n\n' + table + '\n</details>\n';
+            }
+
+            body += '\n---\n*Thresholds: Performance >= 85, Accessibility >= 90, Best Practices >= 85, SEO >= 90*';
+
+            // Find and update existing Lighthouse comment, or create new one
+            const marker = '## :lighthouse: Lighthouse CI Results';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
 
       - name: Upload Lighthouse report
         if: always()

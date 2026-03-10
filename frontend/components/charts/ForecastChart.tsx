@@ -15,6 +15,7 @@ import { format, addHours } from 'date-fns'
 import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/format'
 import type { PriceForecast } from '@/types'
+import type { ApiPriceForecastModel } from '@/types/generated/api'
 
 const tooltipStyle = {
   backgroundColor: 'white',
@@ -25,7 +26,13 @@ const tooltipStyle = {
 const CHART_MARGIN = { top: 10, right: 30, left: 0, bottom: 0 }
 
 export interface ForecastChartProps {
-  forecast: PriceForecast[] | Record<string, unknown>
+  /**
+   * Accepts:
+   *  - PriceForecast[] — legacy frontend array shape
+   *  - ApiPriceForecastModel — backend response object (prices[] with price_per_kwh DecimalStr)
+   *  - Record<string, unknown> — fallback for any other object shape
+   */
+  forecast: PriceForecast[] | ApiPriceForecastModel | Record<string, unknown>
   showConfidence?: boolean
   currentPrice?: number
   height?: number
@@ -39,21 +46,23 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
   height = 250,
   className,
 }) => {
-  // Normalize forecast data: handle both frontend array and backend object shapes
+  // Normalize forecast data: handle both frontend array and backend ApiPriceForecastModel shapes
   const forecast: PriceForecast[] = useMemo(() => {
-    if (Array.isArray(rawForecast)) return rawForecast
-    // Backend returns { prices: [...], confidence: number } object
+    if (Array.isArray(rawForecast)) return rawForecast as PriceForecast[]
+    // Backend ApiPriceForecastModel: { prices: ApiPrice[], confidence: number, ... }
+    // price_per_kwh on ApiPrice is a Decimal string — parseFloat before arithmetic
     const obj = rawForecast as Record<string, unknown>
     const prices = (obj.prices || []) as Array<Record<string, unknown>>
-    return prices.map((p, i) => ({
-      hour: i + 1,
-      price: Number(p.price_per_kwh ?? p.price ?? 0),
-      confidence: [
-        Number(p.price_per_kwh ?? p.price ?? 0) * 0.85,
-        Number(p.price_per_kwh ?? p.price ?? 0) * 1.15,
-      ] as [number, number],
-      timestamp: (p.timestamp as string) || new Date().toISOString(),
-    }))
+    return prices.map((p, i) => {
+      const rawVal = p.price_per_kwh ?? p.price ?? '0'
+      const priceVal = typeof rawVal === 'string' ? parseFloat(rawVal) : Number(rawVal)
+      return {
+        hour: i + 1,
+        price: priceVal,
+        confidence: [priceVal * 0.85, priceVal * 1.15] as [number, number],
+        timestamp: (p.timestamp as string) || new Date().toISOString(),
+      }
+    })
   }, [rawForecast])
 
   const chartData = useMemo(() => {

@@ -16,13 +16,14 @@ function sanitizeName(name: string): string | null {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { name: string } }
+  { params }: { params: Promise<{ name: string }> }
 ) {
   if (!isDev()) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const name = sanitizeName(params.name)
+  const { name: rawName } = await params
+  const name = sanitizeName(rawName)
   if (!name) {
     return NextResponse.json({ error: 'Invalid diagram name' }, { status: 400 })
   }
@@ -44,13 +45,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { name: string } }
+  { params }: { params: Promise<{ name: string }> }
 ) {
   if (!isDev()) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const name = sanitizeName(params.name)
+  const { name: rawName } = await params
+  const name = sanitizeName(rawName)
   if (!name) {
     return NextResponse.json({ error: 'Invalid diagram name' }, { status: 400 })
   }

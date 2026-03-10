@@ -52,7 +52,7 @@ describe('GET /api/dev/diagrams/[name]', () => {
   it('returns 404 when NODE_ENV is not development', async () => {
     env.NODE_ENV = 'production'
 
-    const response = await GET(createRequest(), { params: { name: 'test' } })
+    const response = await GET(createRequest(), { params: Promise.resolve({ name: 'test' }) })
 
     expect(response.status).toBe(404)
     const body = await response.json()
@@ -69,7 +69,7 @@ describe('GET /api/dev/diagrams/[name]', () => {
     mockedFs.existsSync.mockReturnValue(true)
     mockedFs.readFileSync.mockReturnValue(JSON.stringify(diagramData))
 
-    const response = await GET(createRequest(), { params: { name: 'my-diagram' } })
+    const response = await GET(createRequest(), { params: Promise.resolve({ name: 'my-diagram' }) })
 
     expect(response.status).toBe(200)
     const body = await response.json()
@@ -78,7 +78,7 @@ describe('GET /api/dev/diagrams/[name]', () => {
   })
 
   it('returns 400 for path traversal attempt', async () => {
-    const response = await GET(createRequest(), { params: { name: '../etc/passwd' } })
+    const response = await GET(createRequest(), { params: Promise.resolve({ name: '../etc/passwd' }) })
 
     expect(response.status).toBe(400)
     const body = await response.json()
@@ -88,7 +88,7 @@ describe('GET /api/dev/diagrams/[name]', () => {
   it('returns 404 for non-existent diagram', async () => {
     mockedFs.existsSync.mockReturnValue(false)
 
-    const response = await GET(createRequest(), { params: { name: 'missing-diagram' } })
+    const response = await GET(createRequest(), { params: Promise.resolve({ name: 'missing-diagram' }) })
 
     expect(response.status).toBe(404)
     const body = await response.json()
@@ -119,7 +119,7 @@ describe('PUT /api/dev/diagrams/[name]', () => {
     env.NODE_ENV = 'production'
 
     const request = createPutRequest({ data: { elements: [] } })
-    const response = await PUT(request, { params: { name: 'test' } })
+    const response = await PUT(request, { params: Promise.resolve({ name: 'test' }) })
 
     expect(response.status).toBe(404)
     const body = await response.json()
@@ -137,7 +137,7 @@ describe('PUT /api/dev/diagrams/[name]', () => {
     mockedFs.writeFileSync.mockReturnValue(undefined)
 
     const request = createPutRequest({ data: updatedData })
-    const response = await PUT(request, { params: { name: 'my-diagram' } })
+    const response = await PUT(request, { params: Promise.resolve({ name: 'my-diagram' }) })
 
     expect(response.status).toBe(200)
     const body = await response.json()
@@ -154,7 +154,7 @@ describe('PUT /api/dev/diagrams/[name]', () => {
     mockedFs.existsSync.mockReturnValue(true)
 
     const request = createPutRequest({ notData: 'something' })
-    const response = await PUT(request, { params: { name: 'my-diagram' } })
+    const response = await PUT(request, { params: Promise.resolve({ name: 'my-diagram' }) })
 
     expect(response.status).toBe(400)
     const body = await response.json()

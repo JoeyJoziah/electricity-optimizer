@@ -1,33 +1,23 @@
-# DNS & Email Setup — electricity-optimizer.app
+# DNS & Email Setup — rateshift.app
 
-> **STATUS (2026-03-06):** Domain `electricity-optimizer.app` has NOT been purchased yet (NXDOMAIN).
-> Currently using Gmail SMTP fallback with `Electricity Optimizer <autodailynewsletterintake@gmail.com>`.
-> This delivers to any recipient via Gmail SMTP (500/day free). Follow this guide end-to-end once ready to purchase.
+> **STATUS (2026-03-10):** Domain `rateshift.app` purchased via Cloudflare Registrar.
+> Currently using Gmail SMTP fallback with `RateShift <autodailynewsletterintake@gmail.com>`.
+> Follow this guide to configure DNS, email, and SSL.
 
-> Purpose: Purchase domain, configure DNS for frontend/backend, set up Resend custom domain email,
+> Purpose: Configure DNS for frontend/backend, set up Resend custom domain email,
 > and provision SSL -- all in one actionable checklist.
 >
-> Last updated: 2026-03-06
+> Last updated: 2026-03-10
 
 ---
 
 ## Pre-Purchase Checklist
 
-- [ ] Budget approved for `.app` domain (~$14-20/year via Cloudflare Registrar)
-- [ ] Cloudflare account created (free plan is sufficient)
+- [x] Budget approved for `.app` domain (~$14-20/year via Cloudflare Registrar)
+- [x] Cloudflare account created
+- [x] `rateshift.app` purchased (2026-03-10)
 - [ ] Access to Resend dashboard (https://resend.com/domains)
 - [ ] Access to Render + Vercel env var settings
-
----
-
-## Step 0 — Purchase the Domain
-
-1. Go to [Cloudflare Registrar](https://dash.cloudflare.com/?to=/:account/domains/register) (recommended -- at-cost pricing, integrated DNS)
-2. Search for `electricity-optimizer.app`
-3. Complete purchase (`.app` domains enforce HTTPS by default via HSTS preload)
-4. Domain will be automatically added to your Cloudflare account with DNS management
-
-> **Alternative registrars**: Namecheap, Google Domains, Porkbun. If using a non-Cloudflare registrar, add the domain to Cloudflare afterward and update nameservers to Cloudflare's (for free DNS + CDN + SSL).
 
 ---
 
@@ -42,7 +32,7 @@ After the domain is active in Cloudflare, add these DNS records to route traffic
 | CNAME | `@`  | `cname.vercel-dns.com`         | DNS only (gray cloud) | Auto |
 | CNAME | `www` | `cname.vercel-dns.com`        | DNS only (gray cloud) | Auto |
 
-Then in Vercel dashboard: **Settings > Domains** -- add `electricity-optimizer.app` and `www.electricity-optimizer.app`. Vercel will auto-provision SSL.
+Then in Vercel dashboard: **Settings > Domains** -- add `rateshift.app` and `www.rateshift.app`. Vercel will auto-provision SSL.
 
 > **Note**: Vercel requires DNS-only mode (gray cloud) for their SSL provisioning to work. Do NOT enable Cloudflare proxy (orange cloud) for Vercel domains.
 
@@ -52,14 +42,14 @@ Then in Vercel dashboard: **Settings > Domains** -- add `electricity-optimizer.a
 |-------|-------|------------------------------------------|-------|------|
 | CNAME | `api` | `electricity-optimizer.onrender.com`     | DNS only (gray cloud) | Auto |
 
-Then in Render dashboard: **Settings > Custom Domains** -- add `api.electricity-optimizer.app`. Render will auto-provision SSL.
+Then in Render dashboard: **Settings > Custom Domains** -- add `api.rateshift.app`. Render will auto-provision SSL.
 
 ### Verification
 
 ```bash
-dig electricity-optimizer.app CNAME +short
-dig www.electricity-optimizer.app CNAME +short
-dig api.electricity-optimizer.app CNAME +short
+dig rateshift.app CNAME +short
+dig www.rateshift.app CNAME +short
+dig api.rateshift.app CNAME +short
 ```
 
 ---
@@ -80,7 +70,7 @@ No manual certificate configuration is required.
 ## Step 2 — Add the Domain in Resend
 
 1. Go to https://resend.com/domains
-2. Click **Add Domain** and enter `electricity-optimizer.app`
+2. Click **Add Domain** and enter `rateshift.app`
 3. Resend will display three DKIM CNAME records unique to your account.
    Copy those values before leaving the page — you need them for Step 3.
 
@@ -88,7 +78,7 @@ No manual certificate configuration is required.
 
 ## Step 3 — DNS Records for Email (Cloudflare DNS Panel)
 
-Add all records below in Cloudflare DNS management for `electricity-optimizer.app`.
+Add all records below in Cloudflare DNS management for `rateshift.app`.
 
 ### SPF — authorize Resend's sending servers
 
@@ -108,7 +98,7 @@ v=spf1 include:_spf.resend.com [existing includes] ~all
 ### DKIM — cryptographic signing (values from Resend dashboard)
 
 Resend provides three CNAME records. The names follow the pattern
-`resend._domainkey.<selector>.electricity-optimizer.app` but the exact selector
+`resend._domainkey.<selector>.rateshift.app` but the exact selector
 strings come from your Resend dashboard (Step 1).
 
 | Type  | Host / Name                         | Value (from Resend dashboard)      | TTL  |
@@ -129,7 +119,7 @@ dashboard shows a custom bounce domain record (some accounts require it), add:
 
 | Type  | Host / Name              | Value                                   | TTL  |
 |-------|--------------------------|-----------------------------------------|------|
-| CNAME | `bounces.electricity-optimizer.app` | `feedback-smtp.us-east-1.amazonses.com` | 3600 |
+| CNAME | `bounces.rateshift.app` | `feedback-smtp.us-east-1.amazonses.com` | 3600 |
 
 Check the Resend dashboard — this record is only required if Resend explicitly
 lists it for your account.
@@ -142,7 +132,7 @@ DMARC tells receiving mail servers what to do with messages that fail SPF/DKIM.
 
 | Type | Name     | Value                                                                           | TTL  |
 |------|----------|---------------------------------------------------------------------------------|------|
-| TXT  | `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:dmarc@electricity-optimizer.app`            | Auto |
+| TXT  | `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:dmarc@rateshift.app`            | Auto |
 
 Policy progression (tighten over time):
 1. `p=none` — monitor, no action
@@ -156,7 +146,7 @@ Policy progression (tighten over time):
 After all records are published:
 
 1. Return to https://resend.com/domains
-2. Click **Verify** next to `electricity-optimizer.app`
+2. Click **Verify** next to `rateshift.app`
 3. Resend checks SPF and DKIM automatically — all three DKIM CNAMEs must
    resolve correctly before the domain status changes to **Verified**.
 
@@ -169,16 +159,16 @@ confirm each record is live.
 
 ```bash
 # SPF
-dig electricity-optimizer.app TXT +short
+dig rateshift.app TXT +short
 
 # DKIM (replace <selector> with the value from Resend dashboard)
-dig <selector>._domainkey.electricity-optimizer.app CNAME +short
+dig <selector>._domainkey.rateshift.app CNAME +short
 
 # DMARC
-dig _dmarc.electricity-optimizer.app TXT +short
+dig _dmarc.rateshift.app TXT +short
 
 # MX (not strictly required for sending, but good to verify no conflicts)
-dig electricity-optimizer.app MX +short
+dig rateshift.app MX +short
 ```
 
 You can also use https://mxtoolbox.com/SuperTool.aspx for a web-based check.
@@ -192,21 +182,21 @@ Once the domain is verified in Resend, update `EMAIL_FROM_ADDRESS` on **both** R
 ### Render (Backend)
 
 1. Go to Render dashboard > `srv-d649uhur433s73d557cg` > Environment
-2. Update: `EMAIL_FROM_ADDRESS=Electricity Optimizer <noreply@electricity-optimizer.app>`
+2. Update: `EMAIL_FROM_ADDRESS=RateShift <noreply@rateshift.app>`
 3. Redeploy the service
 
 ### Vercel (Frontend)
 
 1. Go to Vercel dashboard > Settings > Environment Variables
-2. Update: `EMAIL_FROM_ADDRESS=Electricity Optimizer <noreply@electricity-optimizer.app>`
+2. Update: `EMAIL_FROM_ADDRESS=RateShift <noreply@rateshift.app>`
 3. Redeploy (or push a commit to trigger)
 
 ### Other env vars to verify
 
 ```
 RESEND_API_KEY=re_xxxxxxxxxxxx          # from https://resend.com/api-keys (unchanged)
-NEXT_PUBLIC_APP_URL=https://electricity-optimizer.app   # if used anywhere
-BACKEND_URL=https://api.electricity-optimizer.app       # if migrating from .onrender.com
+NEXT_PUBLIC_APP_URL=https://rateshift.app   # if used anywhere
+BACKEND_URL=https://api.rateshift.app       # if migrating from .onrender.com
 ```
 
 ### Implementation Notes:
@@ -228,7 +218,7 @@ See `/frontend/.env.example` for reference, and `/backend/config/settings.py` fo
 
 ## Step 7 — Update Deploy Workflow URLs (if applicable)
 
-If migrating the backend from `electricity-optimizer.onrender.com` to `api.electricity-optimizer.app`:
+If migrating the backend from `electricity-optimizer.onrender.com` to `api.rateshift.app`:
 
 1. Update `BACKEND_URL` in Vercel env vars
 2. Update `secrets.BACKEND_URL` in GitHub Actions repository secrets
@@ -286,32 +276,32 @@ These are set on Render backend (34 env vars total) alongside the Resend variabl
 ## Summary Checklist
 
 ### Domain & DNS
-- [ ] `electricity-optimizer.app` purchased via Cloudflare Registrar
+- [ ] `rateshift.app` purchased via Cloudflare Registrar
 - [ ] Cloudflare DNS: CNAME `@` and `www` pointing to `cname.vercel-dns.com`
 - [ ] Cloudflare DNS: CNAME `api` pointing to `electricity-optimizer.onrender.com`
-- [ ] Vercel custom domain added (`electricity-optimizer.app` + `www`)
-- [ ] Render custom domain added (`api.electricity-optimizer.app`)
+- [ ] Vercel custom domain added (`rateshift.app` + `www`)
+- [ ] Render custom domain added (`api.rateshift.app`)
 - [ ] SSL certificates auto-provisioned (Vercel + Render)
 
 ### Email (Resend)
 - [ ] Domain added in Resend dashboard (https://resend.com/domains)
 - [ ] SPF TXT record: `v=spf1 include:_spf.resend.com ~all`
 - [ ] All three DKIM CNAME records added (values from Resend dashboard)
-- [ ] DMARC TXT record: `v=DMARC1; p=quarantine; rua=mailto:dmarc@electricity-optimizer.app`
+- [ ] DMARC TXT record: `v=DMARC1; p=quarantine; rua=mailto:dmarc@rateshift.app`
 - [ ] Return-path CNAME added if required by Resend for your account
 - [ ] Resend domain status shows **Verified**
 
 ### Environment Variables
-- [ ] `EMAIL_FROM_ADDRESS` updated to `Electricity Optimizer <noreply@electricity-optimizer.app>` on Render
-- [ ] `EMAIL_FROM_ADDRESS` updated to `Electricity Optimizer <noreply@electricity-optimizer.app>` on Vercel
+- [ ] `EMAIL_FROM_ADDRESS` updated to `RateShift <noreply@rateshift.app>` on Render
+- [ ] `EMAIL_FROM_ADDRESS` updated to `RateShift <noreply@rateshift.app>` on Vercel
 - [ ] `RESEND_API_KEY` verified non-empty in both Render and Vercel
-- [ ] `BACKEND_URL` updated if migrating to `api.electricity-optimizer.app`
+- [ ] `BACKEND_URL` updated if migrating to `api.rateshift.app`
 - [ ] `secrets.BACKEND_URL` updated in GitHub Actions if applicable
 - [ ] Both services redeployed after env var changes
 
 ### Verification
-- [ ] `dig electricity-optimizer.app CNAME +short` resolves correctly
-- [ ] `dig api.electricity-optimizer.app CNAME +short` resolves correctly
-- [ ] `dig electricity-optimizer.app TXT +short` shows SPF record
-- [ ] `dig _dmarc.electricity-optimizer.app TXT +short` shows DMARC record
+- [ ] `dig rateshift.app CNAME +short` resolves correctly
+- [ ] `dig api.rateshift.app CNAME +short` resolves correctly
+- [ ] `dig rateshift.app TXT +short` shows SPF record
+- [ ] `dig _dmarc.rateshift.app TXT +short` shows DMARC record
 - [ ] Test email sent and received successfully via Resend

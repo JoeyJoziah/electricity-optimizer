@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Minus,
 } from 'lucide-react'
-import type { TimeRange, Supplier, RawPricePoint, RawForecastPriceEntry, RawSupplierRecord } from '@/types'
+import type { TimeRange, Supplier, RawSupplierRecord } from '@/types'
+import type { ApiPrice, ApiPriceResponse, ApiPriceForecastModel } from '@/types/generated/api'
 
 import { DashboardStatsRow } from './DashboardStatsRow'
 import { DashboardCharts } from './DashboardCharts'
@@ -57,27 +58,26 @@ export default function DashboardContent() {
   // Realtime connection (hook must be called for SSE side-effects)
   useRealtimePrices(region)
 
-  // Process price data for chart (handle both frontend and backend field names)
+  // Process price data for chart — historyData.prices are ApiPrice (price_per_kwh is DecimalStr)
   const chartData = React.useMemo(() => {
     if (!historyData?.prices) return []
-    return historyData.prices.map((p: RawPricePoint) => {
-      const time = p.time || p.timestamp
-      const price = p.price ?? (p.price_per_kwh != null ? Number(p.price_per_kwh) : null)
+    return historyData.prices.map((p: ApiPrice) => {
+      const price = p.price_per_kwh != null ? parseFloat(p.price_per_kwh) : null
       return {
-        time: typeof time === 'string' ? time : new Date(time as number).toISOString(),
+        time: p.timestamp,
         price,
-        forecast: p.forecast ?? null,
+        forecast: null as number | null,
         isOptimal: price !== null && price < 0.22,
       }
     })
   }, [historyData])
 
-  // Get current price info (handle backend field names: current_price vs price)
-  const rawPrice = pricesData?.prices?.[0] as RawPricePoint | undefined
+  // Get current price info — pricesData.prices are ApiPriceResponse (current_price is DecimalStr)
+  const rawPrice = pricesData?.prices?.[0] as ApiPriceResponse | undefined
   const currentPrice: CurrentPriceInfo | null = rawPrice ? {
-    price: Number(rawPrice.price ?? rawPrice.price_per_kwh ?? 0),
-    trend: rawPrice.trend || 'stable',
-    changePercent: rawPrice.changePercent ?? (rawPrice.price_change_24h ? Number(rawPrice.price_change_24h) : null),
+    price: parseFloat(rawPrice.current_price),
+    trend: 'stable',
+    changePercent: rawPrice.price_change_24h != null ? parseFloat(rawPrice.price_change_24h) : null,
     region: rawPrice.region,
     supplier: rawPrice.supplier,
   } : null
@@ -90,12 +90,11 @@ export default function DashboardContent() {
         : Minus
 
   // Compute cheapest 4-hour window from forecast data
+  // forecastData.forecast is ApiPriceForecastModel — prices[] contains ApiPrice
   const optimalWindow: OptimalWindow | null = React.useMemo(() => {
     if (!forecastData?.forecast) return null
-    const forecastObj = forecastData.forecast as RawForecastPriceEntry[] | { prices?: RawForecastPriceEntry[] }
-    const prices: RawForecastPriceEntry[] = Array.isArray(forecastObj)
-      ? forecastObj
-      : (forecastObj as { prices?: RawForecastPriceEntry[] }).prices || []
+    const forecastModel = forecastData.forecast as ApiPriceForecastModel
+    const prices: ApiPrice[] = forecastModel.prices || []
     if (prices.length < 4) return null
 
     let minSum = Infinity
@@ -103,7 +102,7 @@ export default function DashboardContent() {
     for (let i = 0; i <= prices.length - 4; i++) {
       const sum = prices
         .slice(i, i + 4)
-        .reduce((s: number, p: RawForecastPriceEntry) => s + Number(p.price_per_kwh ?? p.price ?? 0), 0)
+        .reduce((s: number, p: ApiPrice) => s + parseFloat(p.price_per_kwh), 0)
       if (sum < minSum) {
         minSum = sum
         bestStart = i

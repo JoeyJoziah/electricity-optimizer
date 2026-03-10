@@ -6,6 +6,16 @@ Computes rolling accuracy, detects systematic bias, adjusts ensemble
 weights, and prunes stale patterns from the vector store.
 
 Designed to run as a batch job (via POST /internal/learn).
+
+Weight persistence
+------------------
+Ensemble weights are written to two stores on every successful update:
+
+1. Redis  (fast, ephemeral) — EnsemblePredictor reads this on the hot path.
+2. PostgreSQL model_config table (durable) — survives Render restarts.
+
+On EnsemblePredictor startup the load order is:
+  Redis (if available) -> PostgreSQL (fallback) -> hard-coded defaults.
 """
 
 import json
@@ -25,13 +35,16 @@ logger = logging.getLogger(__name__)
 MIN_WEIGHT = 0.1
 MAX_WEIGHT = 0.8
 
+# Canonical model name used as the primary key in model_config
+ENSEMBLE_MODEL_NAME = "ensemble"
+
 
 class LearningService:
     """
     Runs the nightly learning cycle:
     1. Compute rolling accuracy (MAPE/RMSE) per model
     2. Detect systematic bias by hour-of-day
-    3. Update ensemble weights in Redis
+    3. Update ensemble weights in Redis AND PostgreSQL
     4. Store bias correction vectors in the vector store
     5. Prune low-quality patterns
     """
@@ -41,10 +54,12 @@ class LearningService:
         observation_service: ObservationService,
         vector_store: HNSWVectorStore,
         redis_client: Optional[Any] = None,
+        db_session: Optional[AsyncSession] = None,
     ):
         self._obs = observation_service
         self._vs = vector_store
         self._redis = redis_client
+        self._db = db_session
 
     async def compute_rolling_accuracy(
         self,
@@ -76,12 +91,21 @@ class LearningService:
         self,
         region: str,
         days: int = 7,
+        accuracy_metrics: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, float]]:
         """
         Compute new ensemble weights based on model accuracy.
 
         Uses inverse-MAPE weighting: models with lower error get higher weight.
-        Writes result to Redis key `model:ensemble_weights`.
+        Writes result to:
+          - Redis key ``model:ensemble_weights`` (fast, ephemeral)
+          - PostgreSQL ``model_config`` table via ModelConfigRepository (durable)
+
+        Args:
+            region: Region code used to scope the accuracy query.
+            days: Lookback window in days.
+            accuracy_metrics: Optional pre-computed metrics dict to attach to
+                the PostgreSQL record (mape, rmse, coverage, etc.).
 
         Returns:
             New weight dict, or None if insufficient data.
@@ -89,7 +113,7 @@ class LearningService:
         model_stats = await self._obs.get_model_accuracy_by_version(region, days)
 
         if not model_stats or len(model_stats) < 1:
-            logger.info("insufficient_data_for_weight_update", region=region)
+            logger.info("insufficient_data_for_weight_update region=%s", region)
             return None
 
         # Inverse-MAPE weighting
@@ -117,25 +141,117 @@ class LearningService:
         if total > 0:
             weights = {k: round(v / total, 4) for k, v in weights.items()}
 
-        # Store in Redis for EnsemblePredictor to read
+        # Convert to the format EnsemblePredictor expects:
+        # {"model_name": {"weight": 0.5}, ...}
+        ensemble_payload = {k: {"weight": v} for k, v in weights.items()}
+
+        # --- Store in Redis (fast, ephemeral) ---
         if self._redis:
             try:
-                # Convert to the format EnsemblePredictor expects:
-                # {"model_name": {"weight": 0.5}, ...}
-                redis_payload = {k: {"weight": v} for k, v in weights.items()}
                 await self._redis.set(
                     "model:ensemble_weights",
-                    json.dumps(redis_payload),
+                    json.dumps(ensemble_payload),
                 )
                 logger.info(
-                    "ensemble_weights_updated",
-                    region=region,
-                    weights=weights,
+                    "ensemble_weights_updated_redis region=%s weights=%s",
+                    region,
+                    weights,
                 )
             except Exception as e:
-                logger.warning("redis_weight_update_failed", error=str(e))
+                logger.warning("redis_weight_update_failed error=%s", str(e))
+
+        # --- Persist to PostgreSQL (durable, survives restarts) ---
+        if self._db is not None:
+            await self._persist_weights_to_db(
+                weights=ensemble_payload,
+                region=region,
+                days=days,
+                accuracy_metrics=accuracy_metrics or {},
+                model_stats=model_stats,
+            )
 
         return weights
+
+    async def _persist_weights_to_db(
+        self,
+        weights: Dict[str, Any],
+        region: str,
+        days: int,
+        accuracy_metrics: Dict[str, Any],
+        model_stats: List[Dict[str, Any]],
+    ) -> None:
+        """
+        Write ensemble weights to the PostgreSQL model_config table.
+
+        Errors are caught and logged so that a DB failure never prevents the
+        in-memory learning cycle from completing.
+        """
+        try:
+            from repositories.model_config_repository import ModelConfigRepository
+            from datetime import datetime, timezone
+
+            repo = ModelConfigRepository(self._db)
+            # Build a version string based on the best-performing model
+            # (first entry from get_model_accuracy_by_version which orders by MAPE ASC)
+            best_version = model_stats[0].get("model_version", "unknown")
+            # Attach provenance metadata
+            metadata = {
+                "region": region,
+                "days": days,
+                "model_stats_count": len(model_stats),
+                "trained_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await repo.save_config(
+                model_name=ENSEMBLE_MODEL_NAME,
+                version=best_version,
+                weights=weights,
+                metadata=metadata,
+                metrics=accuracy_metrics,
+            )
+            logger.info(
+                "ensemble_weights_persisted_to_db model_name=%s version=%s",
+                ENSEMBLE_MODEL_NAME,
+                best_version,
+            )
+        except Exception as e:
+            logger.warning(
+                "db_weight_persist_failed error=%s", str(e)
+            )
+
+    async def load_weights_from_db(
+        self,
+        model_name: str = ENSEMBLE_MODEL_NAME,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Load the active ensemble weights from PostgreSQL.
+
+        Called by EnsemblePredictor on startup when Redis is unavailable.
+        Returns the weights_json dict or None if no active config exists.
+        """
+        if self._db is None:
+            return None
+        try:
+            from repositories.model_config_repository import ModelConfigRepository
+
+            repo = ModelConfigRepository(self._db)
+            config = await repo.get_active_config(model_name)
+            if config is None:
+                logger.info(
+                    "no_active_db_weights model_name=%s using_defaults=true",
+                    model_name,
+                )
+                return None
+            logger.info(
+                "ensemble_weights_loaded_from_db model_name=%s version=%s",
+                model_name,
+                config.model_version,
+            )
+            return config.weights_json
+        except Exception as e:
+            logger.warning(
+                "db_weight_load_failed model_name=%s error=%s", model_name, str(e)
+            )
+            return None
 
     async def store_bias_correction(
         self,
@@ -178,10 +294,10 @@ class LearningService:
         )
 
         logger.info(
-            "bias_correction_stored",
-            region=region,
-            vector_id=vec_id,
-            max_bias=float(np.max(np.abs(bias_vector))),
+            "bias_correction_stored region=%s vector_id=%s max_bias=%s",
+            region,
+            vec_id,
+            float(np.max(np.abs(bias_vector))),
         )
         return vec_id
 
@@ -197,7 +313,7 @@ class LearningService:
             Number of vectors pruned.
         """
         count = await self._vs.async_prune(min_confidence, min_usage)
-        logger.info("stale_patterns_pruned", count=count)
+        logger.info("stale_patterns_pruned count=%d", count)
         return count
 
     async def run_full_cycle(
@@ -229,13 +345,17 @@ class LearningService:
             # 1. Compute accuracy
             accuracy = await self.compute_rolling_accuracy(region, days)
             logger.info(
-                "rolling_accuracy_computed",
-                region=region,
-                accuracy=accuracy,
+                "rolling_accuracy_computed region=%s accuracy=%s",
+                region,
+                accuracy,
             )
 
-            # 2. Update ensemble weights
-            weights = await self.update_ensemble_weights(region, days)
+            # 2. Update ensemble weights (Redis + PostgreSQL)
+            weights = await self.update_ensemble_weights(
+                region,
+                days,
+                accuracy_metrics=accuracy,
+            )
             if weights:
                 results["weights_updated"][region] = weights
 
@@ -262,7 +382,7 @@ class LearningService:
                         str(primary["mape"]),
                     )
             except Exception as e:
-                logger.warning("redis_mape_update_failed", error=str(e))
+                logger.warning("redis_mape_update_failed error=%s", str(e))
 
-        logger.info("learning_cycle_complete", results=results)
+        logger.info("learning_cycle_complete results=%s", results)
         return results

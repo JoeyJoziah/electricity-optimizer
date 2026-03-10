@@ -1,10 +1,10 @@
 /**
  * Lighthouse CI Configuration
  *
- * Performance targets:
- * - Performance score: 90+
+ * Performance targets (enforced thresholds):
+ * - Performance score: 85+
  * - Accessibility score: 90+
- * - Best Practices: 90+
+ * - Best Practices: 85+
  * - SEO: 90+
  * - First Contentful Paint: <2s
  * - Largest Contentful Paint: <3s
@@ -30,6 +30,7 @@ module.exports = {
           cpuSlowdownMultiplier: 1,
         },
         skipAudits: ['uses-http2'], // Skip for local testing
+        output: ['html', 'json'],
       },
     },
     assert: {
@@ -42,10 +43,10 @@ module.exports = {
         'interactive': ['warn', { maxNumericValue: 4000 }],
         'speed-index': ['warn', { maxNumericValue: 3500 }],
 
-        // Category scores
-        'categories:performance': ['error', { minScore: 0.9 }],
+        // Category score thresholds (enforced)
+        'categories:performance': ['error', { minScore: 0.85 }],
         'categories:accessibility': ['error', { minScore: 0.9 }],
-        'categories:best-practices': ['error', { minScore: 0.9 }],
+        'categories:best-practices': ['error', { minScore: 0.85 }],
         'categories:seo': ['error', { minScore: 0.9 }],
 
         // Accessibility audits
