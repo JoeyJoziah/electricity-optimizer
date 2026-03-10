@@ -23,7 +23,7 @@ Electricity Optimizer is a Connecticut-focused energy price comparison and optim
 | ML | Ensemble predictor + HNSW vector search | hnswlib 0.8+ |
 | Cache | Redis (Upstash) | -- |
 | Hosting | Render | -- |
-| CI | GitHub Actions | 18 workflows |
+| CI | GitHub Actions | 23 workflows |
 
 ## Build, Test, and Run Commands
 
@@ -31,13 +31,13 @@ Electricity Optimizer is a Connecticut-focused energy price comparison and optim
 
 ```bash
 # CRITICAL: Always use the project venv, never system Python
-.venv/bin/python -m pytest backend/tests/              # all backend tests (687+)
+.venv/bin/python -m pytest backend/tests/              # all backend tests (1,479+)
 .venv/bin/python -m pytest backend/tests/test_auth.py  # single file
 .venv/bin/python -m pytest backend/tests/ -x           # stop on first failure
 .venv/bin/python -m pytest backend/tests/ -k "test_name"  # by name
 
 # ML tests
-.venv/bin/python -m pytest ml/tests/                   # ML suite (105+)
+.venv/bin/python -m pytest ml/tests/                   # ML suite (611+)
 
 # Run dev server
 .venv/bin/python -m uvicorn backend.main:app --reload --port 8000
@@ -47,10 +47,10 @@ Electricity Optimizer is a Connecticut-focused energy price comparison and optim
 
 ```bash
 cd frontend
-npm test                    # Jest unit tests (346+, 17 suites)
+npm test                    # Jest unit tests (1,439+, 98 suites)
 npm run build               # production build
 npm run dev                 # dev server (port 3000)
-npx playwright test         # E2E tests (11 specs)
+npx playwright test         # E2E tests (15 specs)
 npx playwright test --ui    # E2E with interactive UI
 ```
 
@@ -166,7 +166,7 @@ electricity-optimizer/
     tests/               # 105+ tests
   docs/                  # DEPLOYMENT, TESTING, CODEMAP_BACKEND, etc.
   scripts/               # Utility scripts (Notion sync, setup)
-  .github/workflows/     # 18 CI/CD workflows
+  .github/workflows/     # 23 CI/CD workflows
 ```
 
 ### Request Flow
@@ -348,15 +348,20 @@ Key variables (see `.env.example` and `backend/.env.example` for full list):
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `backend-ci.yml` | Push/PR | Backend tests + lint |
-| `frontend-ci.yml` | Push/PR | Frontend tests + build |
-| `e2e-tests.yml` | Push/PR | Playwright E2E suite |
-| `price-sync.yml` | Schedule | Fetch latest prices from APIs |
+| `ci.yml` | Push/PR | Unified CI: backend lint+tests, ML, frontend tests, security scan, Docker build |
+| `e2e-tests.yml` | Daily + Push/PR | Playwright E2E suite + Lighthouse audits |
+| `price-sync.yml` | Schedule (every 6h) | Fetch latest prices from APIs |
 | `observe-forecasts.yml` | After price-sync | Backfill actuals for forecast observations |
 | `nightly-learning.yml` | 4AM UTC daily | ML weight tuning + bias correction |
-| `deploy-production.yml` | Push to main | Deploy to Render |
-| `deploy-staging.yml` | Push to staging | Deploy staging |
-| `model-retrain.yml` | Manual/schedule | Full model retraining |
+| `deploy-production.yml` | On release | Deploy to Render (migration-gate + smoke tests) |
+| `deploy-staging.yml` | Push to develop | Deploy staging |
+| `model-retrain.yml` | Weekly Sun 5AM | Full model retraining |
+| `check-alerts.yml` | Every 30 min | Price alert pipeline |
+| `fetch-weather.yml` | Every 6 hours | Weather data for all 51 US regions |
+| `dunning-cycle.yml` | Daily 7AM UTC | Stripe overdue payment escalation |
+| `kpi-report.yml` | Daily 6AM UTC | Nightly business metrics aggregation |
+| `self-healing-monitor.yml` | Daily 9AM UTC | Monitor 13 workflows, auto-create/close issues |
+| (+ 10 more) | Various | See docs/INFRASTRUCTURE.md for full list |
 
 ## Common Tasks
 

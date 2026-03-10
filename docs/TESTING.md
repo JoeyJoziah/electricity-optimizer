@@ -1,12 +1,12 @@
 # Testing Guide
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-10
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 1,475 passed, 2 skipped (pytest, 59+ test files) — includes Tier 1+2 tests (+22: tier gating, alert limits, health-data endpoint)
-**Frontend Tests**: 1,430 across 97 suites (Jest) — includes alerts UI, useAlerts/useConnections hooks (+27 tests)
+**Backend Tests**: 1,479 passed, 2 skipped (pytest, 59+ test files) — includes full-stack bug remediation fixes (+4: CSP tests, maintenance resilience)
+**Frontend Tests**: 1,439 across 98 suites (Jest) — includes CSP header tests (+9 tests)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: ~4,150 tests passing (3 pre-existing failures in send.test.ts)
+**Total**: ~4,170 tests passing (3 pre-existing failures in send.test.ts)
 
 ---
 
@@ -14,8 +14,8 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1,475 passed, 2 skipped | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1,430 (97 suites) | 80%+ | Jest + RTL |
+| **Backend Unit/Integration** | 1,479 passed, 2 skipped | 86%+ | pytest |
+| **Frontend Component + Lib Tests** | 1,439 (98 suites) | 80%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
 | **E2E Tests** | 634 passed, 5 skipped | Critical flows | Playwright |
@@ -72,11 +72,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1,475 passed, 2 skipped)
+# Backend tests (1,479 passed, 2 skipped)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (1,430 tests across 97 suites)
+# Frontend unit tests (1,439 tests across 98 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -101,7 +101,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 1,475 passed, 2 skipped
+**Count**: 1,479 passed, 2 skipped
 **Coverage Target**: 86%+
 
 **Test Files** (59+ files):
@@ -159,7 +159,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1,430 tests across 97 suites
+**Count**: 1,439 tests across 98 suites
 **Coverage Target**: 80%+
 
 **Known issues**: 3 pre-existing failures in `send.test.ts` (email send utility — related to Resend sandbox restrictions). These are non-blocking and tracked as a known issue.
@@ -712,7 +712,7 @@ open tests/load/reports/load_test_*.html
 
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1,475 backend, 1,430 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1,479 backend, 1,439 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 
@@ -755,7 +755,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1,475 backend, 1,430 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 1,479 backend, 1,439 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 
@@ -806,4 +806,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-10

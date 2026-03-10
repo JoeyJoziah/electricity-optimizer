@@ -85,9 +85,9 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
 | nightly-learning.yml | `0 4 * * *` | Adaptive learning: accuracy, bias detection, weight tuning |
 | model-retrain.yml | Weekly Sun 2AM UTC | ML model retraining pipeline |
-| keepalive.yml | Every 14min | Render backend keep-alive ping |
+| keepalive.yml | Hourly | Render backend keep-alive ping |
 | code-analysis.yml | PRs to main | Claude Flow diff risk, complexity, security analysis |
-| check-alerts.yml | Every 15 min | Price alert pipeline (Phase 2) |
+| check-alerts.yml | Every 30 min | Price alert pipeline (Phase 2) |
 | fetch-weather.yml | Every 6 hours | Weather data ingestion for all 51 US regions (Phase 2) |
 | market-research.yml | Daily 2am UTC | Top 10 regions market intelligence (Phase 2) |
 | sync-connections.yml | Every 2 hours | UtilityAPI connection sync (Phase 2) |
@@ -245,7 +245,7 @@ All services communicate over the internal Docker bridge network. Only the follo
 | Direct Endpoint | `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (for DDL/migrations) |
 | Public Tables | 21 (see CODEMAP_BACKEND.md for full list) |
 | Auth Tables | 9 (neon_auth schema — managed by Better Auth) |
-| Migrations | Up to migration 024 (as of 2026-03-06) |
+| Migrations | Up to migration 025 (025_data_cache_tables) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
@@ -696,4 +696,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-03-06
+**Last Updated**: 2026-03-10

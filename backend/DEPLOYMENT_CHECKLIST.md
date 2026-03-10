@@ -1,3 +1,5 @@
+> **ARCHIVED** (2026-03-10): This checklist was written for the initial Render free-tier deployment (2026-02-07). It references `TIMESCALEDB_URL`, `requirements.prod.txt`, and free-tier memory budgets that no longer apply. The project now uses Neon PostgreSQL, Render paid tier, and 34 environment variables managed via 1Password. See [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for current deployment instructions. Original content preserved below.
+
 # Deployment Checklist - Free Tier Optimizations
 
 ## Pre-Deployment

@@ -1,5 +1,7 @@
 # MVP Launch Checklist
 
+> **Note**: Test counts in this file reflect the state at MVP launch (2026-03-04). Current test counts are: Backend 1,479, Frontend 1,439, total ~4,170. See [docs/TESTING.md](TESTING.md) for current numbers.
+
 **Project**: Automated Electricity Supplier Price Optimizer
 **Status**: LIVE IN PRODUCTION (2026-03-04)
 **Completion**: 100% - All validation phases complete and passing

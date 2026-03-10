@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-09 (Tier 1+2 complete: require_tier dependency, 7 gated endpoints, free-tier alert limit, /internal/health-data endpoint, migration 025 data cache tables, test count 1475)
+> Last updated: 2026-03-10 (Full-stack bug remediation complete: CSP Clarity fix, maintenance endpoint resilience, gitleaks allowlist, fetch-weather auto-discovery. Test count: 1,479)
 
 ## Directory Structure
 
@@ -984,7 +984,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1,475 passed, 2 skipped, 0 failures (as of 2026-03-09). 59+ test files. Includes: tier gating (require_tier, 7 endpoints, free alert limit), health-data endpoint, data cache table tests. Prior: connections split into 8 endpoint files, supplier caching, savings service, connection service, forecast observation repository, weather service circuit breaker, maintenance service cleanup.
+**Test status:** 1,479 passed, 2 skipped, 0 failures (as of 2026-03-10). 59+ test files. Includes: CSP security headers tests (+9), maintenance resilience tests (+3), tier gating (require_tier, 7 endpoints, free alert limit), health-data endpoint, data cache table tests. Prior: connections split into 8 endpoint files, supplier caching, savings service, connection service, forecast observation repository, weather service circuit breaker, maintenance service cleanup.
 
 
 ## Scripts & Automation

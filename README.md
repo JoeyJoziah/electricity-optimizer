@@ -18,14 +18,14 @@ AI-powered platform for electricity price monitoring, forecasting, and automated
 
 | Layer          | Technologies                                                  |
 |----------------|---------------------------------------------------------------|
-| Backend        | FastAPI, Python 3.12 (3.11 in CI), Redis                      |
+| Backend        | FastAPI, Python 3.12, Redis                                   |
 | Frontend       | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts      |
 | Database       | Neon PostgreSQL (serverless)                                   |
 | ML / Data      | TensorFlow, XGBoost, PuLP, scikit-learn                       |
 | Auth           | Neon Auth (Better Auth) — session-based, httpOnly cookies, Resend email with verification resend on login error, client error handling fixed for proper {data, error} checking |
 | Payments       | Stripe (checkout, webhooks, customer portal)                   |
 | Infrastructure | Docker, Prometheus, Grafana                                    |
-| CI/CD          | GitHub Actions (Python 3.11, Node 20)                          |
+| CI/CD          | GitHub Actions (Python 3.12, Node 20)                          |
 
 ## Quick Start (Local Development)
 
@@ -82,7 +82,7 @@ The development server starts at `http://localhost:3000`.
 
 ## Testing
 
-### Backend (1,393 tests)
+### Backend (1,479 tests)
 
 ```bash
 source .venv/bin/activate
@@ -92,7 +92,7 @@ pytest tests/ -v
 
 > **Important:** Always use the project venv at `.venv/`. System Python is missing required dependencies (fastapi, httpx, pydantic, pytest-asyncio).
 
-### Frontend (1,401 tests, 95 suites)
+### Frontend (1,439 tests, 98 suites)
 
 ```bash
 cd frontend
@@ -118,7 +118,7 @@ npx playwright test
 npx playwright test --ui  # Interactive mode
 ```
 
-> **Total test count:** 3,405+ across all suites (1,393 backend + 1,401 frontend + 611 ML + 634 E2E).
+> **Total test count:** ~4,170 across all suites (1,479 backend + 1,439 frontend + 611 ML + 634 E2E).
 
 ### Additional Test Suites
 
@@ -223,7 +223,7 @@ electricity-optimizer/
 
 ## Database
 
-Production database is **Neon PostgreSQL** with 20 public tables (+ 9 neon_auth tables managed by Better Auth). All primary keys use UUID type.
+Production database is **Neon PostgreSQL** with 21 public tables (+ 9 neon_auth tables + 3 cache tables managed by Better Auth). All primary keys use UUID type.
 
 | Table | Purpose |
 |-------|---------|
@@ -278,7 +278,7 @@ GitHub Actions workflows:
 | `model-retrain.yml` | Scheduled | ML model retraining pipeline |
 | `keepalive.yml` | Scheduled | Render free-tier keep-alive pings |
 
-CI runs with **Python 3.11** and **Node 20** on `ubuntu-latest`.
+CI runs with **Python 3.12** and **Node 20** on `ubuntu-latest`. There are 23 total GHA workflows including cron automation, self-healing monitor, and Dependabot. See [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for the full workflow inventory.
 
 ## Documentation
 

@@ -85,7 +85,7 @@ All 3 workflows live via Rube recipes. No application code changes required.
 - **Tests**: 5 tests (happy path, partial failure, empty, error, auth)
 
 ### Workflow 2: Price Alert Loop ✅
-- **GHA**: `.github/workflows/check-alerts.yml` — every 15 minutes
+- **GHA**: `.github/workflows/check-alerts.yml` — every 30 minutes (updated from 15 min in CI/CD Overhaul 2026-03-09)
 - **Endpoint**: `POST /internal/check-alerts` (from B4, already tested with 8 tests)
 - **Note**: Currently sends email alerts only. Push (OneSignal) and Slack channels to be added via NotificationDispatcher (Phase 2 enhancement)
 
@@ -213,7 +213,7 @@ Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, a
 
 ### 4. GitHub Actions Workflow Files ✅ (2026-03-06)
 All 12 cron workflows created:
-- `check-alerts.yml` (every 15 min) — price alert pipeline
+- `check-alerts.yml` (every 30 min) — price alert pipeline
 - `fetch-weather.yml` (every 6 hours) — all 51 US regions
 - `market-research.yml` (daily 2am UTC) — top 10 regions
 - `sync-connections.yml` (every 2 hours) — UtilityAPI sync
@@ -264,7 +264,7 @@ After deployment, track:
 ## Files to Create/Modify
 
 ### New Files
-- ✅ `.github/workflows/check-alerts.yml` — price alert cron (every 15 min)
+- ✅ `.github/workflows/check-alerts.yml` — price alert cron (every 30 min)
 - ✅ `.github/workflows/fetch-weather.yml` — weather data cron (every 6h)
 - ✅ `.github/workflows/market-research.yml` — market intel cron (daily 2am)
 - ✅ `.github/workflows/sync-connections.yml` — connection sync cron (every 2h)

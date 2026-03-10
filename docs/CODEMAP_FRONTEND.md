@@ -1,6 +1,6 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-09 (Alerts UI, tier gating upgrade CTAs, useAlerts/useConnections hooks, favicon files, perf optimizations)
+**Last Updated:** 2026-03-10 (Full-stack bug remediation: CSP header tests +9, isPublicPage guard in AuthProvider)
 **Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
@@ -1002,7 +1002,7 @@ getAlertHistory(page, pageSize)          // GET /alerts/history?page=&page_size=
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1,430 tests across 97 suites (3 pre-existing failures in send.test.ts)
+- **Coverage:** 1,439 tests across 98 suites (3 pre-existing failures in send.test.ts)
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
@@ -1272,10 +1272,10 @@ BETTER_AUTH_URL=...                      # (Server-only)
 - **Total Layouts:** 3 (root, app, dev, auth)
 - **Total Components:** 52+ (UI + feature-specific)
 - **Loading Skeletons:** 5 (dashboard, prices, suppliers, optimize, connections)
-- **Total Tests:** 1,430 across 97 suites (3 pre-existing failures in send.test.ts)
+- **Total Tests:** 1,439 across 98 suites (3 pre-existing failures in send.test.ts)
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
-- **Total Test Coverage:** 4,150+ tests (frontend + backend + ML + E2E)
+- **Total Test Coverage:** ~4,170 tests (frontend + backend + ML + E2E)
 
 ---
 
@@ -1617,4 +1617,4 @@ updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
 
 **Last Reviewed:** 2026-03-09 by documentation engineer
 **Status:** Current with alerts UI, tier gating, favicon, performance optimizations
-**Test Coverage:** 1,430 tests (frontend), 4,150+ total (all layers)
+**Test Coverage:** 1,439 tests (frontend), ~4,170 total (all layers)

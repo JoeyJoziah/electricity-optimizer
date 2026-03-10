@@ -77,7 +77,7 @@ DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c
 ### Step 7: Post-Launch Verification
 - [x] Stripe checkout flow working (Free/Pro/Business)
 - [x] Email delivery: Resend primary + Gmail SMTP fallback
-- [x] Alert system: check-alerts cron running every 15 min
+- [x] Alert system: check-alerts cron running every 30 min
 - [x] 7/7 automation workflows operational
 - [x] Self-healing CI/CD monitoring 13 workflows
 

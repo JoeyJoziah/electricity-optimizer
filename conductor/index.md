@@ -13,7 +13,7 @@ Navigation hub for project context and feature development.
 
 ## Active Tracks
 
-- [ ] [Full-Stack Bug Remediation](tracks/full-stack-bugs_20260310/) — 8 bugs across CI/CD, security, and frontend config
+- [x] [Full-Stack Bug Remediation](tracks/full-stack-bugs_20260310/) — 8 bugs across CI/CD, security, and frontend config (complete)
 
 <!-- Auto-populated by /conductor:new-track -->
 
