@@ -25,7 +25,7 @@ import nodemailer from "nodemailer"
 // ---------------------------------------------------------------------------
 
 const FROM_ADDRESS =
-  process.env.EMAIL_FROM_ADDRESS || "Electricity Optimizer <autodailynewsletterintake@gmail.com>"
+  process.env.EMAIL_FROM_ADDRESS || "RateShift <noreply@rateshift.app>"
 
 // ---------------------------------------------------------------------------
 // Resend (primary)

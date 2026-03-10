@@ -109,8 +109,8 @@ class Settings(BaseSettings):
     smtp_username: Optional[str] = Field(default=None, validation_alias="SMTP_USERNAME")
     smtp_password: Optional[str] = Field(default=None, validation_alias="SMTP_PASSWORD")
     # Email - Common
-    email_from_address: str = Field(default="onboarding@resend.dev", validation_alias="EMAIL_FROM_ADDRESS")
-    email_from_name: str = Field(default="Electricity Optimizer", validation_alias="EMAIL_FROM_NAME")
+    email_from_address: str = Field(default="noreply@rateshift.app", validation_alias="EMAIL_FROM_ADDRESS")
+    email_from_name: str = Field(default="RateShift", validation_alias="EMAIL_FROM_NAME")
 
     # Stripe Billing
     stripe_secret_key: Optional[str] = Field(default=None, validation_alias="STRIPE_SECRET_KEY")

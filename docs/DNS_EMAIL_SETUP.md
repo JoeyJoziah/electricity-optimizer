@@ -16,8 +16,8 @@
 - [x] Budget approved for `.app` domain (~$14-20/year via Cloudflare Registrar)
 - [x] Cloudflare account created
 - [x] `rateshift.app` purchased (2026-03-10)
-- [ ] Access to Resend dashboard (https://resend.com/domains)
-- [ ] Access to Render + Vercel env var settings
+- [ ] Access to Resend dashboard (https://resend.com/domains) — add domain, copy DKIM records
+- [ ] Access to Render + Vercel env var settings — update EMAIL_FROM_ADDRESS after domain verified
 
 ---
 
@@ -227,6 +227,40 @@ If migrating the backend from `electricity-optimizer.onrender.com` to `api.rates
 
 ---
 
+## Code Status (as of 2026-03-10)
+
+The codebase has been updated to use `noreply@rateshift.app` as the default sender.
+
+### What was changed
+
+| File | Change |
+|------|--------|
+| `frontend/lib/email/send.ts` | Default `FROM_ADDRESS` changed from `autodailynewsletterintake@gmail.com` to `noreply@rateshift.app` |
+| `backend/config/settings.py` | `email_from_address` default changed from `onboarding@resend.dev` to `noreply@rateshift.app` |
+| `backend/config/settings.py` | `email_from_name` default changed from `Electricity Optimizer` to `RateShift` |
+| `backend/templates/emails/welcome_beta.html` | Brand name + all URLs updated to rateshift.app |
+| `backend/templates/emails/price_alert.html` | Dashboard link + footer updated to rateshift.app |
+| `backend/templates/emails/dunning_soft.html` | Footer brand name updated to RateShift |
+| `backend/templates/emails/dunning_final.html` | Footer brand name updated to RateShift |
+
+### How the fallback chain works
+
+1. If `RESEND_API_KEY` is set and Resend is reachable: sends via Resend using `EMAIL_FROM_ADDRESS` (must be a verified domain on your Resend account)
+2. If Resend fails: falls back to SMTP using `EMAIL_FROM_ADDRESS` (any value works — Gmail SMTP does not enforce domain matching)
+3. If neither is configured: throws an error
+
+### Sender address matrix
+
+| State | Sender shown to recipients |
+|-------|---------------------------|
+| `EMAIL_FROM_ADDRESS` env var set | Whatever value is in the env var |
+| Env var not set, Resend path | `RateShift <noreply@rateshift.app>` (code default) |
+| Env var not set, SMTP path | `RateShift <noreply@rateshift.app>` (code default) — Gmail SMTP rewrites display name but keeps the address |
+
+> **IMPORTANT**: The Resend path will reject sends from `noreply@rateshift.app` until the domain is verified in the Resend dashboard (Steps 2-4 above). Until then, keep `EMAIL_FROM_ADDRESS=RateShift <autodailynewsletterintake@gmail.com>` in your environment, or use SMTP-only mode.
+
+---
+
 ## Gmail SMTP Fallback (No Domain Required)
 
 While the Resend custom domain setup above is the ideal long-term solution, Gmail SMTP works as an immediate fallback that requires no domain purchase or DNS configuration.
@@ -259,7 +293,8 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USERNAME=your-gmail@gmail.com
 SMTP_PASSWORD=xxxx-xxxx-xxxx-xxxx    # App Password from Google
-EMAIL_FROM_ADDRESS=Electricity Optimizer <your-gmail@gmail.com>
+# Use the Gmail address until rateshift.app is verified in Resend:
+EMAIL_FROM_ADDRESS=RateShift <autodailynewsletterintake@gmail.com>
 ```
 
 These are set on Render backend (34 env vars total) alongside the Resend variables. The email service tries Resend first, then falls back to SMTP.
@@ -276,7 +311,7 @@ These are set on Render backend (34 env vars total) alongside the Resend variabl
 ## Summary Checklist
 
 ### Domain & DNS
-- [ ] `rateshift.app` purchased via Cloudflare Registrar
+- [x] `rateshift.app` purchased via Cloudflare Registrar (2026-03-10)
 - [ ] Cloudflare DNS: CNAME `@` and `www` pointing to `cname.vercel-dns.com`
 - [ ] Cloudflare DNS: CNAME `api` pointing to `electricity-optimizer.onrender.com`
 - [ ] Vercel custom domain added (`rateshift.app` + `www`)
