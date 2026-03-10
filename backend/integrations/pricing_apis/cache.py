@@ -9,12 +9,12 @@ Provides intelligent caching with:
 - Metrics and monitoring
 """
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Optional, TypeVar, Generic
 import asyncio
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, Generic, Optional, TypeVar
 
 import structlog
 
@@ -486,10 +486,7 @@ class PricingCache:
                 )
                 return "failed"
 
-        tasks = [
-            warm_item(key, func, ttl)
-            for key, func, ttl in items
-        ]
+        tasks = [warm_item(key, func, ttl) for key, func, ttl in items]
 
         outcomes = await asyncio.gather(*tasks)
 
@@ -618,10 +615,7 @@ class InMemoryCache(PricingCache):
         deleted = 0
 
         async with self._lock:
-            keys_to_delete = [
-                k for k in self._cache.keys()
-                if fnmatch.fnmatch(k, full_pattern)
-            ]
+            keys_to_delete = [k for k in self._cache.keys() if fnmatch.fnmatch(k, full_pattern)]
             for key in keys_to_delete:
                 del self._cache[key]
                 deleted += 1
@@ -654,10 +648,7 @@ class InMemoryCache(PricingCache):
         expired = 0
 
         async with self._lock:
-            keys_to_delete = [
-                k for k, v in self._cache.items()
-                if v.is_expired
-            ]
+            keys_to_delete = [k for k, v in self._cache.items() if v.is_expired]
             for key in keys_to_delete:
                 del self._cache[key]
                 expired += 1

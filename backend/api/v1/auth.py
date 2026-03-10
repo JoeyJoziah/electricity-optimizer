@@ -13,20 +13,17 @@ The backend only validates sessions and serves protected resources.
 
 from typing import Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from auth.neon_auth import (
-    get_current_user, SessionData, invalidate_session_cache,
-    SESSION_COOKIE_NAME, SESSION_COOKIE_NAME_SECURE,
-)
+from auth.neon_auth import (SESSION_COOKIE_NAME, SESSION_COOKIE_NAME_SECURE,
+                            SessionData, get_current_user,
+                            invalidate_session_cache)
 from auth.password import check_password_strength
-from config.database import get_timescale_session, db_manager
+from config.database import db_manager, get_timescale_session
 from middleware.rate_limiter import UserRateLimiter
-
 
 logger = structlog.get_logger()
 
@@ -49,6 +46,7 @@ router = APIRouter(tags=["Authentication"])
 
 class UserResponse(BaseModel):
     """Response with user data"""
+
     id: str
     email: str
     name: Optional[str] = None
@@ -57,11 +55,13 @@ class UserResponse(BaseModel):
 
 class PasswordStrengthRequest(BaseModel):
     """Request for password strength check"""
+
     password: str = Field(..., min_length=1, max_length=128)
 
 
 class PasswordStrengthResponse(BaseModel):
     """Response for password strength check"""
+
     score: int
     max_score: int
     strength: str
@@ -78,7 +78,7 @@ class PasswordStrengthResponse(BaseModel):
     "/me",
     response_model=UserResponse,
     summary="Get current user",
-    description="Get authenticated user information from Neon Auth session"
+    description="Get authenticated user information from Neon Auth session",
 )
 async def get_me(
     current_user: SessionData = Depends(get_current_user),
@@ -96,6 +96,7 @@ async def get_me(
     # Ensure user profile exists in our app's users table (best-effort)
     try:
         from auth.neon_auth import ensure_user_profile
+
         await ensure_user_profile(
             neon_user_id=current_user.user_id,
             email=current_user.email,
@@ -129,9 +130,8 @@ async def logout(
     This endpoint clears our Redis session cache so the backend stops
     accepting the token immediately instead of waiting up to 30s.
     """
-    session_token = (
-        request.cookies.get(SESSION_COOKIE_NAME)
-        or request.cookies.get(SESSION_COOKIE_NAME_SECURE)
+    session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.cookies.get(
+        SESSION_COOKIE_NAME_SECURE
     )
     if not session_token:
         # Fall back to Authorization header (already validated by get_current_user)
@@ -146,7 +146,9 @@ async def logout(
         except Exception:
             pass
         invalidated = await invalidate_session_cache(session_token, redis)
-        logger.info("session_cache_invalidated", user_id=current_user.user_id, cache_hit=invalidated)
+        logger.info(
+            "session_cache_invalidated", user_id=current_user.user_id, cache_hit=invalidated
+        )
     else:
         logger.warning("logout_no_token", user_id=current_user.user_id)
 
@@ -157,7 +159,7 @@ async def logout(
     "/password/check-strength",
     response_model=PasswordStrengthResponse,
     summary="Check password strength",
-    description="Check if password meets security requirements"
+    description="Check if password meets security requirements",
 )
 async def check_password(http_request: Request, request: PasswordStrengthRequest):
     """
@@ -173,9 +175,7 @@ async def check_password(http_request: Request, request: PasswordStrengthRequest
     # Per-endpoint rate limit (5/min) — stricter than global middleware
     client_ip = http_request.client.host if http_request.client else "unknown"
     identifier = f"password_check:ip:{client_ip}"
-    allowed, remaining = await _password_check_limiter.check_rate_limit(
-        identifier, "minute"
-    )
+    allowed, remaining = await _password_check_limiter.check_rate_limit(identifier, "minute")
     if not allowed:
         logger.warning(
             "password_check_rate_limited",

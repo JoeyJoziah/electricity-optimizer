@@ -21,7 +21,6 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -61,7 +60,8 @@ def mock_session():
 @pytest.fixture
 def repo(mock_session):
     """ForecastObservationRepository bound to the mock session."""
-    from repositories.forecast_observation_repository import ForecastObservationRepository
+    from repositories.forecast_observation_repository import \
+        ForecastObservationRepository
 
     return ForecastObservationRepository(mock_session)
 
@@ -139,7 +139,9 @@ class TestInsertForecasts:
         assert count == 1
         # Verify the row passed to execute has forecast_hour=14
         call_args = mock_session.execute.call_args
-        rows = call_args[0][1]  # second positional arg is the flat params dict (keys use numeric suffix: forecast_hour0, etc.)
+        rows = call_args[0][
+            1
+        ]  # second positional arg is the flat params dict (keys use numeric suffix: forecast_hour0, etc.)
         assert rows["forecast_hour0"] == 14
 
     @pytest.mark.asyncio
@@ -291,9 +293,7 @@ class TestUpdateRecommendationResponse:
         assert params["actual_savings"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_update_recommendation_response_already_responded(
-        self, repo, mock_session
-    ):
+    async def test_update_recommendation_response_already_responded(self, repo, mock_session):
         """When rowcount=0 (already responded), returns False (idempotency guard)."""
         mock_session.execute.return_value = _make_result(rowcount=0)
 

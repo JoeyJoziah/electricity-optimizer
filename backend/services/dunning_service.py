@@ -8,7 +8,7 @@ and escalates to free tier after 3 consecutive failures.
 Migration: 024_payment_retry_history.sql
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
@@ -55,7 +55,8 @@ class DunningService:
         retry_type = "soft" if new_count < 3 else "final"
 
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 INSERT INTO payment_retry_history
                     (id, user_id, stripe_invoice_id, stripe_customer_id,
                      retry_count, retry_type, amount_owed, currency)
@@ -66,7 +67,8 @@ class DunningService:
                           retry_count, retry_type, amount_owed, currency,
                           email_sent, email_sent_at, escalation_action,
                           created_at, updated_at
-            """),
+            """
+            ),
             {
                 "id": str(uuid4()),
                 "user_id": user_id,
@@ -92,10 +94,12 @@ class DunningService:
     async def get_retry_count(self, stripe_invoice_id: str) -> int:
         """Return how many retry rows exist for a given invoice."""
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT COUNT(*) FROM payment_retry_history
                 WHERE stripe_invoice_id = :invoice_id
-            """),
+            """
+            ),
             {"invoice_id": stripe_invoice_id},
         )
         return result.scalar() or 0
@@ -111,7 +115,8 @@ class DunningService:
         """
         cutoff = datetime.now(timezone.utc) - timedelta(hours=DUNNING_COOLDOWN_HOURS)
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT email_sent_at
                 FROM payment_retry_history
                 WHERE user_id = :user_id
@@ -120,7 +125,8 @@ class DunningService:
                   AND email_sent_at >= :cutoff
                 ORDER BY email_sent_at DESC
                 LIMIT 1
-            """),
+            """
+            ),
             {
                 "user_id": user_id,
                 "invoice_id": stripe_invoice_id,
@@ -262,11 +268,13 @@ class DunningService:
         # 4. Mark email sent in the record
         if email_sent and record.get("id"):
             await self._db.execute(
-                text("""
+                text(
+                    """
                     UPDATE payment_retry_history
                     SET email_sent = TRUE, email_sent_at = NOW(), updated_at = NOW()
                     WHERE id = :id
-                """),
+                """
+                ),
                 {"id": str(record["id"])},
             )
             await self._db.commit()
@@ -277,11 +285,13 @@ class DunningService:
 
         if escalation and record.get("id"):
             await self._db.execute(
-                text("""
+                text(
+                    """
                     UPDATE payment_retry_history
                     SET escalation_action = :action, updated_at = NOW()
                     WHERE id = :id
-                """),
+                """
+                ),
                 {"id": str(record["id"]), "action": escalation},
             )
             await self._db.commit()
@@ -298,7 +308,8 @@ class DunningService:
         """
         cutoff = datetime.now(timezone.utc) - timedelta(days=grace_period_days)
         result = await self._db.execute(
-            text("""
+            text(
+                """
                 SELECT DISTINCT ON (prh.user_id)
                     prh.user_id,
                     prh.stripe_invoice_id,
@@ -315,7 +326,8 @@ class DunningService:
                   AND u.subscription_tier != 'free'
                   AND u.is_active = TRUE
                 ORDER BY prh.user_id, prh.created_at DESC
-            """),
+            """
+            ),
             {"cutoff": cutoff},
         )
         rows = result.mappings().all()
