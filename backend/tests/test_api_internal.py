@@ -988,6 +988,26 @@ class TestFetchWeatherPersistence:
         mock_db.commit.assert_awaited_once()
 
     @patch("services.weather_service.WeatherService")
+    def test_weather_defaults_to_all_states(self, mock_svc_cls, auth_client, mock_db):
+        """Empty body should default to all 51 US state regions."""
+        mock_svc = MagicMock()
+        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={})
+        mock_svc_cls.return_value = mock_svc
+
+        mock_db.execute = AsyncMock(return_value=None)
+        mock_db.commit = AsyncMock(return_value=None)
+
+        # No body — should use all-states default
+        response = auth_client.post(f"{BASE_URL}/fetch-weather")
+
+        assert response.status_code == 200
+        # Verify service was called with all 51 states
+        call_args = mock_svc.fetch_weather_for_regions.call_args[0][0]
+        assert len(call_args) == 51
+        assert "NY" in call_args
+        assert "CA" in call_args
+
+    @patch("services.weather_service.WeatherService")
     def test_weather_no_results_no_persist(self, mock_svc_cls, auth_client, mock_db):
         """Empty weather results should not trigger any DB writes."""
         mock_svc = MagicMock()

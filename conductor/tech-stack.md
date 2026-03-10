@@ -1,0 +1,70 @@
+# Tech Stack
+
+## Languages
+
+| Language | Version | Usage |
+|----------|---------|-------|
+| Python | 3.12 | Backend API, ML pipeline, data processing |
+| TypeScript | 5.x | Frontend application, API client |
+| SQL | PostgreSQL 15+ | Database migrations, queries |
+| Shell/Bash | POSIX + Bash 5 | CI/CD workflows, automation scripts |
+
+## Frontend
+
+- **Framework:** Next.js 14 (App Router, server components)
+- **UI:** React 18, Tailwind CSS, custom design system
+- **State:** TanStack Query (server state), React Context (client state)
+- **Testing:** Jest (1,430 tests), Playwright (E2E, 634 tests), jest-axe (a11y)
+- **Auth:** Better Auth (session-based, httpOnly cookies)
+
+## Backend
+
+- **Framework:** FastAPI (Python 3.12, async)
+- **ORM:** SQLAlchemy 2.0 (async) + asyncpg
+- **Testing:** pytest (1,475 tests), 80% coverage threshold
+- **Auth:** Neon Auth (Better Auth), session-based
+- **Formatting:** Black (line-length 100) + isort
+- **Linting:** Ruff (pycodestyle, pyflakes, bugbear, comprehensions, pyupgrade)
+- **Type Checking:** mypy (strict_optional, pydantic plugin)
+
+## Database
+
+- **Provider:** Neon PostgreSQL (serverless)
+- **Project:** `cold-rice-23455092` ("energyoptimize")
+- **Connection:** asyncpg with PgBouncer (statement_cache_size=0)
+- **Migrations:** 25 sequential SQL migrations (init_neon through 025_data_cache_tables)
+- **Schema:** 21 public + 9 neon_auth + 3 cache tables, UUID primary keys
+
+## ML
+
+- **Ensemble predictor** with HNSW vector search
+- **Adaptive learning** with nightly retraining
+- **611 tests** covering models, inference, optimization, evaluation
+
+## Infrastructure
+
+| Service | Purpose |
+|---------|---------|
+| **Render** | Backend hosting (srv-d649uhur433s73d557cg) |
+| **Vercel** | Frontend hosting + Next.js edge functions |
+| **Neon** | Serverless PostgreSQL database |
+| **Stripe** | Payments (Free/$4.99 Pro/$14.99 Business) |
+| **Resend** | Primary email delivery |
+| **OneSignal** | Push notifications |
+| **Slack** | Team alerts (electricityoptimizer.slack.com) |
+| **Sentry** | Error tracking and monitoring |
+| **UptimeRobot** | Uptime monitoring |
+| **Better Stack** | Incident management |
+| **GitHub Actions** | CI/CD (23 workflows + Dependabot) |
+
+## Key Dependencies
+
+### Backend (Python)
+- fastapi, uvicorn, sqlalchemy[asyncio], asyncpg
+- pydantic, structlog, sentry-sdk
+- stripe, resend, httpx
+
+### Frontend (Node)
+- next, react, tailwindcss
+- @tanstack/react-query, better-auth
+- nodemailer (Gmail SMTP fallback)

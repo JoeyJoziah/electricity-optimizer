@@ -286,13 +286,23 @@ async def scrape_supplier_rates(
 
 class WeatherRequest(BaseModel):
     regions: List[str] = Field(
-        default=["US"], description="US state abbreviations (e.g. NY, CA, TX)"
+        default_factory=list, description="US state abbreviations (e.g. NY, CA, TX). Empty = all 51 states"
     )
+
+
+# All 51 US state/territory abbreviations for default weather fetch
+_ALL_US_STATES = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
+    "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
+    "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
+    "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
+    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+]
 
 
 @router.post("/fetch-weather", tags=["Internal"])
 async def fetch_weather_data(
-    request: WeatherRequest,
+    request: Optional[WeatherRequest] = None,
     db: AsyncSession = Depends(get_db_session),
 ):
     """Fetch current weather for US state regions.
@@ -302,8 +312,9 @@ async def fetch_weather_data(
     """
     from services.weather_service import WeatherService
 
+    regions = (request.regions if request and request.regions else _ALL_US_STATES)
     service = WeatherService()
-    results = await service.fetch_weather_for_regions(request.regions)
+    results = await service.fetch_weather_for_regions(regions)
 
     # Persist weather data to weather_cache table
     persisted = 0
