@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-09 (Slack workspace migration to electricityoptimizer.slack.com complete. All channel IDs updated. Tier 1+2 COMPLETE. 25 migrations deployed. Backend 1,475 tests, Frontend 1,420 tests)
+> Last validated: 2026-03-10 (Full-stack bug remediation complete. Backend 1,479 tests, Frontend 1,439 tests. CSP, retry-curl, gitleaks, maintenance resilience fixes)
 
 ## Session Initialization Protocol (MANDATORY)
 
