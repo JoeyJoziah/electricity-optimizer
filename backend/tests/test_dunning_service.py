@@ -10,14 +10,13 @@ Covers:
 - handle_payment_failure full flow / dedup blocks
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-from services.dunning_service import DunningService, DUNNING_COOLDOWN_HOURS
-
+from services.dunning_service import DUNNING_COOLDOWN_HOURS, DunningService
 
 # =============================================================================
 # Fixtures
@@ -89,10 +88,19 @@ class TestRecordPaymentFailure:
             "updated_at": datetime.now(timezone.utc),
         }[key]
         row.keys = lambda: [
-            "id", "user_id", "stripe_invoice_id", "stripe_customer_id",
-            "retry_count", "retry_type", "amount_owed", "currency",
-            "email_sent", "email_sent_at", "escalation_action",
-            "created_at", "updated_at",
+            "id",
+            "user_id",
+            "stripe_invoice_id",
+            "stripe_customer_id",
+            "retry_count",
+            "retry_type",
+            "amount_owed",
+            "currency",
+            "email_sent",
+            "email_sent_at",
+            "escalation_action",
+            "created_at",
+            "updated_at",
         ]
 
         # get_retry_count returns 0 (first failure)
@@ -329,9 +337,7 @@ class TestHandlePaymentFailure:
         cooldown_result = MagicMock()
         cooldown_result.first.return_value = cooldown_row
 
-        mock_db.execute = AsyncMock(
-            side_effect=[count_result, insert_result, cooldown_result]
-        )
+        mock_db.execute = AsyncMock(side_effect=[count_result, insert_result, cooldown_result])
 
         dunning = DunningService(mock_db, email_service=mock_email_service)
         result = await dunning.handle_payment_failure(

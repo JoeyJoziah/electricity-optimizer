@@ -11,20 +11,16 @@ Routes (mounted under the /connections prefix in router.py):
 from typing import List, Optional
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
-from models.connections import (
-    ConnectionListResponse,
-    ConnectionResponse,
-    CreateDirectConnectionRequest,
-    DeleteConnectionResponse,
-)
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import (ConnectionListResponse, ConnectionResponse,
+                                CreateDirectConnectionRequest,
+                                DeleteConnectionResponse)
 
 logger = structlog.get_logger(__name__)
 

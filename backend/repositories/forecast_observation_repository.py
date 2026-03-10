@@ -50,16 +50,18 @@ class ForecastObservationRepository:
                 ts = datetime.fromisoformat(ts)
             hour = ts.hour if ts else 0
 
-            rows.append({
-                "id": str(uuid4()),
-                "forecast_id": forecast_id,
-                "region": region.lower(),
-                "forecast_hour": hour,
-                "predicted_price": pred["predicted_price"],
-                "confidence_lower": pred.get("confidence_lower"),
-                "confidence_upper": pred.get("confidence_upper"),
-                "model_version": model_version,
-            })
+            rows.append(
+                {
+                    "id": str(uuid4()),
+                    "forecast_id": forecast_id,
+                    "region": region.lower(),
+                    "forecast_hour": hour,
+                    "predicted_price": pred["predicted_price"],
+                    "confidence_lower": pred.get("confidence_lower"),
+                    "confidence_upper": pred.get("confidence_upper"),
+                    "model_version": model_version,
+                }
+            )
 
         # Insert in explicit multi-row VALUE chunks to minimise round-trips.
         for chunk_start in range(0, len(rows), self._INSERT_BATCH_SIZE):
@@ -147,12 +149,15 @@ class ForecastObservationRepository:
                 (:id, :user_id, :recommendation_type, :recommendation_data)
         """)
 
-        await self._db.execute(query, {
-            "id": outcome_id,
-            "user_id": user_id,
-            "recommendation_type": recommendation_type,
-            "recommendation_data": json.dumps(recommendation_data, default=str),
-        })
+        await self._db.execute(
+            query,
+            {
+                "id": outcome_id,
+                "user_id": user_id,
+                "recommendation_type": recommendation_type,
+                "recommendation_data": json.dumps(recommendation_data, default=str),
+            },
+        )
         await self._db.commit()
         return outcome_id
 
@@ -172,17 +177,18 @@ class ForecastObservationRepository:
               AND responded_at IS NULL
         """)
 
-        result = await self._db.execute(query, {
-            "outcome_id": outcome_id,
-            "accepted": accepted,
-            "actual_savings": actual_savings,
-        })
+        result = await self._db.execute(
+            query,
+            {
+                "outcome_id": outcome_id,
+                "accepted": accepted,
+                "actual_savings": actual_savings,
+            },
+        )
         await self._db.commit()
         return result.rowcount > 0
 
-    async def get_accuracy_metrics(
-        self, region: str, days: int = 7
-    ) -> Dict[str, Any]:
+    async def get_accuracy_metrics(self, region: str, days: int = 7) -> Dict[str, Any]:
         """Compute accuracy metrics for observed forecasts."""
         query = text("""
             SELECT
@@ -212,9 +218,7 @@ class ForecastObservationRepository:
             "coverage": round(float(row.coverage), 1) if row.coverage else None,
         }
 
-    async def get_hourly_bias(
-        self, region: str, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    async def get_hourly_bias(self, region: str, days: int = 7) -> List[Dict[str, Any]]:
         """Compute per-hour bias (predicted - actual)."""
         query = text("""
             SELECT
@@ -239,9 +243,7 @@ class ForecastObservationRepository:
             for row in result.fetchall()
         ]
 
-    async def get_accuracy_by_version(
-        self, region: str, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    async def get_accuracy_by_version(self, region: str, days: int = 7) -> List[Dict[str, Any]]:
         """Compute accuracy breakdown by model_version using SQL GROUP BY.
 
         All aggregation (MAPE, RMSE, coverage) is performed in the database,
