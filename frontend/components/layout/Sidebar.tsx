@@ -15,6 +15,7 @@ import {
   Link2,
   Calendar,
   Bell,
+  Bot,
   Settings,
   Zap,
   LogOut,
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Connections', href: '/connections', icon: Link2 },
   { name: 'Optimize', href: '/optimize', icon: Calendar },
   { name: 'Alerts', href: '/alerts', icon: Bell },
+  { name: 'Assistant', href: '/assistant', icon: Bot },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

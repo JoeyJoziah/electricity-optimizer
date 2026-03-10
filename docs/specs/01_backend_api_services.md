@@ -96,8 +96,8 @@ RETURN { status, synced_records, regions_covered, errors }
 | GET | `/subscription` | jwt | -- |
 | POST | `/webhook` | signature | Raw body + `stripe-signature` header |
 
-**Redirect URL validation:** allowed domains = `electricity-optimizer.vercel.app`,
-`electricity-optimizer-frontend.onrender.com`, `localhost` (subdomains accepted).
+**Redirect URL validation:** allowed domains = `rateshift.app`,
+`localhost` (subdomains accepted).
 
 **Responses:** `CheckoutSessionResponse{session_id, checkout_url}`,
 `SubscriptionStatusResponse{tier, status, has_active_subscription, current_period_end?, cancel_at_period_end?}`,

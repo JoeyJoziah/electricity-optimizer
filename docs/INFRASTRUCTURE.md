@@ -225,13 +225,13 @@ All services communicate over the internal Docker bridge network. Only the follo
 - `redis://redis:6379` - Redis
 
 **Production (Client → Server):**
-- Client requests: `https://electricity-optimizer.vercel.app/api/v1/*` (same-origin via Next.js rewrites)
-- Backend endpoint: `https://electricity-optimizer-api.onrender.com/api/v1/*` (Render)
+- Client requests: `https://rateshift.app/api/v1/*` (same-origin via Next.js rewrites)
+- Backend endpoint: `https://api.rateshift.app/api/v1/*` (Render)
 - Database: Neon PostgreSQL (serverless, accessed via connection string — no local container)
 
 **Cross-Service Communication:**
 - `NEXT_PUBLIC_API_URL=/api/v1` (frontend client-side, relative URL)
-- `BACKEND_URL=https://electricity-optimizer.onrender.com` (frontend server-side, for rewrites and server-only calls)
+- `BACKEND_URL=https://api.rateshift.app` (frontend server-side, for rewrites and server-only calls)
 
 ### Neon PostgreSQL (Production Database)
 

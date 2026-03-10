@@ -4,8 +4,8 @@
 **Deployment Type**: Beta (50+ users)
 **Infrastructure Budget**: <$50/month (Render.com + Neon PostgreSQL)
 
-> **NOTE (2026-03-04):** Domain `electricity-optimizer.app` has not been purchased yet.
-> All references to `electricity-optimizer.app` in this guide are aspirational.
+> **NOTE (2026-03-04):** Domain `rateshift.app` has not been purchased yet.
+> All references to `rateshift.app` in this guide are aspirational.
 > Currently using `onboarding@resend.dev` as the email sender (Resend sandbox — delivers only to account email).
 > Email-related steps in this guide require a verified custom domain in Resend before they will work.
 
@@ -177,8 +177,8 @@ ENVIRONMENT=beta
 git push origin main
 
 # 5. Get service URLs from Render Dashboard
-# Backend: https://electricity-optimizer-api.onrender.com
-# Frontend: https://electricity-optimizer.onrender.com
+# Backend: https://api.rateshift.app
+# Frontend: https://rateshift.app
 ```
 
 ### Step 3: Verify Frontend Configuration
@@ -246,23 +246,23 @@ docker compose up -d prometheus grafana
 ```bash
 # In Render Dashboard:
 # 1. Select Frontend service → Settings → Custom Domains
-#    Add: electricity-optimizer.app
+#    Add: rateshift.app
 #    Follow DNS instructions (CNAME to .onrender.com)
 
 # 2. Select Backend service → Settings → Custom Domains
-#    Add: api.electricity-optimizer.app
-#    Update frontend env: NEXT_PUBLIC_API_URL=https://api.electricity-optimizer.app
+#    Add: api.rateshift.app
+#    Update frontend env: NEXT_PUBLIC_API_URL=https://api.rateshift.app
 ```
 
 ### Step 7: Verify Deployment
 
 ```bash
 # Health checks
-curl https://api.electricity-optimizer.app/health
-curl https://electricity-optimizer.app
+curl https://api.rateshift.app/health
+curl https://rateshift.app
 
 # Test API endpoints
-curl https://api.electricity-optimizer.app/api/v1/prices/current?region=US_CT
+curl https://api.rateshift.app/api/v1/prices/current?region=US_CT
 
 # Check logs (via Render Dashboard or CLI)
 # Render Dashboard → Service → Logs tab
@@ -322,7 +322,7 @@ Congratulations! You've been accepted to the Electricity Optimizer beta program.
 
 Here's what to expect:
 
-1. **Get Started**: Visit https://electricity-optimizer.app/auth/signup
+1. **Get Started**: Visit https://rateshift.app/auth/signup
    Use this beta code: BETA-2026-[unique-code]
 
 2. **Connect Your Data**: We support smart meters via UtilityAPI
@@ -336,11 +336,11 @@ Here's what to expect:
 
 4. **Share Feedback**: Your feedback shapes the product!
    - In-app feedback widget (bottom-right corner)
-   - Direct email: feedback@electricity-optimizer.app
+   - Direct email: feedback@rateshift.app
    - Weekly survey (5 min)
 
 **Support**:
-- Email: support@electricity-optimizer.app
+- Email: support@rateshift.app
 - Response time: <24 hours
 - Known issues: [link to changelog]
 
@@ -458,7 +458,7 @@ Create Grafana dashboard showing:
 
 ### Support Channels
 
-**Primary**: support@electricity-optimizer.app
+**Primary**: support@rateshift.app
 - Response SLA: <24 hours
 - Escalation: <4 hours for P0 issues
 
@@ -668,9 +668,9 @@ make metrics  # View key metrics
 ## Contact Information
 
 **Technical Lead**: [Your name/email]
-**Support Email**: support@electricity-optimizer.app
-**Feedback Email**: feedback@electricity-optimizer.app
-**Security Issues**: security@electricity-optimizer.app
+**Support Email**: support@rateshift.app
+**Feedback Email**: feedback@rateshift.app
+**Security Issues**: security@rateshift.app
 
 ---
 

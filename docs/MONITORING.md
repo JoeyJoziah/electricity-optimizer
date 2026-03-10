@@ -12,10 +12,10 @@ The Electricity Optimizer uses a multi-layer monitoring stack, all on free tiers
 
 | # | Name | URL | Type |
 |---|------|-----|------|
-| 1 | Backend Health | `https://electricity-optimizer.onrender.com/health` | HTTP |
-| 2 | Frontend | `https://electricity-optimizer.vercel.app` | HTTP |
+| 1 | Backend Health | `https://api.rateshift.app/health` | HTTP |
+| 2 | Frontend | `https://rateshift.app` | HTTP |
 | 3 | Neon DB Ping | `https://ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` | Ping |
-| 4 | API Smoke Test | `https://electricity-optimizer.onrender.com/api/v1/prices/current?region=US` | HTTP |
+| 4 | API Smoke Test | `https://api.rateshift.app/api/v1/prices/current?region=US` | HTTP |
 | 5 | SSL Certificate | Vercel domain | SSL expiry |
 
 ### Setup
@@ -33,9 +33,9 @@ The Electricity Optimizer uses a multi-layer monitoring stack, all on free tiers
 
 | # | Name | URL | Check Interval |
 |---|------|-----|----------------|
-| 1 | Backend Health | `https://electricity-optimizer.onrender.com/health` | 3 min |
-| 2 | Frontend | `https://electricity-optimizer.vercel.app` | 3 min |
-| 3 | API Endpoint | `https://electricity-optimizer.onrender.com/api/v1/prices/current?region=US` | 3 min |
+| 1 | Backend Health | `https://api.rateshift.app/health` | 3 min |
+| 2 | Frontend | `https://rateshift.app` | 3 min |
+| 3 | API Endpoint | `https://api.rateshift.app/api/v1/prices/current?region=US` | 3 min |
 
 ### Status Page
 

@@ -247,7 +247,7 @@ Stripe redirect domains (for checkout success/cancel and portal return URLs) are
 
 **Environment Variable:**
 ```
-ALLOWED_REDIRECT_DOMAINS=["electricity-optimizer.vercel.app","electricity-optimizer-frontend.onrender.com","localhost"]
+ALLOWED_REDIRECT_DOMAINS=["rateshift.app","localhost"]
 ```
 
 Accepts either:
@@ -276,7 +276,7 @@ STRIPE_SECRET_KEY=sk_live_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 STRIPE_PRICE_PRO=price_live_xxx
 STRIPE_PRICE_BUSINESS=price_live_xxx
-ALLOWED_REDIRECT_DOMAINS=["https://electricity-optimizer-frontend.onrender.com","https://electricity-optimizer.vercel.app"]
+ALLOWED_REDIRECT_DOMAINS=["https://rateshift.app","https://www.rateshift.app"]
 ```
 
 ## API Endpoints

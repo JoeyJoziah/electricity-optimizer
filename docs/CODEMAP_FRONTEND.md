@@ -953,7 +953,7 @@ const { data, isLoading, error } = useQuery({
 **Same-Origin Proxy (2026-03-04):**
 - Production: Client requests go to `/api/v1/*` (same-origin, proxied by Next.js)
 - `next.config.js` rewrites `/api/v1/:path*` to `${BACKEND_URL}/api/v1/:path*` (server-side)
-- `BACKEND_URL` (server env var) = `https://electricity-optimizer.onrender.com` in production
+- `BACKEND_URL` (server env var) = `https://api.rateshift.app` in production
 - Eliminates cross-origin cookie issues; sessions work transparently
 
 **Error Handling:**
@@ -1211,7 +1211,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxx           # For email verification, magic link, p
 **Production (Vercel):**
 ```
 NEXT_PUBLIC_API_URL=/api/v1              # Relative, proxied by Next.js
-BACKEND_URL=https://electricity-optimizer.onrender.com  # For server-side rewrites
+BACKEND_URL=https://api.rateshift.app  # For server-side rewrites
 RESEND_API_KEY=re_xxxxxxxxxxxx           # (Server-only, loaded at runtime)
 BETTER_AUTH_SECRET=...                   # (Server-only)
 BETTER_AUTH_URL=...                      # (Server-only)

@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
-BILLING_URL = "https://electricity-optimizer.app/settings?tab=billing"
+BILLING_URL = "https://rateshift.app/settings?tab=billing"
 DUNNING_COOLDOWN_HOURS = 24
 
 

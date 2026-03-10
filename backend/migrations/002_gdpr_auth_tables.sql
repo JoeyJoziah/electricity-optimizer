@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS deletion_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_deletion_user_id ON deletion_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_deletion_timestamp ON deletion_logs(deleted_at DESC);
+-- Note: idx_deletion_timestamp index is created by migration 003 after renaming
+-- the "timestamp" column (from init_neon.sql) to "deleted_at".
 
 -- Make deletion_logs immutable (no updates or deletes)
 CREATE OR REPLACE FUNCTION prevent_deletion_log_modification()

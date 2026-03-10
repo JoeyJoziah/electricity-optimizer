@@ -57,20 +57,20 @@ DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c
 
 ### Step 4: Render.com Backend Deployment (10 min)
 - [x] Backend deployed as Web Service on Render
-- [x] URL: https://electricity-optimizer.onrender.com (srv-d649uhur433s73d557cg)
+- [x] URL: https://api.rateshift.app (srv-d649uhur433s73d557cg)
 - [x] 34 environment variables configured
 - [x] Auto-deploy on push to `main` via deploy hooks
 
 ### Step 5: Vercel Frontend Deployment (5 min)
 - [x] Frontend deployed to Vercel (migrated from Render static site)
-- [x] URL: https://electricity-optimizer.vercel.app
+- [x] URL: https://rateshift.app
 - [x] Framework: Next.js 14 (auto-detected by Vercel)
 - [x] Environment variables set on Vercel (including SMTP)
 - [x] Preview deployments use `vercel-dev` Neon branch
 
 ### Step 6: Verification (5 min)
-- [x] Backend health: `curl https://electricity-optimizer.onrender.com/health` → 200
-- [x] Frontend: https://electricity-optimizer.vercel.app loads
+- [x] Backend health: `curl https://api.rateshift.app/health` → 200
+- [x] Frontend: https://rateshift.app loads
 - [x] API: Dashboard renders for authenticated users
 - [x] Logs: Render Dashboard shows healthy service
 
@@ -134,13 +134,13 @@ NEXT_PUBLIC_API_URL=
 
 ### Backend (Render.com Web Service)
 - Status: LIVE
-- URL: https://electricity-optimizer-api.onrender.com (srv-d649uhur433s73d557cg)
+- URL: https://api.rateshift.app (srv-d649uhur433s73d557cg)
 - Services: FastAPI, Redis (via render.yaml)
 - Database: Neon PostgreSQL (serverless, external)
 
 ### Frontend (Vercel)
 - Status: LIVE
-- URL: https://electricity-optimizer.vercel.app
+- URL: https://rateshift.app
 - Framework: Next.js 14
 
 ### Cost Tracking
@@ -180,11 +180,11 @@ NEXT_PUBLIC_API_URL=
 - [x] Alert system running (check-alerts every 15 min)
 - [x] 7/7 automation workflows live
 - [x] Self-healing CI/CD operational (23 GHA workflows)
-- [ ] Custom domain purchased (electricity-optimizer.app)
+- [ ] Custom domain purchased (rateshift.app)
 - [ ] DKIM/SPF/DMARC configured for Resend
 - [ ] Resend custom domain email (replace Gmail SMTP fallback)
 
 ---
 
 **Last Updated**: 2026-03-09
-**Next Step**: Purchase custom domain (electricity-optimizer.app), configure DKIM/SPF/DMARC for Resend, switch from Gmail SMTP fallback to Resend custom domain for production email delivery
+**Next Step**: Purchase custom domain (rateshift.app), configure DKIM/SPF/DMARC for Resend, switch from Gmail SMTP fallback to Resend custom domain for production email delivery

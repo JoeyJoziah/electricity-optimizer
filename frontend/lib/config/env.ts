@@ -52,7 +52,7 @@ function env(
  * Full API base URL **including** the /api/v1 path prefix.
  * Use this for apiClient calls and SSE subscriptions.
  *
- * Example: "https://api.electricity-optimizer.com/api/v1"
+ * Example: "https://api.rateshift.app/api/v1"
  */
 export const API_URL: string = env(
   process.env.NEXT_PUBLIC_API_URL,
@@ -86,7 +86,7 @@ export const API_ORIGIN: string = (() => {
  * Public-facing app URL. Used by Better Auth for trusted origins and
  * as the SSR fallback for auth client initialization.
  *
- * Example: "https://electricity-optimizer.vercel.app"
+ * Example: "https://rateshift.app"
  */
 export const APP_URL: string = env(
   process.env.NEXT_PUBLIC_APP_URL,
@@ -100,7 +100,7 @@ export const APP_URL: string = env(
  */
 export const SITE_URL: string = env(
   process.env.NEXT_PUBLIC_SITE_URL,
-  'https://electricity-optimizer.vercel.app',
+  'https://rateshift.app',
   { name: 'NEXT_PUBLIC_SITE_URL' },
 )
 

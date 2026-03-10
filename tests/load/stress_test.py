@@ -334,7 +334,7 @@ async def run_full_stress_test(
 
         # 2000-user capacity test (requires Standard tier + Redis + pool tuning)
         python tests/load/stress_test.py \\
-            --host https://electricity-optimizer.onrender.com \\
+            --host https://api.rateshift.app \\
             --db-concurrent 2000 \\
             --ml-concurrent 200 \\
             --scenario 2000

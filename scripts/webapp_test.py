@@ -14,7 +14,7 @@ import sys
 import time
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "https://electricity-optimizer.vercel.app"
+BASE_URL = "https://rateshift.app"
 RESULTS = []
 
 

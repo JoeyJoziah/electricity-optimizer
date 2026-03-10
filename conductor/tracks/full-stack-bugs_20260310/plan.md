@@ -55,7 +55,7 @@ Fix CSP and security header issues on the Vercel deployment.
 ### Verification
 
 - [ ] Clarity analytics loads without CSP errors (check browser console)
-- [ ] `curl -I https://electricity-optimizer.vercel.app` shows security headers
+- [ ] `curl -I https://rateshift.app` shows security headers
 - [ ] All cron workflows have recent successful runs
 
 ## Phase 4: Final Verification

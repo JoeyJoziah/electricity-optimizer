@@ -146,14 +146,14 @@ def create_hub_page(api_key: str) -> str:
                 "object": "block",
                 "type": "bulleted_list_item",
                 "bulleted_list_item": {
-                    "rich_text": [{"type": "text", "text": {"content": "Production: ", "link": None}}, {"type": "text", "text": {"content": "electricity-optimizer.vercel.app", "link": {"url": "https://electricity-optimizer.vercel.app"}}}]
+                    "rich_text": [{"type": "text", "text": {"content": "Production: ", "link": None}}, {"type": "text", "text": {"content": "rateshift.app", "link": {"url": "https://rateshift.app"}}}]
                 }
             },
             {
                 "object": "block",
                 "type": "bulleted_list_item",
                 "bulleted_list_item": {
-                    "rich_text": [{"type": "text", "text": {"content": "Backend API: ", "link": None}}, {"type": "text", "text": {"content": "electricity-optimizer.onrender.com", "link": {"url": "https://electricity-optimizer.onrender.com"}}}]
+                    "rich_text": [{"type": "text", "text": {"content": "Backend API: ", "link": None}}, {"type": "text", "text": {"content": "api.rateshift.app", "link": {"url": "https://api.rateshift.app"}}}]
                 }
             },
             {
@@ -479,14 +479,14 @@ def backfill_automation_workflows(api_key: str, db_id: str):
         {"name": "Deploy Notifications", "status": "Active", "type": "Rube Recipe", "schedule": "0 * * * *", "recipe_id": "rcp_9f8mVE2Z_DSP", "phase": "Phase 1", "channels": ["Slack #deployments"], "notes": "Checks Render backend+frontend status, posts to #deployments (C0AKCN6T02Z), creates Better Stack incident on failures"},
         {"name": "GitHub-to-Notion Roadmap Sync", "status": "Active", "type": "Rube Recipe", "schedule": "0 */6 * * *", "recipe_id": "rcp_73Kc9K65YC5T", "phase": "Phase 1", "channels": [], "notes": "Syncs GitHub issues/PRs to Notion Project Tracker. Will be replaced with new recipe targeting new Hub"},
         # Phase 2 — GHA crons
-        {"name": "Check Alerts", "status": "Active", "type": "GHA Cron", "schedule": "*/15 * * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/check-alerts", "workflow_file": ".github/workflows/check-alerts.yml", "phase": "Phase 2", "channels": ["Email"], "notes": "Price threshold alerts with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)"},
-        {"name": "Fetch Weather", "status": "Active", "type": "GHA Cron", "schedule": "0 */6 * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/fetch-weather", "workflow_file": ".github/workflows/fetch-weather.yml", "phase": "Phase 2", "channels": [], "notes": "Parallelized with asyncio.gather + Semaphore(10), 51 calls across all states"},
-        {"name": "Market Research", "status": "Active", "type": "GHA Cron", "schedule": "0 2 * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/market-research", "workflow_file": ".github/workflows/market-research.yml", "phase": "Phase 2", "channels": [], "notes": "Tavily + Diffbot for energy market intelligence"},
-        {"name": "Sync Connections", "status": "Active", "type": "GHA Cron", "schedule": "0 */2 * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/sync-connections", "workflow_file": ".github/workflows/sync-connections.yml", "phase": "Phase 2", "channels": [], "notes": "UtilityAPI auto-sync via sync_all_due()"},
-        {"name": "Scrape Rates", "status": "Active", "type": "GHA Cron", "schedule": "0 3 * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/scrape-rates", "workflow_file": ".github/workflows/scrape-rates.yml", "phase": "Phase 2", "channels": [], "notes": "Auto-discovers suppliers when empty body sent (queries DB for websites)"},
+        {"name": "Check Alerts", "status": "Active", "type": "GHA Cron", "schedule": "*/15 * * * *", "endpoint": "https://api.rateshift.app/api/v1/internal/check-alerts", "workflow_file": ".github/workflows/check-alerts.yml", "phase": "Phase 2", "channels": ["Email"], "notes": "Price threshold alerts with dedup cooldowns (immediate=1h, daily=24h, weekly=7d)"},
+        {"name": "Fetch Weather", "status": "Active", "type": "GHA Cron", "schedule": "0 */6 * * *", "endpoint": "https://api.rateshift.app/api/v1/internal/fetch-weather", "workflow_file": ".github/workflows/fetch-weather.yml", "phase": "Phase 2", "channels": [], "notes": "Parallelized with asyncio.gather + Semaphore(10), 51 calls across all states"},
+        {"name": "Market Research", "status": "Active", "type": "GHA Cron", "schedule": "0 2 * * *", "endpoint": "https://api.rateshift.app/api/v1/internal/market-research", "workflow_file": ".github/workflows/market-research.yml", "phase": "Phase 2", "channels": [], "notes": "Tavily + Diffbot for energy market intelligence"},
+        {"name": "Sync Connections", "status": "Active", "type": "GHA Cron", "schedule": "0 */2 * * *", "endpoint": "https://api.rateshift.app/api/v1/internal/sync-connections", "workflow_file": ".github/workflows/sync-connections.yml", "phase": "Phase 2", "channels": [], "notes": "UtilityAPI auto-sync via sync_all_due()"},
+        {"name": "Scrape Rates", "status": "Active", "type": "GHA Cron", "schedule": "0 3 * * *", "endpoint": "https://api.rateshift.app/api/v1/internal/scrape-rates", "workflow_file": ".github/workflows/scrape-rates.yml", "phase": "Phase 2", "channels": [], "notes": "Auto-discovers suppliers when empty body sent (queries DB for websites)"},
         # Phase 3 — GHA crons
-        {"name": "Dunning Cycle", "status": "Active", "type": "GHA Cron", "schedule": "0 7 * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/dunning-cycle", "workflow_file": ".github/workflows/dunning-cycle.yml", "phase": "Phase 3", "channels": ["Email"], "notes": "Overdue payment escalation: 24h dedup, soft/final emails (amber/red), downgrade to free after 3 failures"},
-        {"name": "KPI Report", "status": "Active", "type": "GHA Cron", "schedule": "0 6 * * *", "endpoint": "https://electricity-optimizer.onrender.com/api/v1/internal/kpi-report", "workflow_file": ".github/workflows/kpi-report.yml", "phase": "Phase 3", "channels": ["Slack #metrics", "Google Sheets"], "notes": "8 metrics: active users, MRR, subscriptions, data freshness. Also via Rube recipe to Google Sheets + Slack"},
+        {"name": "Dunning Cycle", "status": "Active", "type": "GHA Cron", "schedule": "0 7 * * *", "endpoint": "https://api.rateshift.app/api/v1/internal/dunning-cycle", "workflow_file": ".github/workflows/dunning-cycle.yml", "phase": "Phase 3", "channels": ["Email"], "notes": "Overdue payment escalation: 24h dedup, soft/final emails (amber/red), downgrade to free after 3 failures"},
+        {"name": "KPI Report", "status": "Active", "type": "GHA Cron", "schedule": "0 6 * * *", "endpoint": "https://api.rateshift.app/api/v1/internal/kpi-report", "workflow_file": ".github/workflows/kpi-report.yml", "phase": "Phase 3", "channels": ["Slack #metrics", "Google Sheets"], "notes": "8 metrics: active users, MRR, subscriptions, data freshness. Also via Rube recipe to Google Sheets + Slack"},
         # Rube KPI recipe
         {"name": "Nightly KPI to Sheets + Slack", "status": "Active", "type": "Rube Recipe", "schedule": "5 6 * * *", "recipe_id": "rcp_wu9mVLIZRM_n", "phase": "Phase 3", "channels": ["Slack #metrics", "Google Sheets"], "notes": "Fetches /internal/kpi-report, appends to Google Sheet (15JGyCAThhP2lUKLvuEsdarRXDBa5TjlWKDwD9mztITA), posts to Slack #metrics"},
     ]
@@ -604,8 +604,8 @@ def create_dashboard_pages(api_key: str, hub_id: str, db_ids: dict):
             {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": rich_text("16 Composio/Rube integrations")}},
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": rich_text("Production URLs")}},
-            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": "Frontend: ", "link": None}}, {"type": "text", "text": {"content": "electricity-optimizer.vercel.app", "link": {"url": "https://electricity-optimizer.vercel.app"}}}]}},
-            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": "Backend API: ", "link": None}}, {"type": "text", "text": {"content": "electricity-optimizer.onrender.com", "link": {"url": "https://electricity-optimizer.onrender.com"}}}]}},
+            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": "Frontend: ", "link": None}}, {"type": "text", "text": {"content": "rateshift.app", "link": {"url": "https://rateshift.app"}}}]}},
+            {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": "Backend API: ", "link": None}}, {"type": "text", "text": {"content": "api.rateshift.app", "link": {"url": "https://api.rateshift.app"}}}]}},
             {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": "GitHub: ", "link": None}}, {"type": "text", "text": {"content": "JoeyJoziah/electricity-optimizer", "link": {"url": "https://github.com/JoeyJoziah/electricity-optimizer"}}}]}},
             {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": "Neon: ", "link": None}}, {"type": "text", "text": {"content": "cold-rice-23455092", "link": {"url": "https://console.neon.tech/app/projects/cold-rice-23455092"}}}]}},
         ]

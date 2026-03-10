@@ -128,8 +128,8 @@ The repository includes load, performance, and security tests under `tests/`. Se
 
 | Service  | Platform | URL |
 |----------|----------|-----|
-| Backend  | Render   | https://electricity-optimizer-api.onrender.com |
-| Frontend | Vercel   | https://electricity-optimizer.vercel.app |
+| Backend  | Render   | https://api.rateshift.app |
+| Frontend | Vercel   | https://rateshift.app |
 | Database | Neon     | — |
 
 Configuration files:

@@ -22,8 +22,8 @@ TEST_USER = SessionData(user_id="user-billing-1", email="billing@test.com")
 
 BASE_URL = "/api/v1/billing"
 
-ALLOWED_SUCCESS_URL = "https://electricity-optimizer.vercel.app/success"
-ALLOWED_CANCEL_URL = "https://electricity-optimizer.vercel.app/cancel"
+ALLOWED_SUCCESS_URL = "https://rateshift.app/success"
+ALLOWED_CANCEL_URL = "https://rateshift.app/cancel"
 LOCALHOST_SUCCESS_URL = "http://localhost:3000/success"
 LOCALHOST_CANCEL_URL = "http://localhost:3000/cancel"
 DISALLOWED_URL = "https://evil-site.com/steal"

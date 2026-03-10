@@ -67,7 +67,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: staging
-      url: https://staging.electricity-optimizer.com
+      url: https://rateshift.app
 
     steps:
       - name: Trigger Render staging deploy

@@ -4,7 +4,7 @@
 
 This guide walks you through setting up Google and GitHub OAuth for the Electricity Optimizer app using **Better Auth**. OAuth allows users to sign in with their existing Google or GitHub accounts instead of creating a new username/password.
 
-**Deployment URL:** `https://electricity-optimizer.vercel.app`
+**Deployment URL:** `https://rateshift.app`
 
 ---
 
@@ -55,7 +55,7 @@ Both providers are conditionally enabled: if their environment variables are set
 5. Select **Application type: Web application**
 6. Under **Authorized redirect URIs**, click **Add URI** and enter:
    ```
-   https://electricity-optimizer.vercel.app/api/auth/callback/google
+   https://rateshift.app/api/auth/callback/google
    ```
    For local development, also add:
    ```
@@ -100,10 +100,10 @@ Save these securely. You'll need them in the next step.
    - Click the three dots next to the latest deployment
    - Select **Redeploy**
 
-2. Go to `https://electricity-optimizer.vercel.app/auth/login` (or `/auth/signup`)
+2. Go to `https://rateshift.app/auth/login` (or `/auth/signup`)
 3. You should see a **"Continue with Google"** button
 4. Click it and follow the Google sign-in flow
-5. You'll be redirected back to `https://electricity-optimizer.vercel.app/api/auth/callback/google`
+5. You'll be redirected back to `https://rateshift.app/api/auth/callback/google`
 6. Upon successful verification, you'll be redirected to the dashboard
 
 **Note:** The OAuth button only appears if both credentials AND the `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED` flag are set.
@@ -118,11 +118,11 @@ Save these securely. You'll need them in the next step.
 2. Click **New OAuth App**
 3. Fill in the form:
    - **Application name:** `Electricity Optimizer`
-   - **Homepage URL:** `https://electricity-optimizer.vercel.app`
+   - **Homepage URL:** `https://rateshift.app`
    - **Application description:** (optional, e.g., `Smart electricity rate optimization`)
    - **Authorization callback URL:**
      ```
-     https://electricity-optimizer.vercel.app/api/auth/callback/github
+     https://rateshift.app/api/auth/callback/github
      ```
      For local development, add a second app with:
      ```
@@ -166,10 +166,10 @@ Save these securely. You'll need them in the next step.
    - Click the three dots next to the latest deployment
    - Select **Redeploy**
 
-2. Go to `https://electricity-optimizer.vercel.app/auth/login` (or `/auth/signup`)
+2. Go to `https://rateshift.app/auth/login` (or `/auth/signup`)
 3. You should see a **"Continue with GitHub"** button
 4. Click it and authorize the app
-5. You'll be redirected back to `https://electricity-optimizer.vercel.app/api/auth/callback/github`
+5. You'll be redirected back to `https://rateshift.app/api/auth/callback/github`
 6. Upon successful verification, you'll be redirected to the dashboard
 
 **Note:** The OAuth button only appears if both credentials AND the `NEXT_PUBLIC_OAUTH_GITHUB_ENABLED` flag are set.
@@ -192,7 +192,7 @@ If you're running the app locally (`http://localhost:3000`), you need separate O
    - Go to [GitHub Settings](https://github.com/settings/developers) > **OAuth Apps**
    - Click your app and edit **Authorization callback URL** to support both:
      ```
-     https://electricity-optimizer.vercel.app/api/auth/callback/github
+     https://rateshift.app/api/auth/callback/github
      http://localhost:3000/api/auth/callback/github
      ```
 
@@ -273,7 +273,7 @@ Store all OAuth secrets securely in 1Password:
 **Cause:** The callback URL in your OAuth app settings doesn't match what Better Auth expects
 
 **Solution:**
-- For production: Must be `https://electricity-optimizer.vercel.app/api/auth/callback/{provider}`
+- For production: Must be `https://rateshift.app/api/auth/callback/{provider}`
 - For local: Must be `http://localhost:3000/api/auth/callback/{provider}`
 - Check that the URL in your OAuth app settings *exactly* matches (case-sensitive, no trailing slash)
 

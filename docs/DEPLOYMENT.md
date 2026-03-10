@@ -65,7 +65,7 @@ MODEL_PATH=                # Path to trained model directory (optional)
 ```
 # Allowed redirect domains for Stripe checkout/portal
 # Accepts JSON array or comma-separated values
-ALLOWED_REDIRECT_DOMAINS=["electricity-optimizer.vercel.app","electricity-optimizer-frontend.onrender.com","localhost"]
+ALLOWED_REDIRECT_DOMAINS=["rateshift.app","localhost"]
 
 # Field-level encryption key for user account/meter numbers (AES-256-GCM)
 # REQUIRED in production. Generate with: python -c "import secrets; print(secrets.token_hex(32))"
@@ -153,7 +153,7 @@ gh workflow run deploy-staging.yml
 
 ### Staging Environment
 
-- URL: https://staging.electricity-optimizer.com
+- URL: https://staging.rateshift.app
 - Container Registry: ghcr.io/your-org/electricity-optimizer
 
 ### Verification
@@ -189,7 +189,7 @@ Production deployment is triggered when a release is published on GitHub.
 3. **Verify Deployment**
    ```bash
    # Check production health
-   curl https://electricity-optimizer.com/api/v1/health
+   curl https://rateshift.app/api/v1/health
    ```
 
 ### Production Checklist
@@ -431,8 +431,8 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 | Service | URL | Platform |
 |---------|-----|----------|
-| Backend API | https://electricity-optimizer-api.onrender.com | Render (srv-d649uhur433s73d557cg) |
-| Frontend | https://electricity-optimizer.vercel.app | Vercel |
+| Backend API | https://api.rateshift.app | Render (srv-d649uhur433s73d557cg) |
+| Frontend | https://rateshift.app | Vercel |
 | Database | Neon PostgreSQL (cold-rice-23455092) | Neon |
 
 Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-deploys on push to `main` via Vercel.
@@ -470,7 +470,7 @@ The frontend service has **11 env vars** on Vercel:
 | `NEXT_PUBLIC_API_URL` | Client | Backend API base URL — **default is `/api/v1` (relative, proxied through Next.js)** |
 | `NEXT_PUBLIC_APP_URL` | Client | Frontend app base URL |
 | `NEXT_PUBLIC_SITE_URL` | Client | Canonical site URL |
-| `BACKEND_URL` | Server only | Production backend URL (`https://electricity-optimizer.onrender.com`) for server-side API calls |
+| `BACKEND_URL` | Server only | Production backend URL (`https://api.rateshift.app`) for server-side API calls |
 | `BETTER_AUTH_SECRET` | Server only | Auth signing key |
 | `BETTER_AUTH_URL` | Server only | Better Auth base URL |
 | `DATABASE_URL` | Server only | Neon DB connection string |
@@ -504,13 +504,13 @@ rewrites: async () => ({
 ```
 
 **Benefits:**
-- Client requests go to `https://electricity-optimizer.vercel.app/api/v1/*` (same-origin)
-- Next.js server rewrites to `https://electricity-optimizer.onrender.com/api/v1/*` (server-to-server)
+- Client requests go to `https://rateshift.app/api/v1/*` (same-origin)
+- Next.js server rewrites to `https://api.rateshift.app/api/v1/*` (server-to-server)
 - Cookies are automatically included in same-origin requests
 - No CORS issues; session tokens work transparently
 
 **Environment Variables:**
 - `NEXT_PUBLIC_API_URL=/api/v1` (client uses relative path)
-- `BACKEND_URL=https://electricity-optimizer.onrender.com` (server uses absolute URL for rewrites)
+- `BACKEND_URL=https://api.rateshift.app` (server uses absolute URL for rewrites)
 
 > For a comprehensive audit of all environment variables across services, see `.swarm-reports/ENV_VAR_AUDIT_FINAL.md`.

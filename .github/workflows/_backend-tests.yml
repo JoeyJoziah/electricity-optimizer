@@ -57,7 +57,7 @@ jobs:
           working-directory: backend
 
       - name: Install test dependencies
-        run: pip install pytest pytest-asyncio pytest-cov
+        run: pip install pytest pytest-asyncio pytest-cov pytest-xdist
 
       - name: Run tests
         env:

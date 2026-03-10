@@ -131,7 +131,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: production
-      url: https://electricity-optimizer.com
+      url: https://rateshift.app
 
     steps:
       - name: Trigger Render backend deploy
@@ -311,4 +311,4 @@ jobs:
         run: |
           echo "Production deployment successful!"
           echo "Version: ${{ needs.validate.outputs.version }}"
-          echo "URL: https://electricity-optimizer.com"
+          echo "URL: https://rateshift.app"

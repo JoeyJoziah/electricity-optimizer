@@ -86,7 +86,7 @@ export default function TermsPage() {
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">10. Contact</h2>
           <p className="mt-3 text-gray-600">
-            For questions about these terms, contact us at legal@electricity-optimizer.com.
+            For questions about these terms, contact us at legal@rateshift.app.
           </p>
         </div>
       </main>

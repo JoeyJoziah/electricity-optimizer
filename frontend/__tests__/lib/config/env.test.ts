@@ -90,7 +90,7 @@ describe('lib/config/env', () => {
       delete env.NEXT_PUBLIC_SITE_URL
       env.NODE_ENV = 'development'
       const { SITE_URL } = await import('@/lib/config/env')
-      expect(SITE_URL).toBe('https://electricity-optimizer.vercel.app')
+      expect(SITE_URL).toBe('https://rateshift.app')
     })
   })
 
@@ -112,7 +112,7 @@ describe('lib/config/env', () => {
       const { APP_URL, SITE_URL } = await import('@/lib/config/env')
       // Falls back to defaults without throwing
       expect(APP_URL).toBe('http://localhost:3000')
-      expect(SITE_URL).toBe('https://electricity-optimizer.vercel.app')
+      expect(SITE_URL).toBe('https://rateshift.app')
     })
   })
 

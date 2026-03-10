@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-10 (Full-stack bug remediation complete. Backend 1,479 tests, Frontend 1,439 tests. CSP, retry-curl, gitleaks, maintenance resilience fixes)
+> Last validated: 2026-03-10 (Domain migration to rateshift.app complete. Resend email verified. eslint peer dep fixed. All endpoints operational)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -100,15 +100,17 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 ## Architecture Quick Reference
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
-- **Frontend**: Next.js 14 + TypeScript (proxied to backend via `/api/v1/*` rewrites)
-- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 21 public + 9 neon_auth tables (25 migrations: init_neon through 025_data_cache_tables — all deployed to production)
-- **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://electricity-optimizer.onrender.com` (server-side)
+- **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
+- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 21 public + 9 neon_auth tables (31 migrations: init_neon through 031_agent_tables — all deployed to production)
+- **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id. **Plan gating**: `require_tier("pro"/"business")` dependency on 7 endpoints (forecast, savings, recommendations=pro; prices/stream=business). Free tier: 1 alert limit
-- **Email**: Resend (primary) + Gmail SMTP fallback (smtp.gmail.com:587, TLS, App Password). Frontend uses nodemailer for SMTP
+- **Email**: Resend (primary, domain `rateshift.app` verified, DKIM/SPF/DMARC, TLS enforced) + Gmail SMTP fallback. Sender: `RateShift <noreply@rateshift.app>`. Frontend uses nodemailer for SMTP
+- **Domain**: `rateshift.app` (Cloudflare Registrar, zone `ac03dd28616da6d1c4b894c298c1da58`). Frontend: Vercel. Backend: Render `api.rateshift.app`. Resend email domain ID: `20c95ef2-42f4-4040-be75-2026e97e35c9`
 - **Notifications**: OneSignal push (user binding via login(userId) post-auth) + email alerts
 - **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d). **UI**: `/alerts` page with CRUD, history tabs, AlertForm (region/thresholds/optimal windows). Sidebar Bell icon
 - **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). ALL PHASES COMPLETE (0-3), 7/7 workflows live. Self-Healing CI/CD: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. **Dependabot**: `.github/dependabot.yml` (pip/npm/github-actions, weekly Monday, grouped minor+patch)
+- **AI Agent**: "RateShift AI" — Gemini 2.5 Flash (primary, free 10 RPM/250 RPD) + Groq Llama 3.3 70B (fallback on 429) + Composio tools (1K actions/month). Feature flag: `ENABLE_AI_AGENT`. Rate limits: Free=3/day, Pro=20/day, Business=unlimited. SSE streaming via `POST /agent/query`, async jobs via `POST /agent/task`. Service: `backend/services/agent_service.py`. API: `backend/api/v1/agent.py`. Frontend: `/assistant` page with `AgentChat` component. Migration 031: `agent_conversations` + `agent_usage_daily` tables. Timeout excluded (`/api/v1/agent/`)
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **DSP (Data Structure Protocol)**: `.dsp/` codebase graph — 326 entities, 327 imports, 0 cycles. CLI: `python3 dsp-cli.py --root . <command>`. UID map: `.dsp/uid_map.json`. Bootstrap: `scripts/dsp_bootstrap.py`. Use `search`, `get-recipients`, `get-children --depth N` before refactoring
 - **Slack**: Workspace `electricityoptimizer.slack.com` (T0AK0AJV5NE). Channels: `#incidents` (C0AKV2TK257), `#deployments` (C0AKCN6T02Z), `#metrics` (C0AKDD7P2HX). Webhook: `SLACK_INCIDENTS_WEBHOOK_URL` GHA secret + 1Password. Composio connection: `ca_jI3-cs-HrXPY`
