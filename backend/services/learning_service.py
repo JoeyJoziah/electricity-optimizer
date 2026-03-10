@@ -10,13 +10,13 @@ Designed to run as a batch job (via POST /internal/learn).
 
 import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.observation_service import ObservationService
 from services.hnsw_vector_store import HNSWVectorStore
+from services.observation_service import ObservationService
 from services.vector_store import price_curve_to_vector
 
 logger = logging.getLogger(__name__)
@@ -244,10 +244,12 @@ class LearningService:
             if bias_id:
                 results["bias_corrections"][region] = bias_id
 
-            results["regions_processed"].append({
-                "region": region,
-                "accuracy": accuracy,
-            })
+            results["regions_processed"].append(
+                {
+                    "region": region,
+                    "accuracy": accuracy,
+                }
+            )
 
         # 4. Prune stale patterns
         results["pruned"] = await self.prune_stale_patterns()

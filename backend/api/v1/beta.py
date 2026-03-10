@@ -3,20 +3,19 @@ Beta Signup API Endpoint
 Handles beta user registration and welcome email sending
 """
 
-from fastapi import APIRouter, Body, Depends, HTTPException, BackgroundTasks
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
-from datetime import datetime
 import hmac
-import secrets
 import re
+import secrets
+from datetime import datetime
+from typing import Optional
 
 import structlog
-
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 logger = structlog.get_logger()
 
@@ -25,6 +24,7 @@ router = APIRouter(prefix="/beta", tags=["Beta"])
 
 class BetaSignupRequest(BaseModel):
     """Beta signup form data"""
+
     email: EmailStr
     name: str = Field(..., min_length=2, max_length=100)
     postcode: str = Field(..., min_length=5, max_length=10)
@@ -35,6 +35,7 @@ class BetaSignupRequest(BaseModel):
 
 class BetaSignupResponse(BaseModel):
     """Beta signup response"""
+
     success: bool
     message: str
     betaCode: Optional[str] = None
@@ -46,7 +47,7 @@ class BetaSignupResponse(BaseModel):
 def validate_uk_postcode(postcode: str) -> bool:
     """Validate UK postcode format"""
     # UK postcode regex pattern
-    pattern = r'^([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})$'
+    pattern = r"^([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})$"
     return bool(re.match(pattern, postcode.upper()))
 
 
@@ -75,7 +76,9 @@ async def send_welcome_email(email: str, name: str, beta_code: str):
         if success:
             logger.info("welcome_email_sent", recipient=email)
         else:
-            logger.warning("welcome_email_skipped", recipient=email, reason="no provider configured")
+            logger.warning(
+                "welcome_email_skipped", recipient=email, reason="no provider configured"
+            )
 
     except Exception as e:
         # Don't crash the signup flow if email fails
@@ -101,10 +104,7 @@ async def beta_signup(
 
     # Validate postcode
     if not validate_uk_postcode(signup.postcode):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid UK postcode format"
-        )
+        raise HTTPException(status_code=400, detail="Invalid UK postcode format")
 
     # Check if email already registered
     existing = await db.execute(
@@ -112,21 +112,21 @@ async def beta_signup(
         {"email": signup.email},
     )
     if existing.fetchone() is not None:
-        raise HTTPException(
-            status_code=400,
-            detail="Email already registered for beta"
-        )
+        raise HTTPException(status_code=400, detail="Email already registered for beta")
 
     # Generate beta code
     beta_code = generate_beta_code()
 
     # Store signup in database
     from uuid import uuid4
+
     await db.execute(
-        text("""
+        text(
+            """
             INSERT INTO beta_signups (id, email, name, interest, created_at)
             VALUES (:id, :email, :name, :interest, NOW())
-        """),
+        """
+        ),
         {
             "id": str(uuid4()),
             "email": signup.email,
@@ -137,17 +137,12 @@ async def beta_signup(
     await db.commit()
 
     # Send welcome email in background
-    background_tasks.add_task(
-        send_welcome_email,
-        signup.email,
-        signup.name,
-        beta_code
-    )
+    background_tasks.add_task(send_welcome_email, signup.email, signup.name, beta_code)
 
     return BetaSignupResponse(
         success=True,
         message="Welcome to the beta! Check your email for next steps.",
-        betaCode=beta_code
+        betaCode=beta_code,
     )
 
 
@@ -159,11 +154,7 @@ async def get_beta_count(
     """Get total beta signups count (requires authentication)"""
     result = await db.execute(text("SELECT COUNT(*) AS cnt FROM beta_signups"))
     total = result.scalar() or 0
-    return {
-        "total": total,
-        "target": 50,
-        "percentage": (total / 50) * 100
-    }
+    return {"total": total, "target": 50, "percentage": (total / 50) * 100}
 
 
 @router.get("/signups/stats")
@@ -178,11 +169,7 @@ async def get_beta_stats(
     total = result.scalar() or 0
 
     if total == 0:
-        return {
-            "total": 0,
-            "bySource": {},
-            "latestSignup": None
-        }
+        return {"total": 0, "bySource": {}, "latestSignup": None}
 
     # Get latest signup
     latest = await db.execute(
@@ -213,15 +200,9 @@ async def verify_beta_code(
     rows = result.fetchall()
 
     # Use constant-time comparison for final validation
-    is_valid = any(
-        hmac.compare_digest(code, code)  # code found in DB via LIKE
-        for _ in rows
-    )
+    is_valid = any(hmac.compare_digest(code, code) for _ in rows)  # code found in DB via LIKE
 
     if is_valid:
         return {"valid": True, "message": "Beta code verified"}
     else:
-        raise HTTPException(
-            status_code=404,
-            detail="Invalid beta code"
-        )
+        raise HTTPException(status_code=404, detail="Invalid beta code")

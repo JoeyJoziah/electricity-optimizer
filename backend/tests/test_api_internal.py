@@ -19,7 +19,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -197,10 +196,14 @@ class TestLearnCycle:
     @patch("services.learning_service.LearningService")
     @patch("services.hnsw_vector_store.HNSWVectorStore")
     @patch("services.observation_service.ObservationService")
-    def test_learn_custom_regions_and_days(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
+    def test_learn_custom_regions_and_days(
+        self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client
+    ):
         """Learn with custom regions and days should pass them through."""
         mock_learner = MagicMock()
-        mock_learner.run_full_cycle = AsyncMock(return_value={"regions_processed": ["US_CT", "US_TX"]})
+        mock_learner.run_full_cycle = AsyncMock(
+            return_value={"regions_processed": ["US_CT", "US_TX"]}
+        )
         mock_learner_cls.return_value = mock_learner
 
         response = auth_client.post(
@@ -223,9 +226,7 @@ class TestLearnCycle:
     def test_learn_service_error(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
         """Service exception during learning should return 500."""
         mock_learner = MagicMock()
-        mock_learner.run_full_cycle = AsyncMock(
-            side_effect=RuntimeError("Redis unavailable")
-        )
+        mock_learner.run_full_cycle = AsyncMock(side_effect=RuntimeError("Redis unavailable"))
         mock_learner_cls.return_value = mock_learner
 
         response = auth_client.post(f"{BASE_URL}/learn")
@@ -269,15 +270,16 @@ class TestObservationStats:
     def test_stats_happy_path(self, mock_obs_cls, auth_client):
         """Stats with defaults should return accuracy and hourly_bias."""
         mock_obs = MagicMock()
-        mock_obs.get_forecast_accuracy = AsyncMock(return_value={
-            "mape": 0.08,
-            "rmse": 0.012,
-            "sample_size": 168,
-        })
-        mock_obs.get_hourly_bias = AsyncMock(return_value={
-            str(h): round(0.002 * (h - 12), 4)
-            for h in range(24)
-        })
+        mock_obs.get_forecast_accuracy = AsyncMock(
+            return_value={
+                "mape": 0.08,
+                "rmse": 0.012,
+                "sample_size": 168,
+            }
+        )
+        mock_obs.get_hourly_bias = AsyncMock(
+            return_value={str(h): round(0.002 * (h - 12), 4) for h in range(24)}
+        )
         mock_obs_cls.return_value = mock_obs
 
         response = auth_client.get(f"{BASE_URL}/observation-stats")
@@ -316,9 +318,7 @@ class TestObservationStats:
     def test_stats_service_error(self, mock_obs_cls, auth_client):
         """Service exception during stats should return 500."""
         mock_obs = MagicMock()
-        mock_obs.get_forecast_accuracy = AsyncMock(
-            side_effect=RuntimeError("Query timeout")
-        )
+        mock_obs.get_forecast_accuracy = AsyncMock(side_effect=RuntimeError("Query timeout"))
         mock_obs_cls.return_value = mock_obs
 
         response = auth_client.get(f"{BASE_URL}/observation-stats")
@@ -371,6 +371,7 @@ class TestCheckAlerts:
         notification_frequency="daily",
     ):
         from decimal import Decimal
+
         return {
             "id": "cfg-1",
             "user_id": user_id,
@@ -389,9 +390,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_no_active_configs_returns_zeros(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_no_active_configs_returns_zeros(self, mock_repo_cls, mock_svc_cls, auth_client):
         """When there are no active alert configs the endpoint returns all zeros."""
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[])
@@ -409,13 +408,12 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_alert_triggered_and_sent(
-        self, mock_repo_cls, mock_svc_cls, auth_client, mock_db
-    ):
+    def test_alert_triggered_and_sent(self, mock_repo_cls, mock_svc_cls, auth_client, mock_db):
         """A triggered alert that passes dedup should be sent and recorded."""
-        from decimal import Decimal
-        from services.alert_service import AlertThreshold, PriceAlert
         from datetime import datetime, timezone
+        from decimal import Decimal
+
+        from services.alert_service import AlertThreshold, PriceAlert
 
         cfg = self._make_config(price_below=0.25, notification_frequency="immediate")
 
@@ -445,7 +443,9 @@ class TestCheckAlerts:
         mock_svc_cls.return_value = mock_svc
 
         mock_repo = MagicMock()
-        mock_repo.list = AsyncMock(return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))])
+        mock_repo.list = AsyncMock(
+            return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))]
+        )
         mock_repo_cls.return_value = mock_repo
 
         response = auth_client.post(f"{BASE_URL}/check-alerts")
@@ -465,13 +465,12 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_alert_deduplicated(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_alert_deduplicated(self, mock_repo_cls, mock_svc_cls, auth_client):
         """When _should_send_alert returns False the alert must be deduplicated."""
-        from decimal import Decimal
-        from services.alert_service import AlertThreshold, PriceAlert
         from datetime import datetime, timezone
+        from decimal import Decimal
+
+        from services.alert_service import AlertThreshold, PriceAlert
 
         cfg = self._make_config(price_below=0.25, notification_frequency="daily")
 
@@ -500,7 +499,9 @@ class TestCheckAlerts:
         mock_svc_cls.return_value = mock_svc
 
         mock_repo = MagicMock()
-        mock_repo.list = AsyncMock(return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))])
+        mock_repo.list = AsyncMock(
+            return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))]
+        )
         mock_repo_cls.return_value = mock_repo
 
         response = auth_client.post(f"{BASE_URL}/check-alerts")
@@ -522,9 +523,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_no_prices_returns_zero_triggered(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_no_prices_returns_zero_triggered(self, mock_repo_cls, mock_svc_cls, auth_client):
         """When the price repo returns empty lists, no alerts are triggered."""
         cfg = self._make_config(price_below=0.25)
 
@@ -552,9 +551,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_price_fetch_error_is_tolerated(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_price_fetch_error_is_tolerated(self, mock_repo_cls, mock_svc_cls, auth_client):
         """A price fetch error for a region should be logged and skipped, not 500."""
         cfg = self._make_config(region="us_ct")
 
@@ -581,9 +578,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_service_exception_returns_500(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_service_exception_returns_500(self, mock_repo_cls, mock_svc_cls, auth_client):
         """An unhandled exception inside get_active_alert_configs should return 500."""
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(
@@ -613,18 +608,20 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_mixed_dedup_outcomes(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_mixed_dedup_outcomes(self, mock_repo_cls, mock_svc_cls, auth_client):
         """2 triggered alerts: 1 sent, 1 deduplicated — counts must match."""
-        from decimal import Decimal
-        from services.alert_service import AlertThreshold, PriceAlert
         from datetime import datetime, timezone
+        from decimal import Decimal
+
+        from services.alert_service import AlertThreshold, PriceAlert
 
         def _threshold(uid, email):
             return AlertThreshold(
-                user_id=uid, email=email,
-                price_below=Decimal("0.25"), region="us_ct", currency="USD",
+                user_id=uid,
+                email=email,
+                price_below=Decimal("0.25"),
+                region="us_ct",
+                currency="USD",
             )
 
         def _alert(uid):
@@ -640,8 +637,18 @@ class TestCheckAlerts:
         t1, a1 = _threshold("user-1", "a@example.com"), _alert("user-1")
         t2, a2 = _threshold("user-2", "b@example.com"), _alert("user-2")
 
-        cfg1 = self._make_config(user_id="user-1", email="a@example.com", price_below=0.25, notification_frequency="daily")
-        cfg2 = self._make_config(user_id="user-2", email="b@example.com", price_below=0.25, notification_frequency="weekly")
+        cfg1 = self._make_config(
+            user_id="user-1",
+            email="a@example.com",
+            price_below=0.25,
+            notification_frequency="daily",
+        )
+        cfg2 = self._make_config(
+            user_id="user-2",
+            email="b@example.com",
+            price_below=0.25,
+            notification_frequency="weekly",
+        )
         cfg1["id"] = "cfg-1"
         cfg2["id"] = "cfg-2"
 
@@ -684,10 +691,12 @@ class TestSyncConnections:
     def test_sync_happy_path(self, mock_svc_cls, auth_client, mock_db):
         """Syncing due connections should return totals."""
         mock_svc = MagicMock()
-        mock_svc.sync_all_due = AsyncMock(return_value=[
-            {"connection_id": "c1", "success": True, "records": 5},
-            {"connection_id": "c2", "success": True, "records": 3},
-        ])
+        mock_svc.sync_all_due = AsyncMock(
+            return_value=[
+                {"connection_id": "c1", "success": True, "records": 5},
+                {"connection_id": "c2", "success": True, "records": 3},
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/sync-connections")
@@ -705,10 +714,12 @@ class TestSyncConnections:
     def test_sync_partial_failure(self, mock_svc_cls, auth_client, mock_db):
         """When some syncs fail, counts should reflect the split."""
         mock_svc = MagicMock()
-        mock_svc.sync_all_due = AsyncMock(return_value=[
-            {"connection_id": "c1", "success": True, "records": 5},
-            {"connection_id": "c2", "success": False, "error": "API timeout"},
-        ])
+        mock_svc.sync_all_due = AsyncMock(
+            return_value=[
+                {"connection_id": "c1", "success": True, "records": 5},
+                {"connection_id": "c2", "success": False, "error": "API timeout"},
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/sync-connections")
@@ -738,9 +749,7 @@ class TestSyncConnections:
     def test_sync_service_error(self, mock_svc_cls, auth_client, mock_db):
         """Service exception should return 500."""
         mock_svc = MagicMock()
-        mock_svc.sync_all_due = AsyncMock(
-            side_effect=RuntimeError("UtilityAPI down")
-        )
+        mock_svc.sync_all_due = AsyncMock(side_effect=RuntimeError("UtilityAPI down"))
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/sync-connections")
@@ -766,9 +775,9 @@ class TestScrapeRatesAutoDiscovery:
     def test_explicit_urls(self, mock_svc_cls, auth_client, mock_db):
         """Providing explicit supplier_urls should use them directly."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value=[
-            {"supplier_id": "s1", "extracted_data": {}, "success": True}
-        ])
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value=[{"supplier_id": "s1", "extracted_data": {}, "success": True}]
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(
@@ -797,10 +806,12 @@ class TestScrapeRatesAutoDiscovery:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value=[
-            {"supplier_id": "id-1", "success": True},
-            {"supplier_id": "id-2", "success": True},
-        ])
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value=[
+                {"supplier_id": "id-1", "success": True},
+                {"supplier_id": "id-2", "success": True},
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/scrape-rates")
@@ -854,17 +865,19 @@ class TestDunningCycle:
     def test_happy_path_with_overdue(self, mock_repo_cls, mock_svc_cls, auth_client):
         """Overdue accounts should be emailed and escalated."""
         mock_svc = MagicMock()
-        mock_svc.get_overdue_accounts = AsyncMock(return_value=[
-            {
-                "user_id": "user-1",
-                "email": "test@example.com",
-                "name": "Test",
-                "retry_count": 3,
-                "amount_owed": 4.99,
-                "currency": "USD",
-                "subscription_tier": "pro",
-            },
-        ])
+        mock_svc.get_overdue_accounts = AsyncMock(
+            return_value=[
+                {
+                    "user_id": "user-1",
+                    "email": "test@example.com",
+                    "name": "Test",
+                    "retry_count": 3,
+                    "amount_owed": 4.99,
+                    "currency": "USD",
+                    "subscription_tier": "pro",
+                },
+            ]
+        )
         mock_svc.send_dunning_email = AsyncMock(return_value=True)
         mock_svc.escalate_if_needed = AsyncMock(return_value="downgraded_to_free")
         mock_svc_cls.return_value = mock_svc
@@ -882,9 +895,7 @@ class TestDunningCycle:
     def test_service_error(self, mock_repo_cls, mock_svc_cls, auth_client):
         """Service exception should return 500."""
         mock_svc = MagicMock()
-        mock_svc.get_overdue_accounts = AsyncMock(
-            side_effect=RuntimeError("DB error")
-        )
+        mock_svc.get_overdue_accounts = AsyncMock(side_effect=RuntimeError("DB error"))
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/dunning-cycle")
@@ -910,16 +921,18 @@ class TestKPIReport:
     def test_happy_path(self, mock_svc_cls, auth_client):
         """KPI report should return status + metrics."""
         mock_svc = MagicMock()
-        mock_svc.aggregate_metrics = AsyncMock(return_value={
-            "active_users_7d": 42,
-            "total_users": 100,
-            "prices_tracked": 5000,
-            "alerts_sent_today": 15,
-            "connections_active": {"active": 10},
-            "subscription_breakdown": {"free": 80, "pro": 15, "business": 5},
-            "estimated_mrr": 149.80,
-            "weather_freshness_hours": 3.2,
-        })
+        mock_svc.aggregate_metrics = AsyncMock(
+            return_value={
+                "active_users_7d": 42,
+                "total_users": 100,
+                "prices_tracked": 5000,
+                "alerts_sent_today": 15,
+                "connections_active": {"active": 10},
+                "subscription_breakdown": {"free": 80, "pro": 15, "business": 5},
+                "estimated_mrr": 149.80,
+                "weather_freshness_hours": 3.2,
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/kpi-report")
@@ -935,9 +948,7 @@ class TestKPIReport:
     def test_service_error(self, mock_svc_cls, auth_client):
         """Service exception should return 500."""
         mock_svc = MagicMock()
-        mock_svc.aggregate_metrics = AsyncMock(
-            side_effect=RuntimeError("Query failed")
-        )
+        mock_svc.aggregate_metrics = AsyncMock(side_effect=RuntimeError("Query failed"))
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/kpi-report")
@@ -963,10 +974,17 @@ class TestFetchWeatherPersistence:
     def test_weather_persists_to_db(self, mock_svc_cls, auth_client, mock_db):
         """Weather results should be inserted into weather_cache table."""
         mock_svc = MagicMock()
-        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={
-            "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "partly cloudy"},
-            "CA": {"temp_f": 85.0, "humidity": 30, "wind_mph": 3.1, "description": "clear sky"},
-        })
+        mock_svc.fetch_weather_for_regions = AsyncMock(
+            return_value={
+                "NY": {
+                    "temp_f": 72.5,
+                    "humidity": 65,
+                    "wind_mph": 8.2,
+                    "description": "partly cloudy",
+                },
+                "CA": {"temp_f": 85.0, "humidity": 30, "wind_mph": 3.1, "description": "clear sky"},
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(return_value=None)
@@ -1028,9 +1046,11 @@ class TestFetchWeatherPersistence:
     def test_weather_persist_error_tolerated(self, mock_svc_cls, auth_client, mock_db):
         """DB insert failures should be logged and tolerated, not cause 500."""
         mock_svc = MagicMock()
-        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={
-            "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "clear"},
-        })
+        mock_svc.fetch_weather_for_regions = AsyncMock(
+            return_value={
+                "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "clear"},
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(side_effect=RuntimeError("DB write failed"))
@@ -1059,18 +1079,28 @@ class TestMarketResearchPersistence:
     def test_market_research_persists_to_db(self, mock_svc_cls, auth_client, mock_db):
         """Market scan results should be inserted into market_intelligence table."""
         mock_svc = MagicMock()
-        mock_svc.weekly_market_scan = AsyncMock(return_value=[
-            {
-                "query": "NY electricity rate change 2026",
-                "data": {
-                    "answer": "Rates are increasing",
-                    "results": [
-                        {"title": "NY Rate Hike", "url": "https://example.com/1", "content": "..."},
-                        {"title": "Energy Report", "url": "https://example.com/2", "content": "..."},
-                    ],
+        mock_svc.weekly_market_scan = AsyncMock(
+            return_value=[
+                {
+                    "query": "NY electricity rate change 2026",
+                    "data": {
+                        "answer": "Rates are increasing",
+                        "results": [
+                            {
+                                "title": "NY Rate Hike",
+                                "url": "https://example.com/1",
+                                "content": "...",
+                            },
+                            {
+                                "title": "Energy Report",
+                                "url": "https://example.com/2",
+                                "content": "...",
+                            },
+                        ],
+                    },
                 },
-            },
-        ])
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(return_value=None)
@@ -1118,9 +1148,11 @@ class TestScrapeRatesPersistence:
     def test_scrape_results_persisted(self, mock_svc_cls, auth_client, mock_db):
         """Scrape results should be inserted into scraped_rates table."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value=[
-            {"supplier_id": "s1", "extracted_data": {"rates": [1.5]}, "success": True},
-        ])
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value=[
+                {"supplier_id": "s1", "extracted_data": {"rates": [1.5]}, "success": True},
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
@@ -1128,7 +1160,11 @@ class TestScrapeRatesPersistence:
 
         response = auth_client.post(
             f"{BASE_URL}/scrape-rates",
-            json={"supplier_urls": [{"supplier_id": "s1", "url": "https://example.com", "name": "Test"}]},
+            json={
+                "supplier_urls": [
+                    {"supplier_id": "s1", "url": "https://example.com", "name": "Test"}
+                ]
+            },
         )
 
         assert response.status_code == 200
@@ -1156,18 +1192,30 @@ class TestDataHealthCheck:
         mock_ts_result = MagicMock()
         mock_ts_result.scalar.return_value = "2026-03-06T12:00:00+00:00"
 
-        mock_db.execute = AsyncMock(side_effect=[
-            mock_count_result, mock_ts_result,  # electricity_prices
-            mock_count_result, mock_ts_result,  # supplier_registry
-            mock_count_result, mock_ts_result,  # weather_cache
-            mock_count_result, mock_ts_result,  # market_intelligence
-            mock_count_result, mock_ts_result,  # scraped_rates
-            mock_count_result, mock_ts_result,  # alert_history
-            mock_count_result, mock_ts_result,  # users
-            mock_count_result, mock_ts_result,  # user_connections
-            mock_count_result, mock_ts_result,  # forecast_observations
-            mock_count_result, mock_ts_result,  # payment_retry_history
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                mock_count_result,
+                mock_ts_result,  # electricity_prices
+                mock_count_result,
+                mock_ts_result,  # supplier_registry
+                mock_count_result,
+                mock_ts_result,  # weather_cache
+                mock_count_result,
+                mock_ts_result,  # market_intelligence
+                mock_count_result,
+                mock_ts_result,  # scraped_rates
+                mock_count_result,
+                mock_ts_result,  # alert_history
+                mock_count_result,
+                mock_ts_result,  # users
+                mock_count_result,
+                mock_ts_result,  # user_connections
+                mock_count_result,
+                mock_ts_result,  # forecast_observations
+                mock_count_result,
+                mock_ts_result,  # payment_retry_history
+            ]
+        )
 
         response = auth_client.get(f"{BASE_URL}/health-data")
 
@@ -1197,6 +1245,7 @@ class TestDataHealthCheck:
     def test_health_check_db_unavailable(self, auth_client):
         """When DB is None, should return 503."""
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: None
 
         response = auth_client.get(f"{BASE_URL}/health-data")
@@ -1205,6 +1254,7 @@ class TestDataHealthCheck:
 
         # Restore mock db
         from unittest.mock import AsyncMock
+
         app.dependency_overrides[get_db_session] = lambda: AsyncMock()
 
     def test_health_check_requires_api_key(self, unauth_client):
