@@ -32,8 +32,8 @@ from typing import Any, Dict, Optional
 from uuid import uuid4
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -240,6 +240,7 @@ def _extract_text_from_pdf(data: bytes) -> str:
     # Try pypdf (optional)
     try:
         import io
+
         import pypdf  # type: ignore
 
         reader = pypdf.PdfReader(io.BytesIO(data))
@@ -276,6 +277,7 @@ def _extract_text_from_image(data: bytes) -> str:
     """
     try:
         import io
+
         import pytesseract  # type: ignore
         from PIL import Image  # type: ignore
 
@@ -559,24 +561,28 @@ class BillParserService:
 
     async def _set_status(self, upload_id: str, status: str) -> None:
         await self.db.execute(
-            text("""
+            text(
+                """
                 UPDATE bill_uploads
                 SET parse_status = :status, updated_at = NOW()
                 WHERE id = :upload_id
-            """),
+            """
+            ),
             {"status": status, "upload_id": upload_id},
         )
         await self.db.commit()
 
     async def _mark_failed(self, upload_id: str, error: str) -> None:
         await self.db.execute(
-            text("""
+            text(
+                """
                 UPDATE bill_uploads
                 SET parse_status = 'failed',
                     parse_error  = :error,
                     updated_at   = NOW()
                 WHERE id = :upload_id
-            """),
+            """
+            ),
             {"error": error, "upload_id": upload_id},
         )
         await self.db.commit()
@@ -596,7 +602,8 @@ class BillParserService:
         import json
 
         await self.db.execute(
-            text("""
+            text(
+                """
                 UPDATE bill_uploads
                 SET parse_status                  = 'complete',
                     parsed_data                   = :parsed_data,
@@ -610,7 +617,8 @@ class BillParserService:
                     detected_total_amount         = :total_amount,
                     updated_at                    = NOW()
                 WHERE id = :upload_id
-            """),
+            """
+            ),
             {
                 "upload_id": upload_id,
                 "parsed_data": json.dumps(parsed_data),
@@ -633,12 +641,14 @@ class BillParserService:
     ) -> None:
         rate_id = str(uuid4())
         await self.db.execute(
-            text("""
+            text(
+                """
                 INSERT INTO connection_extracted_rates
                     (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
                 VALUES
                     (:id, :connection_id, :rate, NOW(), 'bill_parse', :label)
-            """),
+            """
+            ),
             {
                 "id": rate_id,
                 "connection_id": connection_id,

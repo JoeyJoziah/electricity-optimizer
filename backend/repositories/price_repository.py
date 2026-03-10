@@ -8,16 +8,16 @@ Uses raw SQL (text()) since Price is a Pydantic model, not a SQLAlchemy ORM mode
 
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.price import Price, PriceRegion
 from models.utility import UtilityType
+from repositories.base import BaseRepository, NotFoundError, RepositoryError
 
 # Columns that exist in the electricity_prices table
 _PRICE_COLUMNS = (
@@ -38,7 +38,9 @@ def _row_to_price(row: dict) -> Price:
         is_peak=row.get("is_peak"),
         source_api=row.get("source_api"),
         created_at=row.get("created_at", datetime.now(timezone.utc)),
-        carbon_intensity=float(row["carbon_intensity"]) if row.get("carbon_intensity") is not None else None,
+        carbon_intensity=float(row["carbon_intensity"])
+        if row.get("carbon_intensity") is not None
+        else None,
         utility_type=row.get("utility_type", "electricity"),
     )
 
@@ -93,9 +95,7 @@ class PriceRepository(BaseRepository[Price]):
         if self._cache:
             try:
                 await self._cache.set(
-                    key,
-                    json.dumps(value, default=str),
-                    ex=ttl or self._cache_ttl
+                    key, json.dumps(value, default=str), ex=ttl or self._cache_ttl
                 )
                 await self._cache.delete(f"{key}:lock")
             except Exception:
@@ -147,17 +147,21 @@ class PriceRepository(BaseRepository[Price]):
         """
         try:
             await self._db.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO electricity_prices
                         (id, region, supplier, price_per_kwh, currency, timestamp,
                          is_peak, source_api, created_at, carbon_intensity, utility_type)
                     VALUES
                         (:id, :region, :supplier, :price_per_kwh, :currency, :timestamp,
                          :is_peak, :source_api, :created_at, :carbon_intensity, :utility_type)
-                """),
+                """
+                ),
                 {
                     "id": entity.id,
-                    "region": entity.region if isinstance(entity.region, str) else entity.region.value,
+                    "region": entity.region
+                    if isinstance(entity.region, str)
+                    else entity.region.value,
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -166,7 +170,9 @@ class PriceRepository(BaseRepository[Price]):
                     "source_api": entity.source_api,
                     "created_at": entity.created_at,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
+                    "utility_type": entity.utility_type
+                    if isinstance(entity.utility_type, str)
+                    else entity.utility_type.value,
                 },
             )
             await self._db.commit()
@@ -193,7 +199,8 @@ class PriceRepository(BaseRepository[Price]):
                 return None
 
             await self._db.execute(
-                text("""
+                text(
+                    """
                     UPDATE electricity_prices SET
                         region = :region, supplier = :supplier,
                         price_per_kwh = :price_per_kwh, currency = :currency,
@@ -201,10 +208,13 @@ class PriceRepository(BaseRepository[Price]):
                         source_api = :source_api, carbon_intensity = :carbon_intensity,
                         utility_type = :utility_type
                     WHERE id = :id
-                """),
+                """
+                ),
                 {
                     "id": id,
-                    "region": entity.region if isinstance(entity.region, str) else entity.region.value,
+                    "region": entity.region
+                    if isinstance(entity.region, str)
+                    else entity.region.value,
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -212,7 +222,9 @@ class PriceRepository(BaseRepository[Price]):
                     "is_peak": entity.is_peak,
                     "source_api": entity.source_api,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
+                    "utility_type": entity.utility_type
+                    if isinstance(entity.utility_type, str)
+                    else entity.utility_type.value,
                 },
             )
             await self._db.commit()
@@ -257,12 +269,7 @@ class PriceRepository(BaseRepository[Price]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete price: {str(e)}", e)
 
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[Price]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> List[Price]:
         """
         List prices with pagination.
 
@@ -282,7 +289,11 @@ class PriceRepository(BaseRepository[Price]):
 
             if "region" in filters:
                 sql += " AND region = :region"
-                params["region"] = filters["region"].value if hasattr(filters["region"], "value") else filters["region"]
+                params["region"] = (
+                    filters["region"].value
+                    if hasattr(filters["region"], "value")
+                    else filters["region"]
+                )
             if "supplier" in filters:
                 sql += " AND supplier = :supplier"
                 params["supplier"] = filters["supplier"]
@@ -314,7 +325,11 @@ class PriceRepository(BaseRepository[Price]):
 
             if "region" in filters:
                 sql += " AND region = :region"
-                params["region"] = filters["region"].value if hasattr(filters["region"], "value") else filters["region"]
+                params["region"] = (
+                    filters["region"].value
+                    if hasattr(filters["region"], "value")
+                    else filters["region"]
+                )
             if "supplier" in filters:
                 sql += " AND supplier = :supplier"
                 params["supplier"] = filters["supplier"]
@@ -365,13 +380,15 @@ class PriceRepository(BaseRepository[Price]):
 
             # Query database for latest prices
             result = await self._db.execute(
-                text(f"""
+                text(
+                    f"""
                     SELECT {_PRICE_COLUMNS}
                     FROM electricity_prices
                     WHERE region = :region AND utility_type = :utility_type
                     ORDER BY timestamp DESC
                     LIMIT :limit
-                """),
+                """
+                ),
                 {"region": region_val, "utility_type": ut_val, "limit": limit},
             )
             rows = result.mappings().all()
@@ -382,7 +399,7 @@ class PriceRepository(BaseRepository[Price]):
                 await self._set_in_cache(
                     cache_key,
                     [p.model_dump() for p in prices],
-                    ttl=60  # 1 minute TTL for current prices
+                    ttl=60,  # 1 minute TTL for current prices
                 )
 
             return prices
@@ -390,11 +407,7 @@ class PriceRepository(BaseRepository[Price]):
         except Exception as e:
             raise RepositoryError(f"Failed to get current prices: {str(e)}", e)
 
-    async def get_latest_by_supplier(
-        self,
-        region: PriceRegion,
-        supplier: str
-    ) -> Optional[Price]:
+    async def get_latest_by_supplier(self, region: PriceRegion, supplier: str) -> Optional[Price]:
         """
         Get the latest price for a specific supplier.
 
@@ -414,13 +427,15 @@ class PriceRepository(BaseRepository[Price]):
                 return Price(**cached)
 
             result = await self._db.execute(
-                text(f"""
+                text(
+                    f"""
                     SELECT {_PRICE_COLUMNS}
                     FROM electricity_prices
                     WHERE region = :region AND supplier = :supplier
                     ORDER BY timestamp DESC
                     LIMIT 1
-                """),
+                """
+                ),
                 {"region": region_val, "supplier": supplier},
             )
             row = result.mappings().first()
@@ -539,7 +554,8 @@ class PriceRepository(BaseRepository[Price]):
                 supplier_clause = " AND supplier = :supplier"
                 base_params["supplier"] = supplier
 
-            count_sql = text(f"""
+            count_sql = text(
+                f"""
                 SELECT COUNT(*)
                 FROM electricity_prices
                 WHERE region = :region
@@ -547,9 +563,11 @@ class PriceRepository(BaseRepository[Price]):
                   AND timestamp >= :start_date
                   AND timestamp <= :end_date
                 {supplier_clause}
-            """)
+            """
+            )
 
-            rows_sql = text(f"""
+            rows_sql = text(
+                f"""
                 SELECT {_PRICE_COLUMNS}
                 FROM electricity_prices
                 WHERE region = :region
@@ -559,7 +577,8 @@ class PriceRepository(BaseRepository[Price]):
                 {supplier_clause}
                 ORDER BY timestamp
                 LIMIT :limit OFFSET :offset
-            """)
+            """
+            )
             page_params = {**base_params, "limit": page_size, "offset": offset}
 
             count_result, rows_result = await asyncio.gather(
@@ -605,7 +624,9 @@ class PriceRepository(BaseRepository[Price]):
                         f":created_at{i}, :carbon_intensity{i}, :utility_type{i})"
                     )
                     params[f"id{i}"] = entity.id
-                    params[f"region{i}"] = entity.region if isinstance(entity.region, str) else entity.region.value
+                    params[f"region{i}"] = (
+                        entity.region if isinstance(entity.region, str) else entity.region.value
+                    )
                     params[f"supplier{i}"] = entity.supplier
                     params[f"price_per_kwh{i}"] = entity.price_per_kwh
                     params[f"currency{i}"] = entity.currency
@@ -615,7 +636,9 @@ class PriceRepository(BaseRepository[Price]):
                     params[f"created_at{i}"] = entity.created_at
                     params[f"carbon_intensity{i}"] = entity.carbon_intensity
                     params[f"utility_type{i}"] = (
-                        entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value
+                        entity.utility_type
+                        if isinstance(entity.utility_type, str)
+                        else entity.utility_type.value
                     )
 
                 await self._db.execute(
@@ -657,7 +680,8 @@ class PriceRepository(BaseRepository[Price]):
             start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             result = await self._db.execute(
-                text("""
+                text(
+                    """
                     SELECT
                         MIN(price_per_kwh) AS min_price,
                         MAX(price_per_kwh) AS max_price,
@@ -667,7 +691,8 @@ class PriceRepository(BaseRepository[Price]):
                     WHERE region = :region
                       AND utility_type = :utility_type
                       AND timestamp >= :start_date
-                """),
+                """
+                ),
                 {"region": region_val, "utility_type": ut_val, "start_date": start_date},
             )
             row = result.mappings().first()
@@ -675,7 +700,9 @@ class PriceRepository(BaseRepository[Price]):
             return {
                 "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
                 "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
-                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")) if row["avg_price"] else None,
+                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
+                if row["avg_price"]
+                else None,
                 "count": row["count"],
                 "period_days": days,
                 "utility_type": ut_val,
@@ -707,7 +734,8 @@ class PriceRepository(BaseRepository[Price]):
             region_val = region.value if hasattr(region, "value") else region
 
             result = await self._db.execute(
-                text("""
+                text(
+                    """
                     SELECT
                         EXTRACT(HOUR FROM timestamp) AS hour,
                         AVG(price_per_kwh) AS avg_price,
@@ -718,7 +746,8 @@ class PriceRepository(BaseRepository[Price]):
                       AND timestamp <= :end_date
                     GROUP BY EXTRACT(HOUR FROM timestamp)
                     ORDER BY EXTRACT(HOUR FROM timestamp)
-                """),
+                """
+                ),
                 {"region": region_val, "start_date": start_date, "end_date": end_date},
             )
             rows = result.mappings().all()
@@ -758,7 +787,8 @@ class PriceRepository(BaseRepository[Price]):
             region_val = region.value if hasattr(region, "value") else region
 
             result = await self._db.execute(
-                text("""
+                text(
+                    """
                     SELECT
                         supplier,
                         AVG(price_per_kwh) AS avg_price,
@@ -772,7 +802,8 @@ class PriceRepository(BaseRepository[Price]):
                       AND timestamp <= :end_date
                     GROUP BY supplier
                     ORDER BY AVG(price_per_kwh)
-                """),
+                """
+                ),
                 {"region": region_val, "start_date": start_date, "end_date": end_date},
             )
             rows = result.mappings().all()
@@ -783,7 +814,9 @@ class PriceRepository(BaseRepository[Price]):
                     "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")),
                     "min_price": Decimal(str(row["min_price"])).quantize(Decimal("0.0001")),
                     "max_price": Decimal(str(row["max_price"])).quantize(Decimal("0.0001")),
-                    "volatility": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001")) if row["stddev_price"] else Decimal("0"),
+                    "volatility": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
+                    if row["stddev_price"]
+                    else Decimal("0"),
                     "count": row["count"],
                 }
                 for row in rows
