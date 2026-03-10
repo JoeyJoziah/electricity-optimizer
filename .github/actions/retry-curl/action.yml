@@ -48,45 +48,61 @@ runs:
     - name: Execute curl with retry
       id: curl-with-retry
       shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_METHOD: ${{ inputs.method }}
+        INPUT_HEADERS: ${{ inputs.headers }}
+        INPUT_BODY: ${{ inputs.body }}
+        INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_INITIAL_DELAY: ${{ inputs.initial-delay }}
+        INPUT_MAX_DELAY: ${{ inputs.max-delay }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
       run: |
-        URL="${{ inputs.url }}"
-        METHOD="${{ inputs.method }}"
-        HEADERS="${{ inputs.headers }}"
-        BODY="${{ inputs.body }}"
-        MAX_RETRIES=${{ inputs.max-retries }}
-        INITIAL_DELAY=${{ inputs.initial-delay }}
-        MAX_DELAY=${{ inputs.max-delay }}
-        CURL_TIMEOUT=${{ inputs.timeout }}
+        URL="$INPUT_URL"
+        METHOD="$INPUT_METHOD"
+        HEADERS="$INPUT_HEADERS"
+        BODY="$INPUT_BODY"
+        MAX_RETRIES=$INPUT_MAX_RETRIES
+        INITIAL_DELAY=$INPUT_INITIAL_DELAY
+        MAX_DELAY=$INPUT_MAX_DELAY
+        CURL_TIMEOUT=$INPUT_TIMEOUT
 
         STATUS="000"
         ATTEMPTS=0
         MAX_ATTEMPTS=$((MAX_RETRIES + 1))
 
+        # Write body to temp file to avoid shell quoting issues with JSON
+        BODY_FILE=$(mktemp)
+        printf '%s' "$BODY" > "$BODY_FILE"
+        trap "rm -f '$BODY_FILE'" EXIT
+
+        # Build header args array
+        HEADER_ARGS=()
+        if [ -n "$HEADERS" ]; then
+          while IFS= read -r header; do
+            if [ -n "$header" ]; then
+              HEADER_ARGS+=(-H "$header")
+            fi
+          done <<< "$HEADERS"
+        fi
+
+        # Determine if body should be sent
+        UPPER_METHOD=$(echo "$METHOD" | tr '[:lower:]' '[:upper:]')
+        BODY_ARGS=()
+        if [ "$UPPER_METHOD" = "POST" ] || [ "$UPPER_METHOD" = "PUT" ] || [ "$UPPER_METHOD" = "PATCH" ]; then
+          BODY_ARGS=(-d "@${BODY_FILE}")
+        fi
+
         for attempt in $(seq 0 $MAX_RETRIES); do
           ATTEMPTS=$((attempt + 1))
 
-          # Build curl command
-          CURL_CMD="curl -s -o /dev/null -w '%{http_code}' -X ${METHOD} --max-time ${CURL_TIMEOUT}"
-
-          # Add headers (split by newline)
-          if [ -n "$HEADERS" ]; then
-            while IFS= read -r header; do
-              if [ -n "$header" ]; then
-                CURL_CMD="$CURL_CMD -H \"$header\""
-              fi
-            done <<< "$HEADERS"
-          fi
-
-          # Add body for methods that support it
-          UPPER_METHOD=$(echo "$METHOD" | tr '[:lower:]' '[:upper:]')
-          if [ "$UPPER_METHOD" = "POST" ] || [ "$UPPER_METHOD" = "PUT" ] || [ "$UPPER_METHOD" = "PATCH" ]; then
-            CURL_CMD="$CURL_CMD -d '${BODY}'"
-          fi
-
-          CURL_CMD="$CURL_CMD \"${URL}\""
-
           echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: ${METHOD} ${URL}"
-          STATUS=$(eval $CURL_CMD 2>/dev/null) || STATUS="000"
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+            -X "${METHOD}" \
+            --max-time "${CURL_TIMEOUT}" \
+            "${HEADER_ARGS[@]}" \
+            "${BODY_ARGS[@]}" \
+            "${URL}" 2>/dev/null) || STATUS="000"
           echo "  Response: HTTP ${STATUS}"
 
           # 2xx success

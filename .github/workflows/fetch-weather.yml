@@ -26,7 +26,6 @@ jobs:
           headers: |
             X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
             Content-Type: application/json
-          body: '{"regions": ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"]}'
 
       - name: Notify on failure
         if: failure()
