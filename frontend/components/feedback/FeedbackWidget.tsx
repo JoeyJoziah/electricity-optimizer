@@ -4,7 +4,6 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { MessageSquarePlus, X, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 type FeedbackType = 'bug' | 'feature' | 'general'
 
