@@ -19,7 +19,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, SessionData
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
 
 router = APIRouter()
@@ -40,7 +40,9 @@ async def get_rate_comparison(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Compare extracted rates against current market prices."""
-    from services.connection_analytics_service import ConnectionAnalyticsService
+    from services.connection_analytics_service import \
+        ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     return await svc.get_rate_comparison(current_user.user_id, connection_id)
 
@@ -61,7 +63,9 @@ async def get_rate_history(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get time-series rate data for chart rendering."""
-    from services.connection_analytics_service import ConnectionAnalyticsService
+    from services.connection_analytics_service import \
+        ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     return await svc.get_rate_history(current_user.user_id, connection_id, days)
 
@@ -81,7 +85,9 @@ async def get_savings_estimate(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Calculate estimated annual savings based on rate comparison."""
-    from services.connection_analytics_service import ConnectionAnalyticsService
+    from services.connection_analytics_service import \
+        ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     return await svc.get_savings_estimate(current_user.user_id, monthly_kwh)
 
@@ -100,7 +106,9 @@ async def get_connection_health(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Check for stale or unhealthy connections."""
-    from services.connection_analytics_service import ConnectionAnalyticsService
+    from services.connection_analytics_service import \
+        ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     stale = await svc.check_stale_connections(current_user.user_id)
     alerts = await svc.detect_rate_changes(current_user.user_id)

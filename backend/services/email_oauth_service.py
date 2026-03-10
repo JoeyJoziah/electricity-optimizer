@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 import httpx
 
 from config.settings import settings
-from utils.encryption import encrypt_field, decrypt_field
+from utils.encryption import decrypt_field, encrypt_field
 
 _OAUTH_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
@@ -96,13 +96,16 @@ def get_outlook_consent_url(connection_id: str) -> str:
 async def exchange_gmail_code(code: str) -> dict:
     """Exchange Gmail authorization code for tokens."""
     async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
-        resp = await client.post(GMAIL_TOKEN_URL, data={
-            "client_id": settings.gmail_client_id,
-            "client_secret": settings.gmail_client_secret,
-            "code": code,
-            "grant_type": "authorization_code",
-            "redirect_uri": _get_redirect_uri(),
-        })
+        resp = await client.post(
+            GMAIL_TOKEN_URL,
+            data={
+                "client_id": settings.gmail_client_id,
+                "client_secret": settings.gmail_client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": _get_redirect_uri(),
+            },
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -110,13 +113,16 @@ async def exchange_gmail_code(code: str) -> dict:
 async def exchange_outlook_code(code: str) -> dict:
     """Exchange Outlook authorization code for tokens."""
     async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
-        resp = await client.post(OUTLOOK_TOKEN_URL, data={
-            "client_id": settings.outlook_client_id,
-            "client_secret": settings.outlook_client_secret,
-            "code": code,
-            "grant_type": "authorization_code",
-            "redirect_uri": _get_redirect_uri(),
-        })
+        resp = await client.post(
+            OUTLOOK_TOKEN_URL,
+            data={
+                "client_id": settings.outlook_client_id,
+                "client_secret": settings.outlook_client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": _get_redirect_uri(),
+            },
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -125,12 +131,15 @@ async def refresh_gmail_token(refresh_token_encrypted: bytes) -> dict:
     """Refresh an expired Gmail access token."""
     refresh_token = decrypt_field(refresh_token_encrypted)
     async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
-        resp = await client.post(GMAIL_TOKEN_URL, data={
-            "client_id": settings.gmail_client_id,
-            "client_secret": settings.gmail_client_secret,
-            "refresh_token": refresh_token,
-            "grant_type": "refresh_token",
-        })
+        resp = await client.post(
+            GMAIL_TOKEN_URL,
+            data={
+                "client_id": settings.gmail_client_id,
+                "client_secret": settings.gmail_client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -139,17 +148,22 @@ async def refresh_outlook_token(refresh_token_encrypted: bytes) -> dict:
     """Refresh an expired Outlook access token."""
     refresh_token = decrypt_field(refresh_token_encrypted)
     async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
-        resp = await client.post(OUTLOOK_TOKEN_URL, data={
-            "client_id": settings.outlook_client_id,
-            "client_secret": settings.outlook_client_secret,
-            "refresh_token": refresh_token,
-            "grant_type": "refresh_token",
-        })
+        resp = await client.post(
+            OUTLOOK_TOKEN_URL,
+            data={
+                "client_id": settings.outlook_client_id,
+                "client_secret": settings.outlook_client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+        )
         resp.raise_for_status()
         return resp.json()
 
 
-def encrypt_tokens(access_token: str, refresh_token: Optional[str] = None) -> Tuple[bytes, Optional[bytes]]:
+def encrypt_tokens(
+    access_token: str, refresh_token: Optional[str] = None
+) -> Tuple[bytes, Optional[bytes]]:
     """Encrypt OAuth tokens for storage."""
     encrypted_access = encrypt_field(access_token)
     encrypted_refresh = encrypt_field(refresh_token) if refresh_token else None
