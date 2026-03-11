@@ -2,7 +2,7 @@
 
 RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 34 migrations, 33 public tables plus 9 neon_auth tables.
 
-Last updated: 2026-03-11 (Migration 033: model_ab_assignments)
+Last updated: 2026-03-10 (Migration 034: portal_credentials)
 
 ## Overview
 
@@ -578,6 +578,7 @@ Managed by Better Auth (Neon Auth). Do NOT modify directly.
 | 031 | 031_agent_tables.sql | 2026-03-11 | Agent conversations, usage tracking |
 | 032 | 032_notification_error_message.sql | 2026-03-10 | Notification error_message TEXT column |
 | 033 | 033_model_predictions_ab_assignments.sql | 2026-03-11 | Model predictions, A/B user assignments |
+| 034 | 034_portal_credentials.sql | 2026-03-10 | Portal scrape columns on user_connections (username, encrypted password, login URL, status, last scraped) |
 
 ## Migration Conventions
 

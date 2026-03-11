@@ -31,7 +31,7 @@ export REDIS_URL=<redis-url>
 ### Services
 - **Backend**: Render.com (`electricity-optimizer.onrender.com` → `api.rateshift.app`)
 - **Frontend**: Vercel (`rateshift.app`, `www.rateshift.app`)
-- **Database**: Neon PostgreSQL (`cold-rice-23455092`, 34 migrations, 33 deployed — 034 pending)
+- **Database**: Neon PostgreSQL (`cold-rice-23455092`, 34 migrations, all deployed)
 - **Edge Layer**: Cloudflare Worker (`rateshift-api-gateway` at `api.rateshift.app/*`)
 - **Email**: Resend (primary, domain verified) + Gmail SMTP (fallback)
 

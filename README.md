@@ -114,7 +114,7 @@ electricity-optimizer/
     services/                Business logic (stripe, alerts, agent, ml, notifications, ...)
     repositories/            Data access layer
     integrations/            External APIs (weather, market research, utility sync, ...)
-    migrations/              Alembic database migrations (33 total)
+    migrations/              Alembic database migrations (34 total)
     tests/                   Unit and integration tests (1,917 total)
   frontend/                  Next.js 16 application
     app/                     App Router structure

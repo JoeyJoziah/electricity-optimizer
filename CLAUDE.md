@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-11 (MASTER_TODO_REGISTRY 96% complete. Backend 1,917 tests, Frontend 1,475 tests. 34 migrations (33 deployed, 034 pending). 42 tables (33 public + 9 neon_auth). CF Worker API Gateway deployed. Full redeployment audit completed.)
+> Last validated: 2026-03-11 (MASTER_TODO_REGISTRY 96% complete. Utility Integration track complete (5 phases, 215+ tests). Backend 2,032 tests, Frontend 1,501 tests. 34 migrations (34 deployed). 42 tables (33 public + 9 neon_auth). CF Worker API Gateway deployed. Full redeployment audit completed.)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 33 public + 9 neon_auth = 42 tables (34 migrations: init_neon through 034_portal_credentials, 33 deployed to production — 034 pending), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
+- **NeonDBAgent**: 33 public + 9 neon_auth = 42 tables (34 migrations: init_neon through 034_portal_credentials, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
@@ -101,7 +101,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
-- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 33 public + 9 neon_auth = 42 tables total (34 migrations: init_neon through 034_portal_credentials — 33 deployed to production, 034 pending)
+- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 33 public + 9 neon_auth = 42 tables total (34 migrations: init_neon through 034_portal_credentials — all deployed to production)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
 - **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV), KV rate limiting (120/30/600 per min), bot detection, internal auth, CORS, security headers. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE + RATE_LIMIT. SSL: Full (Strict). Deploy: `deploy-worker.yml`. Source: `workers/api-gateway/` (16 files, 37 tests)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
@@ -119,7 +119,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ## Critical Reminders
 
-1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 42 base tables (33 public + 9 neon_auth), 34 migrations (latest: 034_portal_credentials, 33 deployed to production — 034 pending). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
+1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 42 base tables (33 public + 9 neon_auth), 34 migrations (latest: 034_portal_credentials, all deployed to production). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
 4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "RateShift"
@@ -128,7 +128,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
 8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
 9. **Internal endpoints**: All `/api/v1/internal/*` routes require `X-API-Key` header and are excluded from RequestTimeoutMiddleware (30s). GHA workflows use `INTERNAL_API_KEY` repo secret
-10. **Self-healing CI/CD**: 24 GHA workflows total (23 main + `deploy-worker.yml` for CF Worker). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
+10. **Self-healing CI/CD**: 26 GHA workflows total (25 main + `deploy-worker.yml` for CF Worker). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
 
 ## Cron Jobs & Maintenance
 
@@ -141,6 +141,14 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
   - `sync-connections.yml`: Every 2 hours — `POST /internal/sync-connections` (UtilityAPI auto-sync)
   - `scrape-rates.yml`: Daily 3am UTC — `POST /internal/scrape-rates` (auto-discovers suppliers with empty body)
   - All use `INTERNAL_API_KEY` secret, `/api/v1/internal/` paths excluded from RequestTimeoutMiddleware
+- **Utility Integration Track** (2 GHA cron workflows, 2026-03-11):
+  - `scan-emails.yml`: Daily 4am UTC — `POST /internal/scan-emails` (batch scan all active email_import connections, extract rates from body + attachments)
+  - `scrape-portals.yml`: Weekly Sunday 5am UTC — `POST /internal/scrape-portals` (batch scrape portal_scrape connections with Semaphore(2))
+  - Portal endpoints: `POST /connections/portal` (create with encrypted creds), `POST /connections/portal/{id}/scrape` (trigger manual scrape)
+  - PortalScraperService: httpx-based, 5 utilities (Duke Energy, PG&E, Con Edison, ComEd, FPL), AES-256-GCM encrypted credentials
+  - Email extraction: `extract_rates_from_email()` + `download_gmail_attachments()`/`download_outlook_attachments()` + `extract_rates_from_attachments()` wired into scan endpoint
+  - Diffbot rate extraction: `_extract_rate_from_diffbot_data()` wired into scrape-rates, embeds `_detected_rate_kwh` in JSONB
+  - Frontend: PortalConnectionFlow.tsx (multi-step form), portal.ts API client, ConnectionMethodPicker 4th option
 - **Phase 3 COMPLETE** (2 GHA cron workflows + migration 024):
   - `dunning-cycle.yml`: Daily 7am UTC — `POST /internal/dunning-cycle` (overdue payment escalation, 7-day grace period)
   - `kpi-report.yml`: Daily 6am UTC — `POST /internal/kpi-report` (business metrics aggregation)
@@ -148,7 +156,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
   - DunningService wired into `apply_webhook_action()` for real-time `invoice.payment_failed` handling
   - Email templates: `dunning_soft.html` (amber) + `dunning_final.html` (red, grace period warning)
 - **Self-Healing CI/CD** (implemented 2026-03-06):
-  - `self-healing-monitor.yml`: Daily 9am UTC — checks 13 workflows for repeated failures, auto-creates/closes GitHub issues
+  - `self-healing-monitor.yml`: Daily 9am UTC — checks 16 workflows for repeated failures, auto-creates/closes GitHub issues
   - `retry-curl` composite action: Exponential backoff with jitter, 4xx fail-fast, 3 retries
   - `notify-slack` composite action: Color-coded severity alerts to `#incidents` (C0AKV2TK257)
   - `validate-migrations` composite action: Sequential numbering, IF NOT EXISTS, neondb_owner, no SERIAL
