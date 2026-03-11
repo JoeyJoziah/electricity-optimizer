@@ -568,6 +568,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import utility_accounts as utility_accounts_v1
     from api.v1 import referrals as referrals_v1
     from api.v1 import gas_rates as gas_rates_v1
+    from api.v1 import community_solar as community_solar_v1
 
     app.include_router(
         predictions.router,
@@ -703,6 +704,11 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         gas_rates_v1.router,
         prefix=f"{settings.api_prefix}/rates/natural-gas",
         tags=["Gas Rates"],
+    )
+    app.include_router(
+        community_solar_v1.router,
+        prefix=f"{settings.api_prefix}/community-solar",
+        tags=["Community Solar"],
     )
 
     return app, app_rate_limiter

@@ -26,7 +26,7 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
   - Rate limiting, caching, circuit breaker all wired in
   - $/Mcf → $/therm conversion built in (÷ 10.37)
 
-- [ ] Task 1.2: Create gas rate service (pipeline)
+- [x] Task 1.2: Create gas rate service (pipeline)
   - `backend/services/gas_rate_service.py`
   - Fetch from EIA client → normalize → store in `electricity_prices` (utility_type=NATURAL_GAS)
   - **CORRECTED**: No `utility_rates` table — `electricity_prices` already multi-utility (migration 006)
@@ -34,7 +34,7 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
   - Wire into cron: new `fetch-gas-rates.yml` GHA workflow
   - Fetch for all `DEREGULATED_GAS_STATES` (16 states)
 
-- [ ] Task 1.3: Seed gas suppliers in registry
+- [x] Task 1.3: Seed gas suppliers in registry
   - Add gas supplier entries to `supplier_registry` (already supports `utility_types[]`)
   - Migration 040: seed gas suppliers for deregulated states
   - Gas plan comparison logic: fixed vs variable, contract length
@@ -44,20 +44,20 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
   - 16 states seeded (CT, TX, OH, PA, IL, NY, NJ, MA, MD, RI, NH, ME, DE, GA, IN, KY)
   - `DEREGULATED_GAS_STATES` set in `models/region.py`
 
-- [ ] Task 1.5: Create gas API endpoints
+- [x] Task 1.5: Create gas API endpoints
   - `GET /api/v1/rates/natural-gas` — gas rates for user's region
   - `GET /api/v1/rates/natural-gas/compare` — gas supplier comparison
   - `GET /api/v1/rates/natural-gas/history` — price history chart data
   - Wire into existing rate router or create new `gas_router.py`
 
-- [ ] Task 1.6: Create gas frontend components
+- [x] Task 1.6: Create gas frontend components
   - `GasRateCard` — current rate display with unit ($/therm)
   - `GasSupplierComparison` — table comparing plans
   - `GasPriceHistory` — chart component (reuse existing chart pattern)
   - Gas tab in rates dashboard
   - Switch CTA for deregulated states, "Monitor" for regulated
 
-- [ ] Task 1.7: Write gas integration tests
+- [x] Task 1.7: Write gas integration tests
   - EIA client: mock API responses, error handling, rate limiting
   - Pipeline: data normalization, unit conversion, storage
   - Supplier scraper: mock responses, plan parsing
@@ -65,10 +65,10 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
   - Frontend: component rendering, data display
 
 ### Verification
-- [ ] EIA gas data flowing and stored in electricity_prices (utility_type=NATURAL_GAS)
-- [ ] Gas supplier comparison works for deregulated states
-- [ ] Price history chart renders with real data
-- [ ] All tests pass
+- [x] EIA gas data flowing and stored in electricity_prices (utility_type=NATURAL_GAS)
+- [x] Gas supplier comparison works for deregulated states
+- [x] Price history chart renders with real data
+- [x] All tests pass (15 backend + 19 frontend = 34 gas tests, 1563 total frontend)
 
 ---
 
@@ -76,43 +76,43 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
 
 ### Tasks
 
-- [ ] Task 2.1: Research and integrate community solar data sources
+- [x] Task 2.1: Research and integrate community solar data sources
   - EnergySage community solar API (if available) or scrape program listings
   - State program databases: NY, MA, MN, CO, IL, NJ, MD, ME, NH, OR
   - Model: program name, state, savings %, capacity, enrollment status
 
-- [ ] Task 2.2: Create community solar service
+- [x] Task 2.2: Create community solar service
   - `backend/services/community_solar_service.py`
   - Program discovery by region/zip code
   - Savings calculator: current electricity bill -> estimated savings with community solar
   - Enrollment status tracking
 
-- [ ] Task 2.3: Create community solar data model
+- [x] Task 2.3: Create community solar data model
   - Migration 041: `community_solar_programs` table (040 = gas supplier seed)
   - Fields: id, state, program_name, provider, savings_percent, capacity_kw, spots_available, enrollment_url, updated_at
   - Populate initial data for top 10 states
 
-- [ ] Task 2.4: Create community solar API endpoints
+- [x] Task 2.4: Create community solar API endpoints
   - `GET /api/v1/community-solar/programs` — programs in user's area
   - `GET /api/v1/community-solar/savings` — estimated savings calculator
   - `GET /api/v1/community-solar/program/{id}` — program details
 
-- [ ] Task 2.5: Create community solar frontend
+- [x] Task 2.5: Create community solar frontend
   - `CommunitySolarDiscovery` — browse available programs
   - `SavingsCalculator` — input current bill, see projected savings
   - `ProgramCard` — individual program with enrollment CTA
   - New page: `/community-solar`
 
-- [ ] Task 2.6: Write community solar tests
+- [x] Task 2.6: Write community solar tests
   - Service: savings calculation accuracy, program filtering
   - API: endpoints, validation
   - Frontend: components, calculator interaction
 
 ### Verification
-- [ ] Community solar programs listed for 10 states
-- [ ] Savings calculator produces reasonable estimates
-- [ ] Enrollment CTAs link to provider pages
-- [ ] All tests pass
+- [x] Community solar programs listed for 10 states (15 programs seeded across 12 states)
+- [x] Savings calculator produces reasonable estimates (unit-tested with rounding)
+- [x] Enrollment CTAs link to provider pages
+- [x] All tests pass (17 backend + 23 frontend = 40 solar tests, 1586 total frontend)
 
 ---
 
