@@ -1,0 +1,3 @@
+source: frontend/components/providers/QueryProvider.tsx
+kind: object
+purpose: React Query QueryClientProvider wrapper

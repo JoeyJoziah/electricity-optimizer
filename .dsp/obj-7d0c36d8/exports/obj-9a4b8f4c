@@ -1,1 +1,1 @@
-Exponential backoff for API calls
+Scrape rates uses retry-curl

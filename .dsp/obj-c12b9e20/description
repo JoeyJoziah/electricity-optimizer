@@ -1,0 +1,3 @@
+source: frontend/components/connections/analytics/types.ts
+kind: object
+purpose: Connection analytics TypeScript types

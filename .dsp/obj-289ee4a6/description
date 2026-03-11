@@ -1,0 +1,3 @@
+source: backend/scripts/backfill_users.py
+kind: object
+purpose: Script to backfill neon_auth users into public.users table

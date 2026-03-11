@@ -1,1 +1,1 @@
-imports password module
+Auth package exports password utils

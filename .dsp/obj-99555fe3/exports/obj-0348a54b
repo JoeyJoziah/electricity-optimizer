@@ -1,1 +1,1 @@
-DB session injection for portal scan endpoint
+Uses DB session dependency

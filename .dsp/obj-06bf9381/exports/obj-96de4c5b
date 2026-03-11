@@ -1,1 +1,1 @@
-Mounts email_scan router as internal sub-router
+Internal router includes email_scan

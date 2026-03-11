@@ -1,0 +1,3 @@
+source: frontend/lib/api/circuit-breaker.ts
+kind: object
+purpose: Frontend circuit breaker — CLOSED/OPEN/HALF_OPEN, auto-fallback to Render on 502/503

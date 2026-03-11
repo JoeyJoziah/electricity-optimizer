@@ -1,1 +1,1 @@
-Mounts portal_scan router as internal sub-router
+Internal router includes portal_scan

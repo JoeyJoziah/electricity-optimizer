@@ -1,0 +1,3 @@
+source: frontend/playwright.config.ts
+kind: object
+purpose: Playwright E2E test configuration

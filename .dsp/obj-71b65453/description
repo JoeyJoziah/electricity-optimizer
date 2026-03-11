@@ -1,0 +1,3 @@
+source: frontend/components/dev/DiagramList.tsx
+kind: object
+purpose: Diagram listing component

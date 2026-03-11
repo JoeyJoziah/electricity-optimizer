@@ -1,1 +1,1 @@
-Exponential backoff for API calls
+Fetch weather uses retry-curl

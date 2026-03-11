@@ -1,1 +1,1 @@
-CircuitBreaker wraps UtilityAPI HTTP calls for resilience
+UtilityAPIClient uses generic circuit breaker

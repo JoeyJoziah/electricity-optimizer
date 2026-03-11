@@ -1,1 +1,1 @@
-Reuses extract_rate_per_kwh regex patterns for HTML rate extraction
+Reuses extract_rate_per_kwh from bill parser

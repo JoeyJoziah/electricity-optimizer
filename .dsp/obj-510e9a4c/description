@@ -1,0 +1,3 @@
+source: frontend/components/prices/PricesContent.tsx
+kind: object
+purpose: Prices page content with real-time price display and charts

@@ -1,0 +1,3 @@
+source: frontend/components/connections/BillUploadFilePreview.tsx
+kind: object
+purpose: Bill upload file preview display

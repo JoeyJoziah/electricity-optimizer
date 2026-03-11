@@ -1,0 +1,3 @@
+source: frontend/components/gamification/SavingsTracker.tsx
+kind: object
+purpose: Gamification savings tracker UI component

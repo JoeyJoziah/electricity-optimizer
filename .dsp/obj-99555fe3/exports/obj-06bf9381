@@ -1,1 +1,1 @@
-DB session injection for email scan endpoint
+Uses DB session dependency

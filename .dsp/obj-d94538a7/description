@@ -1,0 +1,3 @@
+source: frontend/components/charts/ScheduleTimeline.tsx
+kind: object
+purpose: Optimized appliance schedule timeline visualization

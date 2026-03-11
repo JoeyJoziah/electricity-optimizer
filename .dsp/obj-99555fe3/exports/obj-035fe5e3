@@ -1,1 +1,1 @@
-Auth dependency (SessionData) and DB session injection
+Uses DB session dependency

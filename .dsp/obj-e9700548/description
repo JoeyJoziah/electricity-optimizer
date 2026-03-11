@@ -1,3 +1,0 @@
-source: backend/services/alert_renderer.py
-kind: object
-purpose: Renders price alert notifications as HTML email bodies. Extracted from AlertService for separation of concerns.

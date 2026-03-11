@@ -1,0 +1,3 @@
+source: frontend/e2e/helpers/auth.ts
+kind: object
+purpose: E2E test authentication helper functions

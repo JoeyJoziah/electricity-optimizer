@@ -1,0 +1,3 @@
+source: .github/workflows/deploy-worker.yml
+kind: object
+purpose: Cloudflare Worker deployment workflow

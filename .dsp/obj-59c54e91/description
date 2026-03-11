@@ -1,0 +1,3 @@
+source: .github/workflows/scan-emails.yml
+kind: object
+purpose: Email scan cron workflow (daily 4am UTC)
