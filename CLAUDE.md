@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-11 (AI Agent deployed to production. Gemini 3 Flash Preview + Groq fallback + Composio tools. 38 Render env vars. All endpoints operational)
+> Last validated: 2026-03-10 (MASTER_TODO_REGISTRY 96% complete. Backend 1,835 tests, Frontend 1,439 tests. Waves 4-5: notification tracking, A/B testing, scaling plan, public signup, launch materials)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 21 public + 9 neon_auth tables (31 migrations: init_neon through 031_agent_tables, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
+- **NeonDBAgent**: 21 public + 9 neon_auth tables (33 migrations: init_neon through 033_model_predictions_ab_assignments, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
@@ -101,7 +101,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
-- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 21 public + 9 neon_auth tables (31 migrations: init_neon through 031_agent_tables — all deployed to production)
+- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 21 public + 9 neon_auth tables (33 migrations: init_neon through 033_model_predictions_ab_assignments — all deployed to production)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id. **Plan gating**: `require_tier("pro"/"business")` dependency on 7 endpoints (forecast, savings, recommendations=pro; prices/stream=business). Free tier: 1 alert limit
@@ -118,7 +118,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ## Critical Reminders
 
-1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 31 migrations (latest: 031_agent_tables). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
+1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 33 migrations (latest: 033_model_predictions_ab_assignments). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
 4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "Electricity Optimizer"
