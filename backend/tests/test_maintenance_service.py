@@ -3,8 +3,14 @@ Tests for MaintenanceService
 
 Covers all public methods:
 - cleanup_activity_logs: deletion count, retention period, commit, zero-row case
+- cleanup_old_prices: deletion count, retention period, null scalar handling
+- cleanup_old_observations: deletion count, retention period
+- cleanup_weather_cache: deletion count, default 30d, commit, fetched_at column
+- cleanup_scraped_rates: deletion count, default 90d, commit, fetched_at column
+- cleanup_market_intelligence: deletion count, default 180d, commit, fetched_at column
 - cleanup_expired_uploads: FK cascade delete, file removal, zero-row case,
   missing file handling, OSError suppression
+- Endpoint integration: happy path (7 tasks), zero deletions, API key auth
 """
 
 import os
@@ -218,6 +224,156 @@ class TestCleanupOldObservations:
         result = await service.cleanup_old_observations()
 
         assert result["retention_days"] == 90
+
+
+# =============================================================================
+# TestCleanupWeatherCache
+# =============================================================================
+
+
+class TestCleanupWeatherCache:
+    """Tests for MaintenanceService.cleanup_weather_cache"""
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def service(self, db):
+        from services.maintenance_service import MaintenanceService
+        return MaintenanceService(db)
+
+    @pytest.mark.asyncio
+    async def test_returns_deleted_count(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=15))
+        result = await service.cleanup_weather_cache(retention_days=30)
+        assert result["deleted"] == 15
+        assert result["retention_days"] == 30
+
+    @pytest.mark.asyncio
+    async def test_default_retention_is_30(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=0))
+        result = await service.cleanup_weather_cache()
+        assert result["retention_days"] == 30
+
+    @pytest.mark.asyncio
+    async def test_commit_is_called(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=5))
+        await service.cleanup_weather_cache()
+        db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_zero_rows_deleted(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=0))
+        result = await service.cleanup_weather_cache()
+        assert result["deleted"] == 0
+
+    @pytest.mark.asyncio
+    async def test_cutoff_uses_fetched_at(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=0))
+        await service.cleanup_weather_cache()
+        call_args = db.execute.call_args
+        sql_text = str(call_args[0][0])
+        assert "weather_cache" in sql_text
+        assert "fetched_at" in sql_text
+
+
+# =============================================================================
+# TestCleanupScrapedRates
+# =============================================================================
+
+
+class TestCleanupScrapedRates:
+    """Tests for MaintenanceService.cleanup_scraped_rates"""
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def service(self, db):
+        from services.maintenance_service import MaintenanceService
+        return MaintenanceService(db)
+
+    @pytest.mark.asyncio
+    async def test_returns_deleted_count(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=200))
+        result = await service.cleanup_scraped_rates(retention_days=90)
+        assert result["deleted"] == 200
+        assert result["retention_days"] == 90
+
+    @pytest.mark.asyncio
+    async def test_default_retention_is_90(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=0))
+        result = await service.cleanup_scraped_rates()
+        assert result["retention_days"] == 90
+
+    @pytest.mark.asyncio
+    async def test_commit_is_called(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=3))
+        await service.cleanup_scraped_rates()
+        db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cutoff_uses_fetched_at(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=0))
+        await service.cleanup_scraped_rates()
+        call_args = db.execute.call_args
+        sql_text = str(call_args[0][0])
+        assert "scraped_rates" in sql_text
+        assert "fetched_at" in sql_text
+
+
+# =============================================================================
+# TestCleanupMarketIntelligence
+# =============================================================================
+
+
+class TestCleanupMarketIntelligence:
+    """Tests for MaintenanceService.cleanup_market_intelligence"""
+
+    @pytest.fixture
+    def db(self):
+        db = AsyncMock()
+        db.commit = AsyncMock()
+        return db
+
+    @pytest.fixture
+    def service(self, db):
+        from services.maintenance_service import MaintenanceService
+        return MaintenanceService(db)
+
+    @pytest.mark.asyncio
+    async def test_returns_deleted_count(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=50))
+        result = await service.cleanup_market_intelligence(retention_days=180)
+        assert result["deleted"] == 50
+        assert result["retention_days"] == 180
+
+    @pytest.mark.asyncio
+    async def test_default_retention_is_180(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=0))
+        result = await service.cleanup_market_intelligence()
+        assert result["retention_days"] == 180
+
+    @pytest.mark.asyncio
+    async def test_commit_is_called(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=7))
+        await service.cleanup_market_intelligence()
+        db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cutoff_uses_fetched_at(self, service, db):
+        db.execute = AsyncMock(return_value=_make_result(rowcount=0))
+        await service.cleanup_market_intelligence()
+        call_args = db.execute.call_args
+        sql_text = str(call_args[0][0])
+        assert "market_intelligence" in sql_text
+        assert "fetched_at" in sql_text
 
 
 # =============================================================================
@@ -443,6 +599,15 @@ class TestMaintenanceEndpoint:
         mock_svc.cleanup_old_observations = AsyncMock(
             return_value={"deleted": 200, "retention_days": 90}
         )
+        mock_svc.cleanup_weather_cache = AsyncMock(
+            return_value={"deleted": 25, "retention_days": 30}
+        )
+        mock_svc.cleanup_scraped_rates = AsyncMock(
+            return_value={"deleted": 80, "retention_days": 90}
+        )
+        mock_svc.cleanup_market_intelligence = AsyncMock(
+            return_value={"deleted": 40, "retention_days": 180}
+        )
         mock_svc_cls.return_value = mock_svc
 
         from fastapi.testclient import TestClient
@@ -456,6 +621,9 @@ class TestMaintenanceEndpoint:
         assert data["uploads"]["retention_days"] == 730
         assert data["prices"]["deleted"] == 500
         assert data["observations"]["deleted"] == 200
+        assert data["weather_cache"]["deleted"] == 25
+        assert data["scraped_rates"]["deleted"] == 80
+        assert data["market_intelligence"]["deleted"] == 40
 
     @patch("services.maintenance_service.MaintenanceService")
     def test_maintenance_zero_deletions(self, mock_svc_cls, auth_client):
@@ -473,6 +641,15 @@ class TestMaintenanceEndpoint:
         mock_svc.cleanup_old_observations = AsyncMock(
             return_value={"deleted": 0, "retention_days": 90}
         )
+        mock_svc.cleanup_weather_cache = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 30}
+        )
+        mock_svc.cleanup_scraped_rates = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 90}
+        )
+        mock_svc.cleanup_market_intelligence = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 180}
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post("/api/v1/internal/maintenance/cleanup")
@@ -483,6 +660,9 @@ class TestMaintenanceEndpoint:
         assert data["uploads"]["deleted"] == 0
         assert data["prices"]["deleted"] == 0
         assert data["observations"]["deleted"] == 0
+        assert data["weather_cache"]["deleted"] == 0
+        assert data["scraped_rates"]["deleted"] == 0
+        assert data["market_intelligence"]["deleted"] == 0
 
     def test_maintenance_requires_api_key(self, unauth_client):
         """Request without X-API-Key header should be rejected with 401."""

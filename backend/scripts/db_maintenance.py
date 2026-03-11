@@ -53,6 +53,22 @@ async def run_maintenance():
         obs_result = await conn.fetchval("SELECT cleanup_old_observations(90)")
         print(f"cleanup_old_observations(90): deleted {obs_result} rows")
 
+        # Cache table retention (Wave 0 — prevent Neon storage overflow)
+        weather_result = await conn.fetchval(
+            "DELETE FROM weather_cache WHERE fetched_at < now() - interval '30 days'"
+        )
+        print(f"weather_cache retention (30d): deleted {weather_result} rows")
+
+        scraped_result = await conn.fetchval(
+            "DELETE FROM scraped_rates WHERE fetched_at < now() - interval '90 days'"
+        )
+        print(f"scraped_rates retention (90d): deleted {scraped_result} rows")
+
+        market_result = await conn.fetchval(
+            "DELETE FROM market_intelligence WHERE fetched_at < now() - interval '180 days'"
+        )
+        print(f"market_intelligence retention (180d): deleted {market_result} rows")
+
         print("Database maintenance completed successfully.")
     finally:
         await conn.close()

@@ -74,6 +74,7 @@ class PricingService:
         eia_key: Optional[str] = None,
         cache: Optional[PricingCache] = None,
         timeout: float = 30.0,
+        nrel_base_url: Optional[str] = None,
     ):
         """
         Initialize the pricing service.
@@ -104,6 +105,7 @@ class PricingService:
                 api_key=nrel_key,
                 cache=cache,
                 timeout=timeout,
+                base_url=nrel_base_url,
             )
 
         if iea_key:
@@ -476,4 +478,5 @@ def create_pricing_service_from_settings() -> PricingService:
         nrel_key=settings.nrel_api_key,
         iea_key=settings.iea_api_key,
         eia_key=settings.eia_api_key,
+        nrel_base_url=settings.nrel_api_base_url,
     )

@@ -16,6 +16,7 @@ from repositories.price_repository import PriceRepository
 from repositories.user_repository import UserRepository
 from repositories.supplier_repository import SupplierRepository
 from repositories.forecast_observation_repository import ForecastObservationRepository
+from repositories.utility_account_repository import UtilityAccountRepository
 
 __all__ = [
     # Base classes and exceptions
@@ -29,4 +30,5 @@ __all__ = [
     "UserRepository",
     "SupplierRepository",
     "ForecastObservationRepository",
+    "UtilityAccountRepository",
 ]

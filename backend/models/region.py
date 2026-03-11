@@ -116,6 +116,14 @@ class Region(str, Enum):
 PriceRegion = Region
 PricingRegion = Region
 
+# Short-form state-code convenience attributes on PriceRegion
+# (used by tracing tests and any callers that reference PriceRegion.NY etc.)
+PriceRegion.NY = Region.US_NY  # type: ignore[attr-defined]
+PriceRegion.CA = Region.US_CA  # type: ignore[attr-defined]
+PriceRegion.TX = Region.US_TX  # type: ignore[attr-defined]
+PriceRegion.CT = Region.US_CT  # type: ignore[attr-defined]
+PriceRegion.MA = Region.US_MA  # type: ignore[attr-defined]
+
 
 # States with deregulated electricity
 DEREGULATED_ELECTRICITY_STATES: set[str] = {

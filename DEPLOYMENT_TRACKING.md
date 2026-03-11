@@ -17,7 +17,7 @@
 - [x] Neon PostgreSQL account (free tier) - https://neon.tech
 - [x] Render account (paid) - https://render.com
 - [x] Flatpeak API key (UK prices) - https://flatpeak.com
-- [x] NREL API key (US prices) - https://developer.nrel.gov
+- [x] NREL API key (US prices) - https://developer.nlr.gov
 - [x] IEA API key (optional) - https://iea.org
 - [x] Stripe account (payments) - https://stripe.com
 - [x] Resend account (email) - https://resend.com

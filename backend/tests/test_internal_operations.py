@@ -216,6 +216,9 @@ class TestMaintenanceCleanup:
         mock_svc.cleanup_expired_uploads = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_weather_cache = AsyncMock(return_value={"deleted": 0, "retention_days": 30})
+        mock_svc.cleanup_scraped_rates = AsyncMock(return_value={"deleted": 0, "retention_days": 90})
+        mock_svc.cleanup_market_intelligence = AsyncMock(return_value={"deleted": 0, "retention_days": 180})
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")
@@ -233,6 +236,9 @@ class TestMaintenanceCleanup:
         mock_svc.cleanup_expired_uploads = AsyncMock(side_effect=RuntimeError("DB timeout"))
         mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_weather_cache = AsyncMock(return_value={"deleted": 0, "retention_days": 30})
+        mock_svc.cleanup_scraped_rates = AsyncMock(return_value={"deleted": 0, "retention_days": 90})
+        mock_svc.cleanup_market_intelligence = AsyncMock(return_value={"deleted": 0, "retention_days": 180})
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")

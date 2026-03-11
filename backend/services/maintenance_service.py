@@ -4,6 +4,9 @@ Maintenance Service
 Provides data retention and cleanup operations for housekeeping tasks:
 - Activity log retention (default: 365 days)
 - Bill upload record and file cleanup (default: 730 days)
+- Weather cache retention (default: 30 days)
+- Scraped rates retention (default: 90 days)
+- Market intelligence retention (default: 180 days)
 
 These are designed to be triggered via the internal API (API-key protected)
 on a scheduled basis (e.g., nightly or weekly cron).
@@ -100,4 +103,40 @@ class MaintenanceService:
 
         count = len(old_uploads)
         logger.info("uploads_cleaned", deleted=count, retention_days=retention_days)
+        return {"deleted": count, "retention_days": retention_days}
+
+    async def cleanup_weather_cache(self, retention_days: int = 30):
+        """Delete weather cache entries older than retention period."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        result = await self._db.execute(
+            text("DELETE FROM weather_cache WHERE fetched_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        await self._db.commit()
+        count = result.rowcount
+        logger.info("weather_cache_cleaned", deleted=count, retention_days=retention_days)
+        return {"deleted": count, "retention_days": retention_days}
+
+    async def cleanup_scraped_rates(self, retention_days: int = 90):
+        """Delete scraped rate entries older than retention period."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        result = await self._db.execute(
+            text("DELETE FROM scraped_rates WHERE fetched_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        await self._db.commit()
+        count = result.rowcount
+        logger.info("scraped_rates_cleaned", deleted=count, retention_days=retention_days)
+        return {"deleted": count, "retention_days": retention_days}
+
+    async def cleanup_market_intelligence(self, retention_days: int = 180):
+        """Delete market intelligence entries older than retention period."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        result = await self._db.execute(
+            text("DELETE FROM market_intelligence WHERE fetched_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        await self._db.commit()
+        count = result.rowcount
+        logger.info("market_intelligence_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}

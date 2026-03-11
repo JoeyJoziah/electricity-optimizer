@@ -84,8 +84,9 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
 
     Deletes activity logs older than 365 days, bill upload records
     (plus associated extracted rates and files) older than 730 days,
-    electricity prices older than 365 days, and forecast observations
-    older than 90 days.
+    electricity prices older than 365 days, forecast observations
+    older than 90 days, weather cache older than 30 days, scraped
+    rates older than 90 days, and market intelligence older than 180 days.
 
     Requires a valid X-API-Key header (enforced by the router-level dependency).
     """
@@ -100,6 +101,9 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
         ("uploads", svc.cleanup_expired_uploads),
         ("prices", svc.cleanup_old_prices),
         ("observations", svc.cleanup_old_observations),
+        ("weather_cache", svc.cleanup_weather_cache),
+        ("scraped_rates", svc.cleanup_scraped_rates),
+        ("market_intelligence", svc.cleanup_market_intelligence),
     ]:
         try:
             results[task_name] = await task_fn()
