@@ -5,7 +5,7 @@
 | [x] | full-stack-bugs_20260310 | Full-Stack Bug Remediation | 2026-03-10 | 2026-03-10 |
 | [ ] | codebase-zenith_20260311 | Project Zenith — Codebase Excellence Audit & Optimization | 2026-03-11 | 2026-03-11 |
 | [~] | cf-worker-resilience_20260311 | CF Worker API Gateway Resilience & Rate Limit Overhaul | 2026-03-11 | 2026-03-11 |
-| [~] | otel-distributed-tracing_20260311 | OpenTelemetry Distributed Tracing | 2026-03-11 | 2026-03-11 |
+| [x] | otel-distributed-tracing_20260311 | OpenTelemetry Distributed Tracing | 2026-03-11 | 2026-03-11 |
 | [x] | mu-wave0-prereqs_20260311 | Multi-Utility Wave 0 — Pre-requisites (NREL + Cache Retention) | 2026-03-11 | 2026-03-11 |
 | [x] | mu-wave1-foundation_20260311 | Multi-Utility Wave 1 — Schema Foundation + Growth Basics | 2026-03-11 | 2026-03-11 |
 | [ ] | mu-wave2-first-expansion_20260311 | Multi-Utility Wave 2 — Natural Gas + Community Solar | 2026-03-11 | 2026-03-11 |

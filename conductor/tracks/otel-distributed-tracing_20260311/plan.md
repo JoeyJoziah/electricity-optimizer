@@ -3,7 +3,7 @@
 **Track ID:** otel-distributed-tracing_20260311
 **Spec:** spec.md
 **Created:** 2026-03-11
-**Status:** [ ] Not Started
+**Status:** [x] Complete
 **Estimated Effort:** 8h
 
 ## Overview
@@ -69,7 +69,7 @@ Provision Grafana Cloud, configure OTLP export, and deploy to production.
 - [x] Task 3.4: Update `render.yaml` blueprint with the 3 new env vars (referencing Render env group or secrets)
 - [x] Task 3.5: Update `.env.example` with OTel env var documentation
 - [x] Task 3.6: **RED/GREEN** — Write integration test `test_otlp_export.py` that verifies `OTLPSpanExporter` is configured when endpoint is set (mock the HTTP transport, assert export payload structure)
-- [ ] Task 3.7: Deploy to Render and verify traces appear in Grafana Cloud Tempo
+- [x] Task 3.7: Deploy to Render and verify traces appear in Grafana Cloud Tempo
 
 ### Verification
 
@@ -93,9 +93,9 @@ Create a production Grafana dashboard and run end-to-end trace validation.
   - Trace count over time
   - Top 10 slowest traces (drill-down to spans)
 - [x] Task 4.2: Export dashboard JSON to `monitoring/grafana/dashboards/traces.json` for version control
-- [ ] Task 4.3: End-to-end smoke test — trigger real API requests (health, prices, forecast) and verify complete trace in Grafana Cloud (root span -> child spans -> DB/HTTP sub-spans)
+- [x] Task 4.3: End-to-end smoke test — trigger real API requests (health, prices, forecast) and verify complete trace in Grafana Cloud (root span -> child spans -> DB/HTTP sub-spans)
 - [x] Task 4.4: Document OTel setup in `docs/OBSERVABILITY.md` — architecture, span naming, how to add new spans, Grafana Cloud access, dashboard links
-- [ ] Task 4.5: Update `conductor/tracks/otel-distributed-tracing_20260311/metadata.json` — mark all phases complete
+- [x] Task 4.5: Update `conductor/tracks/otel-distributed-tracing_20260311/metadata.json` — mark all phases complete
 
 ### Verification
 

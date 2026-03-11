@@ -2,22 +2,24 @@
   "id": "otel-distributed-tracing_20260311",
   "title": "OpenTelemetry Distributed Tracing",
   "type": "feature",
-  "status": "in_progress",
+  "status": "complete",
   "registry": "TASK-QUALITY-003",
   "effort": "8h",
   "created": "2026-03-11T18:41:00Z",
-  "updated": "2026-03-12T03:00:00Z",
+  "updated": "2026-03-11T20:43:00Z",
   "current_phase": 4,
-  "current_task": "4.3",
+  "current_task": "4.5",
   "phases": {
     "total": 4,
-    "completed": 2
+    "completed": 4
   },
   "tasks": {
     "total": 22,
-    "completed": 20
+    "completed": 22
   },
-  "commits": [],
+  "commits": [
+    "8ccd3cf: feat: OpenTelemetry distributed tracing — traced() helper, 10 service instrumentations, Grafana Cloud integration"
+  ],
   "skills": ["stream-chain", "turbo-context", "tdd-workflow"],
   "suggestedAgents": ["sre-engineer", "backend-developer"]
 }
