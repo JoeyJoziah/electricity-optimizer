@@ -26,6 +26,7 @@ from api.dependencies import get_db_session, SessionData
 from models.connections import (
     CreateEmailConnectionRequest,
     EmailConnectionInitResponse,
+    EmailScanResponse,
 )
 from api.v1.connections.common import require_paid_tier
 
@@ -205,16 +206,34 @@ async def email_oauth_callback(
 
 @router.post(
     "/email/{connection_id}/scan",
+    response_model=EmailScanResponse,
     summary="Trigger email inbox scan",
 )
 async def trigger_email_scan(
     connection_id: str,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
-):
-    """Trigger a scan of the connected email inbox for utility bills."""
+) -> EmailScanResponse:
+    """Trigger a scan of the connected email inbox for utility bills.
+
+    For each detected utility bill the endpoint:
+    1. Extracts rate data from the email body text.
+    2. Downloads PDF/image attachments (up to 5 per email) and parses them
+       through bill_parser extractors.
+    3. Persists all extracted rates into ``connection_extracted_rates``.
+
+    The response includes extraction summary counts so callers can surface
+    meaningful feedback without inspecting individual bill records.
+    """
     from utils.encryption import decrypt_field as _decrypt_field
-    from services.email_scanner_service import scan_gmail_inbox, scan_outlook_inbox
+    from services.email_scanner_service import (
+        scan_gmail_inbox,
+        scan_outlook_inbox,
+        extract_rates_from_email,
+        download_gmail_attachments,
+        download_outlook_attachments,
+        extract_rates_from_attachments,
+    )
     import httpx as _httpx
 
     result = await db.execute(
@@ -275,8 +294,9 @@ async def trigger_email_scan(
             raise HTTPException(status_code=401, detail="Token expired and no refresh token available")
 
     # Scan inbox
+    provider = row["email_provider"]
     try:
-        if row["email_provider"] == "gmail":
+        if provider == "gmail":
             scan_results = await scan_gmail_inbox(access_token)
         else:
             scan_results = await scan_outlook_inbox(access_token)
@@ -286,10 +306,100 @@ async def trigger_email_scan(
     # Filter to utility bills only
     utility_bills = [r for r in scan_results if r.is_utility_bill]
 
-    return {
-        "connection_id": connection_id,
-        "provider": row["email_provider"],
-        "total_emails_scanned": len(scan_results),
-        "utility_bills_found": len(utility_bills),
-        "bills": [b.to_dict() for b in utility_bills[:20]],
-    }
+    # -----------------------------------------------------------------------
+    # Rate extraction and persistence
+    # -----------------------------------------------------------------------
+
+    rates_extracted_count = 0
+    attachments_parsed_count = 0
+
+    for bill in utility_bills:
+        # 1. Extract rates from email body text
+        try:
+            body_rates = await extract_rates_from_email(provider, access_token, bill.email_id)
+            if body_rates.get("rate_per_kwh") is not None:
+                rate_id = str(uuid4())
+                await db.execute(
+                    text("""
+                        INSERT INTO connection_extracted_rates
+                            (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
+                        VALUES
+                            (:id, :cid, :rate, NOW(), 'email_scan', :label)
+                    """),
+                    {
+                        "id": rate_id,
+                        "cid": connection_id,
+                        "rate": body_rates["rate_per_kwh"],
+                        "label": f"email_body:{bill.email_id}",
+                    },
+                )
+                await db.commit()
+                rates_extracted_count += 1
+        except Exception as _exc:
+            logger.warning(
+                "email_scan_body_extraction_failed",
+                connection_id=connection_id,
+                email_id=bill.email_id,
+                error=str(_exc),
+            )
+
+        # 2. Download and parse attachments (only if email has any)
+        if bill.attachment_count > 0:
+            try:
+                if provider == "gmail":
+                    attachments = await download_gmail_attachments(access_token, bill.email_id)
+                else:
+                    attachments = await download_outlook_attachments(access_token, bill.email_id)
+
+                if attachments:
+                    att_results = await extract_rates_from_attachments(attachments)
+                    attachments_parsed_count += len(att_results)
+
+                    for att_result in att_results:
+                        rate_val = att_result.get("rate_per_kwh")
+                        if rate_val is not None:
+                            rate_id = str(uuid4())
+                            raw_label = f"email_attachment:{bill.email_id}:{att_result.get('filename', 'unknown')}"
+                            await db.execute(
+                                text("""
+                                    INSERT INTO connection_extracted_rates
+                                        (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
+                                    VALUES
+                                        (:id, :cid, :rate, NOW(), 'email_attachment', :label)
+                                """),
+                                {
+                                    "id": rate_id,
+                                    "cid": connection_id,
+                                    "rate": rate_val,
+                                    "label": raw_label,
+                                },
+                            )
+                            await db.commit()
+                            rates_extracted_count += 1
+            except Exception as _exc:
+                logger.warning(
+                    "email_scan_attachment_extraction_failed",
+                    connection_id=connection_id,
+                    email_id=bill.email_id,
+                    error=str(_exc),
+                )
+
+    logger.info(
+        "email_scan_complete",
+        connection_id=connection_id,
+        provider=provider,
+        total_scanned=len(scan_results),
+        utility_bills=len(utility_bills),
+        rates_extracted=rates_extracted_count,
+        attachments_parsed=attachments_parsed_count,
+    )
+
+    return EmailScanResponse(
+        connection_id=connection_id,
+        provider=provider,
+        total_emails_scanned=len(scan_results),
+        utility_bills_found=len(utility_bills),
+        rates_extracted=rates_extracted_count,
+        attachments_parsed=attachments_parsed_count,
+        bills=[b.to_dict() for b in utility_bills[:20]],
+    )

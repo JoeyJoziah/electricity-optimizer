@@ -1,6 +1,6 @@
-# Deployment Guide - Electricity Optimizer
+# Deployment Guide - RateShift
 
-This guide covers how to deploy the Electricity Optimizer platform in different environments.
+This guide covers how to deploy the RateShift platform in different environments.
 
 ## Table of Contents
 
@@ -52,7 +52,7 @@ SMTP_HOST=                 # SMTP server hostname (fallback)
 SMTP_PORT=587              # SMTP port (fallback)
 SMTP_USERNAME=             # SMTP username (fallback)
 SMTP_PASSWORD=             # SMTP password (fallback)
-EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
+EMAIL_FROM_ADDRESS=RateShift <noreply@rateshift.app>
 
 # Email Service — Frontend (Resend for auth emails)
 RESEND_API_KEY=            # Resend API key for email verification, magic links, password reset
@@ -410,7 +410,7 @@ render logs --service srv-d649uhur433s73d557cg
 ### Secrets Management
 
 - Never commit secrets to version control
-- All production secrets stored in 1Password vault "Electricity Optimizer" (28 items, 27 SecretsManager mappings)
+- All production secrets stored in 1Password vault "Electricity Optimizer" (19 items, 27 SecretsManager mappings)
 - `SecretsManager` in `backend/config/secrets.py` has 27 mappings covering all environment variables
 - Rotate keys every 90 days
 - INTERNAL_API_KEY required for service-to-service auth (price-sync workflow)
@@ -472,11 +472,54 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 | Service | URL | Platform |
 |---------|-----|----------|
-| Backend API | https://api.rateshift.app | Render (srv-d649uhur433s73d557cg) |
+| Backend API | https://api.rateshift.app | Cloudflare Worker (routing) → Render (srv-d649uhur433s73d557cg) |
 | Frontend | https://rateshift.app | Vercel |
 | Database | Neon PostgreSQL (cold-rice-23455092) | Neon |
+| Edge Layer | api.rateshift.app | Cloudflare Worker `rateshift-api-gateway` |
 
-Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-deploys on push to `main` via Vercel.
+Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-deploys on push to `main` via Vercel. Cloudflare Worker deploys via GHA workflow `deploy-worker.yml` (immediate).
+
+### Cloudflare Worker Deployment (Edge Layer)
+
+The `rateshift-api-gateway` Worker at `api.rateshift.app` provides the edge layer between clients and the Render backend. It handles:
+- **2-tier caching**: Cache API (longer-lived) + KV store (rate limit state)
+- **KV rate limiting**: 3 tiers (standard 120/min, strict 30/min, internal 600/min)
+- **Bot detection**: Heuristic scoring to filter suspicious traffic
+- **Internal authentication**: Constant-time X-API-Key comparison
+- **CORS & security headers**: Origin allowlist, HSTS, X-Content-Type-Options, X-Frame-Options
+- **Structured JSON logging**: All requests logged for debugging
+
+**Deployment:**
+
+Via GitHub Actions:
+```bash
+# Deploy triggered by .github/workflows/deploy-worker.yml
+# Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID, CF_ZONE_ID
+# Automatic smoke tests run after deploy
+```
+
+Via Wrangler CLI (manual):
+```bash
+# From repo root
+cd workers/api-gateway
+wrangler deploy
+```
+
+**KV Namespaces (created via CF REST API):**
+- `CACHE` (6946d19ce8264f6fae4481d6ad8afcd1): Response caching
+- `RATE_LIMIT` (c9be3741ee784956a0d99b3fa0c1d6c4): Rate limit state
+
+**Configuration:**
+- CF Account: `b41be0d03c76c0b2cc91efccdb7a10df` (Mcginvs@gmail.com)
+- DNS: Orange cloud (proxied) on Cloudflare Registrar for rateshift.app
+- SSL: Full (Strict) mode
+- Source: `workers/api-gateway/` (16 files, 37 vitest tests, 0 TS errors)
+- Bundle size: 20.35 KiB / gzip 5.31 KiB
+
+**Free tier limits:**
+- ~5-10K requests/day of 100K limit
+- KV: 1GB storage, 1M writes/day
+- All traffic routed through Worker regardless of tier
 
 ### Authentication in Production
 
@@ -487,7 +530,7 @@ Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-de
 
 ### Render Environment Variables (Backend)
 
-The backend service has **34 env vars** on Render, all mapped to 1Password via `SecretsManager` in `backend/config/secrets.py`. Key categories:
+The backend service has **38 env vars** on Render, all mapped to 1Password via `SecretsManager` in `backend/config/secrets.py`. Key categories:
 
 - **Database**: `DATABASE_URL` (Neon pooler endpoint `ep-withered-morning`)
 - **Auth**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
@@ -497,10 +540,11 @@ The backend service has **34 env vars** on Render, all mapped to 1Password via `
 - **Security**: `INTERNAL_API_KEY`, `FIELD_ENCRYPTION_KEY`, `GITHUB_WEBHOOK_SECRET`
 - **OAuth**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
 - **Services**: `REDIS_URL`, `UTILITYAPI_TOKEN`, `OPENWEATHERMAP_API_KEY`
-- **Monitoring & Integration**: `UPTIMEROBOT_API_KEY`, `DIFFBOT_API_TOKEN`, `TAVILY_API_KEY`, `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`, `GOOGLE_MAPS_API_KEY`
+- **AI Agent**: `GEMINI_API_KEY`, `GROQ_API_KEY`, `COMPOSIO_API_KEY`, `ENABLE_AI_AGENT`
+- **Monitoring & Integration**: `UPTIMEROBOT_API_KEY`, `DIFFBOT_API_TOKEN`, `TAVILY_API_KEY`, `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`, `GOOGLE_MAPS_API_KEY`, `SENTRY_DSN`
 - **Config**: `ENVIRONMENT`, `ALLOWED_REDIRECT_DOMAINS`
 
-**Render API Pagination Gotcha**: When managing environment variables via the Render REST API (`GET /v1/services/{id}/env-vars`), the default pagination limit is 20. Always append `?limit=100` to retrieve all 34 env vars. Without this, you may see only the first 20 vars and incorrectly think some have been deleted.
+**Render API Pagination Gotcha**: When managing environment variables via the Render REST API (`GET /v1/services/{id}/env-vars`), the default pagination limit is 20. Always append `?limit=100` to retrieve all 38 env vars. Without this, you may see only the first 20 vars and incorrectly think some have been deleted.
 
 ### Vercel Environment Variables (Frontend)
 
@@ -515,8 +559,8 @@ The frontend service has **11 env vars** on Vercel:
 | `BETTER_AUTH_SECRET` | Server only | Auth signing key |
 | `BETTER_AUTH_URL` | Server only | Better Auth base URL |
 | `DATABASE_URL` | Server only | Neon DB connection string |
-| `RESEND_API_KEY` | Server only | Resend API key for email verification, magic links |
-| `EMAIL_FROM_ADDRESS` | Server only | Email sender address (`onboarding@resend.dev`) — temporary Resend sandbox sender until a custom domain is purchased and verified |
+| `RESEND_API_KEY` | Server only | Resend API key for email verification, magic links, password reset |
+| `EMAIL_FROM_ADDRESS` | Server only | Email sender address (`RateShift <noreply@rateshift.app>`) — verified custom domain on Resend (DKIM/SPF/DMARC configured, TLS enforced) |
 | `GOOGLE_CLIENT_ID` | Server only | Google OAuth client ID |
 | `GITHUB_CLIENT_ID` | Server only | GitHub OAuth client ID |
 

@@ -1,11 +1,11 @@
-# AGENTS.md -- Electricity Optimizer
+# AGENTS.md -- RateShift
 
 > Canonical reference for AI coding tools working in this codebase.
 > Cross-tool standard: works with Claude Code, Cursor, Copilot, Cody, Windsurf, and others.
 
 ## Project Overview
 
-Electricity Optimizer is a Connecticut-focused energy price comparison and optimization platform. Users compare electricity (and other utility) prices across suppliers, receive ML-powered switching recommendations, and track savings over time. The platform supports all 50 US states + DC + select international regions, with Connecticut as the primary market.
+RateShift is a nationwide energy price comparison and optimization platform. Users compare electricity prices across suppliers in all 50 US states + DC, receive ML-powered switching recommendations, and track savings over time. The platform features an AI assistant, smart alerts, utility connections, and A/B-tested prediction models.
 
 **Repository**: `electricity-optimizer`
 **Primary market**: Connecticut (Eversource Energy, United Illuminating, NextEra Energy)

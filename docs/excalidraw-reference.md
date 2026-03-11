@@ -6,7 +6,7 @@
 
 ## Overview
 
-The Electricity Optimizer includes a triple-gated Excalidraw-based diagram editor accessible at `/architecture` in development mode only. The system manages `.excalidraw` JSON files in `docs/architecture/` with React Query cache, safe API routes, and keyboard shortcut save.
+The RateShift includes a triple-gated Excalidraw-based diagram editor accessible at `/architecture` in development mode only. The system manages `.excalidraw` JSON files in `docs/architecture/` with React Query cache, safe API routes, and keyboard shortcut save.
 
 **File structure:**
 - Components: `frontend/components/dev/{ExcalidrawWrapper,DiagramEditor,DiagramList}.tsx`

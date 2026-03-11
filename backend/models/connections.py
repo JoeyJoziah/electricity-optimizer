@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 # Enums (expressed as Literal types to stay Pydantic-native)
 # ---------------------------------------------------------------------------
 
-ConnectionType = Literal["direct", "email_import", "manual_upload"]
+ConnectionType = Literal["direct", "email_import", "manual_upload", "portal_scrape"]
 ConnectionStatus = Literal["active", "pending", "error", "disconnected"]
 EmailProvider = Literal["gmail", "outlook"]
 
@@ -227,3 +227,67 @@ class AuthorizationCallbackResponse(BaseModel):
     connection_id: str
     status: str  # 'active' | 'error'
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Email Scan Response (Phase 1 extraction wiring)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Portal Scrape Models
+# ---------------------------------------------------------------------------
+
+
+class CreatePortalConnectionRequest(BaseModel):
+    """Request to create a portal-scrape connection with encrypted credentials."""
+
+    supplier_id: UUID
+    portal_username: str = Field(..., min_length=1, max_length=255)
+    portal_password: str = Field(..., min_length=1, max_length=255)
+    portal_login_url: Optional[str] = Field(default=None, max_length=1000)
+    consent_given: bool
+
+    @field_validator("consent_given")
+    @classmethod
+    def validate_consent(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("Consent is required to store portal credentials")
+        return v
+
+
+class PortalConnectionResponse(BaseModel):
+    """Serialised representation of a portal-scrape connection (password never returned)."""
+
+    connection_id: str
+    supplier_id: str
+    portal_username: str
+    portal_login_url: Optional[str] = None
+    portal_scrape_status: str = "pending"
+    portal_last_scraped_at: Optional[datetime] = None
+
+
+class PortalScrapeResponse(BaseModel):
+    """Result of a manual or scheduled portal scrape."""
+
+    connection_id: str
+    status: str  # 'success', 'failed', 'in_progress'
+    rates_extracted: int = 0
+    error: Optional[str] = None
+    scraped_at: Optional[datetime] = None
+
+
+class EmailScanResponse(BaseModel):
+    """
+    Response returned by POST /connections/email/{connection_id}/scan.
+
+    Includes extraction summary counts alongside the raw bill metadata list.
+    """
+
+    connection_id: str
+    provider: str
+    total_emails_scanned: int
+    utility_bills_found: int
+    rates_extracted: int = 0
+    attachments_parsed: int = 0
+    bills: List[dict] = Field(default_factory=list)

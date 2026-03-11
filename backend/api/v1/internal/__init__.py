@@ -15,6 +15,7 @@ from api.dependencies import verify_api_key
 from .alerts import router as alerts_router
 from .billing import router as billing_router
 from .data_pipeline import router as data_pipeline_router
+from .email_scan import router as email_scan_router
 from .ml import router as ml_router
 from .operations import router as operations_router
 from .sync import router as sync_router
@@ -26,5 +27,6 @@ router.include_router(alerts_router)
 router.include_router(billing_router)
 router.include_router(operations_router)
 router.include_router(sync_router)
+router.include_router(email_scan_router)
 
 __all__ = ["router"]

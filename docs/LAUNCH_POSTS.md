@@ -1,6 +1,6 @@
 # Launch Posts for RateShift
 
-Launch strategy for announcing RateShift (Electricity Optimizer) on Hacker News and Reddit. Each post emphasizes different angles while maintaining authenticity and technical credibility.
+Launch strategy for announcing RateShift (RateShift) on Hacker News and Reddit. Each post emphasizes different angles while maintaining authenticity and technical credibility.
 
 ---
 

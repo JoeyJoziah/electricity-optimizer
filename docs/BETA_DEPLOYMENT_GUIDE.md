@@ -1,121 +1,85 @@
-# 🚀 Beta Deployment Guide
+# RateShift - Deployment & Launch Guide
 
-**Project**: Automated Electricity Supplier Price Optimizer
-**Deployment Type**: Beta (50+ users)
-**Infrastructure Budget**: <$50/month (Render.com + Neon PostgreSQL)
+**Project**: RateShift (Automated Electricity Supplier Price Optimizer)
+**Deployment Type**: Public Launch (Early Access / Freemium)
+**Infrastructure Budget**: <$50/month (Render.com + Neon PostgreSQL + Cloudflare Worker)
 
-> **NOTE (2026-03-04):** Domain `rateshift.app` has not been purchased yet.
-> All references to `rateshift.app` in this guide are aspirational.
-> Currently using `onboarding@resend.dev` as the email sender (Resend sandbox — delivers only to account email).
-> Email-related steps in this guide require a verified custom domain in Resend before they will work.
+> **NOTE (2026-03-11):** This guide covers production deployment. The project has transitioned from "beta" to "public signup" with a freemium model.
+> Domain `rateshift.app` purchased via Cloudflare Registrar. Email verified on Resend with full DKIM/SPF/DMARC.
+> Edge layer: Cloudflare Worker `rateshift-api-gateway` deployed at `api.rateshift.app` with 2-tier caching, KV rate limiting, and bot detection.
+> For deployment mechanics and infrastructure details, see [DEPLOYMENT.md](DEPLOYMENT.md) and [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
 
 ---
 
 ## Overview
 
-This guide covers the complete beta deployment process, from infrastructure setup to user onboarding and monitoring.
+This guide covers the public launch and ongoing operations for RateShift. For detailed deployment and infrastructure architecture, see the companion documents:
+- **DEPLOYMENT.md**: Step-by-step deployment, environment variables, rollback procedures
+- **INFRASTRUCTURE.md**: Architecture diagrams, service catalog, networking, scaling
+- **SCALING_PLAN.md**: Scaling thresholds, cost projections, performance tuning
 
 ---
 
-## Pre-Deployment Checklist
+## Pre-Launch Checklist (2026-03-11)
 
 ### ✅ Infrastructure Readiness
 
-- [x] Docker containers built and tested
-- [x] docker-compose.yml configured
-- [x] Health checks implemented
-- [x] Monitoring setup (Prometheus + Grafana)
-- [x] CI/CD pipeline functional
-- [x] Backup strategy defined
-- [x] Rollback procedure documented
+- [x] Backend: Render (srv-d649uhur433s73d557cg, 38 env vars)
+- [x] Frontend: Vercel (rateshift.app + www.rateshift.app)
+- [x] Database: Neon PostgreSQL (cold-rice-23455092, 33 migrations, all applied)
+- [x] Edge Layer: Cloudflare Worker (rateshift-api-gateway, 2-tier caching, rate limiting)
+- [x] Domain: rateshift.app (Cloudflare Registrar)
+- [x] Email: Resend (custom domain verified, DKIM/SPF/DMARC, TLS enforced)
+- [x] DNS: Cloudflare zone configured (A → Vercel, CNAME api → Worker)
+- [x] CI/CD: 24 GHA workflows (testing, deployment, cron jobs, self-healing)
+- [x] Monitoring: Prometheus + Grafana, Sentry integration
+- [x] Backup strategy: Neon point-in-time recovery, automated snapshots
 
 ### ✅ Application Readiness
 
-- [x] All tests passing (2050+)
-- [x] Security scan clean (0 vulnerabilities)
-- [x] Performance targets met
-- [x] Documentation complete
-- [x] Privacy policy published
-- [x] Terms of service published
+- [x] All tests passing (4,500+ across backend/frontend/ML/E2E)
+- [x] Security scan clean (Bandit, npm audit, container scan)
+- [x] Performance targets met (API p95 <500ms, Lighthouse 90+)
+- [x] Documentation complete (8 deployment docs, codemaps)
+- [x] Privacy policy published (`/privacy`)
+- [x] Terms of service published (`/terms`)
 
-### 🟡 Beta Program Setup
+### ✅ Product Readiness (2026-03-10+)
 
-- [ ] Beta user recruitment (target: 50+ users)
-- [ ] Beta signup form created
-- [ ] Welcome email template
-- [ ] Feedback collection system
-- [ ] Support channels configured
+- [x] Freemium billing (Free/$4.99 Pro/$14.99 Business)
+- [x] AI Agent (RateShift AI, Gemini 3 Flash + Groq fallback, Composio tools)
+- [x] Notification system (OneSignal push + email alerts)
+- [x] A/B testing framework (model versioning, consistent hashing)
+- [x] Alert dedup system (cooldown windows: immediate=1h, daily=24h, weekly=7d)
+- [x] Beta→Early Access transition (validate_postcode backward compat)
+- [x] Launch marketing materials (Product Hunt, HN, Reddit post templates)
 
 ---
 
-## Deployment Options
+## Current Production Setup (2026-03-11)
 
-### Option 1: Render.com (Current) - <$50/month
+**Architecture:**
+- **Frontend**: Vercel (Next.js 16, React 19, TypeScript)
+- **Backend**: Render.com (FastAPI, Python 3.12)
+- **Edge Layer**: Cloudflare Worker (rateshift-api-gateway)
+- **Database**: Neon PostgreSQL (serverless, production branch)
+- **Cache/Queue**: Redis (Upstash or self-hosted)
+- **Scheduling**: GitHub Actions (24 workflows)
+- **Monitoring**: Prometheus + Grafana, Sentry (error tracking)
+- **Email**: Resend (primary) + Gmail SMTP (fallback)
+- **Push notifications**: OneSignal
+- **Payments**: Stripe (webhook-driven, async billing)
+- **AI**: Gemini 3 Flash (primary) + Groq Llama 3.3 (fallback)
 
-**Pros:**
-- Simple deployment via `render.yaml` (Infrastructure as Code)
-- Built-in CI/CD from GitHub
-- Automatic HTTPS
-- Easy scaling
-- Supports backend + frontend services
+**Deployment Flow:**
+1. Code pushed to `main`
+2. GitHub Actions CI runs tests, security scans, builds Docker images
+3. Backend: Render auto-deploys via deploy hook (2min)
+4. Frontend: Vercel auto-deploys
+5. Worker: Deploy via GHA workflow (manual or release trigger)
+6. Database: Migrations applied automatically by backend startup (Alembic)
 
-**Current Setup:**
-
-- **Frontend**: Render.com (Next.js static site or web service)
-- **Backend**: Render.com (FastAPI web service)
-- **Database**: Neon PostgreSQL (serverless, free tier)
-- **Redis**: Redis Cloud (Free tier, 30MB) or Render Redis
-- **Scheduling**: GitHub Actions workflows (price-sync, CI/CD)
-- **Monitoring**: Prometheus + Grafana (self-hosted)
-
-**Setup:**
-
-```bash
-# 1. Push render.yaml to GitHub (already in repo root)
-# Render.com auto-detects services from render.yaml
-
-# 2. Connect GitHub repo in Render Dashboard
-# Visit https://dashboard.render.com → New → Blueprint → select repo
-
-# 3. Set environment variables in Render Dashboard
-# NEON_DATABASE_URL, BETTER_AUTH_SECRET, REDIS_URL, etc.
-# (see .env.example for full list)
-
-# 4. Deploy triggers automatically on push to main
-```
-
-### Option 2: Fly.io - $5/month
-
-**Pros:**
-- Global edge deployment
-- Free allowance (3 shared CPUs)
-- Automatic scaling
-- Built-in load balancing
-
-**Setup:**
-
-```bash
-# 1. Install Fly CLI
-curl -L https://fly.io/install.sh | sh
-
-# 2. Login
-fly auth login
-
-# 3. Create app
-fly launch --name electricity-optimizer
-
-# 4. Deploy
-fly deploy
-
-# 5. Add databases
-fly postgres create --name electricity-db
-fly redis create --name electricity-cache
-
-# 6. Set secrets
-fly secrets set NEON_DATABASE_URL=xxx BETTER_AUTH_SECRET=xxx
-```
-
-**Total**: Under $50/month target
+For detailed deployment procedures, see **DEPLOYMENT.md**.
 
 ---
 
@@ -276,108 +240,97 @@ gh run list
 
 ---
 
-## Beta User Onboarding
+## Public Launch & User Acquisition
 
-### Phase 1: Recruitment (Week 1)
+### Phase 1: Launch & Awareness (Week 1)
 
-**Target**: 50+ beta users
+**Target**: Initial signups via launch channels
 
-**Recruitment Channels**:
-1. Personal network (10-15 users)
-2. Twitter/LinkedIn announcement (15-20 users)
-3. UK energy forums/Reddit (10-15 users)
-4. Product Hunt "Coming Soon" (5-10 users)
+**Launch Channels**:
+1. Product Hunt (official launch post)
+2. Hacker News (Show HN post)
+3. Reddit (r/energy, r/personalfinance, r/homeautomation)
+4. Twitter/LinkedIn announcement
+5. Newsletter mentions (if applicable)
 
-**Beta Signup Form**:
-```html
-<!-- Create at: /beta-signup -->
-<form action="/api/beta-signup" method="POST">
-  <input name="email" type="email" required>
-  <input name="name" type="text" required>
-  <input name="zipcode" placeholder="ZIP Code">
-  <select name="current_supplier">
-    <option>Eversource Energy</option>
-    <option>United Illuminating (UI)</option>
-    <option>Town utility</option>
-    <option>Other</option>
-  </select>
-  <label>
-    <input type="checkbox" name="agree_nda" required>
-    I agree to the Beta NDA and Terms
-  </label>
-  <button type="submit">Join Beta</button>
-</form>
-```
+**Freemium Sign-Up Flow**:
+- Public signup at `https://rateshift.app/auth/signup` (no gating)
+- Email verification via Resend (magic link or verification code)
+- Free tier includes: 1 alert, basic price tracking, 24-hour forecasts
+- Pro tier ($4.99/mo): unlimited alerts, advanced forecasts, recommendations
+- Business tier ($14.99/mo): API access, bulk operations, dedicated support
 
-### Phase 2: Onboarding (Week 1-2)
+### Phase 2: Onboarding (Continuous)
 
-**Welcome Email** (send immediately after signup):
+**Welcome Email** (sent immediately after email verification):
 
 ```
-Subject: Welcome to Electricity Optimizer Beta! 🎉
+Subject: Welcome to RateShift - Start Saving on Electricity
 
 Hi [Name],
 
-Congratulations! You've been accepted to the Electricity Optimizer beta program.
+Welcome to RateShift! We're excited to help you reduce your electricity costs.
 
-Here's what to expect:
+**Getting Started:**
 
-1. **Get Started**: Visit https://rateshift.app/auth/signup
-   Use this beta code: BETA-2026-[unique-code]
+1. **Complete Your Profile**: https://rateshift.app/onboarding
+   - Region/ZIP code for accurate pricing
+   - Utility provider (optional, for bill import)
 
-2. **Connect Your Data**: We support smart meters via UtilityAPI
-   (Optional - you can skip and see demo data)
-
-3. **Explore Features**:
-   - Real-time electricity price tracking
-   - 24-hour price forecasting
+2. **Explore Features**:
+   - Real-time electricity prices for your region
+   - 24-hour price forecasts (updated hourly)
    - Automatic supplier switching recommendations
-   - Smart appliance scheduling
+   - Price alerts (1 free alert, Pro/Business for unlimited)
 
-4. **Share Feedback**: Your feedback shapes the product!
-   - In-app feedback widget (bottom-right corner)
-   - Direct email: feedback@rateshift.app
-   - Weekly survey (5 min)
+3. **Connect Your Meter** (Optional):
+   - Import smart meter data via UtilityAPI
+   - Upload bill PDFs for historical analysis
+   - Track actual usage vs. forecasts
 
-**Support**:
-- Email: support@rateshift.app
-- Response time: <24 hours
-- Known issues: [link to changelog]
+4. **Support & Feedback**:
+   - Help center: https://rateshift.app/help
+   - Direct email: support@rateshift.app
+   - In-app feedback widget
 
-**What We're Testing**:
-- Forecast accuracy (target: <10% error)
-- Savings recommendations (target: $200+/year)
-- User experience and onboarding
+**Pricing:**
+- Free: Basic price tracking, 1 alert, 24-hour forecasts
+- Pro ($4.99/mo): Unlimited alerts, advanced forecasts, recommendations
+- Business ($14.99/mo): API access, bulk operations, priority support
 
-Thank you for being an early supporter! 🚀
+Thank you for joining RateShift! 🚀
 
 Best regards,
-The Electricity Optimizer Team
-
-P.S. First 50 beta users get lifetime 50% discount when we launch!
+The RateShift Team
 ```
 
-**Onboarding Checklist** (track in dashboard):
+**Onboarding Checklist**:
 - [ ] Account created
 - [ ] Email verified
-- [ ] Profile completed (postcode, supplier)
-- [ ] Smart meter connected (optional)
-- [ ] Dashboard viewed
-- [ ] First forecast generated
-- [ ] Feedback submitted
+- [ ] Region/ZIP code set
+- [ ] Dashboard accessed
+- [ ] First price check done
+- [ ] Pricing tier viewed (optional upgrade)
 
-### Phase 3: Engagement (Week 2-4)
+### Phase 3: Engagement & Retention (Ongoing)
 
-**Weekly Updates**:
-- Monday: Feature spotlight email
-- Wednesday: Savings report (personalized)
-- Friday: Beta changelog + upcoming features
+**Communication Plan**:
+- **Daily**: Price alerts (user-configured)
+- **Weekly**: Savings report (if alerts triggered)
+- **Monthly**: Feature updates, savings summary
+- **On-demand**: Support via email, in-app widget
 
-**Feedback Collection**:
-- **In-app widget**: Continuous feedback
-- **Weekly survey**: NPS + feature requests
-- **User interviews**: 10 users (30 min each)
-- **Usage analytics**: Mixpanel/Amplitude
+**Engagement Metrics**:
+- Email open rate (target: 30%+)
+- Alert effectiveness (savings attributed)
+- Feature adoption (forecasts viewed, alerts set, upgrades)
+- Support satisfaction (response time <24h)
+
+**Retention Strategy**:
+- Free tier users: Show path to Pro (alerts limitation)
+- Pro users: Highlight advanced features + API access
+- Business users: VIP support, beta features, API SLA
+- Churned users: Re-engagement campaigns with feature updates
 
 ---
 
@@ -507,14 +460,17 @@ Create Grafana dashboard showing:
 
 ## Scaling Plan
 
-### Current Capacity
+For detailed scaling guidance, cost projections, and performance tuning, see **SCALING_PLAN.md**.
 
-- **Users**: 50-100 (beta)
-- **API**: 1000+ concurrent users
-- **Database**: Neon PostgreSQL free tier (0.5 GB storage, serverless autoscaling)
-- **Redis**: 30MB (Redis Cloud free)
-- **Hosting**: Render.com (render.yaml Blueprint)
-- **Cost**: <$50/month target
+### Current Capacity (2026-03-11)
+
+- **Users**: Unlimited (freemium model, no beta gating)
+- **Concurrent API**: 1000+ (Render Standard tier)
+- **Database**: Neon PostgreSQL (production branch, serverless autoscaling)
+- **Cache**: Redis (Upstash or self-hosted)
+- **Edge**: Cloudflare Worker (free tier: 100K req/day)
+- **Hosting**: Render.com + Vercel + Cloudflare
+- **Cost**: <$50/month baseline (Render backend + Neon + domain)
 
 ### Scaling Triggers
 
@@ -611,27 +567,30 @@ make smoke-test
 
 ---
 
-## Success Criteria (Week 1)
+## Launch Success Metrics (Target: Week 1-4)
 
-### Must Have ✅
-- [ ] 50+ beta users signed up
-- [ ] 70%+ activation rate
-- [ ] 0 critical bugs (P0)
-- [ ] 99%+ uptime
+### Must Have (Launch Blocking) ✅
+- [ ] 0 critical bugs (P0) in production
+- [ ] 99%+ uptime (monitoring via Sentry, Grafana)
+- [ ] All 24 GHA workflows passing (CI/CD, cron jobs, deploys)
+- [ ] Email delivery working (Resend primary + Gmail fallback)
+- [ ] Stripe payments processing (checkout + webhook)
+
+### Should Have (Week 1 Goals) 🎯
+- [ ] 100+ signups from launch channels
+- [ ] 30%+ email verification rate
+- [ ] 20%+ activation rate (alert created)
+- [ ] <2% error rate (API)
+- [ ] API p95 latency <500ms
+- [ ] Forecast accuracy MAPE <10%
 - [ ] <24h support response time
 
-### Should Have 🎯
-- [ ] 50%+ retention (day 2)
-- [ ] NPS 40+
-- [ ] <2% error rate
-- [ ] API p95 <500ms
-- [ ] Forecast MAPE <10%
-
-### Nice to Have 🌟
-- [ ] 10+ user testimonials
-- [ ] 5+ supplier switches
-- [ ] $150+ average savings shown
-- [ ] 30%+ daily active rate
+### Nice to Have (Growth) 🌟
+- [ ] 10+ Pro/Business trial conversions
+- [ ] 20+ user feedback submissions
+- [ ] 5+ testimonials/reviews
+- [ ] 50+ social media mentions
+- [ ] 500+ monthly active users by month end
 
 ---
 
@@ -674,14 +633,21 @@ make metrics  # View key metrics
 
 ---
 
-**Last Updated**: 2026-02-24
-**Deployment Status**: Ready for beta
-**Current Users**: 0 (pre-launch)
-**Target Users**: 50+ (week 1)
+**Last Updated**: 2026-03-11
+**Deployment Status**: Production (public launch)
+**Current Users**: Growing (freemium)
+**Architecture**: Vercel + Render + Cloudflare Worker + Neon
 
-**Next Steps**:
-1. ✅ Complete deployment checklist
-2. 🟡 Recruit beta users
-3. 🔴 Deploy to production
-4. 🔴 Send welcome emails
-5. 🔴 Monitor and iterate
+**Quick Links**:
+- **DEPLOYMENT.md**: Detailed deployment procedures, environment setup, troubleshooting
+- **INFRASTRUCTURE.md**: Architecture diagrams, service details, monitoring
+- **SCALING_PLAN.md**: Performance targets, cost projections, scaling decisions
+- **REDEPLOYMENT_RUNBOOK.md**: Emergency redeployment procedures (if needed)
+
+**Monitoring Dashboards**:
+- Grafana: `http://localhost:3001` (local) or production instance
+- Sentry: Error tracking and performance monitoring
+- GitHub Actions: Workflow status, deployment logs
+- Render: Backend service logs and metrics
+- Vercel: Frontend deployment status
+- Cloudflare: Worker analytics and performance

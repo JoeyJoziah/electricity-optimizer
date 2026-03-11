@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Electricity Optimizer uses a multi-layer monitoring stack, all on free tiers.
+The RateShift uses a multi-layer monitoring stack, all on free tiers.
 
 ## UptimeRobot (Primary External Uptime Monitoring)
 
@@ -120,7 +120,7 @@ The UptimeRobot Composio toolkit (`uptimerobot` in `.composio.lock`) can be used
 
 | Variable | Purpose | Where to store |
 |----------|---------|----------------|
-| `UPTIMEROBOT_API_KEY` | UptimeRobot Read/Write API key | 1Password vault "Electricity Optimizer", GHA secret |
+| `UPTIMEROBOT_API_KEY` | UptimeRobot Read/Write API key | 1Password vault "RateShift", GHA secret |
 | `SLACK_WEBHOOK_URL` | Slack incoming webhook for alert routing | GHA secret `SLACK_INCIDENTS_WEBHOOK_URL` (already set) |
 
 ## Better Stack (Status Page + Incident Logs)
@@ -257,7 +257,7 @@ All 12 cron workflows use the `retry-curl` + `notify-slack` composite actions fo
 
 | Variable | Service | Where to set |
 |----------|---------|--------------|
-| `UPTIMEROBOT_API_KEY` | UptimeRobot API access | 1Password "Electricity Optimizer" vault + GHA secret |
+| `UPTIMEROBOT_API_KEY` | UptimeRobot API access | 1Password "RateShift" vault + GHA secret |
 | `SLACK_INCIDENTS_WEBHOOK_URL` | Slack `#incidents` incoming webhook | GHA secret (already configured) |
 | `BACKEND_URL` | Backend origin for internal cron calls | GHA secret + Render env var |
 | `INTERNAL_API_KEY` | Internal endpoint authentication | GHA secret + 1Password vault |

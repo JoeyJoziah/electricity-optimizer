@@ -1,8 +1,8 @@
-# OAuth Setup Guide — Electricity Optimizer
+# OAuth Setup Guide — RateShift
 
 > Last updated: 2026-03-04
 
-This guide walks you through setting up Google and GitHub OAuth for the Electricity Optimizer app using **Better Auth**. OAuth allows users to sign in with their existing Google or GitHub accounts instead of creating a new username/password.
+This guide walks you through setting up Google and GitHub OAuth for the RateShift app using **Better Auth**. OAuth allows users to sign in with their existing Google or GitHub accounts instead of creating a new username/password.
 
 **Deployment URL:** `https://rateshift.app`
 
@@ -25,7 +25,7 @@ Both providers are conditionally enabled: if their environment variables are set
 1. Open the [Google Cloud Console](https://console.cloud.google.com/)
 2. Click the project dropdown at the top (near the Google Cloud logo)
 3. Click **New Project**
-4. Enter project name: `Electricity Optimizer`
+4. Enter project name: `RateShift`
 5. Click **Create**
 6. Wait for the project to be created, then select it
 
@@ -43,7 +43,7 @@ Both providers are conditionally enabled: if their environment variables are set
 3. If prompted, click **Configure the OAuth consent screen**:
    - Select **External** user type
    - Fill in:
-     - **App name:** `Electricity Optimizer`
+     - **App name:** `RateShift`
      - **User support email:** (your email)
      - **Developer contact:** (your email)
    - Click **Save and Continue**
@@ -117,7 +117,7 @@ Save these securely. You'll need them in the next step.
 1. Go to [GitHub Settings](https://github.com/settings/developers) > **Developer settings** > **OAuth Apps**
 2. Click **New OAuth App**
 3. Fill in the form:
-   - **Application name:** `Electricity Optimizer`
+   - **Application name:** `RateShift`
    - **Homepage URL:** `https://rateshift.app`
    - **Application description:** (optional, e.g., `Smart electricity rate optimization`)
    - **Authorization callback URL:**
@@ -239,7 +239,7 @@ Below is the complete list of environment variables you need to set in Vercel:
 
 Store all OAuth secrets securely in 1Password:
 
-1. Open 1Password and navigate to the **"Electricity Optimizer"** vault
+1. Open 1Password and navigate to the **"RateShift"** vault
 2. Create a new Login item called **"OAuth Providers"** with the following fields:
    - **google_client_id** = (your Google Client ID)
    - **google_client_secret** = (your Google Client Secret)
@@ -305,7 +305,7 @@ Store all OAuth secrets securely in 1Password:
 
 ---
 
-## How OAuth Works in Electricity Optimizer
+## How OAuth Works in RateShift
 
 Behind the scenes, here's what happens:
 
@@ -337,4 +337,4 @@ The `GOOGLE_CLIENT_SECRET` and `GITHUB_CLIENT_SECRET` are **never exposed to the
 - [Better Auth OAuth Integration](https://www.better-auth.com/docs/integrations/oauth)
 - [Google Cloud Console](https://console.cloud.google.com/)
 - [GitHub Developer Settings](https://github.com/settings/developers)
-- [Electricity Optimizer Auth Code](../frontend/lib/auth/)
+- [RateShift Auth Code](../frontend/lib/auth/)

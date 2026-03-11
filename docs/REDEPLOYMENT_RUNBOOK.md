@@ -31,7 +31,7 @@ Verify access to the following **before** starting redeployment:
 
 1. **Neon Console** (https://console.neon.tech)
    - Project: `cold-rice-23455092` ("energyoptimize")
-   - Auth: Neon account login (credentials in 1Password "Electricity Optimizer" vault)
+   - Auth: Neon account login (credentials in 1Password "RateShift" vault)
 
 2. **Render Dashboard** (https://dashboard.render.com)
    - Backend service: `srv-d649uhur433s73d557cg`
@@ -51,7 +51,7 @@ Verify access to the following **before** starting redeployment:
    - Personal Access Token: For `gh` CLI commands
 
 6. **1Password** (https://1password.com)
-   - Vault: "Electricity Optimizer"
+   - Vault: "RateShift"
    - Contains: 28+ secrets for all services
 
 ### Local Tools Required
@@ -76,13 +76,13 @@ Use the 1Password CLI to fetch credentials securely:
 
 ```bash
 # Example: fetch Neon password
-op item get "Neon PostgreSQL" --vault "Electricity Optimizer" --fields password
+op item get "Neon PostgreSQL" --vault "RateShift" --fields password
 
 # Fetch all GitHub secrets
-op item get "GitHub Secrets" --vault "Electricity Optimizer" --fields INTERNAL_API_KEY,RENDER_DEPLOY_HOOK_BACKEND
+op item get "GitHub Secrets" --vault "RateShift" --fields INTERNAL_API_KEY,RENDER_DEPLOY_HOOK_BACKEND
 
 # List all items in vault
-op item list --vault "Electricity Optimizer"
+op item list --vault "RateShift"
 ```
 
 Store these in a secure `.env` file (never commit):
@@ -90,9 +90,9 @@ Store these in a secure `.env` file (never commit):
 ```bash
 # Create temporary secrets file (example)
 cat > /tmp/secrets.env <<EOF
-NEON_PASSWORD=$(op item get "Neon PostgreSQL" --vault "Electricity Optimizer" --fields password)
-INTERNAL_API_KEY=$(op item get "GitHub Secrets" --vault "Electricity Optimizer" --fields INTERNAL_API_KEY)
-RENDER_DEPLOY_HOOK_BACKEND=$(op item get "GitHub Secrets" --vault "Electricity Optimizer" --fields RENDER_DEPLOY_HOOK_BACKEND)
+NEON_PASSWORD=$(op item get "Neon PostgreSQL" --vault "RateShift" --fields password)
+INTERNAL_API_KEY=$(op item get "GitHub Secrets" --vault "RateShift" --fields INTERNAL_API_KEY)
+RENDER_DEPLOY_HOOK_BACKEND=$(op item get "GitHub Secrets" --vault "RateShift" --fields RENDER_DEPLOY_HOOK_BACKEND)
 EOF
 
 source /tmp/secrets.env
@@ -181,7 +181,7 @@ pip install psycopg2-binary
 
 # 2. Fetch Neon password from 1Password
 NEON_PASSWORD=$(op item get "Neon PostgreSQL" \
-  --vault "Electricity Optimizer" --fields password)
+  --vault "RateShift" --fields password)
 
 # 3. Set connection string (use DIRECT endpoint for DDL)
 export PGPASSWORD="$NEON_PASSWORD"
@@ -204,7 +204,7 @@ psql "$NEON_CONNECTION_STRING" -c "SELECT version();"
 set -e  # Exit on error
 
 NEON_PASSWORD=$(op item get "Neon PostgreSQL" \
-  --vault "Electricity Optimizer" --fields password)
+  --vault "RateShift" --fields password)
 export PGPASSWORD="$NEON_PASSWORD"
 export NEON_CONNECTION="postgresql://neondb_owner:${NEON_PASSWORD}@ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
@@ -624,7 +624,7 @@ gh workflow run deploy-production.yml \
 
 ```bash
 # Fetch the Render deploy hook URL
-RENDER_DEPLOY_HOOK=$(op item get "GitHub Secrets" --vault "Electricity Optimizer" --fields RENDER_DEPLOY_HOOK_BACKEND)
+RENDER_DEPLOY_HOOK=$(op item get "GitHub Secrets" --vault "RateShift" --fields RENDER_DEPLOY_HOOK_BACKEND)
 
 # Trigger the deploy
 curl -X POST "$RENDER_DEPLOY_HOOK"
@@ -972,7 +972,7 @@ done
 curl -sI -H "X-API-Key: invalid" https://api.rateshift.app/health | head -1
 # Expected: HTTP/2 401 Unauthorized
 
-curl -sI -H "X-API-Key: $(op item get 'GitHub Secrets' --vault 'Electricity Optimizer' --fields INTERNAL_API_KEY)" https://api.rateshift.app/health | head -1
+curl -sI -H "X-API-Key: $(op item get 'GitHub Secrets' --vault 'RateShift' --fields INTERNAL_API_KEY)" https://api.rateshift.app/health | head -1
 # Expected: HTTP/2 200 OK
 ```
 
@@ -996,7 +996,7 @@ echo ""
 # 1. Database
 echo "1. DATABASE (Neon PostgreSQL)"
 echo "   Endpoint: ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech"
-NEON_PASSWORD=$(op item get "Neon PostgreSQL" --vault "Electricity Optimizer" --fields password)
+NEON_PASSWORD=$(op item get "Neon PostgreSQL" --vault "RateShift" --fields password)
 export PGPASSWORD="$NEON_PASSWORD"
 TABLE_COUNT=$(psql -h ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech -U neondb_owner -d neondb -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tail -1 | xargs)
 echo "   ✓ Tables in public schema: $TABLE_COUNT (expected: 33+)"
@@ -1116,7 +1116,7 @@ All cron workflows use `X-API-Key: ${{ secrets.INTERNAL_API_KEY }}` header. If c
 gh secret list --repo JoeyJoziah/electricity-optimizer | grep INTERNAL_API_KEY
 
 # Verify the value matches between:
-# 1. 1Password vault "Electricity Optimizer" → "GitHub Secrets" item
+# 1. 1Password vault "RateShift" → "GitHub Secrets" item
 # 2. GitHub Actions secrets
 # 3. Render env var INTERNAL_API_KEY
 # 4. Cloudflare Worker secret INTERNAL_API_KEY
@@ -1143,7 +1143,7 @@ wrangler secret put INTERNAL_API_KEY
 
 ```bash
 # Test a specific endpoint with internal auth
-INTERNAL_API_KEY=$(op item get "GitHub Secrets" --vault "Electricity Optimizer" --fields INTERNAL_API_KEY)
+INTERNAL_API_KEY=$(op item get "GitHub Secrets" --vault "RateShift" --fields INTERNAL_API_KEY)
 
 curl -X POST https://api.rateshift.app/internal/check-alerts \
   -H "X-API-Key: $INTERNAL_API_KEY" \
@@ -1226,7 +1226,7 @@ smoke-tests:
 **Option C: Manual Rollback via Render API**
 
 ```bash
-RENDER_API_KEY=$(op item get "Render API Key" --vault "Electricity Optimizer" --fields api_key)
+RENDER_API_KEY=$(op item get "Render API Key" --vault "RateShift" --fields api_key)
 
 # Get the last successful deploy ID
 DEPLOY_ID=$(curl -fsS \
@@ -1322,13 +1322,13 @@ curl -X POST "$RENDER_DEPLOY_HOOK"
 
 ```bash
 # 1. Verify the key in 1Password
-op item get "GitHub Secrets" --vault "Electricity Optimizer" --fields INTERNAL_API_KEY
+op item get "GitHub Secrets" --vault "RateShift" --fields INTERNAL_API_KEY
 
 # 2. Check GitHub Actions secret
 gh secret list --repo JoeyJoziah/electricity-optimizer | grep INTERNAL_API_KEY
 
 # 3. If they don't match, update GitHub
-INTERNAL_API_KEY=$(op item get "GitHub Secrets" --vault "Electricity Optimizer" --fields INTERNAL_API_KEY)
+INTERNAL_API_KEY=$(op item get "GitHub Secrets" --vault "RateShift" --fields INTERNAL_API_KEY)
 gh secret set INTERNAL_API_KEY --body "$INTERNAL_API_KEY" --repo JoeyJoziah/electricity-optimizer
 
 # 4. Update Render (via dashboard or API)
@@ -1530,7 +1530,7 @@ git push origin main
 # Render dashboard: Services → srv-d649uhur433s73d557cg → Environment
 
 # Or API:
-RENDER_API_KEY=$(op item get "Render API Key" --vault "Electricity Optimizer" --fields api_key)
+RENDER_API_KEY=$(op item get "Render API Key" --vault "RateShift" --fields api_key)
 
 # API does NOT exist for bulk env var updates; use dashboard or CLI
 ```
@@ -1561,10 +1561,10 @@ This allows eslint 8 to coexist with eslint-config-next 16.x.
 
 ```bash
 # List items with title "API Keys"
-op item list --vault "Electricity Optimizer" | grep "API Keys"
+op item list --vault "RateShift" | grep "API Keys"
 
 # Get by ID
-op item get "<item-id>" --vault "Electricity Optimizer"
+op item get "<item-id>" --vault "RateShift"
 ```
 
 ### 8. Stripe Payment Failed Webhook User Resolution
@@ -1713,13 +1713,13 @@ curl -X GET https://api.rateshift.app/prices/current
 - Vercel Dashboard: https://vercel.com/electricity-optimizer
 - Cloudflare Dashboard: https://dash.cloudflare.com (zone: ac03dd28616da6d1c4b894c298c1da58)
 - GitHub Repo: https://github.com/JoeyJoziah/electricity-optimizer
-- 1Password Vault: https://start.1password.com (vault: "Electricity Optimizer")
+- 1Password Vault: https://start.1password.com (vault: "RateShift")
 
 ### Critical Commands
 
 ```bash
 # Fetch any secret from 1Password
-op item get "<item-name>" --vault "Electricity Optimizer" --fields "<field-name>"
+op item get "<item-name>" --vault "RateShift" --fields "<field-name>"
 
 # Trigger GitHub Actions workflow
 gh workflow run <workflow-name> --repo JoeyJoziah/electricity-optimizer

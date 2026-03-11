@@ -30,7 +30,7 @@
 ### Step 1: Neon PostgreSQL Setup (5 min)
 - [x] Create account at https://neon.tech
 - [x] Neon project: "energyoptimize" (project ID: cold-rice-23455092)
-- [x] Connection string from 1Password vault "Electricity Optimizer"
+- [x] Connection string from 1Password vault "RateShift"
 - [x] Production branch: `production` (br-shy-sun-aibo9dns), Preview branch: `vercel-dev`
 - [x] 25 migrations deployed (latest: 025_data_cache_tables)
 - [x] 21 public + 9 neon_auth + 3 cache = 33 tables total
@@ -103,7 +103,7 @@ SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
 SMTP_PASSWORD=
-EMAIL_FROM_ADDRESS=Electricity Optimizer <onboarding@resend.dev>
+EMAIL_FROM_ADDRESS=RateShift <noreply@rateshift.app>
 # ML Model
 MODEL_PATH=
 

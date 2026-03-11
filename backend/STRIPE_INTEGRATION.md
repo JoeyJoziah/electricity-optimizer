@@ -1,4 +1,4 @@
-# Stripe Monetization Integration
+# RateShift Stripe Monetization Integration
 
 ## Overview
 
@@ -159,7 +159,110 @@ stripe trigger checkout.session.completed
 - `checkout.session.completed` → Activate subscription, save customer_id
 - `customer.subscription.updated` → Update tier/status
 - `customer.subscription.deleted` → Downgrade to free tier
-- `invoice.payment_failed` → Log warning, notify user (TODO)
+- `invoice.payment_failed` → Trigger dunning cycle (see Dunning Service below)
+
+## Dunning Service — Payment Failure Recovery
+
+When a payment fails (invoice.payment_failed webhook), the system automatically initiates the dunning cycle to recover failed payments while maintaining a positive user experience.
+
+### Overdue Payment Escalation
+
+The dunning service manages failed payments with a 7-day grace period:
+
+1. **Soft dunning** (retries 1-2): Amber-colored email requesting payment method update
+2. **Final notice** (retry 3+): Red-colored email warning of subscription downgrade after grace period
+3. **Escalation**: User automatically downgraded to free tier after 3 consecutive failures
+
+### Key Implementation Details
+
+**Service**: `backend/services/dunning_service.py`
+**Database**: `payment_retry_history` table (migration 024)
+**Notification routing**: Integrated with NotificationDispatcher (EMAIL + PUSH channels)
+
+### Cooldown Window (24 hours)
+
+The service enforces a 24-hour dedup window to prevent duplicate dunning emails. This is the same pattern used for price alerts:
+
+```python
+DUNNING_COOLDOWN_HOURS = 24
+
+async def should_send_dunning(user_id, stripe_invoice_id) -> bool:
+    """Return True if no dunning email sent within 24-hour window"""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    result = await db.execute(
+        text("""
+            SELECT email_sent_at FROM payment_retry_history
+            WHERE user_id = :user_id AND stripe_invoice_id = :invoice_id
+              AND email_sent = TRUE AND email_sent_at >= :cutoff
+            ORDER BY email_sent_at DESC LIMIT 1
+        """),
+        {"user_id": user_id, "invoice_id": stripe_invoice_id, "cutoff": cutoff},
+    )
+    return result.first() is None  # No recent email found
+```
+
+### Email Templates
+
+- `dunning_soft.html`: Subject "Action Required: Update your payment method" (amber styling)
+- `dunning_final.html`: Subject "Final Notice: Your subscription will be downgraded" (red styling)
+
+Both templates include:
+- User name and amount owed
+- Direct link to billing settings (`/settings?tab=billing`)
+- Clear action items and consequences
+
+### Webhook Integration
+
+The dunning service is wired into `apply_webhook_action()` for real-time processing of `invoice.payment_failed` events:
+
+```python
+# In stripe_service.py
+if event.type == "invoice.payment_failed":
+    invoice = event.data.object
+    user = await user_repo.get_by_stripe_customer_id(invoice.customer)
+    if user:
+        result = await dunning_service.handle_payment_failure(
+            user_id=user.id,
+            stripe_invoice_id=invoice.id,
+            stripe_customer_id=invoice.customer,
+            amount_owed=invoice.amount_due / 100,  # Convert from cents
+            currency=invoice.currency.upper(),
+            user_email=user.email,
+            user_name=user.name,
+            user_repo=user_repo,
+        )
+```
+
+Important: `invoice.amount_due` is in cents — always divide by 100 for dollar amounts.
+
+### GHA Cron Workflow
+
+**File**: `.github/workflows/dunning-cycle.yml`
+**Schedule**: Daily 7am UTC
+**Purpose**: Proactive sweep for overdue accounts beyond grace period
+
+```bash
+POST /api/v1/internal/dunning-cycle
+X-API-Key: [INTERNAL_API_KEY]
+```
+
+The endpoint calls `get_overdue_accounts(grace_period_days=7)` to identify users whose most recent payment failure is older than 7 days and still on a paid tier. For each overdue account, it sends a final dunning email and escalates to free tier if needed.
+
+### Webhook Resolution
+
+**Important**: Invoice webhook events from Stripe do NOT include user metadata (no user_id, no customer metadata). Resolution is done via **stripe_customer_id column lookup**:
+
+```python
+# From user_repository
+async def get_by_stripe_customer_id(stripe_customer_id: str) -> Optional[User]:
+    result = await db.execute(
+        text("SELECT * FROM public.users WHERE stripe_customer_id = :cid"),
+        {"cid": stripe_customer_id},
+    )
+    return result.scalars().first()
+```
+
+This lookup is called in `apply_webhook_action()` every time a payment-related webhook arrives.
 
 ## Security Features
 
@@ -181,28 +284,100 @@ pytest backend/tests/test_stripe_service.py::test_create_checkout_session_succes
 pytest backend/tests/test_stripe_service.py --cov=services.stripe_service --cov-report=term-missing
 ```
 
-## TODO for Production
+## Tier Gating — Feature Access by Subscription
 
-1. **Database Integration**:
-   - Update webhook handler to modify user records in database
-   - Implement user repository methods for subscription updates
+RateShift implements fine-grained tier gating on 7 endpoints using the `require_tier()` dependency factory.
 
-2. **Email Notifications**:
-   - Send confirmation on subscription activation
-   - Alert on payment failure
-   - Reminder before trial ends
+### Tier Order
 
-3. **Feature Gating**:
-   - Create middleware/dependency to check subscription tier
-   - Restrict endpoints based on tier (e.g., /api/v1/forecast requires Pro+)
+```python
+_TIER_ORDER = {
+    "free": 0,    # Lowest access
+    "pro": 1,     # Mid-tier
+    "business": 2 # Highest access
+}
+```
 
-4. **Billing History**:
-   - Add endpoint to fetch invoices from Stripe
-   - Display in user dashboard
+### Dependency Factory
 
-5. **Usage Tracking**:
-   - Track API calls for Business tier
-   - Implement rate limits per tier
+File: `backend/api/dependencies.py`
+
+```python
+def require_tier(min_tier: str):
+    """
+    Factory for tier-gating dependencies.
+
+    Args:
+        min_tier: Minimum subscription tier required ('free', 'pro', or 'business')
+
+    Returns:
+        Dependency function that checks the user's subscription tier.
+        Returns 403 if the user's tier is below min_tier.
+
+    Examples:
+        require_tier("pro")      — allows pro + business
+        require_tier("business") — allows business only
+    """
+    async def check_tier(
+        current_user: SessionData = Depends(get_current_user),
+        db=Depends(get_db_session),
+    ) -> SessionData:
+        from sqlalchemy import text
+        result = await db.execute(
+            text("SELECT subscription_tier FROM public.users WHERE id = :id"),
+            {"id": current_user.user_id},
+        )
+        user_tier = result.scalar_one_or_none() or "free"
+        user_level = _TIER_ORDER.get(user_tier, 0)
+        required_level = _TIER_ORDER.get(min_tier, 0)
+
+        if user_level < required_level:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This feature requires a {min_tier.title()} or higher subscription",
+            )
+        return current_user
+
+    return check_tier
+```
+
+### Gated Endpoints
+
+**Pro Tier** (`require_tier("pro")`):
+- `POST /api/v1/forecast` — ML price predictions
+- `POST /api/v1/savings` — Savings calculations
+- `POST /api/v1/recommendations` — Optimization recommendations
+
+**Business Tier** (`require_tier("business")`):
+- `GET /api/v1/prices/stream` — Real-time price streaming
+
+### Free Tier Alert Limit
+
+The free plan is limited to **1 active alert config**. Pro and Business tiers have unlimited alerts.
+
+Implementation in `POST /api/v1/alerts` (create_alert endpoint):
+
+```python
+# Free-tier alert limit: 1 alert max
+tier_result = await db.execute(
+    text("SELECT subscription_tier FROM public.users WHERE id = :id"),
+    {"id": current_user.user_id},
+)
+user_tier = tier_result.scalar_one_or_none() or "free"
+if user_tier not in ("pro", "business"):
+    count_result = await db.execute(
+        text("SELECT COUNT(*) FROM user_alert_configs WHERE user_id = :id"),
+        {"id": current_user.user_id},
+    )
+    alert_count = count_result.scalar() or 0
+    if alert_count >= 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Free plan limited to 1 alert. Upgrade to Pro for unlimited.",
+        )
+```
+
+This check is performed inline (not via require_tier) because the limit is a soft business rule, not an endpoint restriction.
 
 ## Troubleshooting
 

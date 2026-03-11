@@ -486,7 +486,7 @@ Level 4 (Semantic)   → Business logic
 
 ## Final Notes
 
-This specification suite represents **complete, production-ready documentation** for implementing Excalidraw diagram generation in the Electricity Optimizer project.
+This specification suite represents **complete, production-ready documentation** for implementing Excalidraw diagram generation in the RateShift project.
 
 **Total effort**: 2,240 lines of documentation, 54 test anchors, 4 implementation phases
 

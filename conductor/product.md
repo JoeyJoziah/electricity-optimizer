@@ -2,7 +2,7 @@
 
 ## Project Name
 
-Electricity Optimizer
+RateShift
 
 ## Description
 

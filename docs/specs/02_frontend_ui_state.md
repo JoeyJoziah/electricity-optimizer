@@ -14,7 +14,7 @@ Two layout groups: **root** (marketing, no sidebar) and **(app)** (authenticated
 ### Root Layout (`app/layout.tsx`)
 
 Wraps every page. Provides `QueryProvider` (TanStack Query) and `AuthProvider`
-(Supabase auth context). Uses Inter font. SEO metadata targets "Electricity Optimizer"
+(Supabase auth context). Uses Inter font. SEO metadata targets "RateShift"
 with Open Graph, Twitter cards, and robots directives.
 
 ```

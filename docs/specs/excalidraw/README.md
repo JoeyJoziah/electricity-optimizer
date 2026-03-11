@@ -1,12 +1,12 @@
 # Excalidraw Specification Suite
 
-Complete TDD specifications for programmatic diagram generation, JSON validation, and layout algorithms in the Electricity Optimizer project.
+Complete TDD specifications for programmatic diagram generation, JSON validation, and layout algorithms in the RateShift project.
 
 ## Overview
 
 Three modular specifications covering the full Excalidraw diagram generation pipeline, from structured input to validated, positioned .excalidraw JSON output.
 
-**Project**: Electricity Optimizer
+**Project**: RateShift
 **Target**: Next.js 14 + TypeScript + Excalidraw library
 **Status**: Ready for Implementation
 **Last Updated**: 2026-02-26
@@ -296,7 +296,7 @@ Each test anchor includes:
 
 ## Contact & Questions
 
-This specification suite is designed for implementation by the Electricity Optimizer team. For questions or clarifications:
+This specification suite is designed for implementation by the RateShift team. For questions or clarifications:
 - Review the pseudocode carefully
 - Check the TDD anchors for expected behavior
 - Refer to excalidraw-expert.md agent for orchestration patterns

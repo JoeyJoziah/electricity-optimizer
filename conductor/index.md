@@ -1,4 +1,4 @@
-# Conductor - Electricity Optimizer
+# Conductor - RateShift
 
 Navigation hub for project context and feature development.
 

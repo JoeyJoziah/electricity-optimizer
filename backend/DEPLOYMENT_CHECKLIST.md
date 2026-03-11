@@ -1,180 +1,387 @@
-> **ARCHIVED** (2026-03-10): This checklist was written for the initial Render free-tier deployment (2026-02-07). It references `TIMESCALEDB_URL`, `requirements.prod.txt`, and free-tier memory budgets that no longer apply. The project now uses Neon PostgreSQL, Render paid tier, and 34 environment variables managed via 1Password. See [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for current deployment instructions. Original content preserved below.
+> **STATUS**: Updated 2026-03-11 for current RateShift deployment architecture. References Neon PostgreSQL, Render paid tier, Vercel frontend, and Cloudflare Workers API Gateway. See [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for comprehensive deployment instructions. Original free-tier checklist archived at [docs/archive/](../docs/archive).
 
-# Deployment Checklist - Free Tier Optimizations
+# Deployment Checklist - RateShift Production
 
 ## Pre-Deployment
 
-- [ ] Review changes in `main.py`
-- [ ] Review changes in `config/database.py`
-- [ ] Test locally with production settings:
-  ```bash
-  export ENVIRONMENT=production
-  python main.py
-  ```
-- [ ] Verify all endpoints respond:
-  - [ ] `GET /health` - Basic health
-  - [ ] `GET /health/live` - Liveness check
-  - [ ] `GET /health/ready` - Readiness check (tests DB connections)
-  - [ ] `GET /` - Root endpoint
+### Code Review
+- [ ] All code changes reviewed and tested locally
+- [ ] Database migrations validated (`scripts/validate_migrations.py`)
+- [ ] Backend tests passing: `.venv/bin/python -m pytest` (1,835+ tests, 0 failures)
+- [ ] Frontend tests passing: `npm test` (1,464+ tests)
+- [ ] E2E tests passing: `npm run test:e2e` (634+ tests)
 
-## Render.com Configuration
+### Local Testing
+```bash
+export ENVIRONMENT=production
+export DATABASE_URL=<neon-staging-url>
+export REDIS_URL=<redis-url>
+.venv/bin/python -m pytest
+```
 
-### 1. Build Settings
+### Endpoint Verification
+- [ ] `GET /health` - Basic health check
+- [ ] `GET /health/live` - Liveness probe (for K8s/Render)
+- [ ] `GET /health/ready` - Readiness check (tests DB, Redis)
+- [ ] `GET /api/v1/prices/current` - Test API proxy through CF Worker
+- [ ] `GET /api/v1/alerts` - Requires auth, tests database connectivity
 
-- [ ] **Build Command**: `pip install -r requirements.prod.txt`
-- [ ] **Start Command**: `./start.sh` OR `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --no-access-log --timeout-keep-alive 5 --limit-concurrency 50`
+## Deployment Architecture
 
-### 2. Environment Variables (Required)
+### Services
+- **Backend**: Render.com (`electricity-optimizer.onrender.com` → `api.rateshift.app`)
+- **Frontend**: Vercel (`rateshift.app`, `www.rateshift.app`)
+- **Database**: Neon PostgreSQL (`cold-rice-23455092`, 33 migrations deployed)
+- **Edge Layer**: Cloudflare Worker (`rateshift-api-gateway` at `api.rateshift.app/*`)
+- **Email**: Resend (primary, domain verified) + Gmail SMTP (fallback)
 
+### Render Backend Configuration
+
+#### 1. Build Settings
+- [ ] **Build Command**: `pip install -r requirements.txt`
+- [ ] **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- [ ] **Python Version**: 3.12
+
+#### 2. Environment Variables (38 total)
+
+**Critical Database & Auth** (5):
+- [ ] `NEON_CONNECTION_STRING` — Neon pooled endpoint (asyncpg)
+- [ ] `INTERNAL_API_KEY` — For `/api/v1/internal/*` endpoints (GHA workflows)
 - [ ] `ENVIRONMENT=production`
-- [ ] `DATABASE_URL=postgresql://...` (or `TIMESCALEDB_URL`)
-- [ ] `JWT_SECRET=<strong-random-secret>`
+- [ ] `LOG_LEVEL=info`
+- [ ] `CORS_ORIGINS=https://rateshift.app,https://www.rateshift.app`
 
-### 3. Environment Variables (Recommended)
+**Stripe Payments** (4):
+- [ ] `STRIPE_SECRET_KEY` — Live secret key (sk_live_...)
+- [ ] `STRIPE_WEBHOOK_SECRET` — Webhook signing secret (whsec_...)
+- [ ] `STRIPE_PRICE_PRO` — Pro tier price ID (price_...)
+- [ ] `STRIPE_PRICE_BUSINESS` — Business tier price ID (price_...)
 
-- [ ] `REDIS_URL=redis://...` (for caching - Upstash free tier works)
-- [ ] `CORS_ORIGINS=https://yourapp.onrender.com,https://yourdomain.com`
+**Email & Notifications** (6):
+- [ ] `RESEND_API_KEY` — Primary email service
+- [ ] `EMAIL_FROM_ADDRESS=noreply@rateshift.app`
+- [ ] `SMTP_HOST=smtp.gmail.com`
+- [ ] `SMTP_PORT=587`
+- [ ] `SMTP_USERNAME` — Gmail app-specific password
+- [ ] `SMTP_PASSWORD` — Gmail app password (16-char, requires 2FA)
+- [ ] `ONESIGNAL_API_KEY` — Push notifications
 
-### 4. Environment Variables (Optional)
+**ML & AI Services** (7):
+- [ ] `GEMINI_API_KEY` — Google Gemini API (primary AI agent)
+- [ ] `GROQ_API_KEY` — Groq Llama 3.3 (fallback AI agent)
+- [ ] `COMPOSIO_API_KEY` — Composio tools for AI agent
+- [ ] `ENABLE_AI_AGENT=true` — Feature flag for AI assistant
+- [ ] `TAVILY_API_KEY` — Market research API
+- [ ] `DIFFBOT_API_KEY` — Enhanced web scraping
+- [ ] `OPENWEATHER_API_KEY` — Weather data
 
-- [ ] `SENTRY_DSN=https://...` (skip to save 15MB RAM)
+**Monitoring & Logging** (6):
+- [ ] `SENTRY_DSN` — Error tracking (optional, ~15MB overhead)
+- [ ] `SENTRY_SAMPLE_RATE=0.1` — 10% sample rate for perf
+- [ ] `SLACK_INCIDENTS_WEBHOOK_URL` — For self-healing CI/CD alerts
+- [ ] `RENDER_API_KEY` — For Composio deploy automation (optional)
 
-### 5. Health Check Configuration
+**Utilities** (4):
+- [ ] `REDIS_URL` — Redis cache (optional, falls back to in-memory)
+- [ ] `FIELD_ENCRYPTION_KEY` — AES-256-GCM for sensitive fields
+- [ ] `JWT_SECRET` — Session signing (generated by Better Auth)
+- [ ] `BETTER_AUTH_SECRET` — Better Auth config
 
-- [ ] **Health Check Path**: `/health/live`
-- [ ] **Health Check Interval**: 60 seconds
-- [ ] **Health Check Timeout**: 5 seconds
+All values stored in 1Password vault "RateShift" and mapped via 1Password SecretsManager.
+
+#### 3. Health Check
+- [ ] **Path**: `/health/live`
+- [ ] **Interval**: 60 seconds
+- [ ] **Timeout**: 5 seconds
+- [ ] **Grace period**: 60 seconds
+
+## Migration Gate & Database Deployment
+
+### Pre-Deploy Validation
+- [ ] All migrations numbered sequentially (001_*, 002_*, etc.)
+- [ ] Each migration has `IF NOT EXISTS` on CREATE TABLE/INDEX
+- [ ] Each migration grants to `neondb_owner` role
+- [ ] No SERIAL/BIGSERIAL types (use UUID instead)
+- [ ] Migrations validated: `gh workflow run validate-migrations.yml`
+
+### Applying Migrations to Neon
+```bash
+# Via Neon MCP (most reliable)
+python3 -m mcp.neon.client run_sql \
+  --projectId "cold-rice-23455092" \
+  --sql "$(cat backend/migrations/033_model_predictions_ab_assignments.sql)"
+
+# Or via direct psycopg2 connection (for DDL)
+# See docs/REDEPLOYMENT_RUNBOOK.md for detailed steps
+```
+
+### Migration Branches
+- [ ] **production** (default) - All 33 migrations deployed
+- [ ] **vercel-dev** - For preview deployments (kept in sync with main)
+
+## Deployment Pipeline
+
+### 1. Pre-Deploy Checks
+- [ ] All tests passing (backend, frontend, E2E)
+- [ ] Code review approved
+- [ ] Migrations validated against Neon schema
+- [ ] Environment variables set in Render (38 total)
+
+### 2. Deploy Backend (Render)
+```bash
+# Automatic via GitHub Actions on merge to main
+# Manual trigger: gh workflow run deploy-production.yml
+
+# Migration gate: deploy-production.yml runs migration validation before deploying
+# If migrations fail, deployment halts with error message
+```
+
+### 3. Deploy Frontend (Vercel)
+- [ ] Auto-deploys from `main` branch
+- [ ] API proxy at `/api/v1/*` routes to `BACKEND_URL` (https://api.rateshift.app)
+- [ ] Environment variables set: `NEXT_PUBLIC_API_URL=/api/v1`
+
+### 4. Deploy Edge Layer (Cloudflare Worker)
+```bash
+# Via GitHub Actions
+gh workflow run deploy-worker.yml
+
+# Or manual deploy
+cd workers/api-gateway
+wrangler deploy
+
+# Deployment includes:
+# - 2-tier caching (Cache API + KV)
+# - Rate limiting (KV namespaces: CACHE, RATE_LIMIT)
+# - Bot detection and security headers
+# - Internal API key validation (X-API-Key)
+```
+
+### Alternative: Composio-Based Deployment
+Instead of GHA, trigger deploys via Composio:
+
+```python
+from composio import Composio
+
+client = Composio()
+# Deploy Render backend
+client.execute_action(
+    action="RENDER_TRIGGER_DEPLOY",
+    params={"service_id": "srv-d649uhur433s73d557cg"}
+)
+# Deploy CF Worker
+client.execute_action(
+    action="CLOUDFLARE_DEPLOY_WORKER",
+    params={"account_id": "b41be0d03c76c0b2cc91efccdb7a10df"}
+)
+```
+
+Composio is reliable when GHA workflows are flaky or need manual trigger.
 
 ## Post-Deployment Verification
 
-### 1. Basic Connectivity
+### 1. Backend Connectivity
+- [ ] `curl https://electricity-optimizer.onrender.com/health` → 200
+- [ ] `curl https://api.rateshift.app/health` → 200 (via CF Worker)
+- [ ] Response time < 500ms
 
-- [ ] Service is running: `curl https://your-app.onrender.com/health`
-- [ ] Returns 200 status code
-- [ ] Response includes version and environment
+### 2. Database Health
+- [ ] `curl https://api.rateshift.app/api/v1/internal/health-data` → lists all tables
+- [ ] All 33 migrations deployed to Neon
+- [ ] No orphaned connections (check Neon dashboard)
 
-### 2. Database Connectivity
+### 3. API Gateway (CF Worker)
+- [ ] `curl -I https://api.rateshift.app/` → 200, includes security headers
+- [ ] `curl https://api.rateshift.app/api/v1/prices/current?region=us_ct` → 422 (missing param = proxy works)
+- [ ] Cache headers present: `cache-control`, `x-cache`
+- [ ] Rate limit headers: `x-ratelimit-limit`, `x-ratelimit-remaining`
 
-- [ ] Check ready endpoint: `curl https://your-app.onrender.com/health/ready`
-- [ ] Verify all database checks pass (redis, timescaledb, neon postgresql)
+### 4. Frontend (Vercel)
+- [ ] `curl https://rateshift.app` → 200
+- [ ] `curl https://www.rateshift.app` → 200 (redirect to apex)
+- [ ] API calls proxy correctly: Open DevTools → Network → check /api/v1/* URLs
+- [ ] Auth works: Register/login flow completes
+- [ ] Stripe checkout works: /pricing → select tier → checkout
 
-### 3. Performance Metrics
+### 5. Email Systems
+- [ ] Test transactional email: Register account, check verification email
+- [ ] Verify sender: `noreply@rateshift.app` (Resend primary)
+- [ ] Check fallback path: Disable Resend, verify Gmail SMTP sends correctly
+- [ ] Dunning emails: Test failed payment → check dunning_soft.html template
 
-- [ ] Check startup time in logs (should be <2s)
-- [ ] Check memory usage in Render dashboard (should be <150MB)
-- [ ] Check response times:
+### 6. Monitoring & Alerts
+- [ ] Sentry receiving errors (if enabled): Check sentry.io dashboard
+- [ ] Slack alerts active: Deploy triggers notification to #deployments
+- [ ] Render logs visible: Check render.com/logs for startup messages
+- [ ] Performance metrics: `/metrics` endpoint returns Prometheus stats
+- [ ] Uptime monitoring: UptimeRobot checks `/health/live` every 5 min
+
+### 7. Self-Healing CI/CD
+- [ ] `self-healing-monitor.yml` runs daily 9am UTC
+- [ ] Slack #incidents receives failure alerts (if `notify-slack` fires)
+- [ ] Failed workflows auto-close issues when 3+ consecutive passes occur
+- [ ] `retry-curl` exponential backoff working: Check GHA logs for "Attempt 2/3"
+
+## Security Verification
+
+- [ ] CORS headers limited to rateshift.app origins
   ```bash
-  curl -w "@curl-format.txt" -s https://your-app.onrender.com/health
+  curl -H "Origin: https://rateshift.app" -I https://api.rateshift.app/api/v1/prices/current
+  # Check: Access-Control-Allow-Origin: https://rateshift.app
   ```
-  Create `curl-format.txt`:
+- [ ] X-API-Key required on `/api/v1/internal/*`:
+  ```bash
+  curl -X POST https://api.rateshift.app/api/v1/internal/health-data
+  # Check: 401 Unauthorized (X-API-Key header missing)
   ```
-  time_namelookup:  %{time_namelookup}s\n
-  time_connect:  %{time_connect}s\n
-  time_appconnect:  %{time_appconnect}s\n
-  time_pretransfer:  %{time_pretransfer}s\n
-  time_redirect:  %{time_redirect}s\n
-  time_starttransfer:  %{time_starttransfer}s\n
-  time_total:  %{time_total}s\n
-  ```
-
-### 4. Feature Testing
-
-- [ ] Test API endpoints:
-  - [ ] `POST /api/v1/ml/predict/price` - Price predictions
-  - [ ] `POST /api/v1/ml/predict/optimal-times` - Optimal scheduling
-  - [ ] `GET /api/v1/prices` - Price data
-  - [ ] `POST /api/v1/auth/register` - User registration
-  - [ ] `POST /api/v1/auth/login` - User login
-
-### 5. Security
-
-- [ ] CORS headers present: `curl -I https://your-app.onrender.com/health`
 - [ ] Security headers present:
-  - [ ] `X-Frame-Options: DENY`
   - [ ] `X-Content-Type-Options: nosniff`
+  - [ ] `X-Frame-Options: deny`
   - [ ] `X-XSS-Protection: 1; mode=block`
+  - [ ] `Strict-Transport-Security: max-age=31536000` (HSTS for 1 year)
   - [ ] `Content-Security-Policy: ...`
-  - [ ] `Strict-Transport-Security: ...` (production only)
 
-### 6. Monitoring
+## Rollback Procedure
 
-- [ ] Prometheus metrics accessible: `curl https://your-app.onrender.com/metrics`
-- [ ] Logs visible in Render dashboard
-- [ ] (Optional) Sentry receiving errors if configured
+If deployment fails or causes issues:
 
-### 7. Load Testing (Optional)
+### Option 1: Render Rollback (Fastest)
+```bash
+# Via Render dashboard: Services → electricity-optimizer → Deployments
+# Click "Rollback" on the previous successful deployment
+# Takes ~30 seconds
+```
 
-- [ ] Run basic load test:
-  ```bash
-  # Install hey: brew install hey (macOS) or equivalent
-  hey -n 100 -c 10 https://your-app.onrender.com/health
-  ```
-- [ ] Verify no errors under load
-- [ ] Check memory doesn't spike above 400MB
+### Option 2: GitHub Rollback
+```bash
+# Revert the failing commit
+git revert <commit-sha> -m 1
+git push origin main
 
-## Rollback Plan
+# GHA automatically re-deploys
+# Monitor: gh workflow run list --status in_progress
+```
 
-If issues occur:
+### Option 3: Composio Emergency Deploy
+```python
+# Deploy specific commit
+client.execute_action(
+    action="GIT_CHECKOUT",
+    params={"ref": "main", "commit": "<previous-working-sha>"}
+)
+client.execute_action(
+    action="RENDER_TRIGGER_DEPLOY",
+    params={"service_id": "srv-d649uhur433s73d557cg"}
+)
+```
 
-1. **Quick rollback**: Revert to previous deployment in Render dashboard
-2. **Check logs**: Review Render logs for errors
-3. **Common issues**:
-   - **OOM (Out of Memory)**: Reduce pool sizes further or disable Sentry
-   - **Slow startup**: Check database connectivity, ensure migrations are done
-   - **Connection errors**: Verify DATABASE_URL and REDIS_URL are correct
+### Notify Team
+- [ ] Post to #incidents Slack channel with rollback reason
+- [ ] Tag on-call engineer in incident
+- [ ] Create GitHub issue with postmortem label
 
-## Performance Budget Verification
+## Performance Verification
 
-After 24 hours of operation:
+After 1 hour of production traffic:
 
-- [ ] Average memory usage < 200MB
-- [ ] P50 response time < 100ms
+- [ ] P50 response time < 200ms (varies by endpoint)
 - [ ] P95 response time < 500ms
-- [ ] No 5xx errors (except expected ones)
-- [ ] CPU usage < 50% average
+- [ ] Error rate < 0.1% (5xx errors)
+- [ ] Render memory usage < 500MB
+- [ ] Render CPU usage < 60%
+- [ ] No database connection pool exhaustion (check `/health/ready`)
+- [ ] Uptime > 99.5%
 
-## Optimization Success Criteria
-
-✅ **Startup time**: < 2 seconds
-✅ **Memory usage**: < 150MB baseline
-✅ **Response time**: < 100ms p50
-✅ **No OOM errors**: 24+ hours uptime
-✅ **All features working**: No regressions
+Check metrics:
+```bash
+curl https://api.rateshift.app/metrics | grep http_request_duration_seconds
+```
 
 ## Troubleshooting
 
-### High Memory Usage
-1. Check if Sentry is enabled (adds ~15MB)
-2. Reduce database pool sizes further
-3. Check for memory leaks in custom code
-4. Review `/metrics` for connection counts
+### Deployment Failures
 
-### Slow Responses
-1. Check database query times
-2. Verify Redis is connected (caching enabled)
-3. Check for N+1 queries
-4. Review `/metrics` for request duration
+**Migration Gate Blocks Deploy**
+1. Check validation errors: `gh workflow run log --job migration-validation`
+2. Verify sequential numbering and syntax
+3. Ensure `IF NOT EXISTS` on all CREATE statements
+4. Fix in `backend/migrations/`, commit, and retry
 
-### Connection Timeouts
-1. Verify DATABASE_URL is correct
-2. Check database server is accessible
-3. Increase `pool_timeout` if needed
-4. Check firewall rules
+**Startup Timeout**
+1. Check Render logs: slow database connection or migration applying
+2. Verify Neon endpoint is responsive: `psql <NEON_URL> -c "SELECT 1"`
+3. Check connection pool not exhausted: `curl https://api.rateshift.app/health/ready`
 
-### Startup Failures
-1. Check environment variables are set
-2. Verify `start.sh` has execute permissions
-3. Check database migrations are complete
-4. Review build logs for missing dependencies
+**Memory Issues**
+1. Check Sentry enabled (adds ~15MB): Consider disabling `SENTRY_DSN`
+2. Review connection pool sizes in `config/database.py`
+3. Check for memory leaks: `curl https://api.rateshift.app/metrics | grep memory`
 
-## Support
+**API Proxy Issues**
+1. Verify CF Worker deployed: `curl -I https://api.rateshift.app`
+2. Check Worker script in Cloudflare dashboard
+3. Test origin connectivity: `curl -I https://electricity-optimizer.onrender.com`
+4. Verify API key in Worker: Check `INTERNAL_API_KEY` in 1Password
 
-- **Documentation**: See `PERFORMANCE_OPTIMIZATIONS.md`
-- **Logs**: Render.com dashboard → Logs tab
-- **Metrics**: `https://your-app.onrender.com/metrics`
-- **Health**: `https://your-app.onrender.com/health/ready`
+**Email Failures**
+1. Verify Resend API key active: Check resend.io account
+2. Test Resend: `curl -X POST https://api.resend.com/emails -d '...'`
+3. Check fallback SMTP: `telnet smtp.gmail.com 587`
+4. Verify DNS: `dig MX rateshift.app`
+
+### Performance Issues
+
+**High P95 Latency**
+1. Check slow query logs: `SELECT * FROM pg_stat_statements ORDER BY mean_time DESC`
+2. Review database indexes: `\d+ <table>` in psql
+3. Check for N+1 queries: Enable `SQLALCHEMY_ECHO=true` (dev only)
+4. Check connection pool exhaustion: Monitor `/health/ready`
+
+**High Error Rate**
+1. Check Render logs for exceptions
+2. Verify all required env vars set: `gh secret list`
+3. Test Neon connectivity: `psql <NEON_URL> -c "SELECT COUNT(*) FROM users"`
+4. Check rate limiting: Verify CF Worker rate limit thresholds
+
+### Database Issues
+
+**Connection Pool Exhausted**
+1. Check concurrent request count: `psql <NEON_URL> -c "SELECT count(*) FROM pg_stat_activity"`
+2. Reduce concurrency limit: `--limit-concurrency 25` (from 50)
+3. Increase pool size: `pool_size=5` (from 3)
+4. Check for long-running queries: Monitor `pg_stat_statements`
+
+**Migration Conflicts**
+1. Check migration status: `psql <NEON_URL> -c "SELECT * FROM alembic_version"`
+2. Rollback failed migration: Manual reversal (see redeployment runbook)
+3. Reapply: `gh workflow run deploy-production.yml`
+
+**Stale Connections**
+1. Enable connection idle timeout in `config/database.py`
+2. Reduce `pool_recycle` from 3600 to 300 seconds
+3. Monitor: `SELECT datname, count(*) FROM pg_stat_activity GROUP BY datname`
+
+## Documentation & References
+
+- **Deployment**: `/Users/devinmcgrath/projects/electricity-optimizer/docs/DEPLOYMENT.md`
+- **Redeployment Runbook**: `/Users/devinmcgrath/projects/electricity-optimizer/docs/REDEPLOYMENT_RUNBOOK.md`
+- **Performance Optimizations**: `/Users/devinmcgrath/projects/electricity-optimizer/backend/PERFORMANCE_OPTIMIZATIONS.md`
+- **Stripe Integration**: `/Users/devinmcgrath/projects/electricity-optimizer/backend/STRIPE_INTEGRATION.md`
+- **Runbooks**: `/Users/devinmcgrath/projects/electricity-optimizer/docs/runbooks/`
+- **Logs**: Render dashboard → Logs tab
+- **Metrics**: `https://api.rateshift.app/metrics`
+- **Health**: `https://api.rateshift.app/health/ready`
+
+## Post-Deployment Learning
+
+After every deployment:
+1. Review deployment time and any issues encountered
+2. Check error logs for patterns
+3. Document lessons in team Slack thread
+4. Update this checklist with new findings
 
 ---
 
-**Last Updated**: 2026-02-07
-**Optimized For**: Render.com Free Tier (512MB RAM)
+**Last Updated**: 2026-03-11
+**Current Architecture**: Render backend + Vercel frontend + Neon database + Cloudflare Workers edge
+**Status**: Production RateShift with self-healing CI/CD

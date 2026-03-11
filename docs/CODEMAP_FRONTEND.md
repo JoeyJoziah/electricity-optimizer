@@ -1,10 +1,11 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-10 (Full-stack bug remediation: CSP header tests +9, isPublicPage guard in AuthProvider)
-**Framework:** Next.js 14.2.35 (App Router) + React 18 + TypeScript
+**Last Updated:** 2026-03-11 (AI Agent production, notification delivery tracking, A/B testing framework, Wave 4-5 completion)
+**Framework:** Next.js 16.0.x (App Router) + React 19 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
+**Test Coverage:** Frontend 1,439+ tests (99 suites, 0 failures, 6 warnings pre-rebrand)
 
 ---
 
@@ -53,6 +54,10 @@ frontend/
         loading.tsx             # Connection cards + method picker skeleton
       alerts/
         page.tsx                # Alerts CRUD page (/alerts) — wrapper for AlertsContent
+      assistant/
+        page.tsx                # AI Assistant chat interface (/assistant) — RateShift AI agent (Gemini 3 Flash + Groq fallback, Composio tools)
+      beta-signup/
+        page.tsx                # Early access signup (public route, beta invitations, progress tracking)
       auth/                     # Authentication pages (route group within (app))
         layout.tsx              # Auth layout (centered cards, no sidebar)
         login/page.tsx          # Sign in form (email/password, OAuth, magic link)
@@ -84,6 +89,7 @@ frontend/
     layout/
       Sidebar.tsx               # Main navigation sidebar (app pages only)
       Header.tsx                # Top header (logo, user menu, mobile toggle)
+      NotificationBell.tsx      # In-app notification bell (sidebar, unread count badge, dropdown panel, mark read)
       DevBanner.tsx             # Development-only banner (top of page)
     dashboard/
       StatsCard.tsx             # Metric card (value, label, change %)
@@ -115,6 +121,10 @@ frontend/
     alerts/
       AlertsContent.tsx         # Main alerts component: My Alerts tab (CRUD) + History tab (paginated)
       AlertForm.tsx             # Create alert form: region select, price thresholds, optimal windows checkbox
+    agent/
+      AgentChat.tsx             # RateShift AI chat interface (streaming query, example prompts, message bubbles, model+tools display)
+    feedback/
+      FeedbackWidget.tsx        # In-app feedback collection widget (survey, rating, comment submission)
     settings/
       ProfileForm.tsx           # Edit user info
       RegionSelector.tsx        # Change region with 50 states + DC support
@@ -124,7 +134,9 @@ frontend/
     hooks/
       useAuth.tsx               # Custom hook: auth state + sign in/up/out + magic link + email verification + OneSignal login/logout
       useAlerts.ts              # TanStack Query hooks: useAlerts, useAlertHistory, useCreateAlert, useUpdateAlert, useDeleteAlert (staleTime: 30s)
+      useAgent.ts               # Agent query hook: useAgentQuery (streaming, messages, error, cancel, reset), useAgentStatus (usage limits)
       useConnections.ts         # TanStack Query hook: useConnections — migrated from useEffect+fetch (retry: false, staleTime: 30s, 403 gate preserved)
+      useNotifications.ts       # TanStack Query hooks: useNotifications (staleTime 30s), useNotificationCount (refetch 30s), useMarkRead, useMarkAllRead
       useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false)
       useLocalStorage.ts        # Persist state to browser storage
       useDarkMode.ts            # Dark mode toggle (future)
@@ -141,6 +153,8 @@ frontend/
     api/
       client.ts                 # Fetch wrapper + 401 handler (3-layer callbackUrl guard)
       alerts.ts                 # Alerts API: getAlerts, createAlert, updateAlert, deleteAlert, getAlertHistory. Types: Alert, AlertHistoryItem, GetAlertsResponse, GetAlertHistoryResponse
+      agent.ts                  # Agent API: queryAgent (SSE streaming, async generator), submitTask (async job), getAgentUsage (rate limits). Types: AgentMessage, AgentUsage, AgentTaskResponse, AgentJobResult
+      notifications.ts          # Notifications API: getNotifications, getNotificationCount, markNotificationRead, markAllRead. Types: Notification, GetNotificationsResponse, GetNotificationCountResponse
       __tests__/
         client-401-redirect.test.ts  # 9 tests for 401 edge cases
     auth/
@@ -763,6 +777,137 @@ Header ("Alerts")
 
 ---
 
+### Agent Components (1 file)
+
+#### AgentChat (`components/agent/AgentChat.tsx`)
+
+**RateShift AI assistant chat interface with streaming query support.**
+
+**Features:**
+- SSE streaming responses from `POST /agent/query` endpoint
+- Example prompts carousel (4 predefined queries for new users)
+- Message bubbles: User (primary-600 text on bg), Assistant (gray-100 bg), Error (red-50 with border)
+- Real-time model display: "via Gemini 3 Flash" / "via Groq Llama 3.3 70B" with duration (1.2s)
+- Tools display: Composio tools used as blue badge pills in message
+- Controls: Send button, Cancel button (during streaming), Reset conversation button
+- Input field: Large text area with send on Ctrl+Enter or button click
+- Rate limiting: Display quota (Free: 3/day, Pro: 20/day, Business: unlimited)
+- Error recovery: Fallback to Groq on Gemini 429 (automatic retry)
+- Mobile responsive: Full viewport height with scrollable message area
+
+**State:**
+- `messages`: Array of AgentMessage objects (role: 'user' | 'assistant' | 'error' | 'tool')
+- `isStreaming`: Boolean indicating active SSE connection
+- `error`: Error message if query fails
+- `input`: Current text input value
+
+**Hooks:**
+- `useAgentQuery()`: Streaming query management (sendQuery, cancel, reset)
+- `useAgentStatus()`: Usage limit tracking
+
+**UI Structure:**
+```
+Container (flex flex-col h-full)
+  ├─ Header: "AI Assistant" title + description
+  ├─ Messages area (scrollable, flex-1)
+  │  ├─ Example prompts (initial state)
+  │  └─ Message bubbles (user/assistant/error)
+  │     ├─ Avatar (Bot icon for assistant)
+  │     ├─ Bubble with content
+  │     └─ Model + Duration + Tools badges
+  ├─ Input area
+  │  ├─ Textarea with placeholder
+  │  ├─ Controls: Send, Cancel, Reset
+  │  └─ Usage indicator
+  └─ Error alert (if error state)
+```
+
+**Tests:** 13 tests covering streaming query, message display, example prompts, error handling, token usage, model fallback
+
+---
+
+### Feedback Components (1 file)
+
+#### FeedbackWidget (`components/feedback/FeedbackWidget.tsx`)
+
+**In-app feedback collection widget for user surveys and bug reports.**
+
+**Features:**
+- Floating button (bottom-right, Slack/Zendesk style)
+- Modal form: feedback type selector (bug/feature_request/general), rating (1-5 stars), text comment
+- Validation: Type required, comment min 10 chars
+- Success state: "Thank you for your feedback"
+- Integration: Submits to `POST /api/v1/feedback` endpoint
+- Analytics: Track feedback submission counts by type
+
+**State:**
+- `isOpen`: Modal visibility
+- `feedback_type`: Selected type
+- `rating`: Star rating (1-5)
+- `comment`: Textarea value
+- `isSubmitting`: Loading state
+
+**UI Structure:**
+```
+Floating button (bottom-right, primary-600)
+  └─ Modal (overlay)
+     ├─ Title: "Send us feedback"
+     ├─ Type select (bug/feature_request/general)
+     ├─ Star rating (1-5)
+     ├─ Comment textarea (min 10 chars)
+     ├─ Submit button
+     └─ Success confirmation
+```
+
+---
+
+### Layout Components
+
+#### NotificationBell (`components/layout/NotificationBell.tsx`)
+
+**In-app notification bell for alerts and system messages (sidebar header).**
+
+**Features:**
+- Bell icon with unread count badge (red pill, 0+ count)
+- Dropdown panel on click (right-aligned, max-width 400px)
+- Polling: Unread count refetches every 30s (via `useNotificationCount()`)
+- Notifications list: Only fetch when dropdown open (enabled: open)
+- Each notification: Title + body + timestamp + mark-as-read button
+- "Mark all as read" action (batch operation)
+- Empty state: "No notifications"
+- Types: price_alert, optimal_window, payment, system
+- Color coding by type (primary/success/danger badges)
+
+**State:**
+- `open`: Dropdown visibility
+- `notifications`: List of Notification objects
+- `unreadCount`: Badge count
+
+**Hooks:**
+- `useNotificationCount()`: Polling unread count
+- `useNotifications()`: Full notification list (staleTime: 30s)
+- `useMarkRead()`: Mark single notification as read
+- `useMarkAllRead()`: Batch mark all as read
+
+**UI Structure:**
+```
+Bell icon + badge (unread count)
+  └─ Dropdown panel (when open=true)
+     ├─ Header: "Notifications"
+     ├─ Mark all read button
+     ├─ Notification items
+     │  ├─ Type badge
+     │  ├─ Title
+     │  ├─ Body (gray-500)
+     │  ├─ Timestamp (gray-400, relative)
+     │  └─ Mark read button
+     └─ Empty state or scroll area
+```
+
+**Tests:** 15 tests covering polling, dropdown interactions, mark read, batch operations, empty state
+
+---
+
 ### Settings Page Components
 
 **All select dropdowns styled with `bg-white text-gray-900`:**
@@ -917,6 +1062,62 @@ const { data, isLoading, error } = useConnections()
 // 403 preserved: throws error with { status: 403 } for tier-gate display
 ```
 
+### Agent Hooks (`lib/hooks/useAgent.ts`)
+
+**Hooks for RateShift AI agent queries and usage tracking.**
+
+```typescript
+// Hook for streaming agent queries
+const { messages, isStreaming, error, sendQuery, cancel, reset } = useAgentQuery()
+// messages: AgentMessage[] (role: 'user' | 'assistant' | 'error' | 'tool')
+// sendQuery(prompt: string) → async generator streaming SSE events
+// cancel() → abort active request
+// reset() → clear messages and error state
+
+// Hook for agent usage limits
+const { data: usage, isLoading } = useAgentStatus()
+// Returns: { used: number, limit: number, remaining: number, tier: string }
+// Tier-based limits: Free=3/day, Pro=20/day, Business=unlimited
+```
+
+**Features:**
+- SSE streaming with async generator pattern
+- Error fallback: Automatic retry to Groq on Gemini 429 (transparent to UI)
+- Model metadata: Displays "via Gemini 3 Flash" or "via Groq Llama 3.3 70B"
+- Tool tracking: Composio tools used listed as badges
+- Token usage: tracked and displayed with response
+- Message types: 'user' (blue), 'assistant' (gray), 'error' (red), 'tool' (info)
+
+### Notifications Hooks (`lib/hooks/useNotifications.ts`)
+
+**TanStack Query hooks for notification CRUD and polling. All use staleTime: 30s.**
+
+```typescript
+// Poll unread count every 30 seconds (for badge)
+const { data: countData } = useNotificationCount()
+// Returns: { unread: number }
+// refetchInterval: 30_000 (badge stays current)
+
+// Fetch full notification list (only when panel open)
+const { data: notifData } = useNotifications()
+// Returns: { notifications: Notification[], total: number }
+// enabled: open (only fetch when dropdown open)
+
+// Mark single notification as read
+const markRead = useMarkRead()
+// mutationFn: markNotificationRead(id), invalidates ['notifications', 'count']
+
+// Mark all notifications as read (batch)
+const markAllRead = useMarkAllRead()
+// mutationFn: markAllRead(), invalidates ['notifications', 'count']
+```
+
+**Performance Optimization:**
+- Count polling: Every 30s for badge (cheap)
+- Full list: Only fetch when panel open (expensive, stale after 30s)
+- Batch invalidation: Both queries refetch on mutation success
+- Example notification types: price_alert, optimal_window, payment_failed, system
+
 ### React Query Integration
 
 **Used for server state (API calls):**
@@ -994,6 +1195,108 @@ updateAlert(id, body: UpdateAlertRequest) // PUT /alerts/{id}
 deleteAlert(id)                          // DELETE /alerts/{id}
 getAlertHistory(page, pageSize)          // GET /alerts/history?page=&page_size=
 ```
+
+### Agent API Client (`lib/api/agent.ts`)
+
+**Functions for RateShift AI agent queries, async tasks, and usage tracking.**
+
+**Types exported:**
+```typescript
+interface AgentMessage {
+  role: 'user' | 'assistant' | 'error' | 'tool'
+  content: string
+  model_used?: string           // 'Gemini 3 Flash' or 'Groq Llama 3.3 70B'
+  tools_used?: string[]         // Composio tool names used
+  tokens_used?: number          // Prompt + completion tokens
+  duration_ms?: number          // Response time in milliseconds
+}
+
+interface AgentUsage {
+  used: number                  // Queries used today
+  limit: number                 // Daily limit for tier
+  remaining: number             // limit - used
+  tier: string                  // 'free' | 'pro' | 'business'
+}
+
+interface AgentTaskResponse {
+  job_id: string               // UUID for async task
+}
+
+interface AgentJobResult {
+  status: 'processing' | 'completed' | 'failed' | 'not_found'
+  result?: string              // Async task result
+  model_used?: string
+  error?: string               // Error message if failed
+}
+```
+
+**Functions:**
+```typescript
+// Stream agent query with SSE
+async function* queryAgent(prompt: string, context?: Record<string, unknown>)
+// Returns async generator yielding AgentMessage objects
+// POST /agent/query with { prompt, context }
+// SSE streaming: each event is JSON AgentMessage
+
+// Submit async task (long-running queries)
+submitTask(prompt: string)     // POST /agent/task → returns { job_id }
+
+// Check async task status
+checkTask(jobId: string)       // GET /agent/task/{jobId} → returns AgentJobResult
+
+// Get usage limits and usage count
+getAgentUsage()                // GET /agent/usage → returns AgentUsage
+```
+
+**Features:**
+- **SSE streaming:** Real-time message display as model generates
+- **Model fallback:** On Gemini 429 error, automatically retry with Groq (transparent to caller)
+- **Composio integration:** Tools available (1K actions/month free tier)
+- **Rate limiting:** Enforced at backend per tier (Free: 3/day, Pro: 20/day, Business: unlimited)
+- **Timeout handling:** Frontend timeout 15s, internal timeout excluded from RequestTimeoutMiddleware
+
+### Notifications API Client (`lib/api/notifications.ts`)
+
+**Functions for in-app notification CRUD and batch operations.**
+
+**Types exported:**
+```typescript
+interface Notification {
+  id: string
+  type: string                 // 'price_alert' | 'optimal_window' | 'payment' | 'system'
+  title: string
+  body: string | null
+  created_at: string           // ISO timestamp
+  is_read?: boolean
+}
+
+interface GetNotificationsResponse {
+  notifications: Notification[]
+  total: number
+}
+
+interface GetNotificationCountResponse {
+  unread: number
+}
+
+interface MarkReadResponse {
+  success: boolean
+}
+```
+
+**Functions:**
+```typescript
+getNotifications()                    // GET /notifications → returns GetNotificationsResponse
+getNotificationCount()                // GET /notifications/count → returns GetNotificationCountResponse
+markNotificationRead(id: string)      // PUT /notifications/{id}/read → returns MarkReadResponse
+markAllRead()                         // POST /notifications/read-all → marks all as read (batch)
+```
+
+**Features:**
+- **Polling support:** Count endpoint optimized for 30s polling
+- **Batch operations:** Mark all as read in single API call
+- **Type-based filtering:** Supports filtering by notification type (future feature)
+- **Timestamp format:** ISO string, frontend formats relative (e.g., "2m ago")
 
 ---
 
@@ -1284,7 +1587,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 ### Alerts UI (2026-03-09)
 
 1. **New Page: `/alerts`** (`app/(app)/alerts/page.tsx`)
-   - Wrapper page with metadata: `title: 'Alerts | Electricity Optimizer'`
+   - Wrapper page with metadata: `title: 'Alerts | RateShift'`
    - Renders `<AlertsContent />` — no layout logic in page itself
 
 2. **AlertsContent** (`components/alerts/AlertsContent.tsx`)
@@ -1473,6 +1776,81 @@ BETTER_AUTH_URL=...                      # (Server-only)
    - ConnectionCard: Label input → `bg-white text-gray-900`
    - ConnectionAnalytics: kWh input → `bg-white text-gray-900`
 
+### Wave 4-5: AI Agent + Notifications (2026-03-11)
+
+**1. RateShift AI Assistant (`/assistant` page)**
+   - New page: `app/(app)/assistant/page.tsx` with full-viewport chat UI
+   - Component: `components/agent/AgentChat.tsx` — SSE streaming from backend
+   - Hooks: `useAgentQuery()` (streaming) + `useAgentStatus()` (usage tracking)
+   - API: `lib/api/agent.ts` — `queryAgent()` async generator, `submitTask()`, `getAgentUsage()`
+   - Features: Example prompts, message bubbles with model/tools display, error recovery (Groq fallback on 429), rate-limit badge
+   - Rate limits: Free=3/day, Pro=20/day, Business=unlimited
+   - Models: Gemini 3 Flash (primary) + Groq Llama 3.3 70B (fallback)
+   - Tools: Composio integration (1K actions/month)
+   - Test coverage: 13 tests (streaming, examples, error handling, token usage)
+
+**2. Notification Bell (`NotificationBell.tsx` in sidebar)**
+   - In-app notification center: Bell icon with unread badge (top-right sidebar)
+   - Dropdown panel: Notification list, mark-as-read actions, batch clear
+   - Hooks: `useNotificationCount()` (poll 30s), `useNotifications()` (staleTime 30s), `useMarkRead()`, `useMarkAllRead()`
+   - API: `lib/api/notifications.ts` — CRUD operations + polling endpoints
+   - Notification types: price_alert, optimal_window, payment, system
+   - Performance: Count polls every 30s (cheap), full list only fetches when dropdown open
+   - Test coverage: 15 tests (polling, interactions, batch ops, empty state)
+
+**3. Feedback Widget (`components/feedback/FeedbackWidget.tsx`)**
+   - Floating button (bottom-right) → modal form
+   - Feedback types: bug, feature_request, general
+   - Rating: 1-5 star picker
+   - Comment: Textarea with min 10 chars validation
+   - Submission: POST to `/api/v1/feedback`
+
+**4. Sidebar Update**
+   - Added "Assistant" nav item (Bot icon) → `/assistant`
+   - Navigation routes: Dashboard, Prices, Suppliers, Connections, Optimize, Alerts, Settings, + Assistant (8 items)
+   - NotificationBell positioned in sidebar header (right side, above nav)
+
+**5. Beta Signup Page** (`app/(app)/beta-signup/page.tsx`)
+   - Early access signup with validation
+   - Batch invite system + invite-stats tracking
+   - Conversion tracking: Invited → Converted → Active
+   - Backward-compat routes: `/beta/*` routes redirect to `/beta-signup` for public access
+
+**6. Testing Updates**
+   - Frontend tests: 1,439 total (Wave 4: +125 notification tracking, +49 A/B testing, +9 model-versions)
+   - New test files: `useAgent.test.ts` (+13), `NotificationBell.test.tsx` (+15), agent API tests
+   - E2E tests: 634 passed, 5 skipped (no changes)
+   - Total test suites: 99 (0 failures, 6 pre-existing warnings)
+
+**7. Framework Updates**
+   - Next.js: 14.2.35 → 16.0.x (React 19 compatible)
+   - React: 18 → 19 (new hook APIs, automatic batching)
+   - TypeScript: Stricter type checking
+   - Dependencies: @testing-library/react ^16, @types/react-dom 19, .npmrc legacy-peer-deps=true
+
+**8. Design System Refinements**
+   - Component library: +3 new components (AgentChat, NotificationBell, FeedbackWidget)
+   - Color standardization: All components use primary-*/success-*/danger-* tokens
+   - Icon library: lucide-react (45+ icons used across UI)
+   - Shadows: card + card-hover for elevation
+
+**9. API Client Enhancements**
+   - Agent API: SSE streaming with async generator pattern
+   - Notifications API: Polling-optimized (count endpoint + full list endpoint)
+   - Error handling: Transparent fallback (Gemini 429 → Groq retry)
+   - Rate limiting: Enforced at backend per tier, displayed in UI
+
+**10. Performance & A11y**
+   - Notification polling: 30s intervals (avoids excessive network)
+   - Message streaming: Lazy render as events arrive (no buffering)
+   - A11y: ARIA labels on NotificationBell, keyboard navigation on dropdown, color contrast verified
+
+**Files Created/Modified (26 files):**
+   - New: AgentChat.tsx, NotificationBell.tsx, FeedbackWidget.tsx, assistant/page.tsx, beta-signup/page.tsx
+   - New: useAgent.ts, useNotifications.ts, agent.ts, notifications.ts
+   - Modified: Sidebar.tsx (added Assistant route + NotificationBell), layout.tsx (Bot icon nav)
+   - Tests: +60 new tests across agent, notifications, beta-signup
+
 ### Earlier Updates (2026-03-02)
 
 - **URI_TOO_LONG Fix:** 3-layer 401 redirect guard, +13 tests, docs updated (Commit 555d48f)
@@ -1615,6 +1993,11 @@ updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
 
 ---
 
-**Last Reviewed:** 2026-03-09 by documentation engineer
-**Status:** Current with alerts UI, tier gating, favicon, performance optimizations
+**Last Reviewed:** 2026-03-11 by documentation engineer
+**Status:** Current with AI Agent, notification delivery, A/B testing framework, Waves 4-5 complete
 **Test Coverage:** 1,439 tests (frontend), ~4,170 total (all layers)
+**Framework:** Next.js 16 + React 19 + TypeScript
+**Components:** 55+ (19 UI + 36 feature-specific)
+**Pages:** 21 (root + (app) with sidebar + (dev) + auth)
+**Hooks:** 12+ (auth, alerts, agent, notifications, connections, prices, suppliers, etc.)
+**API Clients:** 8+ (alerts, agent, notifications, prices, suppliers, profile, optimization, connections)

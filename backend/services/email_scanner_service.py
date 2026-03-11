@@ -272,6 +272,205 @@ def _extract_gmail_body_text(payload: dict) -> str:
     return ""
 
 
+async def download_gmail_attachments(
+    access_token: str,
+    email_id: str,
+) -> List[Dict[str, Any]]:
+    """
+    Download all PDF/image attachments from a Gmail message.
+
+    First fetches the message with format=full to inspect parts, then downloads
+    each qualifying attachment via the Gmail attachments endpoint.  Attachment
+    data arrives as base64url-encoded bytes.
+
+    Returns a list of dicts with keys: filename, data (bytes), mime_type.
+    Limits to 5 attachments per email.  Skips non-PDF/image parts.
+    """
+    _ALLOWED_MIME = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
+    results: List[Dict[str, Any]] = []
+
+    async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
+        # Fetch message with full payload to read part metadata
+        msg_resp = await client.get(
+            f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{email_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"format": "full"},
+        )
+        msg_resp.raise_for_status()
+        payload = msg_resp.json().get("payload", {})
+
+        def _collect_parts(part: dict) -> None:
+            """Recursively collect parts that are downloadable attachments."""
+            filename = part.get("filename", "")
+            mime_type = part.get("mimeType", "")
+            attachment_id = part.get("body", {}).get("attachmentId")
+
+            if filename and attachment_id and mime_type.lower() in _ALLOWED_MIME:
+                results.append({
+                    "filename": filename,
+                    "attachment_id": attachment_id,
+                    "mime_type": mime_type.lower(),
+                })
+
+            for sub in part.get("parts", []):
+                _collect_parts(sub)
+
+        _collect_parts(payload)
+
+        # Cap at 5 attachments
+        attachments_to_fetch = results[:5]
+        results.clear()
+
+        for meta in attachments_to_fetch:
+            try:
+                att_resp = await client.get(
+                    f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{email_id}"
+                    f"/attachments/{meta['attachment_id']}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                att_resp.raise_for_status()
+                raw_data = att_resp.json().get("data", "")
+                # Gmail returns base64url-encoded data
+                file_bytes = base64.urlsafe_b64decode(raw_data + "==")
+                results.append({
+                    "filename": meta["filename"],
+                    "data": file_bytes,
+                    "mime_type": meta["mime_type"],
+                })
+            except Exception:
+                # Skip attachments that fail to download
+                continue
+
+    return results
+
+
+async def download_outlook_attachments(
+    access_token: str,
+    email_id: str,
+) -> List[Dict[str, Any]]:
+    """
+    Download all PDF/image attachments from an Outlook/Graph API message.
+
+    Fetches the attachments collection for the given message.  Each item
+    exposes contentBytes (base64-encoded) along with name and contentType.
+
+    Returns a list of dicts with keys: filename, data (bytes), mime_type.
+    Limits to 5 attachments per email.  Skips non-PDF/image content types.
+    """
+    _ALLOWED_MIME = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
+    results: List[Dict[str, Any]] = []
+
+    async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
+        resp = await client.get(
+            f"https://graph.microsoft.com/v1.0/me/messages/{email_id}/attachments",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"$select": "name,contentType,contentBytes"},
+        )
+        resp.raise_for_status()
+        attachments = resp.json().get("value", [])
+
+        for att in attachments[:5]:
+            mime_type = att.get("contentType", "").lower().split(";")[0].strip()
+            if mime_type not in _ALLOWED_MIME:
+                continue
+            content_bytes = att.get("contentBytes", "")
+            if not content_bytes:
+                continue
+            try:
+                file_bytes = base64.b64decode(content_bytes)
+                results.append({
+                    "filename": att.get("name", "attachment"),
+                    "data": file_bytes,
+                    "mime_type": mime_type,
+                })
+            except Exception:
+                continue
+
+    return results
+
+
+async def extract_rates_from_attachments(
+    attachments: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Parse each attachment through bill_parser extractors.
+
+    Uses lazy import of bill_parser to avoid circular dependency issues.
+    Each attachment dict must have keys: filename, data (bytes), mime_type.
+
+    Returns a list of extraction result dicts.  Each result has at least
+    a 'filename' key and whatever fields bill_parser could extract
+    (rate_per_kwh, total_kwh, total_amount, supplier, billing_period_start,
+    billing_period_end).
+    """
+    # Lazy import to avoid circular deps
+    from services.bill_parser import (
+        extract_text,
+        extract_rate_per_kwh,
+        extract_supplier,
+        extract_billing_period,
+        extract_total_kwh,
+        extract_total_amount,
+        _validate_magic_bytes,
+    )
+
+    _MIME_TO_TYPE = {
+        "application/pdf": "pdf",
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+    }
+
+    extracted_results: List[Dict[str, Any]] = []
+
+    for att in attachments:
+        filename = att.get("filename", "unknown")
+        data: bytes = att.get("data", b"")
+        mime_type = att.get("mime_type", "")
+
+        if not data:
+            continue
+
+        # Validate magic bytes match expected type
+        detected_type = _validate_magic_bytes(data)
+        file_type = _MIME_TO_TYPE.get(mime_type, detected_type or "")
+        if not file_type:
+            continue
+
+        try:
+            text_body = extract_text(data, file_type)
+            if not text_body.strip():
+                continue
+
+            rate, rate_conf = extract_rate_per_kwh(text_body)
+            supplier, _ = extract_supplier(text_body)
+            period_start, period_end, _ = extract_billing_period(text_body)
+            total_kwh, _ = extract_total_kwh(text_body)
+            total_amount, _ = extract_total_amount(text_body)
+
+            result: Dict[str, Any] = {"filename": filename}
+            if rate is not None and rate_conf >= 0.5:
+                result["rate_per_kwh"] = rate
+            if supplier:
+                result["supplier"] = supplier
+            if period_start:
+                result["billing_period_start"] = period_start
+            if period_end:
+                result["billing_period_end"] = period_end
+            if total_kwh is not None:
+                result["total_kwh"] = total_kwh
+            if total_amount is not None:
+                result["total_amount"] = total_amount
+
+            extracted_results.append(result)
+        except Exception:
+            # Never crash on a single attachment — log and move on
+            extracted_results.append({"filename": filename})
+            continue
+
+    return extracted_results
+
+
 def _extract_rates_from_text(text: str) -> Dict[str, Any]:
     """Extract rate information from email text using regex patterns from bill_parser."""
     result: Dict[str, Any] = {}

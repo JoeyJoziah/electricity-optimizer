@@ -9,7 +9,7 @@
 ## Overview
 
 Loki Mode provides autonomous RARV (Research, Act, Review, Verify) orchestration
-for the Electricity Optimizer project. It integrates with Claude Flow for persistent
+for the RateShift project. It integrates with Claude Flow for persistent
 memory, AgentDB for vector-backed semantic search, and the board sync pipeline for
 GitHub Projects synchronization. Notion sync is handled separately by Rube recipe
 `rcp_73Kc9K65YC5T` (every 6h). The system runs as an MCP server registered in

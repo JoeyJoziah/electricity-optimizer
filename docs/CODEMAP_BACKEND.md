@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-10 (Full-stack bug remediation complete: CSP Clarity fix, maintenance endpoint resilience, gitleaks allowlist, fetch-weather auto-discovery. Test count: 1,479)
+> Last updated: 2026-03-11 (Wave 3-4 completion: notification delivery tracking, A/B testing framework, AI agent integration, model versioning. Test count: 1,835. Migrations: 33. Tables: 30+)
 
 ## Directory Structure
 
@@ -48,7 +48,9 @@ backend/
 │       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
 │       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
 │       ├── users.py                 # User profile management (get, update, delete account)
-│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline), sync-connections (batch sync scheduler), dunning-cycle (overdue payment escalation), kpi-report (business metrics aggregation), geocode-address
+│       ├── agent.py                 # RateShift AI assistant endpoints (SSE streaming, async jobs, usage tracking)
+│       ├── feedback.py              # User feedback submission and collection
+│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline), sync-connections (batch sync scheduler), dunning-cycle (overdue payment escalation), kpi-report (business metrics aggregation), geocode-address, health-data
 │
 ├── routers/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
@@ -63,14 +65,19 @@ backend/
 │   ├── regulation.py                # StateRegulation, StateRegulationResponse, StateRegulationListResponse
 │   ├── user_supplier.py             # SetSupplierRequest, LinkAccountRequest, UserSupplierResponse, LinkedAccountResponse
 │   ├── connections.py               # CreateConnectionRequest (4 types), BillUploadResponse, ConnectionResponse, ConnectionAnalytics
-│   └── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
+│   ├── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
+│   ├── model_version.py             # ModelVersion, ABTest, ABOutcome schemas for versioning and A/B testing
+│   ├── model_config.py              # ModelConfiguration for ML pipeline parameterization
+│   └── notification.py              # Notification schema with delivery tracking (channel, status, delivered_at, error_message)
 │
 ├── repositories/
 │   ├── base.py                      # BaseRepository[T], error classes
 │   ├── price_repository.py          # PriceRepository: CRUD, bulk_create, statistics (utility_type filter)
 │   ├── supplier_repository.py       # SupplierRegistryRepository + StateRegulationRepository; SQL-injection-safe WHERE clauses
-│   ├── forecast_observation_repository.py  # ForecastObservationRepository: observation queries
-│   └── user_repository.py           # UserRepository: by-email, by-stripe-customer-id, preferences, consent
+│   ├── forecast_observation_repository.py  # ForecastObservationRepository: observation queries (with version breakdown)
+│   ├── user_repository.py           # UserRepository: by-email, by-stripe-customer-id, preferences, consent
+│   ├── notification_repository.py    # NotificationRepository: CRUD + delivery_status tracking, update_delivery()
+│   └── model_config_repository.py    # ModelConfigRepository: versioned ML config persistence
 │
 ├── services/
 │   ├── price_service.py             # Business logic: comparison, forecast, optimal windows
@@ -95,7 +102,13 @@ backend/
 │   ├── savings_service.py           # Savings calculation and tracking
 │   ├── feature_flag_service.py      # Feature flag evaluation and management
 │   ├── dunning_service.py           # Stripe dunning: record failure, 24h cooldown, soft/final email, escalate to free after 3 failures
-│   └── kpi_report_service.py        # KPI metrics aggregation: active users, MRR, subscription breakdown, data freshness
+│   ├── kpi_report_service.py        # KPI metrics aggregation: active users, MRR, subscription breakdown, data freshness
+│   ├── notification_dispatcher.py    # Multi-channel notification dispatch (in-app, push, email) with delivery tracking and dedup cooldowns
+│   ├── ab_test_service.py           # A/B testing framework with SHA-256 consistent hashing, assignment persistence, metric aggregation
+│   ├── model_version_service.py     # Model versioning and promotion, A/B test lifecycle management
+│   ├── agent_service.py             # RateShift AI agent: Gemini 3 Flash primary + Groq fallback + Composio tools (SSE streaming, async jobs, rate limiting)
+│   ├── alert_renderer.py            # Alert message templating and formatting
+│   └── data_persistence_helper.py    # Shared batch INSERT logic for internal data pipeline endpoints
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -151,7 +164,16 @@ backend/
 │   ├── 021_connection_fixes.sql     # Connection feature bug fixes
 │   ├── 022_bill_upload_fixes.sql    # Bill upload improvements
 │   ├── 023_db_audit_indexes.sql     # Database audit indexes, bulk_create refactor
-│   └── 024_payment_retry_history.sql # Dunning retry tracking: UUID PK, retry_count, escalation_action, email tracking
+│   ├── 024_payment_retry_history.sql # Dunning retry tracking: UUID PK, retry_count, escalation_action, email tracking
+│   ├── 025_data_cache_tables.sql     # 3 cache tables for internal fetch endpoints (weather, market intelligence, rate data)
+│   ├── 026_notifications_metadata.sql # Enhanced notification metadata columns
+│   ├── 027_model_config.sql          # ModelConfiguration table for ML parameterization
+│   ├── 028_feedback_table.sql        # User feedback collection table
+│   ├── 029_notification_delivery_tracking.sql # Delivery channel, status, delivered_at, retry_count columns
+│   ├── 030_model_versioning_ab_tests.sql # model_versions, ab_tests, ab_outcomes tables
+│   ├── 031_agent_tables.sql          # agent_conversations, agent_usage_daily, agent_messages tables
+│   ├── 032_notification_error_message.sql # error_message column for notification delivery diagnostics
+│   └── 033_model_predictions_ab_assignments.sql # model_predictions, model_ab_assignments tables for A/B test tracking
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -214,6 +236,12 @@ backend/
     ├── test_forecast_observation_repository.py # ForecastObservationRepository with new coverage/accuracy class methods
     ├── test_dunning_service.py      # DunningService tests (13 tests: record, cooldown, email template selection, escalation, full flow)
     ├── test_kpi_report_service.py   # KPIReportService tests (7 tests: happy path, empty tables, subscription breakdown, MRR calculation, weather freshness)
+    ├── test_notification_dispatcher.py # NotificationDispatcher tests (multi-channel, dedup cooldowns, delivery tracking)
+    ├── test_ab_test_service.py       # ABTestService tests (consistent hashing, assignment persistence, metric aggregation)
+    ├── test_model_version_service.py # ModelVersionService tests (versioning, promotion, A/B test lifecycle)
+    ├── test_agent_service.py         # AgentService tests (Gemini/Groq fallback, tool execution, streaming, rate limits)
+    ├── test_api_agent.py            # Agent API endpoint tests (query streaming, async jobs, usage tracking)
+    ├── test_api_feedback.py         # Feedback API endpoint tests
     └── test_load.py                 # Load/stress test helpers
 ```
 
@@ -453,13 +481,38 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 
 **Profile fields:** email, name, region, phone, address, notification preferences, language.
 
+### Agent (`/api/v1/agent`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/query` | Session | Stream agent response (SSE, Gemini 3 Flash primary + Groq fallback) |
+| POST | `/task` | Session | Submit async job for tool-heavy tasks |
+| GET | `/task/{job_id}` | Session | Poll async job result |
+| GET | `/usage` | Session | Remaining queries today (rate limited: Free=3/day, Pro=20/day, Business=unlimited) |
+
+**Integration:** Powered by RateShift AI agent with Composio tool integration (16 connected apps: Gmail, GitHub, Firecrawl, Sentry, Vercel, Resend, Stripe, Render, Google Sheets/Drive, UptimeRobot, OneSignal, Better Stack, Slack, Notion, Neon). Rate limits enforced per tier. SSE streaming for real-time responses.
+
+### Feedback (`/api/v1/feedback`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/` | Session | Submit user feedback (type, message, context) |
+| GET | `/` | Session | List user's feedback submissions |
+
+**Types:** bug_report, feature_request, general_feedback, savings_tracking, rate_quality.
+
+### Recommendations (`/api/v1/recommendations`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/switching` | Session | Switching recommendation (real RecommendationService) |
+| GET | `/usage` | Session | Usage timing recommendation (real RecommendationService) |
+| GET | `/daily` | Session | Daily combined recommendations (switching + usage) |
+
 ### Other
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/recommendations/switching` | Session | Switching recommendation (real RecommendationService) |
-| GET | `/recommendations/usage` | Session | Usage timing recommendation (real RecommendationService) |
-| GET | `/recommendations/daily` | Session | Daily combined recommendations (switching + usage) |
 | GET | `/user/preferences` | Session | Get user preferences (stub) |
 | POST | `/user/preferences` | Session | Update user preferences (stub) |
 
@@ -499,7 +552,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 
 ### config/secrets.py
 
-`SecretsManager` with 27 `SECRET_MAPPINGS` (up from 17) mapping 1Password item/field pairs to env vars. In production, secrets are fetched from 1Password vault "Electricity Optimizer" (`OP_VAULT`); in dev, falls back to env vars.
+`SecretsManager` with 27 `SECRET_MAPPINGS` (up from 17) mapping 1Password item/field pairs to env vars. In production, secrets are fetched from 1Password vault "RateShift" (`OP_VAULT`); in dev, falls back to env vars.
 
 **New mappings (added in env var audit):** `resend_api_key`, `google_client_id`, `google_client_secret`, `github_client_id`, `github_client_secret`, `gmail_client_id`, `gmail_client_secret`, `outlook_client_id`, `outlook_client_secret`, `redis_url`.
 
@@ -591,6 +644,114 @@ for both `get_recommendation_service` and `get_learning_service`.
 
 **payment_failed fix**: Resolves user_id from `stripe_customer_id` via `UserRepository.get_by_stripe_customer_id()` when invoice webhook lacks user metadata.
 
+### services/notification_dispatcher.py
+
+`NotificationDispatcher` -- multi-channel notification routing with delivery tracking and deduplication.
+
+| Channel | Purpose | Persistence |
+|---------|---------|-------------|
+| IN_APP | Database notification row | Full (notifications table) |
+| PUSH | OneSignal push notification | Tracked in notification row |
+| EMAIL | Transactional email via Resend/SMTP | Tracked in notification row |
+
+**Delivery Tracking (Migrations 029 + 032):**
+- `delivery_channel`: which channel was used
+- `delivery_status`: pending → sent / failed
+- `delivered_at`: timestamp when status became "sent"
+- `retry_count`: incremented on each attempt
+- `error_message`: diagnostics on failure
+
+**Deduplication:** Optional cooldown window (immediate=1h, hourly=1h, daily=24h, weekly=7d) via `dedup_key` + `cooldown_seconds`.
+
+**Methods:**
+- `send()`: Async dispatch across channels with tracking
+- `batch_send()`: Dispatch to multiple users
+- `get_delivery_status()`: Query tracking by notification_id
+
+### services/ab_test_service.py
+
+`ABTestService` -- consistent-hash-based A/B test assignment without hot-path DB writes.
+
+| Method | Purpose |
+|--------|---------|
+| `assign_user(user_id, version_a, version_b, split_ratio)` | Deterministic SHA-256 assignment (persisted lazily) |
+| `get_assignment(user_id)` | Query persisted assignment or compute via hash |
+| `record_prediction(user_id, model_version, region, predicted, actual)` | Store prediction event |
+| `update_actual(prediction_id, actual_value)` | Backfill actual + compute error % |
+| `get_split_metrics()` | MAPE/MAE/count aggregated by version |
+| `auto_promote(version_a, version_b, threshold, min_predictions)` | Automatic winner selection if challenger beats champion |
+
+**Tables:** `model_predictions` (per-user, per-version events), `model_ab_assignments` (persistent user→version mapping).
+
+### services/model_version_service.py
+
+`ModelVersionService` -- ML model versioning and lifecycle management.
+
+| Method | Purpose |
+|--------|---------|
+| `create_version(model_name, config, metrics)` | Persist new (inactive) model version |
+| `get_active_version(model_name)` | Get currently active version |
+| `promote_version(version_id)` | Atomically set version active, deactivate others |
+| `list_versions(model_name, limit)` | Recent versions newest-first |
+| `compare_versions(version_a_id, version_b_id)` | Side-by-side metric comparison |
+| `create_ab_test(version_a_id, version_b_id, split_ratio)` | Start A/B test run |
+| `evaluate_ab_test(test_id)` | Compute winner via accuracy metrics |
+
+**Tables:** `model_versions`, `ab_tests`, `ab_outcomes`, `model_predictions`, `model_ab_assignments`.
+
+### services/agent_service.py
+
+`AgentService` -- RateShift AI assistant with LLM failover and tool integration.
+
+| Component | Purpose |
+|-----------|---------|
+| **Primary LLM** | Gemini 2.5 Flash (free tier: 10 RPM, 250 RPD) |
+| **Fallback LLM** | Groq Llama 3.3 70B (on Gemini 429) |
+| **Tools** | Composio (16 connected apps, 1K actions/month free) |
+| **Streaming** | SSE via `POST /agent/query` |
+| **Async Jobs** | Queue + polling via `POST /agent/task` + `GET /agent/task/{job_id}` |
+
+**Rate Limits (per tier):**
+- Free: 3 queries/day
+- Pro: 20 queries/day
+- Business: unlimited
+
+**Methods:**
+- `query_stream()`: Stream LLM response with tool execution
+- `submit_job()`: Async task submission for long-running queries
+- `get_job_result()`: Poll job status
+- `get_usage()`: Query rate limit tracking
+
+**Persistence:** `agent_conversations`, `agent_usage_daily`, `agent_messages` tables (migration 031).
+
+### services/alert_renderer.py
+
+`AlertRenderer` -- template-based alert message formatting.
+
+| Method | Purpose |
+|--------|---------|
+| `render_price_alert()` | Format price threshold breach notification |
+| `render_recommendation()` | Format savings recommendation |
+| `render_connection_health()` | Format connection status alert |
+
+### services/data_persistence_helper.py
+
+`persist_batch()` -- shared batch INSERT logic for internal fetch endpoints.
+
+**Used by:**
+- `fetch-weather` → weather_cache table
+- `market-research` → market_intel_cache table
+- `scrape-rates` → rate_data_cache table
+
+**Parameters:**
+- `db`: AsyncSession
+- `table`: destination table name
+- `sql`: parameterized INSERT statement
+- `rows`: list[dict] of data
+- `log_context`: for safe logging (no PII)
+
+**Returns:** count of persisted rows.
+
 
 ## Models
 
@@ -642,6 +803,40 @@ GDPR fields (`consent_given`, `consent_date`, `data_processing_agreed`).
 
 `DeletionLog`: immutable deletion audit with `deletion_type` (full/anonymization),
 `data_categories_deleted`, `legal_basis`.
+
+### ModelVersion model
+
+Fields: `id` (UUID), `model_name`, `version_string`, `config` (JSONB), `metrics` (MAPE, MAE, RMSE, coverage), `is_active`, `created_at`, `promoted_at`.
+
+**Purpose:** Versioning and A/B testing infrastructure for ML models. Supports side-by-side metric comparison and automated winner selection.
+
+### ModelConfig model
+
+Fields: `id` (UUID), `model_name`, `config_name`, `parameters` (JSONB), `version`, `created_at`.
+
+**Purpose:** Store and retrieve ML pipeline configurations (ensemble weights, hyperparameters, feature flags).
+
+### Notification model (enhanced)
+
+Fields: `id` (UUID), `user_id` (FK), `type`, `title`, `body`, `read` (boolean), `created_at`,
+**Delivery tracking (Migration 029 + 032):**
+- `delivery_channel` (in_app/push/email)
+- `delivery_status` (pending/sent/failed)
+- `delivered_at` (timestamp on success)
+- `retry_count` (incremented per attempt)
+- `error_message` (diagnostics on failure)
+
+### ABAssignment model
+
+Fields: `id` (UUID), `user_id` (FK), `model_version` (string), `assigned_at` (timestamp).
+
+**Purpose:** Persistent storage of A/B test assignments to ensure users receive consistent model versions.
+
+### Prediction model
+
+Fields: `id` (UUID), `user_id` (FK), `model_version`, `region`, `predicted_value`, `actual_value` (nullable, backfilled), `error_pct` (computed), `created_at`.
+
+**Purpose:** Event tracking for A/B test accuracy evaluation and model performance metrics.
 
 
 ## Repositories
@@ -764,8 +959,21 @@ Two auth mechanisms:
 | `notification_preferences` | UUID | FK to users, price_alerts, recommendations, savings, connections |
 | `feature_flags` | UUID | flag_name, enabled, rollout_percentage |
 | `user_feature_toggles` | UUID | FK to users, FK to feature_flags, user_enabled |
+| `model_versions` | UUID | model_name, version_string, config (JSONB), metrics (JSONB), is_active, promoted_at |
+| `ab_tests` | UUID | version_a_id, version_b_id, split_ratio, status, created_at |
+| `ab_outcomes` | UUID | FK to ab_tests, user_id, outcome_type, value |
+| `model_configs` | UUID | model_name, config_name, parameters (JSONB), version |
+| `feedback` | UUID | FK to users, feedback_type, message, context (JSONB), created_at |
+| `agent_conversations` | UUID | FK to users, title, model_used, created_at |
+| `agent_messages` | UUID | FK to agent_conversations, role, content, tokens_used, duration_ms |
+| `agent_usage_daily` | UUID | FK to users, date, query_count, token_count |
+| `weather_cache` | UUID | region, temperature, humidity, wind_speed, timestamp, cached_at |
+| `market_intel_cache` | UUID | query, results (JSONB), source, cached_at |
+| `rate_data_cache` | UUID | supplier_id, region, rates (JSONB), effective_date, cached_at |
+| `model_predictions` | UUID | user_id, model_version, region, predicted_value, actual_value (nullable), error_pct (nullable), created_at |
+| `model_ab_assignments` | UUID | user_id (UNIQUE per test context), model_version, assigned_at |
 
-**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar). `connection_type` enum (email_oauth, bill_upload, direct_login, utilityapi). `notification_type` enum (price_alert, recommendation, savings_milestone, connection_health).
+**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar). `connection_type` enum (email_oauth, bill_upload, direct_login, utilityapi). `notification_type` enum (price_alert, recommendation, savings_milestone, connection_health). `delivery_channel` enum (in_app, push, email). `delivery_status` enum (pending, sent, failed). `feedback_type` enum (bug_report, feature_request, general_feedback, savings_tracking, rate_quality).
 
 
 ## Migrations

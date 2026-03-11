@@ -1,4 +1,4 @@
-# Infrastructure Documentation - Electricity Optimizer
+# Infrastructure Documentation - RateShift
 
 This document describes the infrastructure architecture, service dependencies, and operational procedures.
 
@@ -22,17 +22,18 @@ This document describes the infrastructure architecture, service dependencies, a
                               |    Internet      |
                               +--------+---------+
                                        |
-                              +--------+---------+
-                              |   Render.com     |
-                              |   (Hosting)      |
-                              +--------+---------+
-                                       |
+                          +------- ----+---- -------+
+                          |   Cloudflare        |
+                          |   (Edge Layer)      |
+                          | api.rateshift.app   |
+                          +--------+------------+
+                                   |
                     +------------------+------------------+
                     |                                     |
            +--------+--------+                   +--------+--------+
            |    Frontend     |                   |    Backend API   |
-           |   (Next.js)     |                   |   (FastAPI)      |
-           |   Port: 3000    |                   |   Port: 8000     |
+           |   (Vercel)      |                   |   (Render)       |
+           | rateshift.app   |                   |   FastAPI        |
            +--------+--------+                   +--------+--------+
                     |                                     |
                     |              +----------------------+
@@ -44,8 +45,8 @@ This document describes the infrastructure architecture, service dependencies, a
 
            +-------------GitHub Actions------------------+
            |                                              |
-           |  price-sync, CI/CD, Phase 2+3 automation      |
-           |  (replaces Airflow -- removed 2026-02-12)    |
+           |  24 workflows: CI/CD, deploy, cron jobs      |
+           |  price-sync, check-alerts, kpi-report, etc.  |
            |                                              |
            +----------------------------------------------+
 
@@ -79,8 +80,9 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 |----------|----------|---------|
 | ci.yml | On push/PR to main/develop | Unified CI: path-filtered backend/frontend/ML tests, security scan, Docker build |
 | e2e-tests.yml | Daily + on push/PR | Playwright E2E + Lighthouse audits + load/security tests |
-| deploy-production.yml | On release publish | Multi-stage security gate (Bandit + npm audit + OWASP) + GHCR multi-platform builds (linux/amd64 + linux/arm64) + parallel backend/frontend deploy hooks + progressive retry (15s/30s/60s) + Slack/webhook notification + rollback automation |
+| deploy-production.yml | On release publish | Multi-stage security gate (Bandit + npm audit + OWASP) + GHCR multi-platform builds (linux/amd64 + linux/arm64) + parallel backend/frontend deploy hooks + migration-gate validation + progressive retry (15s/30s/60s) + Slack/webhook notification + rollback automation |
 | deploy-staging.yml | On push to develop | GHCR push + Render deploy hooks + smoke tests |
+| deploy-worker.yml | Manual trigger or release | Cloudflare Worker deployment via `wrangler deploy` + smoke tests to api.rateshift.app |
 | price-sync.yml | `0 */6 * * *` | Electricity price data ingestion |
 | observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
 | nightly-learning.yml | `0 4 * * *` | Adaptive learning: accuracy, bias detection, weight tuning |
@@ -112,7 +114,7 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | `notify-slack` | Color-coded Slack failure alerts (critical=danger, warning, info=blue) via incoming webhook to `#incidents` |
 | `validate-migrations` | Convention checks: sequential numbering, IF NOT EXISTS on CREATE TABLE, GRANT TO neondb_owner, no SERIAL/BIGSERIAL |
 
-**Concurrency Controls**: All 23 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
+**Concurrency Controls**: All 24 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
 
 **Render Deploy Hooks**: Production and staging deploy workflows trigger Render builds via deploy hook URLs stored in GitHub secrets (`RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`). Deploy workflows include self-healing smoke tests that auto-retry on failure.
 
@@ -225,13 +227,68 @@ All services communicate over the internal Docker bridge network. Only the follo
 - `redis://redis:6379` - Redis
 
 **Production (Client → Server):**
-- Client requests: `https://rateshift.app/api/v1/*` (same-origin via Next.js rewrites)
-- Backend endpoint: `https://api.rateshift.app/api/v1/*` (Render)
+- Client requests: `https://rateshift.app/api/v1/*` (same-origin via Next.js rewrites to `BACKEND_URL`)
+- Edge proxy: `api.rateshift.app/api/v1/*` (Cloudflare Worker `rateshift-api-gateway`)
+- Origin backend: Render FastAPI at `electricity-optimizer.onrender.com` (routed through Worker)
 - Database: Neon PostgreSQL (serverless, accessed via connection string — no local container)
+
+**Request Flow:**
+```
+Client → https://rateshift.app/api/v1/* (Next.js rewrite)
+         ↓
+Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
+                 ↓
+                 Cloudflare Worker (rateshift-api-gateway)
+                 ├─ Cache API (2-tier caching)
+                 ├─ KV store (rate limiting state)
+                 ├─ Bot detection (heuristic scoring)
+                 ├─ Internal auth (X-API-Key compare)
+                 └─ Origin: https://electricity-optimizer.onrender.com
+                    ↓
+                    Render Backend (FastAPI)
+                    ↓
+                    Neon Database
+```
 
 **Cross-Service Communication:**
 - `NEXT_PUBLIC_API_URL=/api/v1` (frontend client-side, relative URL)
 - `BACKEND_URL=https://api.rateshift.app` (frontend server-side, for rewrites and server-only calls)
+
+### Cloudflare Worker (Edge Layer)
+
+**Service:** `rateshift-api-gateway` (Worker deployed via `wrangler deploy` or GHA)
+
+| Property | Value |
+|----------|-------|
+| Endpoint | `api.rateshift.app` (orange cloud proxied) |
+| Account ID | `b41be0d03c76c0b2cc91efccdb7a10df` |
+| Zone | `ac03dd28616da6d1c4b894c298c1da58` (Cloudflare Registrar for rateshift.app) |
+| SSL Mode | Full (Strict) |
+| Source | `workers/api-gateway/` (16 files, 37 vitest tests) |
+| Bundle Size | 20.35 KiB / gzip 5.31 KiB |
+| KV CACHE | `6946d19ce8264f6fae4481d6ad8afcd1` |
+| KV RATE_LIMIT | `c9be3741ee784956a0d99b3fa0c1d6c4` |
+
+**Capabilities:**
+- **2-tier caching**: Cache API (longer TTL) + KV store (state management)
+- **Rate limiting**: Standard (120/min), Strict (30/min), Internal (600/min)
+- **Bot detection**: Heuristic scoring on TLS fingerprint, headers, patterns
+- **Internal auth**: Constant-time X-API-Key comparison for `/internal/*` routes
+- **CORS & security headers**: Origin allowlist, HSTS, X-Content-Type-Options, X-Frame-Options
+- **Structured JSON logging**: All requests logged to Worker analytics
+- **Request/response modification**: Headers, redirects, streaming support
+
+**Deployment via GHA:**
+- Workflow: `.github/workflows/deploy-worker.yml`
+- Secrets: `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_ZONE_ID` (in GitHub)
+- Trigger: Manual or on release publish
+- Post-deploy: Smoke tests to `https://api.rateshift.app/*`
+
+**Free Tier Limits:**
+- 100K requests/day (typically uses 5-10K/day)
+- 1GB storage in KV
+- 1M KV writes/day
+- All traffic routed through Worker regardless of tier
 
 ### Neon PostgreSQL (Production Database)
 
@@ -245,11 +302,22 @@ All services communicate over the internal Docker bridge network. Only the follo
 | Direct Endpoint | `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (for DDL/migrations) |
 | Public Tables | 21 (see CODEMAP_BACKEND.md for full list) |
 | Auth Tables | 9 (neon_auth schema — managed by Better Auth) |
-| Migrations | Up to migration 025 (025_data_cache_tables) |
+| Cache Tables | 3 (price_history_cache, weather_cache, market_research_cache) |
+| Migrations | 33 total (001_init_neon through 033_model_predictions_ab_assignments) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
 **Neon MCP:** Always use `projectId: "cold-rice-23455092"` when calling `mcp__Neon__*` tools. The previous stale project `holy-pine-81107663` was deleted (0 users, missing tables, wrong region).
+
+**Recent Migrations (2026-03-10 to 2026-03-11):**
+- Migration 026 (2026-03-02): NotificationDispatcher system (notification_history, notification_templates, error_message column)
+- Migration 027: ModelConfigRepository (model_configs, model_versions tables)
+- Migration 028: FeedbackWidget (feedback entries)
+- Migration 029 (2026-03-10): Notification delivery tracking (notification_delivery_state, notification_error_message)
+- Migration 030: Model versioning & A/B testing (model_versions, ab_tests, ab_outcomes, ab_assignments)
+- Migration 031: Agent tables (agent_conversations, agent_usage_daily)
+- Migration 032: Error message tracking (error_message column added)
+- Migration 033: Model predictions & A/B assignments (model_predictions, model_ab_assignments)
 
 **Migration 020 (2026-03-02): Price Query Indexes**
 - Creates 3 composite indexes on `electricity_prices` table:
@@ -515,7 +583,7 @@ deploy:
 - `INTERNAL_API_KEY != JWT_SECRET` model validator: prevents key reuse between internal API auth and JWT signing
 - **Env var audit** (2026-03-03): 27 secrets reviewed — 27 PASS, 0 FAIL. Full report: `.swarm-reports/ENV_VAR_AUDIT_FINAL.md`
 
-**1Password Vault** ("Electricity Optimizer" — 19 items listed, 27 mapped to SecretsManager):
+**1Password Vault** ("Electricity Optimizer" — 19 items, 27 mapped to SecretsManager):
 
 | Item | Category | Fields | Purpose |
 |------|----------|--------|---------|

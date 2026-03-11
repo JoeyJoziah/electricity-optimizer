@@ -1,4 +1,4 @@
-# Scaling Plan -- RateShift (Electricity Optimizer)
+# Scaling Plan -- RateShift (RateShift)
 
 > Created: 2026-03-10
 > Target: 500+ concurrent users with 99.5%+ availability
@@ -319,7 +319,7 @@ These are the signals that indicate an upgrade is needed. Monitor via structured
 - [ ] Create Upstash Redis instance (us-east-1 region to match Neon)
 - [ ] Copy connection string (format: `rediss://default:PASSWORD@ENDPOINT:PORT`)
 - [ ] Set `REDIS_URL` on Render via REST API or dashboard
-- [ ] Store `REDIS_URL` in 1Password vault "Electricity Optimizer"
+- [ ] Store `REDIS_URL` in 1Password vault "RateShift"
 - [ ] Restart Render service
 - [ ] Verify in logs: `rate_limiter_redis_wired` (not `rate_limiter_redis_unavailable`)
 - [ ] Test rate limiting from two different IPs to confirm shared state
