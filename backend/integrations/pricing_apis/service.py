@@ -30,6 +30,7 @@ from .nrel import NRELClient
 from .iea import IEAClient
 from .cache import PricingCache
 from .rate_limiter import RateLimiter
+from lib.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger(__name__)
 
@@ -118,6 +119,12 @@ class PricingService:
                 cache=cache,
                 timeout=timeout,
             )
+
+        # Zenith H-16-02: service-level circuit breakers per client for fast-fail
+        self._breakers: dict[str, CircuitBreaker] = {
+            name: CircuitBreaker(f"pricing:{name}")
+            for name in self._clients
+        }
 
         self.logger = logger.bind(service="pricing")
 
@@ -238,7 +245,14 @@ class PricingService:
                 region=region.value,
                 client=primary_name,
             )
-            return await primary_client.get_current_price(region)
+            breaker = self._breakers.get(primary_name)
+            if breaker:
+                result = await breaker.call(
+                    primary_client.get_current_price(region)
+                )
+            else:
+                result = await primary_client.get_current_price(region)
+            return result
 
         except Exception as e:
             self.logger.warning(
@@ -261,7 +275,13 @@ class PricingService:
                         client=fallback_name,
                         region=region.value,
                     )
-                    return await fallback_client.get_current_price(region)
+                    fb_breaker = self._breakers.get(fallback_name)
+                    if fb_breaker:
+                        return await fb_breaker.call(
+                            fallback_client.get_current_price(region)
+                        )
+                    else:
+                        return await fallback_client.get_current_price(region)
                 except Exception as fallback_error:
                     self.logger.warning(
                         "fallback_failed",
@@ -295,7 +315,13 @@ class PricingService:
         primary_name, primary_client = self._get_primary_client(region)
 
         try:
-            return await primary_client.get_price_forecast(region, hours)
+            breaker = self._breakers.get(primary_name)
+            if breaker:
+                return await breaker.call(
+                    primary_client.get_price_forecast(region, hours)
+                )
+            else:
+                return await primary_client.get_price_forecast(region, hours)
         except Exception as e:
             if not use_fallback:
                 raise
@@ -304,7 +330,13 @@ class PricingService:
 
             for fallback_name, fallback_client in fallbacks:
                 try:
-                    return await fallback_client.get_price_forecast(region, hours)
+                    fb_breaker = self._breakers.get(fallback_name)
+                    if fb_breaker:
+                        return await fb_breaker.call(
+                            fallback_client.get_price_forecast(region, hours)
+                        )
+                    else:
+                        return await fallback_client.get_price_forecast(region, hours)
                 except Exception:
                     continue
 
@@ -366,28 +398,36 @@ class PricingService:
 
         return sorted_prices[:top_n]
 
-    async def health_check(self) -> dict[str, bool]:
+    async def health_check(self) -> dict[str, dict]:
         """
         Check health of all configured API clients.
 
         Returns:
-            Dictionary mapping client names to health status
+            Dictionary mapping client names to health status and breaker state
         """
         health = {}
 
         for name, client in self._clients.items():
+            breaker = self._breakers.get(name)
+            breaker_state = breaker.state.value if breaker else "unknown"
+
             if client:
                 try:
-                    health[name] = await client.health_check()
+                    client_ok = await client.health_check()
                 except Exception as e:
                     self.logger.error(
                         "health_check_error",
                         client=name,
                         error=str(e),
                     )
-                    health[name] = False
+                    client_ok = False
             else:
-                health[name] = False
+                client_ok = False
+
+            health[name] = {
+                "healthy": client_ok,
+                "circuit_breaker": breaker_state,
+            }
 
         return health
 

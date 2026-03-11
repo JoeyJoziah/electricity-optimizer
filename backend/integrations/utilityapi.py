@@ -35,6 +35,7 @@ import httpx
 import structlog
 
 from config.settings import settings
+from lib.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger(__name__)
 
@@ -93,6 +94,8 @@ class UtilityAPIClient:
         self._api_key = api_key or (settings.utilityapi_key or "")
         self._http_client = http_client
         self._owns_client = http_client is None
+        # Zenith H-16-02: circuit breaker for UtilityAPI requests
+        self._circuit_breaker = CircuitBreaker("utilityapi")
 
     # ------------------------------------------------------------------
     # Lifecycle helpers
@@ -146,6 +149,13 @@ class UtilityAPIClient:
         Raises:
             UtilityAPIError: on HTTP error or JSON parse failure.
         """
+        # Zenith H-16-02: fast-fail if the circuit breaker is open
+        cb = self._circuit_breaker
+        if cb.state.value == "open":
+            raise UtilityAPIError(
+                f"Circuit breaker open for UtilityAPI — skipping {method} {path}"
+            )
+
         client = await self._get_client()
         try:
             response = await client.request(
@@ -166,6 +176,7 @@ class UtilityAPIClient:
                 path=path,
                 error=str(exc),
             )
+            await cb.record_failure()
             raise UtilityAPIError(
                 f"Request to UtilityAPI timed out: {method} {path}"
             ) from exc
@@ -176,6 +187,7 @@ class UtilityAPIClient:
                 path=path,
                 error=str(exc),
             )
+            await cb.record_failure()
             raise UtilityAPIError(
                 f"Network error calling UtilityAPI: {exc}"
             ) from exc
@@ -194,12 +206,17 @@ class UtilityAPIClient:
                 status_code=response.status_code,
                 body=body,
             )
+            # Record failure for server errors (5xx); client errors (4xx) are
+            # not infrastructure failures so don't trip the breaker.
+            if response.status_code >= 500:
+                await cb.record_failure()
             raise UtilityAPIError(
                 f"UtilityAPI returned {response.status_code} for {method} {path}",
                 status_code=response.status_code,
                 body=body,
             )
 
+        await cb.record_success()
         try:
             return response.json()
         except Exception as exc:

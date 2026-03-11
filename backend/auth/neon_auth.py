@@ -48,10 +48,10 @@ class SessionData:
     role: Optional[str] = None
 
 
-# 5 minutes balances security (logout/ban propagation) with DB load reduction.
-# Explicit cache invalidation on logout ensures immediate session termination
-# (see invalidate_session_cache, called by the /auth/logout endpoint in api/v1/auth.py).
-_SESSION_CACHE_TTL = 300  # seconds
+# Zenith audit H-15-01: reduced from 300s to 60s to limit stale-session window
+# for banned/deactivated users. Explicit cache invalidation on logout ensures
+# immediate session termination (see invalidate_session_cache in api/v1/auth.py).
+_SESSION_CACHE_TTL = 60  # seconds
 
 
 async def _get_session_from_token(
