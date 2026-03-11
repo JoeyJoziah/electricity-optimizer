@@ -1,0 +1,3 @@
+source: frontend/lib/api/agent.ts
+kind: object
+purpose: API client for AI agent — streaming queries, tasks, usage

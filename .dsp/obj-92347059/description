@@ -1,0 +1,3 @@
+source: backend/routers/__init__.py
+kind: object
+purpose: Package init — backend/routers namespace

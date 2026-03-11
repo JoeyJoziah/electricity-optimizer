@@ -1,0 +1,3 @@
+source: backend/repositories/notification_repository.py
+kind: object
+purpose: Repository for notification delivery tracking and error recording

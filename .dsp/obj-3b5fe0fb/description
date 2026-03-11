@@ -1,0 +1,3 @@
+source: torch
+kind: external
+purpose: PyTorch deep learning framework for CNN-LSTM training

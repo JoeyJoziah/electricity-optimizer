@@ -1,0 +1,3 @@
+source: backend/__init__.py
+kind: object
+purpose: Package init — backend namespace

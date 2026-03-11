@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/types.ts
+kind: object
+purpose: TypeScript type definitions for CF Worker env, routes, caching, rate limiting

@@ -154,6 +154,10 @@ class Settings(BaseSettings):
     outlook_client_id: Optional[str] = Field(default=None, validation_alias="OUTLOOK_CLIENT_ID")
     outlook_client_secret: Optional[str] = Field(default=None, validation_alias="OUTLOOK_CLIENT_SECRET")
     oauth_redirect_base_url: str = Field(default="http://localhost:8000", validation_alias="OAUTH_REDIRECT_BASE_URL")
+    # TODO: Set FRONTEND_URL=https://rateshift.app on Render (and any other
+    # non-local deployment) so OAuth callbacks redirect to the correct frontend
+    # origin.  The default covers local development only.
+    frontend_url: str = Field(default="http://localhost:3000", validation_alias="FRONTEND_URL")
 
     # AI Agent (Gemini primary + Groq fallback + Composio tools)
     gemini_api_key: Optional[str] = Field(default=None, validation_alias="GEMINI_API_KEY")

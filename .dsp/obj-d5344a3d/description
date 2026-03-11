@@ -1,0 +1,3 @@
+source: zustand
+kind: external
+purpose: Lightweight React state management

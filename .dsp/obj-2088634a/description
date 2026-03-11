@@ -1,0 +1,3 @@
+source: backend/models/model_config.py
+kind: object
+purpose: Pydantic model for ML model configuration storage

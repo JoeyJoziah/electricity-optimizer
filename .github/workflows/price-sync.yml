@@ -25,13 +25,6 @@ jobs:
           headers: |
             X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
 
-      - name: Trigger forecast generation
-        if: success()
-        run: |
-          curl -fsS "${{ secrets.BACKEND_URL }}/health" > /dev/null 2>&1 && \
-          echo "Backend healthy - forecasts will be generated from refreshed data" || \
-          echo "::warning::Backend health check failed after price refresh"
-
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-slack

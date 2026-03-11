@@ -1,0 +1,3 @@
+source: backend/models/notification.py
+kind: object
+purpose: Pydantic model for notification delivery tracking

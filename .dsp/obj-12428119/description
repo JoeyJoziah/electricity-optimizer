@@ -1,0 +1,3 @@
+source: backend/observability.py
+kind: object
+purpose: OpenTelemetry opt-in instrumentation setup

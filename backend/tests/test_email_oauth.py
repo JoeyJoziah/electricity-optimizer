@@ -930,6 +930,7 @@ class TestEmailOAuthCallback:
             mock_settings.gmail_client_secret = "client-secret"
             mock_settings.oauth_redirect_base_url = "http://localhost:8000"
             conn_settings.oauth_redirect_base_url = "http://localhost:8000"
+            conn_settings.frontend_url = "http://localhost:3000"
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
 
             state = self._valid_state(TEST_CONNECTION_ID, "test-key")
@@ -968,6 +969,7 @@ class TestEmailOAuthCallback:
             mock_settings.outlook_client_secret = "client-secret"
             mock_settings.oauth_redirect_base_url = "http://localhost:8000"
             conn_settings.oauth_redirect_base_url = "http://localhost:8000"
+            conn_settings.frontend_url = "http://localhost:3000"
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
 
             state = self._valid_state(TEST_CONNECTION_ID, "test-key")

@@ -1,0 +1,3 @@
+source: backend/integrations/pricing_apis/__init__.py
+kind: object
+purpose: Package init — backend/integrations/pricing_apis namespace

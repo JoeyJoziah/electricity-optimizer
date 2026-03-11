@@ -1,0 +1,3 @@
+source: frontend/types/generated/api.ts
+kind: object
+purpose: Auto-generated OpenAPI TypeScript types from backend schema

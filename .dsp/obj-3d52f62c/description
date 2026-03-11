@@ -1,3 +1,0 @@
-source: backend/migrations/023_add_consent_cascade.sql
-kind: object
-purpose: Migration 023: add consent cascade

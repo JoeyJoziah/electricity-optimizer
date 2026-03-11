@@ -95,12 +95,8 @@ if [[ -f "$PATTERNS_FILE" ]]; then
     fi
 fi
 
-# ── Async persist to Claude Flow memory ────────────────────────────────
-{
-    npx claude-flow memory store \
-        -k "error_$(date +%s)_$$" \
-        -v "Bash error: category=$CATEGORY exit=$EXIT_CODE cmd=$(echo "$SAFE_CMD" | cut -c1-80)" \
-        --namespace error-patterns --ttl 2592000 2>/dev/null || true
-} &
+# NOTE: Claude Flow memory persist removed — error patterns are already stored
+# locally in $PATTERNS_FILE (error-patterns.jsonl). The CF memory writes were
+# never read back (0 access count across 500+ entries) and just created noise.
 
 exit 0

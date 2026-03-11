@@ -1,0 +1,3 @@
+source: backend/repositories/model_config_repository.py
+kind: object
+purpose: CRUD repository for ML model configurations

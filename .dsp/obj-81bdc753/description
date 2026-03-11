@@ -1,0 +1,3 @@
+source: xgboost
+kind: external
+purpose: Gradient boosting library for ensemble predictions

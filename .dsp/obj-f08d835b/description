@@ -1,3 +1,0 @@
-source: backend/migrations/005_add_regions.sql
-kind: object
-purpose: Migration 005: add regions

@@ -1,0 +1,3 @@
+source: workers/api-gateway/test/internal-auth.test.ts
+kind: object
+purpose: Internal auth middleware unit tests

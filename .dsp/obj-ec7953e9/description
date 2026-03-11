@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/handlers/proxy.ts
+kind: object
+purpose: Reverse proxy handler — forwards requests to Render origin backend

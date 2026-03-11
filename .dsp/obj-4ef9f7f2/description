@@ -1,0 +1,3 @@
+source: workers/api-gateway/test/security.test.ts
+kind: object
+purpose: Security middleware unit tests

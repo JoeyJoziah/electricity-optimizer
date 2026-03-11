@@ -1,0 +1,3 @@
+source: backend/middleware/__init__.py
+kind: object
+purpose: Package init — backend/middleware namespace

@@ -88,5 +88,5 @@ jobs:
       - uses: ./.github/actions/notify-slack
         with:
           webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
-          message: "Cloudflare Worker deploy failed"
+          workflow-name: "Cloudflare Worker deploy failed"
           severity: "critical"

@@ -1,0 +1,3 @@
+source: backend/repositories/__init__.py
+kind: object
+purpose: Package init — backend/repositories namespace

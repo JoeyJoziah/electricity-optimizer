@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/middleware/security.ts
+kind: object
+purpose: Security headers (HSTS, X-Frame-Options) and bot score detection

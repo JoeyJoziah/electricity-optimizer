@@ -188,14 +188,7 @@ async def email_oauth_callback(
     # ``patch("api.v1.connections.settings")`` in tests is observed at call time.
     import api.v1.connections as _pkg
     _settings = _pkg.settings
-    # TODO (tech debt): oauth_redirect_base_url currently points to the backend
-    # (default: http://localhost:8000). The redirect after OAuth must land on the
-    # FRONTEND, so until a dedicated FRONTEND_URL setting is added we derive it
-    # with a local-only port swap. In production, set OAUTH_REDIRECT_BASE_URL to
-    # the frontend origin (e.g. https://app.example.com) so the replace() is a
-    # no-op and the redirect is correct. Adding a FRONTEND_URL env var and
-    # Settings field is the proper fix; tracked as tech debt.
-    frontend_url = _settings.oauth_redirect_base_url.replace("localhost:8000", "localhost:3000")
+    frontend_url = _settings.frontend_url
     return RedirectResponse(
         url=f"{frontend_url}/connections?connected={connection_id}",
         status_code=302,

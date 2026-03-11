@@ -110,6 +110,19 @@ jobs:
             --repo "${{ github.repository }}" \
             --body "**Update**: ${{ steps.count.outputs.failures }} failures detected in the last 24h ($(date -u '+%Y-%m-%d %H:%M UTC')). Issue remains open."
 
+      - uses: actions/checkout@v4
+        if: steps.count.outputs.failures >= env.FAILURE_THRESHOLD && steps.existing.outputs.issue == ''
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Notify Slack on new issues
+        if: steps.count.outputs.failures >= env.FAILURE_THRESHOLD && steps.existing.outputs.issue == ''
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Self-Healing: ${{ matrix.workflow.name }} (${{ steps.count.outputs.failures }} failures)"
+          severity: ${{ matrix.workflow.severity }}
+
   # ===========================================================================
   # Auto-close resolved issues
   # ===========================================================================
@@ -154,6 +167,7 @@ jobs:
               *"Data Retention"*) WORKFLOW_FILE="data-retention.yml" ;;
               *"Data Health"*) WORKFLOW_FILE="data-health-check.yml" ;;
               *"E2E"*) WORKFLOW_FILE="e2e-tests.yml" ;;
+              *"Cloudflare Worker"*) WORKFLOW_FILE="deploy-worker.yml" ;;
               *) echo "Unknown workflow in issue #$ISSUE_NUM: $ISSUE_TITLE"; continue ;;
             esac
 

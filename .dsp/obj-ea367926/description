@@ -1,0 +1,3 @@
+source: backend/api/v1/internal/sync.py
+kind: object
+purpose: Internal API sub-router: sync endpoints

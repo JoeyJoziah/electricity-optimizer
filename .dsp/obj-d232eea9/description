@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/index.ts
+kind: object
+purpose: Worker entry point — orchestrates middleware chain: CORS, rate limit, cache, auth, security, proxy

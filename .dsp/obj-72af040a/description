@@ -1,0 +1,3 @@
+source: backend/routers/predictions.py
+kind: object
+purpose: Predictions API router for ML model inference

@@ -1,0 +1,3 @@
+source: workers/api-gateway/test/cors.test.ts
+kind: object
+purpose: CORS middleware unit tests

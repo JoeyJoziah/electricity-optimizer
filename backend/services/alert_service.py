@@ -26,6 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.email_service import EmailService
+from services.alert_renderer import AlertRenderer
 
 if TYPE_CHECKING:
     from services.notification_dispatcher import NotificationDispatcher
@@ -103,6 +104,7 @@ class AlertService:
     ):
         self._email_service = email_service or EmailService()
         self._dispatcher = dispatcher
+        self._renderer = AlertRenderer(self._email_service)
 
     def check_thresholds(
         self,
@@ -334,64 +336,16 @@ class AlertService:
         return sent
 
     def _get_alert_subject(self, alert: PriceAlert) -> str:
-        if alert.alert_type == "price_drop":
-            return f"Price Drop Alert: ${alert.current_price}/kWh"
-        elif alert.alert_type == "price_spike":
-            return f"Price Spike Warning: ${alert.current_price}/kWh"
-        elif alert.alert_type == "optimal_window":
-            start = alert.optimal_window_start
-            if start:
-                time_str = start.strftime("%I:%M %p")
-                return f"Optimal Usage Window: Starting at {time_str}"
-            return "Optimal Usage Window Detected"
-        return "Electricity Price Alert"
+        """Delegate to AlertRenderer — kept for backward compatibility."""
+        return self._renderer.get_alert_subject(alert)
 
     def _render_alert_email(self, threshold: AlertThreshold, alert: PriceAlert) -> str:
-        try:
-            return self._email_service.render_template(
-                "price_alert.html",
-                alert_type=alert.alert_type,
-                current_price=str(alert.current_price),
-                threshold=str(alert.threshold) if alert.threshold else None,
-                region=alert.region.upper().replace("_", " "),
-                supplier=alert.supplier,
-                timestamp=alert.timestamp.strftime("%B %d, %Y at %I:%M %p UTC"),
-                optimal_start=(
-                    alert.optimal_window_start.strftime("%I:%M %p")
-                    if alert.optimal_window_start
-                    else None
-                ),
-                optimal_end=(
-                    alert.optimal_window_end.strftime("%I:%M %p")
-                    if alert.optimal_window_end
-                    else None
-                ),
-                estimated_savings=(
-                    str(alert.estimated_savings) if alert.estimated_savings else None
-                ),
-                currency=threshold.currency,
-            )
-        except Exception:
-            # Fallback to plain HTML if template not found
-            return self._render_fallback_alert(alert, threshold.currency)
+        """Delegate to AlertRenderer — kept for backward compatibility."""
+        return self._renderer.render_alert_email(threshold, alert)
 
     def _render_fallback_alert(self, alert: PriceAlert, currency: str) -> str:
-        if alert.alert_type == "optimal_window":
-            return f"""
-            <h2>Optimal Usage Window Detected</h2>
-            <p>Average price: <strong>${alert.current_price}/kWh</strong></p>
-            <p>Window: {alert.optimal_window_start.strftime('%I:%M %p') if alert.optimal_window_start else 'N/A'}
-            - {alert.optimal_window_end.strftime('%I:%M %p') if alert.optimal_window_end else 'N/A'}</p>
-            {f'<p>Estimated savings: ${alert.estimated_savings}/kWh vs average</p>' if alert.estimated_savings else ''}
-            <p>Region: {alert.region} | Supplier: {alert.supplier}</p>
-            """
-        return f"""
-        <h2>{'Price Drop Alert' if alert.alert_type == 'price_drop' else 'Price Spike Warning'}</h2>
-        <p>Current price: <strong>${alert.current_price}/kWh</strong></p>
-        <p>Your threshold: ${alert.threshold}/kWh</p>
-        <p>Region: {alert.region} | Supplier: {alert.supplier}</p>
-        <p>Time: {alert.timestamp.strftime('%B %d, %Y at %I:%M %p UTC')}</p>
-        """
+        """Delegate to AlertRenderer — kept for backward compatibility."""
+        return self._renderer.render_fallback_alert(alert, currency)
 
     # =========================================================================
     # Deduplication helpers (require db: AsyncSession)

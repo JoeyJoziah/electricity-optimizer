@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/middleware/cors.ts
+kind: object
+purpose: CORS middleware — origin allowlist, preflight handling
