@@ -1,6 +1,6 @@
 # Electricity Optimizer — Project Instructions
 
-> Last validated: 2026-03-10 (Domain migration to rateshift.app complete. Resend email verified. eslint peer dep fixed. All endpoints operational)
+> Last validated: 2026-03-11 (AI Agent deployed to production. Gemini 3 Flash Preview + Groq fallback + Composio tools. 38 Render env vars. All endpoints operational)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 21 public + 9 neon_auth tables (25 migrations: init_neon through 025_data_cache_tables, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
+- **NeonDBAgent**: 21 public + 9 neon_auth tables (31 migrations: init_neon through 031_agent_tables, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
@@ -110,7 +110,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Notifications**: OneSignal push (user binding via login(userId) post-auth) + email alerts
 - **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d). **UI**: `/alerts` page with CRUD, history tabs, AlertForm (region/thresholds/optimal windows). Sidebar Bell icon
 - **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). ALL PHASES COMPLETE (0-3), 7/7 workflows live. Self-Healing CI/CD: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. **Dependabot**: `.github/dependabot.yml` (pip/npm/github-actions, weekly Monday, grouped minor+patch)
-- **AI Agent**: "RateShift AI" — Gemini 2.5 Flash (primary, free 10 RPM/250 RPD) + Groq Llama 3.3 70B (fallback on 429) + Composio tools (1K actions/month). Feature flag: `ENABLE_AI_AGENT`. Rate limits: Free=3/day, Pro=20/day, Business=unlimited. SSE streaming via `POST /agent/query`, async jobs via `POST /agent/task`. Service: `backend/services/agent_service.py`. API: `backend/api/v1/agent.py`. Frontend: `/assistant` page with `AgentChat` component. Migration 031: `agent_conversations` + `agent_usage_daily` tables. Timeout excluded (`/api/v1/agent/`)
+- **AI Agent** (prod 2026-03-11): "RateShift AI" — Gemini 3 Flash Preview (primary, free 10 RPM/250 RPD) + Groq Llama 3.3 70B (fallback on 429) + Composio tools (1K actions/month). Feature flag: `ENABLE_AI_AGENT=true`. Rate limits: Free=3/day, Pro=20/day, Business=unlimited. SSE streaming via `POST /agent/query`, async jobs via `POST /agent/task`, usage via `GET /agent/usage`. Service: `backend/services/agent_service.py`. API: `backend/api/v1/agent.py`. Frontend: `/assistant` page with `AgentChat` component. Migration 031: `agent_conversations` + `agent_usage_daily` tables. Timeout excluded (`/api/v1/agent/`). 13 tests in `test_agent_service.py`. Render env vars: GEMINI_API_KEY, GROQ_API_KEY, COMPOSIO_API_KEY, ENABLE_AI_AGENT
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **DSP (Data Structure Protocol)**: `.dsp/` codebase graph — 326 entities, 327 imports, 0 cycles. CLI: `python3 dsp-cli.py --root . <command>`. UID map: `.dsp/uid_map.json`. Bootstrap: `scripts/dsp_bootstrap.py`. Use `search`, `get-recipients`, `get-children --depth N` before refactoring
 - **Slack**: Workspace `electricityoptimizer.slack.com` (T0AK0AJV5NE). Channels: `#incidents` (C0AKV2TK257), `#deployments` (C0AKCN6T02Z), `#metrics` (C0AKDD7P2HX). Webhook: `SLACK_INCIDENTS_WEBHOOK_URL` GHA secret + 1Password. Composio connection: `ca_jI3-cs-HrXPY`
@@ -118,7 +118,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ## Critical Reminders
 
-1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 25 migrations (latest: 025_data_cache_tables). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
+1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 31 migrations (latest: 031_agent_tables). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
 4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "Electricity Optimizer"
