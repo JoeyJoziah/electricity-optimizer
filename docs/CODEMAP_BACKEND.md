@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-11 (Utility Integration track complete: email extraction pipeline, attachment parsing, portal scraping, automated scanning, scraper persistence, unified analytics. Test count: 2,032. Migrations: 34. Tables: 42)
+> Last updated: 2026-03-11 (Utility Integration track complete: email extraction pipeline, attachment parsing, portal scraping, automated scanning, scraper persistence, unified analytics. Test count: 2,043. Migrations: 34. Tables: 42)
 
 ## Directory Structure
 
@@ -55,7 +55,7 @@ backend/
 │       │   ├── __init__.py          # Internal router aggregation
 │       │   ├── data_pipeline.py     # observe-forecasts, learn, observation-stats, scrape-rates (with Diffbot rate extraction + persistence)
 │       │   ├── operations.py        # maintenance/cleanup, check-alerts, sync-connections, dunning-cycle, kpi-report, geocode-address, health-data
-│       │   ├── scan_emails.py       # POST /scan-emails — batch scan all active email connections
+│       │   ├── email_scan.py         # POST /scan-emails — batch scan all active email connections
 │       │   └── portal_scan.py       # POST /scrape-portals — batch scrape all active portal connections
 │
 ├── routers/
@@ -1220,7 +1220,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 2,032 passed, 2 skipped, 0 failures (as of 2026-03-10). 68+ test files. Includes: utility integration track (+150 tests: email extraction, attachment parsing, portal connections, portal scraping, scraper persistence, unified analytics, internal scan/scrape endpoints), notification delivery tracking, A/B testing framework, CSP security headers, tier gating, health-data endpoint.
+**Test status:** 2,043 passed, 2 skipped, 0 failures (as of 2026-03-11). 68+ test files. Includes: utility integration track (+150 tests: email extraction, attachment parsing, portal connections, portal scraping, scraper persistence, unified analytics, internal scan/scrape endpoints), notification delivery tracking, A/B testing framework, CSP security headers, tier gating, health-data endpoint.
 
 
 ## Scripts & Automation
