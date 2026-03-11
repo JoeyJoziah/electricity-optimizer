@@ -1,0 +1,1 @@
+User model with UUID PK, subscription_tier, stripe_customer_id

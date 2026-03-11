@@ -1,0 +1,3 @@
+source: frontend/components/dashboard/DashboardCharts.tsx
+kind: object
+purpose: Price and usage chart widgets

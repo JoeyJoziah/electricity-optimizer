@@ -1,0 +1,3 @@
+source: backend/config/secrets.py
+kind: object
+purpose: Secret management with 1Password CLI fallback

@@ -1,0 +1,3 @@
+source: tailwind-merge
+kind: external
+purpose: Merge Tailwind CSS classes without conflicts

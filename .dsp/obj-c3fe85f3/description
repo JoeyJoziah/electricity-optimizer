@@ -1,0 +1,3 @@
+source: .github/actions/notify-slack/action.yml
+kind: object
+purpose: Composite action: Color-coded Slack failure alerts

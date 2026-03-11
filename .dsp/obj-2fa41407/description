@@ -1,0 +1,3 @@
+source: backend/config/database.py
+kind: object
+purpose: AsyncSession factory, get_db_session, engine creation with asyncpg

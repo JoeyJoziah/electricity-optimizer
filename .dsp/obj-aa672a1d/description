@@ -1,0 +1,3 @@
+source: .github/workflows/deploy-production.yml
+kind: object
+purpose: Production deployment with migration gate

@@ -1,0 +1,3 @@
+source: frontend/components/dashboard/DashboardForecast.tsx
+kind: object
+purpose: Price forecast widget

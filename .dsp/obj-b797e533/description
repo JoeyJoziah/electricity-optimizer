@@ -1,0 +1,3 @@
+source: backend/api/v1/prices.py
+kind: object
+purpose: Price CRUD, refresh, and search endpoints

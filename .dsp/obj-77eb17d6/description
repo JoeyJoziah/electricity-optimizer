@@ -1,0 +1,3 @@
+source: scripts/deploy.sh
+kind: object
+purpose: Deployment script for staging/production

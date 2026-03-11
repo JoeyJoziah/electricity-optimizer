@@ -1,0 +1,3 @@
+source: ml/evaluation/backtesting.py
+kind: object
+purpose: Backtesting framework for model validation

@@ -1,0 +1,3 @@
+source: scripts/health-check.sh
+kind: object
+purpose: Application health check script

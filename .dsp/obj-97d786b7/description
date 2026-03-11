@@ -1,0 +1,3 @@
+source: backend/integrations/pricing_apis/eia.py
+kind: object
+purpose: EIA energy information API integration

@@ -1,0 +1,3 @@
+source: backend/services/price_service.py
+kind: object
+purpose: Price fetching, caching, and CRUD operations

@@ -1,0 +1,3 @@
+source: backend/middleware/tracing.py
+kind: object
+purpose: Request tracing middleware for observability

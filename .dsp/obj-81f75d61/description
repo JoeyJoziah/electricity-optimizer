@@ -1,0 +1,3 @@
+source: frontend/lib/hooks/useProfile.ts
+kind: object
+purpose: TanStack Query hooks for user profile

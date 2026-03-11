@@ -1,0 +1,3 @@
+source: frontend/lib/notifications/onesignal.ts
+kind: object
+purpose: OneSignal push: loginOneSignal/logoutOneSignal user binding

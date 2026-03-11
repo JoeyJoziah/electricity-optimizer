@@ -1,0 +1,3 @@
+source: backend/api/v1/regulations.py
+kind: object
+purpose: Utility regulation endpoints

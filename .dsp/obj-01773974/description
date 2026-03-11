@@ -1,0 +1,3 @@
+source: .github/workflows/kpi-report.yml
+kind: object
+purpose: KPI report cron daily 6am UTC

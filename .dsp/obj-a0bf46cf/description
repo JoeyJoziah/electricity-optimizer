@@ -1,0 +1,3 @@
+source: .github/actions/retry-curl/action.yml
+kind: object
+purpose: Composite action: Retry HTTP calls with exponential backoff

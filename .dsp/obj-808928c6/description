@@ -1,0 +1,3 @@
+source: backend/middleware/rate_limiter.py
+kind: object
+purpose: Rate limiting middleware with Redis or in-memory fallback

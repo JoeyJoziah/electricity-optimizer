@@ -1,0 +1,3 @@
+source: .github/workflows/check-alerts.yml
+kind: object
+purpose: Alert checking cron every 15 minutes

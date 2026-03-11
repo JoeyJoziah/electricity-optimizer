@@ -1,0 +1,3 @@
+source: .github/workflows/backend-tests.yml
+kind: object
+purpose: Backend pytest suite with PostgreSQL service

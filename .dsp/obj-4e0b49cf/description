@@ -1,0 +1,3 @@
+source: backend/repositories/price_repository.py
+kind: object
+purpose: PriceRepository for price data access

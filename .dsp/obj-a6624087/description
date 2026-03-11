@@ -1,0 +1,3 @@
+source: backend/api/v1/users.py
+kind: object
+purpose: Admin user management endpoints

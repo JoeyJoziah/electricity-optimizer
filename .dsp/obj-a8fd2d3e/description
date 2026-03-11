@@ -1,0 +1,3 @@
+source: backend/migrations/019_seed_supplier_registry.sql
+kind: object
+purpose: Migration 019: seed supplier registry

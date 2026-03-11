@@ -1,0 +1,3 @@
+source: clsx
+kind: external
+purpose: Utility for constructing className strings

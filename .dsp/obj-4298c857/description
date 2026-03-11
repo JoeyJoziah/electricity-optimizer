@@ -1,0 +1,3 @@
+source: .github/workflows/dunning-cycle.yml
+kind: object
+purpose: Dunning cycle cron daily 7am UTC

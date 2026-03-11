@@ -1,0 +1,3 @@
+source: ml/inference/__init__.py
+kind: object
+purpose: ML inference package exports

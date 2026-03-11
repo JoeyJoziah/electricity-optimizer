@@ -1,0 +1,3 @@
+source: asyncpg
+kind: external
+purpose: Async PostgreSQL driver for Python

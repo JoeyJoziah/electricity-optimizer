@@ -1,0 +1,3 @@
+source: backend/models/region.py
+kind: object
+purpose: Region enum — 50 US states + DC + international codes

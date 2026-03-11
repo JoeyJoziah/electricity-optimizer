@@ -1,0 +1,3 @@
+source: frontend/lib/utils/cn.ts
+kind: object
+purpose: className utility combining clsx and tailwind-merge

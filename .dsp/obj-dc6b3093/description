@@ -1,0 +1,3 @@
+source: render.yaml
+kind: object
+purpose: Render deployment configuration for backend and frontend

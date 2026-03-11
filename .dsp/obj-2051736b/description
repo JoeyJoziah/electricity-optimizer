@@ -1,0 +1,3 @@
+source: backend/services/bill_parser.py
+kind: object
+purpose: Bill OCR and parsing logic

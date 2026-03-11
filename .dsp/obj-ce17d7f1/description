@@ -1,0 +1,3 @@
+source: backend/compliance/gdpr.py
+kind: object
+purpose: GDPR compliance logic for data handling

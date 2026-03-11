@@ -1,0 +1,3 @@
+source: backend/services/notification_service.py
+kind: object
+purpose: Notification dispatch orchestration

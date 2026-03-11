@@ -1,0 +1,3 @@
+source: backend/main.py
+kind: object
+purpose: FastAPI application entry point, imports and runs create_app()

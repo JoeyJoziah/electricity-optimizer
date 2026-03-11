@@ -1,0 +1,3 @@
+source: resend
+kind: external
+purpose: Resend email service SDK

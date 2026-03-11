@@ -1,0 +1,3 @@
+source: scripts/notion_hub_setup.py
+kind: object
+purpose: Notion hub page and database setup

@@ -1,0 +1,3 @@
+source: backend/services/observation_service.py
+kind: object
+purpose: Forecast observation recording and analysis

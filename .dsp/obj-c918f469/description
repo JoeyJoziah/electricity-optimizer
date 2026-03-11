@@ -1,0 +1,3 @@
+source: .github/workflows/price-sync.yml
+kind: object
+purpose: Price sync cron workflow

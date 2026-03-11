@@ -1,0 +1,3 @@
+source: frontend/lib/utils/calculations.ts
+kind: object
+purpose: Client-side calculation utilities

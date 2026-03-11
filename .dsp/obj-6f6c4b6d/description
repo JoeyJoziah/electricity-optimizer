@@ -1,0 +1,3 @@
+source: .github/workflows/secret-scan.yml
+kind: object
+purpose: Gitleaks secret scanning on PRs and push

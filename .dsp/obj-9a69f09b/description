@@ -1,0 +1,3 @@
+source: .github/workflows/scrape-rates.yml
+kind: object
+purpose: Rate scraping cron daily 3am UTC

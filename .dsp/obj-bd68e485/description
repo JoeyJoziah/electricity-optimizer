@@ -1,0 +1,3 @@
+source: backend/migrations
+kind: object
+purpose: SQL migration directory — 25 migrations, init_neon through 025_data_cache_tables

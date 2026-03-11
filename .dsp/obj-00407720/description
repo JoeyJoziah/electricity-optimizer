@@ -1,0 +1,3 @@
+source: scripts/loki-decompose.py
+kind: object
+purpose: Loki task decomposition utility

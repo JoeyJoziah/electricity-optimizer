@@ -1,0 +1,3 @@
+source: .github/workflows/data-retention.yml
+kind: object
+purpose: Data retention cleanup workflow

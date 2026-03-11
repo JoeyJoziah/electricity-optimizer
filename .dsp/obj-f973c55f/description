@@ -1,0 +1,3 @@
+source: docs/DNS_EMAIL_SETUP.md
+kind: object
+purpose: DNS and email provider setup guide

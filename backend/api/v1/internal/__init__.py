@@ -20,6 +20,7 @@ from .ml import router as ml_router
 from .operations import router as operations_router
 from .portal_scan import router as portal_scan_router
 from .sync import router as sync_router
+from .data_quality import router as data_quality_router
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 router.include_router(ml_router)
@@ -30,5 +31,6 @@ router.include_router(operations_router)
 router.include_router(sync_router)
 router.include_router(email_scan_router)
 router.include_router(portal_scan_router)
+router.include_router(data_quality_router)
 
 __all__ = ["router"]

@@ -1,0 +1,3 @@
+source: scripts/docker-entrypoint.sh
+kind: object
+purpose: Docker container entrypoint script

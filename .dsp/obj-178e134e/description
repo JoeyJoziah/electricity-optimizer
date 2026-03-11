@@ -1,0 +1,3 @@
+source: numpy
+kind: external
+purpose: Numerical computing library for array operations

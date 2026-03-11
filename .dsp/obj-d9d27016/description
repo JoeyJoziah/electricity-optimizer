@@ -1,0 +1,3 @@
+source: pydantic
+kind: external
+purpose: Data validation using Python type annotations

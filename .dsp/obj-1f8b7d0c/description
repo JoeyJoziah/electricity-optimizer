@@ -1,0 +1,3 @@
+source: backend/api/v1/connections/rates.py
+kind: object
+purpose: Extracted rate viewing endpoints

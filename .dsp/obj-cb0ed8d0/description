@@ -1,0 +1,3 @@
+source: backend/services/savings_service.py
+kind: object
+purpose: Savings calculations and analysis

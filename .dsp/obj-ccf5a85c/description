@@ -1,0 +1,3 @@
+source: .github/workflows/data-health-check.yml
+kind: object
+purpose: Data health monitoring cron

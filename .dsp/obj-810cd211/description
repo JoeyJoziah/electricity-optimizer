@@ -1,0 +1,3 @@
+source: backend/models/consent.py
+kind: object
+purpose: UserConsent model for GDPR compliance
