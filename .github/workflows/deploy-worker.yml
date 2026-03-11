@@ -1,0 +1,92 @@
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/api-gateway/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            workers/api-gateway
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: workers/api-gateway/package-lock.json
+
+      - name: Install dependencies
+        working-directory: workers/api-gateway
+        run: npm ci
+
+      - name: Type check
+        working-directory: workers/api-gateway
+        run: npm run typecheck
+
+      - name: Run tests
+        working-directory: workers/api-gateway
+        run: npm test
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            workers/api-gateway
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: workers/api-gateway/package-lock.json
+
+      - name: Install dependencies
+        working-directory: workers/api-gateway
+        run: npm ci
+
+      - name: Deploy Worker
+        working-directory: workers/api-gateway
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke test
+        run: |
+          sleep 5
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.rateshift.app/health)
+          if [ "$STATUS" != "200" ]; then
+            echo "Smoke test failed: /health returned $STATUS"
+            exit 1
+          fi
+          echo "Smoke test passed: /health returned 200"
+
+  notify-failure:
+    name: Notify on failure
+    needs: [test, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          message: "Cloudflare Worker deploy failed"
+          severity: "critical"

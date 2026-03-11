@@ -1,0 +1,27 @@
+name = "rateshift-api-gateway"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Route: all requests to api.rateshift.app go through this Worker
+routes = [
+  { pattern = "api.rateshift.app/*", zone_name = "rateshift.app" }
+]
+
+# KV Namespaces
+kv_namespaces = [
+  { binding = "CACHE", id = "6946d19ce8264f6fae4481d6ad8afcd1" },
+  { binding = "RATE_LIMIT", id = "c9be3741ee784956a0d99b3fa0c1d6c4" }
+]
+
+# Environment variables (non-secret)
+[vars]
+ORIGIN_URL = "https://electricity-optimizer.onrender.com"
+ALLOWED_ORIGINS = "https://rateshift.app,https://www.rateshift.app"
+RATE_LIMIT_STANDARD = "120"
+RATE_LIMIT_STRICT = "30"
+RATE_LIMIT_INTERNAL = "600"
+RATE_LIMIT_WINDOW_SECONDS = "60"
+
+# Secrets (set via `wrangler secret put`):
+# - INTERNAL_API_KEY
+# - RATE_LIMIT_BYPASS_KEY
