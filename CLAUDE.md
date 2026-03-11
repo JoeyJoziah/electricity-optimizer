@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-11 (MASTER_TODO_REGISTRY 96% complete. Utility Integration track complete (5 phases, 215+ tests). Backend 2,032 tests, Frontend 1,501 tests. 34 migrations (34 deployed). 42 tables (33 public + 9 neon_auth). CF Worker API Gateway deployed. Full redeployment audit completed.)
+> Last validated: 2026-03-11 (MASTER_TODO_REGISTRY 96% complete. Utility Integration track complete (5 phases, 215+ tests). Backend 2,032 tests, Frontend 1,475 tests. 34 migrations (34 deployed). 42 tables (33 public + 9 neon_auth). CF Worker API Gateway deployed. Full redeployment audit completed.)
 
 ## Session Initialization Protocol (MANDATORY)
 

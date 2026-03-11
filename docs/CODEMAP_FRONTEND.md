@@ -5,7 +5,7 @@
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,501 tests (102 suites, 20 failures in 3 suites)
+**Test Coverage:** Frontend 1,475 tests (102 suites, 20 failures in 3 suites)
 
 ---
 
