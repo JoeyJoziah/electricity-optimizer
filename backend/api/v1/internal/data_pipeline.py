@@ -5,6 +5,7 @@ Covers: /fetch-weather, /market-research, /scrape-rates, /geocode
 """
 
 import json
+import re
 from typing import List, Optional
 
 import structlog
@@ -19,6 +20,59 @@ from services.data_persistence_helper import persist_batch
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Rate extraction helpers
+# ---------------------------------------------------------------------------
+
+
+def _extract_rate_from_diffbot_data(extracted_data: dict) -> Optional[float]:
+    """Extract rate_per_kwh from Diffbot extracted data if possible.
+
+    Searches for electricity rate patterns in the text content returned by
+    Diffbot's Extract API.  Returns the first matched float value in $/kWh, or
+    None when no pattern is found.
+
+    Parameters
+    ----------
+    extracted_data:
+        The ``extracted_data`` dict from a Diffbot scrape result.  May contain
+        a top-level ``"text"`` key or an ``"objects"`` list where each object
+        has a ``"text"`` field.
+
+    Returns
+    -------
+    float | None
+        Parsed rate in $/kWh, or None if no rate pattern was detected.
+    """
+    if not extracted_data:
+        return None
+
+    # Prefer the top-level text field; fall back to concatenating object texts.
+    text_content: str = extracted_data.get("text", "") or ""
+    if not text_content and isinstance(extracted_data.get("objects"), list):
+        text_content = " ".join(
+            obj.get("text", "")
+            for obj in extracted_data["objects"]
+            if obj.get("text")
+        )
+
+    if not text_content:
+        return None
+
+    rate_match = re.search(
+        r"(?:rate|price|cost|charge)[:\s]*\$?([\d]+\.[\d]{2,4})\s*(?:/\s*)?(?:per\s+)?(?:kWh|kwh|KWH)",
+        text_content,
+        re.IGNORECASE,
+    )
+    if rate_match:
+        try:
+            return float(rate_match.group(1))
+        except ValueError:
+            return None
+    return None
+
 
 # All 51 US state/territory abbreviations for default weather fetch
 _ALL_US_STATES = [
@@ -213,31 +267,44 @@ async def scrape_supplier_rates(
 
     # Persist scraped rates to scraped_rates table
     persisted = 0
+    rows: list[dict] = []
     if db and raw_results:
         url_lookup = {item.get("supplier_id"): item.get("url") for item in supplier_urls}
         name_lookup = {item.get("supplier_id"): item.get("name") for item in supplier_urls}
 
-        rows = [
-            {
+        for r in raw_results:
+            extracted_data = r.get("extracted_data") or {}
+            extracted_rate = _extract_rate_from_diffbot_data(extracted_data)
+
+            # Embed the detected rate back into extracted_data so it is
+            # preserved in the JSONB column even without a dedicated column.
+            if extracted_rate is not None and isinstance(extracted_data, dict):
+                extracted_data = {**extracted_data, "_detected_rate_kwh": extracted_rate}
+
+            rows.append({
                 "sid": r.get("supplier_id"),
                 "name": name_lookup.get(r.get("supplier_id")),
                 "url": url_lookup.get(r.get("supplier_id")),
-                "data": json.dumps(r.get("extracted_data")),
+                "data": json.dumps(extracted_data),
                 "success": r.get("success", False),
-            }
-            for r in raw_results
-        ]
+                "rate": extracted_rate,
+            })
 
-        persisted = await persist_batch(
-            db=db,
-            table="scraped_rates",
-            sql="""
-                INSERT INTO scraped_rates (supplier_id, supplier_name, source_url, extracted_data, success)
-                VALUES (:sid, :name, :url, :data, :success)
-            """,
-            rows=rows,
-            log_context="scraped_rate",
-        )
+        if rows:
+            persisted = await persist_batch(
+                db=db,
+                table="scraped_rates",
+                sql="""
+                    INSERT INTO scraped_rates (supplier_id, supplier_name, source_url, extracted_data, success)
+                    VALUES (:sid, :name, :url, :data, :success)
+                """,
+                rows=rows,
+                log_context="scraped_rate",
+            )
+
+    rates_found = sum(1 for row in rows if row.get("rate") is not None)
+    if rates_found:
+        logger.info("scrape_rates_extracted", rates_found=rates_found)
 
     return {
         "status": "ok",
@@ -246,6 +313,7 @@ async def scrape_supplier_rates(
         "failed": batch["failed"],
         "errors": batch["errors"],
         "persisted": persisted,
+        "rates_found": rates_found,
         "results": raw_results,
     }
 

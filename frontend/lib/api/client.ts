@@ -30,9 +30,14 @@ export class ApiClientError extends Error {
 }
 
 const REDIRECT_COUNT_KEY = 'api_401_redirect_count'
-// Safety valve: 3 is safe even with React StrictMode's double-mount in dev,
-// because window.location.href assignment aborts the current execution context.
-const MAX_401_REDIRECTS = 3
+const REDIRECT_TS_KEY = 'api_401_redirect_ts'
+// Safety valve: stop after 2 consecutive 401 redirects within the same window.
+// Counter auto-expires after 10 seconds to avoid permanent lock-out.
+const MAX_401_REDIRECTS = 2
+const REDIRECT_WINDOW_MS = 10_000
+
+// Deduplicate: only one 401 redirect in flight at a time
+let redirectInFlight = false
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -40,17 +45,22 @@ async function handleResponse<T>(response: Response): Promise<T> {
     if (response.status === 401 && typeof window !== 'undefined') {
       const pathname = window.location.pathname
 
-      // Broad match: suppress redirect on ALL auth pages (login, signup, callback, verify-email).
-      // This is intentionally broader than middleware.ts authPaths, which only lists form pages.
-      if (!pathname.startsWith('/auth/')) {
-        // Safety valve: stop after MAX_401_REDIRECTS consecutive 401 redirects
+      // Suppress redirect on ALL auth pages and public pages
+      if (!pathname.startsWith('/auth/') && !redirectInFlight) {
+        // Expire old redirect counters so users aren't permanently locked out
+        const lastTs = parseInt(sessionStorage.getItem(REDIRECT_TS_KEY) || '0', 10)
+        const now = Date.now()
+        if (now - lastTs > REDIRECT_WINDOW_MS) {
+          sessionStorage.removeItem(REDIRECT_COUNT_KEY)
+        }
+
         const count = parseInt(sessionStorage.getItem(REDIRECT_COUNT_KEY) || '0', 10)
         if (count < MAX_401_REDIRECTS) {
+          redirectInFlight = true
           sessionStorage.setItem(REDIRECT_COUNT_KEY, String(count + 1))
+          sessionStorage.setItem(REDIRECT_TS_KEY, String(now))
 
-          // If current URL already has a callbackUrl, preserve the original
-          // instead of nesting (prevents exponential URL growth).
-          // Validate with isSafeRedirect to prevent open redirect via crafted callbackUrl.
+          // Preserve the original callback instead of nesting
           const params = new URLSearchParams(window.location.search)
           const existingCallback = params.get('callbackUrl')
           const callbackUrl = (existingCallback && isSafeRedirect(existingCallback))
@@ -61,6 +71,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
             '[auth] Session expired or unauthorized. Redirecting to login.'
           )
           window.location.href = `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+          // Return a never-resolving promise to prevent further processing
+          return new Promise<T>(() => {})
         }
       }
     }
@@ -86,6 +98,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
   // Reset redirect counter on any successful response
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem(REDIRECT_COUNT_KEY)
+    sessionStorage.removeItem(REDIRECT_TS_KEY)
+    redirectInFlight = false
   }
 
   return response.json()

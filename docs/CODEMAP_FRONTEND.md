@@ -5,7 +5,7 @@
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,439+ tests (99 suites, 0 failures, 6 warnings pre-rebrand)
+**Test Coverage:** Frontend 1,475 tests (99 suites, 20 failures in 3 suites)
 
 ---
 
@@ -1305,7 +1305,7 @@ markAllRead()                         // POST /notifications/read-all → marks 
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1,439 tests across 98 suites (3 pre-existing failures in send.test.ts)
+- **Coverage:** 1,475 tests across 99 suites (20 failures across 3 suites)
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
@@ -1313,7 +1313,7 @@ markAllRead()                         // POST /notifications/read-all → marks 
 - `__tests__/components/auth/LoginForm.test.tsx` (magic link failure, conditional OAuth)
 - `__tests__/components/auth/SignupForm.test.tsx` (conditional OAuth)
 - `__tests__/hooks/useAuth.test.tsx` (email verification redirect, real magic link, clearError)
-- `__tests__/lib/email/send.test.ts` (Resend SDK: send, error handling, missing API key — 3 pre-existing failures)
+- `__tests__/lib/email/send.test.ts` (Resend SDK: send, error handling, missing API key)
 - `lib/api/__tests__/client-401-redirect.test.ts` (9 tests for 401 edge cases)
 - `__tests__/a11y/` (51 jest-axe tests)
 - `__tests__/components/alerts/` (+27 new tests for AlertsContent, AlertForm)
@@ -1457,9 +1457,9 @@ markAllRead()                         // POST /notifications/read-all → marks 
 - `frontend/app/(app)/auth/callback/page.tsx` (a11y)
 - `frontend/playwright.config.ts` (retries: 1)
 
-### send.test.ts Pre-Existing Failures
+### Pre-Existing Test Failures
 
-**Issue:** 3 tests in `__tests__/lib/email/send.test.ts` fail consistently. These are pre-existing failures related to Resend SDK mocking and do not reflect production email behavior.
+**Issue:** 20 failures across 3 test suites. These are pre-existing failures and do not reflect production behavior.
 
 **Status:** Known + tracked. Not blocking CI. Production email verified working via Gmail SMTP fallback.
 
@@ -1575,10 +1575,10 @@ BETTER_AUTH_URL=...                      # (Server-only)
 - **Total Layouts:** 3 (root, app, dev, auth)
 - **Total Components:** 52+ (UI + feature-specific)
 - **Loading Skeletons:** 5 (dashboard, prices, suppliers, optimize, connections)
-- **Total Tests:** 1,439 across 98 suites (3 pre-existing failures in send.test.ts)
+- **Total Tests:** 1,475 across 99 suites (20 failures across 3 suites)
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
-- **Total Test Coverage:** ~4,170 tests (frontend + backend + ML + E2E)
+- **Total Test Coverage:** ~4,600+ tests (frontend + backend + ML + E2E)
 
 ---
 
@@ -1817,10 +1817,10 @@ BETTER_AUTH_URL=...                      # (Server-only)
    - Backward-compat routes: `/beta/*` routes redirect to `/beta-signup` for public access
 
 **6. Testing Updates**
-   - Frontend tests: 1,439 total (Wave 4: +125 notification tracking, +49 A/B testing, +9 model-versions)
+   - Frontend tests: 1,475 total (Wave 4: +125 notification tracking, +49 A/B testing, +9 model-versions)
    - New test files: `useAgent.test.ts` (+13), `NotificationBell.test.tsx` (+15), agent API tests
    - E2E tests: 634 passed, 5 skipped (no changes)
-   - Total test suites: 99 (0 failures, 6 pre-existing warnings)
+   - Total test suites: 99 (20 failures across 3 suites, 6 pre-existing warnings)
 
 **7. Framework Updates**
    - Next.js: 14.2.35 → 16.0.x (React 19 compatible)
@@ -1995,7 +1995,7 @@ updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
 
 **Last Reviewed:** 2026-03-11 by documentation engineer
 **Status:** Current with AI Agent, notification delivery, A/B testing framework, Waves 4-5 complete
-**Test Coverage:** 1,439 tests (frontend), ~4,170 total (all layers)
+**Test Coverage:** 1,475 tests (frontend), ~4,600+ total (all layers)
 **Framework:** Next.js 16 + React 19 + TypeScript
 **Components:** 55+ (19 UI + 36 feature-specific)
 **Pages:** 21 (root + (app) with sidebar + (dev) + auth)

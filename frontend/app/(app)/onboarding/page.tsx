@@ -1,21 +1,28 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 import { useProfile } from '@/lib/hooks/useProfile'
 
 export default function OnboardingPage() {
   const { data: profile, isLoading } = useProfile()
+  const router = useRouter()
+  const redirectedRef = useRef(false)
 
-  // Redirect completed users to dashboard
+  // Redirect completed users to dashboard (guard against double-fire)
   useEffect(() => {
-    if (!isLoading && profile?.onboarding_completed && profile?.region) {
-      window.location.href = '/dashboard'
+    if (!isLoading && profile?.onboarding_completed && profile?.region && !redirectedRef.current) {
+      redirectedRef.current = true
+      router.replace('/dashboard')
     }
-  }, [profile, isLoading])
+  }, [profile, isLoading, router])
 
   const handleComplete = () => {
-    window.location.href = '/dashboard'
+    if (!redirectedRef.current) {
+      redirectedRef.current = true
+      router.replace('/dashboard')
+    }
   }
 
   if (isLoading) {

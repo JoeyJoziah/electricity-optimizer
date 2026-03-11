@@ -28,14 +28,14 @@ I've been building RateShift for the past few months, and we're ready to launch 
 - **Stripe monetization** with Free / $4.99 Pro / $14.99 Business tiers, including dunning for failed payments
 
 **Tech Stack:**
-- Backend: FastAPI + Python 3.12 (1,479 tests passing)
-- Frontend: Next.js 14 + TypeScript + Playwright E2E (1,439 tests)
+- Backend: FastAPI + Python 3.12 (1,917 tests passing)
+- Frontend: Next.js 16 + TypeScript + Playwright E2E (1,475 tests)
 - ML: TensorFlow + XGBoost + scikit-learn + PuLP optimizer
-- Database: Neon PostgreSQL (serverless, 21 public tables + Better Auth integration)
-- Infrastructure: Docker + GitHub Actions (23 automated workflows including self-healing CI/CD)
+- Database: Neon PostgreSQL (serverless, 33 public tables + Better Auth integration)
+- Infrastructure: Docker + GitHub Actions (24 automated workflows including self-healing CI/CD)
 
 **Current Status:**
-- 4,170 total tests (backend 1,479, frontend 1,439, ML 611, E2E 634)
+- 4,600+ total tests (backend 1,917, frontend 1,475, ML 611, E2E 634)
 - 80%+ code coverage across all layers
 - Production deployment on Vercel + Render
 - Multi-state expansion complete (not just Connecticut)
@@ -75,8 +75,8 @@ Hey everyone! I've been working on **RateShift** for the past few months and jus
 - Full SaaS with Stripe billing (Free / $4.99 Pro / $14.99 Business)
 
 **Tech Stack (more details):**
-- **Backend:** FastAPI + Python 3.12 with 1,479 tests
-- **Frontend:** Next.js 14 + TypeScript, 1,439 tests + Playwright E2E
+- **Backend:** FastAPI + Python 3.12 with 1,917 tests
+- **Frontend:** Next.js 16 + TypeScript, 1,475 tests + Playwright E2E
 - **ML:** TensorFlow (CNN-LSTM), XGBoost (pattern matching), PuLP (load-shifting optimizer)
 - **Database:** Neon PostgreSQL (serverless) with 21 tables + async migrations
 - **Auth:** Better Auth (session-based, httpOnly cookies, magic links)
@@ -91,7 +91,7 @@ Hey everyone! I've been working on **RateShift** for the past few months and jus
 5. **Payment webhook reliability:** Stripe invoice events lack user metadata, so I resolve users via stripe_customer_id lookup + had to handle async billing correctly
 
 **Testing & Quality:**
-- 4,170 total tests across backend/frontend/ML/E2E
+- 4,600+ total tests across backend/frontend/ML/E2E
 - 80%+ code coverage
 - Gitleaks + Trivy container scanning in CI/CD
 - Playwright E2E tests run daily with retry logic
@@ -206,14 +206,14 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 
 **Backend: FastAPI + Python 3.12**
 - RESTful API with async/await throughout
-- 1,479 unit + integration tests (80%+ coverage)
+- 1,917 unit + integration tests (80%+ coverage)
 - Key services: Stripe, Alert System, HNSW Vector Store, Observation Loop, Adaptive Learning
 - Cron workflows for price sync, model retraining, dunning (failed payment escalation)
 - GDPR compliance layer (data export, deletion, consent audit trails)
 
-**Frontend: Next.js 14 + TypeScript**
+**Frontend: Next.js 16 + TypeScript**
 - App Router with layout-based navigation
-- 1,439 tests (Jest + Playwright E2E)
+- 1,475 tests (Jest + Playwright E2E)
 - Recharts for visualization
 - Tailwind CSS + custom design tokens
 - OneSignal push notifications with user binding
@@ -233,7 +233,7 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 ```
 
 **Database: Neon PostgreSQL (Serverless)**
-- 21 public tables (+ 9 neon_auth tables from Better Auth)
+- 33 public tables (+ 9 neon_auth tables from Better Auth)
 - All PKs are UUIDs
 - 25 migrations with Alembic
 - Async connections via asyncpg with optimized pool settings
@@ -304,7 +304,7 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 
 **Stack Summary:**
 ```
-Frontend:     Next.js 14, React 18, TypeScript, Tailwind, Recharts, Playwright
+Frontend:     Next.js 16, React 18, TypeScript, Tailwind, Recharts, Playwright
 Backend:      FastAPI, Python 3.12, asyncpg, Pydantic
 ML:           TensorFlow, XGBoost, scikit-learn, PuLP
 Database:     Neon PostgreSQL, HNSW vector store, Alembic

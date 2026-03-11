@@ -1,0 +1,38 @@
+name: Scan Email Connections
+
+on:
+  schedule:
+    # Daily at 4am UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: scan-emails
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Scan emails
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/scan-emails
+          method: POST
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Scan Email Connections"
+          severity: warning

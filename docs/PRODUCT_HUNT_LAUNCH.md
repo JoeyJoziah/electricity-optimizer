@@ -131,13 +131,13 @@ Now I'm bringing this to the 50M+ people in deregulated markets who don't realiz
 ```
 
 ### Team / Build Info
-- **Frontend**: Next.js 14 + TypeScript (production-grade React)
-- **Backend**: FastAPI + Python 3.12 (1,479 tests passing)
+- **Frontend**: Next.js 16 + TypeScript (production-grade React)
+- **Backend**: FastAPI + Python 3.12 (1,917 tests passing)
 - **ML**: CNN-LSTM ensemble + XGBoost (MAPE <10%)
 - **Database**: Neon PostgreSQL (serverless, auto-scaling)
 - **Billing**: Stripe (Free/$4.99/$14.99 tiers)
 - **Auth**: Neon Auth + Better Auth (session-based, secure)
-- **Testing**: 4,170+ tests (backend, frontend, ML, E2E)
+- **Testing**: 4,600+ tests (backend, frontend, ML, E2E)
 
 ---
 
@@ -224,7 +224,7 @@ No effort after the first switch. Like finding $20/month in the budget."
 ```
 "Real-time ML forecasting in production. Serving 65+ beta users at 99.8% uptime.
 Tech stack: Next.js, FastAPI, Neon PostgreSQL, ensemble ML models.
-4,170+ tests. 0 critical bugs in 3 months."
+4,600+ tests. 0 critical bugs in 3 months."
 ```
 
 ### For Environmentalists

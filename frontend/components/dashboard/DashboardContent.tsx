@@ -149,19 +149,30 @@ export default function DashboardContent() {
     )
   }
 
-  // Error state
+  // Error state — show actionable message instead of "cannot load"
   if (pricesError) {
+    const is401 = pricesError && typeof pricesError === 'object' && 'status' in pricesError && (pricesError as { status: number }).status === 401
     return (
       <div>
         <Header title="Dashboard" />
         <div className="flex h-96 items-center justify-center">
           <div className="text-center">
             <p className="text-lg font-medium text-gray-900">
-              Failed to load price data
+              {is401 ? 'Session expired' : 'Unable to load price data'}
             </p>
             <p className="mt-1 text-gray-500">
-              Please try refreshing the page
+              {is401
+                ? 'Please sign in again to continue.'
+                : region
+                  ? 'There may be a temporary issue with our servers.'
+                  : 'Please set your region in Settings to see prices.'}
             </p>
+            <button
+              onClick={() => is401 ? (window.location.href = '/auth/login') : window.location.reload()}
+              className="mt-4 inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+            >
+              {is401 ? 'Sign In' : 'Retry'}
+            </button>
           </div>
         </div>
       </div>

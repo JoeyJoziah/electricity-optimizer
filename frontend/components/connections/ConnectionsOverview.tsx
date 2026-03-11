@@ -6,6 +6,7 @@ import { ConnectionCard } from './ConnectionCard'
 import { DirectLoginForm } from './DirectLoginForm'
 import { EmailConnectionFlow } from './EmailConnectionFlow'
 import { ConnectionUploadFlow } from './ConnectionUploadFlow'
+import { PortalConnectionFlow } from './PortalConnectionFlow'
 import { ConnectionRates } from './ConnectionRates'
 import { ConnectionAnalytics } from './ConnectionAnalytics'
 import { cn } from '@/lib/utils/cn'
@@ -18,6 +19,7 @@ type View =
   | 'adding-direct'
   | 'adding-email'
   | 'adding-upload'
+  | 'adding-portal'
   | 'viewing-rates'
 
 type Tab = 'connections' | 'analytics'
@@ -89,7 +91,8 @@ export function ConnectionsOverview() {
   if (
     view === 'adding-direct' ||
     view === 'adding-email' ||
-    view === 'adding-upload'
+    view === 'adding-upload' ||
+    view === 'adding-portal'
   ) {
     return (
       <div>
@@ -109,6 +112,15 @@ export function ConnectionsOverview() {
         )}
         {view === 'adding-upload' && (
           <ConnectionUploadFlow onComplete={handleBackToOverview} />
+        )}
+        {view === 'adding-portal' && (
+          <PortalConnectionFlow
+            onBack={handleBackToOverview}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['connections'] })
+              setView('overview')
+            }}
+          />
         )}
       </div>
     )
@@ -214,6 +226,7 @@ export function ConnectionsOverview() {
                 onSelectDirect={() => setView('adding-direct')}
                 onSelectEmail={() => setView('adding-email')}
                 onSelectUpload={() => setView('adding-upload')}
+                onSelectPortal={() => setView('adding-portal')}
               />
             </div>
           )}

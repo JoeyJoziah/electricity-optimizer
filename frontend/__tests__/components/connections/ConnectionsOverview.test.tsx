@@ -18,6 +18,7 @@ jest.mock('lucide-react', () => ({
   KeyRound: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-key" {...props} />,
   Mail: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-mail" {...props} />,
   Upload: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-upload" {...props} />,
+  Globe: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-globe" {...props} />,
   ArrowRight: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-arrow" {...props} />,
   Trash2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-trash" {...props} />,
   RefreshCw: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-refresh" {...props} />,
@@ -159,8 +160,9 @@ describe('ConnectionsOverview', () => {
       expect(screen.getByText('Get Started')).toBeInTheDocument()
     })
 
-    // Should show method picker
+    // Should show method picker with all four options
     expect(screen.getByText('Utility Account')).toBeInTheDocument()
+    expect(screen.getByText('Utility Portal')).toBeInTheDocument()
     expect(screen.getByText('Email Inbox')).toBeInTheDocument()
     expect(screen.getByText('Upload Bills')).toBeInTheDocument()
   })

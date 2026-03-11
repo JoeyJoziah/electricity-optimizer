@@ -1,0 +1,51 @@
+{
+  "id": "codebase-zenith_20260311",
+  "title": "Project Zenith — Comprehensive Codebase Excellence Audit & Optimization",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-03-11T02:33:00.000Z",
+  "updated": "2026-03-11T02:33:00.000Z",
+  "phases": {
+    "total": 18,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 121,
+    "completed": 0
+  },
+  "sections": [
+    { "id": 1, "name": "Database Layer", "status": "pending" },
+    { "id": 2, "name": "Backend Models & ORM", "status": "pending" },
+    { "id": 3, "name": "Backend Core Infrastructure", "status": "pending" },
+    { "id": 4, "name": "Backend Services Layer", "status": "pending" },
+    { "id": 5, "name": "Backend API Routers", "status": "pending" },
+    { "id": 6, "name": "Backend Data Pipeline", "status": "pending" },
+    { "id": 7, "name": "ML Pipeline", "status": "pending" },
+    { "id": 8, "name": "Backend Testing Infrastructure", "status": "pending" },
+    { "id": 9, "name": "Frontend Core Infrastructure", "status": "pending" },
+    { "id": 10, "name": "Frontend Components", "status": "pending" },
+    { "id": 11, "name": "Frontend State & Data Layer", "status": "pending" },
+    { "id": 12, "name": "Frontend Testing Infrastructure", "status": "pending" },
+    { "id": 13, "name": "Cloudflare Worker Edge Layer", "status": "pending" },
+    { "id": 14, "name": "CI/CD & Automation", "status": "pending" },
+    { "id": 15, "name": "Security & Authentication", "status": "pending" },
+    { "id": 16, "name": "External Integrations", "status": "pending" }
+  ],
+  "clarityGate": {
+    "dimensions": [
+      "Correctness",
+      "Coverage",
+      "Security",
+      "Performance",
+      "Maintainability",
+      "Documentation",
+      "Error Handling",
+      "Consistency",
+      "Modernity"
+    ],
+    "passingScore": 8,
+    "aggregateMinimum": 75
+  },
+  "executionMode": "loki-autonomous",
+  "humanCheckpoints": ["phase-0", "phase-8", "phase-12", "phase-17"]
+}

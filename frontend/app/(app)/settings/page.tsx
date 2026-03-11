@@ -160,6 +160,15 @@ export default function SettingsPage() {
     try {
       const res = await fetch('/api/v1/compliance/gdpr/delete', { method: 'DELETE', credentials: 'include' })
       if (!res.ok) throw new Error('Delete failed')
+      // Clear local state before redirect to prevent stale data
+      resetSettings()
+      // Sign out to invalidate session (clears cookies + OneSignal)
+      try {
+        const { authClient } = await import('@/lib/auth/client')
+        await authClient.signOut()
+      } catch {
+        // Best-effort — proceed with redirect regardless
+      }
       window.location.href = '/'
     } catch {
       toastError('Delete failed', 'Please try again later.')

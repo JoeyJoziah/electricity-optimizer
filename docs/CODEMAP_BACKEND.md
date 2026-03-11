@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-11 (Wave 3-4 completion: notification delivery tracking, A/B testing framework, AI agent integration, model versioning. Test count: 1,835. Migrations: 33. Tables: 30+)
+> Last updated: 2026-03-11 (Wave 3-4 completion: notification delivery tracking, A/B testing framework, AI agent integration, model versioning. Test count: 1,917. Migrations: 34. Tables: 42)
 
 ## Directory Structure
 
@@ -1192,7 +1192,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1,479 passed, 2 skipped, 0 failures (as of 2026-03-10). 59+ test files. Includes: CSP security headers tests (+9), maintenance resilience tests (+3), tier gating (require_tier, 7 endpoints, free alert limit), health-data endpoint, data cache table tests. Prior: connections split into 8 endpoint files, supplier caching, savings service, connection service, forecast observation repository, weather service circuit breaker, maintenance service cleanup.
+**Test status:** 1,917 passed, 2 skipped, 0 failures (as of 2026-03-10). 59+ test files. Includes: CSP security headers tests (+9), maintenance resilience tests (+3), tier gating (require_tier, 7 endpoints, free alert limit), health-data endpoint, data cache table tests. Prior: connections split into 8 endpoint files, supplier caching, savings service, connection service, forecast observation repository, weather service circuit breaker, maintenance service cleanup.
 
 
 ## Scripts & Automation

@@ -4,8 +4,9 @@ Tests for Notifications API and NotificationService.
 Coverage:
   - GET /notifications — list unread (authenticated, unauthenticated)
   - GET /notifications/count — unread count
+  - PUT /notifications/read-all — mark all read
   - PUT /notifications/{id}/read — mark read (success, not-found, wrong user)
-  - NotificationService unit tests (create, get_unread, get_unread_count, mark_read)
+  - NotificationService unit tests (create, get_unread, get_unread_count, mark_all_read, mark_read)
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -169,7 +170,46 @@ class TestGetNotificationCount:
 
 
 # ===========================================================================
-# 3. PUT /notifications/{id}/read
+# 3. PUT /notifications/read-all
+# ===========================================================================
+
+
+class TestMarkAllNotificationsRead:
+    """Mark all notifications read endpoint."""
+
+    def test_marks_all_read_successfully(self, client):
+        db = _mock_db()
+        result = MagicMock()
+        result.rowcount = 5
+        db.execute.return_value = result
+        _install_auth(db)
+
+        resp = client.put(f"{BASE}/read-all")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["marked"] == 5
+
+    def test_marks_zero_when_none_unread(self, client):
+        db = _mock_db()
+        result = MagicMock()
+        result.rowcount = 0
+        db.execute.return_value = result
+        _install_auth(db)
+
+        resp = client.put(f"{BASE}/read-all")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["marked"] == 0
+
+    def test_requires_authentication(self, client):
+        resp = client.put(f"{BASE}/read-all")
+        assert resp.status_code in (401, 503)
+
+
+# ===========================================================================
+# 4. PUT /notifications/{id}/read
 # ===========================================================================
 
 

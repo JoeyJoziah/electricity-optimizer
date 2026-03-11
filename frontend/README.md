@@ -16,7 +16,7 @@ RateShift's frontend provides a comprehensive dashboard for users to monitor ele
 - **State Management**: TanStack Query v5 (server state), React Context (auth/UI state)
 - **Forms**: React Hook Form + custom Input component
 - **API Client**: Fetch API with auth interceptors
-- **Testing**: Jest + React Testing Library (1,439+ unit tests)
+- **Testing**: Jest + React Testing Library (1,475 unit tests, 99 suites)
 - **E2E Testing**: Playwright (634 tests)
 - **Accessibility**: jest-axe (51 tests), WCAG AA compliant
 - **Charts**: Recharts for data visualization

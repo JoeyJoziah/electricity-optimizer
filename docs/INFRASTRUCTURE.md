@@ -303,7 +303,7 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 | Public Tables | 21 (see CODEMAP_BACKEND.md for full list) |
 | Auth Tables | 9 (neon_auth schema — managed by Better Auth) |
 | Cache Tables | 3 (price_history_cache, weather_cache, market_research_cache) |
-| Migrations | 33 total (001_init_neon through 033_model_predictions_ab_assignments) |
+| Migrations | 34 total (001_init_neon through 034_portal_credentials) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 

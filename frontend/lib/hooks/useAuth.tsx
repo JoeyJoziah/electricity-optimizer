@@ -104,19 +104,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
             })
           }
 
-          // Sync region from profile if available
+          // Sync region from profile if available.
+          // useProfile hook is the primary sync source; this is a fallback for
+          // pages that don't call useProfile (e.g. first load before dashboard).
           if (profileResult.status === 'fulfilled' && profileResult.value.region) {
-            useSettingsStore.getState().setRegion(profileResult.value.region)
+            const store = useSettingsStore.getState()
+            if (!store.region) {
+              store.setRegion(profileResult.value.region)
+            }
           }
 
-          // Redirect to onboarding if user hasn't completed it yet
+          // Redirect to onboarding if user hasn't completed it yet.
+          // Use router.replace (not window.location.href) to prevent the
+          // browser from adding a history entry that creates back-button loops.
           if (profileResult.status === 'fulfilled') {
             const profile = profileResult.value
             if (!profile.onboarding_completed || !profile.region) {
               const path = window.location.pathname
               // Only redirect if we're on an app page (not already on onboarding or auth)
-              if (path.startsWith('/dashboard') || path.startsWith('/prices') || path.startsWith('/suppliers') || path.startsWith('/optimize') || path.startsWith('/connections') || path.startsWith('/settings')) {
-                window.location.href = '/onboarding'
+              if (path.startsWith('/dashboard') || path.startsWith('/prices') || path.startsWith('/suppliers') || path.startsWith('/optimize') || path.startsWith('/connections') || path.startsWith('/settings') || path.startsWith('/alerts') || path.startsWith('/assistant')) {
+                router.replace('/onboarding')
                 return
               }
             }

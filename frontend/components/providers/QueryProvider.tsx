@@ -11,7 +11,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 60 * 1000, // 1 minute
             gcTime: 5 * 60 * 1000, // 5 minutes
-            refetchOnWindowFocus: true,
+            refetchOnWindowFocus: false, // Prevent perceived page refreshes when switching tabs
             // Do not retry 4xx errors — they indicate client/auth problems that
             // won't resolve on retry and only delay the redirect to login.
             retry: (failureCount, error) => {

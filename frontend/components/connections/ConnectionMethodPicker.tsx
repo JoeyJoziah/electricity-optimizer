@@ -2,12 +2,13 @@
 
 import React from 'react'
 import { cn } from '@/lib/utils/cn'
-import { KeyRound, Mail, Upload, ArrowRight } from 'lucide-react'
+import { KeyRound, Mail, Upload, Globe, ArrowRight } from 'lucide-react'
 
 interface ConnectionMethodPickerProps {
   onSelectDirect: () => void
   onSelectEmail: () => void
   onSelectUpload: () => void
+  onSelectPortal: () => void
 }
 
 interface MethodOption {
@@ -24,6 +25,7 @@ export function ConnectionMethodPicker({
   onSelectDirect,
   onSelectEmail,
   onSelectUpload,
+  onSelectPortal,
 }: ConnectionMethodPickerProps) {
   const methods: MethodOption[] = [
     {
@@ -35,6 +37,16 @@ export function ConnectionMethodPicker({
       iconBgColor: 'bg-primary-100',
       iconColor: 'text-primary-600',
       onClick: onSelectDirect,
+    },
+    {
+      id: 'portal',
+      title: 'Utility Portal',
+      description:
+        'Log in to your utility provider website to import billing data automatically',
+      icon: Globe,
+      iconBgColor: 'bg-purple-100',
+      iconColor: 'text-purple-600',
+      onClick: onSelectPortal,
     },
     {
       id: 'email',
@@ -59,7 +71,7 @@ export function ConnectionMethodPicker({
   ]
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {methods.map((method) => (
         <button
           key={method.id}

@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-11 (MASTER_TODO_REGISTRY 96% complete. Backend 1,835 tests, Frontend 1,439+ tests. Waves 4-5: notification tracking, A/B testing, scaling plan, public signup, launch materials. CF Worker API Gateway deployed. Full redeployment audit completed.)
+> Last validated: 2026-03-11 (MASTER_TODO_REGISTRY 96% complete. Backend 1,917 tests, Frontend 1,475 tests. 34 migrations (33 deployed, 034 pending). 42 tables (33 public + 9 neon_auth). CF Worker API Gateway deployed. Full redeployment audit completed.)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 21 public + 9 neon_auth + 3 cache = 33 tables (33 migrations: init_neon through 033_model_predictions_ab_assignments, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
+- **NeonDBAgent**: 33 public + 9 neon_auth = 42 tables (34 migrations: init_neon through 034_portal_credentials, 33 deployed to production — 034 pending), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
@@ -101,7 +101,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
-- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 21 public + 9 neon_auth + 3 cache = 33 tables total (33 migrations: init_neon through 033_model_predictions_ab_assignments — all deployed to production)
+- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 33 public + 9 neon_auth = 42 tables total (34 migrations: init_neon through 034_portal_credentials — 33 deployed to production, 034 pending)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
 - **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV), KV rate limiting (120/30/600 per min), bot detection, internal auth, CORS, security headers. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE + RATE_LIMIT. SSL: Full (Strict). Deploy: `deploy-worker.yml`. Source: `workers/api-gateway/` (16 files, 37 tests)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
@@ -113,13 +113,13 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). ALL PHASES COMPLETE (0-3), 7/7 workflows live. Self-Healing CI/CD: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. **Dependabot**: `.github/dependabot.yml` (pip/npm/github-actions, weekly Monday, grouped minor+patch)
 - **AI Agent** (prod 2026-03-11): "RateShift AI" — Gemini 3 Flash Preview (primary, free 10 RPM/250 RPD) + Groq Llama 3.3 70B (fallback on 429) + Composio tools (1K actions/month). Feature flag: `ENABLE_AI_AGENT=true`. Rate limits: Free=3/day, Pro=20/day, Business=unlimited. SSE streaming via `POST /agent/query`, async jobs via `POST /agent/task`, usage via `GET /agent/usage`. Service: `backend/services/agent_service.py`. API: `backend/api/v1/agent.py`. Frontend: `/assistant` page with `AgentChat` component. Migrations 031-033 applied. 13 tests in `test_agent_service.py`. Render env vars: 38 total (34 prior + 4 AI: GEMINI_API_KEY, GROQ_API_KEY, COMPOSIO_API_KEY, ENABLE_AI_AGENT)
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
-- **DSP (Data Structure Protocol)**: `.dsp/` codebase graph — 326 entities, 327 imports, 0 cycles. CLI: `python3 dsp-cli.py --root . <command>`. UID map: `.dsp/uid_map.json`. Bootstrap: `scripts/dsp_bootstrap.py`. Use `search`, `get-recipients`, `get-children --depth N` before refactoring
+- **DSP (Data Structure Protocol)**: `.dsp/` codebase graph — 353 entities, 715 imports, 0 cycles. CLI: `python3 dsp-cli.py --root . <command>`. UID map: `.dsp/uid_map.json`. Bootstrap: `scripts/dsp_bootstrap.py`. Use `search`, `get-recipients`, `get-children --depth N` before refactoring
 - **Slack**: Workspace `electricityoptimizer.slack.com` (T0AK0AJV5NE). Channels: `#incidents` (C0AKV2TK257), `#deployments` (C0AKCN6T02Z), `#metrics` (C0AKDD7P2HX). Webhook: `SLACK_INCIDENTS_WEBHOOK_URL` GHA secret + 1Password. Composio connection: `ca_jI3-cs-HrXPY` (Note: workspace named electricityoptimizer but project is RateShift)
 - **Board Sync**: GitHub Projects #4 (local hooks). Notion via Rube recipe only (every 6h, rcp_73Kc9K65YC5T). Hub page: `31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7`, Tracker DB: `31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f`
 
 ## Critical Reminders
 
-1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 33 base tables, 33 migrations (latest: 033_model_predictions_ab_assignments, all deployed to production 2026-03-11). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
+1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 42 base tables (33 public + 9 neon_auth), 34 migrations (latest: 034_portal_credentials, 33 deployed to production — 034 pending). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
 4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "RateShift"

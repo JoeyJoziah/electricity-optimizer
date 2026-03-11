@@ -69,6 +69,29 @@ class NotificationService:
         )
         return result.scalar() or 0
 
+    async def mark_all_read(self, user_id: str) -> int:
+        """
+        Mark all unread notifications as read for the given user.
+
+        Returns the number of notifications that were marked read.
+        """
+        result = await self._db.execute(
+            text(
+                "UPDATE notifications SET read_at = NOW()"
+                " WHERE user_id = :uid AND read_at IS NULL"
+            ),
+            {"uid": user_id},
+        )
+        await self._db.commit()
+        count = result.rowcount
+        if count > 0:
+            logger.info(
+                "notifications_marked_all_read",
+                user_id=user_id,
+                count=count,
+            )
+        return count
+
     async def mark_read(self, user_id: str, notification_id: str) -> bool:
         """
         Mark a single notification as read.

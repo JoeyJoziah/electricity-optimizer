@@ -3,8 +3,8 @@
 Automatically shift consumers to lower electricity rates across all 50 US states. Effortless cost reduction with AI-powered recommendations, smart alerts, and real-time price tracking.
 
 [![CI Status](https://github.com/JoeyJoziah/electricity-optimizer/workflows/test/badge.svg)](https://github.com/JoeyJoziah/electricity-optimizer/actions)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-1835%20passing-brightgreen)](docs/TESTING.md)
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1439%20passing-brightgreen)](docs/TESTING.md)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-1917%20passing-brightgreen)](docs/TESTING.md)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1475%20passing-brightgreen)](docs/TESTING.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## What is RateShift?
@@ -30,7 +30,7 @@ RateShift is a full-stack energy optimization platform that helps US consumers s
 |-------|-----------|
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | **Backend** | FastAPI, Python 3.12, asyncpg + SQLAlchemy ORM |
-| **Database** | Neon PostgreSQL (serverless), 33 migrations, UUID PKs |
+| **Database** | Neon PostgreSQL (serverless), 34 migrations, UUID PKs |
 | **Auth** | Neon Auth (Better Auth) — session-based, httpOnly cookies |
 | **Edge Layer** | Cloudflare Worker — caching, rate limiting, bot detection, CORS |
 | **ML** | Python ensemble predictor, HNSW vector store, XGBoost |
@@ -115,14 +115,14 @@ electricity-optimizer/
     repositories/            Data access layer
     integrations/            External APIs (weather, market research, utility sync, ...)
     migrations/              Alembic database migrations (33 total)
-    tests/                   Unit and integration tests (1,835 total)
+    tests/                   Unit and integration tests (1,917 total)
   frontend/                  Next.js 16 application
     app/                     App Router structure
       (app)/                 Authenticated pages (dashboard, alerts, connections, optimize, settings, assistant)
       (dev)/                 Dev-only pages (architecture editor)
     components/              React components (charts, forms, layouts, auth, ...)
     lib/                     Utilities, hooks, API clients, state
-    __tests__/               Jest unit tests (1,439 total)
+    __tests__/               Jest unit tests (1,475 total)
     e2e/                     Playwright E2E tests (634 total)
   ml/                        Machine learning pipelines
     models/                  Predictor definitions, HNSW indexing
@@ -136,7 +136,7 @@ electricity-optimizer/
 
 ## Testing
 
-### Backend (1,835 tests)
+### Backend (1,917 tests)
 
 ```bash
 source .venv/bin/activate
@@ -146,7 +146,7 @@ cd backend
 
 Always use the project venv (system Python lacks required dependencies).
 
-### Frontend (1,439+ tests)
+### Frontend (1,475 tests, 99 suites)
 
 ```bash
 cd frontend
@@ -170,7 +170,7 @@ npx playwright test
 npx playwright test --ui    # Interactive mode
 ```
 
-**Total test count:** ~4,500+ across all suites. See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
+**Total test count:** ~4,600+ across all suites. See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
 
 ## API Documentation
 

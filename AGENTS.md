@@ -31,7 +31,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 
 ```bash
 # CRITICAL: Always use the project venv, never system Python
-.venv/bin/python -m pytest backend/tests/              # all backend tests (1,479+)
+.venv/bin/python -m pytest backend/tests/              # all backend tests (1,917+)
 .venv/bin/python -m pytest backend/tests/test_auth.py  # single file
 .venv/bin/python -m pytest backend/tests/ -x           # stop on first failure
 .venv/bin/python -m pytest backend/tests/ -k "test_name"  # by name
@@ -47,7 +47,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 
 ```bash
 cd frontend
-npm test                    # Jest unit tests (1,439+, 98 suites)
+npm test                    # Jest unit tests (1,475, 99 suites)
 npm run build               # production build
 npm run dev                 # dev server (port 3000)
 npx playwright test         # E2E tests (15 specs)

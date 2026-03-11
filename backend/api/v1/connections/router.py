@@ -3,21 +3,25 @@ Combined router for the Connections feature package.
 
 Registration order is critical. FastAPI matches routes in the order they are
 registered. The /{connection_id} wildcard in crud.py would swallow any static
-path segment (like "analytics", "email", "direct") if registered first.
+path segment (like "analytics", "email", "direct", "portal") if registered
+first.
 
 Required registration order:
-  1. analytics   — /analytics/* static prefixes (before wildcard)
-  2. email_oauth — POST /email, GET /email/callback, POST /email/{id}/scan
-  3. bill_upload — POST /upload + /{id}/upload* routes
-  4. direct_sync — GET /direct/callback + /{id}/sync + /{id}/sync-status
-  5. rates       — /{connection_id}/rates and /{connection_id}/rates/current
-  6. crud        — GET "", POST /direct, GET/DELETE/PATCH /{connection_id} wildcard
+  1. analytics    — /analytics/* static prefixes (before wildcard)
+  2. email_oauth  — POST /email, GET /email/callback, POST /email/{id}/scan
+  3. bill_upload  — POST /upload + /{id}/upload* routes
+  4. portal_scrape — POST /portal, POST /portal/{id}/scrape
+  5. direct_sync  — GET /direct/callback + /{id}/sync + /{id}/sync-status
+  6. rates        — /{connection_id}/rates and /{connection_id}/rates/current
+  7. crud         — GET "", POST /direct, GET/DELETE/PATCH /{connection_id} wildcard
 
 Rationale for each ordering decision:
 - analytics before crud: /analytics/* must not be captured by /{connection_id}.
 - email_oauth before crud: /email/callback and /email/{id}/scan must not be
   captured by /{connection_id}.
 - bill_upload before crud: POST /upload must not be captured by /{connection_id}.
+- portal_scrape before crud: POST /portal and /portal/{id}/scrape must not be
+  captured by the /{connection_id} wildcard.
 - direct_sync before crud: GET /direct/callback must not be captured by
   /{connection_id}. Note that POST /direct (create_direct_connection) is in
   crud.py and is a POST route — it does not conflict with the GET/DELETE/PATCH
@@ -31,7 +35,7 @@ Rationale for each ordering decision:
 
 from fastapi import APIRouter
 
-from api.v1.connections import analytics, email_oauth, bill_upload, direct_sync, rates, crud
+from api.v1.connections import analytics, email_oauth, bill_upload, portal_scrape, direct_sync, rates, crud
 
 router = APIRouter()
 
@@ -51,16 +55,22 @@ router.include_router(email_oauth.router)
 #    POST /{connection_id}/uploads/{upload_id}/reparse
 router.include_router(bill_upload.router)
 
-# 4. Direct sync (Phase 4 / UtilityAPI):
+# 4. Portal scrape (Phase 3):
+#    POST /portal                             (create portal connection)
+#    POST /portal/{connection_id}/scrape      (trigger manual scrape)
+#    Must be registered BEFORE the /{connection_id} wildcard in crud.
+router.include_router(portal_scrape.router)
+
+# 5. Direct sync (Phase 4 / UtilityAPI):
 #    GET  /direct/callback                     (UtilityAPI callback — before wildcard)
 #    POST /{connection_id}/sync
 #    GET  /{connection_id}/sync-status
 router.include_router(direct_sync.router)
 
-# 5. Rates: /{connection_id}/rates and /{connection_id}/rates/current
+# 6. Rates: /{connection_id}/rates and /{connection_id}/rates/current
 router.include_router(rates.router)
 
-# 6. CRUD: GET "", POST /direct, GET /{connection_id},
+# 7. CRUD: GET "", POST /direct, GET /{connection_id},
 #          DELETE /{connection_id}, PATCH /{connection_id}
 #    The wildcard routes must come last.
 router.include_router(crud.router)

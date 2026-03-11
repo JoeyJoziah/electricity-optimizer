@@ -33,7 +33,7 @@
 - [x] Connection string from 1Password vault "RateShift"
 - [x] Production branch: `production` (br-shy-sun-aibo9dns), Preview branch: `vercel-dev`
 - [x] 25 migrations deployed (latest: 025_data_cache_tables)
-- [x] 21 public + 9 neon_auth + 3 cache = 33 tables total
+- [x] 33 public + 9 neon_auth = 42 tables total
 
 **Notes**:
 ```

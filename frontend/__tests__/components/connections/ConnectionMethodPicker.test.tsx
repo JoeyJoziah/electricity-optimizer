@@ -13,6 +13,7 @@ jest.mock('lucide-react', () => ({
   KeyRound: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-key" {...props} />,
   Mail: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-mail" {...props} />,
   Upload: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-upload" {...props} />,
+  Globe: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-globe" {...props} />,
   ArrowRight: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-arrow" {...props} />,
 }))
 
@@ -21,16 +22,18 @@ describe('ConnectionMethodPicker', () => {
     onSelectDirect: jest.fn(),
     onSelectEmail: jest.fn(),
     onSelectUpload: jest.fn(),
+    onSelectPortal: jest.fn(),
   }
 
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
-  it('renders all three connection method options', () => {
+  it('renders all four connection method options', () => {
     render(<ConnectionMethodPicker {...defaultProps} />)
 
     expect(screen.getByText('Utility Account')).toBeInTheDocument()
+    expect(screen.getByText('Utility Portal')).toBeInTheDocument()
     expect(screen.getByText('Email Inbox')).toBeInTheDocument()
     expect(screen.getByText('Upload Bills')).toBeInTheDocument()
   })
@@ -40,6 +43,9 @@ describe('ConnectionMethodPicker', () => {
 
     expect(
       screen.getByText(/connect directly to your utility provider/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/log in to your utility provider website/i)
     ).toBeInTheDocument()
     expect(
       screen.getByText(/scan your email for utility bills/i)
@@ -53,7 +59,7 @@ describe('ConnectionMethodPicker', () => {
     render(<ConnectionMethodPicker {...defaultProps} />)
 
     const connectTexts = screen.getAllByText('Connect')
-    expect(connectTexts).toHaveLength(3)
+    expect(connectTexts).toHaveLength(4)
   })
 
   it('calls onSelectDirect when Utility Account is clicked', async () => {
@@ -63,6 +69,15 @@ describe('ConnectionMethodPicker', () => {
     await user.click(screen.getByText('Utility Account'))
 
     expect(defaultProps.onSelectDirect).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onSelectPortal when Utility Portal is clicked', async () => {
+    const user = userEvent.setup()
+    render(<ConnectionMethodPicker {...defaultProps} />)
+
+    await user.click(screen.getByText('Utility Portal'))
+
+    expect(defaultProps.onSelectPortal).toHaveBeenCalledTimes(1)
   })
 
   it('calls onSelectEmail when Email Inbox is clicked', async () => {
@@ -83,11 +98,11 @@ describe('ConnectionMethodPicker', () => {
     expect(defaultProps.onSelectUpload).toHaveBeenCalledTimes(1)
   })
 
-  it('renders three buttons accessible by role', () => {
+  it('renders four buttons accessible by role', () => {
     render(<ConnectionMethodPicker {...defaultProps} />)
 
     const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(3)
+    expect(buttons).toHaveLength(4)
   })
 
   it('has keyboard-accessible buttons with focus styles', () => {

@@ -7,8 +7,8 @@
 ### Code Review
 - [ ] All code changes reviewed and tested locally
 - [ ] Database migrations validated (`scripts/validate_migrations.py`)
-- [ ] Backend tests passing: `.venv/bin/python -m pytest` (1,835+ tests, 0 failures)
-- [ ] Frontend tests passing: `npm test` (1,464+ tests)
+- [ ] Backend tests passing: `.venv/bin/python -m pytest` (1,917+ tests, 0 failures)
+- [ ] Frontend tests passing: `npm test` (1,475+ tests)
 - [ ] E2E tests passing: `npm run test:e2e` (634+ tests)
 
 ### Local Testing
@@ -31,7 +31,7 @@ export REDIS_URL=<redis-url>
 ### Services
 - **Backend**: Render.com (`electricity-optimizer.onrender.com` → `api.rateshift.app`)
 - **Frontend**: Vercel (`rateshift.app`, `www.rateshift.app`)
-- **Database**: Neon PostgreSQL (`cold-rice-23455092`, 33 migrations deployed)
+- **Database**: Neon PostgreSQL (`cold-rice-23455092`, 34 migrations, 33 deployed — 034 pending)
 - **Edge Layer**: Cloudflare Worker (`rateshift-api-gateway` at `api.rateshift.app/*`)
 - **Email**: Resend (primary, domain verified) + Gmail SMTP (fallback)
 
@@ -116,7 +116,7 @@ python3 -m mcp.neon.client run_sql \
 ```
 
 ### Migration Branches
-- [ ] **production** (default) - All 33 migrations deployed
+- [ ] **production** (default) - All 34 migrations deployed
 - [ ] **vercel-dev** - For preview deployments (kept in sync with main)
 
 ## Deployment Pipeline
@@ -187,7 +187,7 @@ Composio is reliable when GHA workflows are flaky or need manual trigger.
 
 ### 2. Database Health
 - [ ] `curl https://api.rateshift.app/api/v1/internal/health-data` → lists all tables
-- [ ] All 33 migrations deployed to Neon
+- [ ] All 34 migrations deployed to Neon
 - [ ] No orphaned connections (check Neon dashboard)
 
 ### 3. API Gateway (CF Worker)

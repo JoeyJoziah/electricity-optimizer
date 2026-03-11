@@ -26,7 +26,7 @@ This guide covers the public launch and ongoing operations for RateShift. For de
 
 - [x] Backend: Render (srv-d649uhur433s73d557cg, 38 env vars)
 - [x] Frontend: Vercel (rateshift.app + www.rateshift.app)
-- [x] Database: Neon PostgreSQL (cold-rice-23455092, 33 migrations, all applied)
+- [x] Database: Neon PostgreSQL (cold-rice-23455092, 34 migrations, 33 applied — 034 pending)
 - [x] Edge Layer: Cloudflare Worker (rateshift-api-gateway, 2-tier caching, rate limiting)
 - [x] Domain: rateshift.app (Cloudflare Registrar)
 - [x] Email: Resend (custom domain verified, DKIM/SPF/DMARC, TLS enforced)

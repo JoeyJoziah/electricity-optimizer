@@ -112,11 +112,11 @@ rm /tmp/secrets.env
 - **Region**: us-east-1
 - **Branches**: `production` (default), `vercel-dev` (for preview deployments)
 - **Total tables**: 33 public + 9 neon_auth = 42 total (plus 3 cache tables)
-- **All migrations**: 33 files in `backend/migrations/`, using `IF NOT EXISTS` pattern (safe to re-run)
+- **All migrations**: 34 files in `backend/migrations/`, using `IF NOT EXISTS` pattern (safe to re-run)
 
 ### Migration Files (Complete List)
 
-The following 33 migrations must be applied **in order** to the `production` branch:
+The following 34 migrations must be applied **in order** to the `production` branch:
 
 ```
 1.  init_neon.sql                               (core schema, users, prices, suppliers)
@@ -152,6 +152,7 @@ The following 33 migrations must be applied **in order** to the `production` bra
 31. 031_agent_tables.sql                        (AI agent conversation history)
 32. 032_notification_error_message.sql          (notification error message logging)
 33. 033_model_predictions_ab_assignments.sql    (model predictions + AB test assignments)
+34. 034_portal_credentials.sql                  (portal credentials columns on user_connections)
 ```
 
 ### Step 1.1: Connect to Neon
@@ -210,7 +211,7 @@ export NEON_CONNECTION="postgresql://neondb_owner:${NEON_PASSWORD}@ep-withered-m
 
 MIGRATIONS_DIR="/Users/devinmcgrath/projects/electricity-optimizer/backend/migrations"
 
-echo "Applying all 33 migrations to Neon..."
+echo "Applying all 34 migrations to Neon..."
 echo "Connection: $(echo $NEON_CONNECTION | cut -d'@' -f2)"
 echo ""
 
@@ -249,6 +250,7 @@ migrations=(
   "031_agent_tables.sql"
   "032_notification_error_message.sql"
   "033_model_predictions_ab_assignments.sql"
+  "034_portal_credentials.sql"
 )
 
 for ((i=0; i<${#migrations[@]}; i++)); do
@@ -261,7 +263,7 @@ for ((i=0; i<${#migrations[@]}; i++)); do
     exit 1
   fi
 
-  echo "[$migration_num/33] Applying: $migration"
+  echo "[$migration_num/34] Applying: $migration"
   psql "$NEON_CONNECTION" -f "$migration_file" > /dev/null 2>&1
 
   if [ $? -eq 0 ]; then
@@ -274,7 +276,7 @@ for ((i=0; i<${#migrations[@]}; i++)); do
 done
 
 echo ""
-echo "All 33 migrations applied successfully!"
+echo "All 34 migrations applied successfully!"
 ```
 
 Run the migration script:
@@ -293,7 +295,7 @@ After all migrations are applied, verify the schema:
 psql "$NEON_CONNECTION" -c \
   "SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = 'public';"
 
-# Expected: 33 tables (or more if new tables added after schema stabilization)
+# Expected: 34 tables (or more if new tables added after schema stabilization)
 
 # List all tables
 psql "$NEON_CONNECTION" -c \
@@ -1655,7 +1657,7 @@ curl -X GET https://api.rateshift.app/prices/current
 
 ### Layer 1: Database
 
-- [ ] All 33 migrations applied to Neon production branch
+- [ ] All 34 migrations applied to Neon production branch
 - [ ] Database schema verified: 33+ public tables, 9 neon_auth tables
 - [ ] Indexes verified: 40+ indexes present
 - [ ] Permissions verified: All tables owned by neondb_owner

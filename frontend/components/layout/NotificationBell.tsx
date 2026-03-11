@@ -51,6 +51,14 @@ export function NotificationBell() {
     },
   })
 
+  const markAllRead = useMutation<unknown, unknown, void>({
+    mutationFn: () => apiClient.put<unknown>('/notifications/read-all', {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'count'] })
+    },
+  })
+
   // Close the panel when clicking outside
   useEffect(() => {
     if (!open) return
@@ -102,10 +110,19 @@ export function NotificationBell() {
           aria-label="Notifications panel"
           className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg"
         >
-          <div className="border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
             <h3 className="text-sm font-semibold text-gray-900">
               Notifications
             </h3>
+            {notifData?.notifications?.length ? (
+              <button
+                onClick={() => markAllRead.mutate()}
+                disabled={markAllRead.isPending}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+              >
+                Mark all read
+              </button>
+            ) : null}
           </div>
 
           <div className="max-h-80 overflow-y-auto">

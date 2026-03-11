@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 33 migrations, 30+ public tables plus 9 neon_auth tables.
+RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 34 migrations, 33 public tables plus 9 neon_auth tables.
 
 Last updated: 2026-03-11 (Migration 033: model_ab_assignments)
 
@@ -10,12 +10,12 @@ Last updated: 2026-03-11 (Migration 033: model_ab_assignments)
 - **Project ID**: `cold-rice-23455092`
 - **Endpoint (Pooled)**: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (application use)
 - **Endpoint (Direct)**: `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (migrations only)
-- **Migrations**: Sequential 001-033 (init_neon + 33 migrations)
+- **Migrations**: Sequential 001-034 (init_neon + 34 migrations)
 - **Schema**: `public` + `neon_auth` (Better Auth)
 - **Primary Keys**: All UUID type via `gen_random_uuid()`
 - **Ownership**: `neondb_owner` role (via GRANT statements)
 
-## Public Schema Tables (30+ tables)
+## Public Schema Tables (33 tables)
 
 ### User & Authentication
 
