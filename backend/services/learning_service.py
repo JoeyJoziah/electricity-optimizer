@@ -181,7 +181,16 @@ class LearningService:
         model_stats: List[Dict[str, Any]],
     ) -> None:
         """
-        Write ensemble weights to the PostgreSQL model_config table.
+        Write ensemble weights to the PostgreSQL model_config table AND
+        create a new immutable ModelVersion record for lineage tracking.
+
+        Two separate persistence operations are performed:
+        1. model_config (legacy store) — overwritten on every cycle so
+           EnsemblePredictor can do a simple get_active_config() lookup.
+        2. model_versions (versioning store) — a new append-only row is
+           inserted so every nightly run produces a trackable version.
+           If the cycle produces improved accuracy (lower MAPE) the new
+           version is automatically promoted to active.
 
         Errors are caught and logged so that a DB failure never prevents the
         in-memory learning cycle from completing.
@@ -216,6 +225,53 @@ class LearningService:
         except Exception as e:
             logger.warning(
                 "db_weight_persist_failed error=%s", str(e)
+            )
+
+        # --- Create a new ModelVersion record for lineage tracking ---
+        try:
+            from services.model_version_service import ModelVersionService
+            from datetime import datetime, timezone
+
+            mv_svc = ModelVersionService(self._db)
+            new_version = await mv_svc.create_version(
+                model_name=ENSEMBLE_MODEL_NAME,
+                config=weights,
+                metrics=accuracy_metrics,
+            )
+
+            # Promote the new version if it represents an improvement over the
+            # currently active one.  We use MAPE as the primary signal.
+            active = await mv_svc.get_active_version(ENSEMBLE_MODEL_NAME)
+            new_mape = accuracy_metrics.get("mape") if accuracy_metrics else None
+            if active is None:
+                # No active version yet — always promote the first one.
+                await mv_svc.promote_version(new_version.id)
+                logger.info(
+                    "model_version_promoted_first model_version=%s",
+                    new_version.version_tag,
+                )
+            elif new_mape is not None:
+                active_mape = active.metrics.get("mape") if active.metrics else None
+                if active_mape is None or new_mape < active_mape:
+                    await mv_svc.promote_version(new_version.id)
+                    logger.info(
+                        "model_version_promoted_improved model_version=%s "
+                        "new_mape=%.4f active_mape=%s",
+                        new_version.version_tag,
+                        new_mape,
+                        active_mape,
+                    )
+                else:
+                    logger.info(
+                        "model_version_not_promoted model_version=%s "
+                        "new_mape=%.4f active_mape=%.4f",
+                        new_version.version_tag,
+                        new_mape,
+                        active_mape,
+                    )
+        except Exception as e:
+            logger.warning(
+                "model_version_create_failed error=%s", str(e)
             )
 
     async def load_weights_from_db(

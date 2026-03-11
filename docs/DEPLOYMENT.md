@@ -8,8 +8,9 @@ This guide covers how to deploy the Electricity Optimizer platform in different 
 2. [Local Development](#local-development)
 3. [Staging Deployment](#staging-deployment)
 4. [Production Deployment](#production-deployment)
-5. [Rollback Procedures](#rollback-procedures)
-6. [Troubleshooting](#troubleshooting)
+5. [Scaling](#scaling)
+6. [Rollback Procedures](#rollback-procedures)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -225,6 +226,46 @@ The CI/CD pipeline triggers Render deployments via deploy hooks:
 - `PROD_API_URL` — production backend URL for smoke tests
 - `PROD_FRONTEND_URL` — production frontend URL for smoke tests
 - `SLACK_INCIDENTS_WEBHOOK_URL` — Slack incoming webhook for `#incidents` channel (used by `notify-slack` composite action and `self-healing-monitor` workflow)
+
+---
+
+## Scaling
+
+For a comprehensive scaling plan covering 500+ concurrent users, see **[docs/SCALING_PLAN.md](./SCALING_PLAN.md)**.
+
+### Quick Reference
+
+| DAU Range | Render | Neon | Redis | Est. Cost |
+|-----------|--------|------|-------|-----------|
+| <50 | Free | Free | None | $0/mo |
+| 50-200 | Starter ($7) | Launch ($19) | Free | $26-32/mo |
+| 200-500 | Standard ($25) | Launch ($19) | Upstash ($10) | $60/mo |
+| 500+ | Standard/Pro | Scale ($69) | Upstash ($10) | $110+/mo |
+
+### Configurable Pool Sizing
+
+Database connection pool sizes are configurable via environment variables so scaling is a config change, not a code change:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_POOL_SIZE` | `3` | SQLAlchemy pool base size |
+| `DB_MAX_OVERFLOW` | `5` | Additional connections above pool_size |
+| `REDIS_URL` | (none) | Upstash/Redis URL; enables shared rate limiting |
+
+### Scale Diagnostics
+
+Run the scale check script to assess current infrastructure health:
+
+```bash
+# Basic health check (no API keys required)
+python3 scripts/scale_check.py
+
+# Include Render plan detection
+RENDER_API_KEY=rnd_xxx python3 scripts/scale_check.py --check-render
+
+# JSON output for CI
+python3 scripts/scale_check.py --json
+```
 
 ---
 

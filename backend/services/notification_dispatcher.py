@@ -5,6 +5,22 @@ Strategy-pattern dispatcher that routes notifications across three delivery
 channels — in-app (notifications table), push (OneSignal), and email — with
 optional deduplication via a cooldown window.
 
+Delivery tracking (migrations 029 + 032):
+    After every channel attempt the dispatcher writes back to the
+    ``notifications`` row via NotificationRepository.update_delivery(),
+    recording:
+      - delivery_channel  — which channel was used
+      - delivery_status   — pending → sent (success) / failed (error)
+      - delivered_at      — set when delivery_status becomes "sent"
+      - retry_count       — incremented on each attempt beyond the first
+      - error_message     — populated on failure for diagnostics
+
+    Only the in-app channel creates a persistent row in the ``notifications``
+    table; push and email are external services.  For push/email channels the
+    delivery outcome is written to the in-app row when IN_APP is also part of
+    the channel set (common case).  When IN_APP is not requested the push/email
+    outcomes are returned in the result dict but not persisted.
+
 Usage:
     dispatcher = NotificationDispatcher(
         db=db,
@@ -24,15 +40,18 @@ Usage:
     )
 """
 
+import json
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Dict, List, Optional, Any
-from uuid import UUID
+from typing import Dict, List, Optional, Any, Tuple
+from uuid import UUID, uuid4
 
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from models.notification import NotificationDeliveryUpdate
+from repositories.notification_repository import NotificationRepository
 from services.notification_service import NotificationService
 from services.push_notification_service import PushNotificationService
 from services.email_service import EmailService
@@ -92,6 +111,7 @@ class NotificationDispatcher:
         self._notification_service = notification_service
         self._push_service = push_service
         self._email_service = email_service
+        self._repo = NotificationRepository(db)
 
     # =========================================================================
     # Public API
@@ -136,6 +156,9 @@ class NotificationDispatcher:
                 skipped_dedup (bool)   — True when dedup suppressed delivery.
                 channels (dict)        — Per-channel success flags, e.g.:
                                          {"in_app": True, "push": False}.
+                notification_id (str)  — ID of the in-app notification row
+                                         when IN_APP channel was included, else
+                                         None.
         """
         resolved_channels = channels if channels is not None else ALL_CHANNELS
 
@@ -152,7 +175,7 @@ class NotificationDispatcher:
                     dedup_key=dedup_key,
                     cooldown_seconds=window,
                 )
-                return {"skipped_dedup": True, "channels": {}}
+                return {"skipped_dedup": True, "channels": {}, "notification_id": None}
 
         # ------------------------------------------------------------------
         # 2. Merge dedup_key into metadata so we can query it later
@@ -165,24 +188,37 @@ class NotificationDispatcher:
         # 3. Route to each channel — independent try/except per channel
         # ------------------------------------------------------------------
         results: Dict[str, bool] = {}
+        notification_id: Optional[str] = None
 
         for channel in resolved_channels:
             if channel == NotificationChannel.IN_APP:
-                results[channel.value] = await self._send_in_app(
+                nid, success = await self._send_in_app(
                     user_id=user_id,
                     type=type,
                     title=title,
                     body=body,
                     metadata=effective_metadata,
                 )
+                results[channel.value] = success
+                if nid:
+                    notification_id = nid
 
             elif channel == NotificationChannel.PUSH:
-                results[channel.value] = await self._send_push(
+                success, error = await self._send_push(
                     user_id=user_id,
                     title=title,
                     body=body or title,
                     metadata=effective_metadata,
                 )
+                results[channel.value] = success
+                # If we have an in-app row, persist push outcome onto it
+                if notification_id:
+                    await self._persist_channel_outcome(
+                        notification_id=notification_id,
+                        channel=NotificationChannel.PUSH.value,
+                        success=success,
+                        error=error,
+                    )
 
             elif channel == NotificationChannel.EMAIL:
                 if not email_to:
@@ -193,12 +229,21 @@ class NotificationDispatcher:
                     )
                     results[channel.value] = False
                 else:
-                    results[channel.value] = await self._send_email(
+                    success, error = await self._send_email(
                         to=email_to,
                         subject=email_subject or title,
                         body=body,
                         html=email_html,
                     )
+                    results[channel.value] = success
+                    # If we have an in-app row, persist email outcome onto it
+                    if notification_id:
+                        await self._persist_channel_outcome(
+                            notification_id=notification_id,
+                            channel=NotificationChannel.EMAIL.value,
+                            success=success,
+                            error=error,
+                        )
 
         logger.info(
             "notification_dispatched",
@@ -206,9 +251,14 @@ class NotificationDispatcher:
             type=type,
             channels=list(results.keys()),
             results=results,
+            notification_id=notification_id,
         )
 
-        return {"skipped_dedup": False, "channels": results}
+        return {
+            "skipped_dedup": False,
+            "channels": results,
+            "notification_id": notification_id,
+        }
 
     # =========================================================================
     # Channel dispatch helpers
@@ -221,50 +271,66 @@ class NotificationDispatcher:
         title: str,
         body: Optional[str],
         metadata: Dict[str, Any],
-    ) -> bool:
-        """Write an in-app notification row.  Stores metadata as JSON."""
+    ) -> Tuple[Optional[str], bool]:
+        """Write an in-app notification row with delivery_status='sent'.
+
+        Returns:
+            (notification_id, success) — notification_id is None on failure.
+        """
+        nid = str(uuid4())
         try:
-            # NotificationService.create does not expose a metadata param yet.
-            # We write directly here so the metadata (incl. dedup_key) is
-            # persisted without modifying the existing service API.
-            if metadata:
-                import json
+            meta_json = json.dumps(metadata) if metadata else None
+            if meta_json is not None:
                 await self._db.execute(
                     text(
                         "INSERT INTO notifications"
-                        " (user_id, type, title, body, metadata)"
-                        " VALUES (:uid, :type, :title, :body, :meta::jsonb)"
+                        " (id, user_id, type, title, body, metadata,"
+                        "  delivery_channel, delivery_status, delivered_at)"
+                        " VALUES (:id, :uid, :type, :title, :body, :meta::jsonb,"
+                        "  'in_app', 'sent', NOW())"
                     ),
                     {
+                        "id": nid,
                         "uid": user_id,
                         "type": type,
                         "title": title,
                         "body": body,
-                        "meta": json.dumps(metadata),
+                        "meta": meta_json,
                     },
                 )
-                await self._db.commit()
-                logger.info(
-                    "notification_in_app_created",
-                    user_id=user_id,
-                    type=type,
-                    title=title,
-                )
             else:
-                await self._notification_service.create(
-                    user_id=user_id,
-                    title=title,
-                    body=body,
-                    type=type,
+                await self._db.execute(
+                    text(
+                        "INSERT INTO notifications"
+                        " (id, user_id, type, title, body,"
+                        "  delivery_channel, delivery_status, delivered_at)"
+                        " VALUES (:id, :uid, :type, :title, :body,"
+                        "  'in_app', 'sent', NOW())"
+                    ),
+                    {
+                        "id": nid,
+                        "uid": user_id,
+                        "type": type,
+                        "title": title,
+                        "body": body,
+                    },
                 )
-            return True
+            await self._db.commit()
+            logger.info(
+                "notification_in_app_created",
+                user_id=user_id,
+                type=type,
+                title=title,
+                notification_id=nid,
+            )
+            return nid, True
         except Exception as exc:
             logger.error(
                 "notification_in_app_failed",
                 user_id=user_id,
                 error=str(exc),
             )
-            return False
+            return None, False
 
     async def _send_push(
         self,
@@ -272,25 +338,31 @@ class NotificationDispatcher:
         title: str,
         body: str,
         metadata: Dict[str, Any],
-    ) -> bool:
-        """Send a OneSignal push notification."""
+    ) -> Tuple[bool, Optional[str]]:
+        """Send a OneSignal push notification.
+
+        Returns:
+            (success, error_message) — error_message is None on success.
+        """
         if not self._push_service.is_configured:
             logger.debug("notification_push_not_configured", user_id=user_id)
-            return False
+            return False, "push service not configured"
         try:
-            return await self._push_service.send_push(
+            ok = await self._push_service.send_push(
                 user_id=user_id,
                 title=title,
                 message=body,
                 data=metadata,
             )
+            return ok, None
         except Exception as exc:
+            error_msg = str(exc)
             logger.error(
                 "notification_push_failed",
                 user_id=user_id,
-                error=str(exc),
+                error=error_msg,
             )
-            return False
+            return False, error_msg
 
     async def _send_email(
         self,
@@ -298,25 +370,75 @@ class NotificationDispatcher:
         subject: str,
         body: Optional[str],
         html: Optional[str],
-    ) -> bool:
-        """Send an email notification."""
+    ) -> Tuple[bool, Optional[str]]:
+        """Send an email notification.
+
+        Returns:
+            (success, error_message) — error_message is None on success.
+        """
         try:
             html_body = html or (
                 f"<p>{body}</p>" if body else f"<p>{subject}</p>"
             )
-            return await self._email_service.send(
+            ok = await self._email_service.send(
                 to=to,
                 subject=subject,
                 html_body=html_body,
                 text_body=body,
             )
+            return ok, None
         except Exception as exc:
+            error_msg = str(exc)
             logger.error(
                 "notification_email_failed",
                 to=to,
+                error=error_msg,
+            )
+            return False, error_msg
+
+    # =========================================================================
+    # Delivery tracking helpers
+    # =========================================================================
+
+    async def _persist_channel_outcome(
+        self,
+        notification_id: str,
+        channel: str,
+        success: bool,
+        error: Optional[str],
+        retry_count: Optional[int] = None,
+    ) -> None:
+        """Write the push/email delivery outcome back to the in-app row.
+
+        This keeps the in-app notification row as the single source of truth
+        for per-user delivery state regardless of which external channel was
+        used.
+        """
+        if success:
+            update = NotificationDeliveryUpdate(
+                delivery_status="sent",
+                delivery_channel=channel,  # type: ignore[arg-type]
+                delivered_at=datetime.now(timezone.utc),
+                retry_count=retry_count,
+            )
+        else:
+            update = NotificationDeliveryUpdate(
+                delivery_status="failed",
+                delivery_channel=channel,  # type: ignore[arg-type]
+                error_message=error,
+                retry_count=retry_count,
+            )
+        try:
+            await self._repo.update_delivery(notification_id, update)
+        except Exception as exc:
+            # Non-fatal: we already attempted delivery; tracking failure should
+            # not bubble up to the caller.
+            logger.warning(
+                "notification_delivery_tracking_failed",
+                notification_id=notification_id,
+                channel=channel,
                 error=str(exc),
             )
-            return False
 
     # =========================================================================
     # Deduplication helpers

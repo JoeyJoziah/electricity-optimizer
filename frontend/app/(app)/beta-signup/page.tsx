@@ -64,19 +64,19 @@ export default function BetaSignupPage() {
               </p>
               <ol className="mt-2 text-sm text-blue-800 space-y-1 list-decimal list-inside">
                 <li>You&apos;ll receive a welcome email within 24 hours</li>
-                <li>Get your unique access code</li>
+                <li>Create your account and start saving</li>
                 <li>Start saving on your electricity bills!</li>
               </ol>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-900">
-                <strong>Early Access Perks:</strong>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-sm text-green-900">
+                <strong>What you get with RateShift:</strong>
               </p>
-              <ul className="mt-2 text-sm text-yellow-800 space-y-1 list-disc list-inside">
-                <li>Lifetime 50% discount when we launch</li>
-                <li>Priority support (24-hour response)</li>
-                <li>Shape the product with your feedback</li>
+              <ul className="mt-2 text-sm text-green-800 space-y-1 list-disc list-inside">
+                <li>Real-time electricity price tracking</li>
+                <li>AI-powered savings recommendations</li>
+                <li>Smart alerts when rates drop</li>
               </ul>
             </div>
 
@@ -103,7 +103,7 @@ export default function BetaSignupPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <CardTitle className="text-3xl">Get Early Access</CardTitle>
+          <CardTitle className="text-3xl">Sign Up Free</CardTitle>
           <CardDescription className="text-base mt-2">
             Save $200+ per year on electricity bills with AI-powered optimization
           </CardDescription>
@@ -236,7 +236,7 @@ export default function BetaSignupPage() {
                   className="mt-1 mr-3"
                 />
                 <label htmlFor="agree" className="text-sm text-gray-700">
-                  I agree to receive updates about Electricity Optimizer and I&apos;ve read the{' '}
+                  I agree to receive updates about RateShift and I&apos;ve read the{' '}
                   <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>
                   {' '}and{' '}
                   <a href="/terms" className="text-blue-600 hover:underline">Terms of Service</a>.
@@ -255,7 +255,7 @@ export default function BetaSignupPage() {
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg"
             >
-              {loading ? 'Signing up...' : 'Get Early Access →'}
+              {loading ? 'Signing up...' : 'Sign Up Free →'}
             </Button>
 
             <p className="text-xs text-center text-gray-500">

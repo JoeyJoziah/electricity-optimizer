@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     # Database - Neon PostgreSQL
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
+    # Connection pool sizing (configurable for scaling without code changes)
+    db_pool_size: int = Field(default=3, validation_alias="DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=5, validation_alias="DB_MAX_OVERFLOW")
 
     # Redis
     redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")

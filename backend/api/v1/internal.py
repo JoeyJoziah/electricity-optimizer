@@ -860,3 +860,84 @@ async def data_health_check(
         "critical_empty": critical_empty,
         "tables": health,
     }
+
+
+# =============================================================================
+# Model Versioning
+# =============================================================================
+
+
+@router.get("/model-versions", tags=["Internal"])
+async def list_model_versions(
+    model_name: str = "ensemble",
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    List recent model versions with their metrics.
+
+    Returns the most recent `limit` versions for the given model_name,
+    ordered newest-first.  Requires X-API-Key header.
+    """
+    from services.model_version_service import ModelVersionService
+
+    svc = ModelVersionService(db)
+    versions = await svc.list_versions(model_name, limit=limit)
+    return {
+        "model_name": model_name,
+        "versions": [
+            {
+                "id": v.id,
+                "version_tag": v.version_tag,
+                "is_active": v.is_active,
+                "metrics": v.metrics,
+                "created_at": v.created_at.isoformat(),
+                "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
+            }
+            for v in versions
+        ],
+        "count": len(versions),
+    }
+
+
+class ModelVersionCompareRequest(BaseModel):
+    """Request body for the model-versions comparison endpoint."""
+
+    model_name: str = Field(..., min_length=1, max_length=100)
+    version_a_id: str = Field(..., description="UUID of the baseline version")
+    version_b_id: str = Field(..., description="UUID of the candidate version")
+
+
+@router.post("/model-versions/compare", tags=["Internal"])
+async def compare_model_versions(
+    body: ModelVersionCompareRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Trigger a side-by-side metric comparison for two model versions.
+
+    Returns per-metric deltas (b - a) for all numeric metrics stored
+    in the versions' metrics JSONB columns.  Requires X-API-Key header.
+    """
+    from services.model_version_service import ModelVersionService
+
+    svc = ModelVersionService(db)
+    try:
+        result = await svc.compare_versions(body.version_a_id, body.version_b_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "model_name": body.model_name,
+        "version_a": {
+            "id": result.version_a.id,
+            "version_tag": result.version_a.version_tag,
+            "metrics": result.version_a.metrics,
+        },
+        "version_b": {
+            "id": result.version_b.id,
+            "version_tag": result.version_b.version_tag,
+            "metrics": result.version_b.metrics,
+        },
+        "metric_comparison": result.metric_comparison,
+    }

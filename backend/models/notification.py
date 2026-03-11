@@ -2,9 +2,9 @@
 Notification Models
 
 Pydantic models for the notifications table, including the delivery-tracking
-columns added by migration 029.
+columns added by migrations 029 and 032.
 
-Schema (cumulative across migrations 015, 026, 029):
+Schema (cumulative across migrations 015, 026, 029, 032):
 
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid()
     user_id          UUID NOT NULL
@@ -19,6 +19,7 @@ Schema (cumulative across migrations 015, 026, 029):
     delivered_at     TIMESTAMPTZ
     delivery_metadata JSONB NOT NULL DEFAULT '{}'
     retry_count      INTEGER NOT NULL DEFAULT 0
+    error_message    TEXT                               -- migration 032
 """
 
 from datetime import datetime, timezone
@@ -72,6 +73,9 @@ class Notification(BaseModel):
     delivery_metadata: Dict[str, Any] = Field(default_factory=dict)
     retry_count: int = Field(default=0, ge=0)
 
+    # Failure diagnostics (migration 032)
+    error_message: Optional[str] = None
+
 
 # ---------------------------------------------------------------------------
 # Create / update request schemas
@@ -107,6 +111,7 @@ class NotificationDeliveryUpdate(BaseModel):
     delivered_at: Optional[datetime] = None
     delivery_metadata: Optional[Dict[str, Any]] = None
     retry_count: Optional[int] = Field(default=None, ge=0)
+    error_message: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

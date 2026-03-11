@@ -71,19 +71,18 @@ class DatabaseManager:
             db_url = urlunparse(parsed._replace(query=clean_query))
 
             # SQLAlchemy async engine for ORM
-            # Optimized for free tier (512MB RAM, single worker on Render).
-            # Pool math: pool_size=3 + max_overflow=5 = 8 max connections.
-            # Neon free tier allows ~10; leaves 2 slots for Better Auth frontend
-            # Pool and any admin/migration connections.
+            # Pool sizing is configurable via DB_POOL_SIZE and DB_MAX_OVERFLOW
+            # env vars (defaults: 3 + 5 = 8 max). See docs/SCALING_PLAN.md.
+            # Neon free tier allows ~10 connections; increase when upgrading.
             sqlalchemy_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
             self.timescale_engine = create_async_engine(
                 sqlalchemy_url,
                 echo=False,  # Disable SQL echo in production to reduce overhead
-                pool_size=3,       # was 2; one extra permanent slot for burst headroom
-                max_overflow=5,    # was 3; total 8 stays under Neon's ~10 limit
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
                 pool_pre_ping=True,
-                pool_recycle=200,  # was 300; recycle 100s before Neon's 5-min auto-suspend
-                pool_timeout=20,   # was 30; fail faster to avoid cascading timeouts
+                pool_recycle=200,  # recycle 100s before Neon's 5-min auto-suspend
+                pool_timeout=20,   # fail faster to avoid cascading timeouts
                 connect_args=connect_args,
             )
 

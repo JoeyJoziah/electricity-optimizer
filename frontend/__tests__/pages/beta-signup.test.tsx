@@ -11,10 +11,10 @@ describe('BetaSignupPage', () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) })
   })
 
-  it('renders the Get Early Access heading', () => {
+  it('renders the Sign Up Free heading', () => {
     render(<BetaSignupPage />)
     expect(
-      screen.getByRole('heading', { name: /get early access/i })
+      screen.getByRole('heading', { name: /sign up free/i })
     ).toBeInTheDocument()
   })
 
@@ -22,6 +22,13 @@ describe('BetaSignupPage', () => {
     render(<BetaSignupPage />)
     expect(
       screen.queryByRole('heading', { name: /join the beta program/i })
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not render "Get Early Access" heading', () => {
+    render(<BetaSignupPage />)
+    expect(
+      screen.queryByRole('heading', { name: /get early access/i })
     ).not.toBeInTheDocument()
   })
 
@@ -96,9 +103,14 @@ describe('BetaSignupPage', () => {
     expect(termsLink).toHaveAttribute('href', '/terms')
   })
 
-  it('renders the Get Early Access submit button', () => {
+  it('renders the Sign Up Free submit button', () => {
     render(<BetaSignupPage />)
-    expect(screen.getByRole('button', { name: /get early access/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /sign up free/i })).toBeInTheDocument()
+  })
+
+  it('does not render a "Get Early Access" button', () => {
+    render(<BetaSignupPage />)
+    expect(screen.queryByRole('button', { name: /get early access/i })).not.toBeInTheDocument()
   })
 
   it('does not render a "Join Beta Program" button', () => {
@@ -129,7 +141,7 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '$75-$150')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Reddit')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     expect(screen.getByRole('button', { name: /signing up/i })).toBeInTheDocument()
   })
@@ -145,7 +157,7 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '$75-$150')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Reddit')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /you're signed up/i })).toBeInTheDocument()
@@ -163,14 +175,14 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '$75-$150')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Reddit')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: /you're on the list/i })).not.toBeInTheDocument()
     })
   })
 
-  it('shows "Early Access Perks" (not "Beta Perks") in success state', async () => {
+  it('does not show "Early Access Perks" or "Beta Perks" in success state', async () => {
     const user = userEvent.setup()
     render(<BetaSignupPage />)
 
@@ -181,15 +193,15 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '$75-$150')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Reddit')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/early access perks/i)).toBeInTheDocument()
+      expect(screen.queryByText(/early access perks/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/beta perks/i)).not.toBeInTheDocument()
     })
   })
 
-  it('shows "Get your unique access code" (not "beta access code") in success state', async () => {
+  it('shows "What you get with RateShift" (not "beta access code") in success state', async () => {
     const user = userEvent.setup()
     render(<BetaSignupPage />)
 
@@ -200,18 +212,17 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '$75-$150')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Reddit')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
-      // "Get your unique access code" — not "beta access code"
-      expect(screen.getByText(/get your unique access code/i)).toBeInTheDocument()
+      expect(screen.getByText(/what you get with rateshift/i)).toBeInTheDocument()
       expect(screen.queryByText(/beta access code/i)).not.toBeInTheDocument()
     })
   })
 
   it('does not render "beta" in the page heading area', () => {
     render(<BetaSignupPage />)
-    const heading = screen.getByRole('heading', { name: /get early access/i })
+    const heading = screen.getByRole('heading', { name: /sign up free/i })
     expect(heading.textContent?.toLowerCase()).not.toContain('beta')
   })
 
@@ -226,7 +237,7 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '$75-$150')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Twitter')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/beta-signup', expect.objectContaining({
@@ -248,7 +259,7 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '<$75')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Friend')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
       expect(screen.getByText(/something went wrong/i)).toBeInTheDocument()
@@ -266,7 +277,7 @@ describe('BetaSignupPage', () => {
     await user.selectOptions(screen.getByLabelText(/approximate monthly bill/i), '<$75')
     await user.selectOptions(screen.getByLabelText(/how did you hear/i), 'Friend')
     await user.click(screen.getByLabelText(/I agree to receive updates/i))
-    await user.click(screen.getByRole('button', { name: /get early access/i }))
+    await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
       expect(screen.getByText(/what happens next/i)).toBeInTheDocument()

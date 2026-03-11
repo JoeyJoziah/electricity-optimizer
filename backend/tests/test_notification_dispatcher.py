@@ -310,21 +310,32 @@ class TestDeduplication:
     async def test_no_dedup_check_when_key_not_provided(
         self, dispatcher, mock_db, mock_notification_service
     ):
-        """When dedup_key is None, the dedup SELECT should never be issued."""
+        """When dedup_key is None, the dedup SELECT should never be issued.
+
+        The dispatcher now always uses a direct INSERT with delivery tracking
+        columns rather than delegating to NotificationService.create().
+        We verify: skipped_dedup is False, the in-app channel succeeds, and
+        the INSERT (db.execute) was called exactly once with no dedup SELECT.
+        """
+        mock_db.execute.return_value = _insert_result()
+
         result = await dispatcher.send(
             user_id=TEST_USER_ID,
             type="info",
             title="No dedup",
             channels=[NotificationChannel.IN_APP],
-            # dedup_key intentionally omitted — no metadata, so falls back to
-            # NotificationService.create() rather than direct db.execute
+            # dedup_key intentionally omitted
         )
 
         assert result["skipped_dedup"] is False
-        # No dedup SELECT was issued
-        mock_db.execute.assert_not_awaited()
-        # NotificationService.create was called (the metadata-free path)
-        mock_notification_service.create.assert_awaited_once()
+        assert result["channels"][NotificationChannel.IN_APP.value] is True
+        # db.execute was called (for the INSERT), but never for a dedup SELECT
+        mock_db.execute.assert_awaited_once()
+        # The single execute call should be an INSERT, not a dedup SELECT
+        call_sql = str(mock_db.execute.call_args.args[0])
+        assert "INSERT" in call_sql.upper(), (
+            "Expected the sole db.execute call to be an INSERT, not a dedup SELECT"
+        )
 
     @pytest.mark.asyncio
     async def test_dedup_key_stored_in_metadata(
@@ -377,12 +388,15 @@ class TestFallbackChain:
 
     @pytest.mark.asyncio
     async def test_in_app_exception_does_not_abort_push_or_email(
-        self, dispatcher, mock_notification_service, mock_push_service, mock_email_service
+        self, dispatcher, mock_db, mock_push_service, mock_email_service
     ):
-        """An exception in the in-app channel should be caught; push and email proceed."""
-        # Trigger exception via the notification_service (the metadata-free path used
-        # when no metadata/dedup_key is provided)
-        mock_notification_service.create.side_effect = Exception("DB connection lost")
+        """An exception in the in-app channel should be caught; push and email proceed.
+
+        The dispatcher now always writes the in-app row via db.execute directly
+        (not via notification_service.create).  We trigger the failure by making
+        db.execute raise on the INSERT call.
+        """
+        mock_db.execute.side_effect = Exception("DB connection lost")
         mock_push_service.send_push.return_value = True
         mock_email_service.send.return_value = True
 
