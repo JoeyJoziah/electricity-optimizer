@@ -37,7 +37,7 @@ class SecretsManager:
     """
 
     # 1Password vault and item references
-    OP_VAULT = "RateShift"
+    OP_VAULT = "Electricity Optimizer"
 
     # Cache TTL in seconds (1 hour) — rotated secrets picked up within this window
     CACHE_TTL = 3600
@@ -99,6 +99,8 @@ class SecretsManager:
         "render_api_key": "Render API Key/credential",
         "cloudflare_api_token": "Cloudflare Global API Credentials/workers_api_token",
         "slack_incidents_webhook_url": "Slack Incidents Webhook/website",
+        # Geocoding (dormant — OWM+Nominatim preferred, free tier only)
+        "google_maps_api_key": "q6zy237zyiifzglto4a5a6dudq/credential",
     }
 
     def __init__(self, use_1password: bool = None):

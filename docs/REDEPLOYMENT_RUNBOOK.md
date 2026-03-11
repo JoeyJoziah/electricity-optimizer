@@ -31,7 +31,7 @@ Verify access to the following **before** starting redeployment:
 
 1. **Neon Console** (https://console.neon.tech)
    - Project: `cold-rice-23455092` ("energyoptimize")
-   - Auth: Neon account login (credentials in 1Password "RateShift" vault)
+   - Auth: Neon account login (credentials in 1Password "Electricity Optimizer" vault)
 
 2. **Render Dashboard** (https://dashboard.render.com)
    - Backend service: `srv-d649uhur433s73d557cg`

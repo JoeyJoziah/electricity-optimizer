@@ -572,7 +572,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 
 ### config/secrets.py
 
-`SecretsManager` with 27 `SECRET_MAPPINGS` (up from 17) mapping 1Password item/field pairs to env vars. In production, secrets are fetched from 1Password vault "RateShift" (`OP_VAULT`); in dev, falls back to env vars.
+`SecretsManager` with 27 `SECRET_MAPPINGS` (up from 17) mapping 1Password item/field pairs to env vars. In production, secrets are fetched from 1Password vault "Electricity Optimizer" (`OP_VAULT`); in dev, falls back to env vars.
 
 **New mappings (added in env var audit):** `resend_api_key`, `google_client_id`, `google_client_secret`, `github_client_id`, `github_client_secret`, `gmail_client_id`, `gmail_client_secret`, `outlook_client_id`, `outlook_client_secret`, `redis_url`.
 

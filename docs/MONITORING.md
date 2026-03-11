@@ -257,7 +257,7 @@ All 12 cron workflows use the `retry-curl` + `notify-slack` composite actions fo
 
 | Variable | Service | Where to set |
 |----------|---------|--------------|
-| `UPTIMEROBOT_API_KEY` | UptimeRobot API access | 1Password "RateShift" vault + GHA secret |
+| `UPTIMEROBOT_API_KEY` | UptimeRobot API access | 1Password "Electricity Optimizer" vault + GHA secret |
 | `SLACK_INCIDENTS_WEBHOOK_URL` | Slack `#incidents` incoming webhook | GHA secret (already configured) |
 | `BACKEND_URL` | Backend origin for internal cron calls | GHA secret + Render env var |
 | `INTERNAL_API_KEY` | Internal endpoint authentication | GHA secret + 1Password vault |

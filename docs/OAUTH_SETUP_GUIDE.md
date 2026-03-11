@@ -239,7 +239,7 @@ Below is the complete list of environment variables you need to set in Vercel:
 
 Store all OAuth secrets securely in 1Password:
 
-1. Open 1Password and navigate to the **"RateShift"** vault
+1. Open 1Password and navigate to the **"Electricity Optimizer"** vault
 2. Create a new Login item called **"OAuth Providers"** with the following fields:
    - **google_client_id** = (your Google Client ID)
    - **google_client_secret** = (your Google Client Secret)
