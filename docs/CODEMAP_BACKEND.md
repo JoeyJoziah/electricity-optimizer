@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-11 (Wave 3-4 completion: notification delivery tracking, A/B testing framework, AI agent integration, model versioning. Test count: 1,917. Migrations: 34. Tables: 42)
+> Last updated: 2026-03-11 (Utility Integration track complete: email extraction pipeline, attachment parsing, portal scraping, automated scanning, scraper persistence, unified analytics. Test count: 2,032. Migrations: 34. Tables: 42)
 
 ## Directory Structure
 
@@ -43,6 +43,7 @@ backend/
 │       │   ├── email_oauth.py       # Email OAuth endpoints (consent URL, scan, callback)
 │       │   ├── bill_upload.py       # Bill upload endpoints (upload, reparse, list uploads)
 │       │   ├── direct_sync.py       # Direct login sync endpoint
+│       │   ├── portal_scrape.py     # Portal connection endpoints (create with encrypted creds, trigger scrape)
 │       ├── alerts.py                # Price alert CRUD endpoints (create, list, delete, trigger check)
 │       ├── health.py                # 3 health endpoints: /health, /health/ready, /health/live
 │       ├── notifications.py         # User notification endpoints (list, mark read, preferences)
@@ -50,7 +51,12 @@ backend/
 │       ├── users.py                 # User profile management (get, update, delete account)
 │       ├── agent.py                 # RateShift AI assistant endpoints (SSE streaming, async jobs, usage tracking)
 │       ├── feedback.py              # User feedback submission and collection
-│       └── internal.py              # API-key-protected: observe-forecasts, learn, observation-stats, maintenance/cleanup, check-alerts (dedup pipeline), sync-connections (batch sync scheduler), dunning-cycle (overdue payment escalation), kpi-report (business metrics aggregation), geocode-address, health-data
+│       ├── internal/
+│       │   ├── __init__.py          # Internal router aggregation
+│       │   ├── data_pipeline.py     # observe-forecasts, learn, observation-stats, scrape-rates (with Diffbot rate extraction + persistence)
+│       │   ├── operations.py        # maintenance/cleanup, check-alerts, sync-connections, dunning-cycle, kpi-report, geocode-address, health-data
+│       │   ├── scan_emails.py       # POST /scan-emails — batch scan all active email connections
+│       │   └── portal_scan.py       # POST /scrape-portals — batch scrape all active portal connections
 │
 ├── routers/
 │   └── predictions.py               # ML prediction endpoints (forecast, optimal-times, savings)
@@ -64,7 +70,7 @@ backend/
 │   ├── observation.py               # ForecastObservation, RecommendationOutcome, AccuracyMetrics, HourlyBias
 │   ├── regulation.py                # StateRegulation, StateRegulationResponse, StateRegulationListResponse
 │   ├── user_supplier.py             # SetSupplierRequest, LinkAccountRequest, UserSupplierResponse, LinkedAccountResponse
-│   ├── connections.py               # CreateConnectionRequest (4 types), BillUploadResponse, ConnectionResponse, ConnectionAnalytics
+│   ├── connections.py               # CreateConnectionRequest (5 types incl. portal_scrape), BillUploadResponse, ConnectionResponse, ConnectionAnalytics, CreatePortalConnectionRequest, PortalConnectionResponse
 │   ├── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
 │   ├── model_version.py             # ModelVersion, ABTest, ABOutcome schemas for versioning and A/B testing
 │   ├── model_config.py              # ModelConfiguration for ML pipeline parameterization
@@ -95,8 +101,9 @@ backend/
 │   ├── connection_sync_service.py   # UtilityAPI direct sync service (Phase 4)
 │   ├── connection_analytics_service.py # Rate comparison, history, savings estimates, stale detection, rate change alerts
 │   ├── email_oauth_service.py       # OAuth2 flows for Gmail + Outlook, HMAC-SHA256 state validation, token encryption
-│   ├── email_scanner_service.py     # Gmail REST API + Microsoft Graph API inbox scanning, rate extraction via regex
+│   ├── email_scanner_service.py     # Gmail REST API + Microsoft Graph API inbox scanning, rate extraction via regex, attachment download (Gmail attachments.get / Graph attachments endpoint)
 │   ├── bill_parser.py               # Bill document parsing (PDF/image OCR), rate extraction
+│   ├── portal_scraper_service.py    # Headless portal scraping via httpx (5 utilities: Duke Energy, PG&E, Con Edison, ComEd, FPL), rate extraction from HTML
 │   ├── maintenance_service.py       # Data retention cleanup (activity logs 365d, uploads 730d, prices 365d, observations 90d, parameterized SQL + PL/pgSQL)
 │   ├── notification_service.py      # Notification creation, delivery, preference management
 │   ├── savings_service.py           # Savings calculation and tracking
@@ -237,6 +244,14 @@ backend/
     ├── test_dunning_service.py      # DunningService tests (13 tests: record, cooldown, email template selection, escalation, full flow)
     ├── test_kpi_report_service.py   # KPIReportService tests (7 tests: happy path, empty tables, subscription breakdown, MRR calculation, weather freshness)
     ├── test_notification_dispatcher.py # NotificationDispatcher tests (multi-channel, dedup cooldowns, delivery tracking)
+    ├── test_email_scan_extraction.py # Email body rate extraction tests
+    ├── test_email_attachment_parsing.py # Gmail/Outlook attachment download + parsing tests (28 tests)
+    ├── test_internal_scan_emails.py  # Internal scan-emails endpoint tests (20 tests)
+    ├── test_portal_connections.py    # Portal connection CRUD + encrypted credential tests (14 tests)
+    ├── test_portal_scraper_service.py # PortalScraperService tests (30 tests)
+    ├── test_internal_scrape_portals.py # Internal scrape-portals endpoint tests (9 tests)
+    ├── test_scraper_persistence.py   # Diffbot scraper rate persistence tests (25 tests)
+    ├── test_unified_analytics.py     # Unified analytics across all connection sources (24 tests)
     ├── test_ab_test_service.py       # ABTestService tests (consistent hashing, assignment persistence, metric aggregation)
     ├── test_model_version_service.py # ModelVersionService tests (versioning, promotion, A/B test lifecycle)
     ├── test_agent_service.py         # AgentService tests (Gemini/Groq fallback, tool execution, streaming, rate limits)
@@ -389,6 +404,9 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | POST | `/learn` | Run adaptive learning cycle (accuracy, bias, weight tuning, pruning) |
 | GET | `/observation-stats` | Forecast accuracy metrics and hourly bias |
 | POST | `/maintenance/cleanup` | Run data retention cleanup: activity logs, uploads, prices, observations (returns counts deleted) |
+| POST | `/scan-emails` | Batch scan all active email connections (asyncio.gather + Semaphore) |
+| POST | `/scrape-portals` | Batch scrape all active portal connections (asyncio.gather + Semaphore(2)) |
+| POST | `/scrape-rates` | Scrape supplier rates via Diffbot + extract rate_per_kwh via regex |
 
 ### User Supplier (`/api/v1/user/supplier`)
 
@@ -425,12 +443,14 @@ Key from `FIELD_ENCRYPTION_KEY` env var (32-byte hex).
 | GET | `/analytics/history` | Paid tier | Rate history for charts |
 | GET | `/analytics/savings` | Paid tier | Estimated savings calculation |
 | GET | `/analytics/health` | Paid tier | Connection health (stale connections + rate changes) |
+| POST | `/portal` | Paid tier | Create portal connection (encrypted credentials, supported utility) |
+| POST | `/portal/{connection_id}/scrape` | Paid tier | Trigger manual portal scrape |
 
-**Connection types:** `email_oauth`, `bill_upload`, `direct_login`, `utilityapi`
+**Connection types:** `email_oauth`, `bill_upload`, `direct_login`, `utilityapi`, `portal_scrape`
 
 **Auth:** All endpoints require paid subscription tier (Pro or Business) via `require_paid_tier` dependency.
 
-**Route ordering:** Analytics routes registered before `/{connection_id}` to prevent path parameter capture. Organized into 8 submodules: `router.py` (registration), `crud.py`, `analytics.py`, `rates.py`, `email_oauth.py`, `bill_upload.py`, `direct_sync.py`, `common.py` (validators).
+**Route ordering:** Analytics routes registered before `/{connection_id}` to prevent path parameter capture. Organized into 9 submodules: `router.py` (registration), `crud.py`, `analytics.py`, `rates.py`, `email_oauth.py`, `bill_upload.py`, `direct_sync.py`, `portal_scrape.py`, `common.py` (validators). Registration order: analytics → email_oauth → bill_upload → portal_scrape → direct_sync → rates → crud.
 
 **Security:** OAuth tokens AES-256-GCM encrypted at rest. OAuth state HMAC-SHA256 signed with nonce
 for CSRF protection (state timeout configured). Bill uploads: File type validation (PDF, PNG, JPG, JPEG, TIFF only), 10 MB max size. Password rate limit enforced (5 attempts / 15 min lockout).
@@ -973,7 +993,7 @@ Two auth mechanisms:
 | `model_predictions` | UUID | user_id, model_version, region, predicted_value, actual_value (nullable), error_pct (nullable), created_at |
 | `model_ab_assignments` | UUID | user_id (UNIQUE per test context), model_version, assigned_at |
 
-**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar). `connection_type` enum (email_oauth, bill_upload, direct_login, utilityapi). `notification_type` enum (price_alert, recommendation, savings_milestone, connection_health). `delivery_channel` enum (in_app, push, email). `delivery_status` enum (pending, sent, failed). `feedback_type` enum (bug_report, feature_request, general_feedback, savings_tracking, rate_quality).
+**Custom types:** `utility_type` enum (electricity, natural_gas, heating_oil, propane, community_solar). `connection_type` enum (email_oauth, bill_upload, direct_login, utilityapi, portal_scrape). `notification_type` enum (price_alert, recommendation, savings_milestone, connection_health). `delivery_channel` enum (in_app, push, email). `delivery_status` enum (pending, sent, failed). `feedback_type` enum (bug_report, feature_request, general_feedback, savings_tracking, rate_quality).
 
 
 ## Migrations
@@ -1110,7 +1130,7 @@ RecommendationService._compute_switching() / _compute_usage():
   -> If similar pattern found with low confidence: reduce recommendation confidence
 ```
 
-### Connection Import (4 methods)
+### Connection Import (5 methods)
 
 ```
 1. Email OAuth (Gmail/Outlook):
@@ -1118,7 +1138,8 @@ RecommendationService._compute_switching() / _compute_usage():
    -> redirect to Google/Outlook consent URL (HMAC-SHA256 state)
    -> GET /connections/email/callback -> verify state, exchange code, encrypt tokens
    -> POST /connections/email/{id}/scan -> search inbox for utility emails
-   -> extract rates via regex -> store in connection_extracted_rates
+   -> extract rates from body via regex + download/parse attachments via BillParser
+   -> store in connection_extracted_rates
 
 2. Bill Upload:
    POST /connections {type: bill_upload} -> create connection
@@ -1135,6 +1156,13 @@ RecommendationService._compute_switching() / _compute_usage():
    POST /connections {type: utilityapi} -> create connection
    -> POST /connections/{id}/sync -> UtilityAPI meters/bills endpoint
    -> extract rates from bill data -> store in connection_extracted_rates
+
+5. Portal Scrape:
+   POST /connections/portal -> create connection + encrypt portal credentials (AES-256-GCM)
+   -> POST /connections/portal/{id}/scrape -> httpx-based portal login + data extraction
+   -> PortalScraperService: login, navigate account page, extract rates from HTML
+   -> store in connection_extracted_rates
+   Supported utilities: Duke Energy, PG&E, Con Edison, ComEd, FPL
 ```
 
 ### SSE Price Stream
@@ -1192,7 +1220,7 @@ with `credentials: 'include'` for cookie-based session auth.
 .venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
-**Test status:** 1,917 passed, 2 skipped, 0 failures (as of 2026-03-10). 59+ test files. Includes: CSP security headers tests (+9), maintenance resilience tests (+3), tier gating (require_tier, 7 endpoints, free alert limit), health-data endpoint, data cache table tests. Prior: connections split into 8 endpoint files, supplier caching, savings service, connection service, forecast observation repository, weather service circuit breaker, maintenance service cleanup.
+**Test status:** 2,032 passed, 2 skipped, 0 failures (as of 2026-03-10). 68+ test files. Includes: utility integration track (+150 tests: email extraction, attachment parsing, portal connections, portal scraping, scraper persistence, unified analytics, internal scan/scrape endpoints), notification delivery tracking, A/B testing framework, CSP security headers, tier gating, health-data endpoint.
 
 
 ## Scripts & Automation

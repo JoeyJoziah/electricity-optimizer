@@ -1,11 +1,11 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-11 (AI Agent production, notification delivery tracking, A/B testing framework, Wave 4-5 completion)
+**Last Updated:** 2026-03-11 (Utility Integration track: PortalConnectionFlow component, portal API client, 5-method connection picker)
 **Framework:** Next.js 16.0.x (App Router) + React 19 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,475 tests (99 suites, 20 failures in 3 suites)
+**Test Coverage:** Frontend 1,501 tests (102 suites, 20 failures in 3 suites)
 
 ---
 
@@ -108,14 +108,15 @@ frontend/
       ApplianceForm.tsx         # Add/edit appliance
       ApplianceCard.tsx         # Display appliance with settings button
       RecommendationList.tsx    # List of optimization suggestions
-    connections/                # Connection feature UI (9 components)
-      Overview.tsx              # Dashboard of user connections
-      MethodPicker.tsx          # Select connection type (direct, bill, email, etc.)
+    connections/                # Connection feature UI (10 components)
+      Overview.tsx              # Dashboard of user connections (incl. adding-portal view)
+      MethodPicker.tsx          # Select connection type (direct, bill, email, portal, utilityapi)
       Card.tsx                  # Connection status card
       DirectLogin.tsx           # UtilityAPI direct sync form (bg-white, text-gray-900)
       EmailFlow.tsx             # Gmail/Outlook OAuth flow
       BillUpload.tsx            # Bill upload form
       UploadFlow.tsx            # Multi-step upload wizard
+      PortalConnectionFlow.tsx  # Utility portal credential connection (5 utilities, encrypted creds)
       Rates.tsx                 # Imported rates table (sortable)
       Analytics.tsx             # Rate comparison + savings dashboard
     alerts/
@@ -688,15 +689,15 @@ Without token (default):
 
 ---
 
-### Connection Components (9 files)
+### Connection Components (10 files)
 
 #### Overview (`components/connections/Overview.tsx`)
 
-**Dashboard of user connections (bills, utilities, sync status).**
+**Dashboard of user connections (bills, utilities, sync status).** Supports `adding-portal` view state for PortalConnectionFlow.
 
 #### MethodPicker (`components/connections/MethodPicker.tsx`)
 
-**Select connection type: Direct, Bill Upload, Email OAuth, or UtilityAPI.**
+**Select connection type: Direct, Bill Upload, Email OAuth, UtilityAPI, or Utility Portal.** 5 options in 2x2+1 grid (`sm:grid-cols-2 lg:grid-cols-4`). Includes `onSelectPortal` callback prop and Globe icon for portal option.
 
 #### DirectLogin (`components/connections/DirectLogin.tsx`)
 
@@ -721,6 +722,10 @@ Without token (default):
 #### Analytics (`components/connections/Analytics.tsx`)
 
 **Rate comparison + savings calculator (kWh input styled with `bg-white text-gray-900`).**
+
+#### PortalConnectionFlow (`components/connections/PortalConnectionFlow.tsx`)
+
+**Multi-step form for utility portal credential connections.** Supported utilities dropdown (Duke Energy, PG&E, Con Edison, ComEd, FPL), username/password fields, optional custom login URL, consent checkbox. States: form → submitting → success/error. Calls `createPortalConnection()` and `triggerPortalScrape()` from `lib/api/portal.ts`. AES-256-GCM encrypted credential storage on backend.
 
 ---
 
@@ -1298,6 +1303,22 @@ markAllRead()                         // POST /notifications/read-all → marks 
 - **Type-based filtering:** Supports filtering by notification type (future feature)
 - **Timestamp format:** ISO string, frontend formats relative (e.g., "2m ago")
 
+### Portal API Client (`lib/api/portal.ts`)
+
+**Functions for utility portal connection management.**
+
+**Functions:**
+```typescript
+createPortalConnection(payload: {
+  utility_name: string; username: string; password: string;
+  login_url?: string; supplier_name?: string
+})                                       // POST /connections/portal → returns connection
+
+triggerPortalScrape(connectionId: string) // POST /connections/portal/{id}/scrape → returns scrape result
+```
+
+**Supported utilities:** Duke Energy, PG&E, Con Edison, ComEd, FPL (server-side validation).
+
 ---
 
 ## Testing
@@ -1305,7 +1326,7 @@ markAllRead()                         // POST /notifications/read-all → marks 
 ### Unit Tests
 
 - **Framework:** Jest + React Testing Library
-- **Coverage:** 1,475 tests across 99 suites (20 failures across 3 suites)
+- **Coverage:** 1,501 tests across 102 suites (20 failures across 3 suites)
 - **Mock:** `frontend/__mocks__/better-auth-react.js` (ESM → CJS bridge)
 - **Auth mocking:** `frontend/e2e/helpers/auth.ts` (mockBetterAuth, setAuthenticatedState, clearAuthState)
 
@@ -1317,6 +1338,7 @@ markAllRead()                         // POST /notifications/read-all → marks 
 - `lib/api/__tests__/client-401-redirect.test.ts` (9 tests for 401 edge cases)
 - `__tests__/a11y/` (51 jest-axe tests)
 - `__tests__/components/alerts/` (+27 new tests for AlertsContent, AlertForm)
+- `__tests__/components/connections/PortalConnectionFlow.test.tsx` (25 tests: form rendering, validation, submission, error states, success flow)
 
 ### E2E Tests (Playwright)
 
