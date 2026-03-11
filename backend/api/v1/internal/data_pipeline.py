@@ -320,9 +320,10 @@ async def scrape_supplier_rates(
 
 @router.post("/geocode", tags=["Internal"])
 async def geocode_address(request: GeocodeRequest):
-    """Resolve a US address to a state/region via Google Geocoding API.
+    """Resolve a US address to a state/region via OpenWeatherMap + Nominatim.
 
-    Uses 1 geocoding credit per request. Free tier: 10,000/month.
+    Primary: OpenWeatherMap Geocoding API (uses existing API key).
+    Fallback: Nominatim / OpenStreetMap (free, no key required).
     """
     from services.geocoding_service import GeocodingService
 

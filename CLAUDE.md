@@ -122,7 +122,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 42 base tables (33 public + 9 neon_auth), 34 migrations (latest: 034_portal_credentials, all deployed to production). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
-4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "RateShift"
+4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "Electricity Optimizer"
 5. **Region enum**: `backend/models/region.py` — all 50 states + DC + international, never raw strings
 6. **UUID PKs**: All primary keys use UUID type; GRANTs use `neondb_owner` role
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
