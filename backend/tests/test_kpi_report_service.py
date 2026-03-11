@@ -2,7 +2,7 @@
 Tests for KPIReportService (backend/services/kpi_report_service.py)
 
 Covers:
-- aggregate_metrics happy path
+- aggregate_metrics happy path (CTE + 2 GROUP BY queries)
 - empty tables return zeros
 - subscription_breakdown correctness
 - estimated_mrr calculation
@@ -34,7 +34,7 @@ def kpi_service(mock_db):
 
 
 # =============================================================================
-# Helper: create scalar result mock
+# Helper: create result mocks
 # =============================================================================
 
 
@@ -52,6 +52,16 @@ def _rows_result(rows):
     return r
 
 
+def _cte_row_result(row_dict):
+    """Return a mock result whose .mappings().one() returns a single row dict.
+
+    Used for the CTE scalar query that returns all 5 metrics in one row.
+    """
+    r = MagicMock()
+    r.mappings.return_value.one.return_value = row_dict
+    return r
+
+
 # =============================================================================
 # aggregate_metrics — happy path
 # =============================================================================
@@ -61,22 +71,28 @@ class TestAggregateMetrics:
 
     @pytest.mark.asyncio
     async def test_happy_path(self, mock_db):
-        """aggregate_metrics should return all expected keys."""
+        """aggregate_metrics should return all expected keys.
+
+        The CTE query returns all 5 scalar metrics in one row,
+        followed by 2 GROUP BY queries for connections and subscriptions.
+        """
         mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(42),       # active_users_7d
-            _scalar_result(100),      # total_users
-            _scalar_result(5000),     # prices_tracked
-            _scalar_result(15),       # alerts_sent_today
-            _rows_result([            # connections status
+            _cte_row_result({                    # CTE scalars (1 query)
+                "active_users_7d": 42,
+                "total_users": 100,
+                "prices_tracked": 5000,
+                "alerts_sent_today": 15,
+                "weather_freshness": 6.5,
+            }),
+            _rows_result([                       # connections GROUP BY
                 {"status": "active", "cnt": 10},
                 {"status": "error", "cnt": 2},
             ]),
-            _rows_result([            # subscription breakdown
+            _rows_result([                       # subscriptions GROUP BY
                 {"tier": "free", "cnt": 80},
                 {"tier": "pro", "cnt": 15},
                 {"tier": "business", "cnt": 5},
             ]),
-            _scalar_result(6.5),      # weather freshness
         ])
 
         service = KPIReportService(mock_db)
@@ -104,13 +120,15 @@ class TestEmptyTables:
     async def test_returns_zeros(self, mock_db):
         """All zeros when tables are empty."""
         mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(0),        # active_users_7d
-            _scalar_result(0),        # total_users
-            _scalar_result(0),        # prices_tracked
-            _scalar_result(0),        # alerts_sent_today
+            _cte_row_result({
+                "active_users_7d": 0,
+                "total_users": 0,
+                "prices_tracked": 0,
+                "alerts_sent_today": 0,
+                "weather_freshness": None,
+            }),
             _rows_result([]),         # connections
             _rows_result([]),         # subscriptions
-            _scalar_result(None),     # weather freshness
         ])
 
         service = KPIReportService(mock_db)
@@ -137,16 +155,18 @@ class TestSubscriptionBreakdown:
     async def test_groups_correctly(self, mock_db):
         """Subscription breakdown should group by tier."""
         mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _rows_result([]),
-            _rows_result([
+            _cte_row_result({
+                "active_users_7d": 0,
+                "total_users": 0,
+                "prices_tracked": 0,
+                "alerts_sent_today": 0,
+                "weather_freshness": None,
+            }),
+            _rows_result([]),         # connections
+            _rows_result([            # subscriptions
                 {"tier": "free", "cnt": 50},
                 {"tier": "pro", "cnt": 25},
             ]),
-            _scalar_result(None),
         ])
 
         service = KPIReportService(mock_db)
@@ -191,13 +211,15 @@ class TestWeatherFreshness:
     async def test_returns_none_when_no_data(self, mock_db):
         """Should return None when no price data exists."""
         mock_db.execute = AsyncMock(side_effect=[
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _scalar_result(0),
-            _rows_result([]),
-            _rows_result([]),
-            _scalar_result(None),
+            _cte_row_result({
+                "active_users_7d": 0,
+                "total_users": 0,
+                "prices_tracked": 0,
+                "alerts_sent_today": 0,
+                "weather_freshness": None,
+            }),
+            _rows_result([]),         # connections
+            _rows_result([]),         # subscriptions
         ])
 
         service = KPIReportService(mock_db)

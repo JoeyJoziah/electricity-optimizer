@@ -120,6 +120,9 @@ class TestSettings:
             "NREL_API_KEY": "test-nrel",
             "ENVIRONMENT": "production",
             "FIELD_ENCRYPTION_KEY": "a" * 64,
+            "INTERNAL_API_KEY": "a" * 64,
+            "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
+            "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
         }):
             settings = Settings()
 

@@ -229,7 +229,10 @@ class TestCreatePortalConnection:
             response = client.post(f"{BASE}/portal", json=payload)
 
         assert response.status_code == 201
-        mock_encrypt.assert_called_once_with("mypassword123")
+        # encrypt_field is called for both password and username
+        assert mock_encrypt.call_count == 2
+        mock_encrypt.assert_any_call("mypassword123")
+        mock_encrypt.assert_any_call("myuser")
 
     def test_create_portal_connection_without_login_url(self, client):
         """portal_login_url is optional — omitting it is valid."""
@@ -303,17 +306,20 @@ class TestTriggerPortalScrape:
         connection_id: str = TEST_CONNECTION_ID,
         user_id: str = TEST_USER_ID,
         encrypted_b64: str | None = None,
+        username_b64: str | None = None,
     ):
         """Return a mock DB row tuple for user_connections."""
         if encrypted_b64 is None:
             # Produce a valid base64-encoded AES-GCM ciphertext placeholder
             encrypted_b64 = base64.b64encode(b"\x00" * 40).decode("ascii")
+        if username_b64 is None:
+            username_b64 = base64.b64encode(b"\x00" * 40).decode("ascii")
 
         return (
             connection_id,          # id
             user_id,                # user_id
             TEST_SUPPLIER_ID,       # supplier_id
-            "user@example.com",     # portal_username
+            username_b64,           # portal_username (encrypted+base64)
             encrypted_b64,          # portal_password_encrypted
             "https://duke-energy.com/sign-in",  # portal_login_url
             "pending",              # portal_scrape_status

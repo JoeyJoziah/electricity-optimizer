@@ -6,6 +6,8 @@ on:
     - cron: "15 */6 * * *"
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: fetch-weather
   cancel-in-progress: false

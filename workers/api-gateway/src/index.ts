@@ -5,7 +5,7 @@ import { checkRateLimit, rateLimitHeaders, rateLimitResponse } from "./middlewar
 import { tryCache, storeInCache, invalidatePriceCache } from "./middleware/cache";
 import { calculateBotScore, shouldBlockBot, applySecurityHeaders } from "./middleware/security";
 import { validateInternalAuth } from "./middleware/internal-auth";
-import { logRequest, buildLogEntry } from "./middleware/observability";
+import { logRequest, buildLogEntry, recordRequest, recordCacheRead, recordCacheHit, recordCacheMiss, recordCacheWrite, recordRateLimitCheck, recordDegradation, getGatewayStats } from "./middleware/observability";
 import { proxyToOrigin } from "./handlers/proxy";
 
 export default {
@@ -26,8 +26,11 @@ export default {
     let cacheStatus: LogEntry["cacheStatus"] = "BYPASS";
     let rateLimited = false;
     let botScore: number | undefined;
+    let gatewayDegraded = false;
 
     try {
+      recordRequest();
+
       // 1. CORS preflight fast path
       const corsResponse = handleCorsPreflightOrNull(request, env);
       if (corsResponse) {
@@ -36,6 +39,27 @@ export default {
 
       // 2. Route matching
       const route = matchRoute(url.pathname);
+
+      // 2a. Gateway stats — handled locally, not proxied to origin
+      if (url.pathname === "/api/v1/internal/gateway-stats") {
+        const authError = await validateInternalAuth(request, env);
+        if (authError) {
+          return applySecurityHeaders(authError, requestId, colo);
+        }
+        const stats = getGatewayStats();
+        return applySecurityHeaders(
+          applyCorsHeaders(
+            new Response(JSON.stringify(stats, null, 2), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+            request,
+            env
+          ),
+          requestId,
+          colo
+        );
+      }
 
       // 3. Bot detection (skip for internal endpoints — they use API keys)
       if (!route.requireApiKey) {
@@ -52,16 +76,81 @@ export default {
         }
       }
 
-      // 4. Internal API key validation (early 401 rejection)
+      // 4. Internal API key validation (early 401/503 rejection)
       if (route.requireApiKey) {
-        const authError = validateInternalAuth(request, env);
+        const authError = await validateInternalAuth(request, env);
         if (authError) {
           return applySecurityHeaders(authError, requestId, colo);
         }
       }
 
-      // 5. Rate limiting
+      // 5. Cache check BEFORE rate limiting (cache hits skip KV entirely)
+      if (route.cache && !route.passthrough) {
+        recordCacheRead();
+        const [cachedResponse, status] = await tryCache(
+          request,
+          route.cache,
+          url,
+          env,
+          ctx
+        );
+        cacheStatus = status;
+
+        // Cache HIT — return immediately, skip rate limiting (zero KV ops)
+        if (cachedResponse && status === "HIT") {
+          recordCacheHit();
+          const response = new Response(cachedResponse.body, cachedResponse);
+          response.headers.set("X-Cache", "HIT");
+          return applySecurityHeaders(
+            applyCorsHeaders(response, request, env),
+            requestId,
+            colo
+          );
+        }
+
+        // Cache STALE — serve stale, but still rate-limit (background refresh needs gating)
+        if (cachedResponse && status === "STALE") {
+          recordCacheHit(); // stale is still a cache hit (served from cache)
+          // Rate limit the background refresh
+          recordRateLimitCheck();
+          const rlResult = await checkRateLimit(clientIp, route.rateLimit, request, env);
+          if (rlResult.degraded) {
+            gatewayDegraded = true;
+            recordDegradation();
+          }
+
+          // Serve stale immediately, refresh in background
+          ctx.waitUntil(
+            refreshCache(request, route.cache, url, env, ctx, requestId, clientIp)
+          );
+          const response = new Response(cachedResponse.body, cachedResponse);
+          response.headers.set("X-Cache", "STALE");
+          const rlHeaders = rateLimitHeaders(rlResult);
+          for (const [key, value] of Object.entries(rlHeaders)) {
+            response.headers.set(key, value);
+          }
+          if (gatewayDegraded) {
+            response.headers.set("X-Gateway-Degraded", "true");
+          }
+          return applySecurityHeaders(
+            applyCorsHeaders(response, request, env),
+            requestId,
+            colo
+          );
+        }
+
+        // Cache miss — fall through to rate limiting + origin
+        cacheStatus = "MISS";
+        recordCacheMiss();
+      }
+
+      // 6. Rate limiting (only reached on cache MISS or non-cacheable routes)
+      recordRateLimitCheck();
       const rlResult = await checkRateLimit(clientIp, route.rateLimit, request, env);
+      if (rlResult.degraded) {
+        gatewayDegraded = true;
+        recordDegradation();
+      }
       if (!rlResult.allowed) {
         rateLimited = true;
         const rlResponse = rateLimitResponse(rlResult);
@@ -72,59 +161,12 @@ export default {
         );
       }
 
-      // 6. Cache check (only for GET requests with cache config)
-      if (route.cache && !route.passthrough) {
-        const [cachedResponse, status] = await tryCache(
-          request,
-          route.cache,
-          url,
-          env,
-          ctx
-        );
-        cacheStatus = status;
-
-        if (cachedResponse && status === "HIT") {
-          let response = cachedResponse;
-          // Add rate limit headers
-          const rlHeaders = rateLimitHeaders(rlResult);
-          response = new Response(response.body, response);
-          for (const [key, value] of Object.entries(rlHeaders)) {
-            response.headers.set(key, value);
-          }
-          return applySecurityHeaders(
-            applyCorsHeaders(response, request, env),
-            requestId,
-            colo
-          );
-        }
-
-        if (cachedResponse && status === "STALE") {
-          // Serve stale immediately, refresh in background
-          ctx.waitUntil(
-            refreshCache(request, route.cache, url, env, ctx, requestId, clientIp)
-          );
-          let response = cachedResponse;
-          const rlHeaders = rateLimitHeaders(rlResult);
-          response = new Response(response.body, response);
-          for (const [key, value] of Object.entries(rlHeaders)) {
-            response.headers.set(key, value);
-          }
-          return applySecurityHeaders(
-            applyCorsHeaders(response, request, env),
-            requestId,
-            colo
-          );
-        }
-
-        // Cache miss — fall through to origin fetch
-        cacheStatus = "MISS";
-      }
-
       // 7. Proxy to origin
       let response = await proxyToOrigin(request, env, requestId, clientIp);
 
       // Cache the response if cacheable
       if (route.cache && !route.passthrough && response.status === 200) {
+        recordCacheWrite();
         ctx.waitUntil(storeInCache(response, route.cache, url, env, ctx));
       }
 
@@ -137,9 +179,12 @@ export default {
         ctx.waitUntil(invalidatePriceCache(env, ctx));
       }
 
-      // Add cache status and rate limit headers
+      // Add cache status, rate limit, and degradation headers
       response = new Response(response.body, response);
       response.headers.set("X-Cache", cacheStatus);
+      if (gatewayDegraded) {
+        response.headers.set("X-Gateway-Degraded", "true");
+      }
       const rlHeaders = rateLimitHeaders(rlResult);
       for (const [key, value] of Object.entries(rlHeaders)) {
         response.headers.set(key, value);

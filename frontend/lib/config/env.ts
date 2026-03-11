@@ -78,6 +78,15 @@ export const API_ORIGIN: string = (() => {
   }
 })()
 
+/**
+ * Fallback API URL for direct-to-origin requests when the CF Worker gateway
+ * is down (circuit breaker tripped). Points to the Render backend directly.
+ *
+ * Example: "https://electricity-optimizer.onrender.com/api/v1"
+ */
+export const FALLBACK_API_URL: string =
+  process.env.NEXT_PUBLIC_FALLBACK_API_URL || ''
+
 // ---------------------------------------------------------------------------
 // Frontend / App
 // ---------------------------------------------------------------------------

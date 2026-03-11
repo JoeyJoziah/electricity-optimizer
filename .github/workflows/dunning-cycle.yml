@@ -6,6 +6,8 @@ on:
     - cron: "0 7 * * *"
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: dunning-cycle
   cancel-in-progress: false

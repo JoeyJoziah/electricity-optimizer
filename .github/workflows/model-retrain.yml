@@ -5,6 +5,8 @@ on:
     - cron: "0 5 * * 0"  # Sunday 5:00 AM UTC (avoids 2am data pipeline cluster)
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: model-retrain
   cancel-in-progress: false
@@ -26,7 +28,6 @@ jobs:
 
       - name: Run model retraining
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ENVIRONMENT: production
         run: |
           cd ml

@@ -246,7 +246,8 @@ class AgentService:
             asyncio.to_thread(
                 client.models.generate_content,
                 model="gemini-3-flash-preview",
-                contents=f"{system}\n\nUser: {prompt}",
+                config={"system_instruction": system},
+                contents=prompt,
             ),
             timeout=QUERY_TIMEOUT_SECONDS,
         )

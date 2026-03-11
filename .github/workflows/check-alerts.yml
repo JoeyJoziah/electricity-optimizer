@@ -6,6 +6,8 @@ on:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: check-alerts
   cancel-in-progress: false

@@ -10,6 +10,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -122,9 +125,11 @@ jobs:
 
     steps:
       - name: Trigger Render backend deploy
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
         run: |
           echo "Triggering Render backend deploy..."
-          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}" || {
+          curl -fsS -X POST "${RENDER_DEPLOY_HOOK}" || {
             echo "::error::Failed to trigger backend deploy hook"
             exit 1
           }
@@ -202,11 +207,13 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Fetch last successful backend deploy ID
         id: last-backend-deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: |
           # List the 10 most-recent deploys for this service, then pick the
           # first one whose status is "live" (completed successfully).
           DEPLOY_ID=$(curl -fsS \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Accept: application/json" \
             "${RENDER_API_BASE}/services/${BACKEND_SERVICE_ID}/deploys?limit=10" \
             | jq -r '[.[] | select(.deploy.status == "live")] | .[0].deploy.id // empty')
@@ -220,11 +227,13 @@ jobs:
           echo "deploy_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
 
       - name: Rollback backend to last successful deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DEPLOY_ID: ${{ steps.last-backend-deploy.outputs.deploy_id }}
         run: |
-          DEPLOY_ID="${{ steps.last-backend-deploy.outputs.deploy_id }}"
           echo "Rolling backend back to deploy $DEPLOY_ID ..."
           RESPONSE=$(curl -fsS -X POST \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Accept: application/json" \
             -H "Content-Type: application/json" \
             "${RENDER_API_BASE}/services/${BACKEND_SERVICE_ID}/deploys/${DEPLOY_ID}/rollback")
@@ -240,12 +249,14 @@ jobs:
           sleep 120
 
       - name: Verify backend health after rollback
+        env:
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
         run: |
           MAX_ATTEMPTS=10
           ATTEMPT=0
           until [ $ATTEMPT -ge $MAX_ATTEMPTS ]; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              "${{ secrets.PROD_API_URL }}/health" 2>/dev/null) || STATUS="000"
+              "${PROD_API_URL}/health" 2>/dev/null) || STATUS="000"
             echo "Attempt $((ATTEMPT+1))/${MAX_ATTEMPTS}: backend health returned HTTP ${STATUS}"
             if [ "$STATUS" = "200" ]; then
               echo "Backend is healthy after rollback."

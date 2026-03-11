@@ -87,9 +87,11 @@ async def create_portal_connection(
             detail="Supplier not found.",
         )
 
-    # Encrypt the portal password and encode as base64 for storage
-    encrypted_bytes = encrypt_field(payload.portal_password)
-    encrypted_b64 = base64.b64encode(encrypted_bytes).decode("ascii")
+    # Encrypt credentials and encode as base64 for TEXT/VARCHAR column storage
+    encrypted_pw = encrypt_field(payload.portal_password)
+    encrypted_pw_b64 = base64.b64encode(encrypted_pw).decode("ascii")
+    encrypted_un = encrypt_field(payload.portal_username)
+    encrypted_un_b64 = base64.b64encode(encrypted_un).decode("ascii")
 
     connection_id = str(uuid4())
 
@@ -126,8 +128,8 @@ async def create_portal_connection(
             "user_id": current_user.user_id,
             "supplier_id": str(payload.supplier_id),
             "supplier_name": supplier_row[1],
-            "username": payload.portal_username,
-            "password_encrypted": encrypted_b64,
+            "username": encrypted_un_b64,
+            "password_encrypted": encrypted_pw_b64,
             "login_url": payload.portal_login_url,
         },
     )
@@ -205,18 +207,18 @@ async def trigger_portal_scrape(
         _conn_id,
         _user_id,
         supplier_id,
-        portal_username,
+        portal_username_enc,
         portal_password_encrypted,
         portal_login_url,
         _scrape_status,
     ) = conn_row
 
-    # Decrypt the portal password
+    # Decrypt portal credentials
     try:
-        encrypted_bytes = base64.b64decode(portal_password_encrypted)
-        portal_password = decrypt_field(encrypted_bytes)
+        portal_password = decrypt_field(base64.b64decode(portal_password_encrypted))
+        portal_username = decrypt_field(base64.b64decode(portal_username_enc))
     except Exception as exc:
-        log.error("portal_password_decrypt_error", error=str(exc))
+        log.error("portal_credential_decrypt_error", error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to decrypt portal credentials.",

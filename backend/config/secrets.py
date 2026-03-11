@@ -11,7 +11,8 @@ Uses 1Password CLI (op) for secure secrets management in production.
 
 import os
 import subprocess
-from typing import Optional, Dict
+import time
+from typing import Optional, Dict, Tuple
 from functools import lru_cache
 
 import structlog
@@ -36,7 +37,10 @@ class SecretsManager:
     """
 
     # 1Password vault and item references
-    OP_VAULT = "Electricity Optimizer"
+    OP_VAULT = "RateShift"
+
+    # Cache TTL in seconds (1 hour) — rotated secrets picked up within this window
+    CACHE_TTL = 3600
 
     # Mapping of secret names to 1Password item/field paths
     # Format: "Item Name/field_name" → resolves to op://vault/Item Name/field_name
@@ -75,6 +79,26 @@ class SecretsManager:
         "field_encryption_key": "Field Encryption/key",
         "sentry_dsn": "Monitoring/sentry_dsn",
         "github_webhook_secret": "GitHub Repository/webhook_secret",
+        # AI Agent
+        "gemini_api_key": "Gemini API Key/credential",
+        "groq_api_key": "Groq API Key/credential",
+        "composio_api_key": "Composio API Key/credential",
+        # Rate scraping & market research
+        "diffbot_api_token": "Diffbot API Credentials/credential",
+        "tavily_api_key": "Tavily API Credentials/credential",
+        # Push notifications
+        "onesignal_app_id": "OneSignal/OneSignal App ID",
+        "onesignal_rest_api_key": "OneSignal/API Key (Electricity Optimizer)",
+        # Monitoring & uptime
+        "uptimerobot_api_key": "Uptimerobot API Credentials/credential",
+        "codecov_token": "Codecov/token",
+        # Email SMTP fallback
+        "smtp_username": "Twilio SendGrid/username",
+        "smtp_password": "Google App Password/password",
+        # CI/CD & Infrastructure
+        "render_api_key": "Render API Key/credential",
+        "cloudflare_api_token": "Cloudflare Global API Credentials/workers_api_token",
+        "slack_incidents_webhook_url": "Slack Incidents Webhook/website",
     }
 
     def __init__(self, use_1password: bool = None):
@@ -89,7 +113,7 @@ class SecretsManager:
         else:
             self.use_1password = use_1password
 
-        self._cache: Dict[str, str] = {}
+        self._cache: Dict[str, Tuple[str, float]] = {}  # name -> (value, timestamp)
 
         if self.use_1password:
             logger.info("secrets_manager_using_1password")
@@ -122,9 +146,12 @@ class SecretsManager:
         Raises:
             SecretsError: If secret not found and no default provided
         """
-        # Check cache first
+        # Check cache first (with TTL)
         if name in self._cache:
-            return self._cache[name]
+            cached_value, cached_at = self._cache[name]
+            if time.monotonic() - cached_at < self.CACHE_TTL:
+                return cached_value
+            del self._cache[name]
 
         value = None
 
@@ -139,8 +166,8 @@ class SecretsManager:
                 return default
             raise SecretsError(f"Secret '{name}' not found")
 
-        # Cache the value
-        self._cache[name] = value
+        # Cache the value with timestamp
+        self._cache[name] = (value, time.monotonic())
         return value
 
     def _get_from_1password(self, name: str) -> Optional[str]:

@@ -6,6 +6,8 @@ on:
     - cron: "0 8 * * *"
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: data-health-check
   cancel-in-progress: false
@@ -29,11 +31,14 @@ jobs:
             X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
 
       - name: Validate health response
+        env:
+          API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          API_URL: ${{ secrets.BACKEND_URL }}
         run: |
           # Re-fetch to parse the JSON body (retry-curl only outputs status code)
           RESPONSE=$(curl -fsS -X GET \
-            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
-            "${{ secrets.BACKEND_URL }}/api/v1/internal/health-data")
+            -H "X-API-Key: ${API_KEY}" \
+            "${API_URL}/api/v1/internal/health-data")
 
           echo "$RESPONSE" | jq .
 

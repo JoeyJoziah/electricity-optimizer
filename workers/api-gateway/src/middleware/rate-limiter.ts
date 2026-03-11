@@ -1,8 +1,12 @@
-import type { Env, RateLimitResult, RateLimitTier } from "../types";
+import type { Env, RateLimitBinding, RateLimitResult, RateLimitTier } from "../types";
 
 /**
- * Fixed-window rate limiter using KV.
- * Each window is keyed by IP + tier + window start timestamp.
+ * Rate limiter using Cloudflare's native rate limiting bindings.
+ * Zero KV operations — counters maintained in-memory at each edge PoP.
+ *
+ * Graceful degradation: if the native binding call fails, the rate limiter
+ * fails OPEN — requests are allowed through without rate limiting rather
+ * than returning 502 errors.
  */
 export async function checkRateLimit(
   clientIp: string,
@@ -21,49 +25,60 @@ export async function checkRateLimit(
     return { allowed: true, remaining: Infinity, limit: Infinity, resetAt: 0 };
   }
 
-  const limit = getTierLimit(tier, env);
-  const windowSeconds = parseInt(env.RATE_LIMIT_WINDOW_SECONDS, 10) || 60;
+  const binding = getTierBinding(tier, env);
+  const limit = getTierLimit(tier);
+
+  // Calculate window reset time (60s windows to match binding config)
   const now = Math.floor(Date.now() / 1000);
-  const windowStart = now - (now % windowSeconds);
-  const windowEnd = windowStart + windowSeconds;
+  const windowStart = now - (now % 60);
+  const windowEnd = windowStart + 60;
 
-  const key = `rl:${clientIp}:${tier}:${windowStart}`;
+  // Call native rate limiter — fail open on error
+  try {
+    const { success } = await binding.limit({ key: clientIp });
 
-  // Read current count
-  const currentStr = await env.RATE_LIMIT.get(key);
-  const current = currentStr ? parseInt(currentStr, 10) : 0;
+    if (!success) {
+      return {
+        allowed: false,
+        remaining: 0,
+        limit,
+        resetAt: windowEnd,
+      };
+    }
 
-  if (current >= limit) {
     return {
-      allowed: false,
-      remaining: 0,
+      allowed: true,
+      remaining: -1, // native binding doesn't expose remaining count
       limit,
       resetAt: windowEnd,
     };
+  } catch (err) {
+    console.warn(`Rate limiter binding failed (fail-open): ${err}`);
+    return { allowed: true, remaining: -1, limit, resetAt: 0, degraded: true };
   }
-
-  // Increment counter (fire-and-forget is fine for rate limiting)
-  const ttl = windowSeconds + 10; // slight buffer past window end
-  await env.RATE_LIMIT.put(key, String(current + 1), {
-    expirationTtl: ttl,
-  });
-
-  return {
-    allowed: true,
-    remaining: limit - current - 1,
-    limit,
-    resetAt: windowEnd,
-  };
 }
 
-function getTierLimit(tier: RateLimitTier, env: Env): number {
+function getTierBinding(tier: RateLimitTier, env: Env): RateLimitBinding {
   switch (tier) {
     case "standard":
-      return parseInt(env.RATE_LIMIT_STANDARD, 10) || 120;
+      return env.RATE_LIMITER_STANDARD;
     case "strict":
-      return parseInt(env.RATE_LIMIT_STRICT, 10) || 30;
+      return env.RATE_LIMITER_STRICT;
     case "internal":
-      return parseInt(env.RATE_LIMIT_INTERNAL, 10) || 600;
+      return env.RATE_LIMITER_INTERNAL;
+    default:
+      return env.RATE_LIMITER_STANDARD;
+  }
+}
+
+function getTierLimit(tier: RateLimitTier): number {
+  switch (tier) {
+    case "standard":
+      return 120;
+    case "strict":
+      return 30;
+    case "internal":
+      return 600;
     default:
       return 120;
   }
@@ -74,11 +89,15 @@ function getTierLimit(tier: RateLimitTier, env: Env): number {
  */
 export function rateLimitHeaders(result: RateLimitResult): Record<string, string> {
   if (result.limit === Infinity) return {};
-  return {
+  const headers: Record<string, string> = {
     "X-RateLimit-Limit": String(result.limit),
-    "X-RateLimit-Remaining": String(Math.max(0, result.remaining)),
     "X-RateLimit-Reset": String(result.resetAt),
   };
+  // Only include remaining if we have a meaningful value
+  if (result.remaining >= 0) {
+    headers["X-RateLimit-Remaining"] = String(result.remaining);
+  }
+  return headers;
 }
 
 /**

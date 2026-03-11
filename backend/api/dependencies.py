@@ -97,68 +97,6 @@ async def verify_api_key(
 # =============================================================================
 
 
-def require_scope(required_scope: str):
-    """
-    Factory for scope-checking dependencies.
-
-    Args:
-        required_scope: Required scope name
-
-    Returns:
-        Dependency function that checks for the scope
-    """
-    async def check_scope(
-        token_data: SessionData = Depends(get_current_user)
-    ) -> SessionData:
-        # Neon Auth sessions don't have scopes — check role instead
-        if token_data.role != required_scope and token_data.role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Scope '{required_scope}' required"
-            )
-        return token_data
-
-    return check_scope
-
-
-def require_admin():
-    """
-    Require admin role.
-
-    Returns:
-        Dependency that checks for admin role
-    """
-    return require_scope("admin")
-
-
-def require_paid_tier():
-    """
-    Require Pro or Business subscription for premium features.
-
-    Returns:
-        Dependency function that checks for a paid subscription tier
-    """
-    async def check_tier(
-        current_user: SessionData = Depends(get_current_user),
-        db=Depends(get_db_session),
-    ) -> SessionData:
-        from sqlalchemy import text
-
-        result = await db.execute(
-            text("SELECT subscription_tier FROM public.users WHERE id = :id"),
-            {"id": current_user.user_id},
-        )
-        tier = result.scalar_one_or_none()
-        if tier not in ("pro", "business"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This feature requires a Pro or Business subscription",
-            )
-        return current_user
-
-    return check_tier
-
-
 # Tier ordering for require_tier comparisons
 _TIER_ORDER: dict[str, int] = {"free": 0, "pro": 1, "business": 2}
 

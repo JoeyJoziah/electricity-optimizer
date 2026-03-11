@@ -5,6 +5,8 @@ import { CACHE_KEY_PREFIX, PRICE_CACHE_PATTERNS } from "../config";
 /**
  * Try to serve a cached response.
  * Returns [Response, cacheStatus] or [null, "MISS"].
+ *
+ * Graceful degradation: if KV read fails, returns MISS (falls through to origin).
  */
 export async function tryCache(
   request: Request,
@@ -20,36 +22,44 @@ export async function tryCache(
   const cacheKey = buildCacheKey(url.pathname, url.searchParams, cacheConfig.varyOn);
 
   // Tier 1: Cloudflare Cache API (per-colo, sub-ms)
-  const cache = caches.default;
-  const cacheUrl = new URL(`https://cache.internal/${cacheKey}`);
-  const cachedResponse = await cache.match(new Request(cacheUrl));
-  if (cachedResponse) {
-    return [cachedResponse, "HIT"];
+  try {
+    const cache = caches.default;
+    const cacheUrl = new URL(`https://cache.internal/${cacheKey}`);
+    const cachedResponse = await cache.match(new Request(cacheUrl));
+    if (cachedResponse) {
+      return [cachedResponse, "HIT"];
+    }
+  } catch (err) {
+    console.warn(`Cache API read failed (non-fatal): ${err}`);
   }
 
-  // Tier 2: KV (global, consistent)
-  const kvEntry = await env.CACHE.get(cacheKey, "text");
-  if (kvEntry) {
-    try {
-      const entry: CacheEntry = JSON.parse(kvEntry);
-      const age = Math.floor(Date.now() / 1000) - entry.storedAt;
+  // Tier 2: KV (global, consistent) — fail open on error
+  try {
+    const kvEntry = await env.CACHE.get(cacheKey, { type: "text", cacheTtl: 30 });
+    if (kvEntry) {
+      try {
+        const entry: CacheEntry = JSON.parse(kvEntry);
+        const age = Math.floor(Date.now() / 1000) - entry.storedAt;
 
-      if (age <= entry.ttlSeconds) {
-        // Fresh — serve from KV and populate Cache API in background
-        const response = buildCachedResponse(entry, "HIT");
-        ctx.waitUntil(populateCacheApi(cache, cacheUrl, entry));
-        return [response, "HIT"];
-      }
+        if (age <= entry.ttlSeconds) {
+          // Fresh — serve from KV and populate Cache API in background
+          const response = buildCachedResponse(entry, "HIT");
+          ctx.waitUntil(populateCacheApi(cacheKey, entry));
+          return [response, "HIT"];
+        }
 
-      // Stale but within SWR window — serve stale, refresh in background
-      const swrSeconds = cacheConfig.staleWhileRevalidateSeconds ?? 0;
-      if (swrSeconds > 0 && age <= entry.ttlSeconds + swrSeconds) {
-        const response = buildCachedResponse(entry, "STALE");
-        return [response, "STALE"];
+        // Stale but within SWR window — serve stale, refresh in background
+        const swrSeconds = cacheConfig.staleWhileRevalidateSeconds ?? 0;
+        if (swrSeconds > 0 && age <= entry.ttlSeconds + swrSeconds) {
+          const response = buildCachedResponse(entry, "STALE");
+          return [response, "STALE"];
+        }
+      } catch {
+        // Corrupted KV entry — treat as miss
       }
-    } catch {
-      // Corrupted KV entry — treat as miss
     }
+  } catch (err) {
+    console.warn(`Cache KV read failed (fall through to origin): ${err}`);
   }
 
   return [null, "MISS"];
@@ -57,6 +67,9 @@ export async function tryCache(
 
 /**
  * Store a response in both cache tiers.
+ *
+ * Graceful degradation: if KV write fails, logs warning and continues.
+ * The response has already been served to the client.
  */
 export async function storeInCache(
   response: Response,
@@ -78,46 +91,74 @@ export async function storeInCache(
     ttlSeconds: cacheConfig.ttlSeconds,
   };
 
-  // Store in KV (global) — TTL includes SWR window
+  // Store in KV (global) — TTL includes SWR window. Fail silently.
   const kvTtl = cacheConfig.ttlSeconds + (cacheConfig.staleWhileRevalidateSeconds ?? 0) + 60;
-  ctx.waitUntil(
-    env.CACHE.put(cacheKey, JSON.stringify(entry), { expirationTtl: kvTtl })
-  );
+  try {
+    ctx.waitUntil(
+      env.CACHE.put(cacheKey, JSON.stringify(entry), { expirationTtl: kvTtl })
+    );
+  } catch (err) {
+    console.warn(`Cache KV write failed (non-fatal): ${err}`);
+  }
 
-  // Store in Cache API (per-colo)
-  const cache = caches.default;
-  const cacheUrl = new URL(`https://cache.internal/${cacheKey}`);
-  const cacheResponse = new Response(body, {
-    status: response.status,
-    headers: {
-      ...Object.fromEntries(response.headers.entries()),
-      "Cache-Control": `public, max-age=${cacheConfig.ttlSeconds}`,
-      "X-Cache": "HIT",
-    },
-  });
-  ctx.waitUntil(cache.put(new Request(cacheUrl), cacheResponse));
+  // Store in Cache API (per-colo). Fail silently.
+  try {
+    const cache = caches.default;
+    const cacheUrl = new URL(`https://cache.internal/${cacheKey}`);
+    const cacheResponse = new Response(body, {
+      status: response.status,
+      headers: {
+        ...Object.fromEntries(response.headers.entries()),
+        "Cache-Control": `public, max-age=${cacheConfig.ttlSeconds}`,
+        "X-Cache": "HIT",
+      },
+    });
+    ctx.waitUntil(cache.put(new Request(cacheUrl), cacheResponse));
+  } catch (err) {
+    console.warn(`Cache API write failed (non-fatal): ${err}`);
+  }
 }
 
 /**
  * Invalidate all price-related cache entries.
  * Called after a successful POST /prices/refresh.
+ *
+ * Graceful degradation: if KV list/delete fails, logs warning.
+ * Stale price data is better than a 502 error.
  */
 export async function invalidatePriceCache(
   env: Env,
   ctx: ExecutionContext
 ): Promise<void> {
-  const cache = caches.default;
+  let cache: Cache | undefined;
+  try {
+    cache = caches.default;
+  } catch (err) {
+    console.warn(`Cache API unavailable for invalidation (non-fatal): ${err}`);
+  }
 
-  // KV: list and delete keys with price prefixes
-  // Note: KV list is eventually consistent, but good enough for cache invalidation
   const deletePromises: Promise<void>[] = [];
 
   for (const prefix of PRICE_CACHE_PATTERNS) {
-    const list = await env.CACHE.list({ prefix });
-    for (const key of list.keys) {
-      deletePromises.push(env.CACHE.delete(key.name));
-      const cacheUrl = new URL(`https://cache.internal/${key.name}`);
-      deletePromises.push(cache.delete(new Request(cacheUrl)).then(() => {}));
+    try {
+      const list = await env.CACHE.list({ prefix });
+      for (const key of list.keys) {
+        deletePromises.push(
+          env.CACHE.delete(key.name).catch((err) => {
+            console.warn(`Cache KV delete failed for ${key.name} (non-fatal): ${err}`);
+          })
+        );
+        if (cache) {
+          const cacheUrl = new URL(`https://cache.internal/${key.name}`);
+          deletePromises.push(
+            cache.delete(new Request(cacheUrl)).then(() => {}).catch((err) => {
+              console.warn(`Cache API delete failed for ${key.name} (non-fatal): ${err}`);
+            })
+          );
+        }
+      }
+    } catch (err) {
+      console.warn(`Cache KV list failed for prefix ${prefix} (non-fatal): ${err}`);
     }
   }
 
@@ -136,20 +177,25 @@ function buildCachedResponse(entry: CacheEntry, cacheStatus: "HIT" | "STALE"): R
 }
 
 async function populateCacheApi(
-  cache: Cache,
-  cacheUrl: URL,
+  cacheKey: string,
   entry: CacheEntry
 ): Promise<void> {
   const remainingTtl = entry.ttlSeconds - (Math.floor(Date.now() / 1000) - entry.storedAt);
   if (remainingTtl <= 0) return;
 
-  const response = new Response(entry.body, {
-    status: entry.status,
-    headers: {
-      ...entry.headers,
-      "Cache-Control": `public, max-age=${remainingTtl}`,
-      "X-Cache": "HIT",
-    },
-  });
-  await cache.put(new Request(cacheUrl), response);
+  try {
+    const cache = caches.default;
+    const cacheUrl = new URL(`https://cache.internal/${cacheKey}`);
+    const response = new Response(entry.body, {
+      status: entry.status,
+      headers: {
+        ...entry.headers,
+        "Cache-Control": `public, max-age=${remainingTtl}`,
+        "X-Cache": "HIT",
+      },
+    });
+    await cache.put(new Request(cacheUrl), response);
+  } catch (err) {
+    console.warn(`Cache API population failed (non-fatal): ${err}`);
+  }
 }

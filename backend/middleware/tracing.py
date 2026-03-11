@@ -3,62 +3,69 @@ Distributed Tracing Middleware
 
 Lightweight request tracing that:
 - Generates a unique trace/request ID per request (UUID4), or re-uses the
-  caller-supplied ``X-Request-ID`` header when present.
+  caller-supplied ``X-Request-ID`` header when present (validated as safe ASCII).
 - Binds the trace ID to structlog's contextvars so it appears automatically
   in every log record emitted during the request lifetime.
 - Returns the trace ID in the ``X-Request-ID`` response header so clients can
   correlate their own traces with backend logs.
-- Stores the trace ID on ``request.state.trace_id`` for endpoint-level access
-  (e.g. activity_logs entries).
 
-The implementation intentionally stays dependency-free — no OpenTelemetry SDK
-is required.  structlog.contextvars is available in structlog >= 21.2.0 and
-is already used elsewhere in this codebase.
+Pure ASGI implementation — does not buffer responses, safe for SSE and
+streaming endpoints.
 """
 
+import re
 import uuid
 
 import structlog
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 
 logger = structlog.get_logger(__name__)
 
+# Only allow safe ASCII tokens as caller-supplied request IDs (max 64 chars)
+_SAFE_REQUEST_ID = re.compile(r"^[\w\-]{1,64}$")
 
-class TracingMiddleware(BaseHTTPMiddleware):
+
+class TracingMiddleware:
     """Inject a request-scoped trace ID into every log record and response.
+
+    Pure ASGI middleware — no BaseHTTPMiddleware overhead, no response buffering.
 
     Middleware ordering note
     -----------------------
     Register this middleware *after* (i.e. at a lower position in the stack
     than) rate-limit and security-header middleware so the trace ID is
     available to all downstream handlers including exception handlers.
-
-    Usage in endpoints::
-
-        @router.get("/example")
-        async def example(request: Request):
-            trace_id = request.state.trace_id  # available after middleware runs
-            ...
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        # Honour caller-supplied request ID; generate a fresh one otherwise.
-        trace_id: str = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        # Persist on request state so endpoint code can read it directly.
-        request.state.trace_id = trace_id
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # Bind to structlog context so every logger.* call in this request
-        # automatically includes trace_id without manual threading.
+        # Extract and validate caller-supplied request ID
+        headers = dict(scope.get("headers", []))
+        raw_id = headers.get(b"x-request-id", b"").decode("latin-1", errors="replace")
+        if raw_id and _SAFE_REQUEST_ID.match(raw_id):
+            trace_id = raw_id
+        else:
+            trace_id = str(uuid.uuid4())
+
+        # Store on scope state for endpoint access via request.state.trace_id
+        scope.setdefault("state", {})["trace_id"] = trace_id
+
+        # Bind to structlog context for automatic inclusion in all log records
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(trace_id=trace_id)
 
-        response: Response = await call_next(request)
+        async def send_with_trace_id(message: dict) -> None:
+            if message.get("type") == "http.response.start":
+                raw_headers = list(message.get("headers", []))
+                raw_headers.append([b"x-request-id", trace_id.encode("ascii")])
+                message = {**message, "headers": raw_headers}
+            await send(message)
 
-        # Reflect trace ID back to the caller for client-side correlation.
-        response.headers["X-Request-ID"] = trace_id
-
-        return response
+        await self.app(scope, receive, send_with_trace_id)

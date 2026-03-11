@@ -6,6 +6,8 @@ on:
     - cron: "0 4 * * 0"
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: data-retention
   cancel-in-progress: false

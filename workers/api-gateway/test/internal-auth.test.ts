@@ -9,41 +9,42 @@ function makeEnv(apiKey?: string): Env {
 }
 
 describe("validateInternalAuth", () => {
-  it("returns null (pass-through) when edge key is not configured", () => {
+  it("returns 503 when edge key is not configured (fail-closed)", async () => {
     const request = new Request("https://api.rateshift.app/api/v1/internal/test");
-    const result = validateInternalAuth(request, makeEnv(""));
-    expect(result).toBeNull();
+    const result = await validateInternalAuth(request, makeEnv(""));
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe(503);
   });
 
-  it("returns 401 when API key header is missing", () => {
+  it("returns 401 when API key header is missing", async () => {
     const request = new Request("https://api.rateshift.app/api/v1/internal/test");
-    const result = validateInternalAuth(request, makeEnv("secret-key-123"));
+    const result = await validateInternalAuth(request, makeEnv("secret-key-123"));
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
   });
 
-  it("returns 401 when API key is wrong", () => {
+  it("returns 401 when API key is wrong", async () => {
     const request = new Request("https://api.rateshift.app/api/v1/internal/test", {
       headers: { "X-API-Key": "wrong-key" },
     });
-    const result = validateInternalAuth(request, makeEnv("secret-key-123"));
+    const result = await validateInternalAuth(request, makeEnv("secret-key-123"));
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
   });
 
-  it("returns null when API key matches", () => {
+  it("returns null when API key matches", async () => {
     const request = new Request("https://api.rateshift.app/api/v1/internal/test", {
       headers: { "X-API-Key": "secret-key-123" },
     });
-    const result = validateInternalAuth(request, makeEnv("secret-key-123"));
+    const result = await validateInternalAuth(request, makeEnv("secret-key-123"));
     expect(result).toBeNull();
   });
 
-  it("returns 401 for different-length keys (constant-time)", () => {
+  it("returns 401 for different-length keys (constant-time)", async () => {
     const request = new Request("https://api.rateshift.app/api/v1/internal/test", {
       headers: { "X-API-Key": "short" },
     });
-    const result = validateInternalAuth(request, makeEnv("much-longer-secret-key"));
+    const result = await validateInternalAuth(request, makeEnv("much-longer-secret-key"));
     expect(result).not.toBeNull();
     expect(result!.status).toBe(401);
   });

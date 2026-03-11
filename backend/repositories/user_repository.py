@@ -5,6 +5,7 @@ Data access layer for user data.
 Uses raw SQL queries to avoid ORM-model mismatch with Pydantic models.
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Optional, List, Any, Dict
 from uuid import uuid4
@@ -56,9 +57,13 @@ def _row_to_user(row) -> User:
         stripe_customer_id=data.get("stripe_customer_id"),
         preferences=data.get("preferences", {}),
         current_supplier=data.get("current_supplier"),
+        current_supplier_id=data.get("current_supplier_id"),
         current_tariff=data.get("current_tariff"),
         average_daily_kwh=data.get("average_daily_kwh"),
+        annual_usage_kwh=data.get("annual_usage_kwh"),
         household_size=data.get("household_size"),
+        utility_types=data.get("utility_types"),
+        onboarding_completed=data.get("onboarding_completed", False),
         consent_given=data.get("consent_given", False),
         consent_date=data.get("consent_date"),
         data_processing_agreed=data.get("data_processing_agreed", False),
@@ -146,7 +151,7 @@ class UserRepository(BaseRepository[User]):
                     "email": entity.email,
                     "name": entity.name,
                     "region": entity.region,
-                    "preferences": str(entity.preferences) if entity.preferences else "{}",
+                    "preferences": json.dumps(entity.preferences) if entity.preferences else "{}",
                     "current_supplier": entity.current_supplier,
                     "is_active": entity.is_active,
                     "is_verified": entity.is_verified,
@@ -168,6 +173,18 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to create user: {str(e)}", e)
 
+    # Columns allowed in dynamic UPDATE SET clause (prevents SQL injection via field names)
+    _UPDATABLE_COLUMNS = frozenset({
+        "email", "name", "region", "preferences",
+        "current_supplier", "is_active", "is_verified",
+        "subscription_tier", "stripe_customer_id",
+        "email_verified", "current_tariff",
+        "average_daily_kwh", "household_size",
+        "current_supplier_id", "utility_types",
+        "annual_usage_kwh", "onboarding_completed",
+        "updated_at",
+    })
+
     async def update(self, id: str, entity: User) -> Optional[User]:
         """Update an existing user."""
         try:
@@ -177,6 +194,8 @@ class UserRepository(BaseRepository[User]):
             updates.pop("id", None)
             updates.pop("created_at", None)
             updates["updated_at"] = datetime.now(timezone.utc)
+            # Only allow known columns
+            updates = {k: v for k, v in updates.items() if k in self._UPDATABLE_COLUMNS}
 
             if not updates:
                 return await self.get_by_id(id)
@@ -187,7 +206,7 @@ class UserRepository(BaseRepository[User]):
                 param_name = f"p_{field}"
                 if field == "preferences":
                     set_clauses.append(f"{field} = :{param_name}::jsonb")
-                    params[param_name] = str(value) if value else "{}"
+                    params[param_name] = json.dumps(value) if value else "{}"
                 elif field == "average_daily_kwh" and value is not None:
                     set_clauses.append(f"{field} = :{param_name}")
                     params[param_name] = float(value)

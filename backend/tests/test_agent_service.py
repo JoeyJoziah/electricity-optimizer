@@ -136,10 +136,14 @@ async def test_query_with_user_context(agent_service, mock_db, user_context):
         assert len(assistant_msgs) == 1
         assert assistant_msgs[0].model_used == "gemini-3-flash-preview"
 
-        # Verify system prompt included user context
+        # Verify system prompt included user context (passed via config.system_instruction)
         call_args = mock_client.models.generate_content.call_args
+        config = call_args.kwargs.get("config", {})
+        system_instruction = config.get("system_instruction", "")
+        assert "us_ct" in system_instruction or "Connecticut" in system_instruction or "Eversource" in system_instruction
+        # User prompt should be passed separately as contents
         contents = call_args.kwargs.get("contents") or call_args[1].get("contents", "")
-        assert "us_ct" in contents or "Connecticut" in contents or "Eversource" in contents
+        assert contents == "How can I save?"
 
 
 # =============================================================================

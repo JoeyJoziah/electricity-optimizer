@@ -609,8 +609,13 @@ class GDPRComplianceService:
         """
         Delete all user data (Right to Erasure).
 
-        Implements GDPR Article 17. Creates an immutable deletion
-        log for audit purposes.
+        Implements GDPR Article 17. All database deletions are executed
+        within a single transaction — if any step fails, all changes
+        are rolled back (atomic all-or-nothing semantics).
+
+        File cleanup (bill upload files) happens after the DB commit
+        and is best-effort; filesystem failures are logged but do not
+        re-raise since the DB records are already gone.
 
         Args:
             user_id: User's ID
@@ -624,7 +629,7 @@ class GDPRComplianceService:
 
         Raises:
             UserNotFoundError: If user does not exist
-            DataDeletionError: If deletion fails
+            DataDeletionError: If deletion fails (all changes rolled back)
         """
         logger.info(
             "deleting_user_data",
@@ -633,146 +638,186 @@ class GDPRComplianceService:
             anonymize_retained=anonymize_retained
         )
 
+        # Verify user exists (read-only check before starting transaction)
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(user_id)
+
+        if not self.db_session:
+            raise DataDeletionError(
+                "Database session required for atomic GDPR deletion"
+            )
+
+        from sqlalchemy import text as sa_text
+
+        deleted_categories: List[str] = []
+        upload_files_to_delete: List[str] = []
+
         try:
-            # Verify user exists
-            user = await self.user_repo.get_by_id(user_id)
-            if not user:
-                raise UserNotFoundError(user_id)
+            # --- Atomic transaction: all DELETEs or none ---
 
-            deleted_categories = []
-
-            # Delete consent records
-            await self.consent_repo.delete_by_user_id(user_id)
+            # 1. Delete consent records
+            await self.db_session.execute(
+                sa_text("DELETE FROM consent_records WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
             deleted_categories.append("consents")
 
-            # Delete price alerts (if repository available)
-            if self.price_alert_repo:
-                await self.price_alert_repo.delete_by_user_id(user_id)
-                deleted_categories.append("price_alerts")
+            # 2. Delete price alerts
+            await self.db_session.execute(
+                sa_text("DELETE FROM price_alerts WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("price_alerts")
 
-            # Delete recommendations (if repository available)
-            if self.recommendation_repo:
-                await self.recommendation_repo.delete_by_user_id(user_id)
-                deleted_categories.append("recommendations")
+            # 3. Delete recommendations
+            await self.db_session.execute(
+                sa_text("DELETE FROM recommendations WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("recommendations")
 
-            # Delete activity logs (if repository available)
-            if self.activity_log_repo:
-                if anonymize_retained:
-                    await self.activity_log_repo.anonymize_by_user_id(user_id)
-                else:
-                    await self.activity_log_repo.delete_by_user_id(user_id)
-                deleted_categories.append("activity_logs")
+            # 4. Handle activity logs
+            if anonymize_retained:
+                await self.db_session.execute(
+                    sa_text(
+                        "UPDATE activity_logs SET user_id = 'anonymized' "
+                        "WHERE user_id = :uid"
+                    ),
+                    {"uid": user_id},
+                )
+            else:
+                await self.db_session.execute(
+                    sa_text("DELETE FROM activity_logs WHERE user_id = :uid"),
+                    {"uid": user_id},
+                )
+            deleted_categories.append("activity_logs")
 
-            # Delete linked supplier accounts and connection data (if DB session available)
-            if self.db_session:
-                try:
-                    from sqlalchemy import text as sa_text
-
-                    # Delete extracted rates (child of connections)
-                    await self.db_session.execute(
-                        sa_text("""
-                            DELETE FROM connection_extracted_rates
-                            WHERE connection_id IN (
-                                SELECT id FROM user_connections WHERE user_id = :user_id
-                            )
-                        """),
-                        {"user_id": user_id},
+            # 5. Delete extracted rates (child of connections)
+            await self.db_session.execute(
+                sa_text("""
+                    DELETE FROM connection_extracted_rates
+                    WHERE connection_id IN (
+                        SELECT id FROM user_connections WHERE user_id = :uid
                     )
-                    deleted_categories.append("extracted_rates")
+                """),
+                {"uid": user_id},
+            )
+            deleted_categories.append("extracted_rates")
 
-                    # Delete bill uploads and their files
-                    bill_result = await self.db_session.execute(
-                        sa_text("""
-                            SELECT id, filename FROM bill_uploads
-                            WHERE connection_id IN (
-                                SELECT id FROM user_connections WHERE user_id = :user_id
-                            )
-                        """),
-                        {"user_id": user_id},
+            # 6. Collect bill upload file paths for post-commit cleanup
+            bill_result = await self.db_session.execute(
+                sa_text("""
+                    SELECT id FROM bill_uploads
+                    WHERE connection_id IN (
+                        SELECT id FROM user_connections WHERE user_id = :uid
                     )
-                    for row in bill_result.mappings().all():
-                        try:
-                            import os
-                            upload_path = os.path.join("uploads", str(row["id"]))
-                            if os.path.exists(upload_path):
-                                os.remove(upload_path)
-                        except Exception as e:
-                            logger.error(
-                                "gdpr_file_deletion_failed",
-                                user_id=user_id,
-                                upload_id=str(row["id"]),
-                                error=str(e),
-                            )
-                            raise
+                """),
+                {"uid": user_id},
+            )
+            for row in bill_result.mappings().all():
+                import os
+                upload_files_to_delete.append(
+                    os.path.join("uploads", str(row["id"]))
+                )
 
-                    await self.db_session.execute(
-                        sa_text("""
-                            DELETE FROM bill_uploads
-                            WHERE connection_id IN (
-                                SELECT id FROM user_connections WHERE user_id = :user_id
-                            )
-                        """),
-                        {"user_id": user_id},
+            await self.db_session.execute(
+                sa_text("""
+                    DELETE FROM bill_uploads
+                    WHERE connection_id IN (
+                        SELECT id FROM user_connections WHERE user_id = :uid
                     )
-                    deleted_categories.append("bill_uploads")
+                """),
+                {"uid": user_id},
+            )
+            deleted_categories.append("bill_uploads")
 
-                    # Delete user connections
-                    await self.db_session.execute(
-                        sa_text("DELETE FROM user_connections WHERE user_id = :user_id"),
-                        {"user_id": user_id},
-                    )
-                    deleted_categories.append("connections")
+            # 7. Delete user connections
+            await self.db_session.execute(
+                sa_text("DELETE FROM user_connections WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("connections")
 
-                    # Delete supplier accounts
-                    await self.db_session.execute(
-                        sa_text("DELETE FROM user_supplier_accounts WHERE user_id = :user_id"),
-                        {"user_id": user_id},
-                    )
-                    deleted_categories.append("supplier_accounts")
-                except Exception as e:
-                    logger.warning("connection_data_deletion_failed", error=str(e))
+            # 8. Delete supplier accounts
+            await self.db_session.execute(
+                sa_text(
+                    "DELETE FROM user_supplier_accounts WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            )
+            deleted_categories.append("supplier_accounts")
 
-            # Delete user profile
-            await self.user_repo.delete(user_id)
+            # 9. Delete AI agent data
+            await self.db_session.execute(
+                sa_text("DELETE FROM agent_conversations WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            await self.db_session.execute(
+                sa_text("DELETE FROM agent_tasks WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            await self.db_session.execute(
+                sa_text("DELETE FROM agent_usage_daily WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("agent_data")
+
+            # 10. Delete user profile (last — FK constraints)
+            await self.db_session.execute(
+                sa_text("DELETE FROM users WHERE id = :uid"),
+                {"uid": user_id},
+            )
             deleted_categories.append("profile")
 
-            # Create deletion log
-            deletion_log = DeletionLog(
-                id=str(uuid4()),
-                user_id=user_id,
-                deleted_at=datetime.now(timezone.utc),
-                deleted_by=deleted_by or user_id,
-                deletion_type="anonymization" if anonymize_retained else "full",
-                ip_address=ip_address,
-                user_agent=user_agent,
-                data_categories_deleted=deleted_categories,
-                legal_basis="user_request",
-            )
+            # Single commit for the entire transaction
+            await self.db_session.commit()
 
-            # TODO: Persist the deletion_log to an immutable audit store.
-            # This is commented out because DeletionLogRepository has not been
-            # implemented yet and is not injected into GDPRComplianceService.__init__.
-            # Until it exists, GDPR deletion audit trail is not durably persisted.
-            # Tracked as tech debt — implement DeletionLogRepository and wire it in.
-            # await self.deletion_log_repo.create(deletion_log)
-
-            logger.info(
-                "user_data_deleted",
-                user_id=user_id,
-                categories_deleted=deleted_categories
-            )
-
-            return deletion_log
-
-        except UserNotFoundError:
-            raise
         except Exception as e:
+            await self.db_session.rollback()
             logger.error(
                 "data_deletion_failed",
                 user_id=user_id,
                 error=str(e)
             )
-            raise DataDeletionError(f"Failed to delete user data: {str(e)}") from e
+            raise DataDeletionError(
+                f"Failed to delete user data: {str(e)}"
+            ) from e
+
+        # --- Post-commit: best-effort file cleanup ---
+        for path in upload_files_to_delete:
+            try:
+                import os
+                if os.path.exists(path):
+                    os.remove(path)
+            except Exception as e:
+                logger.warning(
+                    "gdpr_file_cleanup_failed",
+                    user_id=user_id,
+                    path=path,
+                    error=str(e),
+                )
+
+        # Create deletion log
+        deletion_log = DeletionLog(
+            id=str(uuid4()),
+            user_id=user_id,
+            deleted_at=datetime.now(timezone.utc),
+            deleted_by=deleted_by or user_id,
+            deletion_type="anonymization" if anonymize_retained else "full",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            data_categories_deleted=deleted_categories,
+            legal_basis="user_request",
+        )
+
+        logger.info(
+            "user_data_deleted",
+            user_id=user_id,
+            categories_deleted=deleted_categories
+        )
+
+        return deletion_log
 
 
 # =============================================================================

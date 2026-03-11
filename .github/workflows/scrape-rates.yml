@@ -6,6 +6,8 @@ on:
     - cron: "0 3 * * *"
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: scrape-rates
   cancel-in-progress: false

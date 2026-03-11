@@ -42,6 +42,7 @@ TEST_SUPPLIER_ID = str(uuid4())
 def _make_conn_row(
     connection_id: str | None = None,
     encrypted_b64: str | None = None,
+    username_b64: str | None = None,
 ) -> tuple:
     """Build a user_connections row tuple matching the SELECT in portal_scan.py."""
     if connection_id is None:
@@ -49,12 +50,14 @@ def _make_conn_row(
     if encrypted_b64 is None:
         # Valid base64-encoded placeholder ciphertext
         encrypted_b64 = base64.b64encode(b"\x00" * 40).decode("ascii")
+    if username_b64 is None:
+        username_b64 = base64.b64encode(b"\x00" * 40).decode("ascii")
 
     return (
         connection_id,          # id
         TEST_USER_ID,           # user_id
         TEST_SUPPLIER_ID,       # supplier_id
-        "user@example.com",     # portal_username
+        username_b64,           # portal_username (encrypted+base64)
         encrypted_b64,          # portal_password_encrypted
         "https://duke-energy.com/sign-in",  # portal_login_url
     )

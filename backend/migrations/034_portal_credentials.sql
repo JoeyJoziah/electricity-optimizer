@@ -8,7 +8,11 @@
 -- portal scraping (Phase 3 of Utility Account Integration).
 --
 -- New columns on user_connections:
---   portal_username             — plaintext username for portal login
+--   portal_username             — AES-256-GCM encrypted at the application layer
+--                                 (encrypt_field() in portal_scrape.py). Column type
+--                                 is VARCHAR(255) storing base64-encoded ciphertext.
+--                                 Despite the column name, values are NEVER stored as
+--                                 plaintext in production.
 --   portal_password_encrypted   — AES-256-GCM encrypted password (BYTEA)
 --   portal_login_url            — override login URL (optional; falls back to
 --                                 known utility defaults in PortalScraperService)

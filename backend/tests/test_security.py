@@ -62,10 +62,10 @@ class TestSecurityHeaders:
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
 
     @pytest.mark.asyncio
-    async def test_xss_protection_header(self, security_app):
-        """Test X-XSS-Protection header"""
+    async def test_xss_protection_header_absent(self, security_app):
+        """X-XSS-Protection is intentionally omitted (deprecated, potentially harmful)."""
         response = security_app.get("/test")
-        assert response.headers.get("X-XSS-Protection") == "1; mode=block"
+        assert response.headers.get("X-XSS-Protection") is None
 
     @pytest.mark.asyncio
     async def test_csp_header_present(self, security_app):

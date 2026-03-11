@@ -7,6 +7,8 @@ on:
       - 'workers/api-gateway/**'
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: deploy-worker
   cancel-in-progress: false

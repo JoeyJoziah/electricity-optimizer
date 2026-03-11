@@ -124,6 +124,10 @@ Thumbs.db
 .loki/
 .mcp.backup_*.json
 
+# Claude Code local settings (contains auto-approved permission patterns — may embed secrets)
+.claude/settings.local.json
+.claude/worktrees/
+
 # Project Intelligence (generated, symlinked to .loki/)
 .project-intelligence/
 

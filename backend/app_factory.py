@@ -127,18 +127,28 @@ class RequestBodySizeLimitMiddleware:
         method: str = scope.get("method", "")
         if method in ("POST", "PUT", "PATCH") and content_length_value is None:
             bytes_received = 0
+            response_started = False
+            limit_exceeded = False
 
             async def counting_receive() -> dict:
-                nonlocal bytes_received
+                nonlocal bytes_received, limit_exceeded
                 message = await receive()
                 if message.get("type") == "http.request":
                     bytes_received += len(message.get("body", b""))
                     if bytes_received > max_bytes:
-                        await self._send_413(send, max_bytes)
+                        limit_exceeded = True
                         return {"type": "http.request", "body": b"", "more_body": False}
                 return message
 
-            await self.app(scope, counting_receive, send)
+            async def guarded_send(message: dict) -> None:
+                nonlocal response_started
+                if message.get("type") == "http.response.start":
+                    response_started = True
+                await send(message)
+
+            await self.app(scope, counting_receive, guarded_send)
+            if limit_exceeded and not response_started:
+                await self._send_413(send, max_bytes)
             return
 
         await self.app(scope, receive, send)
@@ -194,22 +204,31 @@ class RequestTimeoutMiddleware:
             await self.app(scope, receive, send)
             return
 
+        response_started = False
+
+        async def guarded_send(message: dict) -> None:
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
         try:
             await asyncio.wait_for(
-                self.app(scope, receive, send),
+                self.app(scope, receive, guarded_send),
                 timeout=REQUEST_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
-            body = json.dumps({"detail": "Request timed out"}).encode("utf-8")
-            await send({
-                "type": "http.response.start",
-                "status": 504,
-                "headers": [
-                    [b"content-type", b"application/json"],
-                    [b"content-length", str(len(body)).encode()],
-                ],
-            })
-            await send({"type": "http.response.body", "body": body})
+            if not response_started:
+                body = json.dumps({"detail": "Request timed out"}).encode("utf-8")
+                await send({
+                    "type": "http.response.start",
+                    "status": 504,
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                        [b"content-length", str(len(body)).encode()],
+                    ],
+                })
+                await send({"type": "http.response.body", "body": body})
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +382,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key", "X-Fallback-Mode"],
     )
 
     # GZip compression
@@ -460,6 +479,14 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
             path=request.url.path,
             method=request.method,
         )
+
+        # Capture to Sentry so 500s are visible in the dashboard
+        if settings.sentry_dsn:
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_exception(exc)
+            except Exception:
+                pass
 
         if settings.is_production:
             return JSONResponse(

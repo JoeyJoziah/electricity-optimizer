@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Boolean, DateTime, JSON, text
+from sqlalchemy import Column, ForeignKey, String, Boolean, DateTime, JSON, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,7 +29,9 @@ class ConsentRecordORM(Base):
     __tablename__ = "consent_records"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
     purpose: Mapped[str] = mapped_column(String(50), nullable=False)
     consent_given: Mapped[bool] = mapped_column(Boolean, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -48,9 +50,11 @@ class DeletionLogORM(Base):
     __tablename__ = "deletion_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=False
+    )
     deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    deleted_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    deleted_by: Mapped[str] = mapped_column(String(100), nullable=False)
     deletion_type: Mapped[str] = mapped_column(String(20), nullable=False)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=False)
     user_agent: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -181,6 +185,10 @@ class ConsentRepository:
         """
         Get latest consent status for each purpose.
 
+        Uses DISTINCT ON to fetch only the most recent record per purpose
+        in a single query instead of fetching all records and filtering
+        in Python.
+
         Args:
             user_id: User's ID
             purpose: Optional specific purpose
@@ -188,20 +196,35 @@ class ConsentRepository:
         Returns:
             Dict mapping purpose to consent status
         """
-        # Get all records for user, ordered by timestamp
-        records = await self.get_by_user_id(user_id)
+        if purpose:
+            query = text(
+                "SELECT DISTINCT ON (purpose) purpose, consent_given "
+                "FROM consent_records "
+                "WHERE user_id = :uid AND purpose = :purpose "
+                "ORDER BY purpose, timestamp DESC"
+            )
+            result = await self.session.execute(
+                query, {"uid": user_id, "purpose": purpose}
+            )
+        else:
+            query = text(
+                "SELECT DISTINCT ON (purpose) purpose, consent_given "
+                "FROM consent_records "
+                "WHERE user_id = :uid "
+                "ORDER BY purpose, timestamp DESC"
+            )
+            result = await self.session.execute(query, {"uid": user_id})
 
-        # Build dict of latest consent per purpose
-        status = {}
-        for record in records:
-            if record.purpose not in status:
-                status[record.purpose] = record.consent_given
-
-        return status
+        rows = result.fetchall()
+        return {row[0]: row[1] for row in rows}
 
     async def delete_by_user_id(self, user_id: str) -> int:
         """
         Delete all consent records for a user.
+
+        Note: Does NOT commit — caller is responsible for transaction management.
+        This method is called from within the GDPR atomic deletion block, so
+        committing here would break the parent transaction's rollback coverage.
 
         Args:
             user_id: User's ID
@@ -213,7 +236,6 @@ class ConsentRepository:
             text("DELETE FROM consent_records WHERE user_id = :user_id"),
             {"user_id": user_id}
         )
-        await self.session.commit()
 
         return result.rowcount
 

@@ -28,69 +28,67 @@ class KPIReportService:
 
     async def aggregate_metrics(self) -> Dict[str, Any]:
         """
-        Collect all KPI metrics in a single pass.
+        Collect all KPI metrics in a single DB round-trip.
+
+        Uses a multi-CTE query to fetch scalar metrics in one statement,
+        followed by two lightweight GROUP BY queries for breakdowns.
+        This replaces the previous 7-sequential-await pattern (MED-09).
 
         Returns dict with:
             active_users_7d, total_users, prices_tracked, alerts_sent_today,
             connections_active, subscription_breakdown, estimated_mrr,
             weather_freshness_hours
         """
-        active_users_7d = await self._count_active_users_7d()
-        total_users = await self._count_total_users()
-        prices_tracked = await self._count_prices_tracked()
-        alerts_sent_today = await self._count_alerts_sent_today()
+        # Single CTE query for all scalar metrics (was 5 sequential queries)
+        scalars = await self._db.execute(
+            text("""
+                WITH active AS (
+                    SELECT COUNT(DISTINCT "userId") AS val
+                    FROM neon_auth.session
+                    WHERE "updatedAt" >= NOW() - INTERVAL '7 days'
+                ),
+                total AS (
+                    SELECT COUNT(*) AS val FROM users WHERE is_active = TRUE
+                ),
+                prices AS (
+                    SELECT COALESCE(reltuples, 0)::bigint AS val
+                    FROM pg_class WHERE relname = 'electricity_prices'
+                ),
+                alerts AS (
+                    SELECT COUNT(*) AS val FROM alert_history
+                    WHERE triggered_at >= CURRENT_DATE AND email_sent = TRUE
+                ),
+                freshness AS (
+                    SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp))) / 3600.0 AS val
+                    FROM electricity_prices
+                )
+                SELECT
+                    (SELECT val FROM active) AS active_users_7d,
+                    (SELECT val FROM total) AS total_users,
+                    (SELECT val FROM prices) AS prices_tracked,
+                    (SELECT val FROM alerts) AS alerts_sent_today,
+                    (SELECT val FROM freshness) AS weather_freshness
+            """)
+        )
+        row = scalars.mappings().one()
+
+        # Two lightweight GROUP BY queries (breakdown results need row iteration)
         connections = await self._connection_status_breakdown()
         subscriptions = await self._subscription_breakdown()
         mrr = self._calculate_mrr(subscriptions)
-        weather_freshness = await self._weather_freshness_hours()
+
+        weather = row["weather_freshness"]
 
         return {
-            "active_users_7d": active_users_7d,
-            "total_users": total_users,
-            "prices_tracked": prices_tracked,
-            "alerts_sent_today": alerts_sent_today,
+            "active_users_7d": row["active_users_7d"] or 0,
+            "total_users": row["total_users"] or 0,
+            "prices_tracked": row["prices_tracked"] or 0,
+            "alerts_sent_today": row["alerts_sent_today"] or 0,
             "connections_active": connections,
             "subscription_breakdown": subscriptions,
             "estimated_mrr": mrr,
-            "weather_freshness_hours": weather_freshness,
+            "weather_freshness_hours": round(float(weather), 1) if weather is not None else None,
         }
-
-    async def _count_active_users_7d(self) -> int:
-        result = await self._db.execute(
-            text("""
-                SELECT COUNT(DISTINCT "userId") FROM neon_auth.session
-                WHERE "updatedAt" >= NOW() - INTERVAL '7 days'
-            """)
-        )
-        return result.scalar() or 0
-
-    async def _count_total_users(self) -> int:
-        result = await self._db.execute(
-            text("SELECT COUNT(*) FROM users WHERE is_active = TRUE")
-        )
-        return result.scalar() or 0
-
-    async def _count_prices_tracked(self) -> int:
-        # Use pg_class.reltuples for approximate count — avoids full table scan
-        # on large electricity_prices table (KPI report only needs ballpark)
-        result = await self._db.execute(
-            text("""
-                SELECT COALESCE(reltuples, 0)::bigint
-                FROM pg_class
-                WHERE relname = 'electricity_prices'
-            """)
-        )
-        return result.scalar() or 0
-
-    async def _count_alerts_sent_today(self) -> int:
-        result = await self._db.execute(
-            text("""
-                SELECT COUNT(*) FROM alert_history
-                WHERE triggered_at >= CURRENT_DATE
-                  AND email_sent = TRUE
-            """)
-        )
-        return result.scalar() or 0
 
     async def _connection_status_breakdown(self) -> Dict[str, int]:
         result = await self._db.execute(
@@ -121,17 +119,3 @@ class KPIReportService:
         business_count = subscriptions.get("business", 0)
         return round(pro_count * 4.99 + business_count * 14.99, 2)
 
-    async def _weather_freshness_hours(self) -> Optional[float]:
-        try:
-            result = await self._db.execute(
-                text("""
-                    SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp))) / 3600.0
-                    FROM electricity_prices
-                """)
-            )
-            val = result.scalar()
-            if val is None:
-                return None
-            return round(float(val), 1)
-        except Exception:
-            return None

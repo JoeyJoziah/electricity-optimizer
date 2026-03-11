@@ -1,0 +1,18 @@
+{
+  "id": "cf-worker-resilience_20260311",
+  "title": "CF Worker API Gateway Resilience & Rate Limit Overhaul",
+  "type": "feature",
+  "status": "in_progress",
+  "created": "2026-03-11T00:00:00Z",
+  "updated": "2026-03-11T15:30:00Z",
+  "current_phase": 5,
+  "current_task": "5.7",
+  "phases": {
+    "total": 5,
+    "completed": 5
+  },
+  "tasks": {
+    "total": 38,
+    "completed": 38
+  }
+}

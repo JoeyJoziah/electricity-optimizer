@@ -18,7 +18,6 @@ class SecurityHeadersMiddleware:
     - Content-Security-Policy (CSP)
     - X-Frame-Options
     - X-Content-Type-Options
-    - X-XSS-Protection
     - Strict-Transport-Security (HSTS)
     - Referrer-Policy
     - Permissions-Policy
@@ -91,9 +90,6 @@ class SecurityHeadersMiddleware:
                 # X-Content-Type-Options: Prevent MIME type sniffing
                 headers["X-Content-Type-Options"] = "nosniff"
 
-                # X-XSS-Protection: Enable browser XSS filtering
-                headers["X-XSS-Protection"] = "1; mode=block"
-
                 # Content-Security-Policy
                 headers["Content-Security-Policy"] = self.csp_policy
 
@@ -145,5 +141,4 @@ def add_security_headers(response) -> None:
     """
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

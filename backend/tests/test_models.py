@@ -291,6 +291,61 @@ class TestUserModel:
         assert user.created_at is not None
         assert isinstance(user.created_at, datetime)
 
+    def test_user_model_validates_region_enum(self):
+        """Test User model rejects invalid region values."""
+        from models.user import User
+
+        with pytest.raises(ValidationError, match="Invalid region"):
+            User(
+                email="test@example.com",
+                name="Test User",
+                region="invalid_region"
+            )
+
+    def test_user_model_accepts_valid_us_region(self):
+        """Test User model accepts valid US state region."""
+        from models.user import User
+
+        user = User(
+            email="test@example.com",
+            name="Test User",
+            region="us_ny"
+        )
+        assert user.region == "us_ny"
+
+    def test_user_model_accepts_valid_international_region(self):
+        """Test User model accepts valid international region."""
+        from models.user import User
+
+        user = User(
+            email="test@example.com",
+            name="Test User",
+            region="uk"
+        )
+        assert user.region == "uk"
+
+    def test_user_model_region_case_insensitive(self):
+        """Test User model normalizes region to lowercase."""
+        from models.user import User
+
+        user = User(
+            email="test@example.com",
+            name="Test User",
+            region="US_CT"
+        )
+        assert user.region == "us_ct"
+
+    def test_user_model_region_none_is_valid(self):
+        """Test User model allows None region."""
+        from models.user import User
+
+        user = User(
+            email="test@example.com",
+            name="Test User",
+            region=None
+        )
+        assert user.region is None
+
 
 class TestUserPreferencesModel:
     """Tests for UserPreferences model"""

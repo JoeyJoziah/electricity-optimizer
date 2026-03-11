@@ -11,6 +11,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, EmailStr, field_validator, ConfigDict
 
+from models.region import Region
+
 
 class UserPreferences(BaseModel):
     """
@@ -58,10 +60,7 @@ class User(BaseModel):
     User model representing a platform user.
     """
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str}
-    )
+    model_config = ConfigDict(from_attributes=True)
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     email: EmailStr
@@ -82,11 +81,17 @@ class User(BaseModel):
 
     # Current supplier info
     current_supplier: Optional[str] = None
+    current_supplier_id: Optional[str] = None
     current_tariff: Optional[str] = None
 
     # Usage data
     average_daily_kwh: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    annual_usage_kwh: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
     household_size: Optional[int] = Field(default=None, ge=1)
+    utility_types: Optional[List[str]] = None
+
+    # Onboarding
+    onboarding_completed: bool = False
 
     # GDPR compliance
     consent_given: bool = False
@@ -101,10 +106,18 @@ class User(BaseModel):
     @field_validator("region")
     @classmethod
     def validate_region(cls, v: Optional[str]) -> Optional[str]:
-        """Ensure region is lowercase"""
+        """Ensure region is a valid Region enum value (lowercase)."""
         if v is None:
             return v
-        return v.lower()
+        lowered = v.lower()
+        try:
+            Region(lowered)
+        except ValueError:
+            raise ValueError(
+                f"Invalid region '{v}'. Must be a valid Region enum value "
+                f"(e.g. 'us_ct', 'us_ny', 'uk')."
+            )
+        return lowered
 
     @field_validator("created_at", "updated_at", "last_login", "consent_date")
     @classmethod

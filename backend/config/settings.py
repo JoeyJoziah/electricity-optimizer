@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
 
     # Application
-    app_name: str = "Electricity Optimizer API"
+    app_name: str = "RateShift API"
     app_version: str = "0.1.0"
     environment: str = Field(default="development", validation_alias="ENVIRONMENT")
     debug: bool = Field(default=False)
@@ -56,7 +56,10 @@ class Settings(BaseSettings):
     redis_password: Optional[str] = Field(default=None, validation_alias="REDIS_PASSWORD")
 
     # Internal API Key (HMAC signing for service-to-service auth)
-    jwt_secret: str = Field(default="dev-secret-change-in-production", validation_alias="JWT_SECRET")
+    jwt_secret: str = Field(
+        default_factory=lambda: __import__("secrets").token_hex(32),
+        validation_alias="JWT_SECRET",
+    )
 
     # Service-to-service API key (must NOT be the same as jwt_secret)
     internal_api_key: Optional[str] = Field(default=None, validation_alias="INTERNAL_API_KEY")
@@ -74,20 +77,20 @@ class Settings(BaseSettings):
     openweathermap_api_key: Optional[str] = Field(default=None, validation_alias="OPENWEATHERMAP_API_KEY")
 
     # Rate Scraping (Diffbot — free tier, 10K credits/month)
-    diffbot_api_token: str = Field(default="", validation_alias="DIFFBOT_API_TOKEN")
+    diffbot_api_token: Optional[str] = Field(default=None, validation_alias="DIFFBOT_API_TOKEN")
 
     # Market Intelligence (Tavily — free tier, 1K searches/month)
-    tavily_api_key: str = Field(default="", validation_alias="TAVILY_API_KEY")
+    tavily_api_key: Optional[str] = Field(default=None, validation_alias="TAVILY_API_KEY")
 
     # Geocoding (Google Maps — free tier, 10K geocodes/month, card required)
-    google_maps_api_key: str = Field(default="", validation_alias="GOOGLE_MAPS_API_KEY")
+    google_maps_api_key: Optional[str] = Field(default=None, validation_alias="GOOGLE_MAPS_API_KEY")
 
     # Push Notifications (OneSignal — free tier, unlimited mobile push)
-    onesignal_app_id: str = Field(default="", validation_alias="ONESIGNAL_APP_ID")
-    onesignal_rest_api_key: str = Field(default="", validation_alias="ONESIGNAL_REST_API_KEY")
+    onesignal_app_id: Optional[str] = Field(default=None, validation_alias="ONESIGNAL_APP_ID")
+    onesignal_rest_api_key: Optional[str] = Field(default=None, validation_alias="ONESIGNAL_REST_API_KEY")
 
     # Uptime Monitoring (UptimeRobot — free tier, 50 monitors)
-    uptimerobot_api_key: str = Field(default="", validation_alias="UPTIMEROBOT_API_KEY")
+    uptimerobot_api_key: Optional[str] = Field(default=None, validation_alias="UPTIMEROBOT_API_KEY")
 
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=100, validation_alias="RATE_LIMIT_PER_MINUTE")
@@ -232,7 +235,6 @@ class Settings(BaseSettings):
         """Ensure JWT secret is not using default value in production"""
         env = os.environ.get("ENVIRONMENT", "development")
         insecure_defaults = [
-            "dev-secret-change-in-production",
             "your-super-secret-key-change-in-production",
             "dev-local-secret-key-2026",
             "secret",
@@ -260,6 +262,84 @@ class Settings(BaseSettings):
                 "Generate one with: openssl rand -hex 32"
             )
         return v
+
+    @field_validator("internal_api_key")
+    @classmethod
+    def validate_internal_api_key(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure internal API key is present and strong in production."""
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production":
+            if not v:
+                raise ValueError(
+                    "CRITICAL: INTERNAL_API_KEY must be set in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
+            if len(v) < 32:
+                raise ValueError(
+                    "INTERNAL_API_KEY must be at least 32 characters in production."
+                )
+        return v
+
+    @field_validator("stripe_secret_key")
+    @classmethod
+    def validate_stripe_secret_key(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure Stripe secret key is present and valid in production."""
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production":
+            if not v:
+                raise ValueError(
+                    "CRITICAL: STRIPE_SECRET_KEY must be set in production."
+                )
+            if not v.startswith("sk_"):
+                raise ValueError(
+                    "STRIPE_SECRET_KEY must start with 'sk_' (live or test key)."
+                )
+        return v
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure database URL is present and valid in production."""
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production":
+            if not v:
+                raise ValueError(
+                    "CRITICAL: DATABASE_URL must be set in production."
+                )
+            if not v.startswith("postgresql://"):
+                raise ValueError(
+                    "DATABASE_URL must start with 'postgresql://' in production."
+                )
+        return v
+
+    @field_validator("resend_api_key")
+    @classmethod
+    def validate_resend_api_key(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure Resend API key is present and valid in production."""
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production":
+            if not v:
+                raise ValueError(
+                    "CRITICAL: RESEND_API_KEY must be set in production."
+                )
+            if not v.startswith("re_"):
+                raise ValueError(
+                    "RESEND_API_KEY must start with 're_'."
+                )
+        return v
+
+    @model_validator(mode="after")
+    def validate_ai_agent_keys(self) -> "Settings":
+        """Ensure AI agent has required credentials when enabled in production."""
+        if (
+            self.enable_ai_agent
+            and self.gemini_api_key is None
+            and os.environ.get("ENVIRONMENT", "development") == "production"
+        ):
+            raise ValueError(
+                "CRITICAL: GEMINI_API_KEY must be set when ENABLE_AI_AGENT=true in production."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_api_key_differs_from_jwt(self) -> "Settings":

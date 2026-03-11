@@ -19,9 +19,15 @@ runs:
   steps:
     - name: Send Slack notification
       shell: bash
+      env:
+        SLACK_WEBHOOK_URL: ${{ inputs.webhook-url }}
+        SLACK_SEVERITY: ${{ inputs.severity }}
+        SLACK_WORKFLOW_NAME: ${{ inputs.workflow-name }}
+        SLACK_RUN_URL: ${{ inputs.run-url }}
+        SLACK_REPOSITORY: ${{ github.repository }}
       run: |
         # Map severity to color
-        case "${{ inputs.severity }}" in
+        case "${SLACK_SEVERITY}" in
           critical) COLOR="danger" ;;
           warning)  COLOR="warning" ;;
           info)     COLOR="#439FE0" ;;
@@ -29,7 +35,7 @@ runs:
         esac
 
         # Map severity to emoji
-        case "${{ inputs.severity }}" in
+        case "${SLACK_SEVERITY}" in
           critical) EMOJI=":rotating_light:" ;;
           warning)  EMOJI=":warning:" ;;
           info)     EMOJI=":information_source:" ;;
@@ -46,13 +52,13 @@ runs:
               "type": "section",
               "text": {
                 "type": "mrkdwn",
-                "text": "${EMOJI} *CI/CD Alert: ${{ inputs.workflow-name }}*\nSeverity: ${{ inputs.severity }}\n<${{ inputs.run-url }}|View Run Logs>"
+                "text": "${EMOJI} *CI/CD Alert: ${SLACK_WORKFLOW_NAME}*\nSeverity: ${SLACK_SEVERITY}\n<${SLACK_RUN_URL}|View Run Logs>"
               }
             }, {
               "type": "context",
               "elements": [{
                 "type": "mrkdwn",
-                "text": "Triggered at ${TIMESTAMP} | Repository: ${{ github.repository }}"
+                "text": "Triggered at ${TIMESTAMP} | Repository: ${SLACK_REPOSITORY}"
               }]
             }]
           }]
@@ -63,4 +69,4 @@ runs:
         curl -fsS -X POST \
           -H 'Content-Type: application/json' \
           -d "${PAYLOAD}" \
-          "${{ inputs.webhook-url }}" || true
+          "${SLACK_WEBHOOK_URL}" || true

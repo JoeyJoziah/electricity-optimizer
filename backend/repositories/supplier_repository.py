@@ -35,7 +35,12 @@ class SupplierRepository(BaseRepository[Supplier]):
     """
     Repository for managing supplier data.
 
-    Provides data access methods for suppliers and their tariffs.
+    .. deprecated::
+        This repository uses Pydantic models with SQLAlchemy ORM calls
+        (select/add), which is fundamentally broken at runtime. Use
+        :class:`SupplierRegistryRepository` for all production code paths.
+        Retained only for backwards compatibility with existing tests.
+
     Wraps get_by_name() and list_by_region() with a Redis TTL cache
     (1 hour).  All other write paths call clear_cache() to keep the
     cache consistent.
@@ -152,7 +157,7 @@ class SupplierRepository(BaseRepository[Supplier]):
             supplier = result.scalar_one_or_none()
 
             if supplier is not None:
-                await self._cache_set(cache_key, supplier.__dict__.copy())
+                await self._cache_set(cache_key, supplier.model_dump())
 
             return supplier
 
@@ -345,7 +350,7 @@ class SupplierRepository(BaseRepository[Supplier]):
             result = await self._db.execute(query)
             suppliers = list(result.scalars().all())
 
-            await self._cache_set(cache_key, [s.__dict__.copy() for s in suppliers])
+            await self._cache_set(cache_key, [s.model_dump() for s in suppliers])
 
             return suppliers
 

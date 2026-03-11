@@ -1,0 +1,116 @@
+name: Gateway Health Check
+
+on:
+  schedule:
+    # Every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: gateway-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Fetch gateway stats
+        id: stats
+        run: |
+          RESPONSE=$(curl -sf --max-time 10 \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            "https://api.rateshift.app/api/v1/internal/gateway-stats" 2>&1) || {
+            echo "status=unreachable" >> "$GITHUB_OUTPUT"
+            echo "::warning::Gateway stats endpoint unreachable"
+            exit 0
+          }
+
+          echo "response<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESPONSE" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          DEGRADED=$(echo "$RESPONSE" | jq -r '.degraded')
+          CACHE_HIT_RATE=$(echo "$RESPONSE" | jq -r '.cacheHitRate')
+          TOTAL_REQUESTS=$(echo "$RESPONSE" | jq -r '.counters.totalRequests')
+          DEGRADED_COUNT=$(echo "$RESPONSE" | jq -r '.counters.degradedResponses')
+
+          echo "degraded=$DEGRADED" >> "$GITHUB_OUTPUT"
+          echo "cache_hit_rate=$CACHE_HIT_RATE" >> "$GITHUB_OUTPUT"
+          echo "total_requests=$TOTAL_REQUESTS" >> "$GITHUB_OUTPUT"
+          echo "degraded_count=$DEGRADED_COUNT" >> "$GITHUB_OUTPUT"
+          echo "status=ok" >> "$GITHUB_OUTPUT"
+
+      - name: Alert on degradation
+        if: steps.stats.outputs.degraded == 'true'
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Gateway Health - DEGRADED (degraded=${{ steps.stats.outputs.degraded_count }}, reqs=${{ steps.stats.outputs.total_requests }}, hitRate=${{ steps.stats.outputs.cache_hit_rate }})"
+          severity: critical
+
+      - name: Alert on unreachable
+        if: steps.stats.outputs.status == 'unreachable'
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Gateway Health - UNREACHABLE"
+          severity: critical
+
+      - name: Fetch CF Worker analytics
+        id: cf_analytics
+        if: steps.stats.outputs.status == 'ok'
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: b41be0d03c76c0b2cc91efccdb7a10df
+        run: |
+          if [ -z "$CF_API_TOKEN" ]; then
+            echo "has_analytics=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CF_API_TOKEN not set — skipping Cloudflare analytics"
+            exit 0
+          fi
+
+          # Query Worker analytics for last 24h
+          SINCE=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
+          UNTIL=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+          ANALYTICS=$(curl -sf --max-time 15 \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/analytics/aggregate?since=${SINCE}&until=${UNTIL}" 2>&1) || {
+            echo "has_analytics=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Failed to fetch CF Worker analytics"
+            exit 0
+          }
+
+          TOTAL=$(echo "$ANALYTICS" | jq -r '.result.totals.requests // 0')
+          ERRORS=$(echo "$ANALYTICS" | jq -r '.result.totals.errors // 0')
+          SUBREQUESTS=$(echo "$ANALYTICS" | jq -r '.result.totals.subrequests // 0')
+
+          echo "has_analytics=true" >> "$GITHUB_OUTPUT"
+          echo "cf_requests=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "cf_errors=$ERRORS" >> "$GITHUB_OUTPUT"
+          echo "cf_subrequests=$SUBREQUESTS" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: steps.stats.outputs.status == 'ok'
+        run: |
+          echo "## Gateway Health Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ steps.stats.outputs.degraded == 'true' && 'DEGRADED' || 'Healthy' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Requests (isolate)**: ${{ steps.stats.outputs.total_requests }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cache Hit Rate**: ${{ steps.stats.outputs.cache_hit_rate }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Degraded Responses**: ${{ steps.stats.outputs.degraded_count }}" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.cf_analytics.outputs.has_analytics }}" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Cloudflare Analytics (24h)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Requests**: ${{ steps.cf_analytics.outputs.cf_requests }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Errors**: ${{ steps.cf_analytics.outputs.cf_errors }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Subrequests (KV/origin)**: ${{ steps.cf_analytics.outputs.cf_subrequests }}" >> $GITHUB_STEP_SUMMARY
+          fi

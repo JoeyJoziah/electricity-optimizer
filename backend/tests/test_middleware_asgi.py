@@ -64,7 +64,7 @@ class TestSecurityHeadersASGI:
         assert resp.status_code == 200
         assert resp.headers["x-frame-options"] == "DENY"
         assert resp.headers["x-content-type-options"] == "nosniff"
-        assert resp.headers["x-xss-protection"] == "1; mode=block"
+        assert "x-xss-protection" not in resp.headers
         assert "content-security-policy" in resp.headers
         assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
         assert "permissions-policy" in resp.headers

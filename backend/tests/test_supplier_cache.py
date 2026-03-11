@@ -380,15 +380,16 @@ class TestSupplierRepositoryGetByName:
     @pytest.mark.asyncio
     async def test_cache_miss_queries_db_and_writes_cache(self):
         from repositories.supplier_repository import SupplierRepository
+        from models.supplier import Supplier
 
-        # Plain MagicMock (no spec=) so scalar_one_or_none assignment works.
-        supplier_mock = MagicMock()
-        supplier_mock.name = "Eversource Energy"
-        supplier_mock.__dict__ = {"name": "Eversource Energy", "id": "s1"}
+        supplier_obj = Supplier(
+            id="s1", name="Eversource Energy",
+            regions=["us_ct"], tariff_types=["standard"],
+        )
 
         db = _make_db_session()
         result = MagicMock()
-        result.scalar_one_or_none = MagicMock(return_value=supplier_mock)
+        result.scalar_one_or_none = MagicMock(return_value=supplier_obj)
         db.execute.return_value = result
 
         redis = _make_redis(hit_value=None)
@@ -431,13 +432,16 @@ class TestSupplierRepositoryGetByName:
     @pytest.mark.asyncio
     async def test_no_cache_get_by_name_hits_db(self):
         from repositories.supplier_repository import SupplierRepository
+        from models.supplier import Supplier
 
-        supplier_mock = MagicMock()
-        supplier_mock.__dict__ = {"name": "NextEra Energy", "id": "s2"}
+        supplier_obj = Supplier(
+            id="s2", name="NextEra Energy",
+            regions=["us_fl"], tariff_types=["standard"],
+        )
 
         db = _make_db_session()
         result = MagicMock()
-        result.scalar_one_or_none = MagicMock(return_value=supplier_mock)
+        result.scalar_one_or_none = MagicMock(return_value=supplier_obj)
         db.execute.return_value = result
 
         repo = SupplierRepository(db, cache=None)
@@ -456,11 +460,10 @@ class TestSupplierRepositoryListByRegion:
     @pytest.mark.asyncio
     async def test_cache_miss_queries_db_and_writes_cache(self):
         from repositories.supplier_repository import SupplierRepository
+        from models.supplier import Supplier
 
-        s1 = MagicMock()
-        s1.__dict__ = {"id": "s1", "name": "Alpha", "regions": ["us_ct"]}
-        s2 = MagicMock()
-        s2.__dict__ = {"id": "s2", "name": "Beta", "regions": ["us_ct"]}
+        s1 = Supplier(id="s1", name="Alpha", regions=["us_ct"], tariff_types=["standard"])
+        s2 = Supplier(id="s2", name="Beta", regions=["us_ct"], tariff_types=["standard"])
 
         db = _make_db_session()
         result = MagicMock()

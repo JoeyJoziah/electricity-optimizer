@@ -51,7 +51,9 @@ class DatabaseManager:
         try:
             # Handle Neon SSL requirement
             connect_args = {}
-            if "neon.tech" in db_url or "neon" in db_url:
+            from urllib.parse import urlparse
+            _host = urlparse(db_url).hostname or ""
+            if _host.endswith(".neon.tech"):
                 connect_args["ssl"] = "require"
                 # PgBouncer transaction-mode pooling does not support named prepared
                 # statements (they are bound to a backend connection, but transaction

@@ -15,6 +15,13 @@ export const ROUTES: RouteConfig[] = [
     passthrough: true,
   },
 
+  // Gateway stats — internal, API key required
+  {
+    pattern: /^\/api\/v1\/internal\/gateway-stats$/,
+    rateLimit: "internal",
+    requireApiKey: true,
+  },
+
   // Internal endpoints — API key required, no caching
   {
     pattern: /^\/api\/v1\/internal\//,

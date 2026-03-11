@@ -101,7 +101,7 @@ async def scrape_all_portals(
             connection_id=str(row[0]),
             user_id=str(row[1]),
             supplier_id=str(row[2]) if row[2] else "",
-            portal_username=row[3],
+            portal_username_enc=row[3],
             portal_password_encrypted=row[4],
             portal_login_url=row[5] or "",
         )
@@ -154,7 +154,7 @@ async def _scrape_one(
     connection_id: str,
     user_id: str,
     supplier_id: str,
-    portal_username: str,
+    portal_username_enc: str,
     portal_password_encrypted: str,
     portal_login_url: str,
 ) -> dict:
@@ -167,10 +167,10 @@ async def _scrape_one(
 
     log = logger.bind(connection_id=connection_id, user_id=user_id)
 
-    # Decrypt the portal password
+    # Decrypt portal credentials
     try:
-        encrypted_bytes = base64.b64decode(portal_password_encrypted)
-        portal_password = decrypt_field(encrypted_bytes)
+        portal_password = decrypt_field(base64.b64decode(portal_password_encrypted))
+        portal_username = decrypt_field(base64.b64decode(portal_username_enc))
     except Exception as exc:
         log.error("portal_decrypt_error", error=str(exc))
         await _update_status(db, connection_id, "error", datetime.now(timezone.utc))

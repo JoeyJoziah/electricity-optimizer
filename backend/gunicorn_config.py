@@ -43,7 +43,7 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"
 bind = f"0.0.0.0:{os.getenv('PORT', '8000')}"
 
 # Process naming
-proc_name = "electricity-optimizer-api"
+proc_name = "rateshift-api"
 
 # Server mechanics
 daemon = False

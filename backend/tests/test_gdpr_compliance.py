@@ -253,13 +253,25 @@ class TestGDPRComplianceService:
         return repo
 
     @pytest.fixture
-    def gdpr_service(self, mock_consent_repository, mock_user_repository):
+    def mock_db_session(self):
+        """Create mock database session for atomic GDPR deletion."""
+        session = AsyncMock()
+        session.execute = AsyncMock(return_value=MagicMock(
+            mappings=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+        ))
+        session.commit = AsyncMock()
+        session.rollback = AsyncMock()
+        return session
+
+    @pytest.fixture
+    def gdpr_service(self, mock_consent_repository, mock_user_repository, mock_db_session):
         """Create GDPR compliance service with mocked repositories"""
         from compliance.gdpr import GDPRComplianceService
 
         return GDPRComplianceService(
             consent_repository=mock_consent_repository,
-            user_repository=mock_user_repository
+            user_repository=mock_user_repository,
+            db_session=mock_db_session,
         )
 
     # -------------------------------------------------------------------------
@@ -467,41 +479,51 @@ class TestGDPRComplianceService:
     # -------------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_delete_user_data_success(self, gdpr_service, mock_user_repository):
+    async def test_delete_user_data_success(self, gdpr_service, mock_db_session):
         """Test successful user data deletion"""
         result = await gdpr_service.delete_user_data("user-123")
 
         assert result is not None
-        mock_user_repository.delete.assert_called()
+        # All deletions go through db_session in the atomic path
+        mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_delete_user_data_deletes_all_data(self, gdpr_service, mock_consent_repository, mock_user_repository):
-        """Test deletion removes all user data categories"""
-        await gdpr_service.delete_user_data("user-123")
+    async def test_delete_user_data_deletes_all_categories(self, gdpr_service, mock_db_session):
+        """Test deletion removes all user data categories atomically."""
+        result = await gdpr_service.delete_user_data("user-123")
 
-        # Verify consent data is deleted
-        mock_consent_repository.delete_by_user_id.assert_called_with("user-123")
+        # Verify all expected categories were deleted
+        expected = {
+            "consents", "price_alerts", "recommendations",
+            "activity_logs", "extracted_rates", "bill_uploads",
+            "connections", "supplier_accounts", "profile",
+            "agent_data",
+        }
+        assert set(result.data_categories_deleted) == expected
 
-        # Verify user data is deleted
-        mock_user_repository.delete.assert_called_with("user-123")
+        # Verify single commit (atomic)
+        mock_db_session.commit.assert_called_once()
+        mock_db_session.rollback.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_delete_user_data_logs_deletion(self, gdpr_service):
         """Test that data deletion is logged for audit purposes"""
-        await gdpr_service.delete_user_data("user-123")
+        result = await gdpr_service.delete_user_data("user-123")
 
-        # Verify deletion log was created
-        # This would be checked via audit log repository in real implementation
+        assert result.user_id == "user-123"
+        assert result.deletion_type == "full"
+        assert result.legal_basis == "user_request"
 
     @pytest.mark.asyncio
-    async def test_delete_user_data_anonymizes_retained_data(self, gdpr_service):
+    async def test_delete_user_data_anonymizes_retained_data(self, gdpr_service, mock_db_session):
         """Test that retained data (for legal reasons) is anonymized"""
-        # Some data may need to be retained for legal/audit purposes
-        # but should be anonymized
-        await gdpr_service.delete_user_data(
+        result = await gdpr_service.delete_user_data(
             "user-123",
             anonymize_retained=True
         )
+
+        assert result.deletion_type == "anonymization"
+        assert "activity_logs" in result.data_categories_deleted
 
     @pytest.mark.asyncio
     async def test_delete_user_data_nonexistent_user(self, gdpr_service, mock_user_repository):
@@ -514,17 +536,40 @@ class TestGDPRComplianceService:
             await gdpr_service.delete_user_data("nonexistent-user")
 
     @pytest.mark.asyncio
-    async def test_delete_user_data_cascade(self, gdpr_service):
-        """Test cascade deletion of all related data"""
-        # Should delete:
-        # - User profile
-        # - Consent records
-        # - Price alerts
-        # - Recommendations history
-        # - Activity logs
+    async def test_delete_user_data_rollback_on_failure(self, gdpr_service, mock_db_session):
+        """Test that partial failure rolls back all changes (atomic)."""
+        from compliance.gdpr import DataDeletionError
+
+        # Make the 3rd execute call fail (simulating a mid-transaction error)
+        call_count = 0
+        original_execute = mock_db_session.execute
+
+        async def failing_execute(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 3:
+                raise Exception("Simulated DB error")
+            return await original_execute(*args, **kwargs)
+
+        mock_db_session.execute = AsyncMock(side_effect=failing_execute)
+
+        with pytest.raises(DataDeletionError, match="Simulated DB error"):
+            await gdpr_service.delete_user_data("user-123")
+
+        # Verify rollback was called, commit was NOT called
+        mock_db_session.rollback.assert_called_once()
+        mock_db_session.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_user_data_cascade(self, gdpr_service, mock_db_session):
+        """Test cascade deletion of all related data via SQL."""
         await gdpr_service.delete_user_data("user-123")
 
-        # Verify all repositories were called for deletion
+        # Verify db_session.execute was called for each table
+        # (consent_records, price_alerts, recommendations, activity_logs,
+        #  connection_extracted_rates, bill_uploads SELECT, bill_uploads DELETE,
+        #  user_connections, user_supplier_accounts, users)
+        assert mock_db_session.execute.call_count >= 9
 
     # -------------------------------------------------------------------------
     # Right to Object Tests (Article 21)
@@ -611,21 +656,62 @@ class TestConsentRepository:
 
     @pytest.mark.asyncio
     async def test_get_latest_consent_by_purpose(self, consent_repository, mock_db_session):
-        """Test getting latest consent for specific purpose"""
-        await consent_repository.get_latest_by_user_and_purpose(
+        """Test getting latest consent for specific purpose via DISTINCT ON."""
+        # Mock the raw SQL fetchall result (purpose, consent_given)
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [("marketing", True)]
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
+
+        result = await consent_repository.get_latest_by_user_and_purpose(
             "user-123",
             "marketing"
         )
 
         mock_db_session.execute.assert_called_once()
+        assert result == {"marketing": True}
+
+    @pytest.mark.asyncio
+    async def test_get_latest_consent_all_purposes(self, consent_repository, mock_db_session):
+        """Test getting latest consent for all purposes via DISTINCT ON."""
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [
+            ("data_processing", True),
+            ("marketing", False),
+            ("analytics", True),
+        ]
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
+
+        result = await consent_repository.get_latest_by_user_and_purpose("user-123")
+
+        mock_db_session.execute.assert_called_once()
+        assert result == {
+            "data_processing": True,
+            "marketing": False,
+            "analytics": True,
+        }
+
+    @pytest.mark.asyncio
+    async def test_get_latest_consent_empty(self, consent_repository, mock_db_session):
+        """Test getting latest consent when no records exist."""
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
+
+        result = await consent_repository.get_latest_by_user_and_purpose("user-123")
+
+        assert result == {}
 
     @pytest.mark.asyncio
     async def test_delete_consents_by_user_id(self, consent_repository, mock_db_session):
-        """Test deleting all consents for a user"""
+        """Test deleting all consents for a user.
+
+        Note: delete_by_user_id does NOT commit — the caller (GDPR atomic
+        deletion block) is responsible for transaction management.
+        """
         await consent_repository.delete_by_user_id("user-123")
 
         mock_db_session.execute.assert_called_once()
-        mock_db_session.commit.assert_called_once()
+        mock_db_session.commit.assert_not_called()
 
 
 # =============================================================================

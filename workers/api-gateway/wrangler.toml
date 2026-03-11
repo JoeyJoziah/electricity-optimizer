@@ -7,20 +7,38 @@ routes = [
   { pattern = "api.rateshift.app/*", zone_name = "rateshift.app" }
 ]
 
-# KV Namespaces
+# KV Namespaces (CACHE only — rate limiting moved to native bindings)
 kv_namespaces = [
-  { binding = "CACHE", id = "6946d19ce8264f6fae4481d6ad8afcd1" },
-  { binding = "RATE_LIMIT", id = "c9be3741ee784956a0d99b3fa0c1d6c4" }
+  { binding = "CACHE", id = "6946d19ce8264f6fae4481d6ad8afcd1" }
 ]
+
+# Native rate limiting bindings (GA Sept 2025, zero KV cost)
+# Counters maintained in-memory at edge PoP, no KV reads/writes
+[[ratelimits]]
+binding = "RATE_LIMITER_STANDARD"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
+[[ratelimits]]
+binding = "RATE_LIMITER_STRICT"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
+[[ratelimits]]
+binding = "RATE_LIMITER_INTERNAL"
+namespace_id = "1003"
+  [ratelimits.simple]
+  limit = 600
+  period = 60
 
 # Environment variables (non-secret)
 [vars]
 ORIGIN_URL = "https://electricity-optimizer.onrender.com"
 ALLOWED_ORIGINS = "https://rateshift.app,https://www.rateshift.app"
-RATE_LIMIT_STANDARD = "120"
-RATE_LIMIT_STRICT = "30"
-RATE_LIMIT_INTERNAL = "600"
-RATE_LIMIT_WINDOW_SECONDS = "60"
 
 # Secrets (set via `wrangler secret put`):
 # - INTERNAL_API_KEY

@@ -93,7 +93,9 @@ class EmailService:
             if text_body:
                 params["text"] = text_body
 
-            resend.Emails.send(params)
+            import asyncio
+
+            await asyncio.to_thread(resend.Emails.send, params)
 
             logger.info(
                 "email_sent_resend",
@@ -136,6 +138,7 @@ class EmailService:
                 username=self._settings.smtp_username,
                 password=self._settings.smtp_password,
                 start_tls=True,
+                timeout=30,
             )
 
             logger.info("email_sent_smtp", to=to, subject=subject)

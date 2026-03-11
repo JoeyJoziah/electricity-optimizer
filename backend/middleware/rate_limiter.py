@@ -357,7 +357,18 @@ class RateLimitMiddleware:
                     return f"user:{token_hash}"
                 break
 
-        # Fall back to IP address
+        # Prefer Cloudflare's real client IP (behind CF Worker edge layer)
+        for header_name, header_value in headers:
+            if header_name == b"cf-connecting-ip":
+                return f"ip:{header_value.decode('ascii')}"
+
+        # Fallback: X-Forwarded-For (first entry = original client)
+        for header_name, header_value in headers:
+            if header_name == b"x-forwarded-for":
+                real_ip = header_value.decode("ascii").split(",")[0].strip()
+                return f"ip:{real_ip}"
+
+        # Last resort: ASGI client tuple (reverse proxy IP if behind LB)
         client = scope.get("client")
         if client:
             return f"ip:{client[0]}"

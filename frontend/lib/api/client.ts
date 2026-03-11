@@ -1,15 +1,24 @@
 /**
  * Base API client for making HTTP requests to the backend.
- * Includes automatic retry with backoff for 5xx/network errors
- * and 401 redirect to login with callback URL preservation.
+ * Includes automatic retry with backoff for 5xx/network errors,
+ * 401 redirect to login with callback URL preservation,
+ * and circuit breaker for CF Worker gateway resilience.
  */
 
-import { API_URL } from '@/lib/config/env'
+import { API_URL, FALLBACK_API_URL } from '@/lib/config/env'
 import { isSafeRedirect } from '@/lib/utils/url'
+import { CircuitBreaker } from './circuit-breaker'
 
-const BASE_URL = API_URL
 const MAX_RETRIES = 2
 const RETRY_BASE_MS = 500
+
+/** Circuit breaker singleton — shared across all API client methods */
+export const circuitBreaker = new CircuitBreaker({
+  failureThreshold: 3,
+  resetTimeoutMs: 30_000,
+  fallbackUrl: FALLBACK_API_URL,
+  primaryUrl: API_URL,
+})
 
 export interface ApiError {
   message: string
@@ -131,9 +140,21 @@ async function fetchWithRetry<T>(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(url, options)
-      return await handleResponse<T>(response)
+      const result = await handleResponse<T>(response)
+      circuitBreaker.recordSuccess()
+      return result
     } catch (error) {
       lastError = error
+
+      // Track gateway errors for circuit breaker (after all retries exhausted)
+      if (
+        error instanceof ApiClientError &&
+        CircuitBreaker.isGatewayError(error.status) &&
+        attempt === MAX_RETRIES
+      ) {
+        circuitBreaker.recordFailure()
+      }
+
       if (!isRetryable(error) || attempt === MAX_RETRIES) {
         throw error
       }
@@ -144,9 +165,20 @@ async function fetchWithRetry<T>(
   throw lastError
 }
 
+function buildHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (circuitBreaker.isFallbackMode()) {
+    headers['X-Fallback-Mode'] = 'true'
+  }
+  return headers
+}
+
 export const apiClient = {
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    let urlStr = `${BASE_URL}${endpoint}`
+    const baseUrl = circuitBreaker.getBaseUrl()
+    let urlStr = `${baseUrl}${endpoint}`
     if (params && Object.keys(params).length > 0) {
       const qs = new URLSearchParams(params).toString()
       urlStr += `?${qs}`
@@ -154,41 +186,36 @@ export const apiClient = {
 
     return fetchWithRetry<T>(urlStr, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: buildHeaders(),
       credentials: 'include',
     })
   },
 
   async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    return fetchWithRetry<T>(`${BASE_URL}${endpoint}`, {
+    const baseUrl = circuitBreaker.getBaseUrl()
+    return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: buildHeaders(),
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
     })
   },
 
   async put<T>(endpoint: string, data?: unknown): Promise<T> {
-    return fetchWithRetry<T>(`${BASE_URL}${endpoint}`, {
+    const baseUrl = circuitBreaker.getBaseUrl()
+    return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: buildHeaders(),
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
     })
   },
 
   async delete<T>(endpoint: string): Promise<T> {
-    return fetchWithRetry<T>(`${BASE_URL}${endpoint}`, {
+    const baseUrl = circuitBreaker.getBaseUrl()
+    return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: buildHeaders(),
       credentials: 'include',
     })
   },

@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 # Enums (expressed as Literal types to stay Pydantic-native)
 # ---------------------------------------------------------------------------
 
-ConnectionType = Literal["direct", "email_import", "manual_upload", "portal_scrape"]
+ConnectionType = Literal["direct", "email_import", "manual_upload", "portal_scrape", "utilityapi"]
 ConnectionStatus = Literal["active", "pending", "error", "disconnected"]
 EmailProvider = Literal["gmail", "outlook"]
 
