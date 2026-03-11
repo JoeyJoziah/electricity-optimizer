@@ -1,0 +1,1 @@
+Delegates HTML rendering to EmailService.render_template

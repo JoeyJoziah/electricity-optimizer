@@ -1,0 +1,1 @@
+CircuitBreaker wraps external pricing API calls for resilience

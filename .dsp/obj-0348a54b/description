@@ -1,0 +1,3 @@
+source: backend/api/v1/internal/portal_scan.py
+kind: object
+purpose: Internal endpoint POST /scrape-portals — batch scrape all active portal_scrape connections with Semaphore(2) concurrency.

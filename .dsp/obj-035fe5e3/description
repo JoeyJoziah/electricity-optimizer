@@ -1,0 +1,3 @@
+source: backend/api/v1/connections/portal_scrape.py
+kind: object
+purpose: Portal connection REST endpoints: POST /portal (create with encrypted creds), POST /portal/{id}/scrape (trigger manual scrape).

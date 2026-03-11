@@ -1,0 +1,3 @@
+source: frontend/lib/api/portal.ts
+kind: object
+purpose: Portal connection API client — createPortalConnection() and triggerPortalScrape() functions.
