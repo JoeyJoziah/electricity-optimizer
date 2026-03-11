@@ -100,8 +100,10 @@ class User(BaseModel):
 
     @field_validator("region")
     @classmethod
-    def validate_region(cls, v: str) -> str:
+    def validate_region(cls, v: Optional[str]) -> Optional[str]:
         """Ensure region is lowercase"""
+        if v is None:
+            return v
         return v.lower()
 
     @field_validator("created_at", "updated_at", "last_login", "consent_date")

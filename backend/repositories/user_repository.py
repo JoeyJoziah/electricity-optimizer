@@ -2,25 +2,79 @@
 User Repository
 
 Data access layer for user data.
-Implements the repository pattern with caching support.
+Uses raw SQL queries to avoid ORM-model mismatch with Pydantic models.
 """
 
 from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
+from uuid import uuid4
 
-from sqlalchemy import select, and_
+import structlog
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.user import User, UserPreferences
+
+logger = structlog.get_logger(__name__)
+
+# Columns returned by SELECT queries — matches the Neon DB schema
+_USER_COLUMNS = """
+    id::text, email, name, region, preferences,
+    current_supplier, is_active, is_verified,
+    created_at, updated_at,
+    stripe_customer_id, subscription_tier,
+    email_verified, current_tariff,
+    average_daily_kwh, household_size,
+    current_supplier_id::text,
+    utility_types, annual_usage_kwh,
+    onboarding_completed
+"""
+
+
+def _row_to_user(row) -> User:
+    """Convert a SQLAlchemy Row mapping to a User Pydantic model."""
+    data: Dict[str, Any] = {}
+    for key in row.keys():
+        val = row[key]
+        # Convert UUID to string if needed
+        if key in ("id", "current_supplier_id") and val is not None:
+            val = str(val)
+        data[key] = val
+    # Map DB columns to Pydantic fields, providing defaults for columns
+    # that may not exist in the DB (added in migration 002 which may
+    # not have been applied to all environments)
+    return User(
+        id=data.get("id", str(uuid4())),
+        email=data.get("email", ""),
+        name=data.get("name", ""),
+        region=data.get("region"),
+        is_active=data.get("is_active", True),
+        is_verified=data.get("is_verified", False),
+        email_verified=data.get("email_verified", False),
+        subscription_tier=data.get("subscription_tier", "free"),
+        stripe_customer_id=data.get("stripe_customer_id"),
+        preferences=data.get("preferences", {}),
+        current_supplier=data.get("current_supplier"),
+        current_tariff=data.get("current_tariff"),
+        average_daily_kwh=data.get("average_daily_kwh"),
+        household_size=data.get("household_size"),
+        consent_given=data.get("consent_given", False),
+        consent_date=data.get("consent_date"),
+        data_processing_agreed=data.get("data_processing_agreed", False),
+        created_at=data.get("created_at", datetime.now(timezone.utc)),
+        updated_at=data.get("updated_at", datetime.now(timezone.utc)),
+        last_login=data.get("last_login"),
+    )
 
 
 class UserRepository(BaseRepository[User]):
     """
     Repository for managing user data.
 
-    Provides data access methods for users with proper
-    security considerations for sensitive data.
+    Uses raw SQL queries (not ORM) to interact with the users table.
+    This avoids the Pydantic/SQLAlchemy model mismatch that caused
+    CRIT-03/05 in the codebase audit.
     """
 
     def __init__(self, db_session: AsyncSession, cache: Any = None):
@@ -35,117 +89,138 @@ class UserRepository(BaseRepository[User]):
         self._cache = cache
 
     async def get_by_id(self, id: str) -> Optional[User]:
-        """
-        Get a user by ID.
-
-        Args:
-            id: User ID
-
-        Returns:
-            User if found, None otherwise
-        """
+        """Get a user by ID."""
         try:
             result = await self._db.execute(
-                select(User).where(User.id == id)
+                text(f"SELECT {_USER_COLUMNS} FROM users WHERE id = :id"),
+                {"id": id},
             )
-            return result.scalar_one_or_none()
+            row = result.mappings().first()
+            return _row_to_user(row) if row else None
 
         except Exception as e:
             raise RepositoryError(f"Failed to get user by ID: {str(e)}", e)
 
     async def get_by_email(self, email: str) -> Optional[User]:
-        """
-        Get a user by email address.
-
-        Args:
-            email: User email address
-
-        Returns:
-            User if found, None otherwise
-        """
+        """Get a user by email address."""
         try:
             result = await self._db.execute(
-                select(User).where(User.email == email.lower())
+                text(f"SELECT {_USER_COLUMNS} FROM users WHERE email = :email"),
+                {"email": email.lower()},
             )
-            return result.scalar_one_or_none()
+            row = result.mappings().first()
+            return _row_to_user(row) if row else None
 
         except Exception as e:
             raise RepositoryError(f"Failed to get user by email: {str(e)}", e)
 
     async def create(self, entity: User) -> User:
-        """
-        Create a new user.
-
-        Args:
-            entity: User data to create
-
-        Returns:
-            Created user
-        """
+        """Create a new user."""
         try:
-            # Normalize email
             entity.email = entity.email.lower()
-            entity.created_at = datetime.now(timezone.utc)
-            entity.updated_at = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc)
+            entity.created_at = now
+            entity.updated_at = now
 
-            self._db.add(entity)
+            result = await self._db.execute(
+                text(f"""
+                    INSERT INTO users (
+                        id, email, name, region, preferences,
+                        current_supplier, is_active, is_verified,
+                        subscription_tier, stripe_customer_id,
+                        email_verified, current_tariff,
+                        average_daily_kwh, household_size,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :email, :name, :region, :preferences::jsonb,
+                        :current_supplier, :is_active, :is_verified,
+                        :subscription_tier, :stripe_customer_id,
+                        :email_verified, :current_tariff,
+                        :average_daily_kwh, :household_size,
+                        :created_at, :updated_at
+                    )
+                    RETURNING {_USER_COLUMNS}
+                """),
+                {
+                    "id": entity.id,
+                    "email": entity.email,
+                    "name": entity.name,
+                    "region": entity.region,
+                    "preferences": str(entity.preferences) if entity.preferences else "{}",
+                    "current_supplier": entity.current_supplier,
+                    "is_active": entity.is_active,
+                    "is_verified": entity.is_verified,
+                    "subscription_tier": entity.subscription_tier,
+                    "stripe_customer_id": entity.stripe_customer_id,
+                    "email_verified": entity.email_verified,
+                    "current_tariff": entity.current_tariff,
+                    "average_daily_kwh": float(entity.average_daily_kwh) if entity.average_daily_kwh is not None else None,
+                    "household_size": entity.household_size,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
             await self._db.commit()
-            await self._db.refresh(entity)
-            return entity
+            row = result.mappings().first()
+            return _row_to_user(row) if row else entity
 
         except Exception as e:
             await self._db.rollback()
             raise RepositoryError(f"Failed to create user: {str(e)}", e)
 
     async def update(self, id: str, entity: User) -> Optional[User]:
-        """
-        Update an existing user.
-
-        Args:
-            id: User ID
-            entity: Updated user data
-
-        Returns:
-            Updated user if found, None otherwise
-        """
+        """Update an existing user."""
         try:
-            existing = await self.get_by_id(id)
-            if not existing:
-                return None
+            # Build dynamic SET clause from entity fields
+            updates = entity.model_dump(exclude_unset=True)
+            # Never update id or created_at
+            updates.pop("id", None)
+            updates.pop("created_at", None)
+            updates["updated_at"] = datetime.now(timezone.utc)
 
-            # Update fields
-            for field, value in entity.model_dump(exclude_unset=True).items():
-                if field not in ["id", "created_at"]:
-                    setattr(existing, field, value)
+            if not updates:
+                return await self.get_by_id(id)
 
-            existing.updated_at = datetime.now(timezone.utc)
+            set_clauses = []
+            params: Dict[str, Any] = {"user_id": id}
+            for field, value in updates.items():
+                param_name = f"p_{field}"
+                if field == "preferences":
+                    set_clauses.append(f"{field} = :{param_name}::jsonb")
+                    params[param_name] = str(value) if value else "{}"
+                elif field == "average_daily_kwh" and value is not None:
+                    set_clauses.append(f"{field} = :{param_name}")
+                    params[param_name] = float(value)
+                else:
+                    set_clauses.append(f"{field} = :{param_name}")
+                    params[param_name] = value
 
+            set_sql = ", ".join(set_clauses)
+            result = await self._db.execute(
+                text(f"""
+                    UPDATE users SET {set_sql}
+                    WHERE id = :user_id
+                    RETURNING {_USER_COLUMNS}
+                """),
+                params,
+            )
             await self._db.commit()
-            await self._db.refresh(existing)
-            return existing
+            row = result.mappings().first()
+            return _row_to_user(row) if row else None
 
         except Exception as e:
             await self._db.rollback()
             raise RepositoryError(f"Failed to update user: {str(e)}", e)
 
     async def delete(self, id: str) -> bool:
-        """
-        Delete a user.
-
-        Args:
-            id: User ID
-
-        Returns:
-            True if deleted, False if not found
-        """
+        """Delete a user."""
         try:
-            existing = await self.get_by_id(id)
-            if not existing:
-                return False
-
-            await self._db.delete(existing)
+            result = await self._db.execute(
+                text("DELETE FROM users WHERE id = :id RETURNING id"),
+                {"id": id},
+            )
             await self._db.commit()
-            return True
+            return result.first() is not None
 
         except Exception as e:
             await self._db.rollback()
@@ -157,57 +232,55 @@ class UserRepository(BaseRepository[User]):
         page_size: int = 10,
         **filters: Any
     ) -> List[User]:
-        """
-        List users with pagination.
-
-        Args:
-            page: Page number (1-indexed)
-            page_size: Items per page
-            **filters: Filter criteria
-
-        Returns:
-            List of users
-        """
+        """List users with pagination."""
         try:
             offset = (page - 1) * page_size
+            conditions = []
+            params: Dict[str, Any] = {"limit": page_size, "offset": offset}
 
-            query = select(User).offset(offset).limit(page_size)
-
-            # Apply filters
             if "region" in filters:
-                query = query.where(User.region == filters["region"])
+                conditions.append("region = :region")
+                params["region"] = filters["region"]
             if "is_active" in filters:
-                query = query.where(User.is_active == filters["is_active"])
+                conditions.append("is_active = :is_active")
+                params["is_active"] = filters["is_active"]
 
-            query = query.order_by(User.created_at.desc())
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-            result = await self._db.execute(query)
-            return list(result.scalars().all())
+            result = await self._db.execute(
+                text(f"""
+                    SELECT {_USER_COLUMNS} FROM users
+                    {where_clause}
+                    ORDER BY created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """),
+                params,
+            )
+            rows = result.mappings().all()
+            return [_row_to_user(row) for row in rows]
 
         except Exception as e:
             raise RepositoryError(f"Failed to list users: {str(e)}", e)
 
     async def count(self, **filters: Any) -> int:
-        """
-        Count users matching filters.
-
-        Args:
-            **filters: Filter criteria
-
-        Returns:
-            Count of matching users
-        """
+        """Count users matching filters."""
         try:
-            from sqlalchemy import func
-
-            query = select(func.count()).select_from(User)
+            conditions = []
+            params: Dict[str, Any] = {}
 
             if "region" in filters:
-                query = query.where(User.region == filters["region"])
+                conditions.append("region = :region")
+                params["region"] = filters["region"]
             if "is_active" in filters:
-                query = query.where(User.is_active == filters["is_active"])
+                conditions.append("is_active = :is_active")
+                params["is_active"] = filters["is_active"]
 
-            result = await self._db.execute(query)
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            result = await self._db.execute(
+                text(f"SELECT COUNT(*) FROM users {where_clause}"),
+                params,
+            )
             return result.scalar() or 0
 
         except Exception as e:
@@ -222,78 +295,62 @@ class UserRepository(BaseRepository[User]):
         user_id: str,
         preferences: UserPreferences
     ) -> Optional[User]:
-        """
-        Update user preferences.
-
-        Args:
-            user_id: User ID
-            preferences: New preferences
-
-        Returns:
-            Updated user if found, None otherwise
-        """
+        """Update user preferences."""
         try:
-            existing = await self.get_by_id(user_id)
-            if not existing:
-                return None
-
-            existing.preferences = preferences.model_dump()
-            existing.updated_at = datetime.now(timezone.utc)
-
+            import json
+            result = await self._db.execute(
+                text(f"""
+                    UPDATE users
+                    SET preferences = :prefs::jsonb, updated_at = NOW()
+                    WHERE id = :user_id
+                    RETURNING {_USER_COLUMNS}
+                """),
+                {
+                    "user_id": user_id,
+                    "prefs": json.dumps(preferences.model_dump()),
+                },
+            )
             await self._db.commit()
-            await self._db.refresh(existing)
-            return existing
+            row = result.mappings().first()
+            return _row_to_user(row) if row else None
 
         except Exception as e:
             await self._db.rollback()
             raise RepositoryError(f"Failed to update preferences: {str(e)}", e)
 
     async def update_last_login(self, user_id: str) -> bool:
-        """
-        Update user's last login timestamp.
-
-        Args:
-            user_id: User ID
-
-        Returns:
-            True if updated successfully
-        """
+        """Update user's last login timestamp (direct UPDATE, no SELECT)."""
         try:
-            existing = await self.get_by_id(user_id)
-            if not existing:
-                return False
-
-            existing.last_login = datetime.now(timezone.utc)
-            existing.updated_at = datetime.now(timezone.utc)
-
+            result = await self._db.execute(
+                text("""
+                    UPDATE users
+                    SET last_login = NOW(), updated_at = NOW()
+                    WHERE id = :user_id
+                    RETURNING id
+                """),
+                {"user_id": user_id},
+            )
             await self._db.commit()
-            return True
+            return result.first() is not None
 
         except Exception as e:
             await self._db.rollback()
             raise RepositoryError(f"Failed to update last login: {str(e)}", e)
 
     async def set_email_verified(self, user_id: str) -> bool:
-        """
-        Mark user's email as verified.
-
-        Args:
-            user_id: User ID
-
-        Returns:
-            True if updated successfully
-        """
+        """Mark user's email as verified (direct UPDATE, no SELECT)."""
         try:
-            existing = await self.get_by_id(user_id)
-            if not existing:
-                return False
-
-            existing.email_verified = True
-            existing.is_verified = True
-            existing.updated_at = datetime.now(timezone.utc)
-
+            result = await self._db.execute(
+                text("""
+                    UPDATE users
+                    SET email_verified = TRUE, is_verified = TRUE, updated_at = NOW()
+                    WHERE id = :user_id
+                    RETURNING id
+                """),
+                {"user_id": user_id},
+            )
             await self._db.commit()
-            return True
+            return result.first() is not None
 
         except Exception as e:
             await self._db.rollback()
@@ -305,49 +362,43 @@ class UserRepository(BaseRepository[User]):
         consent_given: bool = True,
         data_processing_agreed: bool = True
     ) -> bool:
-        """
-        Record user's GDPR consent.
-
-        Args:
-            user_id: User ID
-            consent_given: Whether consent was given
-            data_processing_agreed: Whether data processing was agreed
-
-        Returns:
-            True if updated successfully
-        """
+        """Record user's GDPR consent (direct UPDATE, no SELECT)."""
         try:
-            existing = await self.get_by_id(user_id)
-            if not existing:
-                return False
-
-            existing.consent_given = consent_given
-            existing.data_processing_agreed = data_processing_agreed
-            existing.consent_date = datetime.now(timezone.utc)
-            existing.updated_at = datetime.now(timezone.utc)
-
+            result = await self._db.execute(
+                text("""
+                    UPDATE users
+                    SET consent_given = :consent_given,
+                        data_processing_agreed = :data_processing_agreed,
+                        consent_date = NOW(),
+                        updated_at = NOW()
+                    WHERE id = :user_id
+                    RETURNING id
+                """),
+                {
+                    "user_id": user_id,
+                    "consent_given": consent_given,
+                    "data_processing_agreed": data_processing_agreed,
+                },
+            )
             await self._db.commit()
-            return True
+            return result.first() is not None
 
         except Exception as e:
             await self._db.rollback()
             raise RepositoryError(f"Failed to record consent: {str(e)}", e)
 
     async def get_by_stripe_customer_id(self, customer_id: str) -> Optional[User]:
-        """
-        Look up user by their Stripe customer ID.
-
-        Args:
-            customer_id: Stripe customer ID (e.g. cus_xxx)
-
-        Returns:
-            User if found, None otherwise
-        """
+        """Look up user by their Stripe customer ID."""
         try:
             result = await self._db.execute(
-                select(User).where(User.stripe_customer_id == customer_id)
+                text(f"""
+                    SELECT {_USER_COLUMNS} FROM users
+                    WHERE stripe_customer_id = :customer_id
+                """),
+                {"customer_id": customer_id},
             )
-            return result.scalar_one_or_none()
+            row = result.mappings().first()
+            return _row_to_user(row) if row else None
 
         except Exception as e:
             raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e)
@@ -357,25 +408,24 @@ class UserRepository(BaseRepository[User]):
         region: str,
         active_only: bool = True
     ) -> List[User]:
-        """
-        Get all users in a region.
-
-        Args:
-            region: Region code
-            active_only: Whether to include only active users
-
-        Returns:
-            List of users in the region
-        """
+        """Get users in a region (with LIMIT for safety)."""
         try:
-            conditions = [User.region == region.lower()]
-
+            conditions = ["region = :region"]
             if active_only:
-                conditions.append(User.is_active == True)
+                conditions.append("is_active = TRUE")
 
-            query = select(User).where(and_(*conditions))
-            result = await self._db.execute(query)
-            return list(result.scalars().all())
+            where_clause = " AND ".join(conditions)
+
+            result = await self._db.execute(
+                text(f"""
+                    SELECT {_USER_COLUMNS} FROM users
+                    WHERE {where_clause}
+                    LIMIT 5000
+                """),
+                {"region": region.lower()},
+            )
+            rows = result.mappings().all()
+            return [_row_to_user(row) for row in rows]
 
         except Exception as e:
             raise RepositoryError(f"Failed to get users by region: {str(e)}", e)

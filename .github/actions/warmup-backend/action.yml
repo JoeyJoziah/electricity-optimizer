@@ -1,0 +1,41 @@
+name: Warmup Backend
+description: Wake Render backend from cold sleep before API calls
+
+inputs:
+  backend-url:
+    description: Backend base URL
+    required: true
+  max-attempts:
+    description: Maximum warmup attempts
+    required: false
+    default: '6'
+  delay-seconds:
+    description: Delay between attempts
+    required: false
+    default: '15'
+
+runs:
+  using: composite
+  steps:
+    - name: Warmup backend service
+      shell: bash
+      run: |
+        echo "Warming up backend at ${{ inputs.backend-url }}..."
+        ATTEMPT=0
+        MAX=${{ inputs.max-attempts }}
+        DELAY=${{ inputs.delay-seconds }}
+        while [ $ATTEMPT -lt $MAX ]; do
+          ATTEMPT=$((ATTEMPT + 1))
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+            --max-time 10 \
+            "${{ inputs.backend-url }}/api/v1/" 2>/dev/null) || STATUS="000"
+          echo "  Warmup attempt ${ATTEMPT}/${MAX}: HTTP ${STATUS}"
+          if [[ "$STATUS" =~ ^[24] ]]; then
+            echo "Backend is responsive (HTTP ${STATUS})"
+            exit 0
+          fi
+          if [ $ATTEMPT -lt $MAX ]; then
+            sleep $DELAY
+          fi
+        done
+        echo "::warning::Backend did not respond after ${MAX} attempts, proceeding anyway"

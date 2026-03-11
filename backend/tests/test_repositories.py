@@ -289,43 +289,71 @@ class TestUserRepository:
         session.rollback = AsyncMock()
         return session
 
+    def _make_user_row(self, **overrides):
+        """Build a mock row mapping that mimics a raw SQL SELECT result."""
+        from datetime import datetime, timezone
+        defaults = {
+            "id": "user_123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "region": "us_ct",
+            "preferences": {},
+            "current_supplier": None,
+            "is_active": True,
+            "is_verified": False,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+            "stripe_customer_id": None,
+            "subscription_tier": "free",
+            "email_verified": False,
+            "current_tariff": None,
+            "average_daily_kwh": None,
+            "household_size": None,
+            "current_supplier_id": None,
+            "utility_types": None,
+            "annual_usage_kwh": None,
+            "onboarding_completed": False,
+        }
+        defaults.update(overrides)
+        row = MagicMock()
+        row.keys.return_value = list(defaults.keys())
+        row.__getitem__ = lambda self, key: defaults[key]
+        return row
+
+    def _mock_result_with_row(self, row):
+        """Wrap a row mock in a result mock with .mappings().first()."""
+        mock_result = MagicMock()
+        mock_result.mappings.return_value.first.return_value = row
+        return mock_result
+
     @pytest.mark.asyncio
     async def test_get_user_by_id(self, mock_db_session):
         """Test fetching a user by ID"""
         from repositories.user_repository import UserRepository
 
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = MagicMock(
-            id="user_123",
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
-        mock_db_session.execute.return_value = mock_result
+        row = self._make_user_row(id="user_123")
+        mock_db_session.execute.return_value = self._mock_result_with_row(row)
 
         repo = UserRepository(mock_db_session)
         user = await repo.get_by_id("user_123")
 
         assert user is not None
+        assert user.id == "user_123"
+        assert user.email == "test@example.com"
 
     @pytest.mark.asyncio
     async def test_get_user_by_email(self, mock_db_session):
         """Test fetching a user by email"""
         from repositories.user_repository import UserRepository
 
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = MagicMock(
-            id="user_123",
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
-        mock_db_session.execute.return_value = mock_result
+        row = self._make_user_row(email="test@example.com")
+        mock_db_session.execute.return_value = self._mock_result_with_row(row)
 
         repo = UserRepository(mock_db_session)
         user = await repo.get_by_email("test@example.com")
 
         assert user is not None
+        assert user.email == "test@example.com"
 
     @pytest.mark.asyncio
     async def test_create_user(self, mock_db_session):
@@ -339,6 +367,9 @@ class TestUserRepository:
             region="us_ct"
         )
 
+        row = self._make_user_row(email="new@example.com", name="New User", region="us_ct")
+        mock_db_session.execute.return_value = self._mock_result_with_row(row)
+
         repo = UserRepository(mock_db_session)
         created = await repo.create(user_data)
 
@@ -351,12 +382,8 @@ class TestUserRepository:
         from repositories.user_repository import UserRepository
         from models.user import UserPreferences
 
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = MagicMock(
-            id="user_123",
-            preferences={}
-        )
-        mock_db_session.execute.return_value = mock_result
+        row = self._make_user_row(preferences={"notification_enabled": True})
+        mock_db_session.execute.return_value = self._mock_result_with_row(row)
 
         prefs = UserPreferences(
             notification_enabled=True,
@@ -385,11 +412,11 @@ class TestUserRepository:
         """Test listing users with pagination"""
         from repositories.user_repository import UserRepository
 
+        row1 = self._make_user_row(id="user_1", email="u1@example.com", name="User 1")
+        row2 = self._make_user_row(id="user_2", email="u2@example.com", name="User 2")
+
         mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [
-            MagicMock(id="user_1"),
-            MagicMock(id="user_2")
-        ]
+        mock_result.mappings.return_value.all.return_value = [row1, row2]
         mock_db_session.execute.return_value = mock_result
 
         repo = UserRepository(mock_db_session)
