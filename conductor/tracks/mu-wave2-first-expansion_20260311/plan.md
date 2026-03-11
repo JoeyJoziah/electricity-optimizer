@@ -3,10 +3,11 @@
 **Track ID:** mu-wave2-first-expansion_20260311
 **Spec:** spec.md
 **Created:** 2026-03-11
-**Status:** [ ] Not Started
+**Status:** [~] In Progress (2026-03-11)
 **Execution Mode:** Loki RARV Cycles (Autonomous)
 **Design Doc:** docs/plans/2026-03-11-multi-utility-expansion.md
-**Blocked By:** mu-wave1-foundation_20260311
+**Blocked By:** mu-wave1-foundation_20260311 (COMPLETE)
+**Updated:** 2026-03-11 (audit corrections — EIA client, gas deregulation, utility_rates refs)
 
 ---
 
@@ -20,30 +21,28 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
 
 ### Tasks
 
-- [ ] Task 1.1: Create EIA Natural Gas API client
-  - `backend/integrations/eia_gas.py`
-  - Henry Hub spot price endpoint
-  - Citygate price by state endpoint
-  - Residential price by state endpoint (monthly, 6-8 week lag)
-  - Reuse existing EIA API key from 1Password
-  - Rate limiting: respect EIA 1000 req/day limit
+- [x] Task 1.1: ~~Create EIA Natural Gas API client~~ **ALREADY EXISTS**
+  - `backend/integrations/pricing_apis/eia.py` has `get_gas_price()`, `get_heating_oil_price()`, `get_propane_price()`, `get_price_by_utility_type()`
+  - Rate limiting, caching, circuit breaker all wired in
+  - $/Mcf → $/therm conversion built in (÷ 10.37)
 
-- [ ] Task 1.2: Create gas rate data pipeline
+- [ ] Task 1.2: Create gas rate service (pipeline)
   - `backend/services/gas_rate_service.py`
-  - Fetch -> normalize -> store in `utility_rates` (utility_type=NATURAL_GAS)
-  - Price unit conversion: $/Mcf -> $/therm -> $/CCF
-  - Weekly aggregation from monthly EIA data
-  - Wire into cron: extend `scrape-rates.yml` or new `fetch-gas-rates.yml`
+  - Fetch from EIA client → normalize → store in `electricity_prices` (utility_type=NATURAL_GAS)
+  - **CORRECTED**: No `utility_rates` table — `electricity_prices` already multi-utility (migration 006)
+  - PriceRepository already supports `utility_type` filter on all queries
+  - Wire into cron: new `fetch-gas-rates.yml` GHA workflow
+  - Fetch for all `DEREGULATED_GAS_STATES` (16 states)
 
-- [ ] Task 1.3: Create gas supplier data layer
-  - Scrape Choose Energy gas plans (extend existing scraper pattern)
-  - Store gas suppliers in `suppliers` table with utility_types=['NATURAL_GAS']
-  - Gas plan comparison logic: fixed vs variable, contract length, early termination
+- [ ] Task 1.3: Seed gas suppliers in registry
+  - Add gas supplier entries to `supplier_registry` (already supports `utility_types[]`)
+  - Migration 040: seed gas suppliers for deregulated states
+  - Gas plan comparison logic: fixed vs variable, contract length
 
-- [ ] Task 1.4: Create gas deregulation mapping
-  - Extend `Region` model: `deregulated_gas` field already exists
-  - Populate data for 10-12 deregulated gas states (GA, OH, PA, NY, NJ, MD, VA, CT, RI, NH, ME, MA)
-  - Create migration 039 to seed gas deregulation data
+- [x] Task 1.4: ~~Create gas deregulation mapping~~ **ALREADY EXISTS**
+  - Migration 006 created `state_regulations` table with `gas_deregulated` column
+  - 16 states seeded (CT, TX, OH, PA, IL, NY, NJ, MA, MD, RI, NH, ME, DE, GA, IN, KY)
+  - `DEREGULATED_GAS_STATES` set in `models/region.py`
 
 - [ ] Task 1.5: Create gas API endpoints
   - `GET /api/v1/rates/natural-gas` — gas rates for user's region
@@ -66,7 +65,7 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
   - Frontend: component rendering, data display
 
 ### Verification
-- [ ] EIA gas data flowing and stored in utility_rates
+- [ ] EIA gas data flowing and stored in electricity_prices (utility_type=NATURAL_GAS)
 - [ ] Gas supplier comparison works for deregulated states
 - [ ] Price history chart renders with real data
 - [ ] All tests pass
@@ -89,7 +88,7 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
   - Enrollment status tracking
 
 - [ ] Task 2.3: Create community solar data model
-  - Migration 040: `community_solar_programs` table
+  - Migration 041: `community_solar_programs` table (040 = gas supplier seed)
   - Fields: id, state, program_name, provider, savings_percent, capacity_kw, spots_available, enrollment_url, updated_at
   - Populate initial data for top 10 states
 
@@ -212,7 +211,7 @@ First non-electricity utilities go live. Natural gas via EIA API, community sola
   - All new gas + solar + onboarding + data quality tests
 
 - [ ] Task 5.3: Deploy migrations to Neon production
-  - Migrations 039-040 (gas deregulation seed, community solar programs)
+  - Migrations 040-041 (gas supplier seed, community solar programs)
 
 - [ ] Task 5.4: Update CONTINUITY.md and DSP graph
 

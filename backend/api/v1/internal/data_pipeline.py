@@ -318,6 +318,31 @@ async def scrape_supplier_rates(
     }
 
 
+@router.post("/fetch-gas-rates", tags=["Internal"])
+async def fetch_gas_rates(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Fetch natural gas rates from EIA for all deregulated states.
+
+    Called by fetch-gas-rates.yml GHA cron (weekly).
+    Stores prices in electricity_prices with utility_type=NATURAL_GAS.
+    """
+    from config.settings import get_settings
+    from integrations.pricing_apis.eia import EIAClient
+    from services.gas_rate_service import GasRateService
+
+    settings = get_settings()
+    if not settings.eia_api_key:
+        raise HTTPException(status_code=503, detail="EIA API key not configured")
+
+    async with EIAClient(api_key=settings.eia_api_key) as eia_client:
+        service = GasRateService(db=db, eia_client=eia_client)
+        result = await service.fetch_gas_rates()
+
+    await db.commit()
+    return result
+
+
 @router.post("/geocode", tags=["Internal"])
 async def geocode_address(request: GeocodeRequest):
     """Resolve a US address to a state/region via OpenWeatherMap + Nominatim.

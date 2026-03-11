@@ -68,6 +68,7 @@ jest.mock('@/lib/store/settings', () => ({
 jest.mock('lucide-react', () => ({
   LayoutDashboard: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   TrendingUp: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
+  Flame: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Building2: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Link2: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Calendar: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,

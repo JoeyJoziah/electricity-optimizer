@@ -62,6 +62,7 @@ jest.mock('@/lib/contexts/sidebar-context', () => ({
 jest.mock('lucide-react', () => ({
   LayoutDashboard: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-dashboard" {...props} />,
   TrendingUp: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-prices" {...props} />,
+  Flame: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-gas-rates" {...props} />,
   Building2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-suppliers" {...props} />,
   Link2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-connections" {...props} />,
   Calendar: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-optimize" {...props} />,
@@ -93,11 +94,12 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('icon-zap')).toBeInTheDocument()
   })
 
-  it('renders all 8 navigation items', () => {
+  it('renders all 9 navigation items', () => {
     render(<Sidebar />)
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     expect(screen.getByText('Prices')).toBeInTheDocument()
+    expect(screen.getByText('Gas Rates')).toBeInTheDocument()
     expect(screen.getByText('Suppliers')).toBeInTheDocument()
     expect(screen.getByText('Connections')).toBeInTheDocument()
     expect(screen.getByText('Optimize')).toBeInTheDocument()
@@ -111,6 +113,7 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Dashboard').closest('a')).toHaveAttribute('href', '/dashboard')
     expect(screen.getByText('Prices').closest('a')).toHaveAttribute('href', '/prices')
+    expect(screen.getByText('Gas Rates').closest('a')).toHaveAttribute('href', '/gas-rates')
     expect(screen.getByText('Suppliers').closest('a')).toHaveAttribute('href', '/suppliers')
     expect(screen.getByText('Connections').closest('a')).toHaveAttribute('href', '/connections')
     expect(screen.getByText('Optimize').closest('a')).toHaveAttribute('href', '/optimize')

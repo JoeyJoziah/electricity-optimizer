@@ -11,6 +11,7 @@ import { NotificationBell } from '@/components/layout/NotificationBell'
 import {
   LayoutDashboard,
   TrendingUp,
+  Flame,
   Building2,
   Link2,
   Calendar,
@@ -26,6 +27,7 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Prices', href: '/prices', icon: TrendingUp },
+  { name: 'Gas Rates', href: '/gas-rates', icon: Flame },
   { name: 'Suppliers', href: '/suppliers', icon: Building2 },
   { name: 'Connections', href: '/connections', icon: Link2 },
   { name: 'Optimize', href: '/optimize', icon: Calendar },

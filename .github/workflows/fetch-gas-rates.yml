@@ -1,0 +1,45 @@
+name: Fetch Gas Rates
+
+on:
+  schedule:
+    # Weekly Monday at 4 AM UTC (EIA gas data updates monthly, weekly is plenty)
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: fetch-gas-rates
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+
+      - name: Fetch gas rates from EIA
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/fetch-gas-rates
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+          timeout: '120'
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Fetch Gas Rates"
+          severity: info
