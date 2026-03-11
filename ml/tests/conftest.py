@@ -8,12 +8,30 @@ Provides shared fixtures for:
 - Mock models for fast testing
 """
 
+# ---------------------------------------------------------------------------
+# Force CPU-only mode BEFORE any TensorFlow import.
+#
+# Without this, TensorFlow tries to initialise the CUDA runtime on import and
+# crashes in CI environments that have no GPU with:
+#
+#   CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+#
+# Setting CUDA_VISIBLE_DEVICES=-1 tells CUDA/TF there are no visible GPUs, so
+# TF falls back to CPU cleanly.  TF_CPP_MIN_LOG_LEVEL=3 silences the noisy C++
+# log output so CI logs stay readable.
+# ---------------------------------------------------------------------------
+import os
+
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "-1")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+# Suppress XLA/oneDNN messages
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+
 import pytest
 import numpy as np
 import pandas as pd
 from typing import Tuple, Optional
 from datetime import datetime, timedelta
-import os
 import tempfile
 import sys
 
@@ -75,7 +93,7 @@ def extended_price_data() -> pd.DataFrame:
     dates = pd.date_range(
         start='2024-01-01',
         periods=n_hours,
-        freq='H'
+        freq='h'
     )
 
     hours = np.arange(n_hours)
@@ -203,7 +221,7 @@ def feature_engine():
         from data.feature_engineering import ElectricityPriceFeatureEngine
 
     return ElectricityPriceFeatureEngine(
-        country='UK',
+        country='GB',  # Use ISO 3166-1 alpha-2 code; 'GB' is canonical for Great Britain
         lookback_hours=168,
         forecast_hours=24
     )
@@ -396,12 +414,30 @@ def pytest_collection_modifyitems(config, items):
     skip_tf = pytest.mark.skip(reason="TensorFlow not installed")
     skip_gpu = pytest.mark.skip(reason="GPU not available")
 
+    # ---------------------------------------------------------------------------
+    # Detecting TensorFlow availability safely in CI (no GPU).
+    #
+    # The CUDA_VISIBLE_DEVICES=-1 env var set at the top of this file ensures TF
+    # won't try to initialise CUDA.  We still guard with a broad except clause
+    # because some TF builds surface CUDA errors as Python exceptions during the
+    # very first import, before the env var takes effect in all code paths.
+    # ---------------------------------------------------------------------------
     try:
         import tensorflow as tf
         # Guard against MagicMock injected into sys.modules by other test files
         # (e.g. test_hyperparameter_tuning.py).  A real tensorflow is a module.
         has_tf = isinstance(tf, _types.ModuleType)
-        has_gpu = has_tf and len(tf.config.list_physical_devices('GPU')) > 0
+
+        if has_tf:
+            try:
+                # With CUDA_VISIBLE_DEVICES=-1 this returns [] on CPU-only runners
+                gpus = tf.config.list_physical_devices('GPU')
+                has_gpu = len(gpus) > 0
+            except Exception:
+                # Swallow any residual CUDA init errors — treat as no GPU
+                has_gpu = False
+        else:
+            has_gpu = False
     except (ImportError, Exception):
         has_tf = False
         has_gpu = False

@@ -61,7 +61,7 @@ describe('TermsPage', () => {
   })
 
   it('renders legal contact email', () => {
-    expect(screen.getByText(/legal@electricity-optimizer\.com/i)).toBeInTheDocument()
+    expect(screen.getByText(/legal@rateshift\.app/i)).toBeInTheDocument()
   })
 
   it('renders footer navigation links', () => {

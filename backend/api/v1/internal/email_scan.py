@@ -214,9 +214,9 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
             )
 
             # ----------------------------------------------------------------
-            # Extract rates and persist
+            # Extract rates and batch-persist (single COMMIT per connection)
             # ----------------------------------------------------------------
-            rates_extracted = 0
+            rate_rows: list[dict] = []
             for email_result in utility_emails:
                 try:
                     extracted = await extract_rates_from_email(
@@ -227,35 +227,50 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                     if not extracted:
                         continue
 
-                    await db.execute(
-                        text("""
-                            INSERT INTO connection_extracted_rates
-                                (connection_id, source, rate_per_kwh, effective_date, raw_data)
-                            VALUES
-                                (:cid, :source, :rate, :date, :raw)
-                            ON CONFLICT DO NOTHING
-                        """),
-                        {
-                            "cid": conn_id,
-                            "source": f"email:{email_result.email_id}",
-                            "rate": extracted.get("rate_per_kwh"),
-                            "date": email_result.date.date() if email_result.date else None,
-                            "raw": str(extracted),
-                        },
-                    )
-                    await db.commit()
-                    rates_extracted += 1
+                    rate_rows.append({
+                        "cid": conn_id,
+                        "source": f"email:{email_result.email_id}",
+                        "rate": extracted.get("rate_per_kwh"),
+                        "date": email_result.date.date() if email_result.date else None,
+                        "raw": str(extracted),
+                    })
                     log.debug(
-                        "scan_emails_rate_persisted",
+                        "scan_emails_rate_extracted",
                         email_id=email_result.email_id,
                         extracted=extracted,
                     )
+                except Exception as extract_exc:
+                    log.warning(
+                        "scan_emails_rate_extract_failed",
+                        email_id=email_result.email_id,
+                        error=str(extract_exc),
+                    )
+
+            # Batch INSERT all extracted rates in one go
+            rates_extracted = 0
+            if rate_rows:
+                try:
+                    for row in rate_rows:
+                        await db.execute(
+                            text("""
+                                INSERT INTO connection_extracted_rates
+                                    (connection_id, source, rate_per_kwh, effective_date, raw_data)
+                                VALUES
+                                    (:cid, :source, :rate, :date, :raw)
+                                ON CONFLICT DO NOTHING
+                            """),
+                            row,
+                        )
+                    await db.commit()
+                    rates_extracted = len(rate_rows)
                 except Exception as persist_exc:
                     log.warning(
-                        "scan_emails_rate_persist_failed",
-                        email_id=email_result.email_id,
+                        "scan_emails_batch_persist_failed",
+                        connection_id=conn_id,
+                        rows=len(rate_rows),
                         error=str(persist_exc),
                     )
+                    await db.rollback()
 
             return {
                 "connection_id": conn_id,

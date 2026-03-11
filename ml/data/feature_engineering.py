@@ -75,16 +75,35 @@ class ElectricityPriceFeatureEngine:
     5. Price dynamics: price_change_1h, price_change_24h, volatility
     """
 
+    # Map legacy / informal country codes to ISO 3166-1 alpha-2 codes accepted
+    # by the holidays library.  Older versions of holidays (< 0.40) did not
+    # accept 'UK'; the canonical code is 'GB' (Great Britain).
+    _COUNTRY_CODE_ALIASES: dict = {
+        "UK": "GB",
+        "GREAT BRITAIN": "GB",
+        "ENGLAND": "GB",
+    }
+
     def __init__(
         self,
-        country: str = "UK",
+        country: str = "GB",
         lookback_hours: int = 168,
         forecast_hours: int = 24
     ):
-        self.country = country
+        # Normalise to an accepted ISO code
+        normalised = self._COUNTRY_CODE_ALIASES.get(country.upper(), country)
+        self.country = normalised
         self.lookback_hours = lookback_hours
         self.forecast_hours = forecast_hours
-        self.holiday_calendar = holidays.country_holidays(country)
+        try:
+            self.holiday_calendar = holidays.country_holidays(normalised)
+        except (KeyError, NotImplementedError):
+            # Fallback: empty calendar so holiday detection is gracefully absent
+            logger.warning(
+                "Could not load holiday calendar for country '%s'. "
+                "is_holiday will always be 0.", normalised
+            )
+            self.holiday_calendar = {}
         self.scaler = None
         self.feature_names_ = None
         self.is_fitted_ = False
@@ -581,7 +600,7 @@ def example_usage():
 
     # Initialize feature engine
     feature_engine = ElectricityPriceFeatureEngine(
-        country='UK',
+        country='GB',
         lookback_hours=168,
         forecast_hours=24
     )

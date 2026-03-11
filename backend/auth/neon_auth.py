@@ -228,24 +228,45 @@ async def ensure_user_profile(
     email: str,
     name: str,
     db: AsyncSession,
-):
+) -> bool:
     """
     Ensure a user profile exists in our application's users table.
 
     When a user signs up via Neon Auth, they exist in neon_auth.user but
     not in our public.users table. This syncs on first API call.
 
+    Returns True if a new profile was created, False if it already existed.
+
     Uses raw SQL because the User model is Pydantic (not SQLAlchemy ORM),
     so select(User) doesn't work outside of the test mock fixture.
+
+    Notes on schema compatibility:
+    - `region` is nullable since migration 018 (DROP NOT NULL). Upsert passes
+      NULL so the user selects their region during onboarding.
+    - `name` VARCHAR(200) NOT NULL — we pass an empty string as the safe
+      default when the provider supplies no name.
+    - ON CONFLICT (id) DO UPDATE email/name handles the edge case where a
+      user changes their email or display name in the identity provider.
     """
-    # Single upsert — ON CONFLICT DO NOTHING handles existing users atomically,
-    # eliminating the redundant SELECT round-trip on every request.
+    # Upsert — create profile if absent; update email/name if changed.
+    # ON CONFLICT (id) DO UPDATE keeps the row in sync with neon_auth.user
+    # without touching region/preferences/onboarding data the user may have set.
     insert = text("""
         INSERT INTO public.users (id, email, name, region, is_active, created_at, updated_at)
         VALUES (:id, :email, :name, NULL, true, NOW(), NOW())
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (id) DO UPDATE
+            SET email      = EXCLUDED.email,
+                name       = CASE
+                                 WHEN EXCLUDED.name <> '' THEN EXCLUDED.name
+                                 ELSE public.users.name
+                             END,
+                updated_at = NOW()
+        WHERE public.users.email <> EXCLUDED.email
+           OR (EXCLUDED.name <> '' AND public.users.name <> EXCLUDED.name)
     """)
     result = await db.execute(insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""})
     await db.commit()
-    if result.rowcount > 0:
+    created = result.rowcount > 0
+    if created:
         logger.info("user_profile_synced", user_id=neon_user_id, email=email)
+    return created

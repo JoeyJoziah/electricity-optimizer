@@ -76,6 +76,13 @@ async def sync_prices(
     try:
         async with pricing_service:
             comparison = await pricing_service.compare_prices(target_regions)
+            missing = [r.value for r in target_regions if r not in comparison]
+            logger.info(
+                "price_sync_comparison_result: requested=%d returned=%d missing=%s",
+                len(target_regions),
+                len(comparison),
+                missing,
+            )
             for region, price_data in comparison.items():
                 kwh_price = price_data.convert_to_kwh()
                 db_region = region.value
@@ -115,9 +122,16 @@ async def sync_prices(
 
     if synced_count > 0:
         logger.info("price_sync_complete", count=synced_count, regions=regions_covered)
+    elif not errors:
+        logger.warning(
+            "price_sync_zero_records: targets=%s — all API calls succeeded but returned zero price data",
+            [r.value for r in target_regions],
+        )
+
+    status = "refreshed" if synced_count > 0 else ("error" if errors else "empty")
 
     return {
-        "status": "refreshed" if synced_count > 0 else "partial",
+        "status": status,
         "message": f"Synced {synced_count} price records from {len(regions_covered)} regions",
         "synced_records": synced_count,
         "regions_covered": regions_covered,

@@ -427,8 +427,7 @@ describe('DashboardContent', () => {
 
     render(<DashboardContent />, { wrapper: createWrapper() })
 
-    expect(screen.getByText('Failed to load price data')).toBeInTheDocument()
-    expect(screen.getByText('Please try refreshing the page')).toBeInTheDocument()
+    expect(screen.getByText('Unable to load price data')).toBeInTheDocument()
     expect(screen.queryByTestId('dashboard-container')).not.toBeInTheDocument()
   })
 

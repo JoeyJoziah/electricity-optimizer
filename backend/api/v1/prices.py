@@ -471,6 +471,7 @@ async def compare_prices(
     summary="Trigger price data refresh",
     responses={
         200: {"description": "Price sync triggered successfully"},
+        503: {"description": "Price sync failed — no data retrieved"},
     }
 )
 async def refresh_prices(
@@ -482,8 +483,16 @@ async def refresh_prices(
 
     Called by the GitHub Actions price-sync workflow (every 6 hours)
     to keep cached price data up to date.
+
+    Returns HTTP 503 on failure so retry-curl will retry with backoff.
     """
     from services.price_sync_service import sync_prices
+    from fastapi.responses import JSONResponse
 
     logger.info("price_refresh_triggered")
-    return await sync_prices(session)
+    result = await sync_prices(session)
+
+    if result["status"] in ("error", "empty"):
+        return JSONResponse(status_code=503, content=result)
+
+    return result

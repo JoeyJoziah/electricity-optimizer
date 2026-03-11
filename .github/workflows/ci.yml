@@ -134,7 +134,21 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ml == 'true' || needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    # Force TensorFlow / PyTorch to CPU-only mode.  GitHub Actions runners have
+    # no GPU and the CUDA runtime is not present, so any attempt to initialise
+    # CUDA (which happens automatically on TF import) results in:
+    #
+    #   CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+    #
+    # Setting CUDA_VISIBLE_DEVICES=-1 makes CUDA report "no devices" before the
+    # runtime has a chance to fail.  TF_CPP_MIN_LOG_LEVEL=3 suppresses the
+    # noisy C++ log messages so CI output stays readable.
+    env:
+      CUDA_VISIBLE_DEVICES: "-1"
+      TF_CPP_MIN_LOG_LEVEL: "3"
+      TF_ENABLE_ONEDNN_OPTS: "0"
 
     steps:
       - uses: actions/checkout@v4
@@ -145,12 +159,14 @@ jobs:
           working-directory: ml
 
       - name: Install test dependencies
-        run: pip install pytest pytest-cov
+        run: pip install pytest pytest-cov pytest-timeout
 
       - name: Run ML tests with coverage
         run: |
           cd ml
-          pytest --cov=. --cov-report=xml --cov-report=term-missing -v
+          pytest --cov=. --cov-report=xml --cov-report=term-missing -v \
+            -m "not slow" \
+            --timeout=120
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

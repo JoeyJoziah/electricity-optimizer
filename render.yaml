@@ -19,6 +19,8 @@ services:
         sync: false
       - key: EIA_API_KEY
         sync: false
+      - key: IEA_API_KEY
+        sync: false
       - key: OPENWEATHERMAP_API_KEY
         sync: false
       - key: RESEND_API_KEY

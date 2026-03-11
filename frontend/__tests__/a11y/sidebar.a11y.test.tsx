@@ -72,6 +72,7 @@ jest.mock('lucide-react', () => ({
   Link2: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Calendar: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Bell: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
+  Bot: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Settings: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Zap: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,

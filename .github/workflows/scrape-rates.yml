@@ -21,6 +21,11 @@ jobs:
         with:
           sparse-checkout: .github/actions
 
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+
       - name: Scrape all supplier rate pages
         uses: ./.github/actions/retry-curl
         with:

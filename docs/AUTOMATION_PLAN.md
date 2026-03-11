@@ -1,13 +1,13 @@
 # Automation Workflows — Implementation Plan
 
-> Generated: 2026-03-05
-> Status: COMPLETE — Phase 0 DONE, Phase 1 COMPLETE, Phase 2 COMPLETE, Phase 3 COMPLETE, Self-Healing CI/CD COMPLETE
+> Generated: 2026-03-05 | Last updated: 2026-03-10
+> Status: **ALL COMPLETE** — Phase 0-3 DONE, Self-Healing CI/CD DONE, All 5 post-deployment items DONE (NotificationDispatcher, ML Weight Persistence, Full-Scale Rate Scraping, In-App Notifications, Custom Email Domain)
 > Source: Multi-agent brainstorming (5 agents: Designer, Skeptic, Constraint Guardian, User Advocate, Arbiter)
 
 ## Executive Summary
 
 9 cross-service automation workflows designed using 16 Composio/Rube MCP connections.
-7 approved (5 unconditional, 2 conditional), 2 rejected. All 4 prerequisite blockers resolved. All 7 approved workflows implemented and deployed (~27 hours total). Self-Healing CI/CD system added: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. 3 items remain for future work: NotificationDispatcher, ML weight persistence, and in-app notifications.
+7 approved (5 unconditional, 2 conditional), 2 rejected. All 4 prerequisite blockers resolved. All 7 approved workflows implemented and deployed (~27 hours total). Self-Healing CI/CD system added: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. All 5 post-deployment items complete: NotificationDispatcher (3-channel dispatch with dedup), ML weight persistence (dual Redis+PostgreSQL, 3-tier load, model versioning), full-scale rate scraping (37 suppliers, Semaphore(5), ~96s), in-app notifications (API + NotificationBell frontend with polling), custom email domain (rateshift.app verified).
 
 ---
 
@@ -199,17 +199,18 @@ Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, a
 **Change**: `TIMEOUT_EXCLUDED_PREFIXES = ("/api/v1/internal/",)` — internal batch jobs bypass 30s timeout.
 **Test**: `test_middleware_asgi.py::TestTimeoutASGI::test_internal_paths_excluded_from_timeout`
 
-### 2. NotificationDispatcher (New Service)
+### 2. NotificationDispatcher (New Service) ✅ (2026-03-10)
 **Purpose**: Centralized notification routing with deduplication and frequency enforcement
-**Channels** (in fallback order): Push (OneSignal) → Email (Resend) → Log (always)
-**Features**: Deduplication key, cooldown window, `notification_frequency` enforcement, channel availability check
+**Channels** (in fallback order): In-App (notifications table) → Push (OneSignal) → Email (Resend)
+**Features**: Deduplication key, cooldown window, per-channel error isolation, delivery tracking (status/channel/timestamp/retry_count/error_message)
 **File**: `backend/services/notification_dispatcher.py`
+**Integration**: Wired into AlertService (price alerts) and DunningService (payment failure emails)
 
-### 3. Redis or PostgreSQL Weight Persistence
+### 3. PostgreSQL Weight Persistence ✅ (2026-03-10)
 **Problem**: `LearningService` silently skips Redis writes. Ensemble weights are ephemeral (lost on restart).
-**Option A**: Provision Upstash Redis free tier (10K commands/day)
-**Option B**: Create `model_config` table with JSON column for weight persistence (aligns with existing Neon architecture)
-**Recommended**: Option B (no new infrastructure dependency)
+**Solution**: Option B implemented — `model_config` table (migration 027) with JSONB column, plus `model_versions` table (migration 030) for versioning and A/B testing
+**Dual persist**: LearningService writes to both Redis (hot-path) and PostgreSQL (durable) on every nightly learning cycle
+**Load**: EnsemblePredictor uses 3-tier fallback: Redis → PostgreSQL (sync psycopg2) → file/defaults
 
 ### 4. GitHub Actions Workflow Files ✅ (2026-03-06)
 All 12 cron workflows created:
@@ -229,10 +230,11 @@ All 12 cron workflows created:
 | Week | Phase | Deliverables | Hours | Status |
 |------|-------|-------------|-------|--------|
 | 1 | 0 + 1 | 4 blockers fixed + 3 zero-risk workflows live | 12-15h | ✅ DONE |
-| 2 | 2 | Scheduled endpoints + connection sync + price alerts | 7-8h | ✅ DONE (code + GHA) |
+| 2 | 2 | Scheduled endpoints + connection sync + price alerts | 7-8h | ✅ DONE |
 | 3 | 3 | Stripe dunning + KPI reports live | 5-6h | ✅ DONE |
 | 3+ | Self-Healing | Auto-format, retry, notify, validate, monitor, E2E resilience | 6-8h | ✅ DONE |
-| Total | | 7 workflows live, 2 deferred | ~33-35h | 7/7 done |
+| 4+ | Post-deploy | NotificationDispatcher, ML weights, rate scraping, in-app notifs, email domain | ~12h | ✅ DONE |
+| Total | | 7 workflows live, 5 enhancements, 2 deferred | ~45h | **ALL COMPLETE** |
 
 ---
 
@@ -278,7 +280,7 @@ After deployment, track:
 - ✅ `backend/tests/test_kpi_report_service.py` — 7 KPI service tests
 - ✅ `.github/workflows/dunning-cycle.yml` — daily 7am UTC dunning cron
 - ✅ `.github/workflows/kpi-report.yml` — daily 6am UTC KPI cron
-- Pending: `backend/services/notification_dispatcher.py` — centralized notification routing (future)
+- ✅ `backend/services/notification_dispatcher.py` — centralized notification routing with 3-channel dispatch
 
 ### Modified Files
 - ✅ `backend/app_factory.py` — timeout exclusion for `/api/v1/internal/`
@@ -291,38 +293,41 @@ After deployment, track:
 
 ---
 
-## What's Next
+## What's Next — ALL COMPLETE ✅ (2026-03-10)
 
-All 7 approved workflows are deployed. The remaining work falls into three categories:
+All 7 approved workflows deployed. All 5 post-deployment items complete.
 
-### 1. NotificationDispatcher (Architectural Change #2) — HIGH PRIORITY
-- **What**: Centralized notification routing with Push (OneSignal) → Email (Resend) → Log fallback chain
-- **Why**: Currently alerts only send email. Users with push enabled get no push notifications. Dedup logic would be duplicated if added per-workflow.
-- **Effort**: ~4-6 hours
-- **File**: `backend/services/notification_dispatcher.py`
-- **Dependencies**: None — OneSignal binding (B2) and email (B1) are already working
+### 1. NotificationDispatcher (Architectural Change #2) ✅
+- **Implemented**: `backend/services/notification_dispatcher.py` — strategy-pattern dispatcher with IN_APP (notifications table), PUSH (OneSignal), EMAIL (Resend/SMTP) channels
+- **Features**: Deduplication via `dedup_key` + cooldown window, per-channel error isolation, delivery tracking (migrations 029 + 032), fallback chain
+- **Integration**: AlertService routes price alerts through dispatcher; DunningService routes payment failure emails through dispatcher
+- **Tests**: `test_notification_dispatcher.py`, `test_notification_delivery.py`
 
-### 2. ML Weight Persistence (Architectural Change #3) — MEDIUM PRIORITY
-- **What**: Persist `LearningService` ensemble weights to PostgreSQL instead of ephemeral Redis
-- **Why**: Weights are lost on every restart, silently degrading prediction quality
-- **Effort**: ~2-3 hours
-- **Approach**: Create `model_config` table with JSON column (Option B — no new infrastructure)
-- **Dependencies**: None
+### 2. ML Weight Persistence (Architectural Change #3) ✅
+- **Implemented**: `model_config` table (migration 027) with JSONB `weights_json`, `training_metadata`, `accuracy_metrics` columns
+- **Dual persist**: LearningService writes to both Redis (hot-path) and PostgreSQL (durable) on every nightly cycle
+- **3-tier load**: EnsemblePredictor startup: Redis → PostgreSQL → file/defaults. Uses synchronous psycopg2 for startup context
+- **Versioning**: `model_versions` table (migration 030) with promotion gating, A/B test support (`ab_tests`, `ab_outcomes`), prediction tracking (`model_predictions`, `model_ab_assignments` — migration 033)
+- **Repository**: `ModelConfigRepository.save_config()` atomically deactivates old → inserts new active row
+- **Tests**: `test_learning_service.py` (weight computation, clamping, dual persist, Redis failure)
 
-### 3. Full-Scale Rate Scraping — LOW PRIORITY
-- **What**: Extend `scrape-rates.yml` to run all 37 suppliers (currently auto-discovers subset with websites)
-- **Why**: Middleware timeout exclusion is now in place; GHA has no 30s limit
-- **Effort**: ~1-2 hours (test full run, adjust concurrency/batching if needed)
-- **Dependencies**: None — blocker resolved in Phase 2
+### 3. Full-Scale Rate Scraping ✅
+- **Implemented**: `RateScraperService` with `asyncio.Semaphore(5)` concurrency and 12s rate limiting
+- **Auto-discovery**: Empty-body `POST /internal/scrape-rates` queries `supplier_registry WHERE is_active = true AND website IS NOT NULL` — finds all 37 suppliers (seeded in migration 019)
+- **Timing**: 37 suppliers ÷ 5 parallel = 8 batches × 12s = ~96 seconds (vs 444s sequential)
+- **Per-supplier isolation**: Individual timeouts (30s), failures don't block the batch
+- **Workflow**: `scrape-rates.yml` runs daily 3am UTC via retry-curl + notify-slack
 
-### 4. In-App Notifications — LOW PRIORITY
-- **What**: `notifications` table + SSE/polling endpoint for users without push/email
-- **Why**: Zero notification channels for users who haven't enabled push or provided email
-- **Effort**: ~6-8 hours (new feature: schema, API, frontend component)
-- **Dependencies**: NotificationDispatcher (#1 above) should be built first
+### 4. In-App Notifications ✅
+- **Table**: `notifications` (migrations 015, 026, 029, 032) — 15 columns including delivery tracking
+- **Service**: `NotificationService` — create, get_unread (max 50), get_unread_count, mark_read, mark_all_read
+- **API**: `backend/api/v1/notifications.py` — `GET /notifications`, `GET /notifications/count`, `PUT /notifications/read-all`, `PUT /notifications/{id}/read`
+- **Frontend**: `NotificationBell.tsx` — bell icon with unread count badge, dropdown panel with notification list, "Mark all read" button, 30s polling via React Query
+- **Dispatcher integration**: NotificationDispatcher writes IN_APP rows as part of multi-channel dispatch (price alerts, dunning, etc.)
+- **Tests**: 23 tests in `test_notifications.py` (API + service), 20 tests in `NotificationBell.test.tsx`
 
-### 5. Custom Email Domain — OPERATIONAL
-- **What**: Purchase domain for Resend, configure DKIM/SPF/DMARC, update `EMAIL_FROM_ADDRESS`
-- **Why**: Currently using `onboarding@resend.dev` sandbox (only delivers to account email). All email workflows are technically functional but limited to dev delivery.
-- **Effort**: ~1 hour (purchase + DNS config) + propagation time
-- **Dependencies**: None — purely operational
+### 5. Custom Email Domain ✅
+- **Domain**: `rateshift.app` registered via Cloudflare Registrar
+- **Resend**: Domain verified with DKIM/SPF/DMARC, TLS enforced. Domain ID: `20c95ef2-42f4-4040-be75-2026e97e35c9`
+- **Sender**: `RateShift <noreply@rateshift.app>`
+- **Fallback**: Gmail SMTP (`smtp.gmail.com:587`, TLS, App Password) via nodemailer

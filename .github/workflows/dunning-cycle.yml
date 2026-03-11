@@ -19,6 +19,11 @@ jobs:
         with:
           sparse-checkout: .github/actions
 
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+
       - name: Run dunning cycle
         uses: ./.github/actions/retry-curl
         with:

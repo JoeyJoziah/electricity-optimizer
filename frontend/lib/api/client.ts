@@ -39,6 +39,15 @@ const REDIRECT_WINDOW_MS = 10_000
 // Deduplicate: only one 401 redirect in flight at a time
 let redirectInFlight = false
 
+/** @internal Reset redirect state — exposed for tests only */
+export function _resetRedirectState() {
+  redirectInFlight = false
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(REDIRECT_COUNT_KEY)
+    sessionStorage.removeItem(REDIRECT_TS_KEY)
+  }
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     // On 401, redirect to login — but guard against redirect loops

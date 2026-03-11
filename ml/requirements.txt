@@ -26,8 +26,9 @@ torch>=2.0.0
 # Data Validation
 pydantic>=2.0.0
 
-# Holidays
-holidays>=0.30
+# Holidays — lower bound of 0.40 ensures country_holidays() is available and
+# 'UK'/'GB' country codes both work without subdivision errors.
+holidays>=0.40
 
 # Visualization (optional)
 matplotlib>=3.7.0

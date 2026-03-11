@@ -58,7 +58,7 @@ def test_feature_engineering():
     # Initialize feature engine
     print("\n1.2 Initializing feature engine...")
     feature_engine = ElectricityPriceFeatureEngine(
-        country='UK',
+        country='GB',
         lookback_hours=168,
         forecast_hours=24
     )

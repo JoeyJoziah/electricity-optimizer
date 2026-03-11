@@ -5,10 +5,10 @@ Covers:
 - Happy path: full sync with mocked pricing service and DB
 - DEFAULT_REGIONS used when no regions argument given
 - Custom regions list passed through
-- RateLimitError → status=partial, error recorded
-- APIError → status=partial, error recorded
-- Generic Exception → status=partial, error recorded
-- Empty comparison dict → synced_records=0, status=partial
+- RateLimitError → status=error, error recorded
+- APIError → status=error, error recorded
+- Generic Exception → status=error, error recorded
+- Empty comparison dict → synced_records=0, status=empty
 - prices_to_store populated but session is None → no DB write
 """
 
@@ -157,7 +157,7 @@ class TestSyncPrices:
 
     @pytest.mark.asyncio
     async def test_sync_prices_rate_limit_error(self, mock_db):
-        """RateLimitError is caught — status=partial, error message captured."""
+        """RateLimitError is caught — status=error, error message captured."""
         from integrations.pricing_apis.base import RateLimitError
 
         mock_pricing_svc = AsyncMock()
@@ -183,14 +183,14 @@ class TestSyncPrices:
 
             result = await sync_prices(mock_db)
 
-        assert result["status"] == "partial"
+        assert result["status"] == "error"
         assert result["synced_records"] == 0
         assert result["errors"] is not None
         assert any("Rate limited" in e for e in result["errors"])
 
     @pytest.mark.asyncio
     async def test_sync_prices_api_error(self, mock_db):
-        """APIError is caught — status=partial, error message captured."""
+        """APIError is caught — status=error, error message captured."""
         from integrations.pricing_apis.base import APIError
 
         mock_pricing_svc = AsyncMock()
@@ -213,13 +213,13 @@ class TestSyncPrices:
 
             result = await sync_prices(mock_db)
 
-        assert result["status"] == "partial"
+        assert result["status"] == "error"
         assert result["errors"] is not None
         assert any("API error" in e for e in result["errors"])
 
     @pytest.mark.asyncio
     async def test_sync_prices_unexpected_error(self, mock_db):
-        """Generic Exception is caught — status=partial, error recorded."""
+        """Generic Exception is caught — status=error, error recorded."""
         mock_pricing_svc = AsyncMock()
         mock_pricing_svc.__aenter__ = AsyncMock(return_value=mock_pricing_svc)
         mock_pricing_svc.__aexit__ = AsyncMock(return_value=False)
@@ -240,13 +240,13 @@ class TestSyncPrices:
 
             result = await sync_prices(mock_db)
 
-        assert result["status"] == "partial"
+        assert result["status"] == "error"
         assert result["errors"] is not None
         assert any("Unexpected error" in e for e in result["errors"])
 
     @pytest.mark.asyncio
     async def test_sync_prices_empty_comparison(self, mock_db):
-        """Empty comparison dict → no prices stored, status=partial."""
+        """Empty comparison dict → no prices stored, status=empty."""
         mock_pricing_svc = _make_async_pricing_service({})
 
         with patch(
@@ -257,7 +257,7 @@ class TestSyncPrices:
 
             result = await sync_prices(mock_db)
 
-        assert result["status"] == "partial"
+        assert result["status"] == "empty"
         assert result["synced_records"] == 0
         assert result["regions_covered"] == []
 
@@ -288,4 +288,4 @@ class TestSyncPrices:
         # Session was None so bulk_create must NOT have been called
         mock_repo.bulk_create.assert_not_awaited()
         assert result["synced_records"] == 0
-        assert result["status"] == "partial"
+        assert result["status"] == "error"

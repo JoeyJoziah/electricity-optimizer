@@ -66,7 +66,7 @@ class TrainingConfig:
     # Feature engineering
     sequence_length: int = 168  # 7 days
     forecast_horizon: int = 24  # 24 hours
-    country_code: str = "UK"
+    country_code: str = "GB"
 
     # Train/Val/Test split
     train_ratio: float = 0.7

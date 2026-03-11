@@ -162,7 +162,7 @@ class TestCheckAlerts:
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[(threshold, alert)])
-        mock_svc._should_send_alert = AsyncMock(return_value=True)
+        mock_svc._batch_should_send_alerts = AsyncMock(return_value=set())  # nothing in cooldown
         mock_svc.send_alerts = AsyncMock(return_value=1)
         mock_svc.record_triggered_alert = AsyncMock(return_value={})
         mock_svc_cls.return_value = mock_svc
@@ -217,7 +217,10 @@ class TestCheckAlerts:
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[(threshold, alert)])
-        mock_svc._should_send_alert = AsyncMock(return_value=False)  # inside cooldown
+        # Batch returns the key as "in cooldown" → should be deduplicated
+        mock_svc._batch_should_send_alerts = AsyncMock(
+            return_value={(cfg["user_id"], "price_drop", "us_ct")}
+        )
         mock_svc.send_alerts = AsyncMock(return_value=0)
         mock_svc.record_triggered_alert = AsyncMock(return_value={})
         mock_svc_cls.return_value = mock_svc
@@ -254,6 +257,7 @@ class TestCheckAlerts:
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[])
+        mock_svc._batch_should_send_alerts = AsyncMock(return_value=set())
         mock_svc.send_alerts = AsyncMock(return_value=0)
         mock_svc_cls.return_value = mock_svc
 
@@ -284,6 +288,7 @@ class TestCheckAlerts:
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[])
+        mock_svc._batch_should_send_alerts = AsyncMock(return_value=set())
         mock_svc.send_alerts = AsyncMock(return_value=0)
         mock_svc_cls.return_value = mock_svc
 
@@ -372,7 +377,9 @@ class TestCheckAlerts:
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg1, cfg2])
         mock_svc.check_thresholds = MagicMock(return_value=[(t1, a1), (t2, a2)])
         # user-1 passes, user-2 is in cooldown
-        mock_svc._should_send_alert = AsyncMock(side_effect=[True, False])
+        mock_svc._batch_should_send_alerts = AsyncMock(
+            return_value={("user-2", "price_drop", "us_ct")}
+        )
         mock_svc.send_alerts = AsyncMock(return_value=1)
         mock_svc.record_triggered_alert = AsyncMock(return_value={})
         mock_svc_cls.return_value = mock_svc

@@ -258,7 +258,7 @@ describe('Dashboard Integration', () => {
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to load/i)).toBeInTheDocument()
+      expect(screen.getByText(/unable to load/i)).toBeInTheDocument()
     })
   })
 

@@ -1,13 +1,19 @@
-import { apiClient, ApiClientError } from '@/lib/api/client'
+import { apiClient, ApiClientError, _resetRedirectState } from '@/lib/api/client'
 
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
+const originalLocation = window.location
 
 beforeEach(() => {
   mockFetch.mockReset()
+  _resetRedirectState()
+})
+
+afterAll(() => {
+  Object.defineProperty(window, 'location', { writable: true, value: originalLocation })
 })
 
 // ---------------------------------------------------------------------------
@@ -192,6 +198,11 @@ describe('apiClient.post', () => {
   })
 
   it('should throw ApiClientError on error response', async () => {
+    // Set pathname to auth page so 401 redirect is suppressed and error is thrown
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: { ...originalLocation, pathname: '/auth/login', href: 'http://localhost:3000/auth/login' },
+    })
     mockFetch.mockResolvedValue(
       mockJsonResponse({ message: 'Invalid credentials' }, 401, 'Unauthorized')
     )

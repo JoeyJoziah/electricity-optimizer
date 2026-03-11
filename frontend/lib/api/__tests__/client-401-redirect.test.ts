@@ -5,7 +5,7 @@
  * callbackUrl extraction, safety valve, and counter reset.
  */
 
-import { apiClient } from '@/lib/api/client'
+import { apiClient, _resetRedirectState } from '@/lib/api/client'
 
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
 
@@ -52,6 +52,7 @@ describe('401 redirect behavior', () => {
   beforeEach(() => {
     mockFetch.mockReset()
     sessionStorage.clear()
+    _resetRedirectState()
     setLocation({ pathname: '/dashboard', search: '', href: 'http://localhost:3000/dashboard' })
   })
 
@@ -65,8 +66,14 @@ describe('401 redirect behavior', () => {
   it('redirects to login with callbackUrl on 401 from non-auth page', async () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized'))
 
-    await expect(apiClient.get('/prices')).rejects.toThrow()
+    // The redirect returns a never-resolving promise; race it with a timeout
+    const result = await Promise.race([
+      apiClient.get('/prices').catch(() => 'rejected'),
+      new Promise(r => setTimeout(() => r('pending'), 50)),
+    ])
 
+    // Should have set redirect URL (never-resolving promise = 'pending')
+    expect(result).toBe('pending')
     expect(window.location.href).toBe('/auth/login?callbackUrl=%2Fdashboard')
   })
 
@@ -106,15 +113,20 @@ describe('401 redirect behavior', () => {
     })
     mockFetch.mockResolvedValue(mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized'))
 
-    await expect(apiClient.get('/prices')).rejects.toThrow()
+    const result = await Promise.race([
+      apiClient.get('/prices').catch(() => 'rejected'),
+      new Promise(r => setTimeout(() => r('pending'), 50)),
+    ])
 
+    expect(result).toBe('pending')
     // Should use the EXISTING callbackUrl (/suppliers), not nest /prices?callbackUrl=...
     expect(window.location.href).toBe('/auth/login?callbackUrl=%2Fsuppliers')
   })
 
-  it('stops redirecting after 3 consecutive 401s', async () => {
-    // Pre-set the counter to the max
-    sessionStorage.setItem('api_401_redirect_count', '3')
+  it('stops redirecting after 2 consecutive 401s', async () => {
+    // Pre-set the counter to the max (now 2 instead of 3)
+    sessionStorage.setItem('api_401_redirect_count', '2')
+    sessionStorage.setItem('api_401_redirect_ts', String(Date.now()))
     mockFetch.mockResolvedValue(mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized'))
 
     await expect(apiClient.get('/prices')).rejects.toThrow()
@@ -124,12 +136,14 @@ describe('401 redirect behavior', () => {
   })
 
   it('resets redirect counter on successful response', async () => {
-    sessionStorage.setItem('api_401_redirect_count', '2')
+    sessionStorage.setItem('api_401_redirect_count', '1')
+    sessionStorage.setItem('api_401_redirect_ts', String(Date.now()))
     mockFetch.mockResolvedValue(mockJsonResponse({ data: 'ok' }, 200))
 
     await apiClient.get('/health')
 
     expect(sessionStorage.getItem('api_401_redirect_count')).toBeNull()
+    expect(sessionStorage.getItem('api_401_redirect_ts')).toBeNull()
   })
 
   it('no redirect on server-side (window undefined)', async () => {
@@ -155,8 +169,12 @@ describe('401 redirect behavior', () => {
     })
     mockFetch.mockResolvedValue(mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized'))
 
-    await expect(apiClient.get('/prices')).rejects.toThrow()
+    const result = await Promise.race([
+      apiClient.get('/prices').catch(() => 'rejected'),
+      new Promise(r => setTimeout(() => r('pending'), 50)),
+    ])
 
+    expect(result).toBe('pending')
     // Should fall back to pathname (/dashboard), NOT use the malicious callbackUrl
     expect(window.location.href).toBe('/auth/login?callbackUrl=%2Fdashboard')
   })
@@ -169,8 +187,12 @@ describe('401 redirect behavior', () => {
     })
     mockFetch.mockResolvedValue(mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized'))
 
-    await expect(apiClient.get('/prices')).rejects.toThrow()
+    const result = await Promise.race([
+      apiClient.get('/prices').catch(() => 'rejected'),
+      new Promise(r => setTimeout(() => r('pending'), 50)),
+    ])
 
+    expect(result).toBe('pending')
     // Should fall back to pathname, not use //evil.com
     expect(window.location.href).toBe('/auth/login?callbackUrl=%2Fdashboard')
   })

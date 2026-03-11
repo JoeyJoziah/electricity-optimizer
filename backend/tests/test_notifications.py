@@ -258,7 +258,7 @@ class TestMarkNotificationRead:
 
 
 # ===========================================================================
-# 4. NotificationService unit tests
+# 5. NotificationService unit tests
 # ===========================================================================
 
 
@@ -346,6 +346,33 @@ class TestNotificationService:
         svc = NotificationService(db)
 
         count = await svc.get_unread_count(TEST_USER_ID)
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_mark_all_read_returns_count(self):
+        from services.notification_service import NotificationService
+
+        db = _mock_db()
+        result = MagicMock()
+        result.rowcount = 3
+        db.execute.return_value = result
+        svc = NotificationService(db)
+
+        count = await svc.mark_all_read(TEST_USER_ID)
+        assert count == 3
+        db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_mark_all_read_returns_zero_when_none(self):
+        from services.notification_service import NotificationService
+
+        db = _mock_db()
+        result = MagicMock()
+        result.rowcount = 0
+        db.execute.return_value = result
+        svc = NotificationService(db)
+
+        count = await svc.mark_all_read(TEST_USER_ID)
         assert count == 0
 
     @pytest.mark.asyncio

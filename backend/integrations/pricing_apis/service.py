@@ -24,6 +24,7 @@ from .base import (
     PricingRegion,
     APIError,
 )
+from .eia import EIAClient
 from .flatpeak import FlatpeakClient
 from .nrel import NRELClient
 from .iea import IEAClient
@@ -69,6 +70,7 @@ class PricingService:
         flatpeak_key: Optional[str] = None,
         nrel_key: Optional[str] = None,
         iea_key: Optional[str] = None,
+        eia_key: Optional[str] = None,
         cache: Optional[PricingCache] = None,
         timeout: float = 30.0,
     ):
@@ -79,6 +81,7 @@ class PricingService:
             flatpeak_key: Flatpeak API key (for UK/EU)
             nrel_key: NREL API key (for US)
             iea_key: IEA Bearer token (for global)
+            eia_key: EIA API key (for US federal energy data)
             cache: Optional shared cache instance
             timeout: Request timeout in seconds
         """
@@ -105,6 +108,13 @@ class PricingService:
         if iea_key:
             self._clients["iea"] = IEAClient(
                 api_key=iea_key,
+                cache=cache,
+                timeout=timeout,
+            )
+
+        if eia_key:
+            self._clients["eia"] = EIAClient(
+                api_key=eia_key,
                 cache=cache,
                 timeout=timeout,
             )
@@ -154,28 +164,16 @@ class PricingService:
             PricingRegion.AUSTRIA,
         }
 
-        # US regions -> NREL first
-        us_regions = {
-            PricingRegion.US_CA,
-            PricingRegion.US_TX,
-            PricingRegion.US_NY,
-            PricingRegion.US_FL,
-            PricingRegion.US_IL,
-            PricingRegion.US_PA,
-            PricingRegion.US_OH,
-            PricingRegion.US_GA,
-            PricingRegion.US_NC,
-            PricingRegion.US_MI,
-            PricingRegion.US_CT,
-        }
-
         if region in eu_regions:
             if self._clients.get("flatpeak"):
                 return ("flatpeak", self._clients["flatpeak"])
             if self._clients.get("iea"):
                 return ("iea", self._clients["iea"])
 
-        if region in us_regions:
+        # US regions -> EIA first (covers all 50 states + DC), then NREL fallback
+        if region.is_us:
+            if self._clients.get("eia"):
+                return ("eia", self._clients["eia"])
             if self._clients.get("nrel"):
                 return ("nrel", self._clients["nrel"])
             if self._clients.get("iea"):
@@ -437,4 +435,5 @@ def create_pricing_service_from_settings() -> PricingService:
         flatpeak_key=settings.flatpeak_api_key,
         nrel_key=settings.nrel_api_key,
         iea_key=settings.iea_api_key,
+        eia_key=settings.eia_api_key,
     )

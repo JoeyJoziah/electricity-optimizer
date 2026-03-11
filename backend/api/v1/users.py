@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_current_user, get_db_session, SessionData
+from auth.neon_auth import ensure_user_profile
 
 import structlog
 
@@ -104,10 +105,42 @@ async def get_profile(
     )
     row = result.fetchone()
     if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User profile not found",
+        # The user authenticated via Better Auth but the public.users record
+        # hasn't been created yet (race between sign-up and first profile fetch,
+        # or user signed up before the sync logic was deployed).
+        # Attempt an on-demand sync now rather than returning a hard 404.
+        try:
+            await ensure_user_profile(
+                neon_user_id=current_user.user_id,
+                email=current_user.email,
+                name=current_user.name,
+                db=db,
+            )
+        except Exception as sync_err:
+            logger.error(
+                "profile_sync_on_demand_failed",
+                user_id=current_user.user_id,
+                error=str(sync_err),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User profile not found and could not be created automatically.",
+            )
+        # Re-fetch after creating the profile
+        result = await db.execute(
+            text(
+                "SELECT email, name, region, utility_types, current_supplier_id, "
+                "annual_usage_kwh, onboarding_completed "
+                "FROM users WHERE id = :uid"
+            ),
+            {"uid": current_user.user_id},
         )
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User profile not found",
+            )
 
     email, name, region, utility_types_raw, current_supplier_id, annual_usage_kwh, onboarding_completed = row
 

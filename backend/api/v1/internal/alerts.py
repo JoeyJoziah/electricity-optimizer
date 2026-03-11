@@ -121,18 +121,15 @@ async def check_alerts(
         deduplicated = 0
 
         # ------------------------------------------------------------------
-        # 5. Deduplication — skip alerts inside their cooldown window
+        # 5. Deduplication — batch check cooldown windows (single query per
+        #    frequency tier instead of one query per triggered pair)
         # ------------------------------------------------------------------
+        in_cooldown = await service._batch_should_send_alerts(
+            triggered_pairs, freq_by_user, db
+        )
         for threshold, alert in triggered_pairs:
-            freq = freq_by_user.get(threshold.user_id, "daily")
-            should_send = await service._should_send_alert(
-                user_id=threshold.user_id,
-                alert_type=alert.alert_type,
-                region=alert.region,
-                notification_frequency=freq,
-                db=db,
-            )
-            if should_send:
+            key = (threshold.user_id, alert.alert_type, alert.region)
+            if key not in in_cooldown:
                 to_send.append((threshold, alert))
             else:
                 deduplicated += 1
@@ -141,7 +138,7 @@ async def check_alerts(
                     user_id=threshold.user_id,
                     alert_type=alert.alert_type,
                     region=alert.region,
-                    frequency=freq,
+                    frequency=freq_by_user.get(threshold.user_id, "daily"),
                 )
 
         # ------------------------------------------------------------------

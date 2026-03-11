@@ -71,7 +71,7 @@ class TestRecordPaymentFailure:
 
     @pytest.mark.asyncio
     async def test_creates_row(self, dunning, mock_db):
-        """record_payment_failure should INSERT a row and commit."""
+        """record_payment_failure should INSERT a row (commit managed by orchestrator)."""
         row = MagicMock()
         row.__getitem__ = lambda self, key: {
             "id": str(uuid4()),
@@ -112,7 +112,6 @@ class TestRecordPaymentFailure:
             amount_owed=4.99,
         )
 
-        assert mock_db.commit.await_count >= 1
         assert mock_db.execute.await_count == 2  # COUNT + INSERT
 
 

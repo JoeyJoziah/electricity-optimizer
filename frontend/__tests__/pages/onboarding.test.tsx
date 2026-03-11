@@ -2,9 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 const mockUseProfile = jest.fn()
+const mockReplace = jest.fn()
 
 jest.mock('@/lib/hooks/useProfile', () => ({
   useProfile: () => mockUseProfile(),
+}))
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace, push: jest.fn(), back: jest.fn() }),
 }))
 
 jest.mock('@/components/onboarding/OnboardingWizard', () => ({
@@ -15,18 +20,11 @@ jest.mock('@/components/onboarding/OnboardingWizard', () => ({
   ),
 }))
 
-// Mock window.location.href setter
-Object.defineProperty(window, 'location', {
-  value: { href: '' },
-  writable: true,
-})
-
 import OnboardingPage from '@/app/(app)/onboarding/page'
 
 describe('OnboardingPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    window.location.href = ''
   })
 
   it('shows loading spinner while profile is loading', () => {
@@ -76,7 +74,7 @@ describe('OnboardingPage', () => {
     render(<OnboardingPage />)
 
     await waitFor(() => {
-      expect(window.location.href).toBe('/dashboard')
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard')
     })
   })
 
@@ -90,7 +88,7 @@ describe('OnboardingPage', () => {
     getByRole('button', { name: /complete onboarding/i }).click()
 
     await waitFor(() => {
-      expect(window.location.href).toBe('/dashboard')
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard')
     })
   })
 

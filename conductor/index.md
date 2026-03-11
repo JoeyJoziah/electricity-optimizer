@@ -14,6 +14,7 @@ Navigation hub for project context and feature development.
 ## Active Tracks
 
 - [x] [Full-Stack Bug Remediation](tracks/full-stack-bugs_20260310/) — 8 bugs across CI/CD, security, and frontend config (complete)
+- [ ] [Project Zenith — Codebase Excellence](tracks/codebase-zenith_20260311/) — 16-section comprehensive audit & optimization (18 phases, 121 tasks)
 
 <!-- Auto-populated by /conductor:new-track -->
 

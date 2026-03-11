@@ -418,6 +418,68 @@ class AlertService:
         # If a row exists the alert is still within the cooldown window → skip
         return row is None
 
+    async def _batch_should_send_alerts(
+        self,
+        triggered_pairs: List[tuple],
+        freq_by_user: Dict[str, str],
+        db: "AsyncSession",
+    ) -> set:
+        """
+        Batch deduplication check for multiple triggered alerts.
+
+        Instead of querying alert_history once per triggered pair (N+1),
+        groups pairs by cooldown window and runs one query per group
+        (max 4 queries for the 4 frequency tiers).
+
+        Returns:
+            Set of ``(user_id, alert_type, region)`` tuples that are INSIDE
+            their cooldown window and should be SKIPPED.
+        """
+        if not triggered_pairs:
+            return set()
+
+        # Group pairs by effective cooldown hours
+        groups: Dict[int, list] = {}
+        for threshold, alert in triggered_pairs:
+            freq = freq_by_user.get(threshold.user_id, "daily")
+            cooldown_hours = self._COOLDOWN_HOURS.get(freq, 1)
+            groups.setdefault(cooldown_hours, []).append(
+                (threshold.user_id, alert.alert_type, alert.region)
+            )
+
+        in_cooldown: set = set()
+
+        for cooldown_hours, tuples in groups.items():
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=cooldown_hours)
+
+            # Build a VALUES clause for all (user_id, alert_type, region) in this group
+            params: dict = {"cutoff": cutoff}
+            value_clauses = []
+            for i, (uid, atype, reg) in enumerate(tuples):
+                params[f"uid_{i}"] = uid
+                params[f"atype_{i}"] = atype
+                params[f"reg_{i}"] = reg
+                value_clauses.append(f"(:uid_{i}, :atype_{i}, :reg_{i})")
+
+            values_sql = ", ".join(value_clauses)
+            query = text(f"""
+                SELECT DISTINCT q.user_id, q.alert_type, q.region
+                FROM (VALUES {values_sql}) AS q(user_id, alert_type, region)
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM alert_history ah
+                    WHERE ah.user_id    = q.user_id::uuid
+                      AND ah.alert_type = q.alert_type
+                      AND ah.region     = q.region
+                      AND ah.triggered_at >= :cutoff
+                )
+            """)
+            result = await db.execute(query, params)
+            for row in result.fetchall():
+                in_cooldown.add((row[0], row[1], row[2]))
+
+        return in_cooldown
+
     # =========================================================================
     # Bulk-load helpers for the check-alerts cron endpoint
     # =========================================================================
@@ -459,6 +521,7 @@ class AlertService:
                 WHERE pac.is_active = TRUE
                   AND u.is_active   = TRUE
                 ORDER BY pac.created_at
+                LIMIT 5000
             """),
         )
         rows = result.mappings().all()

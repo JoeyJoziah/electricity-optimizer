@@ -88,6 +88,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Bind OneSignal push subscription to this user
           loginOneSignal(session.user.id)
 
+          // Ensure the public.users profile exists for this authenticated user.
+          // GET /auth/me calls ensure_user_profile on the backend, which upserts
+          // the row if it is missing. This covers OAuth and magic-link sign-in
+          // where signIn() is never called client-side (the redirect bypasses it).
+          // Fire-and-forget: auth init must not block on this.
+          fetch(`${API_URL}/auth/me`, { credentials: 'include' }).catch(() => {/* non-fatal */})
+
           // Sync supplier if fetched successfully
           if (supplierResult.status === 'fulfilled' && supplierResult.value.supplier) {
             const supplier = supplierResult.value.supplier
@@ -165,6 +172,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // Bind OneSignal push subscription to this user
         loginOneSignal(data.user.id)
+
+        // Eagerly sync the public.users profile record.
+        // The backend's GET /auth/me calls ensure_user_profile, which creates
+        // the record if it doesn't exist yet (ON CONFLICT DO NOTHING).
+        // This is a best-effort fire-and-forget call — sign-in succeeds
+        // regardless of whether the sync request completes.
+        fetch(`${API_URL}/auth/me`, { credentials: 'include' }).catch(() => {/* non-fatal */})
       }
 
       // Honor callbackUrl if the middleware set one, otherwise go to dashboard.

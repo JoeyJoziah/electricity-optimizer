@@ -657,7 +657,7 @@ def test_backtesting():
 
     # Create feature engine
     feature_engine = ElectricityPriceFeatureEngine(
-        country='UK',
+        country='GB',
         lookback_hours=168,
         forecast_hours=24
     )

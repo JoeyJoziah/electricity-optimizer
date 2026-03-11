@@ -4,7 +4,7 @@ import {
   getPriceForecast,
   getOptimalPeriods,
 } from '@/lib/api/prices'
-import { ApiClientError } from '@/lib/api/client'
+import { ApiClientError, _resetRedirectState } from '@/lib/api/client'
 import '@testing-library/jest-dom'
 
 // ---------------------------------------------------------------------------
@@ -12,6 +12,7 @@ import '@testing-library/jest-dom'
 // ---------------------------------------------------------------------------
 
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
+const originalLocation = window.location
 
 function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Response {
   return {
@@ -36,6 +37,11 @@ function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Respo
 
 beforeEach(() => {
   mockFetch.mockReset()
+  _resetRedirectState()
+})
+
+afterAll(() => {
+  Object.defineProperty(window, 'location', { writable: true, value: originalLocation })
 })
 
 // ---------------------------------------------------------------------------
@@ -211,11 +217,10 @@ describe('getOptimalPeriods', () => {
 
 describe('error handling', () => {
   it('handles 401 unauthorized response', async () => {
-    // Mock window.location for 401 redirect behavior
-    const originalLocation = window.location
+    // Set pathname to auth page so 401 redirect is suppressed and error is thrown
     Object.defineProperty(window, 'location', {
       writable: true,
-      value: { ...originalLocation, href: '' },
+      value: { ...originalLocation, pathname: '/auth/login', href: 'http://localhost:3000/auth/login' },
     })
 
     mockFetch.mockResolvedValue(
@@ -230,12 +235,6 @@ describe('error handling', () => {
       const apiError = error as ApiClientError
       expect(apiError.status).toBe(401)
     }
-
-    // Restore
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: originalLocation,
-    })
   })
 
   it('handles 500 server error', async () => {

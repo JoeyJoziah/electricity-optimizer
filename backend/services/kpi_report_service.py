@@ -71,8 +71,14 @@ class KPIReportService:
         return result.scalar() or 0
 
     async def _count_prices_tracked(self) -> int:
+        # Use pg_class.reltuples for approximate count — avoids full table scan
+        # on large electricity_prices table (KPI report only needs ballpark)
         result = await self._db.execute(
-            text("SELECT COUNT(*) FROM electricity_prices")
+            text("""
+                SELECT COALESCE(reltuples, 0)::bigint
+                FROM pg_class
+                WHERE relname = 'electricity_prices'
+            """)
         )
         return result.scalar() or 0
 

@@ -66,6 +66,7 @@ jest.mock('lucide-react', () => ({
   Link2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-connections" {...props} />,
   Calendar: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-optimize" {...props} />,
   Bell: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-alerts" {...props} />,
+  Bot: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-assistant" {...props} />,
   Settings: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-settings" {...props} />,
   Zap: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-zap" {...props} />,
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-logout" {...props} />,
@@ -92,7 +93,7 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('icon-zap')).toBeInTheDocument()
   })
 
-  it('renders all 7 navigation items', () => {
+  it('renders all 8 navigation items', () => {
     render(<Sidebar />)
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
@@ -101,6 +102,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Connections')).toBeInTheDocument()
     expect(screen.getByText('Optimize')).toBeInTheDocument()
     expect(screen.getByText('Alerts')).toBeInTheDocument()
+    expect(screen.getByText('Assistant')).toBeInTheDocument()
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
@@ -113,6 +115,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Connections').closest('a')).toHaveAttribute('href', '/connections')
     expect(screen.getByText('Optimize').closest('a')).toHaveAttribute('href', '/optimize')
     expect(screen.getByText('Alerts').closest('a')).toHaveAttribute('href', '/alerts')
+    expect(screen.getByText('Assistant').closest('a')).toHaveAttribute('href', '/assistant')
     expect(screen.getByText('Settings').closest('a')).toHaveAttribute('href', '/settings')
   })
 

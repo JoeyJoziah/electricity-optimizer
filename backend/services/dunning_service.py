@@ -94,7 +94,6 @@ class DunningService:
                 "currency": currency,
             },
         )
-        await self._db.commit()
         row = result.mappings().first()
         logger.info(
             "payment_failure_recorded",
@@ -366,7 +365,6 @@ class DunningService:
                 """),
                 {"id": str(record["id"])},
             )
-            await self._db.commit()
 
         # 5. Escalate if needed
         escalation = await self.escalate_if_needed(user_id, retry_count, user_repo)
@@ -381,7 +379,9 @@ class DunningService:
                 """),
                 {"id": str(record["id"]), "action": escalation},
             )
-            await self._db.commit()
+
+        # Single commit for the entire payment failure flow
+        await self._db.commit()
 
         return result
 
