@@ -11,6 +11,7 @@ import structlog
 import stripe
 
 from config.settings import settings
+from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
 
@@ -25,8 +26,9 @@ class StripeService:
     - Business: $14.99/mo (API access, multi-property, priority support)
     """
 
-    def __init__(self):
+    def __init__(self, db=None):
         """Initialize Stripe service with API key from settings."""
+        self._db = db
         if not settings.stripe_secret_key:
             logger.warning("stripe_not_configured", message="STRIPE_SECRET_KEY not set")
             self._configured = False
@@ -65,10 +67,11 @@ class StripeService:
         self,
         user_id: str,
         email: str,
-        tier: str,
-        success_url: str,
-        cancel_url: str,
+        tier: Optional[str] = None,
+        success_url: str = "",
+        cancel_url: str = "",
         customer_id: Optional[str] = None,
+        plan: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Create a Stripe Checkout session for subscription.
@@ -80,6 +83,7 @@ class StripeService:
             success_url: URL to redirect after successful checkout
             cancel_url: URL to redirect if checkout is cancelled
             customer_id: Existing Stripe customer ID (if any)
+            plan: Alias for tier (used by newer callers)
 
         Returns:
             Dict with checkout session info (id, url)
@@ -88,74 +92,78 @@ class StripeService:
             ValueError: If Stripe not configured or invalid tier
             stripe.error.StripeError: On Stripe API errors
         """
-        self._ensure_configured()
+        # Support 'plan' as an alias for 'tier'
+        if plan is not None and tier is None:
+            tier = plan
+        async with traced("stripe.create_checkout", attributes={"stripe.plan": tier or ""}):
+            self._ensure_configured()
 
-        if tier not in ["pro", "business"]:
-            raise ValueError(f"Invalid tier: {tier}. Must be 'pro' or 'business'.")
+            if tier not in ["pro", "business"]:
+                raise ValueError(f"Invalid tier: {tier}. Must be 'pro' or 'business'.")
 
-        price_id = self._get_price_id_for_tier(tier)
-        if not price_id:
-            raise ValueError(
-                f"Price ID for tier '{tier}' not configured. "
-                f"Set STRIPE_PRICE_{tier.upper()} environment variable."
-            )
+            price_id = self._get_price_id_for_tier(tier)
+            if not price_id:
+                raise ValueError(
+                    f"Price ID for tier '{tier}' not configured. "
+                    f"Set STRIPE_PRICE_{tier.upper()} environment variable."
+                )
 
-        try:
-            # Prepare customer data
-            customer_params = {}
-            if customer_id:
-                customer_params["customer"] = customer_id
-            else:
-                customer_params["customer_email"] = email
+            try:
+                # Prepare customer data
+                customer_params = {}
+                if customer_id:
+                    customer_params["customer"] = customer_id
+                else:
+                    customer_params["customer_email"] = email
 
-            # Create checkout session (run in thread to avoid blocking event loop)
-            session = await asyncio.to_thread(
-                stripe.checkout.Session.create,
-                **customer_params,
-                mode="subscription",
-                line_items=[
-                    {
-                        "price": price_id,
-                        "quantity": 1,
-                    }
-                ],
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata={
-                    "user_id": user_id,
-                    "tier": tier,
-                },
-                subscription_data={
-                    "metadata": {
+                # Create checkout session (run in thread to avoid blocking event loop)
+                session = await asyncio.to_thread(
+                    stripe.checkout.Session.create,
+                    **customer_params,
+                    mode="subscription",
+                    line_items=[
+                        {
+                            "price": price_id,
+                            "quantity": 1,
+                        }
+                    ],
+                    success_url=success_url,
+                    cancel_url=cancel_url,
+                    metadata={
                         "user_id": user_id,
                         "tier": tier,
-                    }
-                },
-                allow_promotion_codes=True,
-                billing_address_collection="auto",
-            )
+                    },
+                    subscription_data={
+                        "metadata": {
+                            "user_id": user_id,
+                            "tier": tier,
+                        }
+                    },
+                    allow_promotion_codes=True,
+                    billing_address_collection="auto",
+                )
 
-            logger.info(
-                "checkout_session_created",
-                user_id=user_id,
-                tier=tier,
-                session_id=session.id,
-            )
+                logger.info(
+                    "checkout_session_created",
+                    user_id=user_id,
+                    tier=tier,
+                    session_id=session.id,
+                )
 
-            return {
-                "id": session.id,
-                "url": session.url,
-                "customer_id": session.customer,
-            }
+                return {
+                    "id": session.id,
+                    "url": session.url,
+                    "customer_id": session.customer,
+                }
 
-        except stripe.error.StripeError as e:
-            logger.error(
-                "checkout_session_failed",
-                user_id=user_id,
-                tier=tier,
-                error=str(e),
-            )
-            raise
+            except stripe.error.StripeError as e:
+                logger.error(
+                    "checkout_session_failed",
+                    user_id=user_id,
+                    tier=tier,
+                    error=str(e),
+                )
+                raise
 
     async def create_customer_portal_session(
         self,
@@ -348,7 +356,7 @@ class StripeService:
 
     async def handle_webhook_event(
         self,
-        event: stripe.Event,
+        event: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
         Handle a Stripe webhook event.
@@ -366,121 +374,122 @@ class StripeService:
                 "customer_id": str,
             }
         """
-        event_type = event["type"]
-        data = event["data"]["object"]
+        async with traced("stripe.webhook", attributes={"stripe.event_type": event.get("type", "unknown")}):
+            event_type = event["type"]
+            data = event["data"]["object"]
 
-        logger.info("webhook_event_received", event_type=event_type, event_id=event["id"])
+            logger.info("webhook_event_received", event_type=event_type, event_id=event["id"])
 
-        result = {
-            "handled": False,
-            "action": None,
-            "user_id": None,
-            "tier": None,
-            "customer_id": None,
-        }
+            result = {
+                "handled": False,
+                "action": None,
+                "user_id": None,
+                "tier": None,
+                "customer_id": None,
+            }
 
-        # Checkout session completed
-        if event_type == "checkout.session.completed":
-            session = data
-            user_id = session.get("metadata", {}).get("user_id")
-            tier = session.get("metadata", {}).get("tier")
-            customer_id = session.get("customer")
+            # Checkout session completed
+            if event_type == "checkout.session.completed":
+                session = data
+                user_id = session.get("metadata", {}).get("user_id")
+                tier = session.get("metadata", {}).get("tier")
+                customer_id = session.get("customer")
 
-            result.update({
-                "handled": True,
-                "action": "activate_subscription",
-                "user_id": user_id,
-                "tier": tier,
-                "customer_id": customer_id,
-            })
+                result.update({
+                    "handled": True,
+                    "action": "activate_subscription",
+                    "user_id": user_id,
+                    "tier": tier,
+                    "customer_id": customer_id,
+                })
 
-            logger.info(
-                "checkout_completed",
-                user_id=user_id,
-                tier=tier,
-                customer_id=customer_id,
-            )
+                logger.info(
+                    "checkout_completed",
+                    user_id=user_id,
+                    tier=tier,
+                    customer_id=customer_id,
+                )
 
-        # Subscription updated
-        elif event_type == "customer.subscription.updated":
-            subscription = data
-            user_id = subscription.get("metadata", {}).get("user_id")
-            tier = subscription.get("metadata", {}).get("tier")
-            customer_id = subscription.get("customer")
-            status = subscription.get("status")
+            # Subscription updated
+            elif event_type == "customer.subscription.updated":
+                subscription = data
+                user_id = subscription.get("metadata", {}).get("user_id")
+                tier = subscription.get("metadata", {}).get("tier")
+                customer_id = subscription.get("customer")
+                status = subscription.get("status")
 
-            result.update({
-                "handled": True,
-                "action": "update_subscription",
-                "user_id": user_id,
-                "tier": tier if status == "active" else "free",
-                "customer_id": customer_id,
-                "status": status,
-            })
+                result.update({
+                    "handled": True,
+                    "action": "update_subscription",
+                    "user_id": user_id,
+                    "tier": tier if status == "active" else "free",
+                    "customer_id": customer_id,
+                    "status": status,
+                })
 
-            logger.info(
-                "subscription_updated",
-                user_id=user_id,
-                tier=tier,
-                status=status,
-                customer_id=customer_id,
-            )
+                logger.info(
+                    "subscription_updated",
+                    user_id=user_id,
+                    tier=tier,
+                    status=status,
+                    customer_id=customer_id,
+                )
 
-        # Subscription deleted/canceled
-        elif event_type == "customer.subscription.deleted":
-            subscription = data
-            user_id = subscription.get("metadata", {}).get("user_id")
-            customer_id = subscription.get("customer")
+            # Subscription deleted/canceled
+            elif event_type == "customer.subscription.deleted":
+                subscription = data
+                user_id = subscription.get("metadata", {}).get("user_id")
+                customer_id = subscription.get("customer")
 
-            result.update({
-                "handled": True,
-                "action": "deactivate_subscription",
-                "user_id": user_id,
-                "tier": "free",
-                "customer_id": customer_id,
-            })
+                result.update({
+                    "handled": True,
+                    "action": "deactivate_subscription",
+                    "user_id": user_id,
+                    "tier": "free",
+                    "customer_id": customer_id,
+                })
 
-            logger.info(
-                "subscription_deleted",
-                user_id=user_id,
-                customer_id=customer_id,
-            )
+                logger.info(
+                    "subscription_deleted",
+                    user_id=user_id,
+                    customer_id=customer_id,
+                )
 
-        # Payment failed
-        elif event_type == "invoice.payment_failed":
-            invoice = data
-            customer_id = invoice.get("customer")
-            subscription_id = invoice.get("subscription")
-            amount_due = invoice.get("amount_due", 0)
-            currency = invoice.get("currency", "usd").upper()
-            invoice_id = invoice.get("id")
+            # Payment failed
+            elif event_type == "invoice.payment_failed":
+                invoice = data
+                customer_id = invoice.get("customer")
+                subscription_id = invoice.get("subscription")
+                amount_due = invoice.get("amount_due", 0)
+                currency = invoice.get("currency", "usd").upper()
+                invoice_id = invoice.get("id")
 
-            # Convert amount from cents to dollars
-            if amount_due and isinstance(amount_due, (int, float)):
-                amount_due = amount_due / 100.0
+                # Convert amount from cents to dollars
+                if amount_due and isinstance(amount_due, (int, float)):
+                    amount_due = amount_due / 100.0
 
-            result.update({
-                "handled": True,
-                "action": "payment_failed",
-                "customer_id": customer_id,
-                "subscription_id": subscription_id,
-                "amount_due": amount_due,
-                "currency": currency,
-                "invoice_id": invoice_id,
-            })
+                result.update({
+                    "handled": True,
+                    "action": "payment_failed",
+                    "customer_id": customer_id,
+                    "subscription_id": subscription_id,
+                    "amount_due": amount_due,
+                    "currency": currency,
+                    "invoice_id": invoice_id,
+                })
 
-            logger.warning(
-                "payment_failed",
-                customer_id=customer_id,
-                subscription_id=subscription_id,
-                amount_due=amount_due,
-                invoice_id=invoice_id,
-            )
+                logger.warning(
+                    "payment_failed",
+                    customer_id=customer_id,
+                    subscription_id=subscription_id,
+                    amount_due=amount_due,
+                    invoice_id=invoice_id,
+                )
 
-        else:
-            logger.info("webhook_event_ignored", event_type=event_type)
+            else:
+                logger.info("webhook_event_ignored", event_type=event_type)
 
-        return result
+            return result
 
 
 

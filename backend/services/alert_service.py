@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.email_service import EmailService
 from services.alert_renderer import AlertRenderer
+from lib.tracing import traced
 
 if TYPE_CHECKING:
     from services.notification_dispatcher import NotificationDispatcher
@@ -101,9 +102,11 @@ class AlertService:
         self,
         email_service: Optional[EmailService] = None,
         dispatcher: Optional["NotificationDispatcher"] = None,
+        db: Optional[Any] = None,
     ):
         self._email_service = email_service or EmailService()
         self._dispatcher = dispatcher
+        self._db = db
         self._renderer = AlertRenderer(self._email_service)
 
     def check_thresholds(
@@ -255,85 +258,86 @@ class AlertService:
         Returns:
             Number of alerts successfully sent (at least one channel succeeded)
         """
-        from services.notification_dispatcher import NotificationChannel
+        async with traced("alert.send", attributes={"alert.count": len(triggered)}):
+            from services.notification_dispatcher import NotificationChannel
 
-        sent = 0
-        for threshold, alert in triggered:
-            try:
-                html = self._render_alert_email(threshold, alert)
-                subject = self._get_alert_subject(alert)
-                success = False
+            sent = 0
+            for threshold, alert in triggered:
+                try:
+                    html = self._render_alert_email(threshold, alert)
+                    subject = self._get_alert_subject(alert)
+                    success = False
 
-                if self._dispatcher is not None:
-                    try:
-                        dedup_key = (
-                            f"price_alert:{threshold.user_id}"
-                            f":{alert.alert_type}:{alert.region}"
-                        )
-                        dispatch_result = await self._dispatcher.send(
-                            user_id=threshold.user_id,
-                            type="price_alert",
-                            title=subject,
-                            body=f"Current price: ${alert.current_price}/kWh"
-                                 + (f" (threshold: ${alert.threshold}/kWh)" if alert.threshold else ""),
-                            channels=[
-                                NotificationChannel.IN_APP,
-                                NotificationChannel.PUSH,
-                                NotificationChannel.EMAIL,
-                            ],
-                            metadata={
-                                "alert_type": alert.alert_type,
-                                "region": alert.region,
-                                "current_price": str(alert.current_price),
-                                "threshold": str(alert.threshold) if alert.threshold else None,
-                                "supplier": alert.supplier,
-                            },
-                            dedup_key=dedup_key,
-                            email_to=threshold.email,
-                            email_subject=subject,
-                            email_html=html,
-                        )
-                        # Consider the alert sent if it was not deduplicated
-                        # and at least one channel succeeded.
-                        if not dispatch_result.get("skipped_dedup", False):
-                            channel_results = dispatch_result.get("channels", {})
-                            success = any(channel_results.values())
-                    except Exception as dispatch_exc:
-                        logger.warning(
-                            "alert_dispatcher_failed_falling_back",
-                            user_id=threshold.user_id,
-                            error=str(dispatch_exc),
-                        )
-                        # Fall through to direct email below
+                    if self._dispatcher is not None:
+                        try:
+                            dedup_key = (
+                                f"price_alert:{threshold.user_id}"
+                                f":{alert.alert_type}:{alert.region}"
+                            )
+                            dispatch_result = await self._dispatcher.send(
+                                user_id=threshold.user_id,
+                                type="price_alert",
+                                title=subject,
+                                body=f"Current price: ${alert.current_price}/kWh"
+                                     + (f" (threshold: ${alert.threshold}/kWh)" if alert.threshold else ""),
+                                channels=[
+                                    NotificationChannel.IN_APP,
+                                    NotificationChannel.PUSH,
+                                    NotificationChannel.EMAIL,
+                                ],
+                                metadata={
+                                    "alert_type": alert.alert_type,
+                                    "region": alert.region,
+                                    "current_price": str(alert.current_price),
+                                    "threshold": str(alert.threshold) if alert.threshold else None,
+                                    "supplier": alert.supplier,
+                                },
+                                dedup_key=dedup_key,
+                                email_to=threshold.email,
+                                email_subject=subject,
+                                email_html=html,
+                            )
+                            # Consider the alert sent if it was not deduplicated
+                            # and at least one channel succeeded.
+                            if not dispatch_result.get("skipped_dedup", False):
+                                channel_results = dispatch_result.get("channels", {})
+                                success = any(channel_results.values())
+                        except Exception as dispatch_exc:
+                            logger.warning(
+                                "alert_dispatcher_failed_falling_back",
+                                user_id=threshold.user_id,
+                                error=str(dispatch_exc),
+                            )
+                            # Fall through to direct email below
+                            success = await self._email_service.send(
+                                to=threshold.email,
+                                subject=subject,
+                                html_body=html,
+                            )
+                    else:
+                        # Legacy path: direct email when no dispatcher is configured
                         success = await self._email_service.send(
                             to=threshold.email,
                             subject=subject,
                             html_body=html,
                         )
-                else:
-                    # Legacy path: direct email when no dispatcher is configured
-                    success = await self._email_service.send(
-                        to=threshold.email,
-                        subject=subject,
-                        html_body=html,
-                    )
 
-                if success:
-                    sent += 1
-                    logger.info(
-                        "alert_sent",
+                    if success:
+                        sent += 1
+                        logger.info(
+                            "alert_sent",
+                            user_id=threshold.user_id,
+                            alert_type=alert.alert_type,
+                            price=str(alert.current_price),
+                            via_dispatcher=self._dispatcher is not None,
+                        )
+                except Exception as e:
+                    logger.error(
+                        "alert_send_failed",
                         user_id=threshold.user_id,
-                        alert_type=alert.alert_type,
-                        price=str(alert.current_price),
-                        via_dispatcher=self._dispatcher is not None,
+                        error=str(e),
                     )
-            except Exception as e:
-                logger.error(
-                    "alert_send_failed",
-                    user_id=threshold.user_id,
-                    error=str(e),
-                )
-        return sent
+            return sent
 
     def _get_alert_subject(self, alert: PriceAlert) -> str:
         """Delegate to AlertRenderer — kept for backward compatibility."""
@@ -630,8 +634,10 @@ class AlertService:
     async def create_alert(
         self,
         user_id: str,
-        db: AsyncSession,
         region: str,
+        alert_type: str = "price_drop",
+        threshold: Optional[float] = None,
+        db: Optional[AsyncSession] = None,
         currency: str = "USD",
         price_below: Optional[Decimal] = None,
         price_above: Optional[Decimal] = None,
@@ -642,8 +648,10 @@ class AlertService:
 
         Args:
             user_id:                UUID string of the user.
-            db:                     Async SQLAlchemy session.
-            region:                 Region code (default 'us_ct').
+            region:                 Region code.
+            alert_type:             Type of alert (price_drop, price_spike, optimal_window).
+            threshold:              Alert trigger threshold value.
+            db:                     Async SQLAlchemy session (uses self._db if omitted).
             currency:               ISO 4217 currency code (default 'USD').
             price_below:            Alert threshold for price drops.
             price_above:            Alert threshold for price spikes.
@@ -656,38 +664,49 @@ class AlertService:
             ValueError: If neither price_below nor price_above nor
                         notify_optimal_windows is specified.
         """
-        if price_below is None and price_above is None and not notify_optimal_windows:
-            raise ValueError(
-                "At least one of price_below, price_above, or notify_optimal_windows "
-                "must be specified."
-            )
+        async with traced("alert.create", attributes={"alert.type": alert_type, "alert.region": region}):
+            # Resolve threshold into price_below/price_above based on alert_type
+            if threshold is not None:
+                if alert_type == "price_drop" and price_below is None:
+                    price_below = Decimal(str(threshold))
+                elif alert_type == "price_spike" and price_above is None:
+                    price_above = Decimal(str(threshold))
 
-        result = await db.execute(
-            text("""
-                INSERT INTO price_alert_configs
-                    (id, user_id, region, currency,
-                     price_below, price_above, notify_optimal_windows)
-                VALUES
-                    (:id, :user_id, :region, :currency,
-                     :price_below, :price_above, :notify_optimal_windows)
-                RETURNING id, user_id, region, currency,
-                          price_below, price_above, notify_optimal_windows,
-                          is_active, created_at, updated_at
-            """),
-            {
-                "id": str(uuid4()),
-                "user_id": user_id,
-                "region": region,
-                "currency": currency,
-                "price_below": str(price_below) if price_below is not None else None,
-                "price_above": str(price_above) if price_above is not None else None,
-                "notify_optimal_windows": notify_optimal_windows,
-            },
-        )
-        await db.commit()
-        row = result.mappings().first()
-        logger.info("alert_created", user_id=user_id, alert_id=str(row["id"]))
-        return self._config_row_to_dict(row)
+            # Use injected db session if no explicit one provided
+            db = db or self._db
+
+            if price_below is None and price_above is None and not notify_optimal_windows:
+                raise ValueError(
+                    "At least one of price_below, price_above, or notify_optimal_windows "
+                    "must be specified."
+                )
+
+            result = await db.execute(
+                text("""
+                    INSERT INTO price_alert_configs
+                        (id, user_id, region, currency,
+                         price_below, price_above, notify_optimal_windows)
+                    VALUES
+                        (:id, :user_id, :region, :currency,
+                         :price_below, :price_above, :notify_optimal_windows)
+                    RETURNING id, user_id, region, currency,
+                              price_below, price_above, notify_optimal_windows,
+                              is_active, created_at, updated_at
+                """),
+                {
+                    "id": str(uuid4()),
+                    "user_id": user_id,
+                    "region": region,
+                    "currency": currency,
+                    "price_below": str(price_below) if price_below is not None else None,
+                    "price_above": str(price_above) if price_above is not None else None,
+                    "notify_optimal_windows": notify_optimal_windows,
+                },
+            )
+            await db.commit()
+            row = result.mappings().first()
+            logger.info("alert_created", user_id=user_id, alert_id=str(row["id"]))
+            return self._config_row_to_dict(row)
 
     async def update_alert(
         self,

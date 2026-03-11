@@ -25,6 +25,7 @@ from typing import Optional, Dict, Any, List
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lib.tracing import traced
 from services.observation_service import ObservationService
 from services.hnsw_vector_store import HNSWVectorStore
 from services.vector_store import price_curve_to_vector
@@ -72,7 +73,8 @@ class LearningService:
         Returns:
             Dict with mape, rmse, count, coverage.
         """
-        return await self._obs.get_forecast_accuracy(region, days)
+        async with traced("ml.compute_accuracy", attributes={"ml.region": region, "ml.days": days}):
+            return await self._obs.get_forecast_accuracy(region, days)
 
     async def detect_bias(
         self,
@@ -110,7 +112,8 @@ class LearningService:
         Returns:
             New weight dict, or None if insufficient data.
         """
-        model_stats = await self._obs.get_model_accuracy_by_version(region, days)
+        async with traced("ml.update_weights", attributes={"ml.region": region, "ml.days": days}):
+            model_stats = await self._obs.get_model_accuracy_by_version(region, days)
 
         if not model_stats or len(model_stats) < 1:
             logger.info("insufficient_data_for_weight_update region=%s", region)

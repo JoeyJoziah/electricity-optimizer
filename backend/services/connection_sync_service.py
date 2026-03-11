@@ -45,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
 from utils.encryption import encrypt_field, decrypt_field
+from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
 
@@ -99,157 +100,158 @@ class ConnectionSyncService:
         The connection's ``last_sync_at`` / ``last_sync_error`` / ``status``
         columns are updated before returning.
         """
-        log = logger.bind(connection_id=connection_id)
-        log.info("sync_connection_start")
+        async with traced("sync.connection", attributes={"sync.connection_id": connection_id}):
+            log = logger.bind(connection_id=connection_id)
+            log.info("sync_connection_start")
 
-        synced_at = datetime.now(timezone.utc)
+            synced_at = datetime.now(timezone.utc)
 
-        # ---- 1. Load connection row ----------------------------------------
-        conn = await self._fetch_connection(connection_id)
-        if conn is None:
-            log.warning("sync_connection_not_found")
-            return {
-                "connection_id": connection_id,
-                "success": False,
-                "new_rates_found": 0,
-                "error": "Connection not found.",
-                "synced_at": synced_at,
-            }
+            # ---- 1. Load connection row ----------------------------------------
+            conn = await self._fetch_connection(connection_id)
+            if conn is None:
+                log.warning("sync_connection_not_found")
+                return {
+                    "connection_id": connection_id,
+                    "success": False,
+                    "new_rates_found": 0,
+                    "error": "Connection not found.",
+                    "synced_at": synced_at,
+                }
 
-        auth_uid_encrypted = conn.get("utilityapi_auth_uid_encrypted")
-        if not auth_uid_encrypted:
-            msg = "No UtilityAPI authorization UID stored — connection not yet authorized."
-            log.warning("sync_connection_no_auth_uid")
-            await self._persist_sync_result(
-                connection_id, success=False, error=msg, synced_at=synced_at
-            )
-            return {
-                "connection_id": connection_id,
-                "success": False,
-                "new_rates_found": 0,
-                "error": msg,
-                "synced_at": synced_at,
-            }
-
-        # ---- 2. Decrypt auth UID ------------------------------------------
-        try:
-            if isinstance(auth_uid_encrypted, memoryview):
-                auth_uid_encrypted = bytes(auth_uid_encrypted)
-            elif isinstance(auth_uid_encrypted, str):
-                auth_uid_encrypted = auth_uid_encrypted.encode("latin-1")
-            authorization_uid = decrypt_field(auth_uid_encrypted)
-        except Exception as exc:
-            msg = f"Could not decrypt UtilityAPI authorization UID: {exc}"
-            log.error("sync_connection_decrypt_error", error=str(exc))
-            await self._persist_sync_result(
-                connection_id, success=False, error=msg, synced_at=synced_at
-            )
-            return {
-                "connection_id": connection_id,
-                "success": False,
-                "new_rates_found": 0,
-                "error": msg,
-                "synced_at": synced_at,
-            }
-
-        # ---- 3. Fetch meters from UtilityAPI --------------------------------
-        try:
-            meters = await self._client.get_meters(authorization_uid)
-        except UtilityAPIError as exc:
-            msg = f"UtilityAPI meters fetch failed: {exc}"
-            log.error("sync_connection_meters_error", error=str(exc))
-            await self._persist_sync_result(
-                connection_id, success=False, error=msg, synced_at=synced_at
-            )
-            return {
-                "connection_id": connection_id,
-                "success": False,
-                "new_rates_found": 0,
-                "error": msg,
-                "synced_at": synced_at,
-            }
-
-        if not meters:
-            msg = "No meters found for this authorization."
-            log.warning("sync_connection_no_meters")
-            await self._persist_sync_result(
-                connection_id, success=False, error=msg, synced_at=synced_at
-            )
-            return {
-                "connection_id": connection_id,
-                "success": False,
-                "new_rates_found": 0,
-                "error": msg,
-                "synced_at": synced_at,
-            }
-
-        # ---- 4. Determine the date to fetch bills from ----------------------
-        last_sync_at: Optional[datetime] = conn.get("last_sync_at")
-
-        # ---- 5. Fetch bills and extract rates -------------------------------
-        new_rates: list[dict] = []
-        rate_errors: list[str] = []
-
-        for meter in meters:
-            meter_uid = meter.get("uid") or meter.get("meter_uid")
-            if not meter_uid:
-                log.warning("sync_connection_meter_no_uid", meter=meter)
-                continue
-
-            try:
-                bills = await self._client.get_bills(meter_uid, since=last_sync_at)
-            except UtilityAPIError as exc:
-                log.warning(
-                    "sync_connection_bills_error",
-                    meter_uid=meter_uid,
-                    error=str(exc),
+            auth_uid_encrypted = conn.get("utilityapi_auth_uid_encrypted")
+            if not auth_uid_encrypted:
+                msg = "No UtilityAPI authorization UID stored — connection not yet authorized."
+                log.warning("sync_connection_no_auth_uid")
+                await self._persist_sync_result(
+                    connection_id, success=False, error=msg, synced_at=synced_at
                 )
-                rate_errors.append(f"meter {meter_uid}: {exc}")
-                continue
+                return {
+                    "connection_id": connection_id,
+                    "success": False,
+                    "new_rates_found": 0,
+                    "error": msg,
+                    "synced_at": synced_at,
+                }
 
-            for bill in bills:
+            # ---- 2. Decrypt auth UID ------------------------------------------
+            try:
+                if isinstance(auth_uid_encrypted, memoryview):
+                    auth_uid_encrypted = bytes(auth_uid_encrypted)
+                elif isinstance(auth_uid_encrypted, str):
+                    auth_uid_encrypted = auth_uid_encrypted.encode("latin-1")
+                authorization_uid = decrypt_field(auth_uid_encrypted)
+            except Exception as exc:
+                msg = f"Could not decrypt UtilityAPI authorization UID: {exc}"
+                log.error("sync_connection_decrypt_error", error=str(exc))
+                await self._persist_sync_result(
+                    connection_id, success=False, error=msg, synced_at=synced_at
+                )
+                return {
+                    "connection_id": connection_id,
+                    "success": False,
+                    "new_rates_found": 0,
+                    "error": msg,
+                    "synced_at": synced_at,
+                }
+
+            # ---- 3. Fetch meters from UtilityAPI --------------------------------
+            try:
+                meters = await self._client.get_meters(authorization_uid)
+            except UtilityAPIError as exc:
+                msg = f"UtilityAPI meters fetch failed: {exc}"
+                log.error("sync_connection_meters_error", error=str(exc))
+                await self._persist_sync_result(
+                    connection_id, success=False, error=msg, synced_at=synced_at
+                )
+                return {
+                    "connection_id": connection_id,
+                    "success": False,
+                    "new_rates_found": 0,
+                    "error": msg,
+                    "synced_at": synced_at,
+                }
+
+            if not meters:
+                msg = "No meters found for this authorization."
+                log.warning("sync_connection_no_meters")
+                await self._persist_sync_result(
+                    connection_id, success=False, error=msg, synced_at=synced_at
+                )
+                return {
+                    "connection_id": connection_id,
+                    "success": False,
+                    "new_rates_found": 0,
+                    "error": msg,
+                    "synced_at": synced_at,
+                }
+
+            # ---- 4. Determine the date to fetch bills from ----------------------
+            last_sync_at: Optional[datetime] = conn.get("last_sync_at")
+
+            # ---- 5. Fetch bills and extract rates -------------------------------
+            new_rates: list[dict] = []
+            rate_errors: list[str] = []
+
+            for meter in meters:
+                meter_uid = meter.get("uid") or meter.get("meter_uid")
+                if not meter_uid:
+                    log.warning("sync_connection_meter_no_uid", meter=meter)
+                    continue
+
                 try:
-                    rate_data = self._client.extract_rate_from_bill(bill)
-                    new_rates.append(rate_data)
+                    bills = await self._client.get_bills(meter_uid, since=last_sync_at)
                 except UtilityAPIError as exc:
-                    bill_uid = bill.get("uid", "<unknown>")
                     log.warning(
-                        "sync_connection_extract_error",
-                        bill_uid=bill_uid,
+                        "sync_connection_bills_error",
+                        meter_uid=meter_uid,
                         error=str(exc),
                     )
-                    rate_errors.append(f"bill {bill_uid}: {exc}")
+                    rate_errors.append(f"meter {meter_uid}: {exc}")
+                    continue
 
-        # ---- 6. Persist new rates (batch insert — 1 query regardless of count) ---
-        if new_rates:
-            await self._batch_insert_extracted_rates(connection_id, new_rates)
+                for bill in bills:
+                    try:
+                        rate_data = self._client.extract_rate_from_bill(bill)
+                        new_rates.append(rate_data)
+                    except UtilityAPIError as exc:
+                        bill_uid = bill.get("uid", "<unknown>")
+                        log.warning(
+                            "sync_connection_extract_error",
+                            bill_uid=bill_uid,
+                            error=str(exc),
+                        )
+                        rate_errors.append(f"bill {bill_uid}: {exc}")
 
-        # ---- 7. Update sync state ------------------------------------------
-        combined_error = "; ".join(rate_errors) if rate_errors and not new_rates else None
-        success = len(rate_errors) == 0 or len(new_rates) > 0
+            # ---- 6. Persist new rates (batch insert — 1 query regardless of count) ---
+            if new_rates:
+                await self._batch_insert_extracted_rates(connection_id, new_rates)
 
-        await self._persist_sync_result(
-            connection_id,
-            success=success,
-            error=combined_error,
-            synced_at=synced_at,
-        )
-        await self._db.commit()
+            # ---- 7. Update sync state ------------------------------------------
+            combined_error = "; ".join(rate_errors) if rate_errors and not new_rates else None
+            success = len(rate_errors) == 0 or len(new_rates) > 0
 
-        log.info(
-            "sync_connection_complete",
-            new_rates_found=len(new_rates),
-            errors=len(rate_errors),
-            success=success,
-        )
+            await self._persist_sync_result(
+                connection_id,
+                success=success,
+                error=combined_error,
+                synced_at=synced_at,
+            )
+            await self._db.commit()
 
-        return {
-            "connection_id": connection_id,
-            "success": success,
-            "new_rates_found": len(new_rates),
-            "error": combined_error,
-            "synced_at": synced_at,
-        }
+            log.info(
+                "sync_connection_complete",
+                new_rates_found=len(new_rates),
+                errors=len(rate_errors),
+                success=success,
+            )
+
+            return {
+                "connection_id": connection_id,
+                "success": success,
+                "new_rates_found": len(new_rates),
+                "error": combined_error,
+                "synced_at": synced_at,
+            }
 
     # ------------------------------------------------------------------
     # Public: sync all connections that are due

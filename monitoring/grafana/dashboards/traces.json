@@ -1,0 +1,520 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "RateShift backend distributed traces — latency, errors, throughput, and drill-down to individual spans.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "Total Traces",
+      "description": "Total trace count in the selected time range.",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" } | count_over_time() by (resource.service.name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "Error Rate",
+      "description": "Percentage of traces with error status.",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && status = error } | count_over_time() by (resource.service.name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 2000 }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "Avg Latency",
+      "description": "Average request duration across all traces.",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" } | quantile_over_time(duration, 0.5) by (resource.service.name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1000 },
+              { "color": "red", "value": 5000 }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "title": "P99 Latency",
+      "description": "99th percentile request duration (tail latency).",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" } | quantile_over_time(duration, 0.99) by (resource.service.name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "Latency & Throughput",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "P50" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "P95" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "P99" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 16, "x": 0, "y": 6 },
+      "id": 5,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Request Latency P50 / P95 / P99",
+      "description": "Request duration percentiles over time. Green=P50 (median), Yellow=P95, Red=P99 (tail).",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && kind = server } | quantile_over_time(duration, 0.5)",
+          "refId": "P50"
+        },
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && kind = server } | quantile_over_time(duration, 0.95)",
+          "refId": "P95"
+        },
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && kind = server } | quantile_over_time(duration, 0.99)",
+          "refId": "P99"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisLabel": "traces/min",
+            "axisPlacement": "auto",
+            "drawStyle": "bars",
+            "fillOpacity": 50,
+            "gradientMode": "scheme",
+            "lineWidth": 1,
+            "stacking": { "group": "A", "mode": "normal" }
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "errors" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "ok" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 8, "x": 16, "y": 6 },
+      "id": 6,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Trace Count (OK vs Error)",
+      "description": "Trace volume over time, split by success/error status.",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && status = ok } | rate()",
+          "refId": "ok"
+        },
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && status = error } | rate()",
+          "refId": "errors"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "id": 102,
+      "title": "Service Breakdown",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 17 },
+      "id": 7,
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Latency by Span Name (P95)",
+      "description": "P95 latency broken down by span operation — identifies which services are slowest.",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && name =~ \"price.*|stripe.*|agent.*|ml.*|scraper.*|sync.*|alert.*\" } | quantile_over_time(duration, 0.95) by (name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "errors/min",
+            "axisPlacement": "auto",
+            "drawStyle": "bars",
+            "fillOpacity": 40,
+            "lineWidth": 1,
+            "stacking": { "group": "A", "mode": "normal" }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 17 },
+      "id": 8,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "title": "Error Rate by Span Name",
+      "description": "Error count per span operation — pinpoints which service calls are failing.",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"rateshift-backend\" && status = error } | rate() by (name)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 103,
+      "title": "Trace Explorer",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 28 },
+      "id": 9,
+      "options": {},
+      "title": "Top 10 Slowest Traces",
+      "description": "Recent traces sorted by duration descending. Click a trace ID to drill down into the full span waterfall.",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"rateshift-backend\" } | select(duration, name, status)",
+          "limit": 10,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "filterable": true }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "duration" },
+            "properties": [
+              { "id": "unit", "value": "ns" },
+              { "id": "custom.width", "value": 120 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "traceID" },
+            "properties": [
+              { "id": "links", "value": [
+                {
+                  "title": "View trace",
+                  "url": "/explore?left={\"datasource\":\"${tempo_ds}\",\"queries\":[{\"refId\":\"A\",\"datasource\":{\"type\":\"tempo\",\"uid\":\"${tempo_ds}\"},\"queryType\":\"traceql\",\"query\":\"${__value.raw}\"}]}"
+                }
+              ]}
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": { "fields": {}, "sort": [{ "field": "duration", "desc": true }] }
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 40 },
+      "id": 10,
+      "options": {},
+      "title": "Recent Error Traces",
+      "description": "Traces with error status. Click trace ID to inspect the failing span and exception details.",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${tempo_ds}" },
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"rateshift-backend\" && status = error } | select(duration, name, status)",
+          "limit": 20,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "filterable": true }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "duration" },
+            "properties": [
+              { "id": "unit", "value": "ns" },
+              { "id": "custom.width", "value": 120 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": { "fields": {}, "sort": [{ "field": "duration", "desc": true }] }
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["traces", "otel", "production", "rateshift"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "description": "Tempo datasource for trace queries",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Tempo Datasource",
+        "multi": false,
+        "name": "tempo_ds",
+        "options": [],
+        "query": "tempo",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "RateShift Backend Traces",
+  "uid": "rateshift-traces-v1",
+  "version": 1,
+  "refresh": "30s"
+}

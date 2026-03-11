@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
+from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
 
@@ -157,15 +158,17 @@ class PortalScraperService:
             result = await svc.scrape_portal(...)
     """
 
-    def __init__(self, http_client: Any = None) -> None:
+    def __init__(self, http_client: Any = None, db: Any = None) -> None:
         """
         Args:
             http_client: Injected ``httpx.AsyncClient`` (optional).
                          When ``None``, a client is created lazily on first use
                          and closed by ``close()`` / ``__aexit__``.
+            db: Optional database session (stored for callers that need it).
         """
         self._client = http_client
         self._owns_client = http_client is None
+        self._db = db
 
     # ------------------------------------------------------------------
     # Context manager helpers
@@ -202,21 +205,25 @@ class PortalScraperService:
 
     async def scrape_portal(
         self,
-        username: str,
-        password: str,
-        login_url: str,
-        supplier_id: str,
+        username: str = "",
+        password: str = "",
+        login_url: str = "",
+        supplier_id: str = "",
+        connection_id: Optional[str] = None,
+        utility_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Attempt to log in to a utility portal and extract current rate data.
 
         Args:
-            username:    Portal login username / email.
-            password:    Portal login password (decrypted at call site).
-            login_url:   Full URL of the login page (overrides registry default
-                         when the caller supplies one, otherwise falls back).
-            supplier_id: Key into ``SUPPORTED_UTILITIES`` (may also be a raw
-                         URL string for unsupported utilities).
+            username:      Portal login username / email.
+            password:      Portal login password (decrypted at call site).
+            login_url:     Full URL of the login page (overrides registry default
+                           when the caller supplies one, otherwise falls back).
+            supplier_id:   Key into ``SUPPORTED_UTILITIES`` (may also be a raw
+                           URL string for unsupported utilities).
+            connection_id: Optional connection UUID (used for DB-backed scrapes).
+            utility_name:  Human-readable utility name (alias for display/tracing).
 
         Returns:
             dict with keys:
@@ -224,36 +231,46 @@ class PortalScraperService:
               - ``rates``    (list of ``{"rate_per_kwh": float, "label": str}``)
               - ``error``    (str | None)
         """
-        log = logger.bind(supplier_id=supplier_id)
-        log.info("portal_scrape_start")
+        # Allow utility_name to serve as supplier_id when supplier_id is blank
+        effective_supplier = supplier_id or utility_name or ""
+        effective_utility_name = utility_name or supplier_id or ""
+        async with traced(
+            "scraper.portal",
+            attributes={
+                "scraper.utility": effective_utility_name,
+                "scraper.method": "portal",
+            },
+        ):
+            log = logger.bind(supplier_id=effective_supplier)
+            log.info("portal_scrape_start")
 
-        try:
-            client = await self._ensure_client()
-            utility_config = SUPPORTED_UTILITIES.get(supplier_id)
+            try:
+                client = await self._ensure_client()
+                utility_config = SUPPORTED_UTILITIES.get(effective_supplier)
 
-            if utility_config:
-                result = await self._scrape_known_utility(
-                    client, utility_config, username, password, login_url
+                if utility_config:
+                    result = await self._scrape_known_utility(
+                        client, utility_config, username, password, login_url
+                    )
+                else:
+                    result = await self._scrape_generic(
+                        client, login_url, username, password
+                    )
+
+                log.info(
+                    "portal_scrape_complete",
+                    success=result["success"],
+                    rates_count=len(result.get("rates", [])),
                 )
-            else:
-                result = await self._scrape_generic(
-                    client, login_url, username, password
-                )
+                return result
 
-            log.info(
-                "portal_scrape_complete",
-                success=result["success"],
-                rates_count=len(result.get("rates", [])),
-            )
-            return result
-
-        except Exception as exc:
-            log.error("portal_scrape_unexpected_error", error=str(exc))
-            return {
-                "success": False,
-                "rates": [],
-                "error": f"Unexpected error during portal scrape: {exc}",
-            }
+            except Exception as exc:
+                log.error("portal_scrape_unexpected_error", error=str(exc))
+                return {
+                    "success": False,
+                    "rates": [],
+                    "error": f"Unexpected error during portal scrape: {exc}",
+                }
 
     # ------------------------------------------------------------------
     # Private: known utility scrape

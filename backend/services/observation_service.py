@@ -12,6 +12,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lib.tracing import traced
 from repositories.forecast_observation_repository import ForecastObservationRepository
 
 logger = logging.getLogger(__name__)
@@ -34,26 +35,28 @@ class ObservationService:
         model_version: Optional[str] = None,
     ) -> int:
         """Batch-INSERT forecast predictions into forecast_observations."""
-        count = await self._repo.insert_forecasts(
-            forecast_id, region, predictions, model_version
-        )
-        if count > 0:
-            logger.info(
-                "forecast_recorded",
-                forecast_id=forecast_id,
-                region=region,
-                count=count,
+        async with traced("ml.record_forecast", attributes={"ml.region": region, "ml.forecast_id": forecast_id}):
+            count = await self._repo.insert_forecasts(
+                forecast_id, region, predictions, model_version
             )
-        return count
+            if count > 0:
+                logger.info(
+                    "forecast_recorded",
+                    forecast_id=forecast_id,
+                    region=region,
+                    count=count,
+                )
+            return count
 
     async def observe_actuals_batch(
         self,
         region: Optional[str] = None,
     ) -> int:
         """Match unobserved forecast rows to actual prices."""
-        count = await self._repo.backfill_actuals(region)
-        logger.info("actuals_backfilled", region=region or "all", count=count)
-        return count
+        async with traced("ml.observe_actuals", attributes={"ml.region": region or "all"}):
+            count = await self._repo.backfill_actuals(region)
+            logger.info("actuals_backfilled", region=region or "all", count=count)
+            return count
 
     async def record_recommendation(
         self,

@@ -12,6 +12,7 @@ from typing import Optional, List, Dict, Any
 
 from models.price import Price, PriceRegion, PriceForecast
 from repositories.price_repository import PriceRepository
+from lib.tracing import traced
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,8 @@ class PriceService:
         Returns:
             Current price if available
         """
-        return await self._repo.get_latest_by_supplier(region, supplier)
+        async with traced("price.get_current", attributes={"price.region": getattr(region, "state_code", None) or str(region), "price.source": supplier}):
+            return await self._repo.get_latest_by_supplier(region, supplier)
 
     async def get_current_prices(
         self,
@@ -172,26 +174,27 @@ class PriceService:
         Returns:
             Price forecast if available
         """
-        current_prices = await self._repo.get_current_prices(region, limit=1)
-        if not current_prices:
-            return None
+        async with traced("price.forecast", attributes={"price.region": getattr(region, "state_code", None) or str(region)}):
+            current_prices = await self._repo.get_current_prices(region, limit=1)
+            if not current_prices:
+                return None
 
-        now = datetime.now(timezone.utc)
-        base_price = current_prices[0].price_per_kwh
-        default_supplier = supplier or current_prices[0].supplier
-        currency = current_prices[0].currency
+            now = datetime.now(timezone.utc)
+            base_price = current_prices[0].price_per_kwh
+            default_supplier = supplier or current_prices[0].supplier
+            currency = current_prices[0].currency
 
-        # Try ML ensemble predictor
-        ml_result = await self._try_ml_forecast(region, hours)
-        if ml_result is not None:
-            return self._ml_result_to_forecast(
-                ml_result, region, hours, now, default_supplier, currency
+            # Try ML ensemble predictor
+            ml_result = await self._try_ml_forecast(region, hours)
+            if ml_result is not None:
+                return self._ml_result_to_forecast(
+                    ml_result, region, hours, now, default_supplier, currency
+                )
+
+            # Fallback: simple peak/off-peak heuristic
+            return self._simple_forecast(
+                region, hours, now, base_price, default_supplier, currency
             )
-
-        # Fallback: simple peak/off-peak heuristic
-        return self._simple_forecast(
-            region, hours, now, base_price, default_supplier, currency
-        )
 
     async def _try_ml_forecast(
         self, region: PriceRegion, hours: int

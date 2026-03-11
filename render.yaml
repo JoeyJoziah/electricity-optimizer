@@ -72,6 +72,13 @@ services:
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
+      # --- OpenTelemetry distributed tracing ---
+      - key: OTEL_ENABLED
+        value: "true"
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_HEADERS
+        sync: false
       # --- Gmail SMTP (transactional email fallback) ---
       - key: SMTP_HOST
         sync: false

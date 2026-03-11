@@ -37,6 +37,7 @@ import httpx
 import structlog
 
 from config.settings import get_settings
+from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
 
@@ -53,9 +54,10 @@ _MAX_CONCURRENCY: int = 5
 
 
 class RateScraperService:
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, db=None):
         self._settings = settings or get_settings()
         self._token = self._settings.diffbot_api_token
+        self._db = db
 
     async def extract_rates_from_url(self, url: str) -> Optional[dict]:
         """Extract structured data from a supplier rate page.
@@ -145,7 +147,7 @@ class RateScraperService:
 
     async def scrape_supplier_rates(
         self,
-        supplier_urls: list[dict],
+        supplier_urls: Optional[list] = None,
         max_concurrency: int = _MAX_CONCURRENCY,
     ) -> dict:
         """Scrape multiple supplier URLs with concurrent rate limiting.
@@ -156,7 +158,7 @@ class RateScraperService:
         ``success=False`` without aborting the batch.
 
         Args:
-            supplier_urls: [{"supplier_id": str, "url": str}, ...]
+            supplier_urls: [{"supplier_id": str, "url": str}, ...] or None for empty batch.
             max_concurrency: max parallel Diffbot calls (default 5).
 
         Returns:
@@ -176,32 +178,35 @@ class RateScraperService:
         Timing estimate (37 suppliers, max_concurrency=5):
             ceil(37 / 5) * 12 s ≈ 96 s  (vs. 444 s sequential)
         """
-        if not supplier_urls:
-            return {"total": 0, "succeeded": 0, "failed": 0, "errors": [], "results": []}
+        async with traced("scraper.rates", attributes={"scraper.method": "diffbot"}):
+            if supplier_urls is None:
+                supplier_urls = []
+            if not supplier_urls:
+                return {"total": 0, "succeeded": 0, "failed": 0, "errors": [], "results": []}
 
-        semaphore = asyncio.Semaphore(max_concurrency)
-        tasks = [self._scrape_one(item, semaphore) for item in supplier_urls]
-        raw_results: list[dict] = list(await asyncio.gather(*tasks, return_exceptions=False))
+            semaphore = asyncio.Semaphore(max_concurrency)
+            tasks = [self._scrape_one(item, semaphore) for item in supplier_urls]
+            raw_results: list[dict] = list(await asyncio.gather(*tasks, return_exceptions=False))
 
-        succeeded = sum(1 for r in raw_results if r.get("success"))
-        failed = len(raw_results) - succeeded
-        errors = [
-            {"supplier_id": r["supplier_id"], "error": r.get("error", "unknown")}
-            for r in raw_results
-            if not r.get("success")
-        ]
+            succeeded = sum(1 for r in raw_results if r.get("success"))
+            failed = len(raw_results) - succeeded
+            errors = [
+                {"supplier_id": r["supplier_id"], "error": r.get("error", "unknown")}
+                for r in raw_results
+                if not r.get("success")
+            ]
 
-        logger.info(
-            "scrape_batch_complete",
-            total=len(raw_results),
-            succeeded=succeeded,
-            failed=failed,
-        )
+            logger.info(
+                "scrape_batch_complete",
+                total=len(raw_results),
+                succeeded=succeeded,
+                failed=failed,
+            )
 
-        return {
-            "total": len(raw_results),
-            "succeeded": succeeded,
-            "failed": failed,
-            "errors": errors,
-            "results": raw_results,
-        }
+            return {
+                "total": len(raw_results),
+                "succeeded": succeeded,
+                "failed": failed,
+                "errors": errors,
+                "results": raw_results,
+            }

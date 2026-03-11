@@ -16,8 +16,21 @@ from typing import AsyncGenerator, Optional
 import structlog
 
 from config.settings import settings
+from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
+
+# Module-level sentinels so tests can patch "services.agent_service.genai" and
+# "services.agent_service.Groq" without relying on the lazy-import pattern.
+try:
+    from google import genai  # type: ignore[attr-defined]
+except Exception:
+    genai = None  # type: ignore[assignment]
+
+try:
+    from groq import AsyncGroq as Groq  # type: ignore[attr-defined]
+except Exception:
+    Groq = None  # type: ignore[assignment]
 
 # Max limits
 MAX_PROMPT_LENGTH = 2000
@@ -158,85 +171,86 @@ class AgentService:
         self, user_id: str, prompt: str, context: dict, db
     ) -> AsyncGenerator[AgentMessage, None]:
         """Stream agent responses. Yields AgentMessage objects."""
-        start_time = time.time()
+        async with traced("agent.query", attributes={"agent.provider": "gemini"}):
+            start_time = time.time()
 
-        # Validate prompt length
-        if len(prompt) > MAX_PROMPT_LENGTH:
-            yield AgentMessage(
-                role="error",
-                content=f"Prompt too long. Maximum {MAX_PROMPT_LENGTH} characters.",
-            )
-            return
-
-        # Build system prompt with user context
-        system = SYSTEM_PROMPT.format(
-            region=context.get("region", "Unknown"),
-            supplier=context.get("supplier", "Unknown"),
-            tier=context.get("tier", "free"),
-        )
-
-        # Try Gemini first, fall back to Groq
-        model_used = "gemini-3-flash-preview"
-        tools_used = []
-        tokens_used = 0
-
-        try:
-            response_text = await self._query_gemini(system, prompt)
-        except Exception as gemini_err:
-            err_str = str(gemini_err)
-            is_rate_limited = (
-                "429" in err_str
-                or "ResourceExhausted" in err_str
-                or "RESOURCE_EXHAUSTED" in err_str
-            )
-            if is_rate_limited and settings.groq_api_key:
-                logger.info("gemini_rate_limited_falling_back_to_groq", user_id=user_id)
-                try:
-                    response_text = await self._query_groq(system, prompt)
-                    model_used = "llama-3.3-70b-versatile"
-                except Exception as groq_err:
-                    logger.error("groq_fallback_failed", error=str(groq_err), user_id=user_id)
-                    yield AgentMessage(
-                        role="error",
-                        content="AI service temporarily unavailable. Please try again later.",
-                    )
-                    return
-            else:
-                logger.error("gemini_query_failed", error=err_str, user_id=user_id)
+            # Validate prompt length
+            if len(prompt) > MAX_PROMPT_LENGTH:
                 yield AgentMessage(
                     role="error",
-                    content="AI service error. Please try again later.",
+                    content=f"Prompt too long. Maximum {MAX_PROMPT_LENGTH} characters.",
                 )
                 return
 
-        duration_ms = int((time.time() - start_time) * 1000)
+            # Build system prompt with user context
+            system = SYSTEM_PROMPT.format(
+                region=context.get("region", "Unknown"),
+                supplier=context.get("supplier", "Unknown"),
+                tier=context.get("tier", "free"),
+            )
 
-        # Log conversation to DB
-        try:
-            await self._log_conversation(
-                user_id=user_id,
-                prompt=prompt,
-                response=response_text,
+            # Try Gemini first, fall back to Groq
+            model_used = "gemini-3-flash-preview"
+            tools_used = []
+            tokens_used = 0
+
+            try:
+                response_text = await self._query_gemini(system, prompt)
+            except Exception as gemini_err:
+                err_str = str(gemini_err)
+                is_rate_limited = (
+                    "429" in err_str
+                    or "ResourceExhausted" in err_str
+                    or "RESOURCE_EXHAUSTED" in err_str
+                )
+                if is_rate_limited and settings.groq_api_key:
+                    logger.info("gemini_rate_limited_falling_back_to_groq", user_id=user_id)
+                    try:
+                        response_text = await self._query_groq(system, prompt)
+                        model_used = "llama-3.3-70b-versatile"
+                    except Exception as groq_err:
+                        logger.error("groq_fallback_failed", error=str(groq_err), user_id=user_id)
+                        yield AgentMessage(
+                            role="error",
+                            content="AI service temporarily unavailable. Please try again later.",
+                        )
+                        return
+                else:
+                    logger.error("gemini_query_failed", error=err_str, user_id=user_id)
+                    yield AgentMessage(
+                        role="error",
+                        content="AI service error. Please try again later.",
+                    )
+                    return
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Log conversation to DB
+            try:
+                await self._log_conversation(
+                    user_id=user_id,
+                    prompt=prompt,
+                    response=response_text,
+                    model_used=model_used,
+                    tools_used=tools_used,
+                    tokens_used=tokens_used,
+                    duration_ms=duration_ms,
+                    db=db,
+                )
+            except Exception as log_err:
+                logger.warning("conversation_log_failed", error=str(log_err))
+
+            # Increment usage
+            await self.increment_usage(user_id, db)
+
+            yield AgentMessage(
+                role="assistant",
+                content=response_text,
                 model_used=model_used,
                 tools_used=tools_used,
                 tokens_used=tokens_used,
                 duration_ms=duration_ms,
-                db=db,
             )
-        except Exception as log_err:
-            logger.warning("conversation_log_failed", error=str(log_err))
-
-        # Increment usage
-        await self.increment_usage(user_id, db)
-
-        yield AgentMessage(
-            role="assistant",
-            content=response_text,
-            model_used=model_used,
-            tools_used=tools_used,
-            tokens_used=tokens_used,
-            duration_ms=duration_ms,
-        )
 
     async def _query_gemini(self, system: str, prompt: str) -> str:
         """Query Gemini 3 Flash Preview."""
@@ -272,25 +286,26 @@ class AgentService:
 
     async def query_async(self, user_id: str, prompt: str, context: dict, db) -> str:
         """Submit an async job. Returns a job_id. Result stored in Redis."""
-        job_id = str(uuid.uuid4())
-        redis = None
-        try:
-            from config.database import db_manager
+        async with traced("agent.query_async", attributes={"agent.provider": "gemini"}):
+            job_id = str(uuid.uuid4())
+            redis = None
+            try:
+                from config.database import db_manager
 
-            redis = await db_manager.get_redis_client()
-        except Exception:
-            pass
+                redis = await db_manager.get_redis_client()
+            except Exception:
+                pass
 
-        if redis:
-            await redis.set(
-                f"agent:job:{job_id}",
-                json.dumps({"status": "processing", "user_id": user_id}),
-                ex=3600,
-            )
+            if redis:
+                await redis.set(
+                    f"agent:job:{job_id}",
+                    json.dumps({"status": "processing", "user_id": user_id}),
+                    ex=3600,
+                )
 
-        # Run in background
-        asyncio.create_task(self._run_async_job(job_id, user_id, prompt, context, redis))
-        return job_id
+            # Run in background
+            asyncio.create_task(self._run_async_job(job_id, user_id, prompt, context, redis))
+            return job_id
 
     async def _run_async_job(self, job_id: str, user_id: str, prompt: str, context: dict, redis):
         """Execute the async job and store result in Redis."""
