@@ -282,7 +282,7 @@ Restructure the dashboard page into a tabbed layout. No community frontend yet.
 
 ### Tasks
 
-- [ ] Task 3.1: Create `DashboardTabs` component
+- [x] Task 3.1: Create `DashboardTabs` component
   - **Files:** Create `frontend/components/dashboard/DashboardTabs.tsx`
   - **Behavior:**
     - Tab bar: "All Utilities", "Electricity", "Natural Gas", "Heating Oil", "Propane", "Community Solar", "Water"
@@ -294,7 +294,7 @@ Restructure the dashboard page into a tabbed layout. No community frontend yet.
     - Active tab: `border-b-2 border-primary` (Tailwind)
   - **Verify:** Component renders without errors
 
-- [ ] Task 3.2: Create `AllUtilitiesTab` component
+- [x] Task 3.2: Create `AllUtilitiesTab` component
   - **Files:** Create `frontend/components/dashboard/AllUtilitiesTab.tsx`
   - **Behavior:**
     - Renders `CombinedSavingsCard` at top
@@ -303,7 +303,7 @@ Restructure the dashboard page into a tabbed layout. No community frontend yet.
     - Feature flag check per card — hidden if utility disabled
   - **Verify:** Component renders with mock data
 
-- [ ] Task 3.3: Create `CombinedSavingsCard` component
+- [x] Task 3.3: Create `CombinedSavingsCard` component
   - **Files:** Create `frontend/components/dashboard/CombinedSavingsCard.tsx`
   - **Behavior:**
     - Calls `GET /savings/combined` via React Query
@@ -311,7 +311,7 @@ Restructure the dashboard page into a tabbed layout. No community frontend yet.
     - Loading skeleton, error fallback
   - **API client:** Add `getCombinedSavings()` to `frontend/lib/api/` (new file or extend existing)
 
-- [ ] Task 3.4: Create `NeighborhoodCard` component
+- [x] Task 3.4: Create `NeighborhoodCard` component
   - **Files:** Create `frontend/components/dashboard/NeighborhoodCard.tsx`
   - **Behavior:**
     - Calls `GET /neighborhood/compare` via React Query
@@ -320,7 +320,7 @@ Restructure the dashboard page into a tabbed layout. No community frontend yet.
     - "Insufficient data" placeholder when API returns null fields
     - Reuses existing chart library (recharts or similar)
 
-- [ ] Task 3.5: Create `UtilityTabShell` component
+- [x] Task 3.5: Create `UtilityTabShell` component
   - **Files:** Create `frontend/components/dashboard/UtilityTabShell.tsx`
   - **Behavior:**
     - Shared layout wrapper for individual utility tabs
@@ -328,13 +328,13 @@ Restructure the dashboard page into a tabbed layout. No community frontend yet.
     - Electricity tab renders current `DashboardContent` inside this shell (zero changes to existing component)
     - Other utility tabs follow same pattern with their respective hooks
 
-- [ ] Task 3.6: Wire `DashboardTabs` into dashboard page
+- [x] Task 3.6: Wire `DashboardTabs` into dashboard page
   - **Files:** Modify `frontend/app/dashboard/page.tsx` (or equivalent)
   - Replace current `DashboardContent` render with `DashboardTabs`
   - `DashboardContent` becomes the content of the Electricity tab (rename import, no code change)
   - **Verify:** Dashboard loads with tabs, electricity tab shows existing content
 
-- [ ] Task 3.7: Write dashboard frontend tests (~20)
+- [x] Task 3.7: Write dashboard frontend tests (~28)
   - **Files:** Create `frontend/__tests__/components/dashboard/DashboardTabs.test.tsx` and related
   - **Tests:**
     - Tab switching renders correct content
@@ -355,24 +355,24 @@ Restructure the dashboard page into a tabbed layout. No community frontend yet.
   - **Run:** `cd frontend && npm test -- --testPathPattern=DashboardTabs`
   - **Expected:** All PASS
 
-- [ ] Task 3.8: Update Sidebar test for dashboard (if nav changes needed)
+- [x] Task 3.8: Update Sidebar test for dashboard (no nav changes needed, 16/16 passing)
   - **Files:** Modify `frontend/__tests__/components/layout/Sidebar.test.tsx` if sidebar labels change
   - **Verify:** No regressions in existing 22 sidebar tests
 
-- [ ] Task 3.9: Commit Phase 3
+- [x] Task 3.9: Commit Phase 3
   - **Run:** `cd frontend && npm test` (full suite)
-  - **Expected:** All pass, zero regressions
-  - **Commit:** `feat(dashboard): add tabbed multi-utility dashboard with combined savings (mu-wave5)`
+  - **Expected:** All pass, zero regressions — 1808 passed, 135 suites
+  - **Commit:** `feat(dashboard): add tabbed multi-utility dashboard with combined savings (mu-wave5)` (bc3ab4f)
 
 ### Verification
 
-- [ ] Tabs render and switch correctly
-- [ ] URL deep-linking works
-- [ ] Feature flags hide/show tabs
-- [ ] Combined savings + neighborhood cards render
-- [ ] Electricity tab preserves existing behavior exactly
-- [ ] ~20 new tests passing
-- [ ] Full frontend suite green
+- [x] Tabs render and switch correctly (9 DashboardTabs tests)
+- [x] URL deep-linking works (respects ?tab= param test)
+- [x] Feature flags hide/show tabs (via utilityTypes from settings store)
+- [x] Combined savings + neighborhood cards render (7 + 5 tests)
+- [x] Electricity tab preserves existing behavior exactly (integration test: 15/15)
+- [x] 28 new tests passing (DashboardTabs.test.tsx)
+- [x] Full frontend suite green (1808 passed, 135 suites)
 
 ---
 
