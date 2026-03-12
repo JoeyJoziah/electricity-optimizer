@@ -11,6 +11,6 @@
 | [ ] | mu-wave2-first-expansion_20260311 | Multi-Utility Wave 2 — Natural Gas + Community Solar | 2026-03-11 | 2026-03-11 |
 | [ ] | mu-wave3-depth_20260311 | Multi-Utility Wave 3 — CCA, Heating Oil, Alerting, SEO, Affiliate | 2026-03-11 | 2026-03-11 |
 | [ ] | mu-wave4-breadth_20260311 | Multi-Utility Wave 4 — Propane, Water, Premium Analytics | 2026-03-11 | 2026-03-11 |
-| [ ] | mu-wave5-unification_20260311 | Multi-Utility Wave 5 — Unified Dashboard, Community, Security | 2026-03-11 | 2026-03-11 |
+| [~] | mu-wave5-unification_20260311 | Multi-Utility Wave 5 — Unified Dashboard, Community, Security | 2026-03-11 | 2026-03-11 |
 
 <!-- Tracks registered by /conductor:new-track -->

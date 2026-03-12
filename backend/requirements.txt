@@ -67,6 +67,9 @@ scikit-learn>=1.5.0
 # Vector Search (HNSW)
 hnswlib>=0.8.0
 
+# XSS Sanitization (Rust-based, replaces deprecated bleach)
+nh3>=0.2.14
+
 # AI Agent (Gemini primary + Groq fallback + Composio tools)
 google-genai>=1.0.0
 composio-gemini>=0.7.0

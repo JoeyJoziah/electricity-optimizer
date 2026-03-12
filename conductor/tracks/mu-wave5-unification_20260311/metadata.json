@@ -1,0 +1,30 @@
+{
+  "id": "mu-wave5-unification_20260311",
+  "title": "Wave 5 — Unified Dashboard, Community & Security Hardening",
+  "type": "feature",
+  "status": "in_progress",
+  "created": "2026-03-11T22:00:00Z",
+  "updated": "2026-03-12T00:00:00Z",
+  "current_phase": 1,
+  "current_task": "1.9",
+  "phases": {
+    "total": 7,
+    "completed": 1
+  },
+  "tasks": {
+    "total": 47,
+    "completed": 9
+  },
+  "design_decisions": [
+    "D1: Tabbed dashboard redesign",
+    "D2: Full community (all 4 features)",
+    "D3: AI auto-mod (Groq primary, fail-closed 30s) + report button (5 reporters)",
+    "D4: Automated scanning + light manual review",
+    "D5: All monitored utilities in savings",
+    "D6: Low scale (< 1K posts)",
+    "D7: Frontend-First Composition (Approach A)"
+  ],
+  "blocked_by": [],
+  "estimated_new_tests": 95,
+  "commits": []
+}

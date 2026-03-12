@@ -56,6 +56,19 @@ from models.observation import (
     HourlyBias,
 )
 
+from models.community import (
+    PostType,
+    CommunityUtilityType,
+    CommunityPost,
+    CommunityPostCreate,
+    CommunityPostUpdate,
+    CommunityPostResponse,
+    CommunityVote,
+    CommunityReport,
+    CommunityStatsResponse,
+    PaginatedPostsResponse,
+)
+
 __all__ = [
     # Region and utility types
     "Region",
@@ -89,4 +102,15 @@ __all__ = [
     "TariffResponse",
     "TariffListResponse",
     "ContractLength",
+    # Community models
+    "PostType",
+    "CommunityUtilityType",
+    "CommunityPost",
+    "CommunityPostCreate",
+    "CommunityPostUpdate",
+    "CommunityPostResponse",
+    "CommunityVote",
+    "CommunityReport",
+    "CommunityStatsResponse",
+    "PaginatedPostsResponse",
 ]
