@@ -181,19 +181,19 @@ Create the community tables and core backend services. No frontend yet.
   - **Run:** `.venv/bin/python -m pytest tests/test_neighborhood_service.py -v`
   - **Expected:** All PASS
 
-- [~] Task 1.9: Commit Phase 1
+- [x] Task 1.9: Commit Phase 1
   - **Run:** Full backend suite `.venv/bin/python -m pytest -v --tb=short`
   - **Expected:** All pass, zero regressions
   - **Commit:** `feat(community): add community tables, services, and savings aggregator (mu-wave5)`
 
 ### Verification
 
-- [ ] Migration 049 creates 3 tables (community_posts, community_votes, community_reports) with correct constraints
-- [ ] Migration validated on vercel-dev branch before production
-- [ ] CommunityService: 20 tests passing
-- [ ] SavingsAggregator: 6 tests passing
-- [ ] NeighborhoodService: 5 tests passing
-- [ ] Full backend suite green (no regressions)
+- [x] Migration 049 creates 3 tables (community_posts, community_votes, community_reports) with correct constraints
+- [x] Migration validated on vercel-dev branch before production
+- [x] CommunityService: 20 tests passing
+- [x] SavingsAggregator: 6 tests passing
+- [x] NeighborhoodService: 5 tests passing
+- [x] Full backend suite green (no regressions) — 2462 passed, 0 failed
 
 ---
 

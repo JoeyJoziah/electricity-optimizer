@@ -26,5 +26,7 @@
   ],
   "blocked_by": [],
   "estimated_new_tests": 95,
-  "commits": []
+  "commits": [
+    "50739d2: feat(community): add community tables, services, and savings aggregator (mu-wave5)"
+  ]
 }
