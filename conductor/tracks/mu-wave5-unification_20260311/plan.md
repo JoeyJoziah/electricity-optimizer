@@ -203,7 +203,7 @@ Wire services into FastAPI routes with auth, rate limiting, and validation.
 
 ### Tasks
 
-- [ ] Task 2.1: Write failing tests for community API routes
+- [x] Task 2.1: Write failing tests for community API routes
   - **Files:** Create `backend/tests/test_community_api.py`
   - **Tests (~10):**
     - `test_create_post_authenticated` — 201 with valid payload
@@ -221,7 +221,7 @@ Wire services into FastAPI routes with auth, rate limiting, and validation.
   - **Run:** `.venv/bin/python -m pytest tests/test_community_api.py -v`
   - **Expected:** All FAIL
 
-- [ ] Task 2.2: Implement community API routes
+- [x] Task 2.2: Implement community API routes
   - **Files:** Create `backend/api/v1/community.py`
   - **Routes:**
     - `GET /community/posts` — query params: region, utility_type, page (default 1), per_page (default 20)
@@ -236,7 +236,7 @@ Wire services into FastAPI routes with auth, rate limiting, and validation.
   - **Run:** `.venv/bin/python -m pytest tests/test_community_api.py -v`
   - **Expected:** All PASS
 
-- [ ] Task 2.3: Write failing tests for combined savings route
+- [x] Task 2.3: Write failing tests for combined savings route
   - **Files:** Add to `backend/tests/test_savings_aggregator.py` or new `backend/tests/test_savings_api.py`
   - **Tests (~4):**
     - `test_combined_savings_authenticated` — 200
@@ -245,7 +245,7 @@ Wire services into FastAPI routes with auth, rate limiting, and validation.
     - `test_neighborhood_comparison_authenticated` — 200
   - **Expected:** All FAIL
 
-- [ ] Task 2.4: Implement savings + neighborhood API routes
+- [x] Task 2.4: Implement savings + neighborhood API routes
   - **Files:** Check if `backend/api/v1/savings.py` already exists — if so, EXTEND it; if not, create it. Add neighborhood routes to `backend/api/v1/community.py` or new `neighborhood.py`.
   - **IMPORTANT:** Check existing router registrations in `backend/main.py` before adding — avoid prefix conflicts
   - **Routes:**
@@ -255,14 +255,14 @@ Wire services into FastAPI routes with auth, rate limiting, and validation.
   - **Run:** `.venv/bin/python -m pytest tests/test_savings_api.py -v`
   - **Expected:** All PASS
 
-- [ ] Task 2.5: Update conftest.py mock fixtures
+- [x] Task 2.5: Update conftest.py mock fixtures (N/A — community uses raw SQL, not ORM)
   - **Files:** Modify `backend/tests/conftest.py`
   - Add `community_posts`, `community_votes`, and `community_reports` model attrs to `mock_sqlalchemy_select`
   - Include new fields: `is_pending_moderation`, `rate_per_unit`, `rate_unit`
   - **Run:** Full backend suite
   - **Expected:** No regressions
 
-- [ ] Task 2.6: Commit Phase 2
+- [~] Task 2.6: Commit Phase 2
   - **Run:** Full backend suite `.venv/bin/python -m pytest -v --tb=short`
   - **Expected:** All pass
   - **Commit:** `feat(api): add community, savings, and neighborhood API routes (mu-wave5)`

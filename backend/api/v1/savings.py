@@ -3,8 +3,9 @@ Savings API — endpoints for retrieving user savings summaries and history.
 
 Routes
 ------
-GET /savings/summary  — aggregated totals + streak for the authenticated user
-GET /savings/history  — paginated list of individual savings records
+GET /savings/summary   — aggregated totals + streak for the authenticated user
+GET /savings/history   — paginated list of individual savings records
+GET /savings/combined  — combined savings across all utility types
 """
 
 from typing import Optional
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_current_user, get_db_session, require_tier, SessionData
 from services.savings_service import SavingsService
+from services.savings_aggregator import SavingsAggregator
 
 router = APIRouter(prefix="/savings", tags=["Savings"])
 
@@ -73,4 +75,22 @@ async def get_savings_history(
         user_id=current_user.user_id,
         page=page,
         page_size=page_size,
+    )
+
+
+# =============================================================================
+# GET /savings/combined
+# =============================================================================
+
+
+@router.get("/combined")
+async def get_combined_savings(
+    current_user: SessionData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Return combined savings across all utility types for the authenticated user."""
+    aggregator = SavingsAggregator()
+    return await aggregator.get_combined_savings(
+        db=db,
+        user_id=current_user.user_id,
     )

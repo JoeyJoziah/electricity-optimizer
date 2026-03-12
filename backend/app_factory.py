@@ -580,6 +580,8 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import forecast as forecast_v1
     from api.v1 import reports as reports_v1
     from api.v1 import export as export_v1
+    from api.v1 import community as community_v1
+    from api.v1 import neighborhood as neighborhood_v1
 
     app.include_router(
         predictions.router,
@@ -775,6 +777,16 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         export_v1.router,
         prefix=f"{settings.api_prefix}",
         tags=["Export"],
+    )
+    app.include_router(
+        community_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Community"],
+    )
+    app.include_router(
+        neighborhood_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Neighborhood"],
     )
 
     return app, app_rate_limiter
