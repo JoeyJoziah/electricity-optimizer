@@ -5,15 +5,15 @@
   "status": "in_progress",
   "created": "2026-03-11T22:00:00Z",
   "updated": "2026-03-12T00:00:00Z",
-  "current_phase": 1,
-  "current_task": "1.9",
+  "current_phase": 2,
+  "current_task": "2.6",
   "phases": {
     "total": 7,
-    "completed": 1
+    "completed": 2
   },
   "tasks": {
     "total": 47,
-    "completed": 9
+    "completed": 15
   },
   "design_decisions": [
     "D1: Tabbed dashboard redesign",
@@ -27,6 +27,7 @@
   "blocked_by": [],
   "estimated_new_tests": 95,
   "commits": [
-    "50739d2: feat(community): add community tables, services, and savings aggregator (mu-wave5)"
+    "50739d2: feat(community): add community tables, services, and savings aggregator (mu-wave5)",
+    "25b15a7: feat(api): add community, savings, and neighborhood API routes (mu-wave5)"
   ]
 }
