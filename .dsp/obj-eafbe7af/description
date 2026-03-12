@@ -1,0 +1,3 @@
+source: backend/services/rate_scraper_service.py
+kind: object
+purpose: Web scraping for electricity rates

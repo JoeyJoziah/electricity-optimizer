@@ -1,0 +1,3 @@
+source: .github/workflows/deploy-staging.yml
+kind: object
+purpose: Staging deployment pipeline

@@ -1,0 +1,3 @@
+source: lightgbm
+kind: external
+purpose: LightGBM gradient boosting library

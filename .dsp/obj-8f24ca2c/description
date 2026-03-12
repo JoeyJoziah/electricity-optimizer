@@ -1,0 +1,3 @@
+source: ml/optimization/scheduler.py
+kind: object
+purpose: Scheduling engine for optimal appliance timing

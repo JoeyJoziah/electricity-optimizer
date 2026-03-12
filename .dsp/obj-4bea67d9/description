@@ -1,0 +1,3 @@
+source: frontend/types/index.ts
+kind: object
+purpose: All TypeScript types with snake_case to camelCase mapping

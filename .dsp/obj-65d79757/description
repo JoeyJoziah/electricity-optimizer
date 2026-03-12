@@ -1,0 +1,3 @@
+source: backend/integrations/pricing_apis/rate_limiter.py
+kind: object
+purpose: Per-provider rate limiting

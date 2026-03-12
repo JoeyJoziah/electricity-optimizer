@@ -1,0 +1,3 @@
+source: docker-compose.yml
+kind: object
+purpose: Docker Compose for local development stack

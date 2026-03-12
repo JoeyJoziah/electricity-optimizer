@@ -1,0 +1,3 @@
+source: backend/api/dependencies.py
+kind: object
+purpose: FastAPI dependencies: get_db_session, verify_api_key, require_tier, require_scope

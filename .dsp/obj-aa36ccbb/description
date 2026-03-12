@@ -1,0 +1,3 @@
+source: ml/training/cnn_lstm_trainer.py
+kind: object
+purpose: CNN-LSTM training logic and data loading

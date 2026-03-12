@@ -1,0 +1,3 @@
+source: backend/migrations/014_add_notifications.sql
+kind: object
+purpose: Migration 014: add notifications

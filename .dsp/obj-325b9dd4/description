@@ -1,0 +1,3 @@
+source: scripts/stream-chain-run.sh
+kind: object
+purpose: Stream chain execution script

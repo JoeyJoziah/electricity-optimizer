@@ -1,0 +1,3 @@
+source: .github/workflows/keepalive.yml
+kind: object
+purpose: Render keepalive ping

@@ -1,0 +1,3 @@
+source: scripts/project-intelligence-sync.sh
+kind: object
+purpose: Project intelligence sync script

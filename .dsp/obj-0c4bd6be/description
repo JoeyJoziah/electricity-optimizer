@@ -1,0 +1,3 @@
+source: ml/models/price_forecaster.py
+kind: object
+purpose: CNN-LSTM price forecasting model
