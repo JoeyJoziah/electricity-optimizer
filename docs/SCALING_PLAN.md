@@ -433,4 +433,103 @@ curl -X PUT "https://api.render.com/v1/services/srv-d649uhur433s73d557cg/env-var
 
 ---
 
-**Last Updated**: 2026-03-10
+**Last Updated**: 2026-03-11
+
+---
+
+## Multi-Utility Scaling Addendum (Wave 3)
+
+> Added: 2026-03-11 | Context: Multi-utility expansion (electricity, natural gas, heating oil, community solar, propane)
+
+### Database Sharding Strategy
+
+**Recommendation: Time-based partitioning on `electricity_prices`** (document only — do not implement until trigger).
+
+`electricity_prices` is the highest-volume, most-queried table. Price data is naturally time-series — queries almost always filter by `timestamp DESC` or date range. Old data is read-only and archivable.
+
+```sql
+-- Future migration (DO NOT apply yet — wait for trigger)
+-- Native PostgreSQL declarative partitioning
+
+-- Step 1: Create partitioned parent table
+CREATE TABLE electricity_prices_partitioned (
+    LIKE electricity_prices INCLUDING ALL
+) PARTITION BY RANGE (timestamp);
+
+-- Step 2: Monthly partitions (auto-create via pg_partman or cron)
+CREATE TABLE electricity_prices_2026_01 PARTITION OF electricity_prices_partitioned
+    FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+-- ... one partition per month
+
+-- Step 3: Zero-downtime migration via INSERT...SELECT + rename
+```
+
+**Trigger**: `electricity_prices` exceeds 10M rows OR query p95 > 200ms.
+
+| Strategy | Pros | Cons | Verdict |
+|----------|------|------|---------|
+| Time-based partition | Natural time-series fit, partition pruning, easy archival | Migration complexity | **Recommended** |
+| Region-based sharding | Even write distribution | Uneven region sizes (TX >> WY), cross-region queries break | Rejected |
+| Utility-type sharding | Isolates workloads | Only 3-5 types, very uneven (electricity >> heating oil) | Rejected |
+
+**Other tables**:
+- `utility_rates`: Same time-based strategy when volume warrants it
+- `heating_oil_prices`: Low volume (weekly, 9 states). No partitioning needed
+- `rate_change_alerts`: Time-based cleanup (DELETE > 90 days via cron)
+- `affiliate_clicks`: Archive rows > 1 year
+
+### Read Replica Evaluation
+
+**Current read/write ratio**: ~95% reads / 5% writes.
+
+| Pattern | Table(s) | Frequency | Type |
+|---------|----------|-----------|------|
+| Current prices by region+utility | electricity_prices, utility_rates | Every page load | Read |
+| Price history (7/30/90d) | electricity_prices | Dashboard, SEO | Read |
+| Rate change detection | electricity_prices, utility_rates, heating_oil_prices | Daily cron | Read |
+| CCA detection by zip | cca_programs | On-demand | Read |
+| Heating oil prices | heating_oil_prices | On-demand + weekly cron | Read |
+| Write: scrape-rates | electricity_prices | Daily | Write |
+| Write: record click | affiliate_clicks | Per-user action | Write |
+| Write: store alerts | rate_change_alerts | Daily cron | Write |
+
+**Trigger**: Primary CPU > 70% sustained OR connection count > 80% of limit.
+
+**Current assessment**: Not needed yet. CF Worker 2-tier caching absorbs most read traffic. ISR (1h) on 153 SEO pages eliminates repeat backend hits. Neon free tier handles current load.
+
+### Connection Pool Assessment
+
+Current settings are well-tuned for Neon free tier:
+
+| Setting | Value | Rationale |
+|---------|-------|-----------|
+| `statement_cache_size=0` | Required | PgBouncer transaction-mode pooling compatibility |
+| `pool_recycle=200` | Correct | 100s before Neon 5-min auto-suspend |
+| `pool_pre_ping=True` | Correct | Validates connections before use |
+| `pool_timeout=20` | Good | Prevents cascading timeouts |
+| `pool_size=3 + max_overflow=5` | Appropriate | 8 max fits Neon free tier ~10 limit |
+
+No changes needed. Configuration is externalized via `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` env vars.
+
+### CF Worker Cache Key Strategy Update
+
+**Issue**: Multi-utility endpoints return different data for `?utility_type=electricity` vs `?utility_type=natural_gas` but cache keys only vary on `region`. This can cause cache pollution.
+
+**Fix**: Add `utility_type` to `varyOn` for price and supplier routes.
+
+| Route | TTL | varyOn (before) | varyOn (after) |
+|-------|-----|-----------------|----------------|
+| `/prices/current` | 5m | `["region"]` | `["region", "utility_type"]` |
+| `/prices/history` | 30m | `["region", "days"]` | `["region", "days", "utility_type"]` |
+| `/prices/analytics` | 1h | `["region"]` | `["region", "utility_type"]` |
+| `/suppliers/*` | 1h | `["region"]` | `["region", "utility_type"]` |
+
+**New routes to add caching for** (future, when traffic warrants):
+
+| Route | TTL | varyOn | Notes |
+|-------|-----|--------|-------|
+| `/public/rates/states` | 1h | none | Rarely changes |
+| `/public/rates/{state}/{utility}` | 1h | none | Path-based variation |
+| `/cca/detect` | 1h | `["zip_code"]` | Per-zip lookup |
+| `/heating-oil/prices` | 1h | `["state"]` | Weekly updates |
+| `/rate-changes` | 5m | `["utility_type", "region", "days"]` | Frequent updates |

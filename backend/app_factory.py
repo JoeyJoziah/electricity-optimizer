@@ -570,6 +570,16 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import gas_rates as gas_rates_v1
     from api.v1 import community_solar as community_solar_v1
     from api.v1 import utility_discovery as utility_discovery_v1
+    from api.v1 import cca as cca_v1
+    from api.v1 import heating_oil as heating_oil_v1
+    from api.v1 import rate_changes as rate_changes_v1
+    from api.v1 import public_rates as public_rates_v1
+    from api.v1 import affiliate as affiliate_v1
+    from api.v1 import propane as propane_v1
+    from api.v1 import water as water_v1
+    from api.v1 import forecast as forecast_v1
+    from api.v1 import reports as reports_v1
+    from api.v1 import export as export_v1
 
     app.include_router(
         predictions.router,
@@ -715,6 +725,56 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         utility_discovery_v1.router,
         prefix=f"{settings.api_prefix}/utility-discovery",
         tags=["Utility Discovery"],
+    )
+    app.include_router(
+        cca_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["CCA"],
+    )
+    app.include_router(
+        heating_oil_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Heating Oil"],
+    )
+    app.include_router(
+        rate_changes_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Rate Changes"],
+    )
+    app.include_router(
+        public_rates_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Public Rates"],
+    )
+    app.include_router(
+        affiliate_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Affiliate"],
+    )
+    app.include_router(
+        propane_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Propane"],
+    )
+    app.include_router(
+        water_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Water"],
+    )
+    app.include_router(
+        forecast_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Forecast"],
+    )
+    app.include_router(
+        reports_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Reports"],
+    )
+    app.include_router(
+        export_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Export"],
     )
 
     return app, app_rate_limiter

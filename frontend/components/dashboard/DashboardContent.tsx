@@ -8,6 +8,7 @@ import { useSuppliers } from '@/lib/hooks/useSuppliers'
 import { useRealtimePrices } from '@/lib/hooks/useRealtime'
 import { useSavingsSummary } from '@/lib/hooks/useSavings'
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist'
+import { CCAAlert } from '@/components/cca/CCAAlert'
 import { useSettingsStore } from '@/lib/store/settings'
 import {
   TrendingDown,
@@ -195,6 +196,11 @@ export default function DashboardContent() {
         {/* Setup checklist for incomplete profiles */}
         <div className="mb-6">
           <SetupChecklist />
+        </div>
+
+        {/* CCA program notification */}
+        <div className="mb-6">
+          <CCAAlert />
         </div>
 
         {/* Quick stats row */}

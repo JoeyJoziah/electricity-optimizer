@@ -1,0 +1,40 @@
+name: Fetch Petroleum Prices
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'  # Weekly Monday 2pm UTC (after EIA publishes Wed data)
+  workflow_dispatch: {}
+
+concurrency:
+  group: fetch-petroleum-prices
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch heating oil prices
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/fetch-heating-oil
+          method: POST
+          api_key: ${{ secrets.INTERNAL_API_KEY }}
+
+      - name: Fetch propane prices
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/fetch-propane
+          method: POST
+          api_key: ${{ secrets.INTERNAL_API_KEY }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook_url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          title: "Petroleum Price Fetch Failed"
+          message: "Weekly EIA heating oil/propane price fetch failed"
+          severity: "warning"

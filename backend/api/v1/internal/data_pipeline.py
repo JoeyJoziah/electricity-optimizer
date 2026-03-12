@@ -343,6 +343,177 @@ async def fetch_gas_rates(
     return result
 
 
+@router.post("/fetch-heating-oil", tags=["Internal"])
+async def fetch_heating_oil_prices(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Fetch weekly heating oil prices from EIA for Northeast states + national avg.
+
+    Called by fetch-heating-oil.yml GHA cron (weekly Monday).
+    Stores prices in heating_oil_prices table.
+    """
+    from config.settings import get_settings
+    from integrations.pricing_apis.eia import (
+        EIAClient,
+        HEATING_OIL_STATE_SERIES,
+        HEATING_OIL_SERIES,
+    )
+    from integrations.pricing_apis.base import PricingRegion
+    from services.heating_oil_service import HeatingOilService
+
+    app_settings = get_settings()
+    if not app_settings.eia_api_key:
+        raise HTTPException(status_code=503, detail="EIA API key not configured")
+
+    service = HeatingOilService(db)
+    prices_to_store: list[dict] = []
+    errors: list[str] = []
+
+    async with EIAClient(api_key=app_settings.eia_api_key) as eia_client:
+        # Fetch national average
+        try:
+            data = await eia_client._fetch_series(
+                route="/petroleum/pri/wfr/data/",
+                params={
+                    "frequency": "weekly",
+                    "data[0]": "value",
+                    "facets[series][]": HEATING_OIL_SERIES,
+                    "sort[0][column]": "period",
+                    "sort[0][direction]": "desc",
+                    "length": "1",
+                },
+            )
+            rows = data.get("response", {}).get("data", [])
+            if rows:
+                prices_to_store.append({
+                    "state": "US",
+                    "price_per_gallon": float(rows[0]["value"]),
+                    "source": "eia",
+                    "period_date": rows[0]["period"],
+                })
+        except Exception as e:
+            errors.append(f"US national: {e}")
+
+        # Fetch per-state prices
+        for state_code, series_id in HEATING_OIL_STATE_SERIES.items():
+            try:
+                data = await eia_client._fetch_series(
+                    route="/petroleum/pri/wfr/data/",
+                    params={
+                        "frequency": "weekly",
+                        "data[0]": "value",
+                        "facets[series][]": series_id,
+                        "sort[0][column]": "period",
+                        "sort[0][direction]": "desc",
+                        "length": "1",
+                    },
+                )
+                rows = data.get("response", {}).get("data", [])
+                if rows:
+                    prices_to_store.append({
+                        "state": state_code,
+                        "price_per_gallon": float(rows[0]["value"]),
+                        "source": "eia",
+                        "period_date": rows[0]["period"],
+                    })
+            except Exception as e:
+                errors.append(f"{state_code}: {e}")
+
+    stored = await service.store_prices(prices_to_store)
+
+    return {
+        "status": "ok",
+        "fetched": len(prices_to_store),
+        "stored": stored,
+        "errors": errors,
+    }
+
+
+@router.post("/fetch-propane", tags=["Internal"])
+async def fetch_propane_prices(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Fetch weekly propane prices from EIA for tracked states + national avg.
+
+    Called by fetch-heating-oil.yml GHA cron (weekly Monday, same schedule).
+    Stores prices in propane_prices table.
+    """
+    from config.settings import get_settings
+    from integrations.pricing_apis.eia import (
+        EIAClient,
+        PROPANE_STATE_SERIES,
+        PROPANE_SERIES,
+    )
+    from services.propane_service import PropaneService
+
+    app_settings = get_settings()
+    if not app_settings.eia_api_key:
+        raise HTTPException(status_code=503, detail="EIA API key not configured")
+
+    service = PropaneService(db)
+    prices_to_store: list[dict] = []
+    errors: list[str] = []
+
+    async with EIAClient(api_key=app_settings.eia_api_key) as eia_client:
+        # Fetch national average
+        try:
+            data = await eia_client._fetch_series(
+                route="/petroleum/pri/wfr/data/",
+                params={
+                    "frequency": "weekly",
+                    "data[0]": "value",
+                    "facets[series][]": PROPANE_SERIES,
+                    "sort[0][column]": "period",
+                    "sort[0][direction]": "desc",
+                    "length": "1",
+                },
+            )
+            rows = data.get("response", {}).get("data", [])
+            if rows:
+                prices_to_store.append({
+                    "state": "US",
+                    "price_per_gallon": float(rows[0]["value"]),
+                    "source": "eia",
+                    "period_date": rows[0]["period"],
+                })
+        except Exception as e:
+            errors.append(f"US national: {e}")
+
+        # Fetch per-state prices
+        for state_code, series_id in PROPANE_STATE_SERIES.items():
+            try:
+                data = await eia_client._fetch_series(
+                    route="/petroleum/pri/wfr/data/",
+                    params={
+                        "frequency": "weekly",
+                        "data[0]": "value",
+                        "facets[series][]": series_id,
+                        "sort[0][column]": "period",
+                        "sort[0][direction]": "desc",
+                        "length": "1",
+                    },
+                )
+                rows = data.get("response", {}).get("data", [])
+                if rows:
+                    prices_to_store.append({
+                        "state": state_code,
+                        "price_per_gallon": float(rows[0]["value"]),
+                        "source": "eia",
+                        "period_date": rows[0]["period"],
+                    })
+            except Exception as e:
+                errors.append(f"{state_code}: {e}")
+
+    stored = await service.store_prices(prices_to_store)
+
+    return {
+        "status": "ok",
+        "fetched": len(prices_to_store),
+        "stored": stored,
+        "errors": errors,
+    }
+
+
 @router.post("/geocode", tags=["Internal"])
 async def geocode_address(request: GeocodeRequest):
     """Resolve a US address to a state/region via OpenWeatherMap + Nominatim.
@@ -357,3 +528,73 @@ async def geocode_address(request: GeocodeRequest):
     if not result:
         raise HTTPException(status_code=404, detail="Could not geocode address")
     return {"status": "ok", "result": result}
+
+
+@router.post("/detect-rate-changes", tags=["Internal"])
+async def detect_rate_changes(
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Run rate change detection across all utility types.
+
+    Called by detect-rate-changes.yml GHA cron.
+    Detects significant price changes and stores them with optional
+    cheaper-alternative recommendations.
+    """
+    from services.rate_change_detector import RateChangeDetector
+
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    detector = RateChangeDetector(db)
+    all_changes: list[dict] = []
+    errors: list[str] = []
+
+    for utility_type in ["electricity", "natural_gas", "heating_oil", "propane"]:
+        try:
+            changes = await detector.detect_changes(utility_type)
+            # Try to find cheaper alternatives for increases
+            for change in changes:
+                if change["change_direction"] == "increase":
+                    try:
+                        alt = await detector.find_cheaper_alternative(
+                            utility_type=change["utility_type"],
+                            region=change["region"],
+                            current_price=change["current_price"],
+                        )
+                        if alt:
+                            change["recommendation_supplier"] = alt["supplier"]
+                            change["recommendation_price"] = alt["price"]
+                            change["recommendation_savings"] = alt["savings"]
+                    except Exception as e:
+                        logger.warning(
+                            "rate_change_recommendation_failed",
+                            utility_type=utility_type,
+                            region=change["region"],
+                            error=str(e),
+                        )
+            all_changes.extend(changes)
+        except Exception as e:
+            errors.append(f"{utility_type}: {e}")
+            logger.error(
+                "rate_change_detection_failed",
+                utility_type=utility_type,
+                error=str(e),
+            )
+
+    stored = 0
+    if all_changes:
+        stored = await detector.store_changes(all_changes)
+
+    logger.info(
+        "detect_rate_changes_complete",
+        detected=len(all_changes),
+        stored=stored,
+        errors=len(errors),
+    )
+
+    return {
+        "status": "ok",
+        "detected": len(all_changes),
+        "stored": stored,
+        "errors": errors,
+    }

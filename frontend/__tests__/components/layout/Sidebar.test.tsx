@@ -71,6 +71,10 @@ jest.mock('lucide-react', () => ({
   Bot: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-assistant" {...props} />,
   Settings: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-settings" {...props} />,
   Zap: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-zap" {...props} />,
+  Fuel: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-fuel" {...props} />,
+  Droplets: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-droplets" {...props} />,
+  Waves: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-waves" {...props} />,
+  BarChart3: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-analytics" {...props} />,
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-logout" {...props} />,
   User: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-user" {...props} />,
   X: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-close" {...props} />,
@@ -95,16 +99,20 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('icon-zap')).toBeInTheDocument()
   })
 
-  it('renders all 10 navigation items', () => {
+  it('renders all 14 navigation items', () => {
     render(<Sidebar />)
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     expect(screen.getByText('Prices')).toBeInTheDocument()
     expect(screen.getByText('Gas Rates')).toBeInTheDocument()
+    expect(screen.getByText('Heating Oil')).toBeInTheDocument()
+    expect(screen.getByText('Propane')).toBeInTheDocument()
+    expect(screen.getByText('Water')).toBeInTheDocument()
     expect(screen.getByText('Solar')).toBeInTheDocument()
     expect(screen.getByText('Suppliers')).toBeInTheDocument()
     expect(screen.getByText('Connections')).toBeInTheDocument()
     expect(screen.getByText('Optimize')).toBeInTheDocument()
+    expect(screen.getByText('Analytics')).toBeInTheDocument()
     expect(screen.getByText('Alerts')).toBeInTheDocument()
     expect(screen.getByText('Assistant')).toBeInTheDocument()
     expect(screen.getByText('Settings')).toBeInTheDocument()
@@ -116,10 +124,14 @@ describe('Sidebar', () => {
     expect(screen.getByText('Dashboard').closest('a')).toHaveAttribute('href', '/dashboard')
     expect(screen.getByText('Prices').closest('a')).toHaveAttribute('href', '/prices')
     expect(screen.getByText('Gas Rates').closest('a')).toHaveAttribute('href', '/gas-rates')
+    expect(screen.getByText('Heating Oil').closest('a')).toHaveAttribute('href', '/heating-oil')
+    expect(screen.getByText('Propane').closest('a')).toHaveAttribute('href', '/propane')
+    expect(screen.getByText('Water').closest('a')).toHaveAttribute('href', '/water')
     expect(screen.getByText('Solar').closest('a')).toHaveAttribute('href', '/community-solar')
     expect(screen.getByText('Suppliers').closest('a')).toHaveAttribute('href', '/suppliers')
     expect(screen.getByText('Connections').closest('a')).toHaveAttribute('href', '/connections')
     expect(screen.getByText('Optimize').closest('a')).toHaveAttribute('href', '/optimize')
+    expect(screen.getByText('Analytics').closest('a')).toHaveAttribute('href', '/analytics')
     expect(screen.getByText('Alerts').closest('a')).toHaveAttribute('href', '/alerts')
     expect(screen.getByText('Assistant').closest('a')).toHaveAttribute('href', '/assistant')
     expect(screen.getByText('Settings').closest('a')).toHaveAttribute('href', '/settings')

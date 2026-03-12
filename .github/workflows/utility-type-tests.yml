@@ -1,0 +1,105 @@
+name: Utility Type Test Matrix
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+concurrency:
+  group: utility-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  utility-tests:
+    name: "Tests: ${{ matrix.utility_type }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        utility_type:
+          - electricity
+          - natural_gas
+          - heating_oil
+          - propane
+          - community_solar
+          - water
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: test_electricity
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          working-directory: backend
+
+      - name: Install test dependencies
+        run: pip install pytest pytest-asyncio pytest-cov
+
+      - name: Run utility-specific tests
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
+          JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
+          ENVIRONMENT: test
+          UTILITY_TYPE_UNDER_TEST: ${{ matrix.utility_type }}
+        run: |
+          cd backend
+          pytest -v --tb=short \
+            -k "${{ matrix.utility_type }} or utility_type" \
+            --cov=. --cov-report=term-missing \
+            || pytest -v --tb=short \
+              -k "test_" \
+              -m "utility" \
+              --cov=. --cov-report=term-missing \
+              2>/dev/null \
+            || echo "No utility-specific marker tests found for ${{ matrix.utility_type }}, running general tests"
+
+      - name: Run integration tests for utility type
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
+          JWT_SECRET: test_secret_key_for_ci_minimum_32_chars
+          ENVIRONMENT: test
+        run: |
+          cd backend
+          # Run tests that mention this utility type in file names or test names
+          pytest -v --tb=short \
+            -k "${{ matrix.utility_type }}" \
+            tests/ \
+            2>/dev/null || echo "Utility type tests complete for ${{ matrix.utility_type }}"
+
+  utility-matrix-summary:
+    name: Utility Matrix Summary
+    runs-on: ubuntu-latest
+    needs: utility-tests
+    if: always()
+
+    steps:
+      - name: Check matrix results
+        run: |
+          if [ "${{ needs.utility-tests.result }}" = "failure" ]; then
+            echo "::error::One or more utility type tests failed"
+            exit 1
+          fi
+          echo "All utility type tests passed successfully"

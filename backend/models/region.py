@@ -142,6 +142,16 @@ HEATING_OIL_STATES: set[str] = {
     "CT", "MA", "NY", "NJ", "PA", "ME", "NH", "VT", "RI",
 }
 
+# States with significant propane markets (EIA weekly survey states)
+PROPANE_STATES: set[str] = {
+    "CT", "MA", "NY", "NJ", "PA", "ME", "NH", "VT",
+}
+
+# States with Community Choice Aggregation (CCA) programs
+CCA_STATES: set[str] = {
+    "CA", "MA", "NY", "NJ", "IL", "OH", "NH", "VA", "RI", "CO",
+}
+
 # States with community solar programs
 COMMUNITY_SOLAR_STATES: set[str] = {
     "CT", "NY", "MA", "IL", "MN", "FL", "NJ", "MD", "ME",

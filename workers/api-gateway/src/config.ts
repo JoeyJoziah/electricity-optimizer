@@ -35,13 +35,13 @@ export const ROUTES: RouteConfig[] = [
     rateLimit: "strict",
   },
 
-  // Current prices — short cache, vary on region
+  // Current prices — short cache, vary on region + utility type
   {
     pattern: /^\/api\/v1\/prices\/current$/,
     cache: {
       ttlSeconds: 300, // 5 min
       staleWhileRevalidateSeconds: 60,
-      varyOn: ["region"],
+      varyOn: ["region", "utility_type"],
     },
     rateLimit: "standard",
   },
@@ -52,7 +52,7 @@ export const ROUTES: RouteConfig[] = [
     cache: {
       ttlSeconds: 1800, // 30 min
       staleWhileRevalidateSeconds: 300,
-      varyOn: ["region", "days"],
+      varyOn: ["region", "days", "utility_type"],
     },
     rateLimit: "standard",
   },
@@ -63,7 +63,7 @@ export const ROUTES: RouteConfig[] = [
     cache: {
       ttlSeconds: 3600, // 1 hr
       staleWhileRevalidateSeconds: 600,
-      varyOn: ["region"],
+      varyOn: ["region", "utility_type"],
     },
     rateLimit: "standard",
   },
@@ -78,13 +78,13 @@ export const ROUTES: RouteConfig[] = [
     rateLimit: "standard",
   },
 
-  // Suppliers list — medium-long cache
+  // Suppliers list — medium-long cache, vary on region + utility type
   {
     pattern: /^\/api\/v1\/suppliers(?:\/|$)/,
     cache: {
       ttlSeconds: 3600, // 1 hr
       staleWhileRevalidateSeconds: 600,
-      varyOn: ["region"],
+      varyOn: ["region", "utility_type"],
     },
     rateLimit: "standard",
   },
