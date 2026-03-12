@@ -81,6 +81,7 @@ jest.mock('lucide-react', () => ({
   Droplets: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Waves: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   BarChart3: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
+  Users: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   User: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   X: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,

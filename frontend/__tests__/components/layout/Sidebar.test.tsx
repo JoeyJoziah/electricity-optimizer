@@ -75,6 +75,7 @@ jest.mock('lucide-react', () => ({
   Droplets: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-droplets" {...props} />,
   Waves: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-waves" {...props} />,
   BarChart3: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-analytics" {...props} />,
+  Users: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-community" {...props} />,
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-logout" {...props} />,
   User: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-user" {...props} />,
   X: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-close" {...props} />,
@@ -99,7 +100,7 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('icon-zap')).toBeInTheDocument()
   })
 
-  it('renders all 14 navigation items', () => {
+  it('renders all 15 navigation items', () => {
     render(<Sidebar />)
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
@@ -112,6 +113,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Suppliers')).toBeInTheDocument()
     expect(screen.getByText('Connections')).toBeInTheDocument()
     expect(screen.getByText('Optimize')).toBeInTheDocument()
+    expect(screen.getByText('Community')).toBeInTheDocument()
     expect(screen.getByText('Analytics')).toBeInTheDocument()
     expect(screen.getByText('Alerts')).toBeInTheDocument()
     expect(screen.getByText('Assistant')).toBeInTheDocument()
@@ -131,6 +133,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Suppliers').closest('a')).toHaveAttribute('href', '/suppliers')
     expect(screen.getByText('Connections').closest('a')).toHaveAttribute('href', '/connections')
     expect(screen.getByText('Optimize').closest('a')).toHaveAttribute('href', '/optimize')
+    expect(screen.getByText('Community').closest('a')).toHaveAttribute('href', '/community')
     expect(screen.getByText('Analytics').closest('a')).toHaveAttribute('href', '/analytics')
     expect(screen.getByText('Alerts').closest('a')).toHaveAttribute('href', '/alerts')
     expect(screen.getByText('Assistant').closest('a')).toHaveAttribute('href', '/assistant')
