@@ -4,16 +4,16 @@
   "type": "feature",
   "status": "in_progress",
   "created": "2026-03-11T22:00:00Z",
-  "updated": "2026-03-12T06:00:00Z",
-  "current_phase": 3,
-  "current_task": "3.9",
+  "updated": "2026-03-12T08:00:00Z",
+  "current_phase": 4,
+  "current_task": "4.10",
   "phases": {
     "total": 7,
-    "completed": 3
+    "completed": 4
   },
   "tasks": {
     "total": 47,
-    "completed": 24
+    "completed": 34
   },
   "design_decisions": [
     "D1: Tabbed dashboard redesign",
@@ -29,6 +29,7 @@
   "commits": [
     "50739d2: feat(community): add community tables, services, and savings aggregator (mu-wave5)",
     "25b15a7: feat(api): add community, savings, and neighborhood API routes (mu-wave5)",
-    "bc3ab4f: feat(dashboard): add tabbed multi-utility dashboard with combined savings (mu-wave5)"
+    "bc3ab4f: feat(dashboard): add tabbed multi-utility dashboard with combined savings (mu-wave5)",
+    "6437020: feat(community): add community page with posts, voting, and stats (mu-wave5)"
   ]
 }
