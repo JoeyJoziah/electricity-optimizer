@@ -1,7 +1,12 @@
-import DashboardContent from '@/components/dashboard/DashboardContent'
+import { Suspense } from 'react'
+import DashboardTabs from '@/components/dashboard/DashboardTabs'
 
-export const metadata = { title: 'Dashboard | Electricity Optimizer' }
+export const metadata = { title: 'Dashboard | RateShift' }
 
 export default function DashboardPage() {
-  return <DashboardContent />
+  return (
+    <Suspense>
+      <DashboardTabs />
+    </Suspense>
+  )
 }

@@ -163,6 +163,39 @@ jest.mock('@/lib/api/client', () => {
   }
 })
 
+// Mock next/navigation for DashboardTabs (useSearchParams + useRouter)
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams('tab=electricity'),
+  useRouter: () => ({ replace: jest.fn() }),
+}))
+
+// Mock next/dynamic — UtilityTabShell lazy-loads dashboards via dynamic()
+// and DashboardContent lazy-loads chart components.
+// Resolve all synchronously so integration tests render fully.
+jest.mock('next/dynamic', () => {
+  return (loader: () => Promise<{ default: React.ComponentType }>, _opts?: unknown) => {
+    const src = loader.toString()
+    // DashboardContent (loaded by UtilityTabShell)
+    if (src.includes('DashboardContent')) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('@/components/dashboard/DashboardContent').default
+    }
+    // Chart components (loaded by DashboardCharts / DashboardForecast)
+    if (src.includes('PriceLineChart')) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('@/components/charts/PriceLineChart').PriceLineChart
+    }
+    if (src.includes('ForecastChart')) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('@/components/charts/ForecastChart').ForecastChart
+    }
+    // Fallback: noop stub for other dynamic imports (heating oil, propane, etc.)
+    const Stub = () => null
+    Stub.displayName = 'DynamicStub'
+    return Stub
+  }
+})
+
 // Mock useSettingsStore so the component receives a valid region and queries fire
 jest.mock('@/lib/store/settings', () => ({
   useSettingsStore: (selector: (s: Record<string, unknown>) => unknown) =>
@@ -170,6 +203,7 @@ jest.mock('@/lib/store/settings', () => ({
       region: 'us_ct',
       currentSupplier: null,
       annualUsageKwh: 10000,
+      utilityTypes: ['electricity'],
       setRegion: jest.fn(),
       setCurrentSupplier: jest.fn(),
       setAnnualUsage: jest.fn(),
