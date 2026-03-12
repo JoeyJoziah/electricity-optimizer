@@ -1,0 +1,5 @@
+10003	IGNORE	(Vulnerable JS Library - false positive on bundled deps)
+10015	IGNORE	(Incomplete or No Cache-control Header - API responses)
+10049	IGNORE	(Non-Storable Content - expected for API)
+10021	IGNORE	(X-Content-Type-Options - handled by CF Worker)
+10038	IGNORE	(Content Security Policy - handled by frontend)

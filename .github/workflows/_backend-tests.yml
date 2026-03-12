@@ -59,6 +59,14 @@ jobs:
       - name: Install test dependencies
         run: pip install pytest pytest-asyncio pytest-cov pytest-xdist
 
+      - name: Dependency audit (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit --strict --desc || {
+            echo "::error::pip-audit found known vulnerabilities"
+            exit 1
+          }
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_electricity
