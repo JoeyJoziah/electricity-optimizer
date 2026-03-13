@@ -2,11 +2,11 @@
 
 **Base URL**: `https://api.rateshift.app/api/v1`
 **Version**: 1.0
-**Last Updated**: 2026-03-11
+**Last Updated**: 2026-03-13
 
 ## Overview
 
-The RateShift API provides programmatic access to electricity price data, supplier information, billing, alerts, recommendations, and AI agent capabilities. All endpoints return JSON unless noted.
+The RateShift API provides programmatic access to multi-utility price data (electricity, gas, water, propane, heating oil, community solar), supplier information, billing, alerts, recommendations, community features, and AI agent capabilities. All endpoints return JSON unless noted.
 
 ### Authentication
 
@@ -1136,6 +1136,372 @@ Get database health and freshness metrics.
   "timestamp": "2026-03-11T14:30:00Z"
 }
 ```
+
+---
+
+## Gas Rates Endpoints (Wave 2)
+
+### GET /rates/gas
+
+Get current natural gas rates for a region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `region` | string | Yes | Region code (e.g., `us_ct`) |
+
+**Response:** `200 OK`
+```json
+{
+  "rates": [
+    {
+      "id": "uuid",
+      "region": "us_ct",
+      "price_per_therm": 1.2345,
+      "supplier_name": "Southern CT Gas",
+      "source": "eia",
+      "recorded_at": "2026-03-13T00:00:00Z"
+    }
+  ]
+}
+```
+
+### GET /rates/gas/compare
+
+Compare gas suppliers in a region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `region` | string | Yes | Region code |
+
+---
+
+## Community Solar Endpoints (Wave 2)
+
+### GET /community-solar/programs
+
+List community solar programs by state.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `state` | string | Yes | State code (e.g., `CT`) |
+
+**Response:** `200 OK`
+```json
+{
+  "programs": [
+    {
+      "id": "uuid",
+      "name": "CT Solar Share",
+      "state": "CT",
+      "provider": "Eversource",
+      "savings_estimate_pct": 10.5,
+      "capacity_available": true
+    }
+  ]
+}
+```
+
+---
+
+## CCA Detection Endpoints (Wave 3)
+
+### GET /cca/programs
+
+List Community Choice Aggregation programs by region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `region` | string | No | Region code (returns all if omitted) |
+| `state` | string | No | Filter by state |
+
+### GET /cca/detect
+
+Detect if user's region is served by a CCA program.
+
+**Authentication**: Session required
+
+---
+
+## Heating Oil Endpoints (Wave 3)
+
+### GET /rates/heating-oil
+
+Current heating oil prices by region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `region` | string | Yes | Region code |
+
+### GET /rates/heating-oil/dealers
+
+List heating oil dealers in a region.
+
+**Authentication**: Not required
+
+### GET /rates/heating-oil/compare
+
+Compare heating oil dealers by price and service.
+
+**Authentication**: Not required
+
+---
+
+## Rate Changes Endpoints (Wave 3)
+
+### GET /rate-changes
+
+Get recent rate changes across all utility types for the current user.
+
+**Authentication**: Session required
+
+### POST /rate-changes/alerts
+
+Create a rate change alert configuration.
+
+**Authentication**: Session required
+
+---
+
+## Public Rates Endpoint (Wave 3 — SEO)
+
+### GET /rates/{state}/{utility_type}
+
+Public rate data for ISR (Incremental Static Regeneration) pages. Generates 153 pages (51 states x 3+ utility types).
+
+**Authentication**: Not required
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `state` | string | State code (e.g., `ct`, `ny`) |
+| `utility_type` | string | `electricity`, `gas`, `heating_oil`, `propane`, `water` |
+
+---
+
+## Affiliate Endpoints (Wave 3)
+
+### POST /affiliate/click
+
+Record an affiliate link click.
+
+**Authentication**: Not required
+
+### GET /affiliate/stats
+
+Get affiliate click and conversion stats.
+
+**Authentication**: `X-API-Key` required
+
+---
+
+## Propane Endpoints (Wave 4)
+
+### GET /rates/propane
+
+Current propane prices by region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `region` | string | Yes | Region code |
+
+### GET /rates/propane/history
+
+Historical propane prices.
+
+**Authentication**: Not required
+
+### GET /rates/propane/fill-timing
+
+Optimal fill-up timing recommendation based on price trends and seasonal patterns.
+
+**Authentication**: Session required
+
+### GET /rates/propane/compare
+
+Regional propane price comparison.
+
+**Authentication**: Not required
+
+---
+
+## Water Endpoints (Wave 4)
+
+Water is monitoring-only — no switching CTA (geographic monopoly).
+
+### GET /rates/water
+
+Current water rates by region (municipality-level tiered pricing).
+
+**Authentication**: Not required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `region` | string | Yes | Region code |
+
+### GET /rates/water/benchmark
+
+Compare user's water usage to regional benchmarks.
+
+**Authentication**: Session required
+
+### GET /rates/water/tips
+
+Water conservation tips.
+
+**Authentication**: Not required
+
+---
+
+## Forecast Endpoint (Wave 4)
+
+### GET /forecast
+
+Multi-utility price forecast.
+
+**Authentication**: Pro tier required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `utility_type` | string | No | Filter by utility type |
+| `region` | string | Yes | Region code |
+| `hours` | integer | No | Forecast horizon (default: 24, max: 168) |
+
+---
+
+## Reports Endpoint (Wave 4)
+
+### GET /reports/optimization
+
+Cross-utility optimization report for the user.
+
+**Authentication**: Session required
+
+---
+
+## Export Endpoint (Wave 4)
+
+### GET /export/rates
+
+Export rate data in CSV or JSON format.
+
+**Authentication**: Session required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `format` | string | No | `csv` or `json` (default: `json`) |
+| `utility_type` | string | No | Filter by utility type |
+
+---
+
+## Community Endpoints (Wave 5)
+
+### GET /community/posts
+
+List community posts (paginated).
+
+**Authentication**: Session required
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | integer | No | Page number (default: 1) |
+| `page_size` | integer | No | Items per page (default: 20) |
+| `category` | string | No | Filter by category |
+
+### POST /community/posts
+
+Create a community post. Content is AI-moderated (Groq primary, Gemini fallback) and sanitized via nh3.
+
+**Authentication**: Session required. Rate limit: 10 posts/hour.
+
+**Request Body:**
+```json
+{
+  "title": "Best time to run laundry in CT?",
+  "content": "I noticed rates drop after 9pm...",
+  "category": "tips"
+}
+```
+
+### POST /community/posts/{id}/vote
+
+Vote on a community post (up or down).
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "vote_type": "up"
+}
+```
+
+### POST /community/posts/{id}/report
+
+Report a community post. 5 unique reporters auto-hides the post.
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "reason": "spam",
+  "details": "Promotional content"
+}
+```
+
+---
+
+## Neighborhood Endpoints (Wave 5)
+
+### GET /neighborhood/comparison
+
+Compare user's rates to neighborhood average.
+
+**Authentication**: Session required
+
+### GET /neighborhood/stats
+
+Get aggregated neighborhood statistics.
+
+**Authentication**: Not required
+
+---
+
+## Utility Discovery Endpoints (Wave 2)
+
+### GET /discover
+
+Get available utility types and completion progress for the current user.
+
+**Authentication**: Session required
+
+### GET /discover/completion
+
+Get utility setup completion percentage.
+
+**Authentication**: Session required
 
 ---
 

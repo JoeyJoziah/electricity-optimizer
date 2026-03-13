@@ -1,12 +1,13 @@
 # Testing Guide
 
-**Last Updated**: 2026-03-10
+**Last Updated**: 2026-03-13
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 1,917 passed, 2 skipped (pytest, 59+ test files)
-**Frontend Tests**: 1,475 across 99 suites (Jest) — 20 failures in 3 suites (tracked as known issues)
+**Backend Tests**: 2,339 passed (pytest, 75+ test files)
+**Frontend Tests**: 1,759 across 130 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
-**E2E Tests**: 634 passed, 5 skipped (Playwright)
-**Total**: ~4,600+ tests (1,917 + 1,475 + 611 + 634)
+**E2E Tests**: 671 passed (Playwright)
+**CF Worker Tests**: 77 passed (vitest)
+**Total**: ~5,457+ tests across 5 layers
 
 ---
 
@@ -14,11 +15,12 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 1,917 passed, 2 skipped | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1,475 (99 suites) | 80%+ | Jest + RTL |
+| **Backend Unit/Integration** | 2,339 passed | 86%+ | pytest |
+| **Frontend Component + Lib Tests** | 1,759 (130 suites) | 80%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
-| **E2E Tests** | 634 passed, 5 skipped | Critical flows | Playwright |
+| **E2E Tests** | 671 passed | Critical flows | Playwright |
+| **CF Worker Tests** | 77 passed | 90%+ | vitest |
 | **Security Tests** | 156 | 91%+ | pytest |
 | **Load Tests** | N/A | 1000+ users | Locust |
 | **Performance Tests** | 31 | API/ML | pytest |
@@ -101,10 +103,10 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 1,917 passed, 2 skipped
+**Count**: 2,339 passed
 **Coverage Target**: 86%+
 
-**Test Files** (59+ files):
+**Test Files** (75+ files):
 - `test_api.py` - API endpoint tests
 - `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
 - `test_api_predictions.py` - ML prediction endpoint tests
@@ -148,6 +150,25 @@ cd tests/load && ./run_load_test.sh quick
 - `test_supplier_cache.py` - Supplier caching layer tests (25 tests)
 - `test_forecast_observation_repository.py` - Forecast observation data access tests (+8 new tests)
 - `test_tier_gating.py` - Tier gating dependency tests: `require_tier()` factory, 7 gated endpoints (forecast/savings/recommendations=pro, prices/stream=business), free tier 1-alert limit (+22 tests)
+- `test_community_service.py` - Community posts, voting, reporting, AI moderation (Groq + Gemini)
+- `test_water_rate_service.py` - Water rate benchmarking, tiered pricing
+- `test_propane_service.py` - Propane price tracking, state-level rates
+- `test_heating_oil_service.py` - Heating oil prices, dealer directory
+- `test_cca_service.py` - CCA detection, rate comparison
+- `test_rate_change_detector.py` - Rate change detection across utilities
+- `test_affiliate_service.py` - Affiliate click tracking, revenue aggregation
+- `test_forecast_service.py` - Multi-utility forecasting
+- `test_optimization_report_service.py` - Multi-utility spend aggregation
+- `test_rate_export_service.py` - Rate export (CSV, JSON, Excel)
+- `test_utility_discovery_service.py` - Available utility discovery by region
+- `test_data_quality_service.py` - Freshness validation, anomaly detection
+- `test_savings_aggregator.py` - Cross-utility savings aggregation
+- `test_neighborhood_service.py` - Neighborhood data aggregation
+- `test_referral_service.py` - Referral codes and tracking
+- `test_tracing_helpers.py` - OpenTelemetry traced() context manager
+- `test_circuit_breaker.py` - Circuit breaker (CLOSED/OPEN/HALF_OPEN)
+- `test_internal_operations.py` - Internal API endpoint tests
+- `test_public_rates.py` - SEO public rate page endpoints
 
 **Running**:
 ```bash
@@ -159,7 +180,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1,475 tests across 99 suites
+**Count**: 1,759 tests across 130 suites
 **Coverage Target**: 80%+
 
 **Known issues**: 3 pre-existing failures in `send.test.ts` (email send utility — related to Resend sandbox restrictions). These are non-blocking and tracked as a known issue.
@@ -240,8 +261,8 @@ npm run test:ci    # CI mode with coverage
 ### 3. E2E Tests
 
 **Location**: `frontend/e2e/`
-**Count**: 634 passed, 5 skipped, 0 failed
-**Last Run**: 2026-03-03 (URI_TOO_LONG fix + redirect loop prevention tests)
+**Count**: 671 passed
+**Last Run**: 2026-03-12 (Wave 5 dashboard tabs + community E2E tests)
 
 **Test Files** (15 specs):
 - `authentication.spec.ts` - Auth flows (login, OAuth, magic link, redirect loop prevention)
@@ -710,9 +731,57 @@ open tests/load/reports/load_test_*.html
 
 ---
 
+### 8. CF Worker Tests
+
+**Location**: `workers/api-gateway/test/`
+**Count**: 77 passed
+**Coverage**: 90%+
+**Framework**: vitest
+
+**Test Files** (7 files):
+- `router.test.ts` - Request routing (path matching, origin handling, cache keys)
+- `security.test.ts` - Security headers, bot detection, internal auth
+- `cors.test.ts` - CORS preflight and response headers
+- `internal-auth.test.ts` - Internal endpoint authentication (`X-API-Key` validation)
+- `graceful-degradation.test.ts` - KV failure handling, fail-open behavior, `X-Gateway-Degraded` header
+- `middleware-ordering.test.ts` - Cache before rate limiting, middleware pipeline order
+- `observability.test.ts` - Per-isolate metrics counters, `/internal/gateway-stats` endpoint
+
+**Running**:
+```bash
+cd workers/api-gateway
+npm test            # Run all tests
+npm run test:ci     # CI mode with coverage
+```
+
+**Architecture**:
+- 2-tier caching: Cache API (primary) + KV namespace (fallback with `cacheTtl`)
+- Native rate limiting bindings (120/30/600 req/min, zero KV cost)
+- Graceful degradation: KV errors fail-open with `X-Gateway-Degraded` header
+- Bot detection and security headers applied at edge
+
+---
+
+## Security Scanning (CI)
+
+### OWASP ZAP Baseline Scan
+
+**Workflow**: `.github/workflows/owasp-zap.yml` (weekly Sunday 4am UTC)
+**Target**: Render backend (`BACKEND_URL`), not CF Worker
+**Suppression**: `.zap/rules.tsv` (5 false-positive rules)
+
+### Dependency Auditing
+
+| Tool | Workflow | Scope | Threshold |
+|------|----------|-------|-----------|
+| `pip-audit` | `_backend-tests.yml` | Python dependencies | Any known vulnerability fails |
+| `npm audit` | `ci.yml` | Node.js dependencies | `--audit-level=high` (high/critical fail) |
+
+---
+
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (1,917 backend, 1,475 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (2,339 backend, 1,759 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 

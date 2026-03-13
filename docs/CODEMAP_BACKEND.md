@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-11 (Utility Integration track complete: email extraction pipeline, attachment parsing, portal scraping, automated scanning, scraper persistence, unified analytics. Test count: 2,043. Migrations: 34. Tables: 42)
+> Last updated: 2026-03-13 (Wave 5 complete: community features, tabbed dashboard, security hardening. Test count: 2,339. Migrations: 49. Tables: 50 = 41 public + 9 neon_auth. Services: 52. API routes: 38 files.)
 
 ## Directory Structure
 
@@ -51,6 +51,23 @@ backend/
 │       ├── users.py                 # User profile management (get, update, delete account)
 │       ├── agent.py                 # RateShift AI assistant endpoints (SSE streaming, async jobs, usage tracking)
 │       ├── feedback.py              # User feedback submission and collection
+│       ├── gas_rates.py             # Natural gas rate endpoints (Wave 2)
+│       ├── community_solar.py       # Community solar program endpoints (Wave 2)
+│       ├── utility_discovery.py     # Utility discovery card endpoints (GET /discover, GET /completion)
+│       ├── cca.py                   # CCA detection endpoints (Wave 3)
+│       ├── heating_oil.py           # Heating oil dealer + pricing endpoints (Wave 3)
+│       ├── rate_changes.py          # Rate change alerting endpoints (Wave 3)
+│       ├── public_rates.py          # Public SEO rate pages (ISR, 153 pages)
+│       ├── affiliate.py             # Affiliate link tracking endpoints (Wave 3)
+│       ├── propane.py               # Propane pricing + fill-up timing endpoints (Wave 4)
+│       ├── water.py                 # Water rate benchmarking endpoints (Wave 4, monitoring-only)
+│       ├── forecast.py              # Multi-utility forecasting endpoints (Wave 4)
+│       ├── reports.py               # Optimization report endpoints (Wave 4)
+│       ├── export.py                # Rate data export endpoints (CSV/JSON)
+│       ├── community.py             # Community posts, voting, reporting endpoints (Wave 5)
+│       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
+│       ├── neighborhood.py          # Neighborhood comparison endpoints (Wave 5)
+│       ├── referrals.py             # Referral program endpoints
 │       ├── internal/
 │       │   ├── __init__.py          # Internal router aggregation
 │       │   ├── data_pipeline.py     # observe-forecasts, learn, observation-stats, scrape-rates (with Diffbot rate extraction + persistence)
@@ -115,7 +132,24 @@ backend/
 │   ├── model_version_service.py     # Model versioning and promotion, A/B test lifecycle management
 │   ├── agent_service.py             # RateShift AI agent: Gemini 3 Flash primary + Groq fallback + Composio tools (SSE streaming, async jobs, rate limiting)
 │   ├── alert_renderer.py            # Alert message templating and formatting
-│   └── data_persistence_helper.py    # Shared batch INSERT logic for internal data pipeline endpoints
+│   ├── data_persistence_helper.py    # Shared batch INSERT logic for internal data pipeline endpoints
+│   ├── gas_rate_service.py          # Natural gas rate service (Wave 2: comparison, history, forecasts)
+│   ├── community_solar_service.py   # Community solar program discovery and enrollment (Wave 2)
+│   ├── utility_discovery_service.py # Post-signup utility discovery (pure logic, dashboard cards)
+│   ├── data_quality_service.py      # Data freshness, anomaly detection, source failure alerting
+│   ├── cca_service.py               # Community Choice Aggregation detection (Wave 3)
+│   ├── heating_oil_service.py       # Heating oil dealer comparison + pricing (Wave 3)
+│   ├── affiliate_service.py         # Affiliate link tracking + revenue attribution (Wave 3)
+│   ├── rate_change_detector.py      # Rate change detection + alerting across utility types (Wave 3)
+│   ├── propane_service.py           # Propane pricing + fill-up timing (Wave 4)
+│   ├── water_rate_service.py        # Water rate benchmarking + tier calculation (Wave 4, monitoring-only)
+│   ├── forecast_service.py          # Multi-utility price forecasting (Wave 4)
+│   ├── optimization_report_service.py # Cross-utility optimization reports (Wave 4)
+│   ├── rate_export_service.py       # Rate data CSV/JSON export (Wave 4)
+│   ├── community_service.py         # Community posts, voting, reporting (Wave 5)
+│   ├── savings_aggregator.py        # Community savings aggregation (Wave 5)
+│   ├── neighborhood_service.py      # Neighborhood comparison + benchmarking (Wave 5)
+│   └── referral_service.py          # User referral program tracking
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -137,6 +171,10 @@ backend/
 │       ├── cache.py                 # PricingCache
 │       ├── rate_limiter.py          # API-level RateLimiter
 │       └── __init__.py              # create_pricing_service_from_settings()
+│
+├── lib/
+│   ├── tracing.py                   # OpenTelemetry traced() context manager (async/sync), 16 span types, Grafana Cloud Tempo
+│   └── circuit_breaker.py           # Generic circuit breaker (CLOSED/OPEN/HALF_OPEN states), integrated into PricingService + UtilityAPIClient
 │
 ├── utils/
 │   └── encryption.py                # AES-256-GCM field-level encryption (account numbers, meter numbers)
@@ -180,7 +218,23 @@ backend/
 │   ├── 030_model_versioning_ab_tests.sql # model_versions, ab_tests, ab_outcomes tables
 │   ├── 031_agent_tables.sql          # agent_conversations, agent_usage_daily, agent_messages tables
 │   ├── 032_notification_error_message.sql # error_message column for notification delivery diagnostics
-│   └── 033_model_predictions_ab_assignments.sql # model_predictions, model_ab_assignments tables for A/B test tracking
+│   ├── 033_model_predictions_ab_assignments.sql # model_predictions, model_ab_assignments tables for A/B test tracking
+│   ├── 034_portal_credentials.sql     # Portal credential columns on user_connections
+│   ├── 035_wave0_prereqs.sql          # Wave 0 prerequisites (schema alignment)
+│   ├── 036_wave1_foundation.sql       # Wave 1 foundation tables
+│   ├── 037_gas_prices.sql             # Natural gas prices table
+│   ├── 038_gas_supplier_seed.sql      # Seed 12 gas suppliers into supplier_registry
+│   ├── 039_onboarding_v2.sql          # Onboarding V2 schema changes
+│   ├── 040_gas_supplier_seed.sql      # Gas supplier seed data (Wave 2)
+│   ├── 041_community_solar_programs.sql # community_solar_programs table (15 programs, 13 states)
+│   ├── 042_cca_programs.sql           # cca_programs table (14 CCA programs seeded)
+│   ├── 043_heating_oil.sql            # heating_oil_prices + heating_oil_dealers tables (15 dealers seeded)
+│   ├── 044_alerting_tables.sql        # Rate change alerting tables
+│   ├── 045_affiliate_tracking.sql     # affiliate_clicks table
+│   ├── 046_propane_prices.sql         # propane_prices table
+│   ├── 047_water_rates.sql            # water_rates table (JSONB rate_tiers)
+│   ├── 048_dashboard_tabs.sql         # Tabbed multi-utility dashboard preferences
+│   └── 049_community_tables.sql       # community_posts, community_votes, community_reports tables
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -257,7 +311,23 @@ backend/
     ├── test_agent_service.py         # AgentService tests (Gemini/Groq fallback, tool execution, streaming, rate limits)
     ├── test_api_agent.py            # Agent API endpoint tests (query streaming, async jobs, usage tracking)
     ├── test_api_feedback.py         # Feedback API endpoint tests
-    └── test_load.py                 # Load/stress test helpers
+    ├── test_load.py                 # Load/stress test helpers
+    ├── test_gas_rate_service.py     # Gas rate service tests (Wave 2)
+    ├── test_community_solar_service.py # Community solar service tests (Wave 2)
+    ├── test_utility_discovery.py    # Utility discovery service + API tests (Wave 2)
+    ├── test_data_quality_service.py # Data quality service tests (Wave 2)
+    ├── test_cca_service.py          # CCA detection service tests (Wave 3)
+    ├── test_heating_oil_service.py  # Heating oil service tests (Wave 3)
+    ├── test_rate_change_detector.py # Rate change detection tests (Wave 3)
+    ├── test_affiliate_service.py    # Affiliate tracking service tests (Wave 3)
+    ├── test_public_rates.py         # Public SEO rate page tests (Wave 3)
+    ├── test_propane_service.py      # Propane service tests (Wave 4)
+    ├── test_water_rate_service.py   # Water rate service tests (Wave 4)
+    ├── test_forecast_service.py     # Multi-utility forecast tests (Wave 4)
+    ├── test_community_service.py    # Community posts/voting/reporting tests (Wave 5)
+    ├── test_savings_aggregator.py   # Community savings aggregation tests (Wave 5)
+    ├── test_neighborhood_service.py # Neighborhood comparison tests (Wave 5)
+    └── test_tracing.py              # OpenTelemetry tracing tests (37 tests)
 ```
 
 ## Application Lifecycle
@@ -272,7 +342,7 @@ create_app():
   2. db_manager.initialize()  -- Neon PostgreSQL, Redis (graceful degradation)
   3. Sentry SDK init (lazy import, if SENTRY_DSN configured)
   4. Mount middleware stack (see Middleware below)
-  5. Mount 19 routers (prices, suppliers, regulations, auth, etc.) with OpenAPI tags
+  5. Mount 30+ routers (prices, suppliers, regulations, auth, gas, solar, etc.) with OpenAPI tags
   6. Include health check endpoints (/health, /health/ready, /health/live) from health.py
   7. Include root routes (/, /metrics)
   8. Define lifespan context manager for startup/shutdown
@@ -528,6 +598,116 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 | GET | `/switching` | Session | Switching recommendation (real RecommendationService) |
 | GET | `/usage` | Session | Usage timing recommendation (real RecommendationService) |
 | GET | `/daily` | Session | Daily combined recommendations (switching + usage) |
+
+### Gas Rates (`/api/v1/rates/gas`) — Wave 2
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | None | Current gas rates by region |
+| GET | `/history` | None | Historical gas rate data |
+| GET | `/compare` | None | Gas supplier comparison |
+
+### Community Solar (`/api/v1/community-solar`) — Wave 2
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/programs` | None | List programs by state |
+| GET | `/programs/{id}` | None | Program details + enrollment info |
+| POST | `/enroll` | Session | Request enrollment |
+
+### CCA Detection (`/api/v1/cca`) — Wave 3
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/programs` | None | List CCA programs by region |
+| GET | `/detect` | Session | Detect if user is in a CCA zone |
+
+### Heating Oil (`/api/v1/rates/heating-oil`) — Wave 3
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | None | Current heating oil prices by region |
+| GET | `/dealers` | None | Heating oil dealers by region |
+| GET | `/compare` | None | Dealer comparison |
+
+### Rate Changes (`/api/v1/rate-changes`) — Wave 3
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | Session | Recent rate changes across utility types |
+| GET | `/alerts` | Session | User's rate change alert configs |
+| POST | `/alerts` | Session | Create rate change alert |
+
+### Public Rates (`/api/v1/rates`) — Wave 3 SEO
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/{state}/{utility_type}` | None | Public rate data for ISR pages (153 pages: 51 states x 3+ utility types) |
+
+### Affiliate (`/api/v1/affiliate`) — Wave 3
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/click` | None | Record affiliate link click |
+| GET | `/stats` | X-API-Key | Affiliate click stats |
+
+### Propane (`/api/v1/rates/propane`) — Wave 4
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | None | Current propane prices by region |
+| GET | `/history` | None | Historical propane prices |
+| GET | `/fill-timing` | Session | Optimal fill-up timing recommendation |
+| GET | `/compare` | None | Regional propane price comparison |
+
+### Water (`/api/v1/rates/water`) — Wave 4
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | None | Current water rates by region (monitoring-only, no switching) |
+| GET | `/benchmark` | Session | User usage vs regional benchmark |
+| GET | `/tips` | None | Conservation tips |
+
+### Forecast (`/api/v1/forecast`) — Wave 4
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | Pro | Multi-utility price forecast |
+
+### Reports (`/api/v1/reports`) — Wave 4
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/optimization` | Session | Cross-utility optimization report |
+
+### Export (`/api/v1/export`) — Wave 4
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/rates` | Session | Export rate data (CSV/JSON) |
+
+### Community (`/api/v1/community`) — Wave 5
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/posts` | Session | List community posts (paginated) |
+| POST | `/posts` | Session | Create post (AI moderated: Groq classify_content primary, Gemini fallback, nh3 XSS sanitization) |
+| POST | `/posts/{id}/vote` | Session | Vote on post (up/down) |
+| POST | `/posts/{id}/report` | Session | Report post (5 unique reporters auto-hides) |
+
+### Neighborhood (`/api/v1/neighborhood`) — Wave 5
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/comparison` | Session | Compare user rates to neighborhood average |
+| GET | `/stats` | None | Neighborhood aggregated stats |
+
+### Referrals (`/api/v1/referrals`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | Session | User's referral stats |
+| POST | `/invite` | Session | Send referral invite |
 
 ### Other
 

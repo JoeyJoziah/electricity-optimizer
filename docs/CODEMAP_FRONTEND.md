@@ -1,11 +1,11 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-11 (Utility Integration track: PortalConnectionFlow component, portal API client, 5-method connection picker)
+**Last Updated:** 2026-03-13 (Wave 5 complete: unified dashboard, community, 6 utility pages, SEO engine, 15 sidebar nav items)
 **Framework:** Next.js 16.0.x (App Router) + React 19 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,475 tests (102 suites, 20 failures in 3 suites)
+**Test Coverage:** Frontend 1,759 tests (130 suites)
 
 ---
 
@@ -58,6 +58,20 @@ frontend/
         page.tsx                # AI Assistant chat interface (/assistant) — RateShift AI agent (Gemini 3 Flash + Groq fallback, Composio tools)
       beta-signup/
         page.tsx                # Early access signup (public route, beta invitations, progress tracking)
+      gas-rates/
+        page.tsx                # Natural gas rates dashboard (Wave 2)
+      community-solar/
+        page.tsx                # Community solar program discovery + enrollment (Wave 2)
+      heating-oil/
+        page.tsx                # Heating oil dealer comparison + pricing (Wave 3)
+      propane/
+        page.tsx                # Propane pricing + fill-up timing (Wave 4)
+      water/
+        page.tsx                # Water rate benchmarking (monitoring-only, Wave 4)
+      analytics/
+        page.tsx                # Cross-utility analytics dashboard (Wave 4)
+      community/
+        page.tsx                # Community posts, voting, stats (Wave 5)
       auth/                     # Authentication pages (route group within (app))
         layout.tsx              # Auth layout (centered cards, no sidebar)
         login/page.tsx          # Sign in form (email/password, OAuth, magic link)
@@ -87,7 +101,7 @@ frontend/
       LoginForm.tsx             # Login form (email blur validation, conditional OAuth, magic link toggle)
       SignupForm.tsx            # Signup form (password strength, conditional OAuth, email verification redirect)
     layout/
-      Sidebar.tsx               # Main navigation sidebar (app pages only)
+      Sidebar.tsx               # Main navigation sidebar (15 nav items: Dashboard, Prices, Suppliers, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Optimize, Connections, Alerts, Community, Assistant, Settings)
       Header.tsx                # Top header (logo, user menu, mobile toggle)
       NotificationBell.tsx      # In-app notification bell (sidebar, unread count badge, dropdown panel, mark read)
       DevBanner.tsx             # Development-only banner (top of page)
@@ -126,6 +140,38 @@ frontend/
       AgentChat.tsx             # RateShift AI chat interface (streaming query, example prompts, message bubbles, model+tools display)
     feedback/
       FeedbackWidget.tsx        # In-app feedback collection widget (survey, rating, comment submission)
+    gas-rates/                  # Natural gas components (Wave 2)
+      GasRatesDashboard.tsx     # Gas rates overview + regional comparison
+      GasSupplierComparison.tsx # Gas supplier comparison table
+    community-solar/            # Community solar components (Wave 2)
+      ProgramList.tsx           # Solar program discovery list
+      ProgramCard.tsx           # Solar program detail card
+      EnrollmentFlow.tsx        # Multi-step enrollment form
+    cca/                        # CCA detection components (Wave 3)
+      CCADetector.tsx           # CCA zone detection + program info
+      CCABanner.tsx             # CCA notification banner
+    heating-oil/                # Heating oil components (Wave 3)
+      HeatingOilDashboard.tsx   # Heating oil prices + dealer comparison
+      DealerComparison.tsx      # Heating oil dealer comparison table
+    propane/                    # Propane components (Wave 4)
+      PropaneDashboard.tsx      # Propane prices + fill-up timing
+      PropanePriceHistory.tsx   # Propane price history chart
+      FillUpTiming.tsx          # Optimal fill-up timing recommendation
+    water/                      # Water components (Wave 4)
+      WaterDashboard.tsx        # Water rate dashboard (monitoring-only)
+      WaterRateBenchmark.tsx    # Water usage vs regional benchmark
+      WaterTierCalculator.tsx   # Incremental tier pricing calculator
+      ConservationTips.tsx      # Water conservation tips
+    community/                  # Community feature components (Wave 5)
+      PostList.tsx              # Community post list with voting
+      PostCard.tsx              # Individual post with vote buttons
+      CreatePostForm.tsx        # New post creation form
+      ReportDialog.tsx          # Post report dialog
+    rate-changes/               # Rate change components (Wave 3)
+      RateChangeAlert.tsx       # Rate change notification card
+      RateChangeHistory.tsx     # Rate change history timeline
+    seo/                        # SEO components (Wave 3)
+      StateRatePage.tsx         # ISR state rate page template
     settings/
       ProfileForm.tsx           # Edit user info
       RegionSelector.tsx        # Change region with 50 states + DC support
@@ -156,6 +202,23 @@ frontend/
       alerts.ts                 # Alerts API: getAlerts, createAlert, updateAlert, deleteAlert, getAlertHistory. Types: Alert, AlertHistoryItem, GetAlertsResponse, GetAlertHistoryResponse
       agent.ts                  # Agent API: queryAgent (SSE streaming, async generator), submitTask (async job), getAgentUsage (rate limits). Types: AgentMessage, AgentUsage, AgentTaskResponse, AgentJobResult
       notifications.ts          # Notifications API: getNotifications, getNotificationCount, markNotificationRead, markAllRead. Types: Notification, GetNotificationsResponse, GetNotificationCountResponse
+      gas-rates.ts              # Gas rates API client (Wave 2)
+      community-solar.ts        # Community solar API client (Wave 2)
+      utility-discovery.ts      # Utility discovery API client (Wave 2)
+      cca.ts                    # CCA detection API client (Wave 3)
+      heating-oil.ts            # Heating oil API client (Wave 3)
+      rate-changes.ts           # Rate changes API client (Wave 3)
+      public-rates.ts           # Public SEO rates API client (Wave 3)
+      affiliate.ts              # Affiliate tracking API client (Wave 3)
+      propane.ts                # Propane API client (Wave 4)
+      water.ts                  # Water rates API client (Wave 4)
+      forecast.ts               # Multi-utility forecast API client (Wave 4)
+      reports.ts                # Optimization reports API client (Wave 4)
+      export.ts                 # Rate data export API client (Wave 4)
+      community.ts              # Community posts/voting API client (Wave 5)
+      savings.ts                # Savings API client (Wave 5)
+      neighborhood.ts           # Neighborhood comparison API client (Wave 5)
+      portal.ts                 # Portal connection API client
       __tests__/
         client-401-redirect.test.ts  # 9 tests for 401 edge cases
     auth/
@@ -179,7 +242,7 @@ frontend/
     unit/
       (component unit tests with React Testing Library)
   e2e/
-    (Playwright E2E tests, 634 passed, 5 skipped)
+    (Playwright E2E tests, 671 passed, 5 skipped)
     helpers/
       auth.ts                   # mockBetterAuth(), setAuthenticatedState(), clearAuthState()
   playwright.config.ts          # E2E config (retries: 1, timeout fixes)

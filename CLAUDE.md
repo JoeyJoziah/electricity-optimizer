@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-12 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,478 tests, Frontend 1,835 tests. 49 migrations (049: community tables). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 363 entities, 741 imports.)
+> Last validated: 2026-03-13 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,478 tests, Frontend 1,835 tests. 49 migrations (049: community tables). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 363 entities, 741 imports. Full docs refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs created; all codemaps/API ref/DB schema/testing docs updated.)
 
 ## Session Initialization Protocol (MANDATORY)
 

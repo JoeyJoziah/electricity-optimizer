@@ -1,8 +1,8 @@
 # Database Schema Reference
 
-RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 34 migrations, 33 public tables plus 9 neon_auth tables.
+RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 49 migrations (init_neon through 049), 41 public tables plus 9 neon_auth tables = 50 total.
 
-Last updated: 2026-03-10 (Migration 034: portal_credentials)
+Last updated: 2026-03-13 (Migration 049: community_tables. All 49 migrations deployed to production.)
 
 ## Overview
 
@@ -10,12 +10,12 @@ Last updated: 2026-03-10 (Migration 034: portal_credentials)
 - **Project ID**: `cold-rice-23455092`
 - **Endpoint (Pooled)**: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (application use)
 - **Endpoint (Direct)**: `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (migrations only)
-- **Migrations**: Sequential 001-034 (init_neon + 34 migrations)
-- **Schema**: `public` + `neon_auth` (Better Auth)
+- **Migrations**: Sequential init_neon through 049 (49 migrations, all deployed)
+- **Schema**: `public` (41 tables) + `neon_auth` (9 tables, managed by Better Auth)
 - **Primary Keys**: All UUID type via `gen_random_uuid()`
 - **Ownership**: `neondb_owner` role (via GRANT statements)
 
-## Public Schema Tables (33 tables)
+## Public Schema Tables (41 tables)
 
 ### User & Authentication
 
@@ -529,6 +529,176 @@ updated_at              TIMESTAMPTZ DEFAULT now()
 - **user_savings** (mig 012): Aggregated savings estimates
 - **user_profile** (mig 013): Extended user profile columns (household_size, avg_daily_kwh, etc.)
 
+### Multi-Utility Tables (Migrations 037-049)
+
+#### `gas_prices` (migration 037)
+Natural gas pricing data by region.
+
+```
+id                      UUID PRIMARY KEY
+region                  VARCHAR(50) NOT NULL
+price_per_therm         NUMERIC(10,6) NOT NULL
+supplier_name           VARCHAR(200)
+source                  VARCHAR(100)
+recorded_at             TIMESTAMPTZ DEFAULT now()
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+#### `community_solar_programs` (migration 041)
+Community solar program discovery and enrollment.
+
+```
+id                      UUID PRIMARY KEY
+name                    VARCHAR(255) NOT NULL
+state                   VARCHAR(50) NOT NULL
+provider                VARCHAR(200)
+savings_estimate_pct    NUMERIC(5,2)
+enrollment_url          TEXT
+capacity_available      BOOLEAN DEFAULT TRUE
+program_details         JSONB DEFAULT '{}'
+created_at              TIMESTAMPTZ DEFAULT now()
+updated_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Seeded with 15 programs across 13 states.
+
+#### `cca_programs` (migration 042)
+Community Choice Aggregation programs.
+
+```
+id                      UUID PRIMARY KEY
+name                    VARCHAR(255) NOT NULL
+state                   VARCHAR(50) NOT NULL
+region                  VARCHAR(50)
+utility_territory       VARCHAR(200)
+opt_out_rate            NUMERIC(10,6)
+green_percentage        NUMERIC(5,2)
+savings_vs_utility_pct  NUMERIC(5,2)
+website_url             TEXT
+is_active               BOOLEAN DEFAULT TRUE
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Seeded with 14 CCA programs.
+
+#### `heating_oil_prices` (migration 043)
+Heating oil pricing data.
+
+```
+id                      UUID PRIMARY KEY
+region                  VARCHAR(50) NOT NULL
+price_per_gallon        NUMERIC(10,4) NOT NULL
+dealer_id               UUID REFERENCES heating_oil_dealers(id)
+source                  VARCHAR(100)
+recorded_at             TIMESTAMPTZ DEFAULT now()
+```
+
+#### `heating_oil_dealers` (migration 043)
+Heating oil dealer directory.
+
+```
+id                      UUID PRIMARY KEY
+name                    VARCHAR(255) NOT NULL
+region                  VARCHAR(50) NOT NULL
+phone                   VARCHAR(50)
+website                 TEXT
+min_delivery_gallons    INTEGER
+delivery_regions        JSONB DEFAULT '[]'
+rating                  NUMERIC(3,2)
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Seeded with 15 dealers.
+
+#### `affiliate_clicks` (migration 045)
+Affiliate link click and revenue tracking.
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID REFERENCES users(id) ON DELETE SET NULL
+supplier_id             UUID
+affiliate_program       VARCHAR(100)
+click_url               TEXT
+referrer_url            TEXT
+converted               BOOLEAN DEFAULT FALSE
+revenue_cents           INTEGER DEFAULT 0
+clicked_at              TIMESTAMPTZ DEFAULT now()
+```
+
+#### `propane_prices` (migration 046)
+Propane pricing data.
+
+```
+id                      UUID PRIMARY KEY
+region                  VARCHAR(50) NOT NULL
+price_per_gallon        NUMERIC(10,4) NOT NULL
+supplier_name           VARCHAR(200)
+source                  VARCHAR(100)
+recorded_at             TIMESTAMPTZ DEFAULT now()
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+#### `water_rates` (migration 047)
+Water rate data with tiered pricing.
+
+```
+id                      UUID PRIMARY KEY
+region                  VARCHAR(50) NOT NULL
+municipality            VARCHAR(200)
+base_rate               NUMERIC(10,4)
+rate_per_gallon         NUMERIC(10,6)
+rate_tiers              JSONB DEFAULT '[]'   -- [{threshold_gallons, rate_per_gallon}]
+billing_period          VARCHAR(50)
+source                  VARCHAR(100)
+effective_date          DATE
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Note: Water is monitoring-only (geographic monopoly — no switching CTA).
+
+#### `community_posts` (migration 049)
+Community discussion posts.
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+title                   VARCHAR(200) NOT NULL
+content                 TEXT NOT NULL
+category                VARCHAR(50)
+vote_count              INTEGER DEFAULT 0
+is_hidden               BOOLEAN DEFAULT FALSE
+moderation_status       VARCHAR(20) DEFAULT 'approved'
+created_at              TIMESTAMPTZ DEFAULT now()
+updated_at              TIMESTAMPTZ DEFAULT now()
+```
+
+AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. Content sanitized via nh3.
+
+#### `community_votes` (migration 049)
+Community post voting.
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+post_id                 UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE
+vote_type               VARCHAR(10) NOT NULL  -- 'up' or 'down'
+created_at              TIMESTAMPTZ DEFAULT now()
+UNIQUE(user_id, post_id)
+```
+
+#### `community_reports` (migration 049)
+Community post reports. 5 unique reporters auto-hides post.
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+post_id                 UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE
+reason                  VARCHAR(100)
+details                 TEXT
+created_at              TIMESTAMPTZ DEFAULT now()
+UNIQUE(user_id, post_id)
+```
+
 ## neon_auth Schema (9 Tables)
 
 Managed by Better Auth (Neon Auth). Do NOT modify directly.
@@ -579,12 +749,27 @@ Managed by Better Auth (Neon Auth). Do NOT modify directly.
 | 032 | 032_notification_error_message.sql | 2026-03-10 | Notification error_message TEXT column |
 | 033 | 033_model_predictions_ab_assignments.sql | 2026-03-11 | Model predictions, A/B user assignments |
 | 034 | 034_portal_credentials.sql | 2026-03-10 | Portal scrape columns on user_connections (username, encrypted password, login URL, status, last scraped) |
+| 035 | 035_wave0_prereqs.sql | 2026-03-11 | Wave 0 prerequisites (schema alignment) |
+| 036 | 036_wave1_foundation.sql | 2026-03-11 | Wave 1 foundation tables |
+| 037 | 037_gas_prices.sql | 2026-03-11 | Natural gas prices table |
+| 038 | 038_gas_supplier_seed.sql | 2026-03-11 | Seed 12 gas suppliers into supplier_registry |
+| 039 | 039_onboarding_v2.sql | 2026-03-11 | Onboarding V2 schema changes |
+| 040 | 040_gas_supplier_seed.sql | 2026-03-12 | Gas supplier seed data (Wave 2) |
+| 041 | 041_community_solar_programs.sql | 2026-03-12 | community_solar_programs table (15 programs, 13 states) |
+| 042 | 042_cca_programs.sql | 2026-03-11 | cca_programs table (14 CCA programs seeded) |
+| 043 | 043_heating_oil.sql | 2026-03-11 | heating_oil_prices + heating_oil_dealers tables (15 dealers seeded) |
+| 044 | 044_alerting_tables.sql | 2026-03-11 | Rate change alerting tables |
+| 045 | 045_affiliate_tracking.sql | 2026-03-11 | affiliate_clicks table |
+| 046 | 046_propane_prices.sql | 2026-03-12 | propane_prices table |
+| 047 | 047_water_rates.sql | 2026-03-12 | water_rates table (JSONB rate_tiers) |
+| 048 | 048_dashboard_tabs.sql | 2026-03-12 | Tabbed multi-utility dashboard preferences |
+| 049 | 049_community_tables.sql | 2026-03-12 | community_posts, community_votes, community_reports tables |
 
 ## Migration Conventions
 
 All migrations follow these patterns:
 
-1. **Sequential Numbering**: `NNN_description.sql` (001-033)
+1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 049)
 2. **IF NOT EXISTS**: All CREATE TABLE/INDEX statements are idempotent
 3. **Primary Keys**: UUID via `gen_random_uuid()` (no SERIAL/BIGSERIAL)
 4. **Foreign Keys**: ON DELETE CASCADE or ON DELETE RESTRICT with explicit choices
