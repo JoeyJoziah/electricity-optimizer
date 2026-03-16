@@ -1,13 +1,13 @@
 # Testing Guide
 
-**Last Updated**: 2026-03-13
+**Last Updated**: 2026-03-16
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 2,339 passed (pytest, 75+ test files)
-**Frontend Tests**: 1,759 across 130 suites (Jest)
+**Backend Tests**: 2,480 passed (pytest, 75+ test files)
+**Frontend Tests**: 1,835 across 136 suites (Jest)
 **ML Tests**: 611 passed, 55 skipped (pytest)
 **E2E Tests**: 671 passed (Playwright)
 **CF Worker Tests**: 77 passed (vitest)
-**Total**: ~5,457+ tests across 5 layers
+**Total**: ~5,674+ tests across 5 layers
 
 ---
 
@@ -15,8 +15,8 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 2,339 passed | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1,759 (130 suites) | 80%+ | Jest + RTL |
+| **Backend Unit/Integration** | 2,480 passed | 86%+ | pytest |
+| **Frontend Component + Lib Tests** | 1,835 (136 suites) | 80%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
 | **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
 | **E2E Tests** | 671 passed | Critical flows | Playwright |
@@ -74,11 +74,11 @@ make test-e2e
 ### Run Specific Test Categories
 
 ```bash
-# Backend tests (1,917 passed, 2 skipped)
+# Backend tests (2,480 passed)
 source .venv/bin/activate
 cd backend && pytest tests/ -v
 
-# Frontend unit tests (1,475 tests across 99 suites)
+# Frontend unit tests (1,835 tests across 136 suites)
 cd frontend && npm test
 
 # E2E tests
@@ -103,7 +103,7 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 2,339 passed
+**Count**: 2,480 passed
 **Coverage Target**: 86%+
 
 **Test Files** (75+ files):
@@ -180,7 +180,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1,759 tests across 130 suites
+**Count**: 1,835 tests across 136 suites
 **Coverage Target**: 80%+
 
 **Known issues**: 3 pre-existing failures in `send.test.ts` (email send utility — related to Resend sandbox restrictions). These are non-blocking and tracked as a known issue.
@@ -577,6 +577,7 @@ Backend fixtures are defined in `backend/tests/conftest.py`:
 - `auth_headers` - Authentication headers
 - `mock_sqlalchemy_select` (autouse) - Patches Pydantic model class attrs for SQLAlchemy expression compatibility. Uses manual `type.__setattr__` restoration to preserve FieldInfo descriptors
 - `reset_rate_limiter` (autouse) - Clears RateLimitMiddleware in-memory store between tests to prevent 429 accumulation
+- `reset_tier_cache` (autouse) - Clears `_tier_cache` module-level state between tests to prevent tier gating state leakage (added 2026-03-16)
 
 ML fixtures are defined in `ml/tests/conftest.py`:
 - `sample_price_data` - Historical price data
@@ -781,7 +782,7 @@ npm run test:ci     # CI mode with coverage
 
 ## Loki Mode Testing
 
-Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (2,339 backend, 1,759 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter` and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
+Loki Mode orchestration components can be tested independently without affecting the main test suites. The existing test counts (2,480 backend, 1,835 frontend, 611 ML) remain unchanged with Loki Mode active. The former test ordering issue (23+ tests failing in full suite) has been resolved via `reset_rate_limiter`, `reset_tier_cache` (added 2026-03-16, prevents `_tier_cache` module-level state leakage between tests), and improved `mock_sqlalchemy_select` fixtures in `conftest.py`.
 
 ### Event Bus Dry Run
 
@@ -824,7 +825,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 1,917 backend, 1,475 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 2,480 backend, 1,835 frontend, and 611 ML tests continue to pass with Loki Mode installed
 
 ---
 
@@ -875,4 +876,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-03-10
+**Last Updated**: 2026-03-16

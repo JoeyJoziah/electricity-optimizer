@@ -1,11 +1,11 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-13 (Wave 5 complete: unified dashboard, community, 6 utility pages, SEO engine, 15 sidebar nav items)
+**Last Updated:** 2026-03-16 (Wave 5 complete: unified dashboard, community, 6 utility pages, SEO engine, 15 sidebar nav items)
 **Framework:** Next.js 16.0.x (App Router) + React 19 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,759 tests (130 suites)
+**Test Coverage:** Frontend 1,835 tests (136 suites)
 
 ---
 
@@ -184,7 +184,7 @@ frontend/
       useAgent.ts               # Agent query hook: useAgentQuery (streaming, messages, error, cancel, reset), useAgentStatus (usage limits)
       useConnections.ts         # TanStack Query hook: useConnections — migrated from useEffect+fetch (retry: false, staleTime: 30s, 403 gate preserved)
       useNotifications.ts       # TanStack Query hooks: useNotifications (staleTime 30s), useNotificationCount (refetch 30s), useMarkRead, useMarkAllRead
-      useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false)
+      useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false). Uses setQueryData partial-merge for SSE current price updates (replaces earlier invalidateQueries approach)
       useLocalStorage.ts        # Persist state to browser storage
       useDarkMode.ts            # Dark mode toggle (future)
       useMediaQuery.ts          # Responsive design breakpoint detection
@@ -731,6 +731,8 @@ Without token (default):
 #### RecommendationCard (`components/dashboard/RecommendationCard.tsx`)
 
 **Optimization suggestion with action button.**
+
+**Memoization strategy:** Prop-driven components (`UtilityTabShell`, `DashboardStatsRow`, `DashboardCharts`, `DashboardForecast`) are wrapped in `React.memo` to avoid re-renders from parent state changes. `DashboardContent` and `DashboardTabs` are intentionally NOT memoized because they are store-driven via `useSettingsStore` (memoizing would be ineffective since store subscriptions trigger re-renders directly).
 
 ---
 
@@ -1659,7 +1661,7 @@ BETTER_AUTH_URL=...                      # (Server-only)
 - **Total Pages:** 20 (root + (app) including /alerts + (dev) + auth routes)
 - **Total Layouts:** 3 (root, app, dev, auth)
 - **Total Components:** 52+ (UI + feature-specific)
-- **Loading Skeletons:** 5 (dashboard, prices, suppliers, optimize, connections)
+- **Loading Skeletons:** `loading.tsx` skeletons added to all route groups (dashboard, prices, suppliers, optimize, connections, and remaining (app) routes)
 - **Total Tests:** 1,475 across 99 suites (20 failures across 3 suites)
 - **Accessibility Tests:** 51 (jest-axe)
 - **E2E Tests:** 634 passed, 5 skipped
@@ -2078,9 +2080,9 @@ updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
 
 ---
 
-**Last Reviewed:** 2026-03-11 by documentation engineer
+**Last Reviewed:** 2026-03-16 by documentation engineer
 **Status:** Current with AI Agent, notification delivery, A/B testing framework, Waves 4-5 complete
-**Test Coverage:** 1,475 tests (frontend), ~4,600+ total (all layers)
+**Test Coverage:** 1,835 tests (frontend, 136 suites), ~4,600+ total (all layers)
 **Framework:** Next.js 16 + React 19 + TypeScript
 **Components:** 55+ (19 UI + 36 feature-specific)
 **Pages:** 21 (root + (app) with sidebar + (dev) + auth)

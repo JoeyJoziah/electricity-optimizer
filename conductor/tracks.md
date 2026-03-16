@@ -13,6 +13,6 @@
 | [x] | mu-wave4-breadth_20260311 | Multi-Utility Wave 4 — Propane, Water, Premium Analytics | 2026-03-11 | 2026-03-12 |
 | [x] | mu-wave5-unification_20260311 | Multi-Utility Wave 5 — Unified Dashboard, Community, Security | 2026-03-11 | 2026-03-12 |
 
-| [ ] | perf-optimization_20260316 | Performance Optimization — Brainstorm-Validated | 2026-03-16 | 2026-03-16 |
+| [x] | perf-optimization_20260316 | Performance Optimization — Brainstorm-Validated | 2026-03-16 | 2026-03-16 |
 
 <!-- Tracks registered by /conductor:new-track -->

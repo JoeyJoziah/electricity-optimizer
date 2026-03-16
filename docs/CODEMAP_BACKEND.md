@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-13 (Wave 5 complete: community features, tabbed dashboard, security hardening. Test count: 2,339. Migrations: 49. Tables: 50 = 41 public + 9 neon_auth. Services: 52. API routes: 38 files.)
+> Last updated: 2026-03-16 (Wave 5 complete: community features, tabbed dashboard, security hardening. Test count: 2,480. Migrations: 49. Tables: 50 = 41 public + 9 neon_auth. Services: 52. API routes: 38 files.)
 
 ## Directory Structure
 
@@ -243,7 +243,7 @@ backend/
 │   └── dunning_final.html           # Jinja2 final dunning email (red gradient, grace period warning)
 │
 └── tests/
-    ├── conftest.py                  # Shared fixtures (mock_sqlalchemy_select, reset_rate_limiter)
+    ├── conftest.py                  # Shared fixtures (mock_sqlalchemy_select, reset_rate_limiter, reset_tier_cache autouse)
     ├── test_api.py                  # API endpoint tests
     ├── test_api_beta.py             # Beta API endpoint tests
     ├── test_api_billing.py          # Billing/Stripe endpoint tests (33 tests)
@@ -1045,7 +1045,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 
 | Repository | Model | Key Methods |
 |------------|-------|-------------|
-| `PriceRepository` | `Price` | `get_current_prices` (filters by utility_type), `get_latest_by_supplier`, `get_historical_prices_paginated` (pagination support), `bulk_create`, `get_price_statistics` |
+| `PriceRepository` | `Price` | `get_current_prices` (filters by utility_type), `get_latest_by_supplier`, `get_historical_prices_paginated` (pagination support), `bulk_create`, `get_price_statistics`, `get_price_trend_aggregates` (CTE with ROW_NUMBER: computes first-third and last-third price averages in SQL; returns dict with `first_third_avg`, `last_third_avg`, `total_count`) |
 | `SupplierRegistryRepository` | `SupplierRegistry` | `list_suppliers` (paginated, filters: region/utility_type/green/active), `get_by_id`; Redis TTL cache (5min) for supplier data; WHERE clauses built from fixed literals only (no f-string interpolation — CWE-89 fix) |
 | `StateRegulationRepository` | `StateRegulation` | `list_deregulated` (filters: electricity/gas/oil/community_solar), `get_by_state`; WHERE clauses built from fixed literals only (CWE-89 fix) |
 | `UserRepository` | `User` | `get_by_email`, `update_preferences`, `update_last_login`, `record_consent` |
@@ -1060,7 +1060,7 @@ All extend `BaseRepository[T]` (abstract generic with CRUD + list + count).
 | Service | Dependencies | Purpose |
 |---------|-------------|---------|
 | `PriceService` | PriceRepository, Redis, ML EnsemblePredictor | Price queries, comparison, forecast (ML-first with simulation fallback), optimal windows |
-| `AnalyticsService` | PriceRepository, Redis | Trends, volatility, peak hours, supplier comparison (cache=redis wired in dependencies.py) |
+| `AnalyticsService` | PriceRepository, Redis | Trends (via `PriceRepository.get_price_trend_aggregates()` — SQL-side aggregation instead of fetching all rows via `get_historical_prices`), volatility, peak hours, supplier comparison (cache=redis wired in dependencies.py) |
 | `RecommendationService` | PriceService, UserRepository, HNSWVectorStore | Switching + usage recommendations (with pattern-based confidence adjustment) |
 | `AlertService` | EmailService | Threshold checking + alert emails |
 | `EmailService` | Settings | Resend primary, SMTP fallback, Jinja2 templates |
