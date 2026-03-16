@@ -4,8 +4,8 @@
 # FastAPI and ASGI Server
 fastapi>=0.115.0,<1.0
 uvicorn[standard]==0.27.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+pydantic==2.12.5
+pydantic-settings==2.2.0
 
 # Database
 asyncpg==0.29.0

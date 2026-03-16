@@ -1,8 +1,8 @@
 # FastAPI and ASGI Server
 fastapi>=0.115.0
 uvicorn[standard]==0.27.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+pydantic==2.12.5
+pydantic-settings==2.2.0
 
 # Database
 asyncpg==0.29.0
@@ -28,7 +28,7 @@ python-dateutil==2.8.2
 
 # Monitoring & Logging
 prometheus-client==0.19.0
-sentry-sdk[fastapi]==1.39.2
+sentry-sdk[fastapi]==1.45.1
 structlog==24.1.0
 
 # OpenTelemetry — opt-in distributed tracing (OTEL_ENABLED=true activates)
@@ -40,16 +40,6 @@ opentelemetry-instrumentation-httpx>=0.41b0
 opentelemetry-exporter-otlp-proto-http>=1.20.0,<2.0
 
 # Note: CORS is built into FastAPI, no extra package needed
-
-# Testing
-pytest==7.4.4
-pytest-asyncio==0.23.3
-pytest-cov==4.1.0
-faker==22.0.0
-
-# Code Quality
-black==23.12.1
-mypy==1.8.0
 
 # Payments
 stripe>=7.0,<8.0
