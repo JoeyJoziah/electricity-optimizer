@@ -1,3 +1,7 @@
+ARCHIVED (2026-03-16) — Wave 2 infrastructure upgrades are complete. The project has moved beyond free tier to Render paid, Neon paid (cold-rice-23455092), and Cloudflare Workers with native rate limiting. For current infrastructure details, see `docs/INFRASTRUCTURE.md` and `docs/DEPLOYMENT.md`.
+
+---
+
 # Infrastructure Upgrade Runbook — Wave 2
 
 **Created:** 2026-03-11

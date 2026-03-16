@@ -1,3 +1,7 @@
+ARCHIVED (2026-03-16) — This is a one-time integration report from 2026-02-26 documenting the initial cross-referencing of Excalidraw documentation files. The task described here is complete. For current Excalidraw documentation, see `docs/excalidraw-reference.md` and `docs/excalidraw-agent-guide.md`.
+
+---
+
 # Excalidraw Documentation Integration Report
 
 **Date**: 2026-02-26

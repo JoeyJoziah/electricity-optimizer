@@ -1,4 +1,4 @@
-# ML Module — RateShift Electricity Price Prediction
+# ML Module — RateShift Price Prediction
 
 The ML module powers electricity price forecasting and optimization for RateShift. It combines multiple machine learning models using ensemble techniques to provide accurate price predictions and optimal scheduling recommendations.
 

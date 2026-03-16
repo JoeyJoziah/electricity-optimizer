@@ -1,3 +1,7 @@
+ARCHIVED (2026-03-16) — This historical research document covers provider migrations through Phase 3 (March 6, 2026). The project is now at Wave 5 with 50 migrations, 53 tables, and rebranded to RateShift. For current infrastructure, see `docs/INFRASTRUCTURE.md` and `docs/DEPLOYMENT.md`.
+
+---
+
 # Electricity Optimizer — Provider & Database History Timeline
 
 **Research Date:** March 6, 2026

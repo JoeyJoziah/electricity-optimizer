@@ -405,9 +405,12 @@ Metrics to monitor:
 
 ---
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-16
 
 **Key Changes**:
-- Environment variable `ALLOWED_REDIRECT_DOMAINS` now controls billing redirect domains (previously hardcoded)
-- Supports both JSON array and comma-separated formats for flexibility
-- Reduces security risk by allowing environment-specific configuration without code changes
+- Dunning service with payment_retry_history table (migration 024), soft/final email templates, 7-day grace period
+- `invoice.payment_failed` webhook resolves user via `stripe_customer_id` (not `client_reference_id`)
+- Daily dunning cycle cron (`POST /internal/dunning-cycle`, 7am UTC)
+- Environment variable `ALLOWED_REDIRECT_DOMAINS` controls billing redirect domains
+- 8 gated endpoints: 7 pro-tier (`/forecast`, `/savings/*`, `/recommendations/*`) + 1 business-tier (`/prices/stream`)
+- Free tier: 1 alert hard limit

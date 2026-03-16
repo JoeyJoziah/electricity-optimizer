@@ -1,3 +1,11 @@
+ARCHIVED (2026-03-16) — This document was the initial Stripe integration setup guide. It has been superseded by the comprehensive architecture document at `docs/STRIPE_ARCHITECTURE.md`, which includes dunning service, webhook processing details, DunningService flow, payment_retry_history migration, and environment configuration.
+
+See:
+- **Current Stripe Architecture**: `docs/STRIPE_ARCHITECTURE.md`
+- **API Reference**: `docs/API_REFERENCE.md` (billing endpoints section)
+
+---
+
 # RateShift Stripe Monetization Integration
 
 ## Overview

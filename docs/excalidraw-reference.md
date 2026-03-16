@@ -1,8 +1,8 @@
 # Excalidraw Architecture Diagram System — Complete Reference
 
-> Last updated: 2026-02-26
-> Test coverage: 53 tests across 11 suites
-> Status: Production ready
+> Last updated: 2026-03-16
+> Test coverage: 53 tests across 11 suites (included in 1,835 frontend total)
+> Status: Production ready (dev-only feature, triple-gated)
 
 ## Overview
 
