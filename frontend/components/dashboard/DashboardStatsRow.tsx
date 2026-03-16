@@ -11,7 +11,7 @@ import type { DashboardStatsRowProps } from './DashboardTypes'
  * Renders the top row of four dashboard stat cards:
  * Current Price, Total Saved, Optimal Times, and Suppliers.
  */
-export function DashboardStatsRow({
+export const DashboardStatsRow = React.memo(function DashboardStatsRow({
   currentPrice,
   trend,
   TrendIcon,
@@ -138,4 +138,4 @@ export function DashboardStatsRow({
       </Card>
     </div>
   )
-}
+})

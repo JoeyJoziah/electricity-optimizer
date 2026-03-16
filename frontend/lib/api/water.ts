@@ -1,4 +1,4 @@
-import { apiClient } from '../api-client'
+import { apiClient } from './client'
 
 export interface WaterRateTier {
   limit_gallons: number | null

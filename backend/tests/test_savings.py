@@ -72,6 +72,9 @@ class _MockDB:
             return self._handle_tier()
         if sql.startswith("INSERT INTO USER_SAVINGS"):
             return self._handle_insert(params)
+        # Combined CTE: aggregate + streak in a single query
+        if "COALESCE(SUM(AMOUNT)" in sql and "STREAK" in sql:
+            return self._handle_combined_summary(params)
         if "COALESCE(SUM(AMOUNT)" in sql:
             return self._handle_aggregate(params)
         if "DISTINCT DATE(" in sql:
@@ -149,6 +152,57 @@ class _MockDB:
             "currency": currency,
         }
         return self._mapping_first(agg)
+
+    # ------------------------------------------------------------------
+    # Handler: combined summary (CTE with aggregate + streak)
+    # ------------------------------------------------------------------
+
+    def _handle_combined_summary(self, params: dict) -> MagicMock:
+        uid = params["user_id"]
+        region = params.get("region")
+        user_rows = [r for r in self._rows if str(r["user_id"]) == str(uid)]
+        if region:
+            user_rows = [r for r in user_rows if r.get("region") == region]
+
+        now = datetime.now(tz=timezone.utc)
+        week_ago = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
+
+        total = sum(float(r["amount"]) for r in user_rows)
+        weekly = sum(
+            float(r["amount"])
+            for r in user_rows
+            if r["created_at"] >= week_ago
+        )
+        monthly = sum(
+            float(r["amount"])
+            for r in user_rows
+            if r["created_at"] >= month_ago
+        )
+        currency = user_rows[0]["currency"] if user_rows else "USD"
+
+        # Compute streak (consecutive days ending today)
+        today = date.today()
+        dates = sorted(
+            {r["created_at"].date() for r in user_rows},
+            reverse=True,
+        )
+        streak_days = 0
+        for i, d in enumerate(dates):
+            expected = today - timedelta(days=i)
+            if d == expected:
+                streak_days += 1
+            else:
+                break
+
+        combined = {
+            "total": Decimal(str(total)),
+            "weekly": Decimal(str(weekly)),
+            "monthly": Decimal(str(monthly)),
+            "currency": currency,
+            "streak_days": streak_days,
+        }
+        return self._mapping_first(combined)
 
     # ------------------------------------------------------------------
     # Handler: streak (distinct dates)

@@ -12,7 +12,7 @@ describe('useSettingsStore', () => {
   describe('default values', () => {
     test('has correct default region', () => {
       const state = useSettingsStore.getState()
-      expect(state.region).toBeNull()
+      expect(state.region).toBeUndefined()
     })
 
     test('has correct default utility types', () => {
@@ -350,7 +350,7 @@ describe('useSettingsStore', () => {
       useSettingsStore.getState().resetSettings()
 
       const state = useSettingsStore.getState()
-      expect(state.region).toBeNull()
+      expect(state.region).toBeUndefined()
       expect(state.annualUsageKwh).toBe(10500)
       expect(state.peakDemandKw).toBe(5)
       expect(state.currentSupplier).toBeNull()

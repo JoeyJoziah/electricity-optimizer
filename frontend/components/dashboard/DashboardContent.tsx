@@ -184,13 +184,18 @@ export default function DashboardContent() {
     <div data-testid="dashboard-container" className="flex flex-col">
       <Header title="Dashboard" />
 
-      {/* Price alert banner */}
-      {trend === 'decreasing' && (
-        <div className="bg-success-50 px-4 py-3 text-center text-success-800">
-          <TrendingDown className="mr-2 inline h-4 w-4" />
-          Prices dropping - good time for high-energy tasks!
-        </div>
-      )}
+      {/* Price alert banner — container always rendered with reserved height to
+          prevent layout shift (CLS) when the banner appears/disappears based on
+          the price trend derived from client-side data. The 48px min-height
+          matches the single-line banner height (py-3 + text-sm line-height). */}
+      <div style={{ minHeight: '48px', contain: 'layout' }}>
+        {trend === 'decreasing' && (
+          <div className="bg-success-50 px-4 py-3 text-center text-success-800">
+            <TrendingDown className="mr-2 inline h-4 w-4" />
+            Prices dropping - good time for high-energy tasks!
+          </div>
+        )}
+      </div>
 
       <div className="p-6">
         {/* Setup checklist for incomplete profiles */}

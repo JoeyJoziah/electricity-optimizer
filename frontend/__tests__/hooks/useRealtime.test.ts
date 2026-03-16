@@ -113,6 +113,7 @@ describe('useRealtimePrices', () => {
   it('updates lastPrice when a message arrives', async () => {
     const { wrapper, queryClient } = createWrapper()
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+    const setQueryDataSpy = jest.spyOn(queryClient, 'setQueryData')
 
     const { result } = renderHook(() => useRealtimePrices('us_ct'), { wrapper })
 
@@ -135,12 +136,12 @@ describe('useRealtimePrices', () => {
 
     expect(result.current.lastPrice).toEqual(priceData)
 
-    // Should invalidate price queries
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['prices', 'current', 'us_ct'],
-      })
+    // Should partial-merge current prices via setQueryData (not invalidate)
+    expect(setQueryDataSpy).toHaveBeenCalledWith(
+      ['prices', 'current', 'us_ct'],
+      expect.any(Function)
     )
+    // Should invalidate history prices
     expect(invalidateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         queryKey: ['prices', 'history', 'us_ct'],

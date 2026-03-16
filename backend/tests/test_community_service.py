@@ -315,52 +315,46 @@ class TestListPosts:
                 "updated_at": datetime.now(timezone.utc),
                 "upvote_count": i,
                 "report_count": 0,
+                "_total_count": 3,
             }
             for i in range(3)
         ]
 
-        count_result = MagicMock()
-        count_result.scalar.return_value = 3
-
         list_result = MagicMock()
         list_result.mappings.return_value.fetchall.return_value = rows
 
-        mock_db.execute = AsyncMock(side_effect=[count_result, list_result])
+        mock_db.execute = AsyncMock(return_value=list_result)
 
         result = await service.list_posts(mock_db, region="us_ct", utility_type="electricity", page=1, per_page=10)
 
         assert result["total"] == 3
         assert len(result["items"]) == 3
         assert result["page"] == 1
+        # Window function means _total_count is stripped from items
+        assert "_total_count" not in result["items"][0]
 
     @pytest.mark.asyncio
     async def test_list_posts_filters_by_region_and_utility(self, service, mock_db):
         """list_posts should filter by region and utility_type."""
-        count_result = MagicMock()
-        count_result.scalar.return_value = 0
-
         list_result = MagicMock()
         list_result.mappings.return_value.fetchall.return_value = []
 
-        mock_db.execute = AsyncMock(side_effect=[count_result, list_result])
+        mock_db.execute = AsyncMock(return_value=list_result)
 
         result = await service.list_posts(mock_db, region="us_ny", utility_type="natural_gas", page=1, per_page=10)
 
         assert result["total"] == 0
         assert result["items"] == []
-        # Verify the SQL included region and utility_type filters
-        assert mock_db.execute.call_count == 2
+        # Single query with window function
+        assert mock_db.execute.call_count == 1
 
     @pytest.mark.asyncio
     async def test_list_posts_empty_page(self, service, mock_db):
         """Empty result returns empty list, not error."""
-        count_result = MagicMock()
-        count_result.scalar.return_value = 0
-
         list_result = MagicMock()
         list_result.mappings.return_value.fetchall.return_value = []
 
-        mock_db.execute = AsyncMock(side_effect=[count_result, list_result])
+        mock_db.execute = AsyncMock(return_value=list_result)
 
         result = await service.list_posts(mock_db, region="us_ct", utility_type="electricity", page=5, per_page=10)
 
@@ -375,28 +369,38 @@ class TestListPosts:
 
 class TestToggleVote:
     @pytest.mark.asyncio
-    async def test_vote_toggle_idempotent(self, service, mock_db):
-        """Voting twice removes the vote (composite PK dedup)."""
+    async def test_vote_toggle_add(self, service, mock_db):
+        """First vote on a post adds it (atomic INSERT ON CONFLICT)."""
         user_id = str(uuid4())
         post_id = str(uuid4())
 
-        # First call: no existing vote → insert
-        check_result_1 = MagicMock()
-        check_result_1.scalar.return_value = 0  # no existing vote
-        insert_result_1 = MagicMock()
-        mock_db.execute = AsyncMock(side_effect=[check_result_1, insert_result_1])
+        toggle_result = MagicMock()
+        toggle_result.mappings.return_value.fetchone.return_value = {
+            "action": "inserted",
+            "upvote_count": 1,
+        }
+        mock_db.execute = AsyncMock(return_value=toggle_result)
 
-        added = await service.toggle_vote(mock_db, user_id, post_id)
-        assert added is True
+        result = await service.toggle_vote(mock_db, user_id, post_id)
+        assert result["voted"] is True
+        assert result["upvote_count"] == 1
 
-        # Second call: existing vote → delete
-        check_result_2 = MagicMock()
-        check_result_2.scalar.return_value = 1  # existing vote
-        delete_result = MagicMock()
-        mock_db.execute = AsyncMock(side_effect=[check_result_2, delete_result])
+    @pytest.mark.asyncio
+    async def test_vote_toggle_remove(self, service, mock_db):
+        """Second vote on same post removes it (atomic DELETE)."""
+        user_id = str(uuid4())
+        post_id = str(uuid4())
 
-        removed = await service.toggle_vote(mock_db, user_id, post_id)
-        assert removed is False
+        toggle_result = MagicMock()
+        toggle_result.mappings.return_value.fetchone.return_value = {
+            "action": "deleted",
+            "upvote_count": 0,
+        }
+        mock_db.execute = AsyncMock(return_value=toggle_result)
+
+        result = await service.toggle_vote(mock_db, user_id, post_id)
+        assert result["voted"] is False
+        assert result["upvote_count"] == 0
 
     @pytest.mark.asyncio
     async def test_vote_count_derived(self, service, mock_db):
@@ -420,45 +424,39 @@ class TestToggleVote:
 class TestReportPost:
     @pytest.mark.asyncio
     async def test_report_post_deduplicates(self, service, mock_db):
-        """Same user reporting twice is idempotent (composite PK)."""
+        """Same user reporting twice is idempotent (INSERT ON CONFLICT DO NOTHING)."""
         user_id = str(uuid4())
         post_id = str(uuid4())
 
-        # First report: insert succeeds
-        check_result = MagicMock()
-        check_result.scalar.return_value = 0  # no existing report
-        count_result = MagicMock()
-        count_result.scalar.return_value = 1  # total reports after insert
-        mock_db.execute = AsyncMock(side_effect=[check_result, MagicMock(), count_result])
+        # Single CTE handles insert + count + conditional hide
+        mock_db.execute = AsyncMock(return_value=MagicMock())
 
         await service.report_post(mock_db, user_id, post_id, reason="spam")
 
-        # Second report: already exists → skip
-        check_result2 = MagicMock()
-        check_result2.scalar.return_value = 1  # already reported
-        mock_db.execute = AsyncMock(side_effect=[check_result2])
+        # Single query (CTE) + commit
+        assert mock_db.execute.call_count == 1
+        mock_db.commit.assert_called()
 
+        # Second report is also a single query (ON CONFLICT DO NOTHING handles dedup)
+        mock_db.execute.reset_mock()
+        mock_db.commit.reset_mock()
         await service.report_post(mock_db, user_id, post_id, reason="spam")
-        # Should not have tried to insert again
+        assert mock_db.execute.call_count == 1
 
     @pytest.mark.asyncio
     async def test_report_post_hides_at_threshold(self, service, mock_db):
-        """5 unique reports should hide the post."""
+        """5 unique reports should hide the post (via CTE conditional UPDATE)."""
         user_id = str(uuid4())
         post_id = str(uuid4())
 
-        check_result = MagicMock()
-        check_result.scalar.return_value = 0  # no existing report from this user
-
-        count_result = MagicMock()
-        count_result.scalar.return_value = REPORT_HIDE_THRESHOLD  # hits threshold
-
-        mock_db.execute = AsyncMock(side_effect=[check_result, MagicMock(), count_result, MagicMock()])
+        # Single CTE: INSERT + COUNT + conditional UPDATE when >= threshold
+        mock_db.execute = AsyncMock(return_value=MagicMock())
 
         await service.report_post(mock_db, user_id, post_id, reason="harassment")
 
-        # Verify an UPDATE to set is_hidden=true was executed
-        assert mock_db.execute.call_count >= 4  # check + insert + count + hide
+        # All handled in a single query
+        assert mock_db.execute.call_count == 1
+        mock_db.commit.assert_called()
 
     @pytest.mark.asyncio
     async def test_report_post_different_users_required(self, service, mock_db):
@@ -467,22 +465,12 @@ class TestReportPost:
 
         for i in range(REPORT_HIDE_THRESHOLD):
             user_id = str(uuid4())
-            check_result = MagicMock()
-            check_result.scalar.return_value = 0
-
-            current_count = i + 1
-            count_result = MagicMock()
-            count_result.scalar.return_value = current_count
-
-            side_effects = [check_result, MagicMock(), count_result]
-            if current_count >= REPORT_HIDE_THRESHOLD:
-                side_effects.append(MagicMock())  # hide update
-
-            mock_db.execute = AsyncMock(side_effect=side_effects)
+            mock_db.execute = AsyncMock(return_value=MagicMock())
+            mock_db.commit = AsyncMock()
             await service.report_post(mock_db, user_id, post_id, reason=f"report {i}")
 
-        # After 5 different users, the post should be hidden
-        assert mock_db.execute.call_count >= 3
+            # Each report is a single CTE query
+            assert mock_db.execute.call_count == 1
 
 
 # =============================================================================
@@ -580,11 +568,13 @@ class TestRetroactiveModeration:
         select_result = MagicMock()
         select_result.mappings.return_value.fetchall.return_value = timed_out_posts
 
-        mock_db.execute = AsyncMock(side_effect=[select_result, MagicMock(), MagicMock()])
+        # Only 1 SELECT needed (classify_content returns "safe" → no batch UPDATE)
+        mock_db.execute = AsyncMock(return_value=select_result)
 
         count = await service.retroactive_moderate(mock_db, mock_agent_service)
 
         assert count == 2
+        # Both posts classified in parallel via asyncio.gather
         assert mock_agent_service.classify_content.call_count == 2
 
 

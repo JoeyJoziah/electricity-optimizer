@@ -33,7 +33,7 @@ export default function DashboardTabs() {
 
   // Visible tabs: "All" always shows if 2+ utilities, plus each user utility
   const visibleTabs = React.useMemo(() => {
-    const enabled = new Set(userUtilities)
+    const enabled = new Set<string>(userUtilities)
     return ALL_TABS.filter((t) => {
       if (t.key === 'all') return userUtilities.length >= 2
       return enabled.has(t.key)

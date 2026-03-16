@@ -4,13 +4,10 @@ Analytics Service
 Business logic for price analytics and aggregation.
 """
 
-import asyncio
 import json
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
-from statistics import stdev
-
 from repositories.price_repository import PriceRepository
 from models.price import PriceRegion
 
@@ -75,6 +72,8 @@ class AnalyticsService:
         """
         Calculate average price for a region over a period.
 
+        Delegates to SQL AVG instead of fetching rows into Python.
+
         Args:
             region: Price region
             days: Number of days to analyze
@@ -82,20 +81,11 @@ class AnalyticsService:
         Returns:
             Average price per kWh
         """
-        end = datetime.now(timezone.utc)
-        start = end - timedelta(days=days)
-
-        prices = await self._repo.get_historical_prices(
+        stats = await self._repo.get_price_statistics_with_stddev(
             region=region,
-            start_date=start,
-            end_date=end
+            days=days,
         )
-
-        if not prices:
-            return Decimal("0")
-
-        total = sum(p.price_per_kwh for p in prices)
-        return (total / len(prices)).quantize(Decimal("0.0001"))
+        return stats["avg_price"] if stats["avg_price"] is not None else Decimal("0")
 
     async def calculate_volatility(
         self,
@@ -105,6 +95,8 @@ class AnalyticsService:
         """
         Calculate price volatility (standard deviation) for a region.
 
+        Delegates to SQL STDDEV_SAMP instead of fetching rows into Python.
+
         Args:
             region: Price region
             days: Number of days to analyze
@@ -112,25 +104,13 @@ class AnalyticsService:
         Returns:
             Price volatility as standard deviation
         """
-        end = datetime.now(timezone.utc)
-        start = end - timedelta(days=days)
-
-        prices = await self._repo.get_historical_prices(
+        stats = await self._repo.get_price_statistics_with_stddev(
             region=region,
-            start_date=start,
-            end_date=end
+            days=days,
         )
-
-        if len(prices) < 2:
+        if stats["count"] < 2 or stats["stddev_price"] is None:
             return Decimal("0")
-
-        # Calculate standard deviation
-        price_values = [float(p.price_per_kwh) for p in prices]
-        try:
-            volatility = stdev(price_values)
-            return Decimal(str(volatility)).quantize(Decimal("0.0001"))
-        except Exception:
-            return Decimal("0")
+        return stats["stddev_price"]
 
     async def get_price_trend(
         self,
@@ -156,7 +136,8 @@ class AnalyticsService:
             return cached
 
         if not await self._acquire_cache_lock(cache_key):
-            await asyncio.sleep(0.1)
+            # Cache lock held by another request; re-check cache (no sleep needed,
+            # Redis NX lock already prevents double computation)
             cached = await self._get_cached(cache_key)
             if cached:
                 for k in ('change_percent', 'start_price', 'end_price'):
@@ -167,13 +148,14 @@ class AnalyticsService:
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
 
-        prices = await self._repo.get_historical_prices(
+        # Use SQL aggregation instead of fetching thousands of rows into Python
+        agg = await self._repo.get_price_trend_aggregates(
             region=region,
             start_date=start,
-            end_date=end
+            end_date=end,
         )
 
-        if len(prices) < 2:
+        if agg["total_count"] < 2 or agg["first_third_avg"] is None:
             return {
                 'direction': 'stable',
                 'change_percent': Decimal("0"),
@@ -182,16 +164,8 @@ class AnalyticsService:
                 'data_points': 0
             }
 
-        # Sort by timestamp
-        prices = sorted(prices, key=lambda p: p.timestamp)
-
-        # Calculate first and last third averages for more stable comparison
-        third = len(prices) // 3
-        if third < 1:
-            third = 1
-
-        first_third_avg = sum(p.price_per_kwh for p in prices[:third]) / third
-        last_third_avg = sum(p.price_per_kwh for p in prices[-third:]) / third
+        first_third_avg = agg["first_third_avg"]
+        last_third_avg = agg["last_third_avg"]
 
         # Calculate change
         if first_third_avg > 0:
@@ -212,7 +186,7 @@ class AnalyticsService:
             'change_percent': change_percent.quantize(Decimal("0.01")),
             'start_price': first_third_avg.quantize(Decimal("0.0001")),
             'end_price': last_third_avg.quantize(Decimal("0.0001")),
-            'data_points': len(prices)
+            'data_points': agg["total_count"]
         }
 
         await self._set_cached(cache_key, result, ttl=900)  # 15 min
@@ -246,7 +220,8 @@ class AnalyticsService:
             return cached
 
         if not await self._acquire_cache_lock(cache_key):
-            await asyncio.sleep(0.1)
+            # Cache lock held by another request; re-check cache (no sleep needed,
+            # Redis NX lock already prevents double computation)
             cached = await self._get_cached(cache_key)
             if cached:
                 cached['average_by_hour'] = {int(k): Decimal(v) for k, v in cached['average_by_hour'].items()}
@@ -336,7 +311,8 @@ class AnalyticsService:
             return cached
 
         if not await self._acquire_cache_lock(cache_key):
-            await asyncio.sleep(0.1)
+            # Cache lock held by another request; re-check cache (no sleep needed,
+            # Redis NX lock already prevents double computation)
             cached = await self._get_cached(cache_key)
             if cached:
                 for s in cached.get('suppliers', []):

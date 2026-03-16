@@ -176,11 +176,15 @@ function buildHeaders(): Record<string, string> {
 }
 
 export const apiClient = {
-  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+  async get<T>(endpoint: string, params?: Record<string, string | number | boolean>): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     let urlStr = `${baseUrl}${endpoint}`
     if (params && Object.keys(params).length > 0) {
-      const qs = new URLSearchParams(params).toString()
+      const stringParams: Record<string, string> = {}
+      for (const [k, v] of Object.entries(params)) {
+        stringParams[k] = String(v)
+      }
+      const qs = new URLSearchParams(stringParams).toString()
       urlStr += `?${qs}`
     }
 

@@ -13,7 +13,7 @@ import {
  * Returns ApiCurrentPriceResponse — use normalisePriceResponse() from
  * types/api-helpers.ts to convert to camelCase for UI components.
  */
-export function useCurrentPrices(region: string | null) {
+export function useCurrentPrices(region: string | null | undefined) {
   return useQuery({
     queryKey: ['prices', 'current', region],
     queryFn: () => getCurrentPrices({ region: region! }),
@@ -28,7 +28,7 @@ export function useCurrentPrices(region: string | null) {
  * Returns ApiPriceHistoryResponse — prices[].price_per_kwh is a Decimal string.
  * Use parseDecimal() from types/api-helpers.ts before arithmetic.
  */
-export function usePriceHistory(region: string | null, hours: number = 24) {
+export function usePriceHistory(region: string | null | undefined, hours: number = 24) {
   // The backend uses `days` not `hours`; convert for the params object
   const days = Math.max(1, Math.ceil(hours / 24))
   return useQuery({
@@ -43,7 +43,7 @@ export function usePriceHistory(region: string | null, hours: number = 24) {
  * Hook for fetching price forecast (requires Pro tier).
  * Returns ApiPriceForecastResponse — forecast.prices[].price_per_kwh is a Decimal string.
  */
-export function usePriceForecast(region: string | null, hours: number = 24) {
+export function usePriceForecast(region: string | null | undefined, hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'forecast', region, hours],
     queryFn: () => getPriceForecast({ region: region!, hours }),
@@ -56,7 +56,7 @@ export function usePriceForecast(region: string | null, hours: number = 24) {
 /**
  * Hook for fetching optimal usage periods.
  */
-export function useOptimalPeriods(region: string | null, hours: number = 24) {
+export function useOptimalPeriods(region: string | null | undefined, hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'optimal', region, hours],
     queryFn: () => getOptimalPeriods(region!, hours),

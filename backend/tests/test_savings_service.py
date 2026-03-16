@@ -71,13 +71,15 @@ def _make_agg_row(
     weekly=0,
     monthly=0,
     currency="USD",
+    streak_days=0,
 ) -> dict:
-    """Build an aggregate row dict matching the SavingsService agg query."""
+    """Build a combined row dict matching the SavingsService CTE query."""
     return {
         "total": Decimal(str(total)),
         "weekly": Decimal(str(weekly)),
         "monthly": Decimal(str(monthly)),
         "currency": currency,
+        "streak_days": streak_days,
     }
 
 
@@ -160,14 +162,10 @@ class TestGetSavingsSummary:
     @pytest.mark.asyncio
     async def test_with_data_returns_correct_totals(self, service, db):
         """User with savings should receive correct aggregated float values."""
-        agg_row = _make_agg_row(total=35.0, weekly=15.0, monthly=35.0, currency="USD")
-        agg_result = _make_mapping_first(agg_row)
-
-        # Streak: 2 consecutive days ending today
-        today = _now().date()
-        streak_result = _make_fetchall([(today,), (today - timedelta(days=1),)])
-
-        db.execute = AsyncMock(side_effect=[agg_result, streak_result])
+        agg_row = _make_agg_row(
+            total=35.0, weekly=15.0, monthly=35.0, currency="USD", streak_days=2
+        )
+        db.execute = AsyncMock(return_value=_make_mapping_first(agg_row))
 
         result = await service.get_savings_summary(user_id="user-a")
 
@@ -179,28 +177,20 @@ class TestGetSavingsSummary:
 
     @pytest.mark.asyncio
     async def test_region_filter_passed_to_db(self, service, db):
-        """When region is provided it should be forwarded to both SQL calls."""
+        """When region is provided it should be forwarded to the CTE query."""
         agg_row = _make_agg_row(total=10.0)
-        agg_result = _make_mapping_first(agg_row)
-        streak_result = _make_fetchall([])
-
-        db.execute = AsyncMock(side_effect=[agg_result, streak_result])
+        db.execute = AsyncMock(return_value=_make_mapping_first(agg_row))
 
         await service.get_savings_summary(user_id="user-b", region="US_CT")
 
-        # Both calls should carry the region param
-        for call in db.execute.call_args_list:
-            params = call[0][1]
-            assert params.get("region") == "US_CT"
+        params = db.execute.call_args_list[0][0][1]
+        assert params.get("region") == "US_CT"
 
     @pytest.mark.asyncio
     async def test_no_region_filter_omits_region_param(self, service, db):
         """Without region, the SQL params should NOT include a 'region' key."""
         agg_row = _make_agg_row(total=5.0)
-        agg_result = _make_mapping_first(agg_row)
-        streak_result = _make_fetchall([])
-
-        db.execute = AsyncMock(side_effect=[agg_result, streak_result])
+        db.execute = AsyncMock(return_value=_make_mapping_first(agg_row))
 
         await service.get_savings_summary(user_id="user-c")
 
@@ -251,28 +241,20 @@ class TestGetSavingsSummary:
         assert result["streak_days"] == 0
 
     @pytest.mark.asyncio
-    async def test_two_queries_issued_when_data_exists(self, service, db):
-        """When total > 0, exactly two queries should be issued (agg + streak)."""
-        agg_row = _make_agg_row(total=1.0)
-        agg_result = _make_mapping_first(agg_row)
-        streak_result = _make_fetchall([])
-
-        db.execute = AsyncMock(side_effect=[agg_result, streak_result])
+    async def test_single_cte_query_issued(self, service, db):
+        """Exactly one CTE query should be issued (agg + streak combined)."""
+        agg_row = _make_agg_row(total=1.0, streak_days=0)
+        db.execute = AsyncMock(return_value=_make_mapping_first(agg_row))
 
         await service.get_savings_summary(user_id="user-h")
 
-        assert db.execute.await_count == 2
+        assert db.execute.await_count == 1
 
     @pytest.mark.asyncio
     async def test_streak_zero_when_today_missing(self, service, db):
         """If the most recent record is from yesterday (not today), streak = 0."""
-        agg_row = _make_agg_row(total=50.0)
-        agg_result = _make_mapping_first(agg_row)
-
-        yesterday = _now().date() - timedelta(days=1)
-        streak_result = _make_fetchall([(yesterday,)])
-
-        db.execute = AsyncMock(side_effect=[agg_result, streak_result])
+        agg_row = _make_agg_row(total=50.0, streak_days=0)
+        db.execute = AsyncMock(return_value=_make_mapping_first(agg_row))
 
         result = await service.get_savings_summary(user_id="user-i")
 
@@ -281,14 +263,8 @@ class TestGetSavingsSummary:
     @pytest.mark.asyncio
     async def test_streak_five_consecutive_days(self, service, db):
         """Five consecutive days ending today should produce streak_days = 5."""
-        agg_row = _make_agg_row(total=100.0)
-        agg_result = _make_mapping_first(agg_row)
-
-        today = _now().date()
-        days = [(today - timedelta(days=i),) for i in range(5)]
-        streak_result = _make_fetchall(days)
-
-        db.execute = AsyncMock(side_effect=[agg_result, streak_result])
+        agg_row = _make_agg_row(total=100.0, streak_days=5)
+        db.execute = AsyncMock(return_value=_make_mapping_first(agg_row))
 
         result = await service.get_savings_summary(user_id="user-j")
 

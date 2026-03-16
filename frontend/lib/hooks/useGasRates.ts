@@ -9,7 +9,7 @@ import {
   compareGasSuppliers,
 } from '@/lib/api/gas-rates'
 
-export function useGasRates(region: string | null, limit?: number) {
+export function useGasRates(region: string | null | undefined, limit?: number) {
   return useQuery({
     queryKey: ['gas-rates', region, limit],
     queryFn: () => getGasRates({ region: region!, limit }),
@@ -18,7 +18,7 @@ export function useGasRates(region: string | null, limit?: number) {
   })
 }
 
-export function useGasHistory(region: string | null, days = 30) {
+export function useGasHistory(region: string | null | undefined, days = 30) {
   return useQuery({
     queryKey: ['gas-rates', 'history', region, days],
     queryFn: () => getGasHistory({ region: region!, days }),
@@ -27,7 +27,7 @@ export function useGasHistory(region: string | null, days = 30) {
   })
 }
 
-export function useGasStats(region: string | null, days = 7) {
+export function useGasStats(region: string | null | undefined, days = 7) {
   return useQuery({
     queryKey: ['gas-rates', 'stats', region, days],
     queryFn: () => getGasStats({ region: region!, days }),
@@ -44,7 +44,7 @@ export function useDeregulatedGasStates() {
   })
 }
 
-export function useGasSupplierComparison(region: string | null) {
+export function useGasSupplierComparison(region: string | null | undefined) {
   return useQuery({
     queryKey: ['gas-rates', 'compare', region],
     queryFn: () => compareGasSuppliers(region!),

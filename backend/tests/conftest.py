@@ -529,6 +529,27 @@ def mock_sqlalchemy_select(monkeypatch):
 
 
 # =============================================================================
+# TIER CACHE RESET
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def reset_tier_cache():
+    """Clear the in-memory tier cache between tests to prevent state leakage."""
+    try:
+        from api.dependencies import _tier_cache
+        _tier_cache.clear()
+    except (ImportError, AttributeError):
+        pass
+    yield
+    try:
+        from api.dependencies import _tier_cache
+        _tier_cache.clear()
+    except (ImportError, AttributeError):
+        pass
+
+
+# =============================================================================
 # RATE LIMITER RESET
 # =============================================================================
 

@@ -684,6 +684,128 @@ class PriceRepository(BaseRepository[Price]):
         except Exception as e:
             raise RepositoryError(f"Failed to get price statistics: {str(e)}", e)
 
+    async def get_price_statistics_with_stddev(
+        self,
+        region: PriceRegion,
+        days: int = 7,
+        utility_type: UtilityType = UtilityType.ELECTRICITY,
+    ) -> dict:
+        """
+        Get price statistics including standard deviation using SQL aggregation.
+
+        Computes AVG, MIN, MAX, STDDEV, and COUNT in a single query instead of
+        fetching thousands of rows into Python.
+
+        Args:
+            region: Price region
+            days: Number of days to analyze
+            utility_type: Type of utility
+
+        Returns:
+            Dictionary with min, max, avg, stddev prices and count
+        """
+        try:
+            region_val = region.value if hasattr(region, "value") else region
+            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            start_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+            result = await self._db.execute(
+                text("""
+                    SELECT
+                        MIN(price_per_kwh) AS min_price,
+                        MAX(price_per_kwh) AS max_price,
+                        AVG(price_per_kwh) AS avg_price,
+                        STDDEV_SAMP(price_per_kwh) AS stddev_price,
+                        COUNT(id) AS count
+                    FROM electricity_prices
+                    WHERE region = :region
+                      AND utility_type = :utility_type
+                      AND timestamp >= :start_date
+                """),
+                {"region": region_val, "utility_type": ut_val, "start_date": start_date},
+            )
+            row = result.mappings().first()
+
+            return {
+                "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
+                "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
+                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")) if row["avg_price"] else None,
+                "stddev_price": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001")) if row["stddev_price"] else None,
+                "count": row["count"],
+                "period_days": days,
+                "utility_type": ut_val,
+            }
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get price statistics with stddev: {str(e)}", e)
+
+    async def get_price_trend_aggregates(
+        self,
+        region: PriceRegion,
+        start_date: datetime,
+        end_date: datetime,
+        utility_type: UtilityType = UtilityType.ELECTRICITY,
+    ) -> dict:
+        """
+        Compute first-third and last-third price averages in SQL.
+
+        Uses ROW_NUMBER to match the Python logic:
+          third = max(1, total_count // 3)
+          first_third = rows[:third]
+          last_third  = rows[-third:]
+
+        Returns dict with first_third_avg, last_third_avg, total_count.
+        """
+        try:
+            region_val = region.value if hasattr(region, "value") else region
+            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+
+            result = await self._db.execute(
+                text("""
+                    WITH numbered AS (
+                        SELECT price_per_kwh,
+                               ROW_NUMBER() OVER (ORDER BY timestamp ASC)  AS rn,
+                               COUNT(*) OVER ()                             AS total
+                        FROM electricity_prices
+                        WHERE region = :region
+                          AND utility_type = :utility_type
+                          AND timestamp >= :start_date
+                          AND timestamp <= :end_date
+                    ),
+                    bounds AS (
+                        SELECT GREATEST(1, total / 3) AS third, total
+                        FROM numbered
+                        LIMIT 1
+                    )
+                    SELECT
+                        (SELECT AVG(n.price_per_kwh) FROM numbered n, bounds b WHERE n.rn <= b.third)
+                            AS first_third_avg,
+                        (SELECT AVG(n.price_per_kwh) FROM numbered n, bounds b WHERE n.rn > b.total - b.third)
+                            AS last_third_avg,
+                        (SELECT total FROM bounds)
+                            AS total_count
+                """),
+                {
+                    "region": region_val,
+                    "utility_type": ut_val,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                },
+            )
+            row = result.mappings().first()
+
+            if not row or row["total_count"] is None or row["total_count"] < 2:
+                return {"first_third_avg": None, "last_third_avg": None, "total_count": 0}
+
+            return {
+                "first_third_avg": Decimal(str(row["first_third_avg"])) if row["first_third_avg"] else None,
+                "last_third_avg": Decimal(str(row["last_third_avg"])) if row["last_third_avg"] else None,
+                "total_count": row["total_count"],
+            }
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get price trend aggregates: {str(e)}", e)
+
     async def get_hourly_price_averages(
         self,
         region: PriceRegion,

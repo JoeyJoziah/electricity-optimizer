@@ -31,7 +31,7 @@ export interface PriceUpdate {
  * Connects to the SSE endpoint and invalidates React Query caches
  * when new price data arrives.
  */
-export function useRealtimePrices(region: string | null, interval: number = 30) {
+export function useRealtimePrices(region: string | null | undefined, interval: number = 30) {
   const queryClient = useQueryClient()
   const [isConnected, setIsConnected] = useState(false)
   const [lastPrice, setLastPrice] = useState<PriceUpdate | null>(null)
@@ -72,7 +72,19 @@ export function useRealtimePrices(region: string | null, interval: number = 30) 
           const data: PriceUpdate = JSON.parse(event.data)
           if (!mountedRef.current) return
           setLastPrice(data)
-          queryClient.invalidateQueries({ queryKey: ['prices', 'current', region] })
+          // Partial-merge: update matching supplier entry in cache, preserve existing fields
+          queryClient.setQueryData<unknown>(
+            ['prices', 'current', region],
+            (old: unknown) => {
+              if (!old || !Array.isArray(old)) return old
+              return old.map((entry: Record<string, unknown>) =>
+                entry.supplier === data.supplier
+                  ? { ...entry, price_per_kwh: Number(data.price_per_kwh), timestamp: data.timestamp, is_peak: data.is_peak }
+                  : entry
+              )
+            }
+          )
+          // History cache: invalidate since it needs full refetch for chart data
           queryClient.invalidateQueries({ queryKey: ['prices', 'history', region] })
         } catch {
           // Ignore parse errors for non-JSON events (heartbeats)

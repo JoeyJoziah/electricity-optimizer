@@ -62,56 +62,53 @@ class SavingsService:
             base_params["region"] = region
 
         # -------------------------------------------------------------------
-        # Aggregate totals (total / weekly / monthly) in a single query
+        # Single query: aggregations + streak via CTE
         # -------------------------------------------------------------------
-        agg_sql = text(f"""
+        combined_sql = text(f"""
+            WITH agg AS (
+                SELECT
+                    COALESCE(SUM(amount), 0) AS total,
+                    COALESCE(SUM(amount) FILTER (
+                        WHERE created_at >= NOW() - INTERVAL '7 days'
+                    ), 0) AS weekly,
+                    COALESCE(SUM(amount) FILTER (
+                        WHERE created_at >= NOW() - INTERVAL '30 days'
+                    ), 0) AS monthly,
+                    MAX(currency) AS currency
+                FROM user_savings
+                WHERE user_id = :user_id
+                {region_clause}
+            ),
+            active_days AS (
+                SELECT DISTINCT DATE(created_at AT TIME ZONE 'UTC') AS day
+                FROM user_savings
+                WHERE user_id = :user_id
+                  AND created_at >= NOW() - INTERVAL '365 days'
+                {region_clause}
+            ),
+            streak AS (
+                SELECT COUNT(*) AS streak_days
+                FROM (
+                    SELECT day, CURRENT_DATE - day AS days_ago,
+                           ROW_NUMBER() OVER (ORDER BY day DESC) - 1 AS rn
+                    FROM active_days
+                ) t
+                WHERE days_ago = rn
+            )
             SELECT
-                COALESCE(SUM(amount), 0)                                          AS total,
-                COALESCE(SUM(amount) FILTER (
-                    WHERE created_at >= NOW() - INTERVAL '7 days'
-                ), 0)                                                             AS weekly,
-                COALESCE(SUM(amount) FILTER (
-                    WHERE created_at >= NOW() - INTERVAL '30 days'
-                ), 0)                                                             AS monthly,
-                MAX(currency)                                                      AS currency
-            FROM user_savings
-            WHERE user_id = :user_id
-            {region_clause}
+                agg.total, agg.weekly, agg.monthly, agg.currency,
+                COALESCE(streak.streak_days, 0) AS streak_days
+            FROM agg
+            CROSS JOIN streak
         """)
-        agg_result = await self.db.execute(agg_sql, base_params)
-        agg_row = agg_result.mappings().first()
+        result = await self.db.execute(combined_sql, base_params)
+        row = result.mappings().first()
 
-        total = float(agg_row["total"]) if agg_row and agg_row["total"] is not None else 0.0
-        weekly = float(agg_row["weekly"]) if agg_row and agg_row["weekly"] is not None else 0.0
-        monthly = float(agg_row["monthly"]) if agg_row and agg_row["monthly"] is not None else 0.0
-        currency = (agg_row["currency"] if agg_row and agg_row["currency"] else "USD") or "USD"
-
-        if total == 0.0:
-            # No data at all — skip streak calculation
-            return {
-                "total": 0.0,
-                "weekly": 0.0,
-                "monthly": 0.0,
-                "streak_days": 0,
-                "currency": currency,
-            }
-
-        # -------------------------------------------------------------------
-        # Streak: fetch distinct active days (most recent first, limited to a
-        # practical window of 365 days to bound the query cost)
-        # -------------------------------------------------------------------
-        streak_sql = text(f"""
-            SELECT DISTINCT DATE(created_at AT TIME ZONE 'UTC') AS day
-            FROM user_savings
-            WHERE user_id = :user_id
-              AND created_at >= NOW() - INTERVAL '365 days'
-            {region_clause}
-            ORDER BY day DESC
-        """)
-        streak_result = await self.db.execute(streak_sql, base_params)
-        streak_rows = streak_result.fetchall()
-
-        streak_days = self._compute_streak(streak_rows)
+        total = float(row["total"]) if row and row["total"] is not None else 0.0
+        weekly = float(row["weekly"]) if row and row["weekly"] is not None else 0.0
+        monthly = float(row["monthly"]) if row and row["monthly"] is not None else 0.0
+        currency = (row["currency"] if row and row["currency"] else "USD") or "USD"
+        streak_days = int(row["streak_days"]) if row and row["streak_days"] is not None else 0
 
         logger.debug(
             "savings_summary_computed",

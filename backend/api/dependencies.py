@@ -100,6 +100,66 @@ async def verify_api_key(
 # Tier ordering for require_tier comparisons
 _TIER_ORDER: dict[str, int] = {"free": 0, "pro": 1, "business": 2}
 
+# In-memory tier cache (single-worker safe, bounded TTL)
+_tier_cache: dict[str, tuple[str, float]] = {}
+_TIER_CACHE_TTL = 30  # seconds
+
+
+async def _get_user_tier(user_id: str, db) -> str:
+    """Get user tier with Redis cache (30s TTL), in-memory fallback."""
+    import time
+
+    cache_key = f"tier:{user_id}"
+
+    # Check Redis first
+    redis = db_manager.redis_client
+    if redis:
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                return cached.decode() if isinstance(cached, bytes) else cached
+        except Exception:
+            pass
+
+    # Check in-memory fallback
+    now = time.time()
+    if cache_key in _tier_cache:
+        tier, expires = _tier_cache[cache_key]
+        if now < expires:
+            return tier
+
+    # Cache miss — query DB
+    from sqlalchemy import text
+    result = await db.execute(
+        text("SELECT subscription_tier FROM public.users WHERE id = :id"),
+        {"id": user_id},
+    )
+    user_tier = result.scalar_one_or_none() or "free"
+
+    # Store in Redis
+    if redis:
+        try:
+            await redis.set(cache_key, user_tier, ex=_TIER_CACHE_TTL)
+        except Exception:
+            pass
+
+    # Store in memory (bounded by same TTL)
+    _tier_cache[cache_key] = (user_tier, now + _TIER_CACHE_TTL)
+
+    return user_tier
+
+
+async def invalidate_tier_cache(user_id: str) -> None:
+    """Invalidate tier cache on subscription change (call from Stripe webhook)."""
+    cache_key = f"tier:{user_id}"
+    _tier_cache.pop(cache_key, None)
+    redis = db_manager.redis_client
+    if redis:
+        try:
+            await redis.delete(cache_key)
+        except Exception:
+            pass
+
 
 def require_tier(min_tier: str):
     """
@@ -120,13 +180,7 @@ def require_tier(min_tier: str):
         current_user: SessionData = Depends(get_current_user),
         db=Depends(get_db_session),
     ) -> SessionData:
-        from sqlalchemy import text
-
-        result = await db.execute(
-            text("SELECT subscription_tier FROM public.users WHERE id = :id"),
-            {"id": current_user.user_id},
-        )
-        user_tier = result.scalar_one_or_none() or "free"
+        user_tier = await _get_user_tier(current_user.user_id, db)
         user_level = _TIER_ORDER.get(user_tier, 0)
         required_level = _TIER_ORDER.get(min_tier, 0)
 

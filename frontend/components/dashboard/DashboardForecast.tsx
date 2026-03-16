@@ -19,7 +19,7 @@ const ForecastChart = dynamic(
  * Renders the second content row: 24-Hour Forecast chart (2-column)
  * and Top Suppliers sidebar (1-column).
  */
-export function DashboardForecast({
+export const DashboardForecast = React.memo(function DashboardForecast({
   forecastData,
   forecastLoading,
   forecastError,
@@ -117,4 +117,4 @@ export function DashboardForecast({
       </Card>
     </div>
   )
-}
+})

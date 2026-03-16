@@ -68,13 +68,17 @@ class _MockCommunityDB:
         if "COMMUNITY_POSTS" in sql and "COUNT(*)" in sql and "CREATED_AT" in sql and "USER_ID" in sql:
             return self._rate_count(params)
 
-        # --- List posts total count (SELECT COUNT(*) only, no LEFT JOIN) ---
-        if sql.startswith("SELECT COUNT(*)") and "COMMUNITY_POSTS" in sql and "IS_HIDDEN" in sql:
-            return self._list_count(params)
-
         # --- INSERT post ---
         if "INSERT INTO COMMUNITY_POSTS" in sql:
             return self._insert_post(params)
+
+        # --- CTE: toggle_vote (INSERT + DELETE + COUNT on community_votes) ---
+        if "INSERT INTO COMMUNITY_VOTES" in sql and "DELETE FROM COMMUNITY_VOTES" in sql:
+            return self._toggle_vote(params)
+
+        # --- CTE: report_post (INSERT community_reports + UPDATE community_posts) ---
+        if "INSERT INTO COMMUNITY_REPORTS" in sql and "UPDATE COMMUNITY_POSTS" in sql:
+            return self._report_cte(params)
 
         # --- UPDATE post (moderation / edit / hide) ---
         if "UPDATE COMMUNITY_POSTS" in sql:
@@ -84,15 +88,15 @@ class _MockCommunityDB:
         if "FROM COMMUNITY_POSTS" in sql and "WHERE" in sql and "ID" in sql and "LIMIT" not in sql:
             return self._select_post(params)
 
-        # --- List posts ---
+        # --- List posts (with window function COUNT(*) OVER()) ---
         if "FROM COMMUNITY_POSTS" in sql and "LIMIT" in sql:
             return self._list_posts(params)
 
-        # --- INSERT vote ---
+        # --- INSERT vote (standalone, no CTE) ---
         if "INSERT INTO COMMUNITY_VOTES" in sql:
             return self._insert_vote(params)
 
-        # --- DELETE vote ---
+        # --- DELETE vote (standalone) ---
         if "DELETE FROM COMMUNITY_VOTES" in sql:
             return self._delete_vote(params)
 
@@ -104,7 +108,7 @@ class _MockCommunityDB:
         if "FROM COMMUNITY_VOTES" in sql and "COUNT" in sql:
             return self._count_votes(params)
 
-        # --- INSERT report ---
+        # --- INSERT report (standalone) ---
         if "INSERT INTO COMMUNITY_REPORTS" in sql:
             return self._insert_report(params)
 
@@ -195,7 +199,8 @@ class _MockCommunityDB:
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
         page = visible[offset:offset + limit]
-        # Add derived counts
+        total = len(visible)
+        # Add derived counts + window function total
         for p in page:
             p["upvote_count"] = sum(
                 1 for v in self._votes if str(v["post_id"]) == str(p["id"])
@@ -203,6 +208,7 @@ class _MockCommunityDB:
             p["report_count"] = sum(
                 1 for r in self._reports if str(r["post_id"]) == str(p["id"])
             )
+            p["_total_count"] = total
         result = MagicMock()
         result.mappings.return_value.fetchall.return_value = page
         return result
@@ -239,6 +245,37 @@ class _MockCommunityDB:
         result.rowcount = 1
         return result
 
+    def _toggle_vote(self, params: dict) -> MagicMock:
+        """Atomic toggle_vote CTE: insert or delete, return action + count."""
+        uid = params.get("user_id", "")
+        pid = params.get("post_id", "")
+        match = [
+            v for v in self._votes
+            if str(v["user_id"]) == str(uid) and str(v["post_id"]) == str(pid)
+        ]
+        if match:
+            # Vote exists → delete it
+            self._votes = [
+                v for v in self._votes
+                if not (str(v["user_id"]) == str(uid) and str(v["post_id"]) == str(pid))
+            ]
+            action = "deleted"
+        else:
+            # Vote doesn't exist → insert it
+            self._votes.append({
+                "user_id": uid,
+                "post_id": pid,
+                "created_at": datetime.now(tz=timezone.utc),
+            })
+            action = "inserted"
+        count = sum(1 for v in self._votes if str(v["post_id"]) == str(pid))
+        result = MagicMock()
+        result.mappings.return_value.fetchone.return_value = {
+            "action": action,
+            "upvote_count": count,
+        }
+        return result
+
     def _count_votes(self, params: dict) -> MagicMock:
         pid = params.get("post_id", "")
         count = sum(1 for v in self._votes if str(v["post_id"]) == str(pid))
@@ -247,6 +284,32 @@ class _MockCommunityDB:
         return result
 
     # --- Report operations ---
+
+    def _report_cte(self, params: dict) -> MagicMock:
+        """CTE report: insert + count + conditional hide."""
+        uid = params.get("user_id", "")
+        pid = params.get("post_id", "")
+        threshold = params.get("threshold", 5)
+        # Deduplicate insert
+        exists = any(
+            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid)
+            for r in self._reports
+        )
+        if not exists:
+            self._reports.append({
+                "user_id": uid,
+                "post_id": pid,
+                "reason": params.get("reason"),
+                "created_at": datetime.now(tz=timezone.utc),
+            })
+        # Count + conditional hide
+        count = sum(1 for r in self._reports if str(r["post_id"]) == str(pid))
+        if count >= threshold:
+            post = next((p for p in self._posts if str(p["id"]) == str(pid)), None)
+            if post and not post["is_hidden"]:
+                post["is_hidden"] = True
+                post["hidden_reason"] = "reported_by_users"
+        return MagicMock()
 
     def _insert_report(self, params: dict) -> MagicMock:
         uid = params.get("user_id", "")

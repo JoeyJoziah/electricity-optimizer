@@ -25,7 +25,7 @@ REPORT_HIDE_THRESHOLD = 5
 POSTS_PER_HOUR_LIMIT = 10
 
 # Moderation timeout (seconds)
-MODERATION_TIMEOUT_SECONDS = 30
+MODERATION_TIMEOUT_SECONDS = 5
 
 
 class CommunityService:
@@ -195,29 +195,17 @@ class CommunityService:
     ) -> Dict[str, Any]:
         """
         Return paginated posts, excluding hidden and pending moderation.
+        Uses COUNT(*) OVER() window function to get total in a single query.
         Vote counts derived via LEFT JOIN COUNT.
         """
         offset = (page - 1) * per_page
 
-        # Total count
-        count_sql = text("""
-            SELECT COUNT(*) FROM community_posts
-            WHERE region = :region
-              AND utility_type = :utility_type
-              AND is_hidden = false
-              AND is_pending_moderation = false
-        """)
-        count_result = await db.execute(
-            count_sql, {"region": region, "utility_type": utility_type}
-        )
-        total = count_result.scalar()
-
-        # Fetch page with derived vote/report counts
         list_sql = text("""
             SELECT
                 cp.*,
                 COALESCE(v.cnt, 0) AS upvote_count,
-                COALESCE(r.cnt, 0) AS report_count
+                COALESCE(r.cnt, 0) AS report_count,
+                COUNT(*) OVER() AS _total_count
             FROM community_posts cp
             LEFT JOIN (
                 SELECT post_id, COUNT(*) AS cnt
@@ -245,7 +233,11 @@ class CommunityService:
                 "offset": offset,
             },
         )
-        items = [dict(row) for row in list_result.mappings().fetchall()]
+        rows = list_result.mappings().fetchall()
+
+        # Extract total from window function (same for every row)
+        total = rows[0]["_total_count"] if rows else 0
+        items = [{k: v for k, v in dict(row).items() if k != "_total_count"} for row in rows]
 
         pages = max(1, (total + per_page - 1) // per_page)
 
@@ -266,37 +258,49 @@ class CommunityService:
         db: AsyncSession,
         user_id: str,
         post_id: str,
-    ) -> bool:
+    ) -> Dict[str, Any]:
         """
-        Toggle a vote. Returns True if vote added, False if removed.
-        Uses composite PK (user_id, post_id) for dedup.
-        """
-        # Check existing
-        check_sql = text("""
-            SELECT COUNT(*) FROM community_votes
-            WHERE user_id = :user_id AND post_id = :post_id
-        """)
-        check_result = await db.execute(
-            check_sql, {"user_id": user_id, "post_id": post_id}
-        )
-        exists = check_result.scalar() > 0
+        Atomically toggle a vote and return voted state + count in a single query.
 
-        if exists:
-            # Remove vote
-            await db.execute(
-                text("DELETE FROM community_votes WHERE user_id = :user_id AND post_id = :post_id"),
-                {"user_id": user_id, "post_id": post_id},
+        Uses INSERT ... ON CONFLICT to avoid TOCTOU races, and a CTE to
+        compute the new vote count in the same round-trip.
+
+        Returns:
+            Dict with 'voted' (bool) and 'upvote_count' (int).
+        """
+        toggle_sql = text("""
+            WITH toggle AS (
+                -- Try to insert; if already exists, delete instead
+                INSERT INTO community_votes (user_id, post_id)
+                VALUES (:user_id, :post_id)
+                ON CONFLICT (user_id, post_id) DO NOTHING
+                RETURNING 'inserted' AS action
+            ),
+            remove AS (
+                -- If nothing was inserted, the vote existed → delete it
+                DELETE FROM community_votes
+                WHERE user_id = :user_id
+                  AND post_id = :post_id
+                  AND NOT EXISTS (SELECT 1 FROM toggle)
+                RETURNING 'deleted' AS action
+            ),
+            result AS (
+                SELECT action FROM toggle
+                UNION ALL
+                SELECT action FROM remove
             )
-            await db.commit()
-            return False
-        else:
-            # Add vote
-            await db.execute(
-                text("INSERT INTO community_votes (user_id, post_id) VALUES (:user_id, :post_id)"),
-                {"user_id": user_id, "post_id": post_id},
-            )
-            await db.commit()
-            return True
+            SELECT
+                COALESCE((SELECT action FROM result), 'noop') AS action,
+                (SELECT COUNT(*) FROM community_votes WHERE post_id = :post_id) AS upvote_count
+        """)
+        result = await db.execute(
+            toggle_sql, {"user_id": user_id, "post_id": post_id}
+        )
+        row = result.mappings().fetchone()
+        await db.commit()
+
+        voted = row["action"] == "inserted"
+        return {"voted": voted, "upvote_count": row["upvote_count"]}
 
     # ------------------------------------------------------------------
     # get_vote_count
@@ -322,46 +326,37 @@ class CommunityService:
         reason: Optional[str] = None,
     ) -> None:
         """
-        Report a post. Idempotent (composite PK dedup).
+        Report a post. Idempotent via INSERT ON CONFLICT DO NOTHING.
         Hides post when unique reporter count >= REPORT_HIDE_THRESHOLD.
+        Uses a single CTE to insert + count + conditionally hide.
         """
-        # Check if already reported by this user
-        check_sql = text("""
-            SELECT COUNT(*) FROM community_reports
-            WHERE user_id = :user_id AND post_id = :post_id
-        """)
-        check_result = await db.execute(
-            check_sql, {"user_id": user_id, "post_id": post_id}
-        )
-        if check_result.scalar() > 0:
-            return  # Already reported — idempotent
-
-        # Insert report
-        await db.execute(
-            text("""
+        report_sql = text("""
+            WITH ins AS (
                 INSERT INTO community_reports (user_id, post_id, reason)
                 VALUES (:user_id, :post_id, :reason)
-            """),
-            {"user_id": user_id, "post_id": post_id, "reason": reason},
-        )
-
-        # Check total unique reporters
-        count_sql = text("""
-            SELECT COUNT(*) FROM community_reports WHERE post_id = :post_id
-        """)
-        count_result = await db.execute(count_sql, {"post_id": post_id})
-        total_reports = count_result.scalar()
-
-        if total_reports >= REPORT_HIDE_THRESHOLD:
-            await db.execute(
-                text("""
-                    UPDATE community_posts
-                    SET is_hidden = true, hidden_reason = 'reported_by_users'
-                    WHERE id = :post_id
-                """),
-                {"post_id": post_id},
+                ON CONFLICT (user_id, post_id) DO NOTHING
+                RETURNING 1
+            ),
+            cnt AS (
+                SELECT COUNT(*) AS total
+                FROM community_reports
+                WHERE post_id = :post_id
             )
-
+            UPDATE community_posts
+            SET is_hidden = true, hidden_reason = 'reported_by_users'
+            WHERE id = :post_id
+              AND (SELECT total FROM cnt) >= :threshold
+              AND is_hidden = false
+        """)
+        await db.execute(
+            report_sql,
+            {
+                "user_id": user_id,
+                "post_id": post_id,
+                "reason": reason,
+                "threshold": REPORT_HIDE_THRESHOLD,
+            },
+        )
         await db.commit()
 
     # ------------------------------------------------------------------
@@ -438,10 +433,10 @@ class CommunityService:
     ) -> int:
         """
         Re-check posts that timed out during moderation.
+        Uses parallel AI calls (Semaphore-limited) for throughput.
         Returns count of posts re-moderated.
         """
         # Find posts that were auto-unhidden after timeout
-        # (is_pending_moderation=false, is_hidden=false, no successful classification recorded)
         select_sql = text("""
             SELECT id, title, body FROM community_posts
             WHERE is_pending_moderation = false
@@ -453,30 +448,42 @@ class CommunityService:
         result = await db.execute(select_sql)
         posts = result.mappings().fetchall()
 
-        count = 0
-        for post in posts:
-            content = f"{post['title']}\n\n{post['body']}"
-            try:
-                classification = await agent_service.classify_content(content)
-                if classification == "flagged":
-                    await db.execute(
-                        text("""
-                            UPDATE community_posts
-                            SET is_hidden = true, hidden_reason = 'flagged_by_ai_retroactive'
-                            WHERE id = :post_id
-                        """),
-                        {"post_id": post["id"]},
+        if not posts:
+            return 0
+
+        # Parallel AI classification with concurrency limit
+        sem = asyncio.Semaphore(5)
+        flagged_ids: list[str] = []
+
+        async def classify_post(post) -> None:
+            async with sem:
+                content = f"{post['title']}\n\n{post['body']}"
+                try:
+                    classification = await agent_service.classify_content(content)
+                    if classification == "flagged":
+                        flagged_ids.append(str(post["id"]))
+                except Exception as exc:
+                    logger.warning(
+                        "retroactive_moderation_failed",
+                        post_id=str(post["id"]),
+                        error=str(exc),
                     )
-                count += 1
-            except Exception as exc:
-                logger.warning(
-                    "retroactive_moderation_failed",
-                    post_id=str(post["id"]),
-                    error=str(exc),
-                )
-        if count > 0:
+
+        await asyncio.gather(*(classify_post(p) for p in posts))
+
+        # Batch update all flagged posts in a single query
+        if flagged_ids:
+            await db.execute(
+                text("""
+                    UPDATE community_posts
+                    SET is_hidden = true, hidden_reason = 'flagged_by_ai_retroactive'
+                    WHERE id = ANY(:ids)
+                """),
+                {"ids": flagged_ids},
+            )
             await db.commit()
-        return count
+
+        return len(posts)
 
     # ------------------------------------------------------------------
     # edit_and_resubmit

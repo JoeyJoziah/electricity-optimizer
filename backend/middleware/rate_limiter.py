@@ -147,6 +147,79 @@ class UserRateLimiter:
 
         return allowed, remaining
 
+    async def check_rate_limits_combined(
+        self,
+        identifier: str,
+    ) -> tuple[bool, int, bool]:
+        """
+        Check both minute and hour rate limits in a single round-trip.
+
+        Returns:
+            Tuple of (minute_allowed, minute_remaining, hour_allowed)
+        """
+        if self.redis:
+            return await self._check_redis_both(identifier)
+        else:
+            minute_ok, minute_rem = self._check_memory(
+                f"ratelimit:minute:{identifier}",
+                self.requests_per_minute,
+                60,
+            )
+            hour_ok, _ = self._check_memory(
+                f"ratelimit:hour:{identifier}",
+                self.requests_per_hour,
+                3600,
+            )
+            return minute_ok, minute_rem, hour_ok
+
+    async def _check_redis_both(
+        self,
+        identifier: str,
+    ) -> tuple[bool, int, bool]:
+        """Check both minute and hour limits in a single Redis pipeline."""
+        now = time.time()
+        minute_key = f"ratelimit:minute:{identifier}"
+        hour_key = f"ratelimit:hour:{identifier}"
+
+        pipe = self.redis.pipeline()
+
+        # Minute window
+        pipe.zremrangebyscore(minute_key, 0, now - 60)      # [0]
+        pipe.zadd(minute_key, {str(now): now})               # [1]
+        pipe.zcard(minute_key)                                # [2]
+        pipe.expire(minute_key, 60)                           # [3]
+
+        # Hour window
+        pipe.zremrangebyscore(hour_key, 0, now - 3600)       # [4]
+        pipe.zadd(hour_key, {str(now): now})                  # [5]
+        pipe.zcard(hour_key)                                  # [6]
+        pipe.expire(hour_key, 3600)                           # [7]
+
+        results = await pipe.execute()
+        minute_count = results[2]
+        hour_count = results[6]
+
+        minute_allowed = minute_count <= self.requests_per_minute
+        minute_remaining = max(0, self.requests_per_minute - minute_count)
+        hour_allowed = hour_count <= self.requests_per_hour
+
+        if not minute_allowed:
+            logger.warning(
+                "rate_limit_exceeded",
+                key=minute_key,
+                count=minute_count,
+                limit=self.requests_per_minute,
+            )
+        if not hour_allowed:
+            logger.warning(
+                "rate_limit_exceeded",
+                key=hour_key,
+                count=hour_count,
+                limit=self.requests_per_hour,
+            )
+
+        return minute_allowed, minute_remaining, hour_allowed
+
     def _check_memory(
         self,
         key: str,
@@ -157,22 +230,25 @@ class UserRateLimiter:
         now = time.time()
         window_start = now - window
 
-        if key not in self._memory_store:
-            self._memory_store[key] = []
+        # Remove old entries; use setdefault to avoid race with concurrent coroutines
+        existing = self._memory_store.get(key)
+        if existing is not None:
+            self._memory_store[key] = [t for t in existing if t > window_start]
+            # Evict truly empty keys to bound memory growth
+            if not self._memory_store[key]:
+                del self._memory_store[key]
 
-        # Remove old entries
-        self._memory_store[key] = [
-            t for t in self._memory_store[key]
-            if t > window_start
-        ]
+        # Periodic sweep: cap total keys to prevent unbounded growth during Redis outage
+        if len(self._memory_store) > 10_000:
+            stale_keys = [
+                k for k, v in self._memory_store.items()
+                if isinstance(v, list) and (not v or v[-1] < window_start)
+            ]
+            for k in stale_keys:
+                del self._memory_store[k]
 
-        # Evict empty keys to prevent unbounded memory growth
-        if not self._memory_store[key]:
-            del self._memory_store[key]
-            self._memory_store[key] = []
-
-        # Add current request
-        self._memory_store[key].append(now)
+        # Add current request (setdefault avoids KeyError if evicted above)
+        self._memory_store.setdefault(key, []).append(now)
 
         request_count = len(self._memory_store[key])
         allowed = request_count <= limit
@@ -297,21 +373,16 @@ class RateLimitMiddleware:
         # Get identifier (user ID from token or IP address)
         identifier = self._get_identifier(scope)
 
-        # Check per-minute limit
-        allowed, remaining = await self.rate_limiter.check_rate_limit(
-            identifier, "minute"
+        # Check both minute and hour limits in a single round-trip
+        minute_ok, remaining, hour_ok = await self.rate_limiter.check_rate_limits_combined(
+            identifier
         )
 
-        if not allowed:
+        if not minute_ok:
             await self._send_429(send, retry_after=60)
             return
 
-        # Check per-hour limit
-        allowed, _ = await self.rate_limiter.check_rate_limit(
-            identifier, "hour"
-        )
-
-        if not allowed:
+        if not hour_ok:
             await self._send_429(send, retry_after=3600)
             return
 

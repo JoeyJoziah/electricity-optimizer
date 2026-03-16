@@ -55,7 +55,7 @@ interface UtilityTabShellProps {
   utilityType: string
 }
 
-export function UtilityTabShell({ utilityType }: UtilityTabShellProps) {
+export const UtilityTabShell = React.memo(function UtilityTabShell({ utilityType }: UtilityTabShellProps) {
   const Dashboard = UTILITY_DASHBOARDS[utilityType]
 
   if (!Dashboard) {
@@ -79,4 +79,4 @@ export function UtilityTabShell({ utilityType }: UtilityTabShellProps) {
       <Dashboard />
     </div>
   )
-}
+})

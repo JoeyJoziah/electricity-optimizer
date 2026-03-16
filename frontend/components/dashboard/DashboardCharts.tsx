@@ -17,7 +17,7 @@ const PriceLineChart = dynamic(
 /**
  * Renders the main charts row: Price History (2-column) and Savings Tracker (1-column).
  */
-export function DashboardCharts({
+export const DashboardCharts = React.memo(function DashboardCharts({
   chartData,
   historyLoading,
   timeRange,
@@ -99,4 +99,4 @@ export function DashboardCharts({
       </Card>
     </div>
   )
-}
+})

@@ -251,13 +251,11 @@ class TestAnalyticsCaching:
         """get_price_trend should cache its result with 15 min TTL."""
         from services.analytics_service import AnalyticsService
 
-        now = datetime.now(timezone.utc)
-        mock_repo.get_historical_prices = AsyncMock(
-            return_value=[
-                MagicMock(price_per_kwh=Decimal("0.20"), timestamp=now - timedelta(days=i))
-                for i in range(10)
-            ]
-        )
+        mock_repo.get_price_trend_aggregates = AsyncMock(return_value={
+            "first_third_avg": Decimal("0.20"),
+            "last_third_avg": Decimal("0.24"),
+            "total_count": 10,
+        })
 
         service = AnalyticsService(mock_repo, cache=mock_cache)
         await service.get_price_trend(PriceRegion.US_CT, days=7)

@@ -74,6 +74,10 @@ def mock_repo():
     repo.get_historical_prices = AsyncMock(return_value=[])
     repo.get_hourly_price_averages = AsyncMock(return_value=[])
     repo.get_supplier_price_stats = AsyncMock(return_value=[])
+    repo.get_price_statistics_with_stddev = AsyncMock(return_value={
+        "min_price": None, "max_price": None, "avg_price": None,
+        "stddev_price": None, "count": 0, "period_days": 7, "utility_type": "electricity",
+    })
     return repo
 
 
@@ -115,14 +119,14 @@ class TestCalculateAveragePrice:
 
     @pytest.mark.asyncio
     async def test_calculate_average_price(self, service, mock_repo):
-        """Average of three prices returns expected Decimal."""
+        """Average price delegates to SQL and returns expected Decimal."""
         from models.price import PriceRegion
 
-        mock_repo.get_historical_prices.return_value = [
-            _make_price(0.20),
-            _make_price(0.30),
-            _make_price(0.25),
-        ]
+        mock_repo.get_price_statistics_with_stddev.return_value = {
+            "min_price": Decimal("0.2000"), "max_price": Decimal("0.3000"),
+            "avg_price": Decimal("0.2500"), "stddev_price": Decimal("0.0500"),
+            "count": 3, "period_days": 7, "utility_type": "electricity",
+        }
 
         avg = await service.calculate_average_price(PriceRegion.US_CT, days=7)
 
@@ -133,7 +137,10 @@ class TestCalculateAveragePrice:
         """Returns Decimal('0') when repository returns no prices."""
         from models.price import PriceRegion
 
-        mock_repo.get_historical_prices.return_value = []
+        mock_repo.get_price_statistics_with_stddev.return_value = {
+            "min_price": None, "max_price": None, "avg_price": None,
+            "stddev_price": None, "count": 0, "period_days": 7, "utility_type": "electricity",
+        }
 
         avg = await service.calculate_average_price(PriceRegion.US_CT, days=7)
 
@@ -150,25 +157,30 @@ class TestCalculateVolatility:
 
     @pytest.mark.asyncio
     async def test_calculate_volatility(self, service, mock_repo):
-        """Standard deviation of three distinct prices is non-zero."""
+        """Standard deviation delegates to SQL STDDEV_SAMP and is non-zero."""
         from models.price import PriceRegion
 
-        mock_repo.get_historical_prices.return_value = [
-            _make_price(0.20),
-            _make_price(0.28),
-            _make_price(0.36),
-        ]
+        mock_repo.get_price_statistics_with_stddev.return_value = {
+            "min_price": Decimal("0.2000"), "max_price": Decimal("0.3600"),
+            "avg_price": Decimal("0.2800"), "stddev_price": Decimal("0.0800"),
+            "count": 3, "period_days": 7, "utility_type": "electricity",
+        }
 
         vol = await service.calculate_volatility(PriceRegion.US_CT, days=7)
 
         assert vol > Decimal("0")
+        assert vol == Decimal("0.0800")
 
     @pytest.mark.asyncio
     async def test_calculate_volatility_single_price(self, service, mock_repo):
-        """Single price point — len < 2 guard returns Decimal('0')."""
+        """Single price point — count < 2 guard returns Decimal('0')."""
         from models.price import PriceRegion
 
-        mock_repo.get_historical_prices.return_value = [_make_price(0.28)]
+        mock_repo.get_price_statistics_with_stddev.return_value = {
+            "min_price": Decimal("0.2800"), "max_price": Decimal("0.2800"),
+            "avg_price": Decimal("0.2800"), "stddev_price": None,
+            "count": 1, "period_days": 7, "utility_type": "electricity",
+        }
 
         vol = await service.calculate_volatility(PriceRegion.US_CT, days=7)
 
@@ -188,15 +200,12 @@ class TestGetPriceTrend:
         """When last-third avg > first-third avg by >5%, direction='increasing'."""
         from models.price import PriceRegion
 
-        # 9 prices: first 3 low, last 3 high (>5% change)
-        prices = [
-            _make_price(0.20, hour=i) for i in range(3)
-        ] + [
-            _make_price(0.22, hour=i + 3) for i in range(3)
-        ] + [
-            _make_price(0.24, hour=i + 6) for i in range(3)
-        ]
-        mock_repo.get_historical_prices.return_value = prices
+        # SQL aggregate returns first_third_avg=0.20, last_third_avg=0.24 → +20%
+        mock_repo.get_price_trend_aggregates.return_value = {
+            "first_third_avg": Decimal("0.20"),
+            "last_third_avg": Decimal("0.24"),
+            "total_count": 9,
+        }
 
         result = await service.get_price_trend(PriceRegion.US_CT, days=7)
 
@@ -208,14 +217,11 @@ class TestGetPriceTrend:
         """When last-third avg < first-third avg by >5%, direction='decreasing'."""
         from models.price import PriceRegion
 
-        prices = [
-            _make_price(0.30, hour=i) for i in range(3)
-        ] + [
-            _make_price(0.26, hour=i + 3) for i in range(3)
-        ] + [
-            _make_price(0.22, hour=i + 6) for i in range(3)
-        ]
-        mock_repo.get_historical_prices.return_value = prices
+        mock_repo.get_price_trend_aggregates.return_value = {
+            "first_third_avg": Decimal("0.30"),
+            "last_third_avg": Decimal("0.22"),
+            "total_count": 9,
+        }
 
         result = await service.get_price_trend(PriceRegion.US_CT, days=7)
 
@@ -227,13 +233,31 @@ class TestGetPriceTrend:
         """When change is within ±5%, direction='stable'."""
         from models.price import PriceRegion
 
-        # All identical prices → 0% change
-        prices = [_make_price(0.25, hour=i) for i in range(9)]
-        mock_repo.get_historical_prices.return_value = prices
+        mock_repo.get_price_trend_aggregates.return_value = {
+            "first_third_avg": Decimal("0.25"),
+            "last_third_avg": Decimal("0.25"),
+            "total_count": 9,
+        }
 
         result = await service.get_price_trend(PriceRegion.US_CT, days=7)
 
         assert result["direction"] == "stable"
+
+    @pytest.mark.asyncio
+    async def test_get_price_trend_insufficient_data(self, service, mock_repo):
+        """When fewer than 2 data points, return stable with zeros."""
+        from models.price import PriceRegion
+
+        mock_repo.get_price_trend_aggregates.return_value = {
+            "first_third_avg": None,
+            "last_third_avg": None,
+            "total_count": 0,
+        }
+
+        result = await service.get_price_trend(PriceRegion.US_CT, days=7)
+
+        assert result["direction"] == "stable"
+        assert result["data_points"] == 0
 
     @pytest.mark.asyncio
     async def test_get_price_trend_cached(self, cached_service, mock_repo, mock_cache):
@@ -253,7 +277,7 @@ class TestGetPriceTrend:
 
         assert result["direction"] == "increasing"
         assert result["change_percent"] == Decimal("7.50")
-        mock_repo.get_historical_prices.assert_not_awaited()
+        mock_repo.get_price_trend_aggregates.assert_not_awaited()
 
 
 # =============================================================================

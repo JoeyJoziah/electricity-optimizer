@@ -28,11 +28,14 @@ export function NotificationBell() {
   const containerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
-  // Poll the unread count every 30 seconds so the badge stays current
+  // Poll the unread count every 30 seconds so the badge stays current.
+  // refetchIntervalInBackground: false pauses polling when the tab is hidden
+  // and React Query will auto-refetch on window focus restore.
   const { data: countData } = useQuery<CountResponse>({
     queryKey: ['notifications', 'count'],
     queryFn: () => apiClient.get<CountResponse>('/notifications/count'),
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   })
 
   // Only fetch the full list when the panel is open

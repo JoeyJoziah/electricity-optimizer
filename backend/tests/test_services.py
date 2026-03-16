@@ -294,11 +294,11 @@ class TestAnalyticsService:
         from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
 
-        mock_price_repo.get_historical_prices.return_value = [
-            MagicMock(price_per_kwh=Decimal("0.20")),
-            MagicMock(price_per_kwh=Decimal("0.30")),
-            MagicMock(price_per_kwh=Decimal("0.25")),
-        ]
+        mock_price_repo.get_price_statistics_with_stddev = AsyncMock(return_value={
+            "min_price": Decimal("0.2000"), "max_price": Decimal("0.3000"),
+            "avg_price": Decimal("0.2500"), "stddev_price": Decimal("0.0500"),
+            "count": 3, "period_days": 7, "utility_type": "electricity",
+        })
 
         service = AnalyticsService(mock_price_repo)
         avg = await service.calculate_average_price(
@@ -306,7 +306,7 @@ class TestAnalyticsService:
             days=7
         )
 
-        assert avg == Decimal("0.25")
+        assert avg == Decimal("0.2500")
 
     @pytest.mark.asyncio
     async def test_calculate_price_volatility(self, mock_price_repo):
@@ -314,12 +314,11 @@ class TestAnalyticsService:
         from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
 
-        mock_price_repo.get_historical_prices.return_value = [
-            MagicMock(price_per_kwh=Decimal("0.10")),
-            MagicMock(price_per_kwh=Decimal("0.50")),
-            MagicMock(price_per_kwh=Decimal("0.20")),
-            MagicMock(price_per_kwh=Decimal("0.40")),
-        ]
+        mock_price_repo.get_price_statistics_with_stddev = AsyncMock(return_value={
+            "min_price": Decimal("0.1000"), "max_price": Decimal("0.5000"),
+            "avg_price": Decimal("0.3000"), "stddev_price": Decimal("0.1826"),
+            "count": 4, "period_days": 7, "utility_type": "electricity",
+        })
 
         service = AnalyticsService(mock_price_repo)
         volatility = await service.calculate_volatility(
@@ -336,14 +335,12 @@ class TestAnalyticsService:
         from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
 
-        # Prices increasing over time
-        base_time = datetime.now(timezone.utc)
-        mock_price_repo.get_historical_prices.return_value = [
-            MagicMock(price_per_kwh=Decimal("0.20"), timestamp=base_time - timedelta(days=6)),
-            MagicMock(price_per_kwh=Decimal("0.22"), timestamp=base_time - timedelta(days=4)),
-            MagicMock(price_per_kwh=Decimal("0.25"), timestamp=base_time - timedelta(days=2)),
-            MagicMock(price_per_kwh=Decimal("0.28"), timestamp=base_time),
-        ]
+        # SQL aggregate returns increasing trend
+        mock_price_repo.get_price_trend_aggregates.return_value = {
+            "first_third_avg": Decimal("0.20"),
+            "last_third_avg": Decimal("0.28"),
+            "total_count": 4,
+        }
 
         service = AnalyticsService(mock_price_repo)
         trend = await service.get_price_trend(

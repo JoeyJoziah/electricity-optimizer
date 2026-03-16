@@ -11,7 +11,7 @@ import {
 } from '@/lib/api/community-solar'
 
 export function useCommunitySolarPrograms(
-  state: string | null,
+  state: string | null | undefined,
   enrollmentStatus?: 'open' | 'waitlist' | 'closed'
 ) {
   return useQuery({

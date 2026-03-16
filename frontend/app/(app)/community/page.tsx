@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 export default function CommunityPage() {
   const { user } = useAuth()
   const utilityTypes = useSettingsStore((s) => s.utilityTypes) || ['electricity']
-  const [activeUtility, setActiveUtility] = React.useState(utilityTypes[0] || 'electricity')
+  const [activeUtility, setActiveUtility] = React.useState<string>(utilityTypes[0] || 'electricity')
 
   return (
     <div className="flex flex-col">

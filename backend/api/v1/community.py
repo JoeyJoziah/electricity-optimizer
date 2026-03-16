@@ -187,13 +187,12 @@ async def toggle_vote(
 ):
     """Toggle upvote on a post."""
     service = CommunityService()
-    voted = await service.toggle_vote(
+    # Returns {"voted": bool, "upvote_count": int} in a single DB round-trip
+    return await service.toggle_vote(
         db=db,
         user_id=current_user.user_id,
         post_id=post_id,
     )
-    count = await service.get_vote_count(db=db, post_id=post_id)
-    return {"voted": voted, "upvote_count": count}
 
 
 # =============================================================================

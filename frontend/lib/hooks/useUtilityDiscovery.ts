@@ -5,7 +5,7 @@ import type { UtilityDiscoveryResponse, CompletionResponse } from '@/lib/api/uti
 /**
  * Discover available utility types for a state.
  */
-export function useUtilityDiscovery(state: string | null) {
+export function useUtilityDiscovery(state: string | null | undefined) {
   return useQuery<UtilityDiscoveryResponse>({
     queryKey: ['utility-discovery', state],
     queryFn: () => discoverUtilities(state!),
@@ -18,7 +18,7 @@ export function useUtilityDiscovery(state: string | null) {
  * Get utility tracking completion status for a user.
  */
 export function useUtilityCompletion(
-  state: string | null,
+  state: string | null | undefined,
   trackedTypes: string[]
 ) {
   return useQuery<CompletionResponse>({
