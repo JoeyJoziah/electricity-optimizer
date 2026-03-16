@@ -1,3 +1,0 @@
-source: nodemailer
-kind: external
-purpose: Node.js SMTP email sending library (Gmail fallback)

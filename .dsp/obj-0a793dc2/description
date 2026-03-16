@@ -1,3 +1,0 @@
-source: backend/services/portal_scraper_service.py
-kind: object
-purpose: HTTP-based scraper for utility account portals. Supports 5 known utilities (Duke, PG&E, ConEd, ComEd, FPL) plus generic form-POST fallback.

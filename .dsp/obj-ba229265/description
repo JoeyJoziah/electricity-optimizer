@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/middleware/internal-auth.ts
-kind: object
-purpose: Internal API auth — constant-time X-API-Key validation

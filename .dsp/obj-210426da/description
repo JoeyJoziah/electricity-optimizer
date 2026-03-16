@@ -1,3 +1,0 @@
-source: frontend/app/(app)/optimize/error.tsx
-kind: object
-purpose: Next.js error boundary for /optimize route

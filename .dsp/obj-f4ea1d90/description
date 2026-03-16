@@ -1,3 +1,0 @@
-source: frontend/middleware.ts
-kind: object
-purpose: Next.js middleware for route protection via session cookies

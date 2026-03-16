@@ -1,3 +1,0 @@
-source: frontend/components/connections/BillUploadTypes.ts
-kind: object
-purpose: TypeScript types for bill upload feature

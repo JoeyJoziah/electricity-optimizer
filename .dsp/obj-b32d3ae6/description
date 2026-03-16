@@ -1,3 +1,0 @@
-source: frontend/lib/utils/devGate.ts
-kind: object
-purpose: Dev environment gate for development-only features

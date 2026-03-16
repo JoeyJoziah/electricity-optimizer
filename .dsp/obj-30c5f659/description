@@ -1,3 +1,0 @@
-source: frontend/app/(app)/alerts/page.tsx
-kind: object
-purpose: Alerts management page with CRUD and history

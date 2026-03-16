@@ -1,3 +1,0 @@
-source: hnswlib
-kind: external
-purpose: HNSW approximate nearest neighbor search

@@ -1,3 +1,0 @@
-source: .github/workflows/market-research.yml
-kind: object
-purpose: Market research cron daily 2am UTC

@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/middleware/observability.ts
-kind: object
-purpose: Structured JSON request/response logging

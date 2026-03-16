@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useAgent.ts
-kind: object
-purpose: React hook for AI agent streaming queries and usage stats

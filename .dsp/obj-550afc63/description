@@ -1,3 +1,0 @@
-source: frontend/components/ui/modal.tsx
-kind: object
-purpose: Modal dialog component

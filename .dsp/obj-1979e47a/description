@@ -1,3 +1,0 @@
-source: backend/migrations/022_fix_extracted_rates.sql
-kind: object
-purpose: Migration 022: fix extracted rates

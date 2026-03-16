@@ -1,3 +1,0 @@
-source: backend/config/settings.py
-kind: object
-purpose: 50+ config knobs via Pydantic BaseSettings

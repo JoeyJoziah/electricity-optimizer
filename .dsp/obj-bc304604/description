@@ -1,3 +1,0 @@
-source: backend/migrations/016_add_extracted_rates.sql
-kind: object
-purpose: Migration 016: add extracted rates

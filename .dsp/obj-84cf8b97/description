@@ -1,0 +1,3 @@
+source: backend/lib/circuit_breaker.py
+kind: object
+purpose: Generic Circuit Breaker — Zenith P0 H-16-02

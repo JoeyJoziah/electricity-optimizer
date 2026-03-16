@@ -1,3 +1,0 @@
-source: frontend/app/api/auth/[...all]/route.ts
-kind: object
-purpose: Better Auth catch-all API route handler

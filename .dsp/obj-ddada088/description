@@ -1,3 +1,0 @@
-source: frontend/lib/auth/client.ts
-kind: object
-purpose: Better Auth client instance configuration

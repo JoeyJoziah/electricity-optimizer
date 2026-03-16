@@ -1,3 +1,0 @@
-source: backend/app_factory.py
-kind: object
-purpose: create_app() factory: registers routes, middleware, CORS, lifespan events

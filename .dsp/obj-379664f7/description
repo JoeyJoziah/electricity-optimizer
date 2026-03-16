@@ -1,0 +1,3 @@
+source: backend/api/v1/neighborhood.py
+kind: object
+purpose: Neighborhood API — rate comparison vs. regional peers.

@@ -1,0 +1,3 @@
+source: frontend/lib/api/notifications.ts
+kind: object
+purpose: Shared library utility for Notifications

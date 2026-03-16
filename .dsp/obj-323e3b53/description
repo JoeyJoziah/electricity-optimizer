@@ -1,3 +1,0 @@
-source: .github/workflows/gateway-health.yml
-kind: object
-purpose: CF Worker gateway health check workflow (6h cron)

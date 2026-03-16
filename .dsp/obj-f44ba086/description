@@ -1,3 +1,0 @@
-source: frontend/components/connections/DirectLoginForm.tsx
-kind: object
-purpose: Direct utility login form

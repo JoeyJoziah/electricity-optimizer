@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useNotifications.ts
-kind: object
-purpose: React hook for notification list, count, mark-read mutations

@@ -1,3 +1,0 @@
-source: backend/migrations/001_init_neon.sql
-kind: object
-purpose: Migration 001: init neon

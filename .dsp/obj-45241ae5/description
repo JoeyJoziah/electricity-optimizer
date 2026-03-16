@@ -1,3 +1,0 @@
-source: Dockerfile
-kind: object
-purpose: Docker build configuration for backend container

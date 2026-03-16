@@ -1,0 +1,3 @@
+source: ml/inference/predictor.py
+kind: object
+purpose: Price Predictor Module

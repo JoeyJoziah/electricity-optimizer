@@ -1,0 +1,3 @@
+source: backend/api/v1/prices_analytics.py
+kind: object
+purpose: Price Analytics Endpoints

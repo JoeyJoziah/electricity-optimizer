@@ -1,3 +1,0 @@
-source: .github/actions/setup-node-env/action.yml
-kind: object
-purpose: Composite action: Node.js environment setup with caching

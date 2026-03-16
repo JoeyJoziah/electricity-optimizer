@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useRealtime.ts
-kind: object
-purpose: SSE hooks for real-time price streaming

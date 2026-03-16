@@ -1,3 +1,0 @@
-source: backend/gunicorn_config.py
-kind: object
-purpose: Gunicorn WSGI server configuration

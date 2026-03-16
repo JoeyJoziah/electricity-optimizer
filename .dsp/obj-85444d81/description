@@ -1,0 +1,3 @@
+source: backend/models/regulation.py
+kind: object
+purpose: State Regulation Models

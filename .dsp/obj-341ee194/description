@@ -1,0 +1,3 @@
+source: backend/api/v1/community_solar.py
+kind: object
+purpose: Community Solar API Endpoints

@@ -1,3 +1,0 @@
-source: backend/api/v1/savings.py
-kind: object
-purpose: Savings analysis endpoints (pro tier gated)

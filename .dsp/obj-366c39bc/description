@@ -1,3 +1,0 @@
-source: frontend/components/auth/LoginForm.tsx
-kind: object
-purpose: Login form with email/password and OAuth options

@@ -1,3 +1,0 @@
-source: frontend/components/dashboard/DashboardTypes.ts
-kind: object
-purpose: Dashboard TypeScript type definitions

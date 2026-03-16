@@ -1,3 +1,0 @@
-source: .github/workflows/model-retrain.yml
-kind: object
-purpose: ML model retraining workflow

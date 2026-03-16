@@ -1,3 +1,0 @@
-source: backend/migrations/020_add_oauth_tokens.sql
-kind: object
-purpose: Migration 020: add oauth tokens

@@ -1,3 +1,0 @@
-source: sqlalchemy
-kind: external
-purpose: Python SQL toolkit and ORM for database access

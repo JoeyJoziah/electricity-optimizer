@@ -1,3 +1,0 @@
-source: backend/api/v1/agent.py
-kind: object
-purpose: AI Agent API — SSE streaming queries, async tasks, usage stats

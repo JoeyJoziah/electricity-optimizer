@@ -1,3 +1,0 @@
-source: backend/services/data_persistence_helper.py
-kind: object
-purpose: Helper for persisting scraped/extracted data to database

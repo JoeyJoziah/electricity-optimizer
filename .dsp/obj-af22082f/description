@@ -1,3 +1,0 @@
-source: scripts/run_migrations_018_019.py
-kind: object
-purpose: Migration runner for migrations 18-19

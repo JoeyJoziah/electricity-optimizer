@@ -1,3 +1,0 @@
-source: backend/migrations/021_fix_connections.sql
-kind: object
-purpose: Migration 021: fix connections

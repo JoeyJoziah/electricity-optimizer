@@ -1,0 +1,3 @@
+source: backend/scripts/backfill_users.py
+kind: object
+purpose: One-time backfill: sync neon_auth.user → public.users

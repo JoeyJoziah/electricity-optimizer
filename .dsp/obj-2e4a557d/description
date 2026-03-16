@@ -1,0 +1,3 @@
+source: frontend/lib/api/community-solar.ts
+kind: object
+purpose: Shared library utility for Community Solar

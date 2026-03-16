@@ -1,3 +1,0 @@
-source: .github/workflows/sync-connections.yml
-kind: object
-purpose: Connection sync cron every 2 hours

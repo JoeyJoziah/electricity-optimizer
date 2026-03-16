@@ -1,3 +1,0 @@
-source: frontend/lib/api/optimization.ts
-kind: object
-purpose: Optimization API calls: analyze, schedule

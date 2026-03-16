@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/usePrices.ts
-kind: object
-purpose: TanStack Query hooks for price data

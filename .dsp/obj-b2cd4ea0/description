@@ -1,3 +1,0 @@
-source: frontend/lib/utils/url.ts
-kind: object
-purpose: URL validation with isSafeRedirect for security

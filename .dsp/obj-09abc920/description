@@ -1,3 +1,0 @@
-source: backend/services/model_version_service.py
-kind: object
-purpose: ML model version lifecycle management and comparison

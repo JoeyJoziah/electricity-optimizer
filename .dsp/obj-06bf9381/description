@@ -1,3 +1,0 @@
-source: backend/api/v1/internal/email_scan.py
-kind: object
-purpose: Internal endpoint POST /scan-emails — batch scan all active email_import connections, extract rates from body and attachments.

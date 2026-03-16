@@ -1,3 +1,0 @@
-source: frontend/types/api-helpers.ts
-kind: object
-purpose: Type bridges — camelCase aliases and normalizers for generated API types

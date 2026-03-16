@@ -1,3 +1,0 @@
-source: backend/services/price_sync_service.py
-kind: object
-purpose: Price synchronization across sources

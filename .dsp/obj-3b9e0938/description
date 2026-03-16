@@ -1,3 +1,0 @@
-source: scripts/production-deploy.sh
-kind: object
-purpose: Production deployment with safety checks

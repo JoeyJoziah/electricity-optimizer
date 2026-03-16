@@ -1,3 +1,0 @@
-source: backend/lib/circuit_breaker.py
-kind: object
-purpose: Generic async circuit breaker (CLOSED/OPEN/HALF_OPEN states) for resilient service calls. Used by PricingService and UtilityAPIClient.

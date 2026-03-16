@@ -1,3 +1,0 @@
-source: frontend/lib/constants/regions.ts
-kind: object
-purpose: Region constants for frontend state/region selection

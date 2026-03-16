@@ -1,3 +1,0 @@
-source: frontend/lib/auth/server.ts
-kind: object
-purpose: Server-side auth helpers for route protection

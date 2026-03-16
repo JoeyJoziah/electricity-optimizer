@@ -1,3 +1,0 @@
-source: frontend/lib/contexts/toast-context.tsx
-kind: object
-purpose: React context for toast notification dispatch

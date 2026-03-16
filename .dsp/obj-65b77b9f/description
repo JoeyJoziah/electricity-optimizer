@@ -1,3 +1,0 @@
-source: backend/api/v1/connections/analytics.py
-kind: object
-purpose: Connection analytics endpoints

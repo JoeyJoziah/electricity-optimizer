@@ -1,0 +1,3 @@
+source: backend/models/utility.py
+kind: object
+purpose: Utility Type Models

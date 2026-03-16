@@ -1,3 +1,0 @@
-source: backend/services/dunning_service.py
-kind: object
-purpose: Payment retry and dunning escalation with 24h cooldown

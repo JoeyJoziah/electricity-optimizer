@@ -1,3 +1,0 @@
-source: frontend/app/pricing/page.tsx
-kind: object
-purpose: Pricing page showing Free/Pro/Business tiers

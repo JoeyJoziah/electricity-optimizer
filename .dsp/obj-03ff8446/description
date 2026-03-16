@@ -1,3 +1,0 @@
-source: backend/api/v1/user.py
-kind: object
-purpose: User profile CRUD endpoints

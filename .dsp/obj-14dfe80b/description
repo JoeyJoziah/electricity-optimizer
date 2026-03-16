@@ -1,3 +1,0 @@
-source: backend/api/v1/feedback.py
-kind: object
-purpose: User feedback submission endpoint

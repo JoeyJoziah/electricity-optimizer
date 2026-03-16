@@ -1,3 +1,0 @@
-source: backend/auth/neon_auth.py
-kind: object
-purpose: SessionData type, get_current_user and get_optional_user dependencies

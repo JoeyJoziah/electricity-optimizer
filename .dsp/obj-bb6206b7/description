@@ -1,3 +1,0 @@
-source: backend/services/recommendation_service.py
-kind: object
-purpose: Recommendation engine for optimization suggestions

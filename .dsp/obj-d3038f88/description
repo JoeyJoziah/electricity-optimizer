@@ -1,3 +1,0 @@
-source: frontend/app/(app)/auth/reset-password/page.tsx
-kind: object
-purpose: Reset password page

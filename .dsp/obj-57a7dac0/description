@@ -1,0 +1,3 @@
+source: frontend/components/connections/BillUploadProgress.tsx
+kind: object
+purpose: UI component for Billuploadprogress

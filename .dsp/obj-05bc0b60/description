@@ -1,3 +1,0 @@
-source: backend/compliance/repositories.py
-kind: object
-purpose: Compliance data access layer

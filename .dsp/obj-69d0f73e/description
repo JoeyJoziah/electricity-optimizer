@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/middleware/cache.ts
-kind: object
-purpose: 2-tier caching middleware — Cache API + KV store with TTL

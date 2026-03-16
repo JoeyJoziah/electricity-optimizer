@@ -1,0 +1,3 @@
+source: backend/repositories/base.py
+kind: object
+purpose: Base Repository

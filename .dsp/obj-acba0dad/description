@@ -1,3 +1,0 @@
-source: backend/integrations/__init__.py
-kind: object
-purpose: Package init — backend/integrations namespace

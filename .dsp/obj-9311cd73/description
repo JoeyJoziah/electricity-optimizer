@@ -1,3 +1,0 @@
-source: frontend/components/layout/Sidebar.tsx
-kind: object
-purpose: Navigation sidebar with Bell icon and 7 nav items

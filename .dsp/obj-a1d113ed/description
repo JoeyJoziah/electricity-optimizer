@@ -1,3 +1,0 @@
-source: backend/api/v1/billing.py
-kind: object
-purpose: Stripe billing and subscription endpoints

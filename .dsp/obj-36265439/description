@@ -1,0 +1,3 @@
+source: frontend/lib/analytics/clarity.tsx
+kind: object
+purpose: Shared library utility for Clarity

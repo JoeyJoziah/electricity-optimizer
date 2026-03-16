@@ -1,3 +1,0 @@
-source: frontend/app/(app)/suppliers/error.tsx
-kind: object
-purpose: Next.js error boundary for /suppliers route

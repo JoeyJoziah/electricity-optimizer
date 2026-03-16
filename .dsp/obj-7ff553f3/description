@@ -1,3 +1,0 @@
-source: backend/integrations/utilityapi.py
-kind: object
-purpose: UtilityAPI integration for utility data sync

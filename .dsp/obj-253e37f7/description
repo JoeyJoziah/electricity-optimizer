@@ -1,3 +1,0 @@
-source: frontend/lib/api/client.ts
-kind: object
-purpose: Base HTTP client with retry logic and error handling

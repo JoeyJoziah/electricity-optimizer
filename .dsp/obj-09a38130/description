@@ -1,3 +1,0 @@
-source: workers/api-gateway/test/router.test.ts
-kind: object
-purpose: Router pattern matching unit tests

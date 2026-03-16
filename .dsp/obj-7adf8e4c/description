@@ -1,3 +1,0 @@
-source: frontend/lib/email/send.ts
-kind: object
-purpose: Dual-provider email: Resend primary + nodemailer SMTP fallback

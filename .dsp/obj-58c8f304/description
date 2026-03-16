@@ -1,3 +1,0 @@
-source: .github/workflows/observe-forecasts.yml
-kind: object
-purpose: Forecast observation recording workflow

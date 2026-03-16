@@ -1,0 +1,3 @@
+source: frontend/lib/utils/calculations.ts
+kind: object
+purpose: Shared library utility for Calculations

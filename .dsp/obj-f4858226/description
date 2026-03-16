@@ -1,3 +1,0 @@
-source: backend/config/__init__.py
-kind: object
-purpose: Config package init, re-exports settings

@@ -1,3 +1,0 @@
-source: ml/optimization/constraints.py
-kind: object
-purpose: Optimization constraints definition

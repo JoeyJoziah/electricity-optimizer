@@ -1,3 +1,0 @@
-source: backend/api/v1/internal/alerts.py
-kind: object
-purpose: Internal API sub-router: alerts endpoints

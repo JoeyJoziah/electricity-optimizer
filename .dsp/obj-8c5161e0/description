@@ -1,0 +1,3 @@
+source: frontend/lib/api/neighborhood.ts
+kind: object
+purpose: Shared library utility for Neighborhood

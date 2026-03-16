@@ -1,3 +1,0 @@
-source: better-auth
-kind: external
-purpose: Authentication library with session-based auth

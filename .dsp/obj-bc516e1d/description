@@ -1,3 +1,0 @@
-source: frontend/app/(app)/optimize/loading.tsx
-kind: object
-purpose: Next.js loading boundary for /optimize route

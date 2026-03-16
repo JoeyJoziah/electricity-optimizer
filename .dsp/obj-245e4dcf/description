@@ -1,3 +1,0 @@
-source: .github/actions/validate-migrations/action.yml
-kind: object
-purpose: Composite action: Migration convention validation

@@ -1,3 +1,0 @@
-source: frontend/components/onboarding/OnboardingWizard.tsx
-kind: object
-purpose: Multi-step onboarding wizard

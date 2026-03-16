@@ -1,3 +1,0 @@
-source: backend/migrations/010_add_user_suppliers.sql
-kind: object
-purpose: Migration 010: add user suppliers

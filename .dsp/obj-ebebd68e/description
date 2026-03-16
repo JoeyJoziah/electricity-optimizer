@@ -1,3 +1,0 @@
-source: frontend/app/(app)/layout.tsx
-kind: object
-purpose: App layout with Sidebar for authenticated pages

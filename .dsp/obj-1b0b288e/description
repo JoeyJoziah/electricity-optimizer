@@ -1,0 +1,3 @@
+source: backend/api/v1/prices_sse.py
+kind: object
+purpose: Price SSE Streaming Endpoints

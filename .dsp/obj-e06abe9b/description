@@ -1,0 +1,3 @@
+source: backend/api/v1/affiliate.py
+kind: object
+purpose: Affiliate API

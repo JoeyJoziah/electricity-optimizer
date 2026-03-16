@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/router.ts
-kind: object
-purpose: URL pattern matcher — resolves incoming requests to route configs

@@ -1,3 +1,0 @@
-source: scripts/restore.sh
-kind: object
-purpose: Database restore script

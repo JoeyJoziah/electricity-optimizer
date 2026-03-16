@@ -1,3 +1,0 @@
-source: scripts/loki-feature.sh
-kind: object
-purpose: Loki Mode feature workflow script

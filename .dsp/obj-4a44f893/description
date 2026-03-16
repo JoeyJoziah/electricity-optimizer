@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/config.ts
-kind: object
-purpose: Route configuration table — caching, rate limit tiers, auth requirements

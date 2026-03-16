@@ -1,3 +1,0 @@
-source: .github/actions/wait-for-service/action.yml
-kind: object
-purpose: Composite action: Wait for service health check

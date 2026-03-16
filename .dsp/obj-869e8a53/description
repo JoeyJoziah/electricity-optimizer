@@ -1,0 +1,3 @@
+source: backend/api/v1/gas_rates.py
+kind: object
+purpose: Gas Rate API Endpoints

@@ -1,3 +1,0 @@
-source: backend/services/weather_service.py
-kind: object
-purpose: Weather data fetching with Semaphore(10) parallelism

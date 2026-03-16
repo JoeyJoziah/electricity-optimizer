@@ -1,3 +1,0 @@
-source: backend/api/v1/webhooks.py
-kind: object
-purpose: Stripe webhook handler with dunning integration

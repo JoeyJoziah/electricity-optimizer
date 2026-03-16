@@ -1,3 +1,0 @@
-source: scripts/run_migrations_007_019.py
-kind: object
-purpose: Migration runner for migrations 7-19

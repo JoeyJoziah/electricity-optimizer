@@ -1,0 +1,3 @@
+source: backend/services/affiliate_service.py
+kind: object
+purpose: Affiliate Link Service

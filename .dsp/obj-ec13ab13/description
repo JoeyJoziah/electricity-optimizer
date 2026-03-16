@@ -1,3 +1,0 @@
-source: scripts/loki-verify.sh
-kind: object
-purpose: Loki Mode verification script

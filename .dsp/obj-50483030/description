@@ -1,3 +1,0 @@
-source: backend/services/analytics_service.py
-kind: object
-purpose: General analytics and metrics

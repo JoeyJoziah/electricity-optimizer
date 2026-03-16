@@ -1,3 +1,0 @@
-source: .github/workflows/fetch-weather.yml
-kind: object
-purpose: Weather fetch cron every 6 hours

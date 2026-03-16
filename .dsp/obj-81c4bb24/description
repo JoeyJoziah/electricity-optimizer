@@ -1,0 +1,3 @@
+source: frontend/components/community-solar/SavingsCalculator.tsx
+kind: object
+purpose: UI component for Savingscalculator

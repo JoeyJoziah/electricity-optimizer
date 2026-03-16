@@ -1,3 +1,0 @@
-source: backend/services/ab_test_service.py
-kind: object
-purpose: A/B test framework with SHA-256 consistent hashing assignment

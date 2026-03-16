@@ -1,3 +1,0 @@
-source: backend/services/vector_store.py
-kind: object
-purpose: AgentDB-inspired HNSW vector store with SQLite backend

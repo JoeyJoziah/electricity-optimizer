@@ -1,3 +1,0 @@
-source: frontend/components/feedback/FeedbackWidget.tsx
-kind: object
-purpose: Floating feedback submission widget with star rating

@@ -1,0 +1,3 @@
+source: backend/api/v1/connections/router.py
+kind: object
+purpose: Combined router for the Connections feature package.

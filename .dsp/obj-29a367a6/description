@@ -1,3 +1,0 @@
-source: frontend/app/api/dev/diagrams/route.ts
-kind: object
-purpose: Dev diagrams list API route

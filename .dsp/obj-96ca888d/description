@@ -1,3 +1,0 @@
-source: frontend/lib/utils/format.ts
-kind: object
-purpose: Formatting utilities for currency, dates, numbers

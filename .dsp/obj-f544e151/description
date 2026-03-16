@@ -1,3 +1,0 @@
-source: backend/utils/encryption.py
-kind: object
-purpose: AES-256-GCM field encryption for sensitive data

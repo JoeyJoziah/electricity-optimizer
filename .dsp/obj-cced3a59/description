@@ -1,0 +1,3 @@
+source: frontend/components/propane/PropaneDashboard.tsx
+kind: object
+purpose: UI component for Propanedashboard

@@ -1,3 +1,0 @@
-source: frontend/lib/api/profile.ts
-kind: object
-purpose: Profile API calls: get, update

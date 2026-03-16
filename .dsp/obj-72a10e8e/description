@@ -1,3 +1,0 @@
-source: frontend/app/robots.ts
-kind: object
-purpose: robots.txt route handler for SEO

@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useConnections.ts
-kind: object
-purpose: TanStack Query hooks for connections with 403 gate

@@ -1,3 +1,0 @@
-source: backend/utils/__init__.py
-kind: object
-purpose: Package init — backend/utils namespace

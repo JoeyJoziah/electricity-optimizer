@@ -1,3 +1,0 @@
-source: backend/migrations/011_add_consents.sql
-kind: object
-purpose: Migration 011: add consents

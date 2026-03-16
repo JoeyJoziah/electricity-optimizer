@@ -1,0 +1,3 @@
+source: frontend/types/api-helpers.ts
+kind: object
+purpose: TypeScript type definition for Api Helpers

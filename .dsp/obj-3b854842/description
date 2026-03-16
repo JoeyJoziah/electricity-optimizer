@@ -1,0 +1,3 @@
+source: frontend/lib/store/settings.ts
+kind: object
+purpose: Shared library utility for Settings

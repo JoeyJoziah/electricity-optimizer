@@ -1,0 +1,3 @@
+source: ml/models/ensemble.py
+kind: object
+purpose: Ensemble Model for Electricity Price Forecasting

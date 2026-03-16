@@ -1,3 +1,0 @@
-source: backend/auth/password.py
-kind: object
-purpose: Password hashing and verification utilities

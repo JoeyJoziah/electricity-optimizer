@@ -1,3 +1,0 @@
-source: frontend/components/auth/ResetPassword.tsx
-kind: object
-purpose: Reset password form

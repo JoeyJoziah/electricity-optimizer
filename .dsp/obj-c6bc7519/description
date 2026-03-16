@@ -1,3 +1,0 @@
-source: frontend/components/connections/ConnectionAnalytics.tsx
-kind: object
-purpose: Connection analytics dashboard (refactored 770->95+6)

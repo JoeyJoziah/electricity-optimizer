@@ -1,3 +1,0 @@
-source: frontend/lib/config/env.ts
-kind: object
-purpose: Environment configuration and API URL resolution

@@ -1,3 +1,0 @@
-source: backend/services/stripe_service.py
-kind: object
-purpose: Stripe payment operations and subscription management

@@ -1,3 +1,0 @@
-source: backend/repositories/user_repository.py
-kind: object
-purpose: UserRepository with get_by_stripe_customer_id

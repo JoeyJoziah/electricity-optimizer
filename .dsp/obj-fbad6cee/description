@@ -1,0 +1,3 @@
+source: frontend/lib/hooks/useAlerts.ts
+kind: object
+purpose: Shared library utility for Usealerts

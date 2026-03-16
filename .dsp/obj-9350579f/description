@@ -1,0 +1,3 @@
+source: frontend/components/onboarding/RegionSelector.tsx
+kind: object
+purpose: UI component for Regionselector

@@ -1,3 +1,0 @@
-source: httpx
-kind: external
-purpose: Async HTTP client for Python

@@ -1,0 +1,3 @@
+source: frontend/lib/hooks/useSuppliers.ts
+kind: object
+purpose: Shared library utility for Usesuppliers

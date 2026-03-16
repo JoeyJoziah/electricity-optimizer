@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useSavings.ts
-kind: object
-purpose: TanStack Query hooks for savings analysis

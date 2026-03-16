@@ -1,3 +1,0 @@
-source: backend/migrations/002_add_prices.sql
-kind: object
-purpose: Migration 002: add prices

@@ -1,3 +1,0 @@
-source: frontend/lib/api/notifications.ts
-kind: object
-purpose: API client for notifications — list, count, mark read

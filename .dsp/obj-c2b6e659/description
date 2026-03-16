@@ -1,3 +1,0 @@
-source: backend/migrations/012_add_regulations.sql
-kind: object
-purpose: Migration 012: add regulations

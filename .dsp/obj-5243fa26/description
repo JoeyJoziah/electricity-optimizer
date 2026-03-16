@@ -1,0 +1,3 @@
+source: frontend/components/onboarding/UtilityTypeSelector.tsx
+kind: object
+purpose: UI component for Utilitytypeselector

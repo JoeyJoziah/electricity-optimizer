@@ -1,0 +1,3 @@
+source: groq
+kind: external
+purpose: External package: groq

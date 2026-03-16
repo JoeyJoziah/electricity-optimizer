@@ -1,3 +1,0 @@
-source: frontend/app/global-error.tsx
-kind: object
-purpose: Global error boundary for root layout

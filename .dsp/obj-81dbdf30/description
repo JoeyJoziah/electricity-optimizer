@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/middleware/internal-auth.ts
+kind: object
+purpose: Middleware handler for Internal Auth

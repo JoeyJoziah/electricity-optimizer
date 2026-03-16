@@ -1,3 +1,0 @@
-source: ml/inference/predictor.py
-kind: object
-purpose: Single model predictor for inference

@@ -1,3 +1,0 @@
-source: frontend/components/ui/button.tsx
-kind: object
-purpose: Button component with variants and loading state

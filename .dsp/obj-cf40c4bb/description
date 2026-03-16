@@ -1,0 +1,3 @@
+source: ml/evaluation/backtesting.py
+kind: object
+purpose: Backtesting Framework for Electricity Price Forecasting

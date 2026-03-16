@@ -1,0 +1,3 @@
+source: frontend/components/cca/CCAInfo.tsx
+kind: object
+purpose: UI component for Ccainfo

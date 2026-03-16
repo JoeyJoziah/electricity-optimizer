@@ -1,3 +1,0 @@
-source: backend/auth/__init__.py
-kind: object
-purpose: Auth package init

@@ -1,3 +1,0 @@
-source: .github/workflows/scrape-portals.yml
-kind: object
-purpose: Portal scrape cron workflow (weekly Sunday 5am UTC)

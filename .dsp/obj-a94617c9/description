@@ -1,3 +1,0 @@
-source: frontend/lib/contexts/sidebar-context.tsx
-kind: object
-purpose: React context for sidebar open/close state

@@ -1,3 +1,0 @@
-source: frontend/next.config.js
-kind: object
-purpose: Next.js config: API rewrites, CSP, HSTS headers

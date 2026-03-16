@@ -1,3 +1,0 @@
-source: .github/workflows/_docker-build-push.yml
-kind: object
-purpose: Reusable Docker build and push workflow

@@ -1,3 +1,0 @@
-source: backend/tests/__init__.py
-kind: object
-purpose: Package init — backend/tests namespace

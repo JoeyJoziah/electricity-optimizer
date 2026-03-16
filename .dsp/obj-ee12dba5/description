@@ -1,3 +1,0 @@
-source: backend/services/kpi_report_service.py
-kind: object
-purpose: KPI aggregation for business metrics

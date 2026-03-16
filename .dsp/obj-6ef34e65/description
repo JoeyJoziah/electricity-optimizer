@@ -1,3 +1,0 @@
-source: backend/repositories/supplier_repository.py
-kind: object
-purpose: SupplierRepository for supplier queries

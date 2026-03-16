@@ -1,0 +1,3 @@
+source: backend/services/forecast_service.py
+kind: object
+purpose: Multi-Utility Forecast Service

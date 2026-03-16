@@ -1,3 +1,0 @@
-source: frontend/app/icon.tsx
-kind: object
-purpose: Dynamic favicon generator

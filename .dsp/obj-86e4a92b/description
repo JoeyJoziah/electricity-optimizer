@@ -1,0 +1,3 @@
+source: backend/services/weather_service.py
+kind: object
+purpose: Weather data for ML feature enrichment via OpenWeather v2.5 (free, no card).

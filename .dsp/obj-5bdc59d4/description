@@ -1,3 +1,0 @@
-source: frontend/components/charts/PriceLineChart.tsx
-kind: object
-purpose: Historical price line chart component

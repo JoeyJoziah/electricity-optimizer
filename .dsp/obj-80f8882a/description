@@ -1,3 +1,0 @@
-source: backend/services/notification_dispatcher.py
-kind: object
-purpose: Multi-channel notification dispatcher — push, email, in-app with delivery tracking

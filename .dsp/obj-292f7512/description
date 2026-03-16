@@ -1,3 +1,0 @@
-source: lightgbm
-kind: external
-purpose: Gradient boosting ML library for ensemble models

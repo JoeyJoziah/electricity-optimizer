@@ -1,3 +1,0 @@
-source: backend/models/connections.py
-kind: object
-purpose: UserConnection and ConnectionExtractedRate models

@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useDiagrams.ts
-kind: object
-purpose: Hooks for Excalidraw diagram editor

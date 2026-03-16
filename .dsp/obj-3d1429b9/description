@@ -1,0 +1,3 @@
+source: backend/api/v1/internal/portal_scan.py
+kind: object
+purpose: Internal portal scanning endpoint.

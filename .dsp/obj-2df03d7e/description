@@ -1,3 +1,0 @@
-source: frontend/app/(app)/dashboard/loading.tsx
-kind: object
-purpose: Next.js loading boundary for /dashboard route

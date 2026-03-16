@@ -1,3 +1,0 @@
-source: pyproject.toml
-kind: object
-purpose: Python project config: pytest, coverage thresholds, dependencies

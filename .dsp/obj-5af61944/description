@@ -1,3 +1,0 @@
-source: backend/models/user.py
-kind: object
-purpose: User model with UUID PK, subscription_tier, stripe_customer_id

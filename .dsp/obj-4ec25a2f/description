@@ -1,3 +1,0 @@
-source: frontend/components/dev/ExcalidrawWrapper.tsx
-kind: object
-purpose: Excalidraw library wrapper component

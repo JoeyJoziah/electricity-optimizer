@@ -1,3 +1,0 @@
-source: frontend/components/connections/BillUploadForm.tsx
-kind: object
-purpose: Bill upload form (refactored 658->352+6)

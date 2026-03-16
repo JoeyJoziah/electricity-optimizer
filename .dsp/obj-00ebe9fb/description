@@ -1,3 +1,0 @@
-source: backend/migrations/008_add_connections.sql
-kind: object
-purpose: Migration 008: add connections

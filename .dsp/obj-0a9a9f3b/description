@@ -1,0 +1,3 @@
+source: backend/api/v1/connections/rates.py
+kind: object
+purpose: Rate extraction and comparison endpoints.

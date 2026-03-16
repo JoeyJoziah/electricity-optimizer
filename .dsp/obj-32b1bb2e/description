@@ -1,3 +1,0 @@
-source: backend/scripts/db_maintenance.py
-kind: object
-purpose: Database vacuum, analyze, index maintenance script

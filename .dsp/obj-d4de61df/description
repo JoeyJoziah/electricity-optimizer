@@ -1,3 +1,0 @@
-source: pandas
-kind: external
-purpose: DataFrame library for data manipulation and analysis

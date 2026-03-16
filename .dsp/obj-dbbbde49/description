@@ -1,3 +1,0 @@
-source: backend/api/v1/suppliers.py
-kind: object
-purpose: Supplier registry and search endpoints

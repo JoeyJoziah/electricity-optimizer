@@ -1,3 +1,0 @@
-source: backend/integrations/pricing_apis/base.py
-kind: object
-purpose: BasePricingAPI abstract class for pricing providers

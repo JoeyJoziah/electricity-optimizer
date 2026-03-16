@@ -1,3 +1,0 @@
-source: .github/workflows/code-analysis.yml
-kind: object
-purpose: Static analysis and security scanning

@@ -1,3 +1,0 @@
-source: frontend/components/auth/VerifyEmail.tsx
-kind: object
-purpose: Email verification status component

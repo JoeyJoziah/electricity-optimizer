@@ -1,3 +1,0 @@
-source: frontend/app/not-found.tsx
-kind: object
-purpose: Custom 404 not-found page

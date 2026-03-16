@@ -1,3 +1,0 @@
-source: frontend/components/connections/ConnectionMethodPicker.tsx
-kind: object
-purpose: Connection method selection

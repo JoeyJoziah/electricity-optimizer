@@ -1,3 +1,0 @@
-source: backend/api/v1/internal.py
-kind: object
-purpose: Internal cron endpoints: alerts, weather, market, sync, scrape, dunning, kpi, health

@@ -1,3 +1,0 @@
-source: frontend/app/(app)/prices/error.tsx
-kind: object
-purpose: Next.js error boundary for /prices route

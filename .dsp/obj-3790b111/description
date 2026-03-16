@@ -1,3 +1,0 @@
-source: frontend/components/ui/toast.tsx
-kind: object
-purpose: Toast notification component

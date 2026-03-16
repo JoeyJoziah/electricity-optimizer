@@ -1,3 +1,0 @@
-source: backend/api/v1/recommendations.py
-kind: object
-purpose: Recommendation endpoints (pro tier gated)

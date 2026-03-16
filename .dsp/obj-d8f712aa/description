@@ -1,3 +1,0 @@
-source: ml/optimization/objective.py
-kind: object
-purpose: Objective functions for optimization

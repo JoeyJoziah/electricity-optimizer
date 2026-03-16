@@ -1,3 +1,0 @@
-source: backend/api/v1/prices_sse.py
-kind: object
-purpose: SSE streaming endpoint (business tier gated)

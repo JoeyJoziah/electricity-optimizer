@@ -1,3 +1,0 @@
-source: backend/models/model_version.py
-kind: object
-purpose: Pydantic model for ML model versioning and A/B test definitions

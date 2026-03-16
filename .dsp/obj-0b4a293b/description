@@ -1,3 +1,0 @@
-source: frontend/lib/api/suppliers.ts
-kind: object
-purpose: Supplier API calls: search, registry

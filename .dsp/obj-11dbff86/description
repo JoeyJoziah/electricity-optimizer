@@ -1,0 +1,3 @@
+source: backend/services/observation_service.py
+kind: object
+purpose: Observation Service

@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useOptimization.ts
-kind: object
-purpose: TanStack Query hooks for optimization

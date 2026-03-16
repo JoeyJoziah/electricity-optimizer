@@ -1,3 +1,0 @@
-source: backend/api/v1/connections/email_oauth.py
-kind: object
-purpose: Email OAuth flow for bill scanning

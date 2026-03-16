@@ -1,3 +1,0 @@
-source: frontend/lib/store/settings.ts
-kind: object
-purpose: Zustand store for user preferences and settings

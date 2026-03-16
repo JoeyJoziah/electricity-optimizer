@@ -1,0 +1,3 @@
+source: backend/services/agent_service.py
+kind: object
+purpose: RateShift AI Agent Service

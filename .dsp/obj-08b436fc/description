@@ -1,3 +1,0 @@
-source: backend/services/agent_service.py
-kind: object
-purpose: RateShift AI agent — Gemini Flash + Groq fallback with SSE streaming

@@ -1,3 +1,0 @@
-source: .github/workflows/_backend-tests.yml
-kind: object
-purpose: Reusable backend test workflow

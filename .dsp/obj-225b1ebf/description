@@ -1,0 +1,3 @@
+source: @playwright/test
+kind: external
+purpose: External package: @playwright/test

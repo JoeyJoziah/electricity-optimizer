@@ -1,3 +1,0 @@
-source: frontend/app/(app)/assistant/page.tsx
-kind: object
-purpose: AI Assistant page — renders AgentChat component

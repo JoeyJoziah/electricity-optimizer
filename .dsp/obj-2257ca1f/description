@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useAuth.tsx
-kind: object
-purpose: AuthProvider context with signIn, signUp, OAuth, magic link, OneSignal binding

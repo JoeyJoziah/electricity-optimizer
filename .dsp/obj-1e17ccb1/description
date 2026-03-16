@@ -1,0 +1,3 @@
+source: backend/integrations/pricing_apis/service.py
+kind: object
+purpose: Unified Pricing Service

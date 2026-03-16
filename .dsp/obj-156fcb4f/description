@@ -1,0 +1,3 @@
+source: backend/services/email_scanner_service.py
+kind: object
+purpose: Email scanner service — searches Gmail/Outlook inboxes for utility bill emails.

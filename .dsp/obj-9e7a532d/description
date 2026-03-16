@@ -1,0 +1,3 @@
+source: frontend/lib/api/community.ts
+kind: object
+purpose: ---------------------------------------------------------------------------

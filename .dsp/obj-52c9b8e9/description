@@ -1,3 +1,0 @@
-source: backend/migrations/024_payment_retry_history.sql
-kind: object
-purpose: Migration 024: payment retry history

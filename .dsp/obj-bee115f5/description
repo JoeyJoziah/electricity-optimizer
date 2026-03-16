@@ -1,3 +1,0 @@
-source: pulp
-kind: external
-purpose: PuLP linear programming toolkit for MILP optimization
