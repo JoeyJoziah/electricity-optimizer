@@ -15,6 +15,6 @@
 
 | [x] | perf-optimization_20260316 | Performance Optimization — Brainstorm-Validated | 2026-03-16 | 2026-03-16 |
 
-| [ ] | dependency-upgrade_20260317 | Dependency Upgrade — Security Remediation & Major Version Bumps | 2026-03-17 | 2026-03-17 |
+| [x] | dependency-upgrade_20260317 | Dependency Upgrade — Security Remediation & Major Version Bumps | 2026-03-17 | 2026-03-17 |
 
 <!-- Tracks registered by /conductor:new-track -->
