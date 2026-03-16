@@ -12,11 +12,24 @@ import {
 import type { Appliance } from '@/types'
 
 /**
- * Hook for getting optimal schedule
+ * Hook for getting optimal schedule.
+ *
+ * The request object is destructured into primitive queryKey parts so that
+ * React Query compares by value rather than by reference. Passing the full
+ * request object inline (e.g. `{ appliances, region }`) creates a new
+ * reference every render, which defeats React Query's identity check and
+ * can trigger infinite refetches.
  */
 export function useOptimalSchedule(request: GetOptimalScheduleRequest) {
+  // Stable identity for the appliance list: sorted IDs joined as a string.
+  const applianceIds = request.appliances
+    .map((a) => a.id)
+    .sort()
+    .join(',')
+  const { region, date } = request
+
   return useQuery({
-    queryKey: ['optimization', 'schedule', request],
+    queryKey: ['optimization', 'schedule', applianceIds, region ?? null, date ?? null],
     queryFn: ({ signal }) => getOptimalSchedule(request, signal),
     enabled: request.appliances.length > 0,
     staleTime: 180000, // Consider stale after 3 minutes
@@ -62,11 +75,18 @@ export function useSaveAppliances() {
 }
 
 /**
- * Hook for calculating potential savings
+ * Hook for calculating potential savings.
+ *
+ * The appliances array is serialized via JSON.stringify in the queryKey
+ * so React Query compares by value rather than by reference, preventing
+ * unnecessary refetches when the caller creates a new array with the
+ * same contents on each render.
  */
 export function usePotentialSavings(appliances: Appliance[], region: string | null | undefined) {
+  const stableAppliancesKey = JSON.stringify(appliances)
+
   return useQuery({
-    queryKey: ['potential-savings', appliances, region],
+    queryKey: ['potential-savings', stableAppliancesKey, region],
     queryFn: ({ signal }) => calculatePotentialSavings(appliances, region!, signal),
     enabled: appliances.length > 0 && !!region,
     staleTime: 300000,

@@ -45,18 +45,18 @@ describe('RateChangeCard', () => {
     expect(screen.getByText(/Eversource/)).toBeInTheDocument()
   })
 
-  it('shows increase badge with red styling', () => {
+  it('shows increase badge with danger styling', () => {
     render(<RateChangeCard change={mockIncrease} />)
     const badge = screen.getByText(/20\.0%/)
     expect(badge).toBeInTheDocument()
-    expect(badge.className).toContain('text-red-700')
+    expect(badge.className).toContain('text-danger-700')
   })
 
-  it('shows decrease badge with green styling', () => {
+  it('shows decrease badge with success styling', () => {
     render(<RateChangeCard change={mockDecrease} />)
     const badge = screen.getByText(/20\.0%/)
     expect(badge).toBeInTheDocument()
-    expect(badge.className).toContain('text-green-700')
+    expect(badge.className).toContain('text-success-700')
   })
 
   it('renders previous and current prices', () => {

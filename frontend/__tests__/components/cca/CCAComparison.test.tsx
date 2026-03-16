@@ -77,19 +77,19 @@ describe('CCAComparison', () => {
     expect(screen.getByText(/3% higher/)).toBeInTheDocument()
   })
 
-  it('applies green color when CCA is cheaper', () => {
+  it('applies success color when CCA is cheaper', () => {
     mockUseCCACompare.mockReturnValue({ data: mockCheaperData, isLoading: false, error: null })
     render(<CCAComparison ccaId="cca-1" defaultRate={0.2} />)
 
     const ccaRate = screen.getByText('$0.1900/kWh')
-    expect(ccaRate.className).toContain('text-green-600')
+    expect(ccaRate.className).toContain('text-success-600')
   })
 
-  it('applies red color when CCA is more expensive', () => {
+  it('applies danger color when CCA is more expensive', () => {
     mockUseCCACompare.mockReturnValue({ data: mockExpensiveData, isLoading: false, error: null })
     render(<CCAComparison ccaId="cca-1" defaultRate={0.2} />)
 
     const ccaRate = screen.getByText('$0.2060/kWh')
-    expect(ccaRate.className).toContain('text-red-600')
+    expect(ccaRate.className).toContain('text-danger-600')
   })
 })

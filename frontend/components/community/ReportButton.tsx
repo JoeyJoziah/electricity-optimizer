@@ -27,7 +27,7 @@ export function ReportButton({ postId }: ReportButtonProps) {
         <button
           onClick={handleReport}
           disabled={mutation.isPending}
-          className="text-xs font-medium text-red-600 hover:underline"
+          className="text-xs font-medium text-danger-600 hover:underline"
           data-testid={`report-yes-${postId}`}
         >
           Yes
@@ -46,7 +46,7 @@ export function ReportButton({ postId }: ReportButtonProps) {
     <button
       onClick={() => setShowConfirm(true)}
       data-testid={`report-btn-${postId}`}
-      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+      className="text-xs text-gray-400 hover:text-danger-500 transition-colors"
     >
       Report
     </button>

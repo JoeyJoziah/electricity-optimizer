@@ -370,6 +370,50 @@ describe('useCompareSuppliers', () => {
 
     expect(result.current.fetchStatus).toBe('idle')
   })
+
+  it('uses sorted JSON.stringify for stable queryKey', async () => {
+    const { wrapper, queryClient } = createWrapper()
+
+    renderHook(() => useCompareSuppliers(['sup-2', 'sup-1'], 10000), { wrapper })
+
+    await waitFor(() => {
+      const queries = queryClient.getQueryCache().getAll()
+      const keys = queries.map((q) => q.queryKey)
+      // IDs are sorted before stringifying
+      expect(keys).toContainEqual([
+        'compare',
+        JSON.stringify(['sup-1', 'sup-2']),
+        10000,
+      ])
+    })
+  })
+
+  it('does not refetch when supplierIds array is recreated with same IDs', async () => {
+    const { wrapper } = createWrapper()
+
+    const ids1 = ['sup-1', 'sup-2']
+    const ids2 = ['sup-1', 'sup-2'] // new array reference, same content
+
+    const { rerender } = renderHook(
+      ({ ids }: { ids: string[] }) => useCompareSuppliers(ids, 10000),
+      {
+        wrapper,
+        initialProps: { ids: ids1 },
+      }
+    )
+
+    await waitFor(() => {
+      expect(mockCompareSuppliers).toHaveBeenCalledTimes(1)
+    })
+
+    // Rerender with a new array reference but same content
+    rerender({ ids: ids2 })
+
+    // Should NOT trigger a second fetch
+    await waitFor(() => {
+      expect(mockCompareSuppliers).toHaveBeenCalledTimes(1)
+    })
+  })
 })
 
 // ==========================================================================

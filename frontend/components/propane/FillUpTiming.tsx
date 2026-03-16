@@ -8,15 +8,15 @@ interface FillUpTimingProps {
 
 const TIMING_CONFIG = {
   good: {
-    border: 'border-green-200',
-    bg: 'bg-green-50',
-    text: 'text-green-800',
+    border: 'border-success-200',
+    bg: 'bg-success-50',
+    text: 'text-success-800',
     label: 'Good Time to Buy',
   },
   wait: {
-    border: 'border-amber-200',
-    bg: 'bg-amber-50',
-    text: 'text-amber-800',
+    border: 'border-warning-200',
+    bg: 'bg-warning-50',
+    text: 'text-warning-800',
     label: 'Consider Waiting',
   },
   neutral: {

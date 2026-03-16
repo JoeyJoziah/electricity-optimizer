@@ -32,7 +32,7 @@ export function CCAComparison({ ccaId, defaultRate }: CCAComparisonProps) {
         </div>
         <div>
           <p className="text-xs text-gray-500">CCA Rate</p>
-          <p className={`text-lg font-bold ${data.is_cheaper ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-lg font-bold ${data.is_cheaper ? 'text-success-600' : 'text-danger-600'}`}>
             ${data.cca_rate.toFixed(4)}/kWh
           </p>
         </div>
@@ -41,12 +41,12 @@ export function CCAComparison({ ccaId, defaultRate }: CCAComparisonProps) {
       <div className="mt-3 rounded bg-gray-50 p-2">
         <p className="text-sm">
           {data.is_cheaper ? (
-            <span className="text-green-700">
+            <span className="text-success-700">
               Saving ~${data.estimated_monthly_savings.toFixed(2)}/month
               ({Math.abs(data.rate_difference_pct)}% less)
             </span>
           ) : (
-            <span className="text-amber-700">
+            <span className="text-warning-700">
               Costing ~${Math.abs(data.estimated_monthly_savings).toFixed(2)}/month more
               ({data.rate_difference_pct}% higher)
             </span>

@@ -12,8 +12,8 @@ const UTILITY_LABELS: Record<string, string> = {
 }
 
 const TREND_COLORS: Record<string, string> = {
-  increasing: 'text-red-600',
-  decreasing: 'text-green-600',
+  increasing: 'text-danger-600',
+  decreasing: 'text-success-600',
   stable: 'text-gray-600',
 }
 
@@ -79,7 +79,7 @@ export function ForecastWidget({ state }: ForecastWidgetProps) {
         )}
 
         {error && (
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-700">
             {error instanceof Error ? error.message : 'Failed to load forecast'}
           </div>
         )}

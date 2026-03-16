@@ -86,13 +86,13 @@ export function DataExport({ state }: DataExportProps) {
           <button
             onClick={handleExport}
             disabled={isLoading}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
             {isLoading ? 'Exporting...' : 'Export Data'}
           </button>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-700">
               {error instanceof Error
                 ? error.message
                 : 'Failed to export data'}

@@ -24,7 +24,7 @@ export function AlertPreferences() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load preferences.</p>
+    return <p className="text-sm text-danger-500">Failed to load preferences.</p>
   }
 
   const prefs = data?.preferences ?? []
@@ -61,7 +61,7 @@ export function AlertPreferences() {
                 aria-label={`Toggle ${label} alerts`}
                 onClick={() => handleToggle(key, enabled)}
                 className={`relative h-6 w-11 rounded-full transition-colors ${
-                  enabled ? 'bg-blue-600' : 'bg-gray-300'
+                  enabled ? 'bg-primary-600' : 'bg-gray-300'
                 }`}
               >
                 <span

@@ -138,12 +138,13 @@ describe('useOptimalSchedule', () => {
     expect(mockGetOptimalSchedule).not.toHaveBeenCalled()
   })
 
-  it('uses correct query key including request', async () => {
+  it('uses stable primitive queryKey with sorted appliance IDs', async () => {
     const { wrapper, queryClient } = createWrapper()
 
     const request = {
       appliances: [mockAppliance],
       region: 'us_ct',
+      date: '2026-02-25',
     }
 
     renderHook(() => useOptimalSchedule(request), { wrapper })
@@ -151,7 +152,14 @@ describe('useOptimalSchedule', () => {
     await waitFor(() => {
       const queries = queryClient.getQueryCache().getAll()
       const keys = queries.map((q) => q.queryKey)
-      expect(keys).toContainEqual(['optimization', 'schedule', request])
+      // applianceIds = sorted IDs joined by comma
+      expect(keys).toContainEqual([
+        'optimization',
+        'schedule',
+        'app-1',
+        'us_ct',
+        '2026-02-25',
+      ])
     })
   })
 
@@ -393,7 +401,7 @@ describe('usePotentialSavings', () => {
     expect(mockCalculatePotentialSavings).not.toHaveBeenCalled()
   })
 
-  it('uses correct query key', async () => {
+  it('uses JSON.stringify for stable appliance queryKey', async () => {
     const { wrapper, queryClient } = createWrapper()
 
     renderHook(() => usePotentialSavings([mockAppliance], 'us_ny'), { wrapper })
@@ -403,9 +411,38 @@ describe('usePotentialSavings', () => {
       const keys = queries.map((q) => q.queryKey)
       expect(keys).toContainEqual([
         'potential-savings',
-        [mockAppliance],
+        JSON.stringify([mockAppliance]),
         'us_ny',
       ])
+    })
+  })
+
+  it('does not refetch when appliances array is recreated with same content', async () => {
+    const { wrapper } = createWrapper()
+
+    const appliances1 = [{ ...mockAppliance }]
+    const appliances2 = [{ ...mockAppliance }]
+
+    const { rerender } = renderHook(
+      ({ appliances }: { appliances: typeof appliances1 }) =>
+        usePotentialSavings(appliances, 'us_ct'),
+      {
+        wrapper,
+        initialProps: { appliances: appliances1 },
+      }
+    )
+
+    await waitFor(() => {
+      expect(mockCalculatePotentialSavings).toHaveBeenCalledTimes(1)
+    })
+
+    // Rerender with a new array reference but same content
+    rerender({ appliances: appliances2 })
+
+    // Should NOT trigger a second fetch because JSON.stringify produces
+    // the same string for both arrays
+    await waitFor(() => {
+      expect(mockCalculatePotentialSavings).toHaveBeenCalledTimes(1)
     })
   })
 

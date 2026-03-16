@@ -5,13 +5,9 @@
 /*
  * Design System CSS Custom Properties
  *
- * Force light color scheme until dark mode is fully implemented.
- * The app uses hardcoded Tailwind color classes (text-gray-900, bg-white, etc.)
- * which don't respond to prefers-color-scheme. Using color-scheme: light
- * prevents browser dark mode from creating contrast issues (white text on
- * white backgrounds in form inputs).
- *
- * When implementing dark mode, switch to darkMode: 'class' in tailwind.config.ts
+ * Force light color scheme until dark mode UI is fully implemented.
+ * darkMode: 'class' is configured in tailwind.config.ts so dark: prefixes
+ * are available. When dark mode UI is built, add class="dark" to <html>
  * and use dark: prefixes on all color-bearing classes.
  */
 
@@ -115,65 +111,30 @@ body {
   background: #94a3b8;
 }
 
+/* Scrollbar-hide utility: hides scrollbar while keeping scroll functionality */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Focus visible outline — consistent primary color */
 *:focus-visible {
   outline: 2px solid rgb(var(--color-primary));
   outline-offset: 2px;
 }
 
-/* Animations */
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
+/*
+ * Animation helper classes.
+ * Keyframes are defined once in tailwind.config.ts (the canonical source).
+ * These utility classes reference the same keyframe names and are kept
+ * here for backwards-compat with markup that uses the CSS class names
+ * directly (e.g. .animate-slideDown) rather than Tailwind's animate-* utilities.
+ */
 .animate-slideDown {
   animation: slideDown 0.2s ease-out;
 }

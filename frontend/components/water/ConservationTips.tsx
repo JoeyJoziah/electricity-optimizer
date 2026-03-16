@@ -3,9 +3,9 @@
 import { useWaterTips } from '@/lib/hooks/useWater'
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: 'bg-green-100 text-green-700',
-  moderate: 'bg-yellow-100 text-yellow-700',
-  hard: 'bg-red-100 text-red-700',
+  easy: 'bg-success-100 text-success-700',
+  moderate: 'bg-warning-100 text-warning-700',
+  hard: 'bg-danger-100 text-danger-700',
 }
 
 export function ConservationTips() {

@@ -22,11 +22,14 @@ export function useAlerts() {
 }
 
 /**
- * Hook for fetching paginated alert trigger history
+ * Hook for fetching paginated alert trigger history.
+ *
+ * Both `page` and `pageSize` are included in the queryKey so React Query
+ * refetches automatically when either parameter changes.
  */
 export function useAlertHistory(page: number = 1, pageSize: number = 20) {
   return useQuery({
-    queryKey: ['alerts', 'history', page],
+    queryKey: ['alerts', 'history', page, pageSize],
     queryFn: ({ signal }) => getAlertHistory(page, pageSize, signal),
     staleTime: 30000,
   })

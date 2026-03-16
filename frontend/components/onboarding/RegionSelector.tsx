@@ -39,8 +39,8 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-          <MapPin className="h-8 w-8 text-blue-600" />
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-100">
+          <MapPin className="h-8 w-8 text-primary-600" />
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Select your state</h1>
         <p className="mt-2 text-gray-600">
@@ -56,7 +56,7 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
           placeholder="Search states..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </div>
 
@@ -77,7 +77,7 @@ export function RegionSelector({ onSelect, isLoading }: RegionSelectorProps) {
                   onClick={() => setSelected(state.value)}
                   className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
                     isSelected
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-primary-50 text-primary-700'
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >

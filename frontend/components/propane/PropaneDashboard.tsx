@@ -32,7 +32,7 @@ export function PropaneDashboard() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700">
         Unable to load propane prices. Please try again later.
       </div>
     )
@@ -47,13 +47,13 @@ export function PropaneDashboard() {
     <div className="space-y-6">
       {/* National average */}
       {nationalPrice && (
-        <div className="rounded-lg border bg-blue-50 p-4">
-          <p className="text-sm font-medium text-blue-900">National Average</p>
-          <p className="text-2xl font-bold text-blue-900">
+        <div className="rounded-lg border bg-primary-50 p-4">
+          <p className="text-sm font-medium text-primary-900">National Average</p>
+          <p className="text-2xl font-bold text-primary-900">
             ${nationalPrice.price_per_gallon.toFixed(2)}/gallon
           </p>
           {nationalPrice.period_date && (
-            <p className="text-xs text-blue-600">
+            <p className="text-xs text-primary-600">
               Week of {nationalPrice.period_date}
             </p>
           )}
@@ -69,7 +69,7 @@ export function PropaneDashboard() {
           id="propane-state-select"
           value={selectedState || ''}
           onChange={(e) => setSelectedState(e.target.value || undefined)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
         >
           <option value="">All States</option>
           {trackedStates.map((st) => (
@@ -94,7 +94,7 @@ export function PropaneDashboard() {
             return (
               <div
                 key={p.state}
-                className="rounded-lg border p-4 cursor-pointer hover:border-blue-300 transition-colors"
+                className="rounded-lg border p-4 cursor-pointer hover:border-primary-300 transition-colors"
                 onClick={() => setSelectedState(p.state)}
               >
                 <div className="flex items-center justify-between">
@@ -104,7 +104,7 @@ export function PropaneDashboard() {
                   {diff !== null && (
                     <span
                       className={`text-xs font-medium ${
-                        diff < 0 ? 'text-green-600' : diff > 0 ? 'text-red-600' : 'text-gray-500'
+                        diff < 0 ? 'text-success-600' : diff > 0 ? 'text-danger-600' : 'text-gray-500'
                       }`}
                     >
                       {diff > 0 ? '+' : ''}

@@ -146,7 +146,7 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
           className="w-full rounded-lg border px-3 py-2 text-sm"
           data-testid="post-title-input"
         />
-        {errors.title && <p className="mt-1 text-xs text-red-500" data-testid="title-error">{errors.title}</p>}
+        {errors.title && <p className="mt-1 text-xs text-danger-500" data-testid="title-error">{errors.title}</p>}
       </div>
 
       <div>
@@ -159,7 +159,7 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
           className="w-full rounded-lg border px-3 py-2 text-sm"
           data-testid="post-body-input"
         />
-        {errors.body && <p className="mt-1 text-xs text-red-500" data-testid="body-error">{errors.body}</p>}
+        {errors.body && <p className="mt-1 text-xs text-danger-500" data-testid="body-error">{errors.body}</p>}
       </div>
 
       {/* Rate fields — only for rate_report */}
@@ -226,7 +226,7 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
           Cancel
         </button>
         {mutation.isError && (
-          <span className="text-xs text-red-500" data-testid="post-submit-error">
+          <span className="text-xs text-danger-500" data-testid="post-submit-error">
             Failed to create post. Try again.
           </span>
         )}

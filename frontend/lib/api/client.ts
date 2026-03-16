@@ -240,12 +240,13 @@ export const apiClient = {
     })
   },
 
-  async delete<T>(endpoint: string, options?: { signal?: AbortSignal }): Promise<T> {
+  async delete<T>(endpoint: string, data?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: buildHeaders(),
       credentials: 'include',
+      body: data ? JSON.stringify(data) : undefined,
       signal: options?.signal,
     })
   },

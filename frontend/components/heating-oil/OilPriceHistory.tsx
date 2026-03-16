@@ -34,8 +34,8 @@ export function OilPriceHistory({ state }: OilPriceHistoryProps) {
               <p className="text-gray-500">vs National Avg</p>
               <p className={`text-lg font-bold ${
                 comparison.difference_pct !== null && comparison.difference_pct < 0
-                  ? 'text-green-600'
-                  : 'text-red-600'
+                  ? 'text-success-600'
+                  : 'text-danger-600'
               }`}>
                 {comparison.difference_pct !== null
                   ? `${comparison.difference_pct > 0 ? '+' : ''}${comparison.difference_pct}%`

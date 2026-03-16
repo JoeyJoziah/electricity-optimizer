@@ -264,12 +264,46 @@ describe('Escape key handling', () => {
 // Body scroll lock
 // ---------------------------------------------------------------------------
 describe('body scroll lock', () => {
-  afterEach(() => {
-    // Restore body overflow between tests
-    document.body.style.overflow = ''
+  let originalInnerWidth: number
+
+  beforeEach(() => {
+    originalInnerWidth = window.innerWidth
   })
 
-  it('sets body overflow to "hidden" when sidebar opens', () => {
+  afterEach(() => {
+    // Restore body overflow and viewport width between tests
+    document.body.style.overflow = ''
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: originalInnerWidth,
+    })
+  })
+
+  /**
+   * Helper to simulate a mobile viewport (below the lg breakpoint of 1024px).
+   */
+  function setMobileViewport() {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 375,
+    })
+  }
+
+  /**
+   * Helper to simulate a desktop viewport (at or above the lg breakpoint).
+   */
+  function setDesktopViewport() {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1280,
+    })
+  }
+
+  it('sets body overflow to "hidden" when sidebar opens on mobile', () => {
+    setMobileViewport()
     const wrapper = createWrapper()
     const { result } = renderHook(() => useSidebar(), { wrapper })
 
@@ -280,7 +314,20 @@ describe('body scroll lock', () => {
     expect(document.body.style.overflow).toBe('hidden')
   })
 
-  it('restores body overflow to "" when sidebar closes', () => {
+  it('does NOT set body overflow to "hidden" when sidebar opens on desktop', () => {
+    setDesktopViewport()
+    const wrapper = createWrapper()
+    const { result } = renderHook(() => useSidebar(), { wrapper })
+
+    act(() => {
+      result.current.toggle()
+    })
+
+    expect(document.body.style.overflow).not.toBe('hidden')
+  })
+
+  it('restores body overflow to "" when sidebar closes on mobile', () => {
+    setMobileViewport()
     const wrapper = createWrapper()
     const { result } = renderHook(() => useSidebar(), { wrapper })
 
@@ -301,7 +348,8 @@ describe('body scroll lock', () => {
     expect(document.body.style.overflow).not.toBe('hidden')
   })
 
-  it('restores body overflow on unmount when sidebar was open', () => {
+  it('restores body overflow on unmount when sidebar was open on mobile', () => {
+    setMobileViewport()
     const wrapper = createWrapper()
     const { result, unmount } = renderHook(() => useSidebar(), { wrapper })
 

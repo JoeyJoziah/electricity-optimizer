@@ -34,9 +34,9 @@ const VARIANT_STYLES: Record<
     iconColor: 'text-warning-600',
   },
   info: {
-    bg: 'bg-blue-50 border-blue-200',
+    bg: 'bg-primary-50 border-primary-200',
     icon: Info,
-    iconColor: 'text-blue-600',
+    iconColor: 'text-primary-600',
   },
 }
 

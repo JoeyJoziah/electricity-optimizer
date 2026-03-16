@@ -7,7 +7,7 @@
  * Session management uses httpOnly cookies (no localStorage tokens).
  */
 
-import { useState, useEffect, useCallback, useMemo, createContext, useContext, ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth/client'
 import { getUserSupplier } from '@/lib/api/suppliers'
@@ -58,6 +58,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+
+  // Keep a ref to the latest router so the mount-only initAuth effect always
+  // uses the current router instance rather than a stale closure capture.
+  // Next.js may return a new router object on navigation; without the ref
+  // the effect would call replace() on the original (stale) instance.
+  const routerRef = useRef(router)
+  useEffect(() => {
+    routerRef.current = router
+  }, [router])
 
   // Initialize auth state from session cookie
   // Fetch session, supplier, and profile data in parallel to avoid waterfall
@@ -124,13 +133,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Redirect to onboarding if user hasn't completed it yet.
           // Use router.replace (not window.location.href) to prevent the
           // browser from adding a history entry that creates back-button loops.
+          // Access via routerRef to avoid stale closure from the mount effect.
           if (profileResult.status === 'fulfilled') {
             const profile = profileResult.value
             if (!profile.onboarding_completed || !profile.region) {
               const path = window.location.pathname
               // Only redirect if we're on an app page (not already on onboarding or auth)
               if (path.startsWith('/dashboard') || path.startsWith('/prices') || path.startsWith('/suppliers') || path.startsWith('/optimize') || path.startsWith('/connections') || path.startsWith('/settings') || path.startsWith('/alerts') || path.startsWith('/assistant')) {
-                router.replace('/onboarding')
+                routerRef.current.replace('/onboarding')
                 return
               }
             }

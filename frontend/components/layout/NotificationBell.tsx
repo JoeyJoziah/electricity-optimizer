@@ -99,7 +99,7 @@ export function NotificationBell() {
             aria-hidden="true"
             className={cn(
               'absolute -right-1 -top-1 flex items-center justify-center',
-              'h-5 w-5 rounded-full bg-red-600 text-xs font-semibold text-white',
+              'h-5 w-5 rounded-full bg-danger-600 text-xs font-semibold text-white',
             )}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -121,7 +121,7 @@ export function NotificationBell() {
               <button
                 onClick={() => markAllRead.mutate()}
                 disabled={markAllRead.isPending}
-                className="text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                className="text-xs font-medium text-primary-600 hover:text-primary-800 disabled:opacity-50"
               >
                 Mark all read
               </button>
@@ -136,7 +136,7 @@ export function NotificationBell() {
                   onClick={() => {
                     markRead.mutate(n.id)
                   }}
-                  className="w-full border-b border-gray-100 px-4 py-3 text-left last:border-0 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+                  className="w-full border-b border-gray-100 px-4 py-3 text-left last:border-0 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
                 >
                   <p className="text-sm font-medium text-gray-900">
                     {n.title}

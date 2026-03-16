@@ -37,8 +37,8 @@ export function RateChangeCard({ change }: RateChangeCardProps) {
         <span
           className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
             isIncrease
-              ? 'bg-red-100 text-red-700'
-              : 'bg-green-100 text-green-700'
+              ? 'bg-danger-100 text-danger-700'
+              : 'bg-success-100 text-success-700'
           }`}
         >
           {isIncrease ? '\u2191' : '\u2193'} {Math.abs(change.change_pct).toFixed(1)}%
@@ -57,11 +57,11 @@ export function RateChangeCard({ change }: RateChangeCardProps) {
       </div>
 
       {change.recommendation_supplier && (
-        <div className="mt-3 rounded bg-blue-50 p-2 text-sm">
-          <p className="font-medium text-blue-800">
+        <div className="mt-3 rounded bg-primary-50 p-2 text-sm">
+          <p className="font-medium text-primary-800">
             Switch to {change.recommendation_supplier}
           </p>
-          <p className="text-blue-600">
+          <p className="text-primary-600">
             ${change.recommendation_price?.toFixed(4)}{unit} &mdash; save $
             {change.recommendation_savings?.toFixed(4)}{unit}
           </p>

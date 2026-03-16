@@ -40,7 +40,7 @@ export function RateChangeFeed() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load rate changes.</p>
+    return <p className="text-sm text-danger-500">Failed to load rate changes.</p>
   }
 
   const changes = data?.changes ?? []

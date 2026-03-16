@@ -96,6 +96,26 @@ const defaultSettings: Omit<
   },
 }
 
+/**
+ * SSR-safe storage factory.
+ *
+ * During SSR / SSG `window` is not defined, so accessing `localStorage`
+ * directly would throw. We return a no-op in-memory storage when running
+ * on the server. On the client the real `localStorage` is used.
+ */
+function getStorage() {
+  if (typeof window !== 'undefined') {
+    return localStorage
+  }
+  // No-op storage for SSR — zustand persist will use defaults and
+  // rehydrate from localStorage on the client after mount.
+  return {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  } as Storage
+}
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -167,7 +187,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'electricity-optimizer-settings',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => getStorage()),
       partialize: (state) => ({
         region: state.region,
         utilityTypes: state.utilityTypes,

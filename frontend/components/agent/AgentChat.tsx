@@ -28,7 +28,7 @@ function MessageBubble({ message }: { message: AgentMessage }) {
           isUser
             ? 'bg-primary-600 text-white'
             : isError
-            ? 'bg-red-50 text-red-800 border border-red-200'
+            ? 'bg-danger-50 text-danger-800 border border-danger-200'
             : 'bg-gray-100 text-gray-900'
         }`}
       >
@@ -177,7 +177,7 @@ export function AgentChat() {
 
       {/* Error banner */}
       {error && (
-        <div className="mx-6 mb-2 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div className="mx-6 mb-2 flex items-center gap-2 rounded-lg bg-danger-50 px-4 py-2 text-sm text-danger-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -185,7 +185,7 @@ export function AgentChat() {
 
       {/* Usage limit CTA */}
       {usage && usage.limit !== -1 && usage.remaining === 0 && (
-        <div className="mx-6 mb-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800">
+        <div className="mx-6 mb-2 rounded-lg bg-warning-50 px-4 py-2 text-sm text-warning-800">
           Daily query limit reached. Upgrade to Pro for 20/day or Business for unlimited.
         </div>
       )}
@@ -206,7 +206,7 @@ export function AgentChat() {
             />
             <span
               className={`absolute bottom-3 right-3 text-xs ${
-                isOverLimit ? 'text-red-500' : 'text-gray-400'
+                isOverLimit ? 'text-danger-500' : 'text-gray-400'
               }`}
             >
               {charCount}/2000

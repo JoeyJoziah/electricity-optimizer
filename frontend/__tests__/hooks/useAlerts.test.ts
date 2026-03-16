@@ -186,7 +186,19 @@ describe('useAlertHistory', () => {
     })
   })
 
-  it('uses page-specific query key', async () => {
+  it('includes both page and pageSize in query key', async () => {
+    const { wrapper, queryClient } = createWrapper()
+
+    renderHook(() => useAlertHistory(2, 50), { wrapper })
+
+    await waitFor(() => {
+      const queries = queryClient.getQueryCache().getAll()
+      const keys = queries.map((q) => q.queryKey)
+      expect(keys).toContainEqual(['alerts', 'history', 2, 50])
+    })
+  })
+
+  it('uses default pageSize in query key when not specified', async () => {
     const { wrapper, queryClient } = createWrapper()
 
     renderHook(() => useAlertHistory(2), { wrapper })
@@ -194,8 +206,33 @@ describe('useAlertHistory', () => {
     await waitFor(() => {
       const queries = queryClient.getQueryCache().getAll()
       const keys = queries.map((q) => q.queryKey)
-      expect(keys).toContainEqual(['alerts', 'history', 2])
+      expect(keys).toContainEqual(['alerts', 'history', 2, 20])
     })
+  })
+
+  it('refetches when pageSize changes', async () => {
+    const { wrapper } = createWrapper()
+
+    const { rerender } = renderHook(
+      ({ page, pageSize }: { page: number; pageSize: number }) =>
+        useAlertHistory(page, pageSize),
+      {
+        wrapper,
+        initialProps: { page: 1, pageSize: 20 },
+      }
+    )
+
+    await waitFor(() => {
+      expect(mockGetAlertHistory).toHaveBeenCalledWith(1, 20, expect.anything())
+    })
+
+    rerender({ page: 1, pageSize: 50 })
+
+    await waitFor(() => {
+      expect(mockGetAlertHistory).toHaveBeenCalledWith(1, 50, expect.anything())
+    })
+
+    expect(mockGetAlertHistory).toHaveBeenCalledTimes(2)
   })
 })
 

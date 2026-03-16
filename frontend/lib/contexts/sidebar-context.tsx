@@ -14,6 +14,13 @@ const SidebarContext = createContext<SidebarContextValue>({
   close: () => {},
 })
 
+/**
+ * Tailwind `lg` breakpoint in pixels. The mobile sidebar overlay is only
+ * rendered below this width (`lg:hidden`), so the body-scroll lock should
+ * only apply on viewports narrower than this value.
+ */
+const LG_BREAKPOINT = 1024
+
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const toggle = useCallback(() => setIsOpen((v) => !v), [])
@@ -33,9 +40,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, close])
 
-  // Prevent body scroll when mobile sidebar is open
+  // Prevent body scroll when mobile sidebar overlay is open.
+  // Only apply on viewports below the `lg` breakpoint where the
+  // overlay backdrop is actually visible. On desktop (>=1024px) the
+  // sidebar is a fixed column and should never block page scrolling.
   useEffect(() => {
-    if (isOpen) {
+    const isMobile =
+      typeof window !== 'undefined' && window.innerWidth < LG_BREAKPOINT
+
+    if (isOpen && isMobile) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''

@@ -35,15 +35,15 @@ export function WaterRateBenchmark({ state }: WaterRateBenchmarkProps) {
             ${data.avg_monthly_cost?.toFixed(2) ?? '—'}
           </p>
         </div>
-        <div className="rounded-lg border bg-green-50 p-4">
-          <p className="text-sm font-medium text-green-700">Lowest</p>
-          <p className="text-xl font-bold text-green-900">
+        <div className="rounded-lg border bg-success-50 p-4">
+          <p className="text-sm font-medium text-success-700">Lowest</p>
+          <p className="text-xl font-bold text-success-900">
             ${data.min_monthly_cost?.toFixed(2) ?? '—'}
           </p>
         </div>
-        <div className="rounded-lg border bg-red-50 p-4">
-          <p className="text-sm font-medium text-red-700">Highest</p>
-          <p className="text-xl font-bold text-red-900">
+        <div className="rounded-lg border bg-danger-50 p-4">
+          <p className="text-sm font-medium text-danger-700">Highest</p>
+          <p className="text-xl font-bold text-danger-900">
             ${data.max_monthly_cost?.toFixed(2) ?? '—'}
           </p>
         </div>
@@ -81,7 +81,7 @@ export function WaterRateBenchmark({ state }: WaterRateBenchmarkProps) {
                     </p>
                     <span
                       className={`text-xs font-medium ${
-                        diff < -2 ? 'text-green-600' : diff > 2 ? 'text-red-600' : 'text-gray-500'
+                        diff < -2 ? 'text-success-600' : diff > 2 ? 'text-danger-600' : 'text-gray-500'
                       }`}
                     >
                       {diff > 0 ? '+' : ''}{diff.toFixed(1)}% vs avg

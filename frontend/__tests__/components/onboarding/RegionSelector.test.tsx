@@ -181,8 +181,8 @@ describe('RegionSelector', () => {
     await user.click(screen.getByText('Connecticut'))
 
     const stateButton = screen.getByText('Connecticut').closest('button')
-    expect(stateButton?.className).toContain('bg-blue-50')
-    expect(stateButton?.className).toContain('text-blue-700')
+    expect(stateButton?.className).toContain('bg-primary-50')
+    expect(stateButton?.className).toContain('text-primary-700')
   })
 
   it('removes selected styling from a previously selected state when another is clicked', async () => {
@@ -195,8 +195,8 @@ describe('RegionSelector', () => {
     const ctButton = screen.getByText('Connecticut').closest('button')
     const txButton = screen.getByText('Texas').closest('button')
 
-    expect(ctButton?.className).not.toContain('bg-blue-50')
-    expect(txButton?.className).toContain('bg-blue-50')
+    expect(ctButton?.className).not.toContain('bg-primary-50')
+    expect(txButton?.className).toContain('bg-primary-50')
   })
 
   it('calls onSelect with the state value when Continue is clicked', async () => {

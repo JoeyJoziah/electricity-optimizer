@@ -37,12 +37,14 @@ export function useNotifications() {
 /**
  * Poll the unread notification count every 30 seconds.
  * Used to keep the bell badge current without fetching the full list.
+ * Polling pauses when the browser tab is hidden to conserve resources.
  */
 export function useNotificationCount() {
   return useQuery({
     queryKey: notificationKeys.count,
     queryFn: ({ signal }) => getNotificationCount(signal),
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     staleTime: 30_000,
   })
 }

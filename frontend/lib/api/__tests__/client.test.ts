@@ -294,13 +294,23 @@ describe('apiClient.delete', () => {
     expect(result).toEqual({ deleted: true })
   })
 
-  it('should not send a body', async () => {
+  it('should not send a body when data is omitted', async () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ deleted: true }))
 
     await apiClient.delete('/users/1')
 
     const calledOptions = mockFetch.mock.calls[0][1] as RequestInit
     expect(calledOptions.body).toBeUndefined()
+  })
+
+  it('should send a JSON body when data is provided', async () => {
+    const payload = { ids: ['id-1', 'id-2', 'id-3'] }
+    mockFetch.mockResolvedValue(mockJsonResponse({ deleted: 3 }))
+
+    await apiClient.delete('/users/batch', payload)
+
+    const calledOptions = mockFetch.mock.calls[0][1] as RequestInit
+    expect(calledOptions.body).toBe(JSON.stringify(payload))
   })
 
   it('should throw ApiClientError on error response', async () => {
@@ -407,6 +417,49 @@ describe('error handling edge cases', () => {
     } catch (error) {
       const apiError = error as ApiClientError
       expect(apiError.details).toEqual(errorBody)
+    }
+  })
+
+  it('should throw ApiClientError on 401 when on auth page (no redirect)', async () => {
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: { ...originalLocation, pathname: '/auth/login', href: 'http://localhost:3000/auth/login', search: '' },
+    })
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized')
+    )
+
+    await expect(apiClient.get('/test')).rejects.toThrow(ApiClientError)
+
+    try {
+      await apiClient.get('/test')
+    } catch (error) {
+      const apiError = error as ApiClientError
+      expect(apiError.status).toBe(401)
+      expect(apiError.message).toBe('Unauthorized')
+    }
+  })
+
+  it('should throw ApiClientError on 401 when max redirects exceeded', async () => {
+    // Prime the redirect counter to the max (matches MAX_401_REDIRECTS = 2 in client.ts)
+    sessionStorage.setItem('api_401_redirect_count', '2')
+    sessionStorage.setItem('api_401_redirect_ts', String(Date.now()))
+
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: { ...originalLocation, pathname: '/dashboard', href: 'http://localhost:3000/dashboard', search: '' },
+    })
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ detail: 'Session expired' }, 401, 'Unauthorized')
+    )
+
+    await expect(apiClient.get('/test')).rejects.toThrow(ApiClientError)
+
+    try {
+      await apiClient.get('/test')
+    } catch (error) {
+      const apiError = error as ApiClientError
+      expect(apiError.status).toBe(401)
     }
   })
 })

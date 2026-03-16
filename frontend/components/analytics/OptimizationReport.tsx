@@ -47,7 +47,7 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
         )}
 
         {error && (
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-700">
             {error instanceof Error ? error.message : 'Failed to load report'}
           </div>
         )}
@@ -70,7 +70,7 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Potential Savings</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-bold text-success-600">
                   ${report.total_potential_monthly_savings.toFixed(2)}/mo
                 </p>
               </div>
@@ -114,17 +114,17 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
                   {report.savings_opportunities.map((opp, i) => (
                     <div
                       key={i}
-                      className="rounded-md border border-green-200 bg-green-50 p-3"
+                      className="rounded-md border border-success-200 bg-success-50 p-3"
                     >
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-green-800">
+                        <p className="text-sm font-medium text-success-800">
                           {opp.action}
                         </p>
-                        <p className="text-sm font-bold text-green-700">
+                        <p className="text-sm font-bold text-success-700">
                           Save ${opp.monthly_savings.toFixed(2)}/mo
                         </p>
                       </div>
-                      <p className="text-xs text-green-600 mt-1">
+                      <p className="text-xs text-success-600 mt-1">
                         {UTILITY_LABELS[opp.utility_type]} &middot;{' '}
                         ${opp.annual_savings.toFixed(2)}/yr &middot;{' '}
                         Difficulty: {opp.difficulty}

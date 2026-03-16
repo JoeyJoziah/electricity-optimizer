@@ -19,7 +19,7 @@ export default function AppLayout({
       </a>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main id="main-content" className="flex-1 lg:pl-64">
+        <main id="main-content" className="flex-1 min-w-0 lg:pl-64">
           <ErrorBoundary fallback={<PageErrorFallback />}>
             {children}
           </ErrorBoundary>

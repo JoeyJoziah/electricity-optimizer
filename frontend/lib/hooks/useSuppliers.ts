@@ -59,14 +59,21 @@ export function useSupplierRecommendation(
 }
 
 /**
- * Hook for comparing suppliers
+ * Hook for comparing suppliers.
+ *
+ * The supplierIds array is sorted and serialized via JSON.stringify in the
+ * queryKey so React Query compares by value rather than by reference,
+ * preventing unnecessary refetches when the caller creates a new array
+ * with the same IDs on each render.
  */
 export function useCompareSuppliers(
   supplierIds: string[],
   annualUsage: number
 ) {
+  const stableIdsKey = JSON.stringify([...supplierIds].sort())
+
   return useQuery({
-    queryKey: ['compare', supplierIds, annualUsage],
+    queryKey: ['compare', stableIdsKey, annualUsage],
     queryFn: ({ signal }) => compareSuppliers(supplierIds, annualUsage, signal),
     enabled: supplierIds.length > 0 && annualUsage > 0,
     staleTime: 300000,

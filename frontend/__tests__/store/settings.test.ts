@@ -381,4 +381,40 @@ describe('useSettingsStore', () => {
       expect(useSettingsStore.getState().priceAlerts).toEqual([])
     })
   })
+
+  describe('SSR localStorage guard', () => {
+    test('getStorage returns no-op storage when window is undefined', () => {
+      // The getStorage helper is internal, but we can verify its effect:
+      // Importing the store module on the server should not throw.
+      // Since we are running in jsdom, window IS defined. We simulate
+      // the SSR case by temporarily deleting the global window reference.
+      const origWindow = globalThis.window
+
+      // Remove window to simulate SSR
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+
+      // Re-require the module so createJSONStorage runs with window undefined.
+      // We use jest.isolateModules to avoid cache interference.
+      let importedSuccessfully = false
+      jest.isolateModules(() => {
+        // This import must not throw even without window/localStorage
+        require('@/lib/store/settings')
+        importedSuccessfully = true
+      })
+
+      // Restore window immediately
+      globalThis.window = origWindow
+
+      expect(importedSuccessfully).toBe(true)
+    })
+
+    test('store initializes with defaults even without localStorage', () => {
+      const state = useSettingsStore.getState()
+      // Should fall back to default values regardless of localStorage
+      expect(state.region).toBeUndefined()
+      expect(state.annualUsageKwh).toBe(10500)
+      expect(state.utilityTypes).toEqual(['electricity'])
+    })
+  })
 })

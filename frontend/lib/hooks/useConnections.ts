@@ -34,7 +34,10 @@ async function fetchConnections(signal?: AbortSignal): Promise<ConnectionsRespon
     if (err instanceof ApiClientError && err.status === 403) {
       throw Object.assign(new Error('upgrade'), { status: 403 })
     }
-    throw new Error('Failed to load connections')
+    // Re-throw the original error so that non-403 errors (500, network
+    // failures, etc.) surface their real status codes and messages to the
+    // UI instead of being replaced with a generic string.
+    throw err
   }
 }
 

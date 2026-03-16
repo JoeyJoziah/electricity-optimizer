@@ -127,8 +127,8 @@ function PostCard({
   // Author's pending moderation
   if (post.is_pending_moderation && isAuthor) {
     return (
-      <div data-testid={`post-${post.id}-pending`} className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <div className="mb-2 text-xs font-medium text-amber-600">Your post is being reviewed</div>
+      <div data-testid={`post-${post.id}-pending`} className="rounded-xl border border-warning-200 bg-warning-50 p-4">
+        <div className="mb-2 text-xs font-medium text-warning-600">Your post is being reviewed</div>
         <h4 className="text-sm font-medium text-gray-800">{post.title}</h4>
         <p className="mt-1 text-sm text-gray-600 line-clamp-3">{post.body}</p>
       </div>
@@ -138,9 +138,9 @@ function PostCard({
   // Hidden from author — show edit option
   if (post.is_hidden && isAuthor) {
     return (
-      <div data-testid={`post-${post.id}-flagged`} className="rounded-xl border border-red-200 bg-red-50 p-4">
+      <div data-testid={`post-${post.id}-flagged`} className="rounded-xl border border-danger-200 bg-danger-50 p-4">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium text-red-600">Post flagged — edit to resubmit</span>
+          <span className="text-xs font-medium text-danger-600">Post flagged — edit to resubmit</span>
           {onEdit && (
             <button
               onClick={() => onEdit(post)}
