@@ -47,6 +47,8 @@ jobs:
           - { file: "deploy-worker.yml", name: "Deploy Cloudflare Worker", severity: "critical" }
           - { file: "scan-emails.yml", name: "Scan Email Connections", severity: "warning" }
           - { file: "scrape-portals.yml", name: "Scrape Utility Portals", severity: "warning" }
+          - { file: "fetch-heating-oil.yml", name: "Fetch Petroleum Prices", severity: "warning" }
+          - { file: "daily-data-pipeline.yml", name: "Daily Data Pipeline", severity: "warning" }
 
     steps:
       - name: Count recent failures
@@ -172,6 +174,8 @@ jobs:
               *"Cloudflare Worker"*) WORKFLOW_FILE="deploy-worker.yml" ;;
               *"Scan Email"*) WORKFLOW_FILE="scan-emails.yml" ;;
               *"Scrape Utility Portal"*|*"Portal"*) WORKFLOW_FILE="scrape-portals.yml" ;;
+              *"Petroleum"*|*"Heating Oil"*) WORKFLOW_FILE="fetch-heating-oil.yml" ;;
+              *"Daily Data Pipeline"*) WORKFLOW_FILE="daily-data-pipeline.yml" ;;
               *) echo "Unknown workflow in issue #$ISSUE_NUM: $ISSUE_TITLE"; continue ;;
             esac
 

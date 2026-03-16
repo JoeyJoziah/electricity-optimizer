@@ -40,6 +40,7 @@ Usage:
     )
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone, timedelta
 from enum import Enum
@@ -185,65 +186,72 @@ class NotificationDispatcher:
             effective_metadata["dedup_key"] = dedup_key
 
         # ------------------------------------------------------------------
-        # 3. Route to each channel — independent try/except per channel
+        # 3. Route to each channel — IN_APP first (creates the row / notification_id),
+        #    then PUSH and EMAIL concurrently (both are external HTTP calls).
         # ------------------------------------------------------------------
         results: Dict[str, bool] = {}
         notification_id: Optional[str] = None
 
-        for channel in resolved_channels:
-            if channel == NotificationChannel.IN_APP:
-                nid, success = await self._send_in_app(
-                    user_id=user_id,
-                    type=type,
-                    title=title,
-                    body=body,
-                    metadata=effective_metadata,
-                )
-                results[channel.value] = success
-                if nid:
-                    notification_id = nid
+        # Step 3a: IN_APP must run first — it creates the DB row whose ID is
+        # needed by the push/email outcome-tracking helpers.
+        if NotificationChannel.IN_APP in resolved_channels:
+            nid, success = await self._send_in_app(
+                user_id=user_id,
+                type=type,
+                title=title,
+                body=body,
+                metadata=effective_metadata,
+            )
+            results[NotificationChannel.IN_APP.value] = success
+            if nid:
+                notification_id = nid
 
-            elif channel == NotificationChannel.PUSH:
-                success, error = await self._send_push(
+        # Step 3b: PUSH and EMAIL are independent external HTTP calls — run concurrently.
+        async def _dispatch_push() -> None:
+            if NotificationChannel.PUSH not in resolved_channels:
+                return
+            success, error = await self._send_push(
+                user_id=user_id,
+                title=title,
+                body=body or title,
+                metadata=effective_metadata,
+            )
+            results[NotificationChannel.PUSH.value] = success
+            if notification_id:
+                await self._persist_channel_outcome(
+                    notification_id=notification_id,
+                    channel=NotificationChannel.PUSH.value,
+                    success=success,
+                    error=error,
+                )
+
+        async def _dispatch_email() -> None:
+            if NotificationChannel.EMAIL not in resolved_channels:
+                return
+            if not email_to:
+                logger.debug(
+                    "notification_email_skipped_no_address",
                     user_id=user_id,
                     title=title,
-                    body=body or title,
-                    metadata=effective_metadata,
                 )
-                results[channel.value] = success
-                # If we have an in-app row, persist push outcome onto it
-                if notification_id:
-                    await self._persist_channel_outcome(
-                        notification_id=notification_id,
-                        channel=NotificationChannel.PUSH.value,
-                        success=success,
-                        error=error,
-                    )
+                results[NotificationChannel.EMAIL.value] = False
+                return
+            success, error = await self._send_email(
+                to=email_to,
+                subject=email_subject or title,
+                body=body,
+                html=email_html,
+            )
+            results[NotificationChannel.EMAIL.value] = success
+            if notification_id:
+                await self._persist_channel_outcome(
+                    notification_id=notification_id,
+                    channel=NotificationChannel.EMAIL.value,
+                    success=success,
+                    error=error,
+                )
 
-            elif channel == NotificationChannel.EMAIL:
-                if not email_to:
-                    logger.debug(
-                        "notification_email_skipped_no_address",
-                        user_id=user_id,
-                        title=title,
-                    )
-                    results[channel.value] = False
-                else:
-                    success, error = await self._send_email(
-                        to=email_to,
-                        subject=email_subject or title,
-                        body=body,
-                        html=email_html,
-                    )
-                    results[channel.value] = success
-                    # If we have an in-app row, persist email outcome onto it
-                    if notification_id:
-                        await self._persist_channel_outcome(
-                            notification_id=notification_id,
-                            channel=NotificationChannel.EMAIL.value,
-                            success=success,
-                            error=error,
-                        )
+        await asyncio.gather(_dispatch_push(), _dispatch_email(), return_exceptions=True)
 
         logger.info(
             "notification_dispatched",

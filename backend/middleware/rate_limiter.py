@@ -56,6 +56,8 @@ redis.call('ZADD', key, now, member)
 
 -- Refresh TTL so the key auto-expires after the window
 redis.call('EXPIRE', key, window + 1)
+-- Also expire the seq counter so it doesn't leak permanently
+redis.call('EXPIRE', key .. ':seq', window + 1)
 
 -- Return the count AFTER adding the current request
 local count = redis.call('ZCARD', key)

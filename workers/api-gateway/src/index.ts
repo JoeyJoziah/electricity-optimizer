@@ -7,6 +7,7 @@ import { calculateBotScore, shouldBlockBot, applySecurityHeaders } from "./middl
 import { validateInternalAuth } from "./middleware/internal-auth";
 import { logRequest, buildLogEntry, recordRequest, recordCacheRead, recordCacheHit, recordCacheMiss, recordCacheWrite, recordRateLimitCheck, recordDegradation, getGatewayStats } from "./middleware/observability";
 import { proxyToOrigin } from "./handlers/proxy";
+import { handleScheduled } from "./handlers/scheduled";
 
 export default {
   async fetch(
@@ -232,6 +233,13 @@ export default {
         )
       );
     }
+  },
+  async scheduled(
+    controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    await handleScheduled(controller, env, ctx);
   },
 } satisfies ExportedHandler<Env>;
 

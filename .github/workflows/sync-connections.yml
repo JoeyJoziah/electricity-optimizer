@@ -25,6 +25,8 @@ jobs:
         uses: ./.github/actions/warmup-backend
         with:
           backend-url: ${{ secrets.BACKEND_URL }}
+          max-attempts: '3'
+          delay-seconds: '10'
 
       - name: Sync all due connections
         uses: ./.github/actions/retry-curl

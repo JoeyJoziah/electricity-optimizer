@@ -285,14 +285,20 @@ class TestSupplierEndpoints:
 
     def test_get_supplier_by_id(self, client):
         """Test GET /api/v1/suppliers/{id} endpoint"""
-        response = client.get("/api/v1/suppliers/supplier_123")
+        # Use a well-formed UUID that won't exist in the test DB
+        response = client.get("/api/v1/suppliers/00000000-0000-0000-0000-000000000001")
 
-        # 200 if found, 404 if not
+        # 200 if found, 404 if not in DB
         assert response.status_code in [200, 404, 500]
+
+    def test_get_supplier_by_id_invalid_uuid(self, client):
+        """Test GET /api/v1/suppliers/{id} rejects non-UUID path params"""
+        response = client.get("/api/v1/suppliers/not-a-uuid")
+        assert response.status_code == 422
 
     def test_get_supplier_tariffs(self, client):
         """Test GET /api/v1/suppliers/{id}/tariffs endpoint"""
-        response = client.get("/api/v1/suppliers/supplier_123/tariffs")
+        response = client.get("/api/v1/suppliers/00000000-0000-0000-0000-000000000001/tariffs")
 
         assert response.status_code in [200, 404, 500]
 

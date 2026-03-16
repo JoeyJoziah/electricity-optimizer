@@ -1,4 +1,4 @@
--- Migration 026: ML model configuration and weight persistence
+-- Migration 027: ML model configuration and weight persistence
 -- Replaces ephemeral Redis storage with durable PostgreSQL-backed weight store.
 -- The ensemble predictor (CNN-LSTM 0.5 + XGBoost 0.25 + LightGBM 0.25) loses
 -- trained weights on every Render restart because Render free-tier Redis is

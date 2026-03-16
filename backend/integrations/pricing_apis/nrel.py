@@ -3,7 +3,7 @@ NREL (National Renewable Energy Laboratory) API Client
 
 Provides access to US utility rates and electricity pricing data.
 
-API Documentation: https://developer.nlr.gov/docs/electricity/
+API Documentation: https://developer.nrel.gov/docs/electricity/
 Rate Limit: 1000 requests/hour
 
 Supported Regions:
@@ -123,7 +123,7 @@ class NRELClient(BasePricingClient):
         ```
     """
 
-    DEFAULT_BASE_URL = "https://developer.nlr.gov/api/utility_rates/v3"
+    DEFAULT_BASE_URL = "https://developer.nrel.gov/api/utility_rates/v3"
 
     def __init__(
         self,
@@ -147,7 +147,7 @@ class NRELClient(BasePricingClient):
             rate_limiter: Optional rate limiter instance
             cache: Optional cache instance
             default_sector: Default rate sector (residential/commercial/industrial)
-            base_url: Override base URL (defaults to developer.nlr.gov)
+            base_url: Override base URL (defaults to developer.nrel.gov)
         """
         super().__init__(
             api_key=api_key,

@@ -418,11 +418,16 @@ class StripeService:
                 customer_id = subscription.get("customer")
                 status = subscription.get("status")
 
+                # Only force "free" for terminal failure states; preserve tier
+                # for trialing, past_due, incomplete so users retain access
+                # during grace periods (Stripe retries before hard-canceling).
+                _downgrade_statuses = {"canceled", "unpaid"}
+                effective_tier = "free" if status in _downgrade_statuses else (tier or "free")
                 result.update({
                     "handled": True,
                     "action": "update_subscription",
                     "user_id": user_id,
-                    "tier": tier if status == "active" else "free",
+                    "tier": effective_tier,
                     "customer_id": customer_id,
                     "status": status,
                 })

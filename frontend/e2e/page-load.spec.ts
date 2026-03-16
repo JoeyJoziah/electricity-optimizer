@@ -514,6 +514,73 @@ test.describe('Protected Pages - Load Successfully', () => {
     await expect(page.locator('body')).toBeVisible()
     expect(errors).toEqual([])
   })
+
+  // Wave 4/5 utility pages
+  test('/propane loads without errors', async ({ page }) => {
+    const errors = await collectConsoleErrors(page, async () => {
+      await page.goto('/propane', { waitUntil: 'domcontentloaded', timeout: 15000 })
+    })
+
+    await expect(page.locator('body')).toBeVisible()
+    expect(page.url()).toContain('/propane')
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
+    expect(errors).toEqual([])
+  })
+
+  test('/water loads without errors', async ({ page }) => {
+    const errors = await collectConsoleErrors(page, async () => {
+      await page.goto('/water', { waitUntil: 'domcontentloaded', timeout: 15000 })
+    })
+
+    await expect(page.locator('body')).toBeVisible()
+    expect(page.url()).toContain('/water')
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
+    expect(errors).toEqual([])
+  })
+
+  test('/gas-rates loads without errors', async ({ page }) => {
+    const errors = await collectConsoleErrors(page, async () => {
+      await page.goto('/gas-rates', { waitUntil: 'domcontentloaded', timeout: 15000 })
+    })
+
+    await expect(page.locator('body')).toBeVisible()
+    expect(page.url()).toContain('/gas-rates')
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
+    expect(errors).toEqual([])
+  })
+
+  test('/heating-oil loads without errors', async ({ page }) => {
+    const errors = await collectConsoleErrors(page, async () => {
+      await page.goto('/heating-oil', { waitUntil: 'domcontentloaded', timeout: 15000 })
+    })
+
+    await expect(page.locator('body')).toBeVisible()
+    expect(page.url()).toContain('/heating-oil')
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
+    expect(errors).toEqual([])
+  })
+
+  test('/community-solar loads without errors', async ({ page }) => {
+    const errors = await collectConsoleErrors(page, async () => {
+      await page.goto('/community-solar', { waitUntil: 'domcontentloaded', timeout: 15000 })
+    })
+
+    await expect(page.locator('body')).toBeVisible()
+    expect(page.url()).toContain('/community-solar')
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
+    expect(errors).toEqual([])
+  })
+
+  test('/community loads without errors', async ({ page }) => {
+    const errors = await collectConsoleErrors(page, async () => {
+      await page.goto('/community', { waitUntil: 'domcontentloaded', timeout: 15000 })
+    })
+
+    await expect(page.locator('body')).toBeVisible()
+    expect(page.url()).toContain('/community')
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
+    expect(errors).toEqual([])
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -536,6 +603,12 @@ test.describe('Protected Pages - Redirect When Unauthenticated', () => {
     '/alerts',
     '/assistant',
     '/onboarding',
+    '/propane',
+    '/water',
+    '/gas-rates',
+    '/heating-oil',
+    '/community-solar',
+    '/community',
   ]
 
   for (const path of protectedPages) {

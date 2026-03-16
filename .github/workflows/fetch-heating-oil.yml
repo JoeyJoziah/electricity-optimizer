@@ -22,6 +22,8 @@ jobs:
         uses: ./.github/actions/warmup-backend
         with:
           backend-url: ${{ secrets.BACKEND_URL }}
+          max-attempts: '3'
+          delay-seconds: '10'
 
       - name: Fetch heating oil prices
         uses: ./.github/actions/retry-curl

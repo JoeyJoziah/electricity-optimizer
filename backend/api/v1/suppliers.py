@@ -187,7 +187,7 @@ async def list_registry_suppliers(
     }
 )
 async def get_supplier(
-    supplier_id: str = Path(..., description="Supplier ID"),
+    supplier_id: UUID = Path(..., description="Supplier ID (UUID)"),
     db=Depends(get_db_session),
     redis=Depends(get_redis),
 ):
@@ -197,9 +197,8 @@ async def get_supplier(
     Returns full supplier details including contact info and ratings.
     Result is cached in Redis for 1 hour.
     """
-    _validate_uuid(supplier_id, "Supplier")
     repo = SupplierRegistryRepository(db, cache=redis)
-    supplier = await repo.get_by_id(supplier_id)
+    supplier = await repo.get_by_id(str(supplier_id))
 
     if not supplier:
         raise HTTPException(
@@ -234,7 +233,7 @@ async def get_supplier(
     }
 )
 async def get_supplier_tariffs(
-    supplier_id: str = Path(..., description="Supplier ID"),
+    supplier_id: UUID = Path(..., description="Supplier ID (UUID)"),
     utility_type: Optional[str] = Query(None, description="Filter by utility type"),
     available_only: bool = Query(True, description="Show only available tariffs"),
     db=Depends(get_db_session),
@@ -246,9 +245,8 @@ async def get_supplier_tariffs(
     Returns list of tariffs with pricing and contract details.
     The supplier existence check uses the Redis-cached get_by_id() call.
     """
-    _validate_uuid(supplier_id, "Supplier")
     repo = SupplierRegistryRepository(db, cache=redis)
-    supplier = await repo.get_by_id(supplier_id)
+    supplier = await repo.get_by_id(str(supplier_id))
 
     if not supplier:
         raise HTTPException(
@@ -260,7 +258,7 @@ async def get_supplier_tariffs(
 
     # Build WHERE clause incrementally so we keep one parameterised query string
     where_clauses = ["supplier_id = :supplier_id"]
-    params: dict = {"supplier_id": supplier_id}
+    params: dict = {"supplier_id": str(supplier_id)}
 
     if utility_type:
         where_clauses.append("utility_type = :utility_type")
@@ -307,7 +305,7 @@ async def get_supplier_tariffs(
         )
 
     return SupplierTariffsResponse(
-        supplier_id=supplier_id,
+        supplier_id=str(supplier_id),
         supplier_name=supplier["name"],
         tariffs=tariffs,
         total=len(tariffs),

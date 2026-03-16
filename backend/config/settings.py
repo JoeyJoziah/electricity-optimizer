@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     flatpeak_api_key: Optional[str] = Field(default=None, validation_alias="FLATPEAK_API_KEY")
     nrel_api_key: Optional[str] = Field(default=None, validation_alias="NREL_API_KEY")
     nrel_api_base_url: str = Field(
-        default="https://developer.nlr.gov/api/utility_rates/v3",
+        default="https://developer.nrel.gov/api/utility_rates/v3",
         validation_alias="NREL_API_BASE_URL",
     )
     iea_api_key: Optional[str] = Field(default=None, validation_alias="IEA_API_KEY")

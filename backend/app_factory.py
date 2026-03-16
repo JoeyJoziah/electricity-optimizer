@@ -495,7 +495,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
             except Exception:
                 pass
 
-        if settings.is_production:
+        if settings.environment in ("production", "staging"):
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={"detail": "Internal server error"},
@@ -515,10 +515,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     async def protect_metrics(request: Request, call_next):
         """Require API key for /metrics to prevent information leakage."""
         if request.url.path.startswith("/metrics"):
-            api_key = (
-                request.headers.get("X-API-Key")
-                or request.query_params.get("api_key")
-            )
+            api_key = request.headers.get("X-API-Key")
             if settings.internal_api_key and api_key != settings.internal_api_key:
                 return JSONResponse(
                     status_code=403, content={"detail": "Forbidden"}

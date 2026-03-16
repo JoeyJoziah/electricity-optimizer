@@ -13,11 +13,13 @@ DELETE /alerts/{alert_id}   — delete an alert config
 PUT    /alerts/{alert_id}   — update an alert config
 """
 
+import re
+import uuid
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field, model_validator
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog
@@ -35,6 +37,9 @@ router = APIRouter(prefix="/alerts", tags=["Alerts"])
 # =============================================================================
 
 
+_REGION_RE = re.compile(r"^[a-z]{2}(_[a-z]{2})?$")
+
+
 class CreateAlertRequest(BaseModel):
     """Body for POST /alerts."""
 
@@ -49,6 +54,13 @@ class CreateAlertRequest(BaseModel):
     notify_optimal_windows: bool = Field(
         default=True, description="Notify when an optimal usage window is detected"
     )
+
+    @field_validator("region")
+    @classmethod
+    def validate_region(cls, v: str) -> str:
+        if not _REGION_RE.match(v):
+            raise ValueError(f"Invalid region code: '{v}'. Expected format: 'us_ct', 'uk', 'de'")
+        return v
 
     @model_validator(mode="after")
     def require_at_least_one_condition(self) -> "CreateAlertRequest":
@@ -197,7 +209,7 @@ async def get_alert_history(
     response_description="Deletion confirmation",
 )
 async def delete_alert(
-    alert_id: str,
+    alert_id: uuid.UUID = Path(..., description="UUID of the alert config to delete"),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
@@ -213,7 +225,7 @@ async def delete_alert(
     service = _get_alert_service()
     deleted = await service.delete_alert(
         user_id=current_user.user_id,
-        alert_id=alert_id,
+        alert_id=str(alert_id),
         db=db,
     )
     if not deleted:
@@ -221,7 +233,7 @@ async def delete_alert(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Alert {alert_id} not found",
         )
-    return {"deleted": True, "alert_id": alert_id}
+    return {"deleted": True, "alert_id": str(alert_id)}
 
 
 @router.put(
@@ -230,8 +242,8 @@ async def delete_alert(
     response_description="The updated alert configuration",
 )
 async def update_alert(
-    alert_id: str,
-    body: UpdateAlertRequest,
+    alert_id: uuid.UUID = Path(..., description="UUID of the alert config to update"),
+    body: UpdateAlertRequest = ...,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Dict[str, Any]:
@@ -249,7 +261,7 @@ async def update_alert(
     updates = body.model_dump(exclude_unset=True)
     updated = await service.update_alert(
         user_id=current_user.user_id,
-        alert_id=alert_id,
+        alert_id=str(alert_id),
         db=db,
         updates=updates,
     )

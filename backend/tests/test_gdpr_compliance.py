@@ -497,7 +497,8 @@ class TestGDPRComplianceService:
             "consents", "price_alerts", "recommendations",
             "activity_logs", "extracted_rates", "bill_uploads",
             "connections", "supplier_accounts", "profile",
-            "agent_data",
+            "agent_data", "community_data", "notifications",
+            "feedback",
         }
         assert set(result.data_categories_deleted) == expected
 

@@ -1,9 +1,8 @@
 name: Check Price Alerts
 
 on:
-  schedule:
-    # Every 2 hours — electricity prices don't change faster
-    - cron: "0 */2 * * *"
+  # Cron moved to CF Worker Cron Trigger (wrangler.toml [triggers])
+  # Every 3 hours via CF Worker — more reliable than GHA cron, saves ~480 GHA min/mo
   workflow_dispatch:
 
 permissions: {}

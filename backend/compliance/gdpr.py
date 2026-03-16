@@ -568,6 +568,62 @@ class GDPRComplianceService:
                 except Exception as e:
                     logger.warning("supplier_accounts_export_failed", error=str(e))
 
+            # Get notifications
+            notifications_data = []
+            if self.db_session:
+                try:
+                    from sqlalchemy import text as sa_text
+
+                    notif_result = await self.db_session.execute(
+                        sa_text("""
+                            SELECT id, type, title, body, read_at, created_at
+                            FROM notifications WHERE user_id = :user_id
+                            ORDER BY created_at DESC
+                        """),
+                        {"user_id": user_id},
+                    )
+                    for row in notif_result.mappings().all():
+                        notifications_data.append({
+                            "id": str(row["id"]),
+                            "type": row["type"],
+                            "title": row["title"],
+                            "body": row.get("body"),
+                            "read_at": str(row["read_at"]) if row.get("read_at") else None,
+                            "created_at": str(row["created_at"]),
+                        })
+                except Exception as e:
+                    logger.warning("notifications_export_failed", error=str(e))
+
+            # Get community data (posts, votes, reports)
+            community_posts_data = []
+            if self.db_session:
+                try:
+                    from sqlalchemy import text as sa_text
+
+                    posts_result = await self.db_session.execute(
+                        sa_text("""
+                            SELECT id, region, utility_type, post_type, title, body,
+                                   rate_per_unit, supplier_name, created_at
+                            FROM community_posts WHERE user_id = :user_id
+                            ORDER BY created_at DESC
+                        """),
+                        {"user_id": user_id},
+                    )
+                    for row in posts_result.mappings().all():
+                        community_posts_data.append({
+                            "id": str(row["id"]),
+                            "region": row["region"],
+                            "utility_type": row["utility_type"],
+                            "post_type": row["post_type"],
+                            "title": row["title"],
+                            "body": row["body"],
+                            "rate_per_unit": str(row["rate_per_unit"]) if row.get("rate_per_unit") else None,
+                            "supplier_name": row.get("supplier_name"),
+                            "created_at": str(row["created_at"]),
+                        })
+                except Exception as e:
+                    logger.warning("community_posts_export_failed", error=str(e))
+
             # Get connection data (user_connections, bill_uploads, extracted_rates)
             connections_data = []
             bill_uploads_data = []
@@ -644,7 +700,7 @@ class GDPRComplianceService:
             export = {
                 "user_id": user_id,
                 "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                "export_format_version": "1.2",
+                "export_format_version": "1.3",
                 "profile_data": profile_data,
                 "preferences_data": preferences_data,
                 "consent_history": consent_history,
@@ -655,6 +711,8 @@ class GDPRComplianceService:
                 "connections": connections_data,
                 "bill_uploads": bill_uploads_data,
                 "extracted_rates": extracted_rates_data,
+                "notifications": notifications_data,
+                "community_posts": community_posts_data,
             }
 
             logger.info(
@@ -844,7 +902,36 @@ class GDPRComplianceService:
             )
             deleted_categories.append("agent_data")
 
-            # 10. Delete user profile (last — FK constraints)
+            # 10. Delete community data (votes/reports reference posts via CASCADE)
+            await self.db_session.execute(
+                sa_text("DELETE FROM community_votes WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            await self.db_session.execute(
+                sa_text("DELETE FROM community_reports WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            await self.db_session.execute(
+                sa_text("DELETE FROM community_posts WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("community_data")
+
+            # 11. Delete notifications
+            await self.db_session.execute(
+                sa_text("DELETE FROM notifications WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("notifications")
+
+            # 12. Delete feedback
+            await self.db_session.execute(
+                sa_text("DELETE FROM feedback WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("feedback")
+
+            # 13. Delete user profile (last — FK constraints)
             await self.db_session.execute(
                 sa_text("DELETE FROM users WHERE id = :uid"),
                 {"uid": user_id},

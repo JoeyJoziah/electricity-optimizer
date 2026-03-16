@@ -8,6 +8,8 @@ Endpoints for in-app notification management:
 - PUT  /notifications/{id}/read    — mark a single notification read
 """
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,13 +54,13 @@ async def mark_all_notifications_read(
 
 @router.put("/{notification_id}/read")
 async def mark_notification_read(
-    notification_id: str = Path(..., description="UUID of the notification to mark read"),
+    notification_id: uuid.UUID = Path(..., description="UUID of the notification to mark read"),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Mark a single notification as read. Returns 404 if not found or already read."""
     svc = NotificationService(db)
-    success = await svc.mark_read(current_user.user_id, notification_id)
+    success = await svc.mark_read(current_user.user_id, str(notification_id))
     if not success:
         raise HTTPException(status_code=404, detail="Notification not found")
     return {"success": True}

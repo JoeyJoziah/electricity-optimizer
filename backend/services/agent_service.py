@@ -108,7 +108,12 @@ class AgentService:
         return self._composio_toolset if self._composio_toolset is not False else None
 
     async def check_rate_limit(self, user_id: str, tier: str, db) -> tuple[bool, int, int]:
-        """Check if user has remaining queries. Returns (allowed, used, limit)."""
+        """Check if user has remaining queries. Returns (allowed, used, limit).
+
+        Uses a single upsert-and-return query to avoid the TOCTOU race that
+        would allow concurrent requests to both read count=0 and both be
+        permitted past the limit.
+        """
         from sqlalchemy import text
 
         if tier == "business":
@@ -116,18 +121,17 @@ class AgentService:
 
         limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
 
-        await db.execute(
+        # Single round-trip: INSERT row if absent (count=0), then return
+        # current count atomically.  DO UPDATE with no-op ensures the row
+        # exists so the subsequent SELECT always finds it.
+        count_result = await db.execute(
             text("""
                 INSERT INTO agent_usage_daily (user_id, date, query_count)
                 VALUES (:user_id, CURRENT_DATE, 0)
-                ON CONFLICT (user_id, date) DO NOTHING
+                ON CONFLICT (user_id, date) DO UPDATE
+                    SET query_count = agent_usage_daily.query_count
                 RETURNING query_count
             """),
-            {"user_id": user_id},
-        )
-        # Fetch current count
-        count_result = await db.execute(
-            text("SELECT query_count FROM agent_usage_daily WHERE user_id = :user_id AND date = CURRENT_DATE"),
             {"user_id": user_id},
         )
         current_count = count_result.scalar() or 0

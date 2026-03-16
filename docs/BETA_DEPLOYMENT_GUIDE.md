@@ -100,7 +100,7 @@ BETTER_AUTH_URL=https://your-app-url.com
 
 # External APIs (sign up for free tiers)
 FLATPEAK_API_KEY=[sign up at flatpeak.energy]
-NREL_API_KEY=[sign up at developer.nlr.gov]
+NREL_API_KEY=[sign up at developer.nrel.gov]
 IEA_API_KEY=[sign up at iea.org]
 
 # Redis (use Redis Cloud free tier, used for caching and session store)

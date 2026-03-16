@@ -43,3 +43,7 @@ ALLOWED_ORIGINS = "https://rateshift.app,https://www.rateshift.app"
 # Secrets (set via `wrangler secret put`):
 # - INTERNAL_API_KEY
 # - RATE_LIMIT_BYPASS_KEY
+
+# Cron Triggers — replaces GHA check-alerts.yml cron
+[triggers]
+crons = ["0 */3 * * *"]  # Every 3 hours

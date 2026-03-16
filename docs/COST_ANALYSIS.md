@@ -34,8 +34,8 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 
 | Workflow | Schedule | Runs/mo | Est. min/run | Est. min/mo |
 |----------|----------|---------|-------------|-------------|
-| `check-alerts.yml` | Every 2h | 360 | 2 | 720 |
-| `fetch-weather.yml` | Every 6h | 120 | 2 | 240 |
+| `check-alerts.yml` | Every 3h | 240 | 2 | 480 |
+| `fetch-weather.yml` | Every 12h | 60 | 2 | 120 |
 | `sync-connections.yml` | Every 6h | 120 | 2 | 240 |
 | `gateway-health.yml` | Every 12h | 60 | 2 | 120 |
 | `daily-data-pipeline.yml` | Daily 3am | 30 | 5 | 150 |
@@ -47,7 +47,7 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | `scrape-portals.yml` | Weekly Sun | 4 | 3 | 12 |
 | `owasp-zap.yml` | Weekly Sun | 4 | 5 | 20 |
 | `db-maintenance.yml` | Weekly Sun | 4 | 2 | 8 |
-| **Cron Subtotal** | | **826** | | **~1,818** |
+| **Cron Subtotal** | | **626** | | **~1,338** |
 
 #### Event-Triggered Workflows (variable)
 
@@ -60,21 +60,23 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | Other CI/CD | various | 10 | 2 | 20 |
 | **Event Subtotal** | | **~165** | | **~905** |
 
-#### **Total Estimated: ~2,723 min/mo**
+#### **Total Estimated: ~2,243 min/mo**
 
-> Still ~700 min over the 2K free limit. See [Future Optimizations](#6-future-optimizations) for closing the gap.
+> Still ~243 min over the 2K free limit after P0 cron reductions (check-alerts 2h→3h, fetch-weather 6h→12h). See [Future Optimizations](#6-future-optimizations) for closing the gap.
 
 ### Optimization History
 
 | Date | Change | Saved (min/mo) |
 |------|--------|---------------|
 | 2026-03-16 | `check-alerts` 30min -> 2h | 2,160 |
+| 2026-03-16 | `check-alerts` 2h -> 3h (P0) | 240 |
+| 2026-03-16 | `fetch-weather` 6h -> 12h (P0) | 120 |
 | 2026-03-16 | `sync-connections` 2h -> 6h | 480 |
 | 2026-03-16 | `gateway-health` 6h -> 12h | 120 |
 | 2026-03-16 | `e2e-tests` remove daily cron | 450 |
 | 2026-03-16 | Consolidate 4 daily workflows into 1 pipeline | 180 |
 | 2026-03-16 | Reduce warmup overhead on high-freq workflows | ~240 |
-| **Total Saved** | | **~3,630** |
+| **Total Saved** | | **~3,990** |
 
 ---
 
@@ -103,8 +105,8 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 
 | Source | Frequency | Wake Duration (est.) | Hours/mo |
 |--------|-----------|---------------------|----------|
-| `check-alerts` cron | Every 2h | 1 min | 6h |
-| `fetch-weather` cron | Every 6h | 1 min | 2h |
+| `check-alerts` cron | Every 3h | 1 min | 4h |
+| `fetch-weather` cron | Every 12h | 1 min | 1h |
 | `sync-connections` cron | Every 6h | 2 min | 4h |
 | `daily-data-pipeline` | Daily | 5 min | 2.5h |
 | `market-research` | Daily | 2 min | 1h |

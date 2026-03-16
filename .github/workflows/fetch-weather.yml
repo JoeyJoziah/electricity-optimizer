@@ -2,8 +2,8 @@ name: Fetch Weather Data
 
 on:
   schedule:
-    # Every 6 hours (offset 15min from price-sync to avoid collision)
-    - cron: "15 */6 * * *"
+    # Every 12 hours (offset 15min from price-sync to avoid collision, optimized for GHA budget)
+    - cron: "15 */12 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -25,6 +25,8 @@ jobs:
         uses: ./.github/actions/warmup-backend
         with:
           backend-url: ${{ secrets.BACKEND_URL }}
+          max-attempts: '3'
+          delay-seconds: '10'
 
       - name: Fetch weather for all US regions
         uses: ./.github/actions/retry-curl
