@@ -779,6 +779,118 @@ class TestWebhook:
         assert mock_user.stripe_customer_id == "cus_new_biz"
         repo_instance.update.assert_awaited_once_with("user-billing-1", mock_user)
 
+    def test_webhook_processing_exception_still_returns_200(self, auth_client):
+        """
+        S1-07: If handle_webhook_event raises an unexpected exception AFTER
+        signature verification, the endpoint must return 200 (not 500).
+
+        Stripe retries any non-2xx response indefinitely.  Returning 200 here
+        lets Stripe mark the delivery as succeeded so it stops retrying, while
+        our logger.exception() call ensures the error is visible in monitoring.
+        """
+        mock_event = {
+            "id": "evt_processing_error",
+            "type": "checkout.session.completed",
+            "data": {"object": {}},
+        }
+
+        with patch("api.v1.billing.StripeService") as MockStripe:
+            stripe_instance = MockStripe.return_value
+            stripe_instance.is_configured = True
+            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            # Simulate a DB error or bug during processing
+            stripe_instance.handle_webhook_event = AsyncMock(
+                side_effect=RuntimeError("DB connection pool exhausted")
+            )
+
+            response = auth_client.post(
+                f"{BASE_URL}/webhook",
+                content=b'{}',
+                headers={"stripe-signature": "t=123,v1=sig_valid"},
+            )
+
+        # Must be 200 — NOT 500 — so Stripe stops retrying
+        assert response.status_code == 200
+        data = response.json()
+        assert data["received"] is True
+        assert data["event_id"] == "evt_processing_error"
+
+    def test_webhook_stripe_api_error_during_processing_still_returns_200(self, auth_client):
+        """
+        S1-07: stripe.error.StripeError raised during event processing (e.g. an
+        API call inside handle_webhook_event) must also return 200 so Stripe
+        stops retrying.
+        """
+        import stripe as _stripe
+
+        mock_event = {
+            "id": "evt_stripe_error",
+            "type": "invoice.payment_failed",
+            "data": {"object": {}},
+        }
+
+        with patch("api.v1.billing.StripeService") as MockStripe:
+            stripe_instance = MockStripe.return_value
+            stripe_instance.is_configured = True
+            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.handle_webhook_event = AsyncMock(
+                side_effect=_stripe.error.StripeError("upstream stripe issue")
+            )
+
+            response = auth_client.post(
+                f"{BASE_URL}/webhook",
+                content=b'{}',
+                headers={"stripe-signature": "t=123,v1=sig_valid"},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["received"] is True
+
+    def test_webhook_apply_action_exception_still_returns_200(self, auth_client):
+        """
+        S1-07: If apply_webhook_action raises (e.g. DB write fails), the
+        endpoint must return 200 so Stripe stops retrying.
+        """
+        mock_event = {
+            "id": "evt_apply_error",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "metadata": {"user_id": "user-billing-1", "tier": "pro"},
+                    "customer": "cus_apply_err",
+                },
+            },
+        }
+
+        with patch(
+            "api.v1.billing.StripeService"
+        ) as MockStripe, patch(
+            "api.v1.billing.apply_webhook_action",
+            new_callable=AsyncMock,
+            side_effect=Exception("unexpected DB error"),
+        ):
+            stripe_instance = MockStripe.return_value
+            stripe_instance.is_configured = True
+            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.handle_webhook_event = AsyncMock(
+                return_value={
+                    "handled": True,
+                    "action": "activate_subscription",
+                    "user_id": "user-billing-1",
+                    "tier": "pro",
+                    "customer_id": "cus_apply_err",
+                }
+            )
+
+            response = auth_client.post(
+                f"{BASE_URL}/webhook",
+                content=b'{}',
+                headers={"stripe-signature": "t=123,v1=sig_valid"},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["received"] is True
+
     def test_webhook_deactivate_subscription_resets_to_free(self, auth_client):
         """Subscription deleted webhook should reset user to free tier."""
         mock_event = {

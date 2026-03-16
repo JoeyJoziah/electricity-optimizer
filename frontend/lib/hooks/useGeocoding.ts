@@ -1,13 +1,17 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { API_URL } from '@/lib/config/env'
+import { apiClient } from '@/lib/api/client'
 
 interface GeocodeResult {
   lat: number
   lng: number
   state: string | null
   formatted_address: string | null
+}
+
+interface GeocodeResponse {
+  result: GeocodeResult | null
 }
 
 export function useGeocoding() {
@@ -18,16 +22,7 @@ export function useGeocoding() {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch(`${API_URL}/internal/geocode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      })
-      if (!resp.ok) {
-        setError('Geocoding failed')
-        return null
-      }
-      const data = await resp.json()
+      const data = await apiClient.post<GeocodeResponse>('/internal/geocode', { address })
       return data.result ?? null
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Geocoding failed')

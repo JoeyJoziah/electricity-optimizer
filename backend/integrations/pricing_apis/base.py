@@ -559,9 +559,20 @@ class BasePricingClient(ABC):
                         api_name=self.client_name,
                     )
 
-                # Handle auth errors
+                # Handle auth errors — 401/403 are configuration problems, not
+                # infrastructure outages.  Counting them as circuit-breaker
+                # failures would open the circuit on every misconfigured API
+                # key, masking real service-availability issues.  Log as a
+                # warning instead so on-call engineers notice the config problem
+                # without affecting the breaker state.
                 if response.status_code in (401, 403):
-                    await self.circuit_breaker.record_failure()
+                    self.logger.warning(
+                        "api_auth_error",
+                        status_code=response.status_code,
+                        endpoint=endpoint,
+                        api_name=self.client_name,
+                        note="auth errors do not trip the circuit breaker",
+                    )
                     raise AuthenticationError(
                         status_code=response.status_code,
                         response_body=response.text,

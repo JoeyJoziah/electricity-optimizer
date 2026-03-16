@@ -127,6 +127,10 @@ class EIAClient(BasePricingClient):
             "Content-Type": "application/json",
             "Accept": "application/json",
             "User-Agent": "ElectricityOptimizer/1.0",
+            # Security: API key sent via header instead of URL query parameter
+            # to prevent exposure in server access logs, proxy caches, and error traces.
+            # EIA API v2 supports the X-Api-Key header for authentication.
+            "X-Api-Key": self.api_key,
         }
 
     def get_supported_regions(self) -> list[PricingRegion]:
@@ -142,9 +146,13 @@ class EIAClient(BasePricingClient):
                 raise APIError("Rate limit timeout", api_name="eia")
 
     async def _fetch_series(self, route: str, params: dict) -> dict:
-        """Fetch data from EIA v2 API."""
+        """Fetch data from EIA v2 API.
+
+        The API key is sent via the X-Api-Key header (set in _get_default_headers)
+        rather than as a URL query parameter, to avoid leaking credentials in
+        server access logs, proxy caches, and error traces.
+        """
         await self._check_rate_limit()
-        params["api_key"] = self.api_key
         response = await self.get(endpoint=route, params=params)
         return response.json()
 
@@ -448,12 +456,15 @@ class EIAClient(BasePricingClient):
         )
 
     async def health_check(self) -> bool:
-        """Check if EIA API is reachable."""
+        """Check if EIA API is reachable.
+
+        API key is sent via the X-Api-Key header (set in _get_default_headers),
+        not as a URL query parameter.
+        """
         try:
             response = await self.get(
                 endpoint="/electricity/retail-sales/data/",
                 params={
-                    "api_key": self.api_key,
                     "frequency": "monthly",
                     "data[0]": "price",
                     "facets[stateid][]": "CT",

@@ -309,6 +309,16 @@ class GDPRComplianceService:
         """
         Withdraw consent for all purposes (Article 21).
 
+        All withdrawal records are inserted inside a single database
+        transaction so the operation is atomic: either every purpose is
+        withdrawn or none are (no partial/inconsistent consent state on
+        failure).  Uses ``db_session`` directly with raw SQL to avoid the
+        per-record commit in ``consent_repo.create()``.
+
+        If no ``db_session`` is available, falls back to the non-atomic
+        per-record path (backward compatibility with test fixtures that
+        only inject repository mocks).
+
         Args:
             user_id: User's ID
             ip_address: Client IP for audit
@@ -316,26 +326,96 @@ class GDPRComplianceService:
 
         Returns:
             List of withdrawal records created
+
+        Raises:
+            ConsentError: If the bulk withdrawal fails (all changes rolled back)
         """
         logger.info("withdrawing_all_consents", user_id=user_id)
 
-        withdrawals = []
+        now = datetime.now(timezone.utc)
+        withdrawals: List[ConsentRecord] = []
 
+        # Build all withdrawal records in memory first
         for purpose in ConsentPurpose:
-            record = await self.record_consent(
+            record = ConsentRecord(
+                id=str(uuid4()),
                 user_id=user_id,
                 purpose=purpose.value,
                 consent_given=False,
+                timestamp=now,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                metadata={"bulk_withdrawal": True}
+                consent_version="1.0",
+                withdrawal_timestamp=now,
+                metadata={"bulk_withdrawal": True},
             )
             withdrawals.append(record)
+
+        if self.db_session:
+            # Atomic path: single transaction via raw SQL
+            from sqlalchemy import text as sa_text
+
+            try:
+                for record in withdrawals:
+                    await self.db_session.execute(
+                        sa_text("""
+                            INSERT INTO consent_records
+                                (id, user_id, purpose, consent_given, timestamp,
+                                 ip_address, user_agent, consent_version,
+                                 withdrawal_timestamp, metadata_json)
+                            VALUES
+                                (:id, :user_id, :purpose, :consent_given, :ts,
+                                 :ip_address, :user_agent, :consent_version,
+                                 :withdrawal_ts, :metadata)
+                        """),
+                        {
+                            "id": record.id,
+                            "user_id": record.user_id,
+                            "purpose": record.purpose,
+                            "consent_given": record.consent_given,
+                            "ts": record.timestamp,
+                            "ip_address": record.ip_address,
+                            "user_agent": record.user_agent,
+                            "consent_version": record.consent_version,
+                            "withdrawal_ts": record.withdrawal_timestamp,
+                            "metadata": json.dumps(record.metadata)
+                            if record.metadata
+                            else None,
+                        },
+                    )
+
+                # Single commit for the entire batch
+                await self.db_session.commit()
+
+            except Exception as e:
+                await self.db_session.rollback()
+                logger.error(
+                    "bulk_consent_withdrawal_failed",
+                    user_id=user_id,
+                    error=str(e),
+                )
+                raise ConsentError(
+                    f"Failed to withdraw all consents atomically: {str(e)}"
+                ) from e
+        else:
+            # Fallback: per-record path (each record_consent commits individually)
+            try:
+                for record in withdrawals:
+                    await self.consent_repo.create(record)
+            except Exception as e:
+                logger.error(
+                    "consent_withdrawal_failed",
+                    user_id=user_id,
+                    error=str(e),
+                )
+                raise ConsentError(
+                    f"Failed to withdraw consents: {str(e)}"
+                ) from e
 
         logger.info(
             "all_consents_withdrawn",
             user_id=user_id,
-            withdrawal_count=len(withdrawals)
+            withdrawal_count=len(withdrawals),
         )
 
         return withdrawals

@@ -84,12 +84,65 @@ describe('CircuitBreaker state transitions', () => {
     jest.useRealTimers()
   })
 
-  it('closes circuit on success in HALF_OPEN state', () => {
+  it('stays HALF_OPEN after fewer than halfOpenSuccessThreshold successes', () => {
     breaker = new CircuitBreaker({
       failureThreshold: 3,
       resetTimeoutMs: 100,
       fallbackUrl: FALLBACK_URL,
       primaryUrl: PRIMARY_URL,
+      halfOpenSuccessThreshold: 3,
+    })
+
+    breaker.recordFailure()
+    breaker.recordFailure()
+    breaker.recordFailure()
+
+    jest.useFakeTimers()
+    jest.advanceTimersByTime(150)
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+
+    // First and second successes are not enough
+    breaker.recordSuccess()
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+    breaker.recordSuccess()
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+
+    jest.useRealTimers()
+  })
+
+  it('closes circuit after reaching halfOpenSuccessThreshold consecutive successes', () => {
+    breaker = new CircuitBreaker({
+      failureThreshold: 3,
+      resetTimeoutMs: 100,
+      fallbackUrl: FALLBACK_URL,
+      primaryUrl: PRIMARY_URL,
+      halfOpenSuccessThreshold: 3,
+    })
+
+    breaker.recordFailure()
+    breaker.recordFailure()
+    breaker.recordFailure()
+
+    jest.useFakeTimers()
+    jest.advanceTimersByTime(150)
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+
+    // Three consecutive successes close the circuit
+    breaker.recordSuccess()
+    breaker.recordSuccess()
+    breaker.recordSuccess()
+    expect(breaker.state).toBe(CircuitState.CLOSED)
+
+    jest.useRealTimers()
+  })
+
+  it('closes circuit on success in HALF_OPEN state with default threshold of 3', () => {
+    breaker = new CircuitBreaker({
+      failureThreshold: 3,
+      resetTimeoutMs: 100,
+      fallbackUrl: FALLBACK_URL,
+      primaryUrl: PRIMARY_URL,
+      // halfOpenSuccessThreshold not set — defaults to 3
     })
 
     // Open then transition to half-open
@@ -101,9 +154,49 @@ describe('CircuitBreaker state transitions', () => {
     jest.advanceTimersByTime(150)
     expect(breaker.state).toBe(CircuitState.HALF_OPEN)
 
-    // Success in half-open → closed
+    // One success is no longer enough
+    breaker.recordSuccess()
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+
+    // Three total successes close it
+    breaker.recordSuccess()
     breaker.recordSuccess()
     expect(breaker.state).toBe(CircuitState.CLOSED)
+
+    jest.useRealTimers()
+  })
+
+  it('resets half-open success count when failure re-opens the circuit', () => {
+    breaker = new CircuitBreaker({
+      failureThreshold: 3,
+      resetTimeoutMs: 100,
+      fallbackUrl: FALLBACK_URL,
+      primaryUrl: PRIMARY_URL,
+      halfOpenSuccessThreshold: 3,
+    })
+
+    breaker.recordFailure()
+    breaker.recordFailure()
+    breaker.recordFailure()
+
+    jest.useFakeTimers()
+    jest.advanceTimersByTime(150)
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+
+    // Two successes, then a failure re-opens
+    breaker.recordSuccess()
+    breaker.recordSuccess()
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+
+    breaker.recordFailure()
+    expect(breaker.state).toBe(CircuitState.OPEN)
+
+    // After another cooldown, we need 3 fresh successes again
+    jest.advanceTimersByTime(150)
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
+
+    breaker.recordSuccess()
+    expect(breaker.state).toBe(CircuitState.HALF_OPEN)
 
     jest.useRealTimers()
   })

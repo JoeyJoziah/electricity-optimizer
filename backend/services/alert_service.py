@@ -236,7 +236,7 @@ class AlertService:
 
         return triggered
 
-    async def send_alerts(self, triggered: List[tuple]) -> int:
+    async def send_alerts(self, triggered: List[tuple]) -> List[bool]:
         """
         Send alerts for triggered thresholds via all configured channels.
 
@@ -256,12 +256,14 @@ class AlertService:
             triggered: List of (AlertThreshold, PriceAlert) tuples
 
         Returns:
-            Number of alerts successfully sent (at least one channel succeeded)
+            List of booleans, one per input item, indicating whether that
+            individual alert was successfully sent (at least one channel
+            succeeded).  Use ``sum(results)`` to obtain the total sent count.
         """
         async with traced("alert.send", attributes={"alert.count": len(triggered)}):
             from services.notification_dispatcher import NotificationChannel
 
-            sent = 0
+            results: List[bool] = []
             for threshold, alert in triggered:
                 try:
                     html = self._render_alert_email(threshold, alert)
@@ -323,7 +325,6 @@ class AlertService:
                         )
 
                     if success:
-                        sent += 1
                         logger.info(
                             "alert_sent",
                             user_id=threshold.user_id,
@@ -331,13 +332,15 @@ class AlertService:
                             price=str(alert.current_price),
                             via_dispatcher=self._dispatcher is not None,
                         )
+                    results.append(bool(success))
                 except Exception as e:
                     logger.error(
                         "alert_send_failed",
                         user_id=threshold.user_id,
                         error=str(e),
                     )
-            return sent
+                    results.append(False)
+            return results
 
     def _get_alert_subject(self, alert: PriceAlert) -> str:
         """Delegate to AlertRenderer — kept for backward compatibility."""
@@ -703,7 +706,7 @@ class AlertService:
                 count_result = await db.execute(
                     text(
                         "SELECT COUNT(*) FROM price_alert_configs"
-                        " WHERE user_id = :id"
+                        " WHERE user_id = :id AND is_active = TRUE"
                     ),
                     {"id": user_id},
                 )

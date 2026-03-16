@@ -120,7 +120,12 @@ async def query_agent(
     context = await _get_user_context(current_user.user_id, db)
     if body.context:
         context.update(body.context)
-    tier = context.get("tier", "free")
+    # Strip any attempt to override security-sensitive keys from the user-supplied
+    # context. tier and user_id MUST always come from the authenticated session /
+    # database, never from the request body.
+    context["tier"] = await _get_user_tier(current_user.user_id, db)
+    context["user_id"] = current_user.user_id
+    tier = context["tier"]
 
     # Rate limit check
     service = AgentService()
@@ -188,7 +193,12 @@ async def submit_agent_task(
     context = await _get_user_context(current_user.user_id, db)
     if body.context:
         context.update(body.context)
-    tier = context.get("tier", "free")
+    # Strip any attempt to override security-sensitive keys from the user-supplied
+    # context. tier and user_id MUST always come from the authenticated session /
+    # database, never from the request body.
+    context["tier"] = await _get_user_tier(current_user.user_id, db)
+    context["user_id"] = current_user.user_id
+    tier = context["tier"]
 
     service = AgentService()
     allowed, used, limit = await service.check_rate_limit(current_user.user_id, tier, db)

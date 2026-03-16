@@ -5,7 +5,7 @@
  * of billing data from utility provider websites.
  */
 
-const API_BASE = '/api/v1/connections'
+import { apiClient } from './client'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,19 +45,14 @@ export interface PortalScrapeResponse {
  * Stores credentials for automated portal scraping.
  */
 export async function createPortalConnection(
-  payload: CreatePortalConnectionPayload
+  payload: CreatePortalConnectionPayload,
+  options?: { signal?: AbortSignal },
 ): Promise<PortalConnectionResponse> {
-  const res = await fetch(`${API_BASE}/portal`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Failed to create portal connection')
-  }
-  return res.json()
+  return apiClient.post<PortalConnectionResponse>(
+    '/connections/portal',
+    payload,
+    options,
+  )
 }
 
 /**
@@ -65,16 +60,12 @@ export async function createPortalConnection(
  * Returns the scrape result including how many rates were extracted.
  */
 export async function triggerPortalScrape(
-  connectionId: string
+  connectionId: string,
+  options?: { signal?: AbortSignal },
 ): Promise<PortalScrapeResponse> {
-  const res = await fetch(`${API_BASE}/portal/${connectionId}/scrape`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Failed to trigger portal scrape')
-  }
-  return res.json()
+  return apiClient.post<PortalScrapeResponse>(
+    `/connections/portal/${connectionId}/scrape`,
+    undefined,
+    options,
+  )
 }

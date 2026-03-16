@@ -25,6 +25,12 @@ export interface CircuitBreakerOptions {
   fallbackUrl: string
   /** Primary CF Worker gateway URL */
   primaryUrl: string
+  /**
+   * Number of consecutive successes required while in HALF_OPEN state before
+   * the circuit fully closes.  Defaults to 3.  One success is not enough to
+   * trust a service that had 5+ failures.
+   */
+  halfOpenSuccessThreshold?: number
 }
 
 /** HTTP status codes that indicate a gateway-level failure (not origin) */
@@ -33,6 +39,7 @@ const GATEWAY_ERROR_CODES = new Set([502, 503, 1027])
 export class CircuitBreaker {
   private _state: CircuitState = CircuitState.CLOSED
   private _failureCount = 0
+  private _halfOpenSuccessCount = 0
   private _lastFailureTime = 0
   private readonly _options: CircuitBreakerOptions
 
@@ -53,21 +60,52 @@ export class CircuitBreaker {
 
   /** Record a gateway failure. May transition CLOSED → OPEN or HALF_OPEN → OPEN. */
   recordFailure(): void {
+    // Read state BEFORE updating _lastFailureTime so that the lazy
+    // OPEN → HALF_OPEN transition in the `state` getter can still fire (it
+    // compares against the OLD _lastFailureTime, not the fresh one).
+    const currentState = this.state
+
     this._failureCount++
     this._lastFailureTime = Date.now()
 
-    if (this._state === CircuitState.HALF_OPEN) {
-      // Probe failed — re-open
+    if (currentState === CircuitState.HALF_OPEN) {
+      // Probe failed — re-open and clear the in-progress recovery count so
+      // the next HALF_OPEN window requires a fresh run of consecutive successes.
+      this._halfOpenSuccessCount = 0
       this._state = CircuitState.OPEN
     } else if (this._failureCount >= this._options.failureThreshold) {
       this._state = CircuitState.OPEN
     }
   }
 
-  /** Record a successful request. Resets failure count and closes circuit. */
+  /**
+   * Record a successful request.
+   *
+   * - CLOSED state: simply resets the failure counter (normal operation).
+   * - HALF_OPEN state: accumulates consecutive successes; only transitions to
+   *   CLOSED once the configured threshold (default 3) is reached.  A single
+   *   success after repeated failures is not sufficient evidence that the
+   *   upstream service has fully recovered.
+   */
   recordSuccess(): void {
-    this._failureCount = 0
-    this._state = CircuitState.CLOSED
+    // Use the public `state` getter so that the lazy OPEN → HALF_OPEN
+    // transition is materialised before we branch on the current state.
+    const currentState = this.state
+    if (currentState === CircuitState.HALF_OPEN) {
+      this._halfOpenSuccessCount++
+      const threshold = this._options.halfOpenSuccessThreshold ?? 3
+      if (this._halfOpenSuccessCount >= threshold) {
+        // Enough consecutive probe-successes — close the circuit
+        this._failureCount = 0
+        this._halfOpenSuccessCount = 0
+        this._state = CircuitState.CLOSED
+      }
+      // Otherwise stay in HALF_OPEN and keep accumulating
+    } else {
+      // CLOSED state: reset failure counter, no state change needed
+      this._failureCount = 0
+      this._halfOpenSuccessCount = 0
+    }
   }
 
   /**
@@ -105,6 +143,7 @@ export class CircuitBreaker {
   _resetForTesting(overrides?: Partial<CircuitBreakerOptions>): void {
     this._state = CircuitState.CLOSED
     this._failureCount = 0
+    this._halfOpenSuccessCount = 0
     this._lastFailureTime = 0
     if (overrides) {
       Object.assign(this._options, overrides)

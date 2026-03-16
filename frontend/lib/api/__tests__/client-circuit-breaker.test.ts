@@ -143,7 +143,7 @@ describe('apiClient circuit breaker integration', () => {
     expect(headers['X-Fallback-Mode']).toBeUndefined()
   })
 
-  it('recovers circuit on success after opening', async () => {
+  it('recovers circuit after consecutive successes in half-open (gradual recovery)', async () => {
     // Use short reset timeout for testing
     circuitBreaker._resetForTesting({
       fallbackUrl: FALLBACK_URL,
@@ -166,10 +166,19 @@ describe('apiClient circuit breaker integration', () => {
 
     expect(circuitBreaker.state).toBe(CircuitState.HALF_OPEN)
 
-    // Success in half-open → closed
+    // Gradual recovery: need 3 consecutive successes (default halfOpenSuccessThreshold)
     mockFetch.mockReset()
     mockFetch.mockResolvedValue(mockJsonResponse({ data: 'recovered' }))
 
+    // First success — still HALF_OPEN (1 of 3)
+    await apiClient.get('/prices')
+    expect(circuitBreaker.state).toBe(CircuitState.HALF_OPEN)
+
+    // Second success — still HALF_OPEN (2 of 3)
+    await apiClient.get('/prices')
+    expect(circuitBreaker.state).toBe(CircuitState.HALF_OPEN)
+
+    // Third success — threshold met, circuit closes
     await apiClient.get('/prices')
     expect(circuitBreaker.state).toBe(CircuitState.CLOSED)
 

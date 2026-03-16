@@ -279,8 +279,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in with Google'
       setError(message)
-      setIsLoading(false)
       throw err
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
@@ -297,8 +298,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in with GitHub'
       setError(message)
-      setIsLoading(false)
       throw err
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 

@@ -6,13 +6,17 @@ Routes
 GET /neighborhood/compare  — user rate percentile and cheapest alternative
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_current_user, get_db_session, SessionData
+from models.utility import UtilityType
 from services.neighborhood_service import NeighborhoodService
 
 router = APIRouter(prefix="/neighborhood", tags=["Neighborhood"])
+
+# Allowed utility_type values derived from the UtilityType enum
+_VALID_UTILITY_TYPES = {ut.value for ut in UtilityType}
 
 
 # =============================================================================
@@ -28,6 +32,14 @@ async def neighborhood_compare(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Compare the user's rate against regional peers."""
+    if utility_type not in _VALID_UTILITY_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Invalid utility_type '{utility_type}'. "
+                f"Valid values are: {', '.join(sorted(_VALID_UTILITY_TYPES))}"
+            ),
+        )
     service = NeighborhoodService()
     return await service.get_comparison(
         db=db,

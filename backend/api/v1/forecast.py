@@ -5,7 +5,7 @@ Pro tier gated. Provides trend-based forecasts for electricity,
 natural gas, heating oil, and propane.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_db_session, require_tier
 from services.forecast_service import ForecastService, FORECASTABLE_UTILITIES
@@ -35,6 +35,14 @@ async def get_forecast(
     - **heating_oil**: Simple linear trend from EIA data
     - **propane**: Simple linear trend from EIA data
     """
+    if utility_type not in FORECASTABLE_UTILITIES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Invalid utility_type '{utility_type}'. "
+                f"Valid values are: {', '.join(sorted(FORECASTABLE_UTILITIES))}"
+            ),
+        )
     service = ForecastService(db)
     return await service.get_forecast(
         utility_type=utility_type,

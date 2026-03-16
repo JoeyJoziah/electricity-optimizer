@@ -144,22 +144,22 @@ async def check_alerts(
         # ------------------------------------------------------------------
         # 6. Send non-duplicate alerts and record history
         # ------------------------------------------------------------------
-        sent = await service.send_alerts(to_send)
+        # send_alerts() returns a per-item list of booleans so we can record
+        # the accurate email_sent flag for each alert in alert_history.
+        send_results = await service.send_alerts(to_send)
+        sent = sum(send_results)
 
-        # Persist each sent alert to alert_history (email_sent=True only if
-        # the send succeeded — send_alerts() returns total sent count, so we
-        # record based on individual send outcomes via a secondary loop)
-        for threshold, alert in to_send:
+        # Persist each triggered alert to alert_history using the actual
+        # per-item send outcome so that email_sent is only True when the
+        # notification was actually delivered.
+        for (threshold, alert), email_was_sent in zip(to_send, send_results):
             try:
                 await service.record_triggered_alert(
                     user_id=threshold.user_id,
                     alert=alert,
                     db=db,
                     alert_config_id=config_id_by_user.get(threshold.user_id),
-                    # Mark email_sent conservatively; if sent < len(to_send)
-                    # some emails failed but we don't have per-item status.
-                    # Use True here — the send_alerts() logger captures failures.
-                    email_sent=True,
+                    email_sent=email_was_sent,
                     currency=threshold.currency,
                 )
             except Exception as exc:

@@ -1,6 +1,7 @@
-# Sprint 1: Auth, Reliability & Race Conditions — QUEUED
+# Sprint 1: Auth, Reliability & Race Conditions — IN PROGRESS
 
-**Status**: QUEUED (blocked on Sprint 2 completion)
+**Status**: IN PROGRESS
+**Started**: 2026-03-16
 **Target**: Race conditions, auth gaps, data integrity
 **Estimated files**: ~35
 

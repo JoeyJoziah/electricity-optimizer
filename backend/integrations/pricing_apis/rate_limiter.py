@@ -14,6 +14,47 @@ import time
 
 import structlog
 
+# ---------------------------------------------------------------------------
+# Lua script for atomic Redis sliding-window rate limiting used by
+# RedisRateLimiter.  Eliminates the TOCTOU race between the count-check
+# pipeline and the add-entry pipeline in the original implementation.
+#
+# KEYS[1]  - Redis sorted-set key
+# ARGV[1]  - current Unix timestamp (float string)
+# ARGV[2]  - window size in seconds (integer)
+# ARGV[3]  - rate limit per window (integer)
+# ARGV[4]  - number of tokens to consume (integer, usually 1)
+#
+# Returns: {allowed (0 or 1), post-operation count}
+# ---------------------------------------------------------------------------
+_REDIS_RATE_LIMIT_LUA = """
+local key          = KEYS[1]
+local now          = tonumber(ARGV[1])
+local window       = tonumber(ARGV[2])
+local limit        = tonumber(ARGV[3])
+local tokens       = tonumber(ARGV[4])
+local window_start = now - window
+
+-- Remove expired entries
+redis.call('ZREMRANGEBYSCORE', key, '-inf', window_start)
+
+local count = tonumber(redis.call('ZCARD', key))
+
+if count + tokens <= limit then
+    -- Capacity available: add the new entries atomically
+    for i = 1, tokens do
+        local member = tostring(now) .. ':' .. tostring(i) .. ':' .. tostring(redis.call('INCR', key .. ':seq'))
+        redis.call('ZADD', key, now, member)
+    end
+    redis.call('EXPIRE', key, window + 1)
+    return {1, count + tokens}
+else
+    -- Over limit: do NOT add entries, just refresh TTL so key self-cleans
+    redis.call('EXPIRE', key, window + 1)
+    return {0, count}
+end
+"""
+
 logger = structlog.get_logger(__name__)
 
 
@@ -203,7 +244,15 @@ class SlidingWindowLimiter(RateLimiter):
 
     Tracks requests within a time window and limits based on count.
     More accurate than fixed window but requires more memory.
+
+    Memory safety: the internal ``_windows`` dict is bounded to at most
+    ``_MAX_KEYS`` entries.  When the threshold is reached an O(n) sweep
+    evicts all keys whose timestamp list is empty *or* contains only
+    entries older than the current window.  This keeps memory bounded
+    without requiring an external TTL mechanism.
     """
+
+    _MAX_KEYS: int = 10_000  # trigger eviction sweep at this many keys
 
     def __init__(
         self,
@@ -222,15 +271,40 @@ class SlidingWindowLimiter(RateLimiter):
         self.logger = logger.bind(rate_limiter=name)
 
     def _clean_window(self, key: str) -> None:
-        """Remove expired timestamps from window"""
+        """Remove expired timestamps from *key*'s window list.
+
+        The currently-requested ``key`` is always kept in the dict (initialised
+        to an empty list if not present) so that callers can safely do
+        ``self._windows[key]`` immediately after.  Other keys whose entire
+        timestamp list has expired are candidates for eviction.
+
+        When the total number of tracked keys (including the current one)
+        reaches ``_MAX_KEYS`` a full sweep evicts every OTHER key whose list is
+        empty or fully expired.  This bounds memory growth without disrupting
+        the current request.  This method is always called under ``self._lock``
+        so no concurrent modification can occur.
+        """
+        cutoff = time.monotonic() - self.window_seconds
+
+        # Ensure the current key always has a list (create if absent)
         if key not in self._windows:
             self._windows[key] = []
-            return
+        else:
+            self._windows[key] = [ts for ts in self._windows[key] if ts > cutoff]
 
-        cutoff = time.monotonic() - self.window_seconds
-        self._windows[key] = [
-            ts for ts in self._windows[key] if ts > cutoff
-        ]
+        # Periodic sweep: evict stale *other* keys when the dict is too large.
+        if len(self._windows) >= self._MAX_KEYS:
+            stale = [
+                k for k, timestamps in self._windows.items()
+                if k != key and (not timestamps or timestamps[-1] <= cutoff)
+            ]
+            for k in stale:
+                del self._windows[k]
+            self.logger.info(
+                "sliding_window_eviction",
+                evicted=len(stale),
+                remaining=len(self._windows),
+            )
 
     async def acquire(self, key: str = "default", tokens: int = 1) -> bool:
         """Attempt to acquire tokens"""
@@ -392,46 +466,50 @@ class RedisRateLimiter(RateLimiter):
         return f"{self.key_prefix}:{self.name}:{key}"
 
     async def acquire(self, key: str = "default", tokens: int = 1) -> bool:
-        """Acquire tokens using Redis sorted set"""
+        """Acquire tokens using an atomic Redis Lua script.
+
+        The original implementation used two separate pipelines (read count,
+        then conditionally write) which created a TOCTOU race: two concurrent
+        callers could both observe a count below the limit and both succeed,
+        causing the effective limit to be exceeded.
+
+        The Lua script executes atomically on the Redis server:
+          1. Prune expired entries
+          2. Read the post-prune count
+          3. If capacity exists, add the new entries and set TTL
+          4. Return {allowed, new_count} as a single atomic operation
+        """
         redis_key = self._get_redis_key(key)
         now = time.time()
-        window_start = now - self.window_seconds
 
-        pipe = self.redis.pipeline()
+        result = await self.redis.eval(
+            _REDIS_RATE_LIMIT_LUA,
+            1,                          # numkeys
+            redis_key,                  # KEYS[1]
+            now,                        # ARGV[1]
+            int(self.window_seconds),   # ARGV[2]
+            self.requests_per_window,   # ARGV[3]
+            tokens,                     # ARGV[4]
+        )
 
-        # Remove expired entries
-        pipe.zremrangebyscore(redis_key, "-inf", window_start)
+        allowed = bool(int(result[0]))
+        new_count = int(result[1])
 
-        # Count current entries
-        pipe.zcard(redis_key)
-
-        # Execute pipeline
-        results = await pipe.execute()
-        current_count = results[1]
-
-        if current_count + tokens <= self.requests_per_window:
-            # Add new entries
-            pipe = self.redis.pipeline()
-            for i in range(tokens):
-                pipe.zadd(redis_key, {f"{now}:{i}": now})
-            pipe.expire(redis_key, int(self.window_seconds) + 1)
-            await pipe.execute()
-
+        if allowed:
             self.logger.debug(
                 "redis_request_allowed",
                 key=key,
-                count=current_count + tokens,
+                count=new_count,
                 limit=self.requests_per_window,
             )
-            return True
-
-        self.logger.debug(
-            "redis_rate_limited",
-            key=key,
-            count=current_count,
-            limit=self.requests_per_window,
-        )
-        return False
+        else:
+            self.logger.debug(
+                "redis_rate_limited",
+                key=key,
+                count=new_count,
+                limit=self.requests_per_window,
+            )
+        return allowed
 
     async def wait_for_token(
         self,

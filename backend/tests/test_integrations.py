@@ -915,6 +915,113 @@ class TestErrorHandling:
                 with pytest.raises(CircuitBreakerOpenError):
                     await client.get_current_price(PricingRegion.UK)
 
+    @pytest.mark.asyncio
+    async def test_auth_error_401_does_not_trip_circuit_breaker(self):
+        """
+        S1-17: A 401 Unauthorized response is a configuration problem, not an
+        infrastructure outage.  It must NOT increment the circuit breaker
+        failure counter or change the breaker state.
+        """
+        with patch("httpx.AsyncClient") as MockClient:
+            mock_response = AsyncMock()
+            mock_response.status_code = 401
+            mock_response.text = "Unauthorized"
+
+            mock_client = AsyncMock()
+            mock_client.is_closed = False
+            mock_client.request.return_value = mock_response
+            MockClient.return_value = mock_client
+
+            # Low threshold so any failure would open the circuit quickly
+            circuit_config = CircuitBreakerConfig(failure_threshold=2)
+            retry_config = RetryConfig(max_retries=0)
+
+            async with FlatpeakClient(
+                api_key="bad-key",
+                retry_config=retry_config,
+                circuit_breaker_config=circuit_config,
+            ) as client:
+                client._client = mock_client
+
+                # Two 401 errors — should NOT open the circuit
+                with pytest.raises(AuthenticationError):
+                    await client.get_current_price(PricingRegion.UK)
+                with pytest.raises(AuthenticationError):
+                    await client.get_current_price(PricingRegion.UK)
+
+                # Circuit must still be CLOSED after auth failures
+                assert client.circuit_breaker.state == CircuitState.CLOSED
+                assert client.circuit_breaker._failure_count == 0
+
+    @pytest.mark.asyncio
+    async def test_auth_error_403_does_not_trip_circuit_breaker(self):
+        """
+        S1-17: A 403 Forbidden response is also a configuration/permissions
+        issue and must NOT trip the circuit breaker.
+        """
+        with patch("httpx.AsyncClient") as MockClient:
+            mock_response = AsyncMock()
+            mock_response.status_code = 403
+            mock_response.text = "Forbidden"
+
+            mock_client = AsyncMock()
+            mock_client.is_closed = False
+            mock_client.request.return_value = mock_response
+            MockClient.return_value = mock_client
+
+            circuit_config = CircuitBreakerConfig(failure_threshold=2)
+            retry_config = RetryConfig(max_retries=0)
+
+            async with FlatpeakClient(
+                api_key="insufficient-perms-key",
+                retry_config=retry_config,
+                circuit_breaker_config=circuit_config,
+            ) as client:
+                client._client = mock_client
+
+                with pytest.raises(AuthenticationError):
+                    await client.get_current_price(PricingRegion.UK)
+                with pytest.raises(AuthenticationError):
+                    await client.get_current_price(PricingRegion.UK)
+
+                # Circuit must still be CLOSED
+                assert client.circuit_breaker.state == CircuitState.CLOSED
+                assert client.circuit_breaker._failure_count == 0
+
+    @pytest.mark.asyncio
+    async def test_5xx_error_does_trip_circuit_breaker(self):
+        """
+        S1-17 (complementary): 5xx server errors ARE infrastructure failures and
+        MUST still trip the circuit breaker as before.
+        """
+        with patch("httpx.AsyncClient") as MockClient:
+            mock_response = AsyncMock()
+            mock_response.status_code = 500
+            mock_response.text = "Internal server error"
+
+            mock_client = AsyncMock()
+            mock_client.is_closed = False
+            mock_client.request.return_value = mock_response
+            MockClient.return_value = mock_client
+
+            circuit_config = CircuitBreakerConfig(failure_threshold=2)
+            retry_config = RetryConfig(max_retries=0)
+
+            async with FlatpeakClient(
+                api_key="test-key",
+                retry_config=retry_config,
+                circuit_breaker_config=circuit_config,
+            ) as client:
+                client._client = mock_client
+
+                with pytest.raises(ServiceUnavailableError):
+                    await client.get_current_price(PricingRegion.UK)
+                with pytest.raises(ServiceUnavailableError):
+                    await client.get_current_price(PricingRegion.UK)
+
+                # Circuit must now be OPEN after two 5xx failures
+                assert client.circuit_breaker.state == CircuitState.OPEN
+
 
 # =============================================================================
 # INTEGRATION TESTS (with cache)

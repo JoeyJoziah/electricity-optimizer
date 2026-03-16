@@ -12,7 +12,7 @@ Supported Regions:
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 import structlog
 
@@ -170,11 +170,17 @@ class NRELClient(BasePricingClient):
         self.logger = logger.bind(api_client="nrel")
 
     def _get_default_headers(self) -> dict[str, str]:
-        """Get default headers for NREL API"""
+        """Get default headers for NREL API.
+
+        The API key is sent via the X-Api-Key header rather than as a URL
+        query parameter to prevent exposure in server access logs, proxy
+        caches, and error traces. NREL developer APIs support this header.
+        """
         return {
             "Content-Type": "application/json",
             "Accept": "application/json",
             "User-Agent": "ElectricityOptimizer/1.0",
+            "X-Api-Key": self.api_key,
         }
 
     def get_supported_regions(self) -> list[PricingRegion]:
@@ -281,11 +287,10 @@ class NRELClient(BasePricingClient):
             zip_code=zip_code,
         )
 
-        # NREL uses api_key as a query parameter
+        # API key sent via X-Api-Key header (see _get_default_headers)
         response = await self.get(
             endpoint=".json",
             params={
-                "api_key": self.api_key,
                 "lat": None,  # Will be looked up from ZIP
                 "lon": None,
                 "address": zip_code,
@@ -418,7 +423,8 @@ class NRELClient(BasePricingClient):
         """
         await self._check_rate_limit()
 
-        params = {"api_key": self.api_key}
+        # API key sent via X-Api-Key header (see _get_default_headers)
+        params: dict[str, Any] = {}
 
         if zip_code:
             params["address"] = zip_code
@@ -456,7 +462,6 @@ class NRELClient(BasePricingClient):
         response = await self.get(
             endpoint=".json",
             params={
-                "api_key": self.api_key,
                 "utility_id": utility_id,
             },
         )
@@ -488,7 +493,6 @@ class NRELClient(BasePricingClient):
         response = await self.get(
             endpoint=".json",
             params={
-                "api_key": self.api_key,
                 "address": zip_code,
             },
         )
@@ -510,10 +514,10 @@ class NRELClient(BasePricingClient):
         """
         try:
             # Use a known ZIP code for health check
+            # API key sent via X-Api-Key header (see _get_default_headers)
             response = await self.get(
                 endpoint=".json",
                 params={
-                    "api_key": self.api_key,
                     "address": "90210",
                 },
                 deduplicate=False,

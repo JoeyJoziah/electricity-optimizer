@@ -163,7 +163,8 @@ class TestCheckAlerts:
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[(threshold, alert)])
         mock_svc._batch_should_send_alerts = AsyncMock(return_value=set())  # nothing in cooldown
-        mock_svc.send_alerts = AsyncMock(return_value=1)
+        # send_alerts now returns List[bool] — one True for the single successful send
+        mock_svc.send_alerts = AsyncMock(return_value=[True])
         mock_svc.record_triggered_alert = AsyncMock(return_value={})
         mock_svc_cls.return_value = mock_svc
 
@@ -221,7 +222,8 @@ class TestCheckAlerts:
         mock_svc._batch_should_send_alerts = AsyncMock(
             return_value={(cfg["user_id"], "price_drop", "us_ct")}
         )
-        mock_svc.send_alerts = AsyncMock(return_value=0)
+        # send_alerts now returns List[bool] — empty list because to_send is empty
+        mock_svc.send_alerts = AsyncMock(return_value=[])
         mock_svc.record_triggered_alert = AsyncMock(return_value={})
         mock_svc_cls.return_value = mock_svc
 
@@ -258,7 +260,8 @@ class TestCheckAlerts:
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[])
         mock_svc._batch_should_send_alerts = AsyncMock(return_value=set())
-        mock_svc.send_alerts = AsyncMock(return_value=0)
+        # send_alerts now returns List[bool] — empty list when nothing to send
+        mock_svc.send_alerts = AsyncMock(return_value=[])
         mock_svc_cls.return_value = mock_svc
 
         mock_repo = MagicMock()
@@ -289,7 +292,8 @@ class TestCheckAlerts:
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[])
         mock_svc._batch_should_send_alerts = AsyncMock(return_value=set())
-        mock_svc.send_alerts = AsyncMock(return_value=0)
+        # send_alerts now returns List[bool]
+        mock_svc.send_alerts = AsyncMock(return_value=[])
         mock_svc_cls.return_value = mock_svc
 
         mock_repo = MagicMock()
@@ -380,7 +384,8 @@ class TestCheckAlerts:
         mock_svc._batch_should_send_alerts = AsyncMock(
             return_value={("user-2", "price_drop", "us_ct")}
         )
-        mock_svc.send_alerts = AsyncMock(return_value=1)
+        # send_alerts now returns List[bool] — one True for user-1's successful send
+        mock_svc.send_alerts = AsyncMock(return_value=[True])
         mock_svc.record_triggered_alert = AsyncMock(return_value={})
         mock_svc_cls.return_value = mock_svc
 

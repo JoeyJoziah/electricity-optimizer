@@ -159,7 +159,7 @@ class TestAlertService:
         )
 
         sent = await self.service.send_alerts([(threshold, alert)])
-        assert sent == 1
+        assert sum(sent) == 1
         self.mock_email.send.assert_called_once()
 
     @pytest.mark.asyncio
@@ -176,7 +176,7 @@ class TestAlertService:
         )
 
         sent = await self.service.send_alerts([(threshold, alert)])
-        assert sent == 0
+        assert sum(sent) == 0
 
     def test_get_alert_subject_price_drop(self):
         alert = PriceAlert(
@@ -256,7 +256,7 @@ class TestAlertServiceWithDispatcher:
 
         sent = await service.send_alerts([(threshold, alert)])
 
-        assert sent == 1
+        assert sum(sent) == 1
         dispatcher.send.assert_awaited_once()
         # EmailService.send should NOT be called directly when dispatcher succeeds
         mock_email.send.assert_not_awaited()
@@ -313,7 +313,7 @@ class TestAlertServiceWithDispatcher:
 
         sent = await service.send_alerts([(threshold, alert)])
 
-        assert sent == 0
+        assert sum(sent) == 0
 
     @pytest.mark.asyncio
     async def test_dispatcher_failure_falls_back_to_email_service(self):
@@ -332,7 +332,7 @@ class TestAlertServiceWithDispatcher:
         sent = await service.send_alerts([(threshold, alert)])
 
         # Fallback email send succeeded → counted as sent
-        assert sent == 1
+        assert sum(sent) == 1
         mock_email.send.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -348,7 +348,7 @@ class TestAlertServiceWithDispatcher:
 
         sent = await service.send_alerts([(threshold, alert)])
 
-        assert sent == 1
+        assert sum(sent) == 1
         mock_email.send.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -369,7 +369,7 @@ class TestAlertServiceWithDispatcher:
 
         sent = await service.send_alerts([(threshold, alert)])
 
-        assert sent == 0
+        assert sum(sent) == 0
 
     @pytest.mark.asyncio
     async def test_dispatcher_dedup_key_includes_user_alert_and_region(self):

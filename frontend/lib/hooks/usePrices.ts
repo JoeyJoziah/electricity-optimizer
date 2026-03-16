@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getCurrentPrices,
@@ -68,11 +69,13 @@ export function useOptimalPeriods(region: string | null | undefined, hours: numb
 
 /**
  * Hook to manually refresh all price data.
+ * The returned callback is memoised with useCallback so consumers do not
+ * re-render just because the hook owner re-renders.
  */
 export function useRefreshPrices() {
   const queryClient = useQueryClient()
 
-  return () => {
+  return useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['prices'] })
-  }
+  }, [queryClient])
 }

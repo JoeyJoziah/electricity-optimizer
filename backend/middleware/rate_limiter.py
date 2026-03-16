@@ -22,6 +22,46 @@ from config.settings import settings
 
 logger = structlog.get_logger()
 
+# ---------------------------------------------------------------------------
+# Lua script for atomic sliding-window rate limiting.
+#
+# The script atomically:
+#   1. Removes timestamps older than the window (ZREMRANGEBYSCORE)
+#   2. Adds the current timestamp as a new member
+#   3. Sets the TTL so Redis auto-expires the key
+#   4. Returns the resulting count so the caller can decide allowed/denied
+#
+# Returning the post-increment count (rather than a boolean) lets the caller
+# compute the remaining headroom without a second round-trip.
+#
+# KEYS[1]  - Redis key (e.g. "ratelimit:minute:user:abc123")
+# ARGV[1]  - current Unix timestamp (float, as a string)
+# ARGV[2]  - window size in seconds (integer)
+# ARGV[3]  - rate limit (integer)
+# ---------------------------------------------------------------------------
+_SLIDING_WINDOW_LUA = """
+local key        = KEYS[1]
+local now        = tonumber(ARGV[1])
+local window     = tonumber(ARGV[2])
+local limit      = tonumber(ARGV[3])
+local window_start = now - window
+
+-- Remove entries that have fallen outside the window
+redis.call('ZREMRANGEBYSCORE', key, 0, window_start)
+
+-- Add the current request (use the timestamp as both score and member;
+-- append a random suffix to handle multiple requests at the same microsecond)
+local member = tostring(now) .. ':' .. tostring(redis.call('INCR', key .. ':seq'))
+redis.call('ZADD', key, now, member)
+
+-- Refresh TTL so the key auto-expires after the window
+redis.call('EXPIRE', key, window + 1)
+
+-- Return the count AFTER adding the current request
+local count = redis.call('ZCARD', key)
+return count
+"""
+
 
 class RateLimitExceeded(HTTPException):
     """Exception raised when rate limit is exceeded"""
@@ -113,26 +153,23 @@ class UserRateLimiter:
         limit: int,
         window: int,
     ) -> tuple[bool, int]:
-        """Check rate limit using Redis sliding window"""
+        """Check rate limit using an atomic Redis Lua sliding window.
+
+        The Lua script executes ZREMRANGEBYSCORE + ZADD + EXPIRE + ZCARD as a
+        single atomic operation so no two concurrent requests can both read the
+        same pre-increment count (TOCTOU eliminated).
+        """
         now = time.time()
-        window_start = now - window
 
-        pipe = self.redis.pipeline()
-
-        # Remove old entries
-        pipe.zremrangebyscore(key, 0, window_start)
-
-        # Add current request
-        pipe.zadd(key, {str(now): now})
-
-        # Count requests in window
-        pipe.zcard(key)
-
-        # Set expiry
-        pipe.expire(key, window)
-
-        results = await pipe.execute()
-        request_count = results[2]
+        request_count = await self.redis.eval(
+            _SLIDING_WINDOW_LUA,
+            1,          # number of KEYS
+            key,        # KEYS[1]
+            now,        # ARGV[1]
+            window,     # ARGV[2]
+            limit,      # ARGV[3]
+        )
+        request_count = int(request_count)
 
         allowed = request_count <= limit
         remaining = max(0, limit - request_count)
@@ -176,28 +213,32 @@ class UserRateLimiter:
         self,
         identifier: str,
     ) -> tuple[bool, int, bool]:
-        """Check both minute and hour limits in a single Redis pipeline."""
+        """Check both minute and hour limits using atomic Lua scripts.
+
+        Each window is incremented atomically via the Lua sliding-window
+        script.  We fire both eval calls concurrently with asyncio.gather so
+        the total round-trip count stays at 2 (same as the old pipeline
+        approach) while eliminating the TOCTOU window for each window.
+        """
+        import asyncio as _asyncio
+
         now = time.time()
         minute_key = f"ratelimit:minute:{identifier}"
         hour_key = f"ratelimit:hour:{identifier}"
 
-        pipe = self.redis.pipeline()
+        minute_count_raw, hour_count_raw = await _asyncio.gather(
+            self.redis.eval(
+                _SLIDING_WINDOW_LUA, 1,
+                minute_key, now, 60, self.requests_per_minute,
+            ),
+            self.redis.eval(
+                _SLIDING_WINDOW_LUA, 1,
+                hour_key, now, 3600, self.requests_per_hour,
+            ),
+        )
 
-        # Minute window
-        pipe.zremrangebyscore(minute_key, 0, now - 60)      # [0]
-        pipe.zadd(minute_key, {str(now): now})               # [1]
-        pipe.zcard(minute_key)                                # [2]
-        pipe.expire(minute_key, 60)                           # [3]
-
-        # Hour window
-        pipe.zremrangebyscore(hour_key, 0, now - 3600)       # [4]
-        pipe.zadd(hour_key, {str(now): now})                  # [5]
-        pipe.zcard(hour_key)                                  # [6]
-        pipe.expire(hour_key, 3600)                           # [7]
-
-        results = await pipe.execute()
-        minute_count = results[2]
-        hour_count = results[6]
+        minute_count = int(minute_count_raw)
+        hour_count = int(hour_count_raw)
 
         minute_allowed = minute_count <= self.requests_per_minute
         minute_remaining = max(0, self.requests_per_minute - minute_count)

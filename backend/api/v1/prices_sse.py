@@ -187,6 +187,9 @@ async def stream_prices(
     user_id = current_user.user_id
 
     count = await _sse_incr(user_id)
+
+    # Guard: if we are already at the connection cap, decrement immediately
+    # (the increment above already happened) and reject.
     if count > _SSE_MAX_CONNECTIONS_PER_USER:
         await _sse_decr(user_id)
         raise HTTPException(
@@ -196,22 +199,43 @@ async def stream_prices(
 
     logger.info("sse_connection_opened", user_id=user_id, region=region.value)
 
+    # The counter MUST be decremented regardless of how the stream ends:
+    #   - normal generator exhaustion
+    #   - client disconnect (CancelledError / GeneratorExit)
+    #   - any unhandled exception raised inside the generator
+    #   - the rare case where the StreamingResponse body is never iterated
+    #     (e.g. an exception is raised after this point but before ASGI sends
+    #     the body — the outer try/finally covers that path).
+    incremented = True  # flag so the outer finally knows to decrement
+
     async def event_stream():
+        nonlocal incremented
         try:
             async for event in _price_event_generator(region, price_service, interval, request):
                 yield event
         except asyncio.CancelledError:
             pass
         finally:
+            # The generator finally always runs when the async iterator is
+            # closed, covering normal completion, cancellation, and exceptions.
+            incremented = False  # prevent double-decrement from the outer path
             await _sse_decr(user_id)
             logger.info("sse_connection_closed", user_id=user_id, region=region.value)
 
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    try:
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except Exception:
+        # If StreamingResponse construction itself raises (extremely unlikely
+        # but possible), ensure the counter is corrected before re-raising.
+        if incremented:
+            await _sse_decr(user_id)
+            logger.info("sse_connection_closed_on_error", user_id=user_id)
+        raise

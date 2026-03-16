@@ -80,7 +80,15 @@ class WeatherService:
     async def get_current_weather(
         self, lat: float, lon: float
     ) -> Optional[dict]:
-        """Fetch current weather. 1 API call."""
+        """Fetch current weather. 1 API call.
+
+        Note: OpenWeatherMap API v2.5 only supports API key authentication
+        via the ``appid`` query parameter. There is no header-based auth
+        option. This is a known limitation -- the key will appear in server
+        access logs. Mitigations: the OWM key has no billing authority
+        (free tier, no credit card), and backend-to-OWM calls are
+        server-side only (never exposed to browsers or proxies).
+        """
         if not self._api_key:
             return None
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -89,6 +97,8 @@ class WeatherService:
                 params={
                     "lat": lat,
                     "lon": lon,
+                    # OWM v2.5 requires appid as a query parameter; no
+                    # header-based auth is available. See docstring above.
                     "appid": self._api_key,
                     "units": "imperial",
                 },
@@ -106,7 +116,10 @@ class WeatherService:
     async def get_forecast_5day(
         self, lat: float, lon: float
     ) -> Optional[list]:
-        """Fetch 5-day/3-hour forecast. 1 API call."""
+        """Fetch 5-day/3-hour forecast. 1 API call.
+
+        See get_current_weather docstring for OWM appid query-param rationale.
+        """
         if not self._api_key:
             return None
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -115,6 +128,7 @@ class WeatherService:
                 params={
                     "lat": lat,
                     "lon": lon,
+                    # OWM v2.5 requires appid as query param (no header auth).
                     "appid": self._api_key,
                     "units": "imperial",
                 },

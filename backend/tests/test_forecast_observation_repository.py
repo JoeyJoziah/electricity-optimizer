@@ -194,7 +194,7 @@ class TestBackfillActuals:
 
     @pytest.mark.asyncio
     async def test_backfill_actuals_all_regions(self, repo, mock_session):
-        """Backfill without region — empty params dict, broader UPDATE query."""
+        """Backfill without region — uses LIMIT to prevent unbounded memory usage."""
         mock_session.execute.return_value = _make_result(rowcount=12)
 
         updated = await repo.backfill_actuals()
@@ -204,7 +204,8 @@ class TestBackfillActuals:
         mock_session.commit.assert_awaited_once()
         call_args = mock_session.execute.call_args
         params = call_args[0][1]
-        assert params == {}
+        # S1-10: no-region path now includes a backfill_limit param
+        assert params == {"backfill_limit": 10_000}
 
 
 # =============================================================================

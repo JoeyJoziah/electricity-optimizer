@@ -96,8 +96,19 @@ class ForecastObservationRepository:
         await self._db.commit()
         return len(rows)
 
+    # Maximum number of forecast rows to backfill in a single call when no
+    # region filter is supplied.  Prevents unbounded memory usage if the
+    # forecast_observations table has millions of unobserved rows.
+    _BACKFILL_LIMIT = 10_000
+
     async def backfill_actuals(self, region: Optional[str] = None) -> int:
-        """Match unobserved forecasts to actual prices."""
+        """Match unobserved forecasts to actual prices.
+
+        When *region* is ``None`` the UPDATE is capped at ``_BACKFILL_LIMIT``
+        rows (default 10 000) to prevent unbounded memory consumption.  A
+        warning is logged when the limit is hit so operators know to call
+        again or supply a region filter.
+        """
         if region:
             query = text("""
                 UPDATE forecast_observations fo
@@ -114,23 +125,49 @@ class ForecastObservationRepository:
             """)
             params: Dict[str, Any] = {"region": region}
         else:
+            # Without a region filter, limit the UPDATE to _BACKFILL_LIMIT
+            # rows using a CTE that selects the eligible forecast_observation
+            # IDs first.  This avoids a full-table scan / unbounded join
+            # against electricity_prices.
             query = text("""
+                WITH eligible AS (
+                    SELECT fo.id, ep.price_per_kwh
+                    FROM forecast_observations fo
+                    JOIN electricity_prices ep
+                      ON fo.region = ep.region
+                     AND fo.forecast_hour = EXTRACT(HOUR FROM ep.timestamp)
+                     AND ep.timestamp >= fo.created_at - INTERVAL '1 hour'
+                     AND ep.timestamp <= fo.created_at + INTERVAL '25 hours'
+                    WHERE fo.observed_at IS NULL
+                    LIMIT :backfill_limit
+                )
                 UPDATE forecast_observations fo
                 SET
-                    actual_price = ep.price_per_kwh,
+                    actual_price = eligible.price_per_kwh,
                     observed_at = now()
-                FROM electricity_prices ep
-                WHERE fo.observed_at IS NULL
-                  AND fo.region = ep.region
-                  AND fo.forecast_hour = EXTRACT(HOUR FROM ep.timestamp)
-                  AND ep.timestamp >= fo.created_at - INTERVAL '1 hour'
-                  AND ep.timestamp <= fo.created_at + INTERVAL '25 hours'
+                FROM eligible
+                WHERE fo.id = eligible.id
             """)
-            params = {}
+            params = {"backfill_limit": self._BACKFILL_LIMIT}
+            logger.warning(
+                "No region filter supplied; capping backfill at LIMIT=%d to prevent unbounded memory usage",
+                self._BACKFILL_LIMIT,
+            )
 
         result = await self._db.execute(query, params)
         await self._db.commit()
-        return result.rowcount
+
+        count = result.rowcount
+        if not region and count >= self._BACKFILL_LIMIT:
+            logger.warning(
+                "Backfill hit the row limit (count=%d, limit=%d); "
+                "there may be more unobserved rows. "
+                "Consider calling again or supplying a region filter.",
+                count,
+                self._BACKFILL_LIMIT,
+            )
+
+        return count
 
     async def insert_recommendation(
         self,

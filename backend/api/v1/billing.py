@@ -363,16 +363,31 @@ async def handle_stripe_webhook(
         )
 
     try:
-        # Verify webhook signature
+        # Verify webhook signature — intentionally raises ValueError on bad sig.
+        # A 400 back to Stripe for signature failures is correct; Stripe will NOT
+        # retry events that receive a 4xx, so this prevents replay of tampered
+        # or misrouted payloads.
         event = stripe_service.verify_webhook_signature(payload, signature)
+    except ValueError as e:
+        logger.warning("webhook_signature_invalid", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
+    # From here we always return 200 to Stripe.  If we returned 5xx, Stripe
+    # would retry the webhook indefinitely.  Instead we log any processing
+    # error with a full traceback so it shows up in alerting, then acknowledge
+    # receipt so the delivery is marked as succeeded on Stripe's side.
+    event_id: str = event["id"]
+    try:
         # Process the event
         result = await stripe_service.handle_webhook_event(event)
 
         if result["handled"]:
             logger.info(
                 "webhook_processed",
-                event_id=event["id"],
+                event_id=event_id,
                 action=result["action"],
                 user_id=result.get("user_id"),
                 tier=result.get("tier"),
@@ -382,20 +397,26 @@ async def handle_stripe_webhook(
             user_repo = UserRepository(db)
             await apply_webhook_action(result, user_repo, db=db)
 
-        return WebhookEventResponse(
-            received=True,
-            event_id=event["id"],
-        )
-
-    except ValueError as e:
-        logger.warning("webhook_signature_invalid", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+    except stripe.error.StripeError as e:
+        # Stripe SDK errors during processing (e.g. API call inside handler).
+        # Log with full traceback so alerts fire, but still ACK to Stripe.
+        logger.exception(
+            "webhook_stripe_error",
+            event_id=event_id,
+            error=str(e),
         )
     except Exception as e:
-        logger.error("webhook_processing_error", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process webhook",
+        # Unexpected errors (DB issues, logic bugs, etc.).
+        # Log with full traceback and acknowledge receipt so Stripe stops
+        # retrying.  Internal monitoring / alerting must catch these.
+        logger.exception(
+            "webhook_processing_error",
+            event_id=event_id,
+            error=str(e),
+            error_type=type(e).__name__,
         )
+
+    return WebhookEventResponse(
+        received=True,
+        event_id=event_id,
+    )
