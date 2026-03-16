@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-13 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,478 tests, Frontend 1,835 tests. 49 migrations (049: community tables). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 363 entities, 741 imports. Full docs refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs created; all codemaps/API ref/DB schema/testing docs updated.)
+> Last validated: 2026-03-16 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,480 tests, Frontend 1,835 tests. 49 migrations (049: community tables). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 363 entities, 741 imports. Full docs refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs created; all codemaps/API ref/DB schema/testing docs updated. Performance optimization (SQL aggregates, React.memo audit, SSE partial-merge, tier caching isolation).)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -9,7 +9,7 @@ At the START of every new conversation, before doing any user-requested work, ru
 ### Step 1: Claude Flow + Memory
 ```
 Call mcp__claude-flow__hooks_session-start with startDaemon: true, restoreLatest: true
-Call mcp__claude-flow__memory_stats to confirm memory DB is active (expect 8+ entries)
+Call mcp__claude-flow__memory_stats to confirm memory DB is active (expect 17+ entries)
 ```
 
 ### Step 2: Loki Mode Activation

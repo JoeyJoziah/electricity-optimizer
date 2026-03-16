@@ -1,6 +1,6 @@
 # RateShift — System Architecture
 
-**Last Updated**: 2026-03-13
+**Last Updated**: 2026-03-16
 
 ## System Topology
 
@@ -250,6 +250,16 @@ Templates: beta welcome, alert notification, dunning soft (amber), dunning final
 - **XSS sanitization**: `nh3` library for community post content
 - **AI content moderation**: Groq `classify_content()` primary, Gemini fallback, fail-closed (30s timeout)
 - **1Password**: All production secrets in "RateShift" vault (28+ mappings)
+
+## Performance Optimizations (2026-03-16)
+
+| Area | Change | Impact |
+|------|--------|--------|
+| SQL aggregate refactoring | `get_price_trend_aggregates()` CTE replaces Python-side row fetching | 5,000 rows reduced to 2 scalars computed in SQL |
+| React.memo audit | Prop-driven components memoized (`UtilityTabShell`, `DashboardStatsRow`, `DashboardCharts`, `DashboardForecast`); store-driven components intentionally left unmemoized | Eliminates unnecessary re-renders in the tabbed dashboard |
+| SSE partial-merge | `setQueryData` updater function for real-time price updates | Replaces `invalidateQueries`, avoids full refetch on every SSE event |
+| Tier caching | In-memory `_tier_cache` in `dependencies.py` for subscription tier lookups | Reduces per-request DB round-trips; autouse fixture ensures test isolation |
+| Loading states | Added `loading.tsx` skeletons for all route groups | Instant perceived navigation between pages |
 
 ## Key Architecture Decisions
 

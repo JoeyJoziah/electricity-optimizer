@@ -1,6 +1,6 @@
 # Developer Guide
 
-**Last Updated**: 2026-03-13
+**Last Updated**: 2026-03-16
 
 Quick-start guide for contributing to RateShift. For architecture details see `ARCHITECTURE.md`.
 
@@ -95,7 +95,9 @@ Frontend at `http://localhost:3000`, API at `http://localhost:8000`.
 .venv/bin/python -m pytest ml/tests/ -v
 ```
 
-Coverage threshold: 80%+. Current: 86%+ (2,339 tests).
+Coverage threshold: 80%+. Current: 86%+ (2,480 tests).
+
+> **Module-level cache isolation**: When adding module-level cache dicts (e.g., `_tier_cache`), always add a corresponding `autouse` fixture in `conftest.py` to clear the cache between tests. Detection signal: tests pass individually (`pytest test_foo.py`) but fail when run as a full suite (`pytest backend/tests/`).
 
 ### Frontend (Jest)
 
@@ -105,7 +107,7 @@ npm test              # Watch mode
 npm run test:ci       # CI mode with coverage
 ```
 
-Coverage threshold: 80% branches/functions/lines/statements. Current: 1,759 tests across 130 suites.
+Coverage threshold: 80% branches/functions/lines/statements. Current: 1,835 tests across 130 suites.
 
 ### E2E (Playwright)
 
@@ -189,6 +191,44 @@ psql "postgresql://...@ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech/
 - Auth: Session cookie for user endpoints, `X-API-Key` for internal
 - Tier gating: `require_tier("pro")` / `require_tier("business")` dependency
 - Internal endpoints: `/api/v1/internal/*` — excluded from 30s timeout
+
+---
+
+## Performance Best Practices
+
+### Backend: Push Computation to SQL
+
+When Python code fetches rows only to compute a scalar (sum, average, count), push that computation into SQL using CTEs or aggregate functions. This avoids transferring unnecessary rows over the wire and reduces Python memory usage.
+
+```python
+# Bad: fetch all rows, compute in Python
+rows = await db.fetch_all(select(savings))
+total = sum(r.amount for r in rows)
+
+# Good: compute in SQL
+result = await db.fetch_one(select(func.sum(savings.c.amount)))
+total = result[0] or 0
+```
+
+### Frontend: `React.memo` Usage
+
+Before wrapping a component in `React.memo`, audit whether it is **prop-driven** (pure function of props) or **store-driven** (reads from Zustand/context). `React.memo` only prevents re-renders when props change; it has no effect if the component subscribes to a store that changes frequently.
+
+### Frontend: SSE Cache Updates
+
+When applying real-time SSE price updates to TanStack React Query caches, use `setQueryData` with an updater function to partial-merge the new data. Do **not** call `invalidateQueries`, which triggers a full refetch and defeats the purpose of streaming updates.
+
+```typescript
+// Good: partial merge via updater
+queryClient.setQueryData(['prices', region], (old) => ({
+  ...old,
+  current_rate: event.rate,
+  updated_at: event.timestamp,
+}));
+
+// Bad: triggers full refetch, wastes the SSE data
+queryClient.invalidateQueries({ queryKey: ['prices', region] });
+```
 
 ---
 
