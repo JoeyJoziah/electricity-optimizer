@@ -45,7 +45,7 @@ This document describes the infrastructure architecture, service dependencies, a
 
            +-------------GitHub Actions------------------+
            |                                              |
-           |  31 workflows: CI/CD, deploy, cron jobs      |
+           |  32 workflows: CI/CD, deploy, cron jobs      |
            |  price-sync, check-alerts, kpi-report, etc.  |
            |                                              |
            +----------------------------------------------+
@@ -85,15 +85,15 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | deploy-worker.yml | Manual trigger or release | Cloudflare Worker deployment via `wrangler deploy` + smoke tests to api.rateshift.app |
 | price-sync.yml | `0 */6 * * *` | Electricity price data ingestion |
 | observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
-| nightly-learning.yml | `0 4 * * *` | Adaptive learning: accuracy, bias detection, weight tuning |
+| nightly-learning.yml | Via daily-data-pipeline | Adaptive learning: accuracy, bias detection, weight tuning |
 | model-retrain.yml | Weekly Sun 2AM UTC | ML model retraining pipeline |
 | keepalive.yml | Hourly | Render backend keep-alive ping |
 | code-analysis.yml | PRs to main | Claude Flow diff risk, complexity, security analysis |
-| check-alerts.yml | Every 30 min | Price alert pipeline (Phase 2) |
+| check-alerts.yml | Every 2 hours | Price alert pipeline (Phase 2) |
 | fetch-weather.yml | Every 6 hours | Weather data ingestion for all 51 US regions (Phase 2) |
 | market-research.yml | Daily 2am UTC | Top 10 regions market intelligence (Phase 2) |
-| sync-connections.yml | Every 2 hours | UtilityAPI connection sync (Phase 2) |
-| scrape-rates.yml | Daily 3am UTC | Auto-discover suppliers and scrape rates (Phase 2) |
+| sync-connections.yml | Every 6 hours | UtilityAPI connection sync (Phase 2) |
+| daily-data-pipeline.yml | Daily 3am UTC | Consolidated: scrape-rates → scan-emails → nightly-learning → detect-rate-changes |
 | dunning-cycle.yml | Daily 7am UTC | Overdue payment escalation — find failing accounts, send final dunning email, downgrade (Phase 3) |
 | kpi-report.yml | Daily 6am UTC | Nightly business metrics aggregation (Phase 3) |
 | data-health-check.yml | Daily | Data pipeline health check — row counts, last-write timestamps, empty table flags |
@@ -101,11 +101,11 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | db-maintenance.yml | Weekly Sunday 3am UTC | Database optimization — vacuum, analyze, index maintenance |
 | secret-scan.yml | PRs + push to main | Gitleaks secret scanning |
 | owasp-zap.yml | Weekly Sunday 4am UTC | OWASP ZAP baseline security scan against Render backend |
-| scan-emails.yml | Daily 4am UTC | Batch scan active email_import connections, extract rates |
+| scan-emails.yml | Via daily-data-pipeline | Batch scan active email_import connections, extract rates |
 | scrape-portals.yml | Weekly Sunday 5am UTC | Batch scrape portal_scrape connections |
 | fetch-gas-rates.yml | Scheduled | Natural gas rate fetching |
-| fetch-heating-oil.yml | Scheduled | Heating oil price fetching from EIA |
-| detect-rate-changes.yml | Scheduled | Multi-utility rate change detection and alerting |
+| fetch-heating-oil.yml | Weekly Monday 2pm UTC | Heating oil + propane price fetching from EIA |
+| detect-rate-changes.yml | Via daily-data-pipeline | Multi-utility rate change detection and alerting |
 | utility-type-tests.yml | On push/PR | Utility-type-specific test suite |
 | deploy-staging.yml | On push to develop | GHCR push + Render deploy hooks + smoke tests |
 | _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
@@ -122,7 +122,7 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | `notify-slack` | Color-coded Slack failure alerts (critical=danger, warning, info=blue) via incoming webhook to `#incidents` |
 | `validate-migrations` | Convention checks: sequential numbering, IF NOT EXISTS on CREATE TABLE, GRANT TO neondb_owner, no SERIAL/BIGSERIAL |
 
-**Concurrency Controls**: All 31 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
+**Concurrency Controls**: All 32 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
 
 **Render Deploy Hooks**: Production and staging deploy workflows trigger Render builds via deploy hook URLs stored in GitHub secrets (`RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`). Deploy workflows include self-healing smoke tests that auto-retry on failure.
 

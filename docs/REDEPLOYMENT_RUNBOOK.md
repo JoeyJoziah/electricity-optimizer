@@ -1107,16 +1107,16 @@ After full deployment, you should see:
 
 | Workflow | Schedule | Purpose | Endpoint | Notes |
 |----------|----------|---------|----------|-------|
-| `check-alerts.yml` | Every 30 min | Price threshold alerts | `POST /internal/check-alerts` | Dedup with cooldown windows |
+| `check-alerts.yml` | Every 2 hours | Price threshold alerts | `POST /internal/check-alerts` | Dedup with cooldown windows |
 | `fetch-weather.yml` | Every 6 hours (offset :15) | Weather data sync | `POST /internal/fetch-weather` | Parallelized with Semaphore(10) |
 | `market-research.yml` | Daily 2am UTC | Market intelligence | `POST /internal/market-research` | Tavily + Diffbot |
-| `sync-connections.yml` | Every 2 hours | UtilityAPI auto-sync | `POST /internal/sync-connections` | Auto-discovers connections |
-| `scrape-rates.yml` | Daily 3am UTC | Rate auto-discovery | `POST /internal/scrape-rates` | Auto-discovers suppliers |
+| `sync-connections.yml` | Every 6 hours | UtilityAPI auto-sync | `POST /internal/sync-connections` | Auto-discovers connections |
+| `daily-data-pipeline.yml` | Daily 3am UTC | Consolidated pipeline | scrape-rates → scan-emails → learn → detect-rate-changes | Single checkout + warmup |
 | `dunning-cycle.yml` | Daily 7am UTC | Stripe payment escalation | `POST /internal/dunning-cycle` | 7-day grace period |
 | `kpi-report.yml` | Daily 6am UTC | Business metrics | `POST /internal/kpi-report` | Posts to Slack #metrics |
 | `db-maintenance.yml` | Weekly Sunday 3am | DB optimization | `POST /internal/maintenance/cleanup` | VACUUM, ANALYZE, reindex |
 | `self-healing-monitor.yml` | Daily 9am UTC | Workflow health check | Matrix over 13 workflows | Auto-creates GitHub issues |
-| `E2E-tests.yml` | Daily 1am UTC | Playwright E2E tests | N/A (local) | Runs against production |
+| `E2E-tests.yml` | On push/PR only | Playwright E2E tests | N/A (local) | Daily cron removed for cost optimization |
 | `model-retrain.yml` | Weekly Sunday 5am | ML model retraining | `POST /internal/model-retrain` | Adaptive learning |
 | `data-health-check.yml` | Daily 4am | Table health metrics | `GET /internal/health-data` | Flags empty critical tables |
 
@@ -1130,7 +1130,7 @@ cat .github/workflows/check-alerts.yml | grep -A 2 "schedule:"
 
 # Expected output:
 # schedule:
-#   - cron: '*/30 * * * *'  # Every 30 minutes
+#   - cron: '0 */2 * * *'  # Every 2 hours
 
 # Manually trigger a workflow (useful for testing after deployment)
 gh workflow run check-alerts.yml --repo JoeyJoziah/electricity-optimizer

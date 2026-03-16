@@ -24,7 +24,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 | Cache | Redis (Upstash) | -- |
 | Edge Layer | Cloudflare Worker | 2-tier cache + rate limiting |
 | Hosting | Render (backend), Vercel (frontend), Cloudflare (edge) | -- |
-| CI | GitHub Actions | 31 workflows |
+| CI | GitHub Actions | 32 workflows |
 
 ## Build, Test, and Run Commands
 
@@ -368,7 +368,7 @@ Key variables (see `.env.example` and `backend/.env.example` for full list):
 | `deploy-production.yml` | On release | Deploy to Render (migration-gate + smoke tests) |
 | `deploy-staging.yml` | Push to develop | Deploy staging |
 | `model-retrain.yml` | Weekly Sun 5AM | Full model retraining |
-| `check-alerts.yml` | Every 30 min | Price alert pipeline |
+| `check-alerts.yml` | Every 2 hours | Price alert pipeline |
 | `fetch-weather.yml` | Every 6 hours | Weather data for all 51 US regions |
 | `dunning-cycle.yml` | Daily 7AM UTC | Stripe overdue payment escalation |
 | `kpi-report.yml` | Daily 6AM UTC | Nightly business metrics aggregation |

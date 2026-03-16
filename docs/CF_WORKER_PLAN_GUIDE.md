@@ -46,7 +46,7 @@ Even if free tier limits are hit:
 2. **Frontend circuit breaker**: After 3 consecutive 502/503 errors, frontend falls back to Render backend directly
 3. **Native rate limiting**: Uses zero-cost native bindings — unaffected by KV limits
 4. **Gateway stats**: `/api/v1/internal/gateway-stats` endpoint monitors degradation in real time
-5. **GHA health checks**: `gateway-health.yml` runs every 6 hours, alerts Slack on degradation
+5. **GHA health checks**: `gateway-health.yml` runs every 12 hours, alerts Slack on degradation
 
 ## Workers Paid Plan ($5/month)
 

@@ -81,11 +81,11 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ### Workflow 8: Connection Sync Scheduler ✅
 - **Endpoint**: `POST /internal/sync-connections` → calls `ConnectionSyncService.sync_all_due()`
-- **GHA**: `.github/workflows/sync-connections.yml` — every 2 hours
+- **GHA**: `.github/workflows/sync-connections.yml` — every 6 hours
 - **Tests**: 5 tests (happy path, partial failure, empty, error, auth)
 
 ### Workflow 2: Price Alert Loop ✅
-- **GHA**: `.github/workflows/check-alerts.yml` — every 30 minutes (updated from 15 min in CI/CD Overhaul 2026-03-09)
+- **GHA**: `.github/workflows/check-alerts.yml` — every 2 hours (updated from 30 min in cost optimization 2026-03-16)
 - **Endpoint**: `POST /internal/check-alerts` (from B4, already tested with 8 tests)
 - **Note**: Currently sends email alerts only. Push (OneSignal) and Slack channels to be added via NotificationDispatcher (Phase 2 enhancement)
 
@@ -117,7 +117,7 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ## Self-Healing CI/CD System — COMPLETE ✅ (2026-03-06)
 
-Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, and proactive monitoring across all 31 GHA workflows.
+Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, and proactive monitoring across all 32 GHA workflows.
 
 ### Deliverable 1: CI Auto-Format ✅
 - **Modified**: `.github/workflows/ci.yml` — `backend-lint` and `frontend-lint` jobs
@@ -214,11 +214,11 @@ Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, a
 
 ### 4. GitHub Actions Workflow Files ✅ (2026-03-06)
 All 12 cron workflows created:
-- `check-alerts.yml` (every 30 min) — price alert pipeline
+- `check-alerts.yml` (every 2 hours) — price alert pipeline
 - `fetch-weather.yml` (every 6 hours) — all 51 US regions
 - `market-research.yml` (daily 2am UTC) — top 10 regions
-- `sync-connections.yml` (every 2 hours) — UtilityAPI sync
-- `scrape-rates.yml` (daily 3am UTC) — auto-discover suppliers
+- `sync-connections.yml` (every 6 hours) — UtilityAPI sync
+- `daily-data-pipeline.yml` (daily 3am UTC) — consolidated: scrape-rates → scan-emails → nightly-learning → detect-rate-changes
 - `dunning-cycle.yml` (daily 7am UTC) — overdue payment escalation
 - `kpi-report.yml` (daily 6am UTC) — nightly business metrics
 - `self-healing-monitor.yml` (daily 9am UTC) — check 13 workflows for failures, auto-manage issues
@@ -266,11 +266,11 @@ After deployment, track:
 ## Files to Create/Modify
 
 ### New Files
-- ✅ `.github/workflows/check-alerts.yml` — price alert cron (every 30 min)
+- ✅ `.github/workflows/check-alerts.yml` — price alert cron (every 2h)
 - ✅ `.github/workflows/fetch-weather.yml` — weather data cron (every 6h)
 - ✅ `.github/workflows/market-research.yml` — market intel cron (daily 2am)
-- ✅ `.github/workflows/sync-connections.yml` — connection sync cron (every 2h)
-- ✅ `.github/workflows/scrape-rates.yml` — rate scraping cron (daily 3am)
+- ✅ `.github/workflows/sync-connections.yml` — connection sync cron (every 6h)
+- ✅ `.github/workflows/daily-data-pipeline.yml` — consolidated daily pipeline (scrape-rates + scan-emails + nightly-learning + detect-rate-changes, daily 3am)
 - ✅ `backend/migrations/024_payment_retry_history.sql` — dunning retry tracking table
 - ✅ `backend/services/dunning_service.py` — DunningService (record, cooldown, email, escalate)
 - ✅ `backend/services/kpi_report_service.py` — KPIReportService (aggregate business metrics)
@@ -316,7 +316,7 @@ All 7 approved workflows deployed. All 5 post-deployment items complete.
 - **Auto-discovery**: Empty-body `POST /internal/scrape-rates` queries `supplier_registry WHERE is_active = true AND website IS NOT NULL` — finds all 37 suppliers (seeded in migration 019)
 - **Timing**: 37 suppliers ÷ 5 parallel = 8 batches × 12s = ~96 seconds (vs 444s sequential)
 - **Per-supplier isolation**: Individual timeouts (30s), failures don't block the batch
-- **Workflow**: `scrape-rates.yml` runs daily 3am UTC via retry-curl + notify-slack
+- **Workflow**: `daily-data-pipeline.yml` runs scrape-rates daily 3am UTC (consolidated with scan-emails, nightly-learning, detect-rate-changes)
 
 ### 4. In-App Notifications ✅
 - **Table**: `notifications` (migrations 015, 026, 029, 032) — 15 columns including delivery tracking

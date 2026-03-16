@@ -1,6 +1,6 @@
 # RateShift — System Architecture
 
-**Last Updated**: 2026-03-16 (Migration 050, 2,482 backend tests, 31 GHA workflows)
+**Last Updated**: 2026-03-16 (Migration 050, 2,482 backend tests, 32 GHA workflows)
 
 ## System Topology
 
@@ -231,10 +231,10 @@ Templates: beta welcome, alert notification, dunning soft (amber), dunning final
 
 ## CI/CD Pipeline
 
-**31 GHA workflows** total:
+**32 GHA workflows** total:
 - **CI**: Backend tests (Black + isort + flake8 + pytest), Frontend (ESLint + Jest + build), E2E (Playwright)
 - **Deploy**: Migration-gate → deploy-production (Render), CF Worker deploy
-- **Cron** (12 workflows): check-alerts, fetch-weather, market-research, sync-connections, scrape-rates, scan-emails, scrape-portals, dunning-cycle, kpi-report, fetch-heating-oil, detect-rate-changes, db-maintenance
+- **Cron** (13 workflows): check-alerts (2h), fetch-weather (6h), market-research (daily), sync-connections (6h), daily-data-pipeline (daily 3am, consolidates scrape-rates+scan-emails+nightly-learning+detect-rate-changes), scrape-portals (weekly), dunning-cycle (daily), kpi-report (daily), fetch-heating-oil (weekly), db-maintenance (weekly), self-healing-monitor (daily), gateway-health (12h)
 - **Self-healing**: `self-healing-monitor.yml` (daily) — auto-creates GitHub issues after 3+ failures
 - **Security**: `owasp-zap.yml` (weekly), `pip-audit` in backend CI, `npm audit` in frontend CI
 - **Composite actions**: `retry-curl` (exponential backoff), `notify-slack` (color-coded alerts), `validate-migrations`

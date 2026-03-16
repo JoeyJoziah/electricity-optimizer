@@ -77,7 +77,7 @@ DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c
 ### Step 7: Post-Launch Verification
 - [x] Stripe checkout flow working (Free/Pro/Business)
 - [x] Email delivery: Resend primary + Gmail SMTP fallback
-- [x] Alert system: check-alerts cron running every 30 min
+- [x] Alert system: check-alerts cron running every 2 hours
 - [x] 7/7 automation workflows operational
 - [x] Self-healing CI/CD monitoring 13 workflows
 
@@ -179,7 +179,7 @@ NEXT_PUBLIC_API_URL=
 - [x] Stripe checkout/portal/webhook functional
 - [x] Alert system running (check-alerts every 15 min)
 - [x] 7/7 automation workflows live
-- [x] Self-healing CI/CD operational (31 GHA workflows)
+- [x] Self-healing CI/CD operational (32 GHA workflows)
 - [x] Custom domain purchased (rateshift.app via Cloudflare Registrar)
 - [x] DKIM/SPF/DMARC configured for Resend
 - [x] Resend custom domain email active (`noreply@rateshift.app`)

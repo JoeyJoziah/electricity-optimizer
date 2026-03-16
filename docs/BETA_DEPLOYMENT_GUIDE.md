@@ -31,7 +31,7 @@ This guide covers the public launch and ongoing operations for RateShift. For de
 - [x] Domain: rateshift.app (Cloudflare Registrar)
 - [x] Email: Resend (custom domain verified, DKIM/SPF/DMARC, TLS enforced)
 - [x] DNS: Cloudflare zone configured (A → Vercel, CNAME api → Worker)
-- [x] CI/CD: 31 GHA workflows (testing, deployment, cron jobs, self-healing, security scanning)
+- [x] CI/CD: 32 GHA workflows (testing, deployment, cron jobs, self-healing, security scanning)
 - [x] Monitoring: Prometheus + Grafana, Sentry integration
 - [x] Backup strategy: Neon point-in-time recovery, automated snapshots
 
@@ -64,7 +64,7 @@ This guide covers the public launch and ongoing operations for RateShift. For de
 - **Edge Layer**: Cloudflare Worker (rateshift-api-gateway)
 - **Database**: Neon PostgreSQL (serverless, production branch)
 - **Cache/Queue**: Redis (Upstash or self-hosted)
-- **Scheduling**: GitHub Actions (31 workflows)
+- **Scheduling**: GitHub Actions (32 workflows)
 - **Monitoring**: Prometheus + Grafana, Sentry (error tracking)
 - **Email**: Resend (primary) + Gmail SMTP (fallback)
 - **Push notifications**: OneSignal
@@ -572,7 +572,7 @@ make smoke-test
 ### Must Have (Launch Blocking) ✅
 - [ ] 0 critical bugs (P0) in production
 - [ ] 99%+ uptime (monitoring via Sentry, Grafana)
-- [ ] All 31 GHA workflows passing (CI/CD, cron jobs, deploys, security scans)
+- [ ] All 32 GHA workflows passing (CI/CD, cron jobs, deploys, security scans)
 - [ ] Email delivery working (Resend primary + Gmail fallback)
 - [ ] Stripe payments processing (checkout + webhook)
 

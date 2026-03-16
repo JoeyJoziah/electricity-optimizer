@@ -42,7 +42,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 | **Hosting** | Render (backend), Vercel (frontend), Cloudflare (edge/DNS) |
 | **Notifications** | OneSignal (push), Email (Resend + SMTP) |
 | **Observability** | OpenTelemetry + Grafana Cloud Tempo (distributed tracing) |
-| **CI/CD** | GitHub Actions (31 workflows), self-healing automation |
+| **CI/CD** | GitHub Actions (32 workflows), self-healing automation |
 | **Security** | OWASP ZAP, pip-audit, npm audit, Gitleaks, 1Password |
 
 ## Getting Started

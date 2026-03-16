@@ -1337,7 +1337,7 @@ Observation Backfill (observe-forecasts.yml, every 6h + 30min):
   -> JOIN forecast_observations <-> electricity_prices
   -> SET actual_price, observed_at
 
-Nightly Learning (nightly-learning.yml, 4AM UTC):
+Nightly Learning (via daily-data-pipeline.yml, 3AM UTC):
   -> POST /api/v1/internal/learn (X-API-Key)
   -> LearningService.run_full_cycle()
      1. compute_rolling_accuracy() -> MAPE/RMSE from observed forecasts
