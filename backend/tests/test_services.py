@@ -59,8 +59,9 @@ class TestPriceService:
             supplier="Eversource Energy"
         )
 
-        assert price is not None
         assert price.price_per_kwh == Decimal("0.26")
+        assert price.supplier == "Eversource Energy"
+        assert price.region == PriceRegion.US_CT
 
     @pytest.mark.asyncio
     async def test_get_cheapest_supplier(self, mock_price_repo, mock_cache):
@@ -78,7 +79,6 @@ class TestPriceService:
         service = PriceService(mock_price_repo, mock_cache)
         cheapest = await service.get_cheapest_supplier(region=PriceRegion.US_CT)
 
-        assert cheapest is not None
         assert cheapest.supplier == "Cheap Energy"
         assert cheapest.price_per_kwh == Decimal("0.18")
 
@@ -142,8 +142,9 @@ class TestPriceService:
             hours=24
         )
 
-        assert forecast is not None
         assert hasattr(forecast, 'prices')
+        assert isinstance(forecast.prices, list)
+        assert len(forecast.prices) > 0
 
     @pytest.mark.asyncio
     async def test_get_optimal_usage_windows(self, mock_price_repo, mock_cache):
@@ -216,7 +217,6 @@ class TestRecommendationService:
         service = RecommendationService(mock_price_service, mock_user_repo)
         recommendation = await service.get_switching_recommendation("user_123")
 
-        assert recommendation is not None
         assert recommendation.recommended_supplier == "Cheap Energy"
         assert recommendation.potential_savings > Decimal("0")
 
@@ -249,8 +249,8 @@ class TestRecommendationService:
             duration_hours=2
         )
 
-        assert recommendation is not None
         assert 'optimal_start_time' in recommendation
+        assert recommendation['optimal_start_time'] is not None
 
     @pytest.mark.asyncio
     async def test_recommendation_respects_user_preferences(self, mock_price_service, mock_user_repo):

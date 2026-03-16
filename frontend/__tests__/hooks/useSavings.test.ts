@@ -67,7 +67,7 @@ describe('useSavingsSummary', () => {
     })
 
     expect(result.current.data).toEqual(mockSavingsSummary)
-    expect(mockApiClientGet).toHaveBeenCalledWith('/savings/summary')
+    expect(mockApiClientGet).toHaveBeenCalledWith('/savings/summary', undefined, expect.objectContaining({ signal: expect.anything() }))
   })
 
   it('returns loading state before data arrives', () => {
@@ -213,12 +213,12 @@ describe('useSavingsSummary', () => {
     renderHook(() => useSavingsSummary(), { wrapper })
 
     await waitFor(() => {
-      expect(mockApiClientGet).toHaveBeenCalledWith('/savings/summary')
+      expect(mockApiClientGet).toHaveBeenCalledWith('/savings/summary', undefined, expect.objectContaining({ signal: expect.anything() }))
     })
 
-    // Verify no extra args were passed
+    // Verify called once with 3 args (endpoint, undefined params, { signal })
     expect(mockApiClientGet).toHaveBeenCalledTimes(1)
-    expect(mockApiClientGet.mock.calls[0]).toHaveLength(1)
+    expect(mockApiClientGet.mock.calls[0]).toHaveLength(3)
   })
 
   it('returns zero values when all savings are zero', async () => {

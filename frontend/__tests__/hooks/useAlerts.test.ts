@@ -173,7 +173,7 @@ describe('useAlertHistory', () => {
 
     expect(result.current.data?.items).toHaveLength(1)
     expect(result.current.data?.total).toBe(1)
-    expect(mockGetAlertHistory).toHaveBeenCalledWith(1, 20)
+    expect(mockGetAlertHistory).toHaveBeenCalledWith(1, 20, expect.anything())
   })
 
   it('fetches alert history with custom page', async () => {
@@ -182,7 +182,7 @@ describe('useAlertHistory', () => {
     renderHook(() => useAlertHistory(3), { wrapper })
 
     await waitFor(() => {
-      expect(mockGetAlertHistory).toHaveBeenCalledWith(3, 20)
+      expect(mockGetAlertHistory).toHaveBeenCalledWith(3, 20, expect.anything())
     })
   })
 

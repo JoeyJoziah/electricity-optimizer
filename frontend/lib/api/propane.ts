@@ -41,37 +41,45 @@ export interface PropaneTimingAdvice {
 
 export async function getPropanePrices(
   state?: string,
+  signal?: AbortSignal,
 ): Promise<PropanePricesResponse> {
   return apiClient.get<PropanePricesResponse>(
     '/rates/propane',
     state ? { state } : {},
+    { signal },
   )
 }
 
 export async function getPropaneHistory(
   state: string,
   weeks?: number,
+  signal?: AbortSignal,
 ): Promise<PropaneHistoryResponse> {
   return apiClient.get<PropaneHistoryResponse>(
     '/rates/propane/history',
     { state, ...(weeks ? { weeks: String(weeks) } : {}) },
+    { signal },
   )
 }
 
 export async function getPropaneComparison(
   state: string,
+  signal?: AbortSignal,
 ): Promise<PropaneComparison> {
   return apiClient.get<PropaneComparison>(
     '/rates/propane/compare',
     { state },
+    { signal },
   )
 }
 
 export async function getPropaneTiming(
   state: string,
+  signal?: AbortSignal,
 ): Promise<PropaneTimingAdvice> {
   return apiClient.get<PropaneTimingAdvice>(
     '/rates/propane/timing',
     { state },
+    { signal },
   )
 }

@@ -9,7 +9,7 @@ import {
 export function useHeatingOilPrices(state?: string) {
   return useQuery({
     queryKey: ['heating-oil', 'prices', state],
-    queryFn: () => getHeatingOilPrices(state),
+    queryFn: ({ signal }) => getHeatingOilPrices(state, signal),
     staleTime: 1000 * 60 * 60, // 1 hour
   })
 }
@@ -17,7 +17,7 @@ export function useHeatingOilPrices(state?: string) {
 export function useHeatingOilHistory(state?: string, weeks?: number) {
   return useQuery({
     queryKey: ['heating-oil', 'history', state, weeks],
-    queryFn: () => getHeatingOilHistory(state!, weeks),
+    queryFn: ({ signal }) => getHeatingOilHistory(state!, weeks, signal),
     enabled: !!state,
     staleTime: 1000 * 60 * 60,
   })
@@ -26,7 +26,7 @@ export function useHeatingOilHistory(state?: string, weeks?: number) {
 export function useHeatingOilDealers(state?: string) {
   return useQuery({
     queryKey: ['heating-oil', 'dealers', state],
-    queryFn: () => getHeatingOilDealers(state!),
+    queryFn: ({ signal }) => getHeatingOilDealers(state!, undefined, signal),
     enabled: !!state,
     staleTime: 1000 * 60 * 60 * 24, // 24 hours
   })
@@ -35,7 +35,7 @@ export function useHeatingOilDealers(state?: string) {
 export function useHeatingOilComparison(state?: string) {
   return useQuery({
     queryKey: ['heating-oil', 'comparison', state],
-    queryFn: () => getHeatingOilComparison(state!),
+    queryFn: ({ signal }) => getHeatingOilComparison(state!, signal),
     enabled: !!state,
     staleTime: 1000 * 60 * 60,
   })

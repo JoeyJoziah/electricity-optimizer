@@ -17,7 +17,7 @@ import type { Appliance } from '@/types'
 export function useOptimalSchedule(request: GetOptimalScheduleRequest) {
   return useQuery({
     queryKey: ['optimization', 'schedule', request],
-    queryFn: () => getOptimalSchedule(request),
+    queryFn: ({ signal }) => getOptimalSchedule(request, signal),
     enabled: request.appliances.length > 0,
     staleTime: 180000, // Consider stale after 3 minutes
   })
@@ -29,7 +29,7 @@ export function useOptimalSchedule(request: GetOptimalScheduleRequest) {
 export function useOptimizationResult(date: string, region: string | null | undefined) {
   return useQuery({
     queryKey: ['optimization', 'result', date, region],
-    queryFn: () => getOptimizationResult(date, region!),
+    queryFn: ({ signal }) => getOptimizationResult(date, region!, signal),
     enabled: !!date && !!region,
     staleTime: 60000,
   })
@@ -41,7 +41,7 @@ export function useOptimizationResult(date: string, region: string | null | unde
 export function useAppliances() {
   return useQuery({
     queryKey: ['appliances'],
-    queryFn: getAppliances,
+    queryFn: ({ signal }) => getAppliances(signal),
     staleTime: 300000,
   })
 }
@@ -67,7 +67,7 @@ export function useSaveAppliances() {
 export function usePotentialSavings(appliances: Appliance[], region: string | null | undefined) {
   return useQuery({
     queryKey: ['potential-savings', appliances, region],
-    queryFn: () => calculatePotentialSavings(appliances, region!),
+    queryFn: ({ signal }) => calculatePotentialSavings(appliances, region!, signal),
     enabled: appliances.length > 0 && !!region,
     staleTime: 300000,
   })

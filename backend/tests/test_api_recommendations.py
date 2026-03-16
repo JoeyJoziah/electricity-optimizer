@@ -127,7 +127,7 @@ class TestSwitchingRecommendation:
         response = auth_client.get("/api/v1/recommendations/switching")
         assert response.status_code == 200
         data = response.json()
-        assert data["recommendation"] is not None
+        assert "recommendation" in data
         assert data["recommendation"]["recommended_supplier"] == "NextEra Energy"
         assert data["message"] is None
 
@@ -293,7 +293,7 @@ class TestDailyRecommendations:
         response = auth_client.get("/api/v1/recommendations/daily")
         assert response.status_code == 200
         data = response.json()
-        assert data["switching_recommendation"] is not None
+        assert data["switching_recommendation"]["recommended_supplier"] == "NextEra Energy"
         assert len(data["usage_recommendations"]) == 1
 
     def test_daily_handles_service_error(self, auth_client, mock_recommendation_service):

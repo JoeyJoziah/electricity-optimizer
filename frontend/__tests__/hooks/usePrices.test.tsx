@@ -128,7 +128,7 @@ describe('usePrices hooks', () => {
     expect(result.current.data).toEqual(mockPricesData)
     // current_price is a Decimal string from the backend
     expect(result.current.data?.prices?.[0].current_price).toBe('0.2500')
-    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' })
+    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' }, expect.anything())
   })
 
   it('useCurrentPrices handles error', async () => {
@@ -154,8 +154,8 @@ describe('usePrices hooks', () => {
 
     expect(result.current.data).toEqual(mockHistoryData)
     expect(result.current.data?.prices).toHaveLength(3)
-    // Hook converts hours→days: 24h = 1 day
-    expect(mockGetPriceHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 1 })
+    // Hook converts hours->days: 24h = 1 day
+    expect(mockGetPriceHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 1 }, expect.anything())
   })
 
   it('usePriceHistory respects hours parameter', async () => {
@@ -165,8 +165,8 @@ describe('usePrices hooks', () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    // Hook converts hours→days: 48h = 2 days
-    expect(mockGetPriceHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 2 })
+    // Hook converts hours->days: 48h = 2 days
+    expect(mockGetPriceHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 2 }, expect.anything())
   })
 
   it('usePriceForecast returns forecast data', async () => {
@@ -180,7 +180,7 @@ describe('usePrices hooks', () => {
     // forecast is now an ApiPriceForecastModel object, not an array
     expect(result.current.data?.forecast.prices).toHaveLength(2)
     expect(result.current.data?.forecast.prices[0].price_per_kwh).toBe('0.2300')
-    expect(mockGetPriceForecast).toHaveBeenCalledWith({ region: 'us_ct', hours: 24 })
+    expect(mockGetPriceForecast).toHaveBeenCalledWith({ region: 'us_ct', hours: 24 }, expect.anything())
   })
 
   it('usePriceForecast handles missing forecast', async () => {
@@ -206,7 +206,7 @@ describe('usePrices hooks', () => {
     expect(result.current.data).toEqual(mockOptimalData)
     expect(result.current.data?.periods).toHaveLength(1)
     expect(result.current.data?.periods[0].avgPrice).toBe(0.15)
-    expect(mockGetOptimalPeriods).toHaveBeenCalledWith('us_ct', 24)
+    expect(mockGetOptimalPeriods).toHaveBeenCalledWith('us_ct', 24, expect.anything())
   })
 
   it('useCurrentPrices refetches on region change', async () => {
@@ -222,13 +222,13 @@ describe('usePrices hooks', () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' })
+    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' }, expect.anything())
 
     // Change region
     rerender({ region: 'us_ny' })
 
     await waitFor(() => {
-      expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ny' })
+      expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ny' }, expect.anything())
     })
 
     // Should have been called with both regions
@@ -340,6 +340,6 @@ describe('usePrices hooks', () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' })
+    expect(mockGetCurrentPrices).toHaveBeenCalledWith({ region: 'us_ct' }, expect.anything())
   })
 })

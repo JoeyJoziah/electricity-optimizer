@@ -19,8 +19,8 @@ export interface SavingsSummary {
 export function useSavingsSummary() {
   return useQuery<SavingsSummary>({
     queryKey: ['savings', 'summary'],
-    queryFn: async () => {
-      return apiClient.get<SavingsSummary>('/savings/summary')
+    queryFn: async ({ signal }) => {
+      return apiClient.get<SavingsSummary>('/savings/summary', undefined, { signal })
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,

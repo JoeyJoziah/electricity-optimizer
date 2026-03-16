@@ -15,9 +15,11 @@ export interface NeighborhoodComparison {
 export async function getNeighborhoodComparison(
   region: string,
   utilityType: string,
+  signal?: AbortSignal,
 ): Promise<NeighborhoodComparison> {
   return apiClient.get<NeighborhoodComparison>(
     '/neighborhood/compare',
     { region, utility_type: utilityType },
+    { signal },
   )
 }

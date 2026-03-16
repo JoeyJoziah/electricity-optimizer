@@ -21,11 +21,13 @@ export interface GetOptimalScheduleResponse {
  * Get optimal schedule for appliances
  */
 export async function getOptimalSchedule(
-  request: GetOptimalScheduleRequest
+  request: GetOptimalScheduleRequest,
+  signal?: AbortSignal,
 ): Promise<GetOptimalScheduleResponse> {
   return apiClient.post<GetOptimalScheduleResponse>(
     '/optimization/schedule',
-    request
+    request,
+    { signal },
   )
 }
 
@@ -34,12 +36,13 @@ export async function getOptimalSchedule(
  */
 export async function getOptimizationResult(
   date: string,
-  region: string
+  region: string,
+  signal?: AbortSignal,
 ): Promise<OptimizationResult> {
   return apiClient.get<OptimizationResult>('/optimization/result', {
     date,
     region,
-  })
+  }, { signal })
 }
 
 /**
@@ -54,8 +57,8 @@ export async function saveAppliances(
 /**
  * Get saved appliances
  */
-export async function getAppliances(): Promise<{ appliances: Appliance[] }> {
-  return apiClient.get('/optimization/appliances')
+export async function getAppliances(signal?: AbortSignal): Promise<{ appliances: Appliance[] }> {
+  return apiClient.get('/optimization/appliances', undefined, { signal })
 }
 
 /**
@@ -63,7 +66,8 @@ export async function getAppliances(): Promise<{ appliances: Appliance[] }> {
  */
 export async function calculatePotentialSavings(
   appliances: Appliance[],
-  region: string
+  region: string,
+  signal?: AbortSignal,
 ): Promise<{
   dailySavings: number
   weeklySavings: number
@@ -73,5 +77,5 @@ export async function calculatePotentialSavings(
   return apiClient.post('/optimization/potential-savings', {
     appliances,
     region,
-  })
+  }, { signal })
 }

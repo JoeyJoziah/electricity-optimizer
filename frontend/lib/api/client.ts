@@ -124,6 +124,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 function isRetryable(error: unknown): boolean {
+  // Never retry aborted requests
+  if (error instanceof DOMException && error.name === 'AbortError') return false
   if (error instanceof ApiClientError) {
     return error.status >= 500
   }
@@ -145,6 +147,11 @@ async function fetchWithRetry<T>(
       return result
     } catch (error) {
       lastError = error
+
+      // Re-throw AbortError immediately — no retries, no circuit breaker
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw error
+      }
 
       // Track gateway errors for circuit breaker (after all retries exhausted)
       if (
@@ -176,7 +183,11 @@ function buildHeaders(): Record<string, string> {
 }
 
 export const apiClient = {
-  async get<T>(endpoint: string, params?: Record<string, string | number | boolean>): Promise<T> {
+  async get<T>(
+    endpoint: string,
+    params?: Record<string, string | number | boolean>,
+    options?: { signal?: AbortSignal },
+  ): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     let urlStr = `${baseUrl}${endpoint}`
     if (params && Object.keys(params).length > 0) {
@@ -192,45 +203,50 @@ export const apiClient = {
       method: 'GET',
       headers: buildHeaders(),
       credentials: 'include',
+      signal: options?.signal,
     })
   },
 
-  async post<T>(endpoint: string, data?: unknown): Promise<T> {
+  async post<T>(endpoint: string, data?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers: buildHeaders(),
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
+      signal: options?.signal,
     })
   },
 
-  async put<T>(endpoint: string, data?: unknown): Promise<T> {
+  async put<T>(endpoint: string, data?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'PUT',
       headers: buildHeaders(),
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
+      signal: options?.signal,
     })
   },
 
-  async patch<T>(endpoint: string, data?: unknown): Promise<T> {
+  async patch<T>(endpoint: string, data?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'PATCH',
       headers: buildHeaders(),
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
+      signal: options?.signal,
     })
   },
 
-  async delete<T>(endpoint: string): Promise<T> {
+  async delete<T>(endpoint: string, options?: { signal?: AbortSignal }): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: buildHeaders(),
       credentials: 'include',
+      signal: options?.signal,
     })
   },
 }

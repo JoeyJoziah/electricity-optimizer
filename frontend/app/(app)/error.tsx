@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { PageErrorFallback } from '@/components/page-error-fallback'
 
-export default function Error({
+export default function AppError({
   error,
   reset,
 }: {
@@ -11,7 +11,7 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('Application error:', error)
+    console.error('App section error:', error)
   }, [error])
 
   return <PageErrorFallback error={error} onReset={reset} />

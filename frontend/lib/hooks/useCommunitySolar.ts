@@ -16,11 +16,11 @@ export function useCommunitySolarPrograms(
 ) {
   return useQuery({
     queryKey: ['community-solar', 'programs', state, enrollmentStatus],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getCommunitySolarPrograms({
         state: state!,
         enrollment_status: enrollmentStatus,
-      }),
+      }, signal),
     enabled: !!state,
     staleTime: 600_000, // 10 min — programs don't change often
   })
@@ -32,11 +32,11 @@ export function useCommunitySolarSavings(
 ) {
   return useQuery({
     queryKey: ['community-solar', 'savings', monthlyBill, savingsPercent],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       getCommunitySolarSavings({
         monthly_bill: monthlyBill!,
         savings_percent: savingsPercent!,
-      }),
+      }, signal),
     enabled: !!monthlyBill && !!savingsPercent,
     staleTime: 300_000,
   })
@@ -45,7 +45,7 @@ export function useCommunitySolarSavings(
 export function useCommunitySolarProgram(programId: string | null) {
   return useQuery({
     queryKey: ['community-solar', 'program', programId],
-    queryFn: () => getCommunitySolarProgram(programId!),
+    queryFn: ({ signal }) => getCommunitySolarProgram(programId!, signal),
     enabled: !!programId,
     staleTime: 600_000,
   })
@@ -54,7 +54,7 @@ export function useCommunitySolarProgram(programId: string | null) {
 export function useCommunitySolarStates() {
   return useQuery({
     queryKey: ['community-solar', 'states'],
-    queryFn: getCommunitySolarStates,
+    queryFn: ({ signal }) => getCommunitySolarStates(signal),
     staleTime: 3_600_000, // 1 hour
   })
 }

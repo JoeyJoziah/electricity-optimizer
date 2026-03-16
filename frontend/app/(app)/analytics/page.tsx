@@ -1,4 +1,5 @@
 import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export const metadata = { title: 'Premium Analytics | RateShift' }
 
@@ -14,7 +15,9 @@ export default function AnalyticsPage() {
         </p>
       </div>
       <div className="p-6">
-        <AnalyticsDashboard />
+        <ErrorBoundary>
+          <AnalyticsDashboard />
+        </ErrorBoundary>
       </div>
     </div>
   )

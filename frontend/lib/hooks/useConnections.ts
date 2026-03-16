@@ -21,9 +21,9 @@ interface ConnectionsResponse {
   connections: Connection[]
 }
 
-async function fetchConnections(): Promise<ConnectionsResponse> {
+async function fetchConnections(signal?: AbortSignal): Promise<ConnectionsResponse> {
   try {
-    const data = await apiClient.get<ConnectionsResponse>('/connections')
+    const data = await apiClient.get<ConnectionsResponse>('/connections', undefined, { signal })
     // Map backend connection_type to frontend method for compat
     data.connections = data.connections.map((c: Connection) => ({
       ...c,
@@ -41,7 +41,7 @@ async function fetchConnections(): Promise<ConnectionsResponse> {
 export function useConnections() {
   return useQuery({
     queryKey: ['connections'],
-    queryFn: fetchConnections,
+    queryFn: ({ signal }) => fetchConnections(signal),
     staleTime: 30000,
     retry: false,
   })

@@ -64,13 +64,14 @@ export async function fetchPosts(
   utilityType: string,
   page = 1,
   perPage = 20,
+  signal?: AbortSignal,
 ): Promise<PostsResponse> {
   return apiClient.get<PostsResponse>('/community/posts', {
     region,
     utility_type: utilityType,
     page,
     per_page: perPage,
-  })
+  }, { signal })
 }
 
 export async function createPost(data: CreatePostPayload): Promise<CommunityPost> {
@@ -92,6 +93,9 @@ export async function reportPost(postId: string, reason?: string): Promise<{ sta
   return apiClient.post<{ status: string }>(`/community/posts/${postId}/report`, { reason })
 }
 
-export async function fetchCommunityStats(region: string): Promise<CommunityStatsResponse> {
-  return apiClient.get<CommunityStatsResponse>('/community/stats', { region })
+export async function fetchCommunityStats(
+  region: string,
+  signal?: AbortSignal,
+): Promise<CommunityStatsResponse> {
+  return apiClient.get<CommunityStatsResponse>('/community/stats', { region }, { signal })
 }

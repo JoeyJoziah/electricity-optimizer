@@ -26,8 +26,8 @@ export interface UpdateProfileData {
 /**
  * Get the authenticated user's profile
  */
-export async function getUserProfile(): Promise<UserProfile> {
-  return apiClient.get<UserProfile>('/users/profile')
+export async function getUserProfile(signal?: AbortSignal): Promise<UserProfile> {
+  return apiClient.get<UserProfile>('/users/profile', undefined, { signal })
 }
 
 /**

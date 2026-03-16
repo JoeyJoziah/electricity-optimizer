@@ -78,8 +78,8 @@ export interface UpdateAlertRequest {
 /**
  * Get all alert configurations for the current user
  */
-export async function getAlerts(): Promise<GetAlertsResponse> {
-  return apiClient.get<GetAlertsResponse>('/alerts')
+export async function getAlerts(signal?: AbortSignal): Promise<GetAlertsResponse> {
+  return apiClient.get<GetAlertsResponse>('/alerts', undefined, { signal })
 }
 
 /**
@@ -115,10 +115,11 @@ export async function deleteAlert(
  */
 export async function getAlertHistory(
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  signal?: AbortSignal,
 ): Promise<GetAlertHistoryResponse> {
   return apiClient.get<GetAlertHistoryResponse>('/alerts/history', {
     page: page.toString(),
     page_size: pageSize.toString(),
-  })
+  }, { signal })
 }

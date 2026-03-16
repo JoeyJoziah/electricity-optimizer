@@ -11,7 +11,7 @@ import type { CreatePostPayload } from '../api/community'
 export function useCommunityPosts(region?: string, utilityType?: string, page = 1) {
   return useQuery({
     queryKey: ['community', 'posts', region, utilityType, page],
-    queryFn: () => fetchPosts(region!, utilityType!, page),
+    queryFn: ({ signal }) => fetchPosts(region!, utilityType!, page, 20, signal),
     enabled: !!region && !!utilityType,
     staleTime: 1000 * 60 * 2, // 2 min
   })
@@ -52,7 +52,7 @@ export function useReportPost() {
 export function useCommunityStats(region?: string) {
   return useQuery({
     queryKey: ['community', 'stats', region],
-    queryFn: () => fetchCommunityStats(region!),
+    queryFn: ({ signal }) => fetchCommunityStats(region!, signal),
     enabled: !!region,
     staleTime: 1000 * 60 * 5,
   })

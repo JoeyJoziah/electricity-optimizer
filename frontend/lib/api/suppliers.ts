@@ -30,20 +30,21 @@ export interface InitiateSwitchResponse {
  */
 export async function getSuppliers(
   region: string,
-  annualUsage?: number
+  annualUsage?: number,
+  signal?: AbortSignal,
 ): Promise<GetSuppliersResponse> {
   const params: Record<string, string> = { region }
   if (annualUsage) {
     params.annual_usage = annualUsage.toString()
   }
-  return apiClient.get<GetSuppliersResponse>('/suppliers', params)
+  return apiClient.get<GetSuppliersResponse>('/suppliers', params, { signal })
 }
 
 /**
  * Get a specific supplier by ID
  */
-export async function getSupplier(supplierId: string): Promise<Supplier> {
-  return apiClient.get<Supplier>(`/suppliers/${supplierId}`)
+export async function getSupplier(supplierId: string, signal?: AbortSignal): Promise<Supplier> {
+  return apiClient.get<Supplier>(`/suppliers/${supplierId}`, undefined, { signal })
 }
 
 /**
@@ -52,13 +53,14 @@ export async function getSupplier(supplierId: string): Promise<Supplier> {
 export async function getRecommendation(
   currentSupplierId: string,
   annualUsage: number,
-  region: string
+  region: string,
+  signal?: AbortSignal,
 ): Promise<GetRecommendationResponse> {
   return apiClient.post<GetRecommendationResponse>('/suppliers/recommend', {
     currentSupplierId,
     annualUsage,
     region,
-  })
+  }, { signal })
 }
 
 /**
@@ -66,12 +68,13 @@ export async function getRecommendation(
  */
 export async function compareSuppliers(
   supplierIds: string[],
-  annualUsage: number
+  annualUsage: number,
+  signal?: AbortSignal,
 ): Promise<{ comparisons: Supplier[] }> {
   return apiClient.post('/suppliers/compare', {
     supplierIds,
     annualUsage,
-  })
+  }, { signal })
 }
 
 /**
@@ -87,13 +90,14 @@ export async function initiateSwitch(
  * Get switch status
  */
 export async function getSwitchStatus(
-  referenceNumber: string
+  referenceNumber: string,
+  signal?: AbortSignal,
 ): Promise<{
   status: 'pending' | 'processing' | 'completed' | 'failed'
   estimatedCompletionDate: string
   lastUpdated: string
 }> {
-  return apiClient.get(`/suppliers/switch/${referenceNumber}`)
+  return apiClient.get(`/suppliers/switch/${referenceNumber}`, undefined, { signal })
 }
 
 // ============================================================================
@@ -144,10 +148,10 @@ export async function setUserSupplier(
 /**
  * Get the authenticated user's current supplier
  */
-export async function getUserSupplier(): Promise<{
+export async function getUserSupplier(signal?: AbortSignal): Promise<{
   supplier: UserSupplierResponse | null
 }> {
-  return apiClient.get('/user/supplier')
+  return apiClient.get('/user/supplier', undefined, { signal })
 }
 
 /**
@@ -169,10 +173,10 @@ export async function linkSupplierAccount(
 /**
  * Get all linked supplier accounts (masked)
  */
-export async function getUserSupplierAccounts(): Promise<{
+export async function getUserSupplierAccounts(signal?: AbortSignal): Promise<{
   accounts: LinkedAccountResponse[]
 }> {
-  return apiClient.get('/user/supplier/accounts')
+  return apiClient.get('/user/supplier/accounts', undefined, { signal })
 }
 
 /**

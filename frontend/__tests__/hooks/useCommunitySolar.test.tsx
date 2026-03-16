@@ -90,7 +90,7 @@ describe('useCommunitySolar hooks', () => {
 
     expect(result.current.data?.count).toBe(1)
     expect(result.current.data?.programs[0].program_name).toBe('NY Community Solar')
-    expect(mockGetPrograms).toHaveBeenCalledWith({ state: 'NY', enrollment_status: undefined })
+    expect(mockGetPrograms).toHaveBeenCalledWith({ state: 'NY', enrollment_status: undefined }, expect.anything())
   })
 
   it('useCommunitySolarPrograms(null) is disabled', () => {
@@ -106,7 +106,7 @@ describe('useCommunitySolar hooks', () => {
     )
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockGetPrograms).toHaveBeenCalledWith({ state: 'NY', enrollment_status: 'open' })
+    expect(mockGetPrograms).toHaveBeenCalledWith({ state: 'NY', enrollment_status: 'open' }, expect.anything())
   })
 
   it('useCommunitySolarSavings returns savings data', async () => {

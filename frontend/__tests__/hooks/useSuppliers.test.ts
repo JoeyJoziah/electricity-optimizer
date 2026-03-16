@@ -133,7 +133,7 @@ describe('useSuppliers', () => {
     })
 
     expect(result.current.data).toEqual(mockSuppliersData)
-    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', undefined)
+    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', undefined, expect.anything())
   })
 
   it('fetches suppliers with custom region', async () => {
@@ -145,7 +145,7 @@ describe('useSuppliers', () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ny', undefined)
+    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ny', undefined, expect.anything())
   })
 
   it('fetches suppliers with annual usage', async () => {
@@ -154,7 +154,7 @@ describe('useSuppliers', () => {
     renderHook(() => useSuppliers('us_ct', 12000), { wrapper })
 
     await waitFor(() => {
-      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', 12000)
+      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', 12000, expect.anything())
     })
   })
 
@@ -196,13 +196,13 @@ describe('useSuppliers', () => {
     )
 
     await waitFor(() => {
-      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', undefined)
+      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', undefined, expect.anything())
     })
 
     rerender({ region: 'us_ny' })
 
     await waitFor(() => {
-      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ny', undefined)
+      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ny', undefined, expect.anything())
     })
 
     expect(mockGetSuppliers).toHaveBeenCalledTimes(2)
@@ -228,7 +228,7 @@ describe('useSupplier', () => {
     })
 
     expect(result.current.data).toEqual(mockSingleSupplier)
-    expect(mockGetSupplier).toHaveBeenCalledWith('sup-1')
+    expect(mockGetSupplier).toHaveBeenCalledWith('sup-1', expect.anything())
   })
 
   it('is disabled when supplierId is empty', async () => {
@@ -276,7 +276,7 @@ describe('useSupplierRecommendation', () => {
     })
 
     expect(result.current.data).toEqual(mockRecommendation)
-    expect(mockGetRecommendation).toHaveBeenCalledWith('sup-1', 10500, 'us_ct')
+    expect(mockGetRecommendation).toHaveBeenCalledWith('sup-1', 10500, 'us_ct', expect.anything())
   })
 
   it('is disabled when currentSupplierId is empty', () => {
@@ -312,7 +312,8 @@ describe('useSupplierRecommendation', () => {
       expect(mockGetRecommendation).toHaveBeenCalledWith(
         'sup-1',
         10000,
-        'us_ny'
+        'us_ny',
+        expect.anything()
       )
     })
   })
@@ -343,7 +344,8 @@ describe('useCompareSuppliers', () => {
 
     expect(mockCompareSuppliers).toHaveBeenCalledWith(
       ['sup-1', 'sup-2'],
-      10000
+      10000,
+      expect.anything()
     )
   })
 
@@ -451,7 +453,7 @@ describe('useSwitchStatus', () => {
     })
 
     expect(result.current.data?.status).toBe('processing')
-    expect(mockGetSwitchStatus).toHaveBeenCalledWith('SW-123')
+    expect(mockGetSwitchStatus).toHaveBeenCalledWith('SW-123', expect.anything())
   })
 
   it('is disabled when referenceNumber is empty', () => {

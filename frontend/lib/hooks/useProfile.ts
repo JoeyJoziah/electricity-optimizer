@@ -13,8 +13,8 @@ import { useSettingsStore } from '@/lib/store/settings'
 export function useProfile() {
   return useQuery({
     queryKey: ['user-profile'],
-    queryFn: async () => {
-      const profile = await getUserProfile()
+    queryFn: async ({ signal }) => {
+      const profile = await getUserProfile(signal)
       // Sync region from backend → Zustand store
       if (profile.region) {
         const store = useSettingsStore.getState()

@@ -12,7 +12,7 @@ import {
 export function useGasRates(region: string | null | undefined, limit?: number) {
   return useQuery({
     queryKey: ['gas-rates', region, limit],
-    queryFn: () => getGasRates({ region: region!, limit }),
+    queryFn: ({ signal }) => getGasRates({ region: region!, limit }, signal),
     enabled: !!region,
     staleTime: 300_000, // Gas prices update weekly, 5 min stale is fine
   })
@@ -21,7 +21,7 @@ export function useGasRates(region: string | null | undefined, limit?: number) {
 export function useGasHistory(region: string | null | undefined, days = 30) {
   return useQuery({
     queryKey: ['gas-rates', 'history', region, days],
-    queryFn: () => getGasHistory({ region: region!, days }),
+    queryFn: ({ signal }) => getGasHistory({ region: region!, days }, signal),
     enabled: !!region,
     staleTime: 300_000,
   })
@@ -30,7 +30,7 @@ export function useGasHistory(region: string | null | undefined, days = 30) {
 export function useGasStats(region: string | null | undefined, days = 7) {
   return useQuery({
     queryKey: ['gas-rates', 'stats', region, days],
-    queryFn: () => getGasStats({ region: region!, days }),
+    queryFn: ({ signal }) => getGasStats({ region: region!, days }, signal),
     enabled: !!region,
     staleTime: 300_000,
   })
@@ -39,7 +39,7 @@ export function useGasStats(region: string | null | undefined, days = 7) {
 export function useDeregulatedGasStates() {
   return useQuery({
     queryKey: ['gas-rates', 'deregulated-states'],
-    queryFn: getDeregulatedGasStates,
+    queryFn: ({ signal }) => getDeregulatedGasStates(signal),
     staleTime: 3_600_000, // 1 hour — this list rarely changes
   })
 }
@@ -47,7 +47,7 @@ export function useDeregulatedGasStates() {
 export function useGasSupplierComparison(region: string | null | undefined) {
   return useQuery({
     queryKey: ['gas-rates', 'compare', region],
-    queryFn: () => compareGasSuppliers(region!),
+    queryFn: ({ signal }) => compareGasSuppliers(region!, signal),
     enabled: !!region,
     staleTime: 300_000,
   })

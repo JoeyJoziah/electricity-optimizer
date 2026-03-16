@@ -24,7 +24,7 @@ import type { LinkAccountRequest as LinkAccountRequestType } from '@/lib/api/sup
 export function useSuppliers(region: string | null | undefined, annualUsage?: number) {
   return useQuery({
     queryKey: ['suppliers', region, annualUsage],
-    queryFn: () => getSuppliers(region!, annualUsage),
+    queryFn: ({ signal }) => getSuppliers(region!, annualUsage, signal),
     enabled: !!region,
     staleTime: 300000, // Consider stale after 5 minutes
   })
@@ -36,7 +36,7 @@ export function useSuppliers(region: string | null | undefined, annualUsage?: nu
 export function useSupplier(supplierId: string) {
   return useQuery({
     queryKey: ['supplier', supplierId],
-    queryFn: () => getSupplier(supplierId),
+    queryFn: ({ signal }) => getSupplier(supplierId, signal),
     enabled: !!supplierId,
     staleTime: 300000,
   })
@@ -52,7 +52,7 @@ export function useSupplierRecommendation(
 ) {
   return useQuery({
     queryKey: ['recommendation', currentSupplierId, annualUsage, region],
-    queryFn: () => getRecommendation(currentSupplierId, annualUsage, region!),
+    queryFn: ({ signal }) => getRecommendation(currentSupplierId, annualUsage, region!, signal),
     enabled: !!currentSupplierId && annualUsage > 0 && !!region,
     staleTime: 300000,
   })
@@ -67,7 +67,7 @@ export function useCompareSuppliers(
 ) {
   return useQuery({
     queryKey: ['compare', supplierIds, annualUsage],
-    queryFn: () => compareSuppliers(supplierIds, annualUsage),
+    queryFn: ({ signal }) => compareSuppliers(supplierIds, annualUsage, signal),
     enabled: supplierIds.length > 0 && annualUsage > 0,
     staleTime: 300000,
   })
@@ -95,7 +95,7 @@ export function useInitiateSwitch() {
 export function useSwitchStatus(referenceNumber: string) {
   return useQuery({
     queryKey: ['switch-status', referenceNumber],
-    queryFn: () => getSwitchStatus(referenceNumber),
+    queryFn: ({ signal }) => getSwitchStatus(referenceNumber, signal),
     enabled: !!referenceNumber,
     refetchInterval: 60000, // Check every minute
   })
@@ -111,7 +111,7 @@ export function useSwitchStatus(referenceNumber: string) {
 export function useUserSupplier() {
   return useQuery({
     queryKey: ['user-supplier'],
-    queryFn: getUserSupplier,
+    queryFn: ({ signal }) => getUserSupplier(signal),
     staleTime: 60000, // 1 minute
   })
 }
@@ -165,7 +165,7 @@ export function useLinkAccount() {
 export function useUserSupplierAccounts() {
   return useQuery({
     queryKey: ['user-supplier-accounts'],
-    queryFn: getUserSupplierAccounts,
+    queryFn: ({ signal }) => getUserSupplierAccounts(signal),
     staleTime: 60000,
   })
 }

@@ -113,13 +113,13 @@ export async function submitAgentTask(
 /**
  * Poll result of an async agent task
  */
-export async function getTaskResult(jobId: string): Promise<AgentJobResult> {
-  return apiClient.get<AgentJobResult>(`/agent/task/${jobId}`)
+export async function getTaskResult(jobId: string, signal?: AbortSignal): Promise<AgentJobResult> {
+  return apiClient.get<AgentJobResult>(`/agent/task/${jobId}`, undefined, { signal })
 }
 
 /**
  * Get current agent usage stats
  */
-export async function getAgentUsage(): Promise<AgentUsage> {
-  return apiClient.get<AgentUsage>('/agent/usage')
+export async function getAgentUsage(signal?: AbortSignal): Promise<AgentUsage> {
+  return apiClient.get<AgentUsage>('/agent/usage', undefined, { signal })
 }

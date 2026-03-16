@@ -4,6 +4,7 @@ import React from 'react'
 import { CommunityStats } from '@/components/community/CommunityStats'
 import { PostForm } from '@/components/community/PostForm'
 import { PostList } from '@/components/community/PostList'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { useSettingsStore } from '@/lib/store/settings'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -22,7 +23,9 @@ export default function CommunityPage() {
       </div>
       <div className="space-y-6 p-6">
         {/* Stats banner */}
-        <CommunityStats />
+        <ErrorBoundary>
+          <CommunityStats />
+        </ErrorBoundary>
 
         {/* Utility filter */}
         {utilityTypes.length > 1 && (
@@ -45,13 +48,17 @@ export default function CommunityPage() {
         )}
 
         {/* Post form */}
-        <PostForm defaultUtilityType={activeUtility} />
+        <ErrorBoundary>
+          <PostForm defaultUtilityType={activeUtility} />
+        </ErrorBoundary>
 
         {/* Post list */}
-        <PostList
-          utilityType={activeUtility}
-          currentUserId={user?.id}
-        />
+        <ErrorBoundary>
+          <PostList
+            utilityType={activeUtility}
+            currentUserId={user?.id}
+          />
+        </ErrorBoundary>
       </div>
     </div>
   )

@@ -214,7 +214,7 @@ describe('SuppliersPage', () => {
     })
 
     // Verify the API was called with the correct region
-    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', 10500)
+    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', 10500, expect.anything())
   })
 
   it('shows estimated annual cost', async () => {

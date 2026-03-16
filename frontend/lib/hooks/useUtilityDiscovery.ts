@@ -8,7 +8,7 @@ import type { UtilityDiscoveryResponse, CompletionResponse } from '@/lib/api/uti
 export function useUtilityDiscovery(state: string | null | undefined) {
   return useQuery<UtilityDiscoveryResponse>({
     queryKey: ['utility-discovery', state],
-    queryFn: () => discoverUtilities(state!),
+    queryFn: ({ signal }) => discoverUtilities(state!, signal),
     enabled: !!state,
     staleTime: 1000 * 60 * 60, // 1 hour — deregulation data rarely changes
   })
@@ -23,7 +23,7 @@ export function useUtilityCompletion(
 ) {
   return useQuery<CompletionResponse>({
     queryKey: ['utility-completion', state, trackedTypes.join(',')],
-    queryFn: () => getUtilityCompletion(state!, trackedTypes),
+    queryFn: ({ signal }) => getUtilityCompletion(state!, trackedTypes, signal),
     enabled: !!state && trackedTypes.length > 0,
     staleTime: 1000 * 60 * 60,
   })

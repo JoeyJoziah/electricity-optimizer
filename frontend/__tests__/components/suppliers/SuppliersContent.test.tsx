@@ -444,7 +444,7 @@ describe('SuppliersContent', () => {
       expect(screen.getByText('3 Suppliers Available')).toBeInTheDocument()
     })
 
-    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', 10500)
+    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', 10500, expect.anything())
   })
 
   it('does not call getRecommendation when no current supplier', async () => {

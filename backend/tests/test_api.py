@@ -243,12 +243,9 @@ class TestPriceEndpoints:
             }
         )
 
-        # 401 expected: forecast now requires Pro tier (require_tier("pro"))
-        assert response.status_code in [200, 401, 403, 404, 500]
-
-        if response.status_code == 200:
-            data = response.json()
-            assert "forecast" in data or "prices" in data
+        # Unauthenticated request: 401 because no auth token is present.
+        # The tier gate (403) only fires after auth succeeds.
+        assert response.status_code == 401
 
     def test_get_price_comparison(self, client):
         """Test GET /api/v1/prices/compare endpoint"""

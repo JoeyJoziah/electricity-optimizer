@@ -62,7 +62,7 @@ describe('useUtilityDiscovery hooks', () => {
 
     expect(result.current.data?.count).toBe(4)
     expect(result.current.data?.utilities).toHaveLength(4)
-    expect(mockDiscoverUtilities).toHaveBeenCalledWith('NY')
+    expect(mockDiscoverUtilities).toHaveBeenCalledWith('NY', expect.anything())
   })
 
   it('useUtilityDiscovery(null) is disabled', () => {

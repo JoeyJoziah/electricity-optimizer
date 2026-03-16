@@ -29,7 +29,7 @@ export const notificationKeys = {
 export function useNotifications() {
   return useQuery({
     queryKey: notificationKeys.all,
-    queryFn: () => getNotifications(),
+    queryFn: ({ signal }) => getNotifications(signal),
     staleTime: 30_000,
   })
 }
@@ -41,7 +41,7 @@ export function useNotifications() {
 export function useNotificationCount() {
   return useQuery({
     queryKey: notificationKeys.count,
-    queryFn: () => getNotificationCount(),
+    queryFn: ({ signal }) => getNotificationCount(signal),
     refetchInterval: 30_000,
     staleTime: 30_000,
   })

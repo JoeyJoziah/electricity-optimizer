@@ -103,39 +103,45 @@ export interface GetGasStatsParams {
 // ---------------------------------------------------------------------------
 
 export async function getGasRates(
-  params: GetGasRatesParams
+  params: GetGasRatesParams,
+  signal?: AbortSignal,
 ): Promise<GasRatesResponse> {
   const query: Record<string, string> = { region: params.region }
   if (params.limit !== undefined) query.limit = String(params.limit)
-  return apiClient.get<GasRatesResponse>('/rates/natural-gas/', query)
+  return apiClient.get<GasRatesResponse>('/rates/natural-gas/', query, { signal })
 }
 
 export async function getGasHistory(
-  params: GetGasHistoryParams
+  params: GetGasHistoryParams,
+  signal?: AbortSignal,
 ): Promise<GasHistoryResponse> {
   const query: Record<string, string> = { region: params.region }
   if (params.days !== undefined) query.days = String(params.days)
-  return apiClient.get<GasHistoryResponse>('/rates/natural-gas/history', query)
+  return apiClient.get<GasHistoryResponse>('/rates/natural-gas/history', query, { signal })
 }
 
 export async function getGasStats(
-  params: GetGasStatsParams
+  params: GetGasStatsParams,
+  signal?: AbortSignal,
 ): Promise<GasStatsResponse> {
   const query: Record<string, string> = { region: params.region }
   if (params.days !== undefined) query.days = String(params.days)
-  return apiClient.get<GasStatsResponse>('/rates/natural-gas/stats', query)
+  return apiClient.get<GasStatsResponse>('/rates/natural-gas/stats', query, { signal })
 }
 
-export async function getDeregulatedGasStates(): Promise<GasDeregulatedStatesResponse> {
+export async function getDeregulatedGasStates(signal?: AbortSignal): Promise<GasDeregulatedStatesResponse> {
   return apiClient.get<GasDeregulatedStatesResponse>(
-    '/rates/natural-gas/deregulated-states'
+    '/rates/natural-gas/deregulated-states',
+    undefined,
+    { signal },
   )
 }
 
 export async function compareGasSuppliers(
-  region: string
+  region: string,
+  signal?: AbortSignal,
 ): Promise<GasCompareResponse> {
   return apiClient.get<GasCompareResponse>('/rates/natural-gas/compare', {
     region,
-  })
+  }, { signal })
 }

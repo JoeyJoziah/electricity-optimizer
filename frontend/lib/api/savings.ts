@@ -11,6 +11,6 @@ export interface CombinedSavingsResponse {
   savings_rank_pct: number | null
 }
 
-export async function getCombinedSavings(): Promise<CombinedSavingsResponse> {
-  return apiClient.get<CombinedSavingsResponse>('/savings/combined')
+export async function getCombinedSavings(signal?: AbortSignal): Promise<CombinedSavingsResponse> {
+  return apiClient.get<CombinedSavingsResponse>('/savings/combined', undefined, { signal })
 }

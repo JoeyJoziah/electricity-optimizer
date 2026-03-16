@@ -16,7 +16,7 @@ export function useRateChanges(params?: {
 }) {
   return useQuery({
     queryKey: ['rate-changes', params],
-    queryFn: () => getRateChanges(params),
+    queryFn: ({ signal }) => getRateChanges(params, signal),
     staleTime: 300_000, // 5 min — rate changes detected daily
   })
 }
@@ -24,7 +24,7 @@ export function useRateChanges(params?: {
 export function useAlertPreferences() {
   return useQuery({
     queryKey: ['alert-preferences'],
-    queryFn: getAlertPreferences,
+    queryFn: ({ signal }) => getAlertPreferences(signal),
     staleTime: 60_000,
   })
 }

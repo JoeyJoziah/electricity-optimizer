@@ -16,7 +16,7 @@ import {
 export function useCurrentPrices(region: string | null | undefined) {
   return useQuery({
     queryKey: ['prices', 'current', region],
-    queryFn: () => getCurrentPrices({ region: region! }),
+    queryFn: ({ signal }) => getCurrentPrices({ region: region! }, signal),
     enabled: !!region,
     refetchInterval: 60000, // Refetch every minute
     staleTime: 55000, // Stale just before next poll to prevent window-focus gap refetch
@@ -33,7 +33,7 @@ export function usePriceHistory(region: string | null | undefined, hours: number
   const days = Math.max(1, Math.ceil(hours / 24))
   return useQuery({
     queryKey: ['prices', 'history', region, hours],
-    queryFn: () => getPriceHistory({ region: region!, days }),
+    queryFn: ({ signal }) => getPriceHistory({ region: region!, days }, signal),
     enabled: !!region,
     staleTime: 60000, // Consider stale after 1 minute
   })
@@ -46,7 +46,7 @@ export function usePriceHistory(region: string | null | undefined, hours: number
 export function usePriceForecast(region: string | null | undefined, hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'forecast', region, hours],
-    queryFn: () => getPriceForecast({ region: region!, hours }),
+    queryFn: ({ signal }) => getPriceForecast({ region: region!, hours }, signal),
     enabled: !!region,
     refetchInterval: 300000, // Refetch every 5 minutes
     staleTime: 180000, // Consider stale after 3 minutes
@@ -59,7 +59,7 @@ export function usePriceForecast(region: string | null | undefined, hours: numbe
 export function useOptimalPeriods(region: string | null | undefined, hours: number = 24) {
   return useQuery({
     queryKey: ['prices', 'optimal', region, hours],
-    queryFn: () => getOptimalPeriods(region!, hours),
+    queryFn: ({ signal }) => getOptimalPeriods(region!, hours, signal),
     enabled: !!region,
     refetchInterval: 300000,
     staleTime: 180000,

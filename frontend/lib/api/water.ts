@@ -61,23 +61,27 @@ export interface WaterTipsResponse {
 
 export async function getWaterRates(
   state?: string,
+  signal?: AbortSignal,
 ): Promise<WaterRatesResponse> {
   return apiClient.get<WaterRatesResponse>(
     '/rates/water',
     state ? { state } : {},
+    { signal },
   )
 }
 
 export async function getWaterBenchmark(
   state: string,
   usageGallons?: number,
+  signal?: AbortSignal,
 ): Promise<WaterBenchmark> {
   return apiClient.get<WaterBenchmark>(
     '/rates/water/benchmark',
     { state, ...(usageGallons ? { usage_gallons: String(usageGallons) } : {}) },
+    { signal },
   )
 }
 
-export async function getWaterTips(): Promise<WaterTipsResponse> {
-  return apiClient.get<WaterTipsResponse>('/rates/water/tips')
+export async function getWaterTips(signal?: AbortSignal): Promise<WaterTipsResponse> {
+  return apiClient.get<WaterTipsResponse>('/rates/water/tips', undefined, { signal })
 }

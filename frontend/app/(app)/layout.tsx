@@ -1,6 +1,8 @@
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarProvider } from '@/lib/contexts/sidebar-context'
 import { FeedbackWidget } from '@/components/feedback/FeedbackWidget'
+import { ErrorBoundary } from '@/components/error-boundary'
+import { PageErrorFallback } from '@/components/page-error-fallback'
 
 export default function AppLayout({
   children,
@@ -17,7 +19,11 @@ export default function AppLayout({
       </a>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main id="main-content" className="flex-1 lg:pl-64">{children}</main>
+        <main id="main-content" className="flex-1 lg:pl-64">
+          <ErrorBoundary fallback={<PageErrorFallback />}>
+            {children}
+          </ErrorBoundary>
+        </main>
       </div>
       <FeedbackWidget />
     </SidebarProvider>

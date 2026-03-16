@@ -9,7 +9,7 @@ export function useExportRates(
 ) {
   return useQuery({
     queryKey: ['export', 'rates', utilityType, format, state],
-    queryFn: () => exportRates(utilityType!, format, state),
+    queryFn: ({ signal }) => exportRates(utilityType!, format, state, undefined, undefined, signal),
     enabled: enabled && !!utilityType,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
@@ -18,7 +18,7 @@ export function useExportRates(
 export function useExportTypes() {
   return useQuery({
     queryKey: ['export', 'types'],
-    queryFn: getExportTypes,
+    queryFn: ({ signal }) => getExportTypes(signal),
     staleTime: 1000 * 60 * 60 * 24, // 24 hours
   })
 }

@@ -60,26 +60,29 @@ export interface UpsertPreferenceRequest {
 /**
  * Get recent rate changes, optionally filtered.
  */
-export async function getRateChanges(params?: {
-  utility_type?: string
-  region?: string
-  days?: number
-  limit?: number
-}): Promise<GetRateChangesResponse> {
+export async function getRateChanges(
+  params?: {
+    utility_type?: string
+    region?: string
+    days?: number
+    limit?: number
+  },
+  signal?: AbortSignal,
+): Promise<GetRateChangesResponse> {
   const query: Record<string, string> = {}
   if (params?.utility_type) query.utility_type = params.utility_type
   if (params?.region) query.region = params.region
   if (params?.days) query.days = params.days.toString()
   if (params?.limit) query.limit = params.limit.toString()
 
-  return apiClient.get<GetRateChangesResponse>('/rate-changes', query)
+  return apiClient.get<GetRateChangesResponse>('/rate-changes', query, { signal })
 }
 
 /**
  * Get the authenticated user's alert preferences.
  */
-export async function getAlertPreferences(): Promise<GetAlertPreferencesResponse> {
-  return apiClient.get<GetAlertPreferencesResponse>('/rate-changes/preferences')
+export async function getAlertPreferences(signal?: AbortSignal): Promise<GetAlertPreferencesResponse> {
+  return apiClient.get<GetAlertPreferencesResponse>('/rate-changes/preferences', undefined, { signal })
 }
 
 /**

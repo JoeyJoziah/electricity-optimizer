@@ -42,16 +42,16 @@ export interface MarkReadResponse {
 /**
  * Get unread notifications for the current user (newest first, max 50)
  */
-export async function getNotifications(): Promise<GetNotificationsResponse> {
-  return apiClient.get<GetNotificationsResponse>('/notifications')
+export async function getNotifications(signal?: AbortSignal): Promise<GetNotificationsResponse> {
+  return apiClient.get<GetNotificationsResponse>('/notifications', undefined, { signal })
 }
 
 /**
  * Get the unread notification count for the current user.
  * Designed to be polled frequently (e.g. every 30s) for the bell badge.
  */
-export async function getNotificationCount(): Promise<GetNotificationCountResponse> {
-  return apiClient.get<GetNotificationCountResponse>('/notifications/count')
+export async function getNotificationCount(signal?: AbortSignal): Promise<GetNotificationCountResponse> {
+  return apiClient.get<GetNotificationCountResponse>('/notifications/count', undefined, { signal })
 }
 
 /**

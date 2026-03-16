@@ -66,12 +66,13 @@ export interface GetProgramsParams {
 }
 
 export async function getCommunitySolarPrograms(
-  params: GetProgramsParams
+  params: GetProgramsParams,
+  signal?: AbortSignal,
 ): Promise<CommunitySolarProgramsResponse> {
   const query: Record<string, string> = { state: params.state }
   if (params.enrollment_status) query.enrollment_status = params.enrollment_status
   if (params.limit !== undefined) query.limit = String(params.limit)
-  return apiClient.get<CommunitySolarProgramsResponse>('/community-solar/programs', query)
+  return apiClient.get<CommunitySolarProgramsResponse>('/community-solar/programs', query, { signal })
 }
 
 export interface GetSavingsParams {
@@ -80,20 +81,22 @@ export interface GetSavingsParams {
 }
 
 export async function getCommunitySolarSavings(
-  params: GetSavingsParams
+  params: GetSavingsParams,
+  signal?: AbortSignal,
 ): Promise<CommunitySolarSavingsResponse> {
   return apiClient.get<CommunitySolarSavingsResponse>('/community-solar/savings', {
     monthly_bill: params.monthly_bill,
     savings_percent: params.savings_percent,
-  })
+  }, { signal })
 }
 
 export async function getCommunitySolarProgram(
-  programId: string
+  programId: string,
+  signal?: AbortSignal,
 ): Promise<CommunitySolarProgramDetail> {
-  return apiClient.get<CommunitySolarProgramDetail>(`/community-solar/program/${programId}`)
+  return apiClient.get<CommunitySolarProgramDetail>(`/community-solar/program/${programId}`, undefined, { signal })
 }
 
-export async function getCommunitySolarStates(): Promise<CommunitySolarStatesResponse> {
-  return apiClient.get<CommunitySolarStatesResponse>('/community-solar/states')
+export async function getCommunitySolarStates(signal?: AbortSignal): Promise<CommunitySolarStatesResponse> {
+  return apiClient.get<CommunitySolarStatesResponse>('/community-solar/states', undefined, { signal })
 }

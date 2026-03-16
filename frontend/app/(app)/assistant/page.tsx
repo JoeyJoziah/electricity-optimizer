@@ -1,4 +1,5 @@
 import { AgentChat } from '@/components/agent/AgentChat'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export const metadata = {
   title: 'AI Assistant — RateShift',
@@ -15,7 +16,9 @@ export default function AssistantPage() {
         </p>
       </div>
       <div className="min-h-0 flex-1">
-        <AgentChat />
+        <ErrorBoundary>
+          <AgentChat />
+        </ErrorBoundary>
       </div>
     </div>
   )

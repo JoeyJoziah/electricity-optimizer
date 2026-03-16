@@ -106,7 +106,7 @@ describe('useGasRates hooks', () => {
 
     expect(result.current.data).toEqual(mockRatesData)
     expect(result.current.data?.prices[0].price).toBe('1.2500')
-    expect(mockGetGasRates).toHaveBeenCalledWith({ region: 'us_ct', limit: undefined })
+    expect(mockGetGasRates).toHaveBeenCalledWith({ region: 'us_ct', limit: undefined }, expect.anything())
   })
 
   it('useGasRates(null) is disabled', () => {
@@ -121,7 +121,7 @@ describe('useGasRates hooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(result.current.data?.prices).toHaveLength(2)
-    expect(mockGetGasHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 30 })
+    expect(mockGetGasHistory).toHaveBeenCalledWith({ region: 'us_ct', days: 30 }, expect.anything())
   })
 
   it('useGasHistory(null) is disabled', () => {
@@ -136,7 +136,7 @@ describe('useGasRates hooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(result.current.data?.avg_price).toBe('1.2250')
-    expect(mockGetGasStats).toHaveBeenCalledWith({ region: 'us_ct', days: 7 })
+    expect(mockGetGasStats).toHaveBeenCalledWith({ region: 'us_ct', days: 7 }, expect.anything())
   })
 
   it('useDeregulatedGasStates returns states list', async () => {
@@ -155,7 +155,7 @@ describe('useGasRates hooks', () => {
 
     expect(result.current.data?.cheapest).toBe('Direct Energy')
     expect(result.current.data?.suppliers).toHaveLength(2)
-    expect(mockCompareGasSuppliers).toHaveBeenCalledWith('us_ct')
+    expect(mockCompareGasSuppliers).toHaveBeenCalledWith('us_ct', expect.anything())
   })
 
   it('useGasSupplierComparison(null) is disabled', () => {

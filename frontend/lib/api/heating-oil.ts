@@ -48,38 +48,46 @@ export interface HeatingOilDealersResponse {
 
 export async function getHeatingOilPrices(
   state?: string,
+  signal?: AbortSignal,
 ): Promise<HeatingOilPricesResponse> {
   return apiClient.get<HeatingOilPricesResponse>(
     '/rates/heating-oil',
     state ? { state } : {},
+    { signal },
   )
 }
 
 export async function getHeatingOilHistory(
   state: string,
   weeks?: number,
+  signal?: AbortSignal,
 ): Promise<HeatingOilHistoryResponse> {
   return apiClient.get<HeatingOilHistoryResponse>(
     '/rates/heating-oil/history',
     { state, ...(weeks ? { weeks } : {}) },
+    { signal },
   )
 }
 
 export async function getHeatingOilDealers(
   state: string,
   limit?: number,
+  signal?: AbortSignal,
 ): Promise<HeatingOilDealersResponse> {
   return apiClient.get<HeatingOilDealersResponse>(
     '/rates/heating-oil/dealers',
     { state, ...(limit ? { limit } : {}) },
+    { signal },
   )
 }
 
 export async function getHeatingOilComparison(
   state: string,
+  signal?: AbortSignal,
 ): Promise<HeatingOilComparison> {
   return apiClient.get<HeatingOilComparison>(
     '/rates/heating-oil/compare',
     { state },
+    { signal },
   )
 }

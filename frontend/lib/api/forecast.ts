@@ -26,13 +26,14 @@ export async function getForecast(
   utilityType: string,
   state?: string,
   horizonDays?: number,
+  signal?: AbortSignal,
 ): Promise<ForecastResponse> {
   const params: Record<string, string> = {}
   if (state) params.state = state
   if (horizonDays) params.horizon_days = String(horizonDays)
-  return apiClient.get<ForecastResponse>(`/forecast/${utilityType}`, params)
+  return apiClient.get<ForecastResponse>(`/forecast/${utilityType}`, params, { signal })
 }
 
-export async function getForecastTypes(): Promise<ForecastTypesResponse> {
-  return apiClient.get<ForecastTypesResponse>('/forecast')
+export async function getForecastTypes(signal?: AbortSignal): Promise<ForecastTypesResponse> {
+  return apiClient.get<ForecastTypesResponse>('/forecast', undefined, { signal })
 }

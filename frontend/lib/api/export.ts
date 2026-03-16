@@ -27,6 +27,7 @@ export async function exportRates(
   state?: string,
   startDate?: string,
   endDate?: string,
+  signal?: AbortSignal,
 ): Promise<ExportResponse> {
   const params: Record<string, string> = {
     utility_type: utilityType,
@@ -35,9 +36,9 @@ export async function exportRates(
   if (state) params.state = state
   if (startDate) params.start_date = startDate
   if (endDate) params.end_date = endDate
-  return apiClient.get<ExportResponse>('/export/rates', params)
+  return apiClient.get<ExportResponse>('/export/rates', params, { signal })
 }
 
-export async function getExportTypes(): Promise<ExportTypesResponse> {
-  return apiClient.get<ExportTypesResponse>('/export/types')
+export async function getExportTypes(signal?: AbortSignal): Promise<ExportTypesResponse> {
+  return apiClient.get<ExportTypesResponse>('/export/types', undefined, { signal })
 }

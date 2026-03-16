@@ -71,13 +71,14 @@ export interface GetPriceForecastParams {
  * or `price` (single object) when a supplier is specified.
  */
 export async function getCurrentPrices(
-  params: GetCurrentPricesParams
+  params: GetCurrentPricesParams,
+  signal?: AbortSignal,
 ): Promise<ApiCurrentPriceResponse> {
   const query: Record<string, string> = { region: params.region }
   if (params.supplier) query.supplier = params.supplier
   if (params.limit !== undefined) query.limit = String(params.limit)
 
-  return apiClient.get<ApiCurrentPriceResponse>('/prices/current', query)
+  return apiClient.get<ApiCurrentPriceResponse>('/prices/current', query, { signal })
 }
 
 /**
@@ -88,7 +89,8 @@ export async function getCurrentPrices(
  * Use parseDecimal() from types/api-helpers.ts before arithmetic.
  */
 export async function getPriceHistory(
-  params: GetPriceHistoryParams
+  params: GetPriceHistoryParams,
+  signal?: AbortSignal,
 ): Promise<ApiPriceHistoryResponse> {
   const query: Record<string, string> = { region: params.region }
   if (params.days !== undefined) query.days = String(params.days)
@@ -98,7 +100,7 @@ export async function getPriceHistory(
   if (params.page !== undefined) query.page = String(params.page)
   if (params.pageSize !== undefined) query.page_size = String(params.pageSize)
 
-  return apiClient.get<ApiPriceHistoryResponse>('/prices/history', query)
+  return apiClient.get<ApiPriceHistoryResponse>('/prices/history', query, { signal })
 }
 
 /**
@@ -108,13 +110,14 @@ export async function getPriceHistory(
  * confidence is a float 0–1.
  */
 export async function getPriceForecast(
-  params: GetPriceForecastParams
+  params: GetPriceForecastParams,
+  signal?: AbortSignal,
 ): Promise<ApiPriceForecastResponse> {
   const query: Record<string, string> = { region: params.region }
   if (params.hours !== undefined) query.hours = String(params.hours)
   if (params.supplier) query.supplier = params.supplier
 
-  return apiClient.get<ApiPriceForecastResponse>('/prices/forecast', query)
+  return apiClient.get<ApiPriceForecastResponse>('/prices/forecast', query, { signal })
 }
 
 /**
@@ -124,9 +127,10 @@ export async function getPriceForecast(
  * Returns suppliers sorted cheapest-first with summary statistics.
  */
 export async function comparePrices(
-  region: string
+  region: string,
+  signal?: AbortSignal,
 ): Promise<ApiPriceComparisonResponse> {
-  return apiClient.get<ApiPriceComparisonResponse>('/prices/compare', { region })
+  return apiClient.get<ApiPriceComparisonResponse>('/prices/compare', { region }, { signal })
 }
 
 // ---------------------------------------------------------------------------
@@ -175,10 +179,11 @@ export async function getPriceForecastLegacy(
  */
 export async function getOptimalPeriods(
   region: string,
-  hours = 24
+  hours = 24,
+  signal?: AbortSignal,
 ): Promise<{ periods: Array<{ start: string; end: string; avgPrice: number }> }> {
   return apiClient.get('/prices/optimal-periods', {
     region,
     hours: String(hours),
-  })
+  }, { signal })
 }

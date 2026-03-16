@@ -16,7 +16,7 @@ import type { CreateAlertRequest, UpdateAlertRequest } from '@/lib/api/alerts'
 export function useAlerts() {
   return useQuery({
     queryKey: ['alerts'],
-    queryFn: () => getAlerts(),
+    queryFn: ({ signal }) => getAlerts(signal),
     staleTime: 30000, // 30 seconds
   })
 }
@@ -27,7 +27,7 @@ export function useAlerts() {
 export function useAlertHistory(page: number = 1, pageSize: number = 20) {
   return useQuery({
     queryKey: ['alerts', 'history', page],
-    queryFn: () => getAlertHistory(page, pageSize),
+    queryFn: ({ signal }) => getAlertHistory(page, pageSize, signal),
     staleTime: 30000,
   })
 }

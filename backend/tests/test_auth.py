@@ -64,7 +64,6 @@ class TestNeonAuthSessionValidation:
 
         result = await _get_session_from_token("valid-token", mock_db_session)
 
-        assert result is not None
         assert isinstance(result, SessionData)
         assert result.user_id == "user-123"
         assert result.email == "test@example.com"
@@ -101,7 +100,7 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_session_from_token_no_name(self, mock_db_session):
         """Test session with null name defaults to empty string"""
-        from auth.neon_auth import _get_session_from_token
+        from auth.neon_auth import _get_session_from_token, SessionData
 
         mock_row = MagicMock()
         mock_row.user_id = "user-456"
@@ -116,8 +115,9 @@ class TestNeonAuthSessionValidation:
 
         result = await _get_session_from_token("token-no-name", mock_db_session)
 
-        assert result is not None
+        assert isinstance(result, SessionData)
         assert result.name == ""
+        assert result.user_id == "user-456"
 
     # -------------------------------------------------------------------------
     # get_current_user Tests
@@ -264,7 +264,7 @@ class TestNeonAuthSessionValidation:
     @pytest.mark.asyncio
     async def test_get_current_user_optional_returns_user(self, mock_db_session, mock_request):
         """Test optional auth returns SessionData when authenticated"""
-        from auth.neon_auth import get_current_user_optional, SESSION_COOKIE_NAME
+        from auth.neon_auth import get_current_user_optional, SESSION_COOKIE_NAME, SessionData
 
         mock_request.cookies = {SESSION_COOKIE_NAME: "token"}
 
@@ -281,7 +281,7 @@ class TestNeonAuthSessionValidation:
 
         result = await get_current_user_optional(mock_request, None, mock_db_session)
 
-        assert result is not None
+        assert isinstance(result, SessionData)
         assert result.user_id == "user-opt"
 
     # -------------------------------------------------------------------------
@@ -347,7 +347,7 @@ class TestNeonAuthSessionValidation:
     async def test_session_cache_stores_with_sha256_key(self, mock_db_session):
         """Verify Redis SET uses SHA-256 cache key on cache miss + DB hit."""
         import hashlib
-        from auth.neon_auth import _get_session_from_token, _SESSION_CACHE_TTL
+        from auth.neon_auth import _get_session_from_token, _SESSION_CACHE_TTL, SessionData
 
         mock_redis = AsyncMock()
         mock_redis.get.return_value = None
@@ -368,7 +368,8 @@ class TestNeonAuthSessionValidation:
         token = "my-session-token-with-sufficient-length"
         result = await _get_session_from_token(token, mock_db_session, redis=mock_redis)
 
-        assert result is not None
+        assert isinstance(result, SessionData)
+        assert result.user_id == "user-cache"
         expected_hash = hashlib.sha256(token.encode()).hexdigest()[:32]
         expected_key = f"session:{expected_hash}"
 
@@ -515,17 +516,69 @@ class TestAuthRateLimiting:
     @pytest.mark.asyncio
     async def test_login_rate_limit_after_failures(self):
         """Test account lockout after failed attempts"""
-        # 5 failed attempts should trigger 15 min lockout
+        from middleware.rate_limiter import UserRateLimiter
+
+        limiter = UserRateLimiter(login_attempts=5, lockout_minutes=15)
+
+        identifier = "user@example.com"
+
+        # Record 5 failed attempts
+        for i in range(5):
+            locked = await limiter.record_login_attempt(identifier, success=False)
+
+        # 5th attempt should trigger lockout
+        assert locked is True
+
+        # Check is_locked_out confirms the lockout
+        is_locked, seconds_remaining = await limiter.is_locked_out(identifier)
+        assert is_locked is True
+        assert seconds_remaining > 0
+        assert seconds_remaining <= 15 * 60  # within 15-minute window
 
     @pytest.mark.asyncio
     async def test_rate_limit_per_ip(self):
         """Test rate limiting per IP address"""
-        # Should limit requests per IP
+        from middleware.rate_limiter import UserRateLimiter
+
+        # Use a very low limit so we can test it in-memory without Redis
+        limiter = UserRateLimiter(requests_per_minute=3, requests_per_hour=100)
+
+        ip_identifier = "ip:192.168.1.1"
+
+        # First 3 requests should be allowed
+        for _ in range(3):
+            allowed, remaining = await limiter.check_rate_limit(ip_identifier, limit_type="minute")
+            assert allowed is True
+
+        # 4th request should be rate limited
+        allowed, remaining = await limiter.check_rate_limit(ip_identifier, limit_type="minute")
+        assert allowed is False
+        assert remaining == 0
 
     @pytest.mark.asyncio
     async def test_rate_limit_reset_after_success(self):
         """Test rate limit resets after successful login"""
-        # Successful login should reset failure counter
+        from middleware.rate_limiter import UserRateLimiter
+
+        limiter = UserRateLimiter(login_attempts=5, lockout_minutes=15)
+
+        identifier = "reset@example.com"
+
+        # Record 3 failed attempts (below threshold)
+        for _ in range(3):
+            await limiter.record_login_attempt(identifier, success=False)
+
+        # Confirm 3 attempts are tracked (not yet locked)
+        is_locked, _ = await limiter.is_locked_out(identifier)
+        assert is_locked is False
+
+        # Successful login should clear the counter
+        await limiter.record_login_attempt(identifier, success=True)
+
+        # After success, should not be locked out
+        is_locked, seconds_remaining = await limiter.is_locked_out(identifier)
+        assert is_locked is False
+        assert seconds_remaining == 0
 
 
 # =============================================================================
@@ -587,25 +640,66 @@ class TestPasswordValidation:
 class TestSecurityHeaders:
     """Tests for security headers middleware"""
 
-    @pytest.mark.asyncio
-    async def test_csp_header_present(self):
+    def _make_app_with_security_headers(self):
+        """Build a minimal FastAPI app wrapped with SecurityHeadersMiddleware."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from middleware.security_headers import SecurityHeadersMiddleware
+
+        app = FastAPI()
+
+        @app.get("/test")
+        def ping():
+            return {"ok": True}
+
+        app.add_middleware(SecurityHeadersMiddleware)
+        return TestClient(app)
+
+    def test_csp_header_present(self):
         """Test Content-Security-Policy header is set"""
-        # Response should have CSP header
+        client = self._make_app_with_security_headers()
+        response = client.get("/test")
+        assert "content-security-policy" in response.headers
+        csp = response.headers["content-security-policy"]
+        assert "default-src" in csp
+        assert "frame-ancestors 'none'" in csp
 
-    @pytest.mark.asyncio
-    async def test_xfo_header_deny(self):
+    def test_xfo_header_deny(self):
         """Test X-Frame-Options is DENY"""
-        # Response should have X-Frame-Options: DENY
+        client = self._make_app_with_security_headers()
+        response = client.get("/test")
+        assert response.headers.get("x-frame-options") == "DENY"
 
-    @pytest.mark.asyncio
-    async def test_hsts_header_present(self):
-        """Test Strict-Transport-Security header"""
-        # Response should have HSTS header
+    def test_hsts_header_present(self):
+        """Test Strict-Transport-Security header is added in production"""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from middleware.security_headers import SecurityHeadersMiddleware
+        from unittest.mock import patch
 
-    @pytest.mark.asyncio
-    async def test_xcto_header_nosniff(self):
+        app = FastAPI()
+
+        @app.get("/test")
+        def ping():
+            return {"ok": True}
+
+        # Patch settings.is_production to True so HSTS is added
+        with patch("middleware.security_headers.settings") as mock_settings:
+            mock_settings.is_production = True
+            mock_settings.is_development = False
+            app.add_middleware(SecurityHeadersMiddleware)
+            client = TestClient(app)
+            response = client.get("/test")
+            assert "strict-transport-security" in response.headers
+            hsts = response.headers["strict-transport-security"]
+            assert "max-age=" in hsts
+            assert "includeSubDomains" in hsts
+
+    def test_xcto_header_nosniff(self):
         """Test X-Content-Type-Options is nosniff"""
-        # Response should have X-Content-Type-Options: nosniff
+        client = self._make_app_with_security_headers()
+        response = client.get("/test")
+        assert response.headers.get("x-content-type-options") == "nosniff"
 
 
 # =============================================================================
@@ -619,16 +713,79 @@ class TestAuthIntegration:
     @pytest.mark.asyncio
     async def test_session_validation_flow(self):
         """Test session token validation against neon_auth schema"""
-        # Auth flows (sign-up/sign-in) are now handled by Better Auth
-        # via the Next.js frontend. Backend only validates sessions.
-        # Full integration requires a live database with neon_auth schema.
+        from auth.neon_auth import _get_session_from_token, SessionData
+
+        # Auth flows (sign-up/sign-in) are handled by Better Auth on the frontend.
+        # The backend validates sessions via neon_auth schema queries.
+        mock_db = AsyncMock()
+        mock_row = MagicMock()
+        mock_row.user_id = "integration-user-1"
+        mock_row.email = "integration@example.com"
+        mock_row.name = "Integration User"
+        mock_row.email_verified = True
+        mock_row.role = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_db.execute.return_value = mock_result
+
+        session = await _get_session_from_token("integration-session-token", mock_db)
+
+        assert isinstance(session, SessionData)
+        assert session.user_id == "integration-user-1"
+        assert session.email == "integration@example.com"
+        assert session.email_verified is True
 
     @pytest.mark.asyncio
     async def test_me_endpoint_with_valid_session(self):
         """Test /me returns user data when session is valid"""
-        # Requires mocking neon_auth.session + neon_auth.user queries
+        from auth.neon_auth import get_current_user, SessionData
+        from config.database import get_timescale_session
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from api.v1.auth import router
+
+        # Build a standalone app with the auth router
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1/auth")
+
+        # Mock a DB session (for ensure_user_profile best-effort sync)
+        mock_db = AsyncMock()
+        mock_db.execute.return_value = MagicMock()
+        mock_db.commit = AsyncMock()
+
+        # Override dependencies
+        valid_session = SessionData(
+            user_id="me-user-1",
+            email="me@example.com",
+            name="Me User",
+            email_verified=True,
+        )
+        app.dependency_overrides[get_current_user] = lambda: valid_session
+        app.dependency_overrides[get_timescale_session] = lambda: mock_db
+
+        with TestClient(app) as client:
+            response = client.get("/api/v1/auth/me")
+            assert response.status_code == 200
+            data = response.json()
+            # UserResponse returns "id" not "user_id"
+            assert data["id"] == "me-user-1"
+            assert data["email"] == "me@example.com"
+            assert data["email_verified"] is True
 
     @pytest.mark.asyncio
     async def test_expired_session_rejected(self):
-        """Test that expired sessions are rejected"""
-        # neon_auth.session rows with expiresAt < NOW() should be rejected
+        """Test that expired sessions are rejected — DB returns None for expired rows"""
+        from auth.neon_auth import _get_session_from_token
+
+        # The SQL query filters WHERE s."expiresAt" > NOW(),
+        # so an expired session returns fetchone() = None.
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = None  # expired session not found
+        mock_db.execute.return_value = mock_result
+
+        session = await _get_session_from_token("expired-session-token", mock_db)
+
+        # Expired session returns None, not a SessionData
+        assert session is None

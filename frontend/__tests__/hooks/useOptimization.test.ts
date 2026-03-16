@@ -119,7 +119,7 @@ describe('useOptimalSchedule', () => {
     })
 
     expect(result.current.data).toEqual(mockScheduleResponse)
-    expect(mockGetOptimalSchedule).toHaveBeenCalledWith(request)
+    expect(mockGetOptimalSchedule).toHaveBeenCalledWith(request, expect.anything())
   })
 
   it('is disabled when appliances array is empty', () => {
@@ -200,7 +200,8 @@ describe('useOptimizationResult', () => {
     expect(result.current.data).toEqual(mockOptimizationResult)
     expect(mockGetOptimizationResult).toHaveBeenCalledWith(
       '2026-02-25',
-      'us_ct'
+      'us_ct',
+      expect.anything(),
     )
   })
 
@@ -212,7 +213,8 @@ describe('useOptimizationResult', () => {
     await waitFor(() => {
       expect(mockGetOptimizationResult).toHaveBeenCalledWith(
         '2026-02-25',
-        'us_ny'
+        'us_ny',
+        expect.anything(),
       )
     })
   })
@@ -363,7 +365,8 @@ describe('usePotentialSavings', () => {
     expect(result.current.data?.annualSavings).toBe(54.75)
     expect(mockCalculatePotentialSavings).toHaveBeenCalledWith(
       [mockAppliance],
-      'us_ct'
+      'us_ct',
+      expect.anything(),
     )
   })
 
@@ -375,7 +378,8 @@ describe('usePotentialSavings', () => {
     await waitFor(() => {
       expect(mockCalculatePotentialSavings).toHaveBeenCalledWith(
         [mockAppliance],
-        'us_ny'
+        'us_ny',
+        expect.anything(),
       )
     })
   })

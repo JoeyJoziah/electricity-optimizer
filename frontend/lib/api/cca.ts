@@ -35,29 +35,37 @@ export interface CCAListResponse {
   programs: CCAProgram[]
 }
 
-export async function detectCCA(params: {
-  zip_code?: string
-  state?: string
-  municipality?: string
-}): Promise<CCADetectResponse> {
-  return apiClient.get<CCADetectResponse>('/cca/detect', params)
+export async function detectCCA(
+  params: {
+    zip_code?: string
+    state?: string
+    municipality?: string
+  },
+  signal?: AbortSignal,
+): Promise<CCADetectResponse> {
+  return apiClient.get<CCADetectResponse>('/cca/detect', params, { signal })
 }
 
 export async function compareCCARate(
   ccaId: string,
   defaultRate: number,
+  signal?: AbortSignal,
 ): Promise<CCACompareResponse> {
   return apiClient.get<CCACompareResponse>(`/cca/compare/${ccaId}`, {
     default_rate: defaultRate,
-  })
+  }, { signal })
 }
 
-export async function getCCAInfo(ccaId: string): Promise<CCAProgram> {
-  return apiClient.get<CCAProgram>(`/cca/info/${ccaId}`)
+export async function getCCAInfo(
+  ccaId: string,
+  signal?: AbortSignal,
+): Promise<CCAProgram> {
+  return apiClient.get<CCAProgram>(`/cca/info/${ccaId}`, undefined, { signal })
 }
 
 export async function listCCAPrograms(
   state?: string,
+  signal?: AbortSignal,
 ): Promise<CCAListResponse> {
-  return apiClient.get<CCAListResponse>('/cca/programs', state ? { state } : {})
+  return apiClient.get<CCAListResponse>('/cca/programs', state ? { state } : {}, { signal })
 }

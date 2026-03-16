@@ -133,32 +133,43 @@ class TestCreatePost:
 
     @pytest.mark.asyncio
     async def test_create_post_sanitizes_xss(self, service, mock_db, mock_agent_service):
-        """<script> tags must be stripped from title and body via nh3."""
+        """<script> and onerror must be stripped from title/body by nh3 BEFORE the INSERT.
+
+        The mock DB returns the raw unsanitized strings to prove the service is
+        calling nh3.clean() itself — not relying on the DB to sanitize.
+        """
+        import nh3
+
         user_id = str(uuid4())
+        xss_title = '<script>alert("xss")</script>My Great Tip'
+        xss_body = 'Check this out <img src=x onerror=alert(1)> really useful tip for saving money on electricity.'
+
         data = {
-            "title": '<script>alert("xss")</script>My Great Tip',
-            "body": 'Check this out <img src=x onerror=alert(1)> really useful tip for saving money on electricity.',
+            "title": xss_title,
+            "body": xss_body,
             "region": "us_ct",
             "utility_type": "electricity",
             "post_type": "tip",
         }
 
-        # Capture what was actually passed to the INSERT
-        captured_args = {}
+        # Capture the params that the service passes to db.execute
+        captured_params: dict = {}
 
-        async def capture_execute(stmt, *args, **kwargs):
-            # Try to capture bound params from the text() call
-            captured_args["stmt"] = stmt
+        async def capture_execute(stmt, params=None, *args, **kwargs):
+            sql = str(stmt)
+            if params and "title" in params:
+                captured_params.update(params)
             result = MagicMock()
-            result.scalar.return_value = 0  # rate limit
+            result.scalar.return_value = 0  # rate limit check
             result.mappings.return_value.fetchone.return_value = {
                 "id": str(uuid4()),
                 "user_id": user_id,
                 "region": "us_ct",
                 "utility_type": "electricity",
                 "post_type": "tip",
-                "title": "My Great Tip",  # sanitized
-                "body": "Check this out  really useful tip for saving money on electricity.",  # sanitized
+                # Return the RAW (unsanitized) strings — the service must sanitize before INSERT
+                "title": xss_title,
+                "body": xss_body,
                 "rate_per_unit": None,
                 "rate_unit": None,
                 "supplier_name": None,
@@ -172,11 +183,21 @@ class TestCreatePost:
 
         mock_db.execute = AsyncMock(side_effect=capture_execute)
 
-        post = await service.create_post(mock_db, user_id, data, mock_agent_service)
+        await service.create_post(mock_db, user_id, data, mock_agent_service)
 
-        # The returned title/body should not contain script or onerror
-        assert "<script>" not in post["title"]
-        assert "onerror" not in post["body"]
+        # Verify nh3 was called and the INSERT received sanitized content
+        assert captured_params, "db.execute was never called with INSERT params"
+        sanitized_title = captured_params["title"]
+        sanitized_body = captured_params["body"]
+
+        # Confirm the real nh3 library strips these attack vectors
+        assert "<script>" not in sanitized_title, "Script tag not stripped from title"
+        assert 'alert("xss")' not in sanitized_title, "JS alert not stripped from title"
+        assert "onerror" not in sanitized_body, "onerror attribute not stripped from body"
+
+        # Cross-check: nh3.clean produces the same result (proves real sanitizer was used)
+        assert sanitized_title == nh3.clean(xss_title)
+        assert sanitized_body == nh3.clean(xss_body)
 
     @pytest.mark.asyncio
     async def test_create_post_triggers_moderation(self, service, mock_db, mock_agent_service, sample_post_data):

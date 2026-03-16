@@ -70,7 +70,7 @@ export function useAgentQuery() {
 export function useAgentStatus() {
   return useQuery({
     queryKey: ['agent', 'usage'],
-    queryFn: () => getAgentUsage(),
+    queryFn: ({ signal }) => getAgentUsage(signal),
     staleTime: 60000, // 1 minute
     retry: false,
   })

@@ -32,6 +32,7 @@ export interface OptimizationReport {
 
 export async function getOptimizationReport(
   state: string,
+  signal?: AbortSignal,
 ): Promise<OptimizationReport> {
-  return apiClient.get<OptimizationReport>('/reports/optimization', { state })
+  return apiClient.get<OptimizationReport>('/reports/optimization', { state }, { signal })
 }

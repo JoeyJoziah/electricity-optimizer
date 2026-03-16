@@ -371,17 +371,25 @@ describe('Dashboard Integration', () => {
     })
   })
 
-  it('is responsive on mobile devices', async () => {
-    // Mock mobile viewport
-    Object.defineProperty(window, 'innerWidth', { value: 375 })
-    window.dispatchEvent(new Event('resize'))
-
+  it('renders mobile-responsive layout structure', async () => {
+    // The dashboard uses Tailwind CSS mobile-first breakpoints, not JS viewport checks.
+    // DashboardStatsRow: single-column on mobile, 2-col on md, 4-col on lg.
+    // DashboardCharts/DashboardForecast: single-column on mobile, 3-col on lg.
+    // We verify the responsive Tailwind classes are present in the rendered DOM so
+    // that a future component refactor that removes breakpoint classes is caught.
     render(<DashboardPage />, { wrapper })
 
     await waitFor(() => {
       const container = screen.getByTestId('dashboard-container')
+      // Container stacks content vertically (mobile-first baseline)
+      expect(container).toHaveClass('flex')
       expect(container).toHaveClass('flex-col')
     })
+
+    // The stats grid inside DashboardStatsRow carries the responsive breakpoints
+    // that collapse from 4-col (lg) to 2-col (md) to single-col (mobile default)
+    const statsGrids = document.querySelectorAll('[class*="md:grid-cols"]')
+    expect(statsGrids.length).toBeGreaterThan(0)
   })
 
   it('shows real-time update indicator', async () => {

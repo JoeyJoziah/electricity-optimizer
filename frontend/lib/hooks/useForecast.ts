@@ -8,7 +8,7 @@ export function useForecast(
 ) {
   return useQuery({
     queryKey: ['forecast', utilityType, state, horizonDays],
-    queryFn: () => getForecast(utilityType!, state, horizonDays),
+    queryFn: ({ signal }) => getForecast(utilityType!, state, horizonDays, signal),
     enabled: !!utilityType,
     staleTime: 1000 * 60 * 30, // 30 minutes
   })
@@ -17,7 +17,7 @@ export function useForecast(
 export function useForecastTypes() {
   return useQuery({
     queryKey: ['forecast', 'types'],
-    queryFn: getForecastTypes,
+    queryFn: ({ signal }) => getForecastTypes(signal),
     staleTime: 1000 * 60 * 60 * 24, // 24 hours
   })
 }

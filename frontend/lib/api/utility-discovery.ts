@@ -22,19 +22,21 @@ export interface CompletionResponse {
 }
 
 export async function discoverUtilities(
-  state: string
+  state: string,
+  signal?: AbortSignal,
 ): Promise<UtilityDiscoveryResponse> {
   return apiClient.get<UtilityDiscoveryResponse>('/utility-discovery/discover', {
     state,
-  })
+  }, { signal })
 }
 
 export async function getUtilityCompletion(
   state: string,
-  tracked: string[]
+  tracked: string[],
+  signal?: AbortSignal,
 ): Promise<CompletionResponse> {
   return apiClient.get<CompletionResponse>('/utility-discovery/completion', {
     state,
     tracked: tracked.join(','),
-  })
+  }, { signal })
 }
