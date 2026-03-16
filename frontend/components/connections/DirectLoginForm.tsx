@@ -391,7 +391,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
 
         {/* Consent */}
         <Checkbox
-          label="I consent to Electricity Optimizer accessing my utility billing data for rate comparison and optimization purposes"
+          label="I consent to RateShift accessing my utility billing data for rate comparison and optimization purposes"
           checked={consentChecked}
           onChange={(e) => {
             setConsentChecked(e.target.checked)

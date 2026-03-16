@@ -78,7 +78,7 @@ describe('EmailConnectionFlow', () => {
 
     expect(
       screen.getByText(
-        /i consent to electricity optimizer scanning my inbox/i
+        /i consent to rateshift scanning my inbox/i
       )
     ).toBeInTheDocument()
   })

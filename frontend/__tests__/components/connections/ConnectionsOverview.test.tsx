@@ -51,12 +51,37 @@ jest.mock('lucide-react', () => ({
   Gauge: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-gauge" {...props} />,
 }))
 
+// Mock apiClient used by useConnections hook
+const mockApiGet = jest.fn()
+
+jest.mock('@/lib/api/client', () => {
+  class _ApiClientError extends Error {
+    status: number
+    constructor(msg: string, status: number) {
+      super(msg)
+      this.name = 'ApiClientError'
+      this.status = status
+    }
+  }
+  return {
+    apiClient: {
+      get: (...args: unknown[]) => mockApiGet(...args),
+      post: jest.fn(),
+      patch: jest.fn(),
+      delete: jest.fn(),
+    },
+    ApiClientError: _ApiClientError,
+  }
+})
+
+// Keep mockFetch for sub-components that still use raw fetch (DirectLoginForm, EmailConnectionFlow, PortalConnectionFlow, analytics)
 const mockFetch = global.fetch as jest.Mock
 
 const mockConnections = [
   {
     id: 'conn-1',
-    method: 'direct_login',
+    connection_type: 'direct',
+    method: 'direct',
     status: 'active',
     supplier_name: 'Eversource Energy',
     email_provider: null,
@@ -67,7 +92,8 @@ const mockConnections = [
   },
   {
     id: 'conn-2',
-    method: 'email_scan',
+    connection_type: 'email_import',
+    method: 'email_import',
     status: 'active',
     supplier_name: null,
     email_provider: 'Gmail',
@@ -95,18 +121,19 @@ function createWrapper() {
 describe('ConnectionsOverview', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockApiGet.mockReset()
     mockFetch.mockReset()
   })
 
   it('shows loading state initially', () => {
-    mockFetch.mockImplementation(() => new Promise(() => {}))
+    mockApiGet.mockImplementation(() => new Promise(() => {}))
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     expect(screen.getByText('Loading connections...')).toBeInTheDocument()
   })
 
   it('shows error state on fetch failure', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 })
+    mockApiGet.mockRejectedValueOnce(new Error('Failed to load connections'))
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
@@ -119,7 +146,9 @@ describe('ConnectionsOverview', () => {
   })
 
   it('shows paid feature gate on 403 error', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 403 })
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { ApiClientError } = require('@/lib/api/client')
+    mockApiGet.mockRejectedValueOnce(new ApiClientError('Forbidden', 403))
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
     await waitFor(() => {
@@ -133,10 +162,7 @@ describe('ConnectionsOverview', () => {
   })
 
   it('renders connection list when connections exist', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ connections: mockConnections }),
-    })
+    mockApiGet.mockResolvedValueOnce({ connections: mockConnections })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
@@ -149,10 +175,7 @@ describe('ConnectionsOverview', () => {
   })
 
   it('renders empty state with "Get Started" heading when no connections', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ connections: [] }),
-    })
+    mockApiGet.mockResolvedValueOnce({ connections: [] })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
@@ -168,10 +191,7 @@ describe('ConnectionsOverview', () => {
   })
 
   it('shows "Add Another Connection" heading when connections exist', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ connections: mockConnections }),
-    })
+    mockApiGet.mockResolvedValueOnce({ connections: mockConnections })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
@@ -181,10 +201,7 @@ describe('ConnectionsOverview', () => {
   })
 
   it('renders tab navigation with Connections and Analytics tabs', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ connections: [] }),
-    })
+    mockApiGet.mockResolvedValueOnce({ connections: [] })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
@@ -200,10 +217,7 @@ describe('ConnectionsOverview', () => {
   })
 
   it('connections tab is selected by default', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ connections: [] }),
-    })
+    mockApiGet.mockResolvedValueOnce({ connections: [] })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
@@ -217,31 +231,22 @@ describe('ConnectionsOverview', () => {
   it('switches to analytics tab when clicked', async () => {
     const user = userEvent.setup()
 
-    // Mock connections fetch + all analytics fetches
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/api/v1/connections') && !url.includes('/analytics')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ connections: [] }),
-        })
-      }
-      // Analytics sub-endpoints
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({
-          user_rate: 0.25,
-          market_average: 0.22,
-          delta: 0.03,
-          percentage_difference: 13.6,
-          is_above_average: true,
-          estimated_annual_savings_vs_best: 300,
-          estimated_monthly_savings_vs_best: 25,
-          current_annual_cost: 2700,
-          data_points: [],
-          stale_connections: [],
-          rate_change_alerts: [],
-        }),
-      })
+    // Mock connections fetch via apiClient
+    mockApiGet.mockResolvedValueOnce({ connections: [] })
+
+    // Mock analytics sub-endpoints (these go through apiClient.get too)
+    mockApiGet.mockResolvedValue({
+      user_rate: 0.25,
+      market_average: 0.22,
+      delta: 0.03,
+      percentage_difference: 13.6,
+      is_above_average: true,
+      estimated_annual_savings_vs_best: 300,
+      estimated_monthly_savings_vs_best: 25,
+      current_annual_cost: 2700,
+      data_points: [],
+      stale_connections: [],
+      rate_change_alerts: [],
     })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
@@ -261,12 +266,9 @@ describe('ConnectionsOverview', () => {
     const user = userEvent.setup()
 
     // First call fails, second succeeds
-    mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 500 })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ connections: mockConnections }),
-      })
+    mockApiGet
+      .mockRejectedValueOnce(new Error('Failed to load connections'))
+      .mockResolvedValueOnce({ connections: mockConnections })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 
@@ -284,10 +286,7 @@ describe('ConnectionsOverview', () => {
   })
 
   it('renders connections tab panel with correct aria attributes', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ connections: [] }),
-    })
+    mockApiGet.mockResolvedValueOnce({ connections: [] })
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() })
 

@@ -1,4 +1,4 @@
-import { API_ORIGIN } from '@/lib/config/env'
+import { apiClient, ApiClientError } from '@/lib/api/client'
 
 // ---------------------------------------------------------------------------
 // Shared types for ConnectionAnalytics sub-components
@@ -59,16 +59,14 @@ export async function fetchAnalytics<T>(
   path: string,
   params?: Record<string, string>
 ): Promise<T> {
-  let url = `${API_ORIGIN}/api/v1/connections/analytics/${path}`
-  if (params && Object.keys(params).length > 0) {
-    const qs = new URLSearchParams(params).toString()
-    url += `?${qs}`
+  try {
+    return await apiClient.get<T>(`/connections/analytics/${path}`, params)
+  } catch (err) {
+    if (err instanceof ApiClientError && err.status === 403) {
+      throw new Error('Upgrade required')
+    }
+    throw new Error(`Failed to fetch ${path}`)
   }
-  const res = await fetch(url, { credentials: 'include' })
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${path}: ${res.status}`)
-  }
-  return res.json()
 }
 
 // ---------------------------------------------------------------------------

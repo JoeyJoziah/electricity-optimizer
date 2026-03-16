@@ -21,9 +21,38 @@ jest.mock('lucide-react', () => ({
   Clock: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-clock" {...props} />,
 }))
 
+// ---------------------------------------------------------------------------
+// Mock apiClient — fetchAnalytics in analytics/types.ts uses apiClient.get,
+// which has retry-with-backoff logic. Mocking at this level bypasses retries
+// so error states resolve immediately without needing to wait for backoff.
+// ---------------------------------------------------------------------------
+
+const mockApiGet = jest.fn()
+
+jest.mock('@/lib/api/client', () => ({
+  apiClient: {
+    get: (...args: unknown[]) => mockApiGet(...args),
+    post: jest.fn(),
+    patch: jest.fn(),
+    delete: jest.fn(),
+  },
+  ApiClientError: class extends Error {
+    status: number
+    constructor(msg: string, status: number) {
+      super(msg)
+      this.status = status
+    }
+  },
+}))
+
+// Keep global.fetch mocked for the raw fetch() call in ConnectionAnalytics.tsx
+// (handleSyncConnection uses fetch() directly, not apiClient).
 const mockFetch = global.fetch as jest.Mock
 
-// Helper to mock all 4 fetch calls (comparison, savings, history, health)
+// ---------------------------------------------------------------------------
+// Helper: mock all 4 analytics API calls via apiClient.get
+// ---------------------------------------------------------------------------
+
 function mockAllAnalyticsFetches({
   comparison,
   savings,
@@ -61,32 +90,20 @@ function mockAllAnalyticsFetches({
     rate_change_alerts: [],
   }
 
-  mockFetch.mockImplementation((url: string) => {
-    if (url.includes('comparison')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(comparison || defaultComparison),
-      })
+  mockApiGet.mockImplementation((endpoint: string) => {
+    if (endpoint.includes('comparison')) {
+      return Promise.resolve(comparison || defaultComparison)
     }
-    if (url.includes('savings')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(savings || defaultSavings),
-      })
+    if (endpoint.includes('savings')) {
+      return Promise.resolve(savings || defaultSavings)
     }
-    if (url.includes('history')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(history || defaultHistory),
-      })
+    if (endpoint.includes('history')) {
+      return Promise.resolve(history || defaultHistory)
     }
-    if (url.includes('health')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(health || defaultHealth),
-      })
+    if (endpoint.includes('health')) {
+      return Promise.resolve(health || defaultHealth)
     }
-    return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    return Promise.resolve({})
   })
 }
 
@@ -94,6 +111,7 @@ describe('ConnectionAnalytics', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockFetch.mockReset()
+    mockApiGet.mockReset()
   })
 
   it('renders the analytics container and heading', async () => {
@@ -116,7 +134,8 @@ describe('ConnectionAnalytics', () => {
   })
 
   it('shows loading states initially', () => {
-    mockFetch.mockImplementation(() => new Promise(() => {}))
+    // Never-resolving promise keeps all cards in their loading state
+    mockApiGet.mockImplementation(() => new Promise(() => {}))
     render(<ConnectionAnalytics />)
 
     expect(screen.getByTestId('rate-comparison-loading')).toBeInTheDocument()
@@ -288,9 +307,9 @@ describe('ConnectionAnalytics', () => {
   })
 
   it('handles API errors gracefully', async () => {
-    mockFetch.mockImplementation(() =>
-      Promise.resolve({ ok: false, status: 500 })
-    )
+    // Reject immediately via apiClient.get — bypasses fetchWithRetry backoff,
+    // so error state appears without needing to wait out the retry delays.
+    mockApiGet.mockRejectedValue(new Error('Internal Server Error'))
     render(<ConnectionAnalytics />)
 
     await waitFor(() => {

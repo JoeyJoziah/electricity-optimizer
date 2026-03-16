@@ -381,7 +381,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
 
         {/* Consent */}
         <Checkbox
-          label="I consent to Electricity Optimizer scanning my inbox for utility-related emails only"
+          label="I consent to RateShift scanning my inbox for utility-related emails only"
           checked={consentChecked}
           onChange={(e) => {
             setConsentChecked(e.target.checked)

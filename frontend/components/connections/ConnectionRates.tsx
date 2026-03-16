@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils/cn'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { API_ORIGIN } from '@/lib/config/env'
+import { apiClient, ApiClientError } from '@/lib/api/client'
 import {
   TrendingUp,
   Calendar,
@@ -73,20 +73,16 @@ export function ConnectionRates({
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch(
-        `${API_ORIGIN}/api/v1/connections/${connectionId}/rates`,
-        { credentials: 'include' }
+      const data = await apiClient.get<{ rates: ConnectionRate[] }>(
+        `/connections/${connectionId}/rates`
       )
-      if (res.ok) {
-        const data = await res.json()
-        setRates(data.rates || [])
-      } else if (res.status === 403) {
+      setRates(data.rates || [])
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 403) {
         setError('upgrade')
       } else {
-        setError('Failed to load rates')
+        setError('Failed to load rates. Please check your connection.')
       }
-    } catch {
-      setError('Failed to load rates. Please check your connection.')
     } finally {
       setLoading(false)
     }
@@ -196,8 +192,8 @@ export function ConnectionRates({
         </Card>
       )}
 
-      {/* Loading */}
-      {loading && (
+      {/* Loading (hide stale content while refreshing) */}
+      {loading && rates.length === 0 && (
         <div className="flex items-center justify-center py-12" role="status">
           <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           <span className="ml-2 text-sm text-gray-500">Loading rates...</span>

@@ -215,6 +215,16 @@ export const apiClient = {
     })
   },
 
+  async patch<T>(endpoint: string, data?: unknown): Promise<T> {
+    const baseUrl = circuitBreaker.getBaseUrl()
+    return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {
+      method: 'PATCH',
+      headers: buildHeaders(),
+      credentials: 'include',
+      body: data ? JSON.stringify(data) : undefined,
+    })
+  },
+
   async delete<T>(endpoint: string): Promise<T> {
     const baseUrl = circuitBreaker.getBaseUrl()
     return fetchWithRetry<T>(`${baseUrl}${endpoint}`, {

@@ -254,7 +254,7 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                         await db.execute(
                             text("""
                                 INSERT INTO connection_extracted_rates
-                                    (connection_id, source, rate_per_kwh, effective_date, raw_data)
+                                    (connection_id, source, rate_per_kwh, effective_date, raw_label)
                                 VALUES
                                     (:cid, :source, :rate, :date, :raw)
                                 ON CONFLICT DO NOTHING
@@ -288,8 +288,12 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                 "error": str(exc),
             }
 
-    # 2. Run all connections in parallel (semaphore constrains concurrency).
-    results = await asyncio.gather(*[_scan_one(conn) for conn in connections])
+    # 2. Run connections sequentially to avoid shared AsyncSession corruption.
+    #    The semaphore inside _scan_one still gates external API concurrency.
+    results = []
+    for conn in connections:
+        result = await _scan_one(conn)
+        results.append(result)
 
     # 3. Aggregate summary.
     total_emails = sum(r.get("emails_found", 0) for r in results)

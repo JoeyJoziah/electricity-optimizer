@@ -5,11 +5,12 @@ import { cn } from '@/lib/utils/cn'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatRelativeTime } from '@/lib/utils/format'
-import { API_ORIGIN } from '@/lib/config/env'
+import { apiClient } from '@/lib/api/client'
 import {
   KeyRound,
   Mail,
   Upload,
+  Globe,
   Trash2,
   RefreshCw,
   AlertTriangle,
@@ -42,17 +43,25 @@ interface ConnectionCardProps {
 }
 
 const methodIcons: Record<string, React.ElementType> = {
+  direct: KeyRound,
   direct_login: KeyRound,
+  email_import: Mail,
   email_scan: Mail,
-  bill_upload: Upload,
   manual_upload: Upload,
+  bill_upload: Upload,
+  portal_scrape: Globe,
+  utilityapi: Zap,
 }
 
 const methodLabels: Record<string, string> = {
+  direct: 'Utility Account',
   direct_login: 'Utility Account',
+  email_import: 'Email Scan',
   email_scan: 'Email Scan',
-  bill_upload: 'Bill Upload',
   manual_upload: 'Bill Upload',
+  bill_upload: 'Bill Upload',
+  portal_scrape: 'Portal Connection',
+  utilityapi: 'UtilityAPI',
 }
 
 const statusConfig: Record<
@@ -75,7 +84,9 @@ export function ConnectionCard({
 }: ConnectionCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   // Editable label state
   const [editing, setEditing] = useState(false)
@@ -96,7 +107,12 @@ export function ConnectionCard({
     currentLabel || connection.supplier_name || connection.email_provider || methodLabel
 
   const canSync =
-    connection.method === 'direct_login' || connection.method === 'email_scan'
+    connection.method === 'direct_login' ||
+    connection.method === 'direct' ||
+    connection.method === 'email_scan' ||
+    connection.method === 'email_import' ||
+    connection.method === 'portal_scrape' ||
+    connection.method === 'utilityapi'
   const hasRates = connection.current_rate !== null && connection.current_rate !== undefined
   const hasSyncError = !!connection.last_sync_error
 
@@ -126,21 +142,11 @@ export function ConnectionCard({
     setLabelError(null)
 
     try {
-      const res = await fetch(
-        `${API_ORIGIN}/api/v1/connections/${connection.id}`,
-        {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ label: trimmed || null }),
-        }
-      )
-      if (res.ok) {
-        setCurrentLabel(trimmed || null)
-        setEditing(false)
-      } else {
-        setLabelError('Failed to save label')
-      }
+      await apiClient.patch(`/connections/${connection.id}`, {
+        label: trimmed || null,
+      })
+      setCurrentLabel(trimmed || null)
+      setEditing(false)
     } catch {
       setLabelError('Failed to save label')
     } finally {
@@ -160,23 +166,17 @@ export function ConnectionCard({
   const handleDelete = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true)
+      setDeleteError(null)
       return
     }
 
     try {
       setDeleting(true)
-      const res = await fetch(
-        `${API_ORIGIN}/api/v1/connections/${connection.id}`,
-        {
-          method: 'DELETE',
-          credentials: 'include',
-        }
-      )
-      if (res.ok) {
-        onDelete()
-      }
+      setDeleteError(null)
+      await apiClient.delete(`/connections/${connection.id}`)
+      onDelete()
     } catch {
-      // Silently fail - user can retry
+      setDeleteError('Failed to delete connection')
     } finally {
       setDeleting(false)
       setConfirmDelete(false)
@@ -186,18 +186,13 @@ export function ConnectionCard({
   const handleSync = async () => {
     try {
       setSyncing(true)
-      const res = await fetch(
-        `${API_ORIGIN}/api/v1/connections/${connection.id}/sync`,
-        {
-          method: 'POST',
-          credentials: 'include',
-        }
-      )
-      if (res.ok && onRefresh) {
+      setSyncError(null)
+      await apiClient.post(`/connections/${connection.id}/sync`)
+      if (onRefresh) {
         onRefresh()
       }
     } catch {
-      // Silently fail - user can retry
+      setSyncError('Sync failed. Please try again.')
     } finally {
       setSyncing(false)
     }
@@ -396,6 +391,15 @@ export function ConnectionCard({
               Retry
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Inline error feedback */}
+      {(deleteError || syncError) && (
+        <div className="border-t border-danger-200 bg-danger-50 px-4 py-2">
+          <p className="text-xs text-danger-700">
+            {deleteError || syncError}
+          </p>
         </div>
       )}
     </div>

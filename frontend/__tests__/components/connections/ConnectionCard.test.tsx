@@ -13,6 +13,7 @@ jest.mock('lucide-react', () => ({
   KeyRound: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-key" {...props} />,
   Mail: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-mail" {...props} />,
   Upload: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-upload" {...props} />,
+  Globe: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-globe" {...props} />,
   Trash2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-trash" {...props} />,
   RefreshCw: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-refresh" {...props} />,
   AlertTriangle: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-alert" {...props} />,
@@ -24,7 +25,26 @@ jest.mock('lucide-react', () => ({
   Loader2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-loader" {...props} />,
 }))
 
-const mockFetch = global.fetch as jest.Mock
+// Mock apiClient
+const mockApiPatch = jest.fn()
+const mockApiDelete = jest.fn()
+const mockApiPost = jest.fn()
+
+jest.mock('@/lib/api/client', () => ({
+  apiClient: {
+    get: jest.fn(),
+    post: (...args: unknown[]) => mockApiPost(...args),
+    patch: (...args: unknown[]) => mockApiPatch(...args),
+    delete: (...args: unknown[]) => mockApiDelete(...args),
+  },
+  ApiClientError: class extends Error {
+    status: number
+    constructor(msg: string, status: number) {
+      super(msg)
+      this.status = status
+    }
+  },
+}))
 
 const baseConnection = {
   id: 'conn-1',
@@ -48,7 +68,9 @@ describe('ConnectionCard', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockFetch.mockReset()
+    mockApiPatch.mockReset()
+    mockApiDelete.mockReset()
+    mockApiPost.mockReset()
   })
 
   it('renders connection name from supplier_name', () => {
@@ -106,6 +128,20 @@ describe('ConnectionCard', () => {
     render(<ConnectionCard {...defaultProps} connection={uploadConnection} />)
 
     expect(screen.getByText('Bill Upload')).toBeInTheDocument()
+  })
+
+  it('displays method label for portal_scrape', () => {
+    const portalConnection = { ...baseConnection, method: 'portal_scrape' }
+    render(<ConnectionCard {...defaultProps} connection={portalConnection} />)
+
+    expect(screen.getByText('Portal Connection')).toBeInTheDocument()
+  })
+
+  it('displays method label for utilityapi', () => {
+    const utilityConnection = { ...baseConnection, method: 'utilityapi' }
+    render(<ConnectionCard {...defaultProps} connection={utilityConnection} />)
+
+    expect(screen.getByText('UtilityAPI')).toBeInTheDocument()
   })
 
   it('displays email_provider as display name when supplier_name is null', () => {
@@ -167,6 +203,17 @@ describe('ConnectionCard', () => {
     expect(screen.getByText('Retry')).toBeInTheDocument()
   })
 
+  it('shows retry button in sync error banner for portal_scrape', () => {
+    const errorConnection = {
+      ...baseConnection,
+      method: 'portal_scrape',
+      last_sync_error: 'Scrape failed',
+    }
+    render(<ConnectionCard {...defaultProps} connection={errorConnection} />)
+
+    expect(screen.getByText('Retry')).toBeInTheDocument()
+  })
+
   it('does not show retry in error banner for bill_upload', () => {
     const errorConnection = {
       ...baseConnection,
@@ -201,7 +248,7 @@ describe('ConnectionCard', () => {
 
   it('calls onDelete after confirming deletion', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({ ok: true })
+    mockApiDelete.mockResolvedValueOnce(undefined)
 
     render(<ConnectionCard {...defaultProps} />)
 
@@ -214,14 +261,27 @@ describe('ConnectionCard', () => {
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/connections/conn-1'),
-        expect.objectContaining({ method: 'DELETE' })
-      )
+      expect(mockApiDelete).toHaveBeenCalledWith('/connections/conn-1')
     })
 
     await waitFor(() => {
       expect(defaultProps.onDelete).toHaveBeenCalled()
+    })
+  })
+
+  it('shows delete error when API call fails', async () => {
+    const user = userEvent.setup()
+    mockApiDelete.mockRejectedValueOnce(new Error('Server error'))
+
+    render(<ConnectionCard {...defaultProps} />)
+
+    await user.click(
+      screen.getByRole('button', { name: /delete eversource energy connection/i })
+    )
+    await user.click(screen.getByText('Delete'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to delete connection')).toBeInTheDocument()
     })
   })
 
@@ -248,6 +308,15 @@ describe('ConnectionCard', () => {
     ).toBeInTheDocument()
   })
 
+  it('shows sync button for active portal_scrape connections', () => {
+    const portalConnection = { ...baseConnection, method: 'portal_scrape' }
+    render(<ConnectionCard {...defaultProps} connection={portalConnection} />)
+
+    expect(
+      screen.getByRole('button', { name: /sync eversource energy/i })
+    ).toBeInTheDocument()
+  })
+
   it('does not show sync button for bill_upload connections', () => {
     const uploadConnection = { ...baseConnection, method: 'bill_upload' }
     render(<ConnectionCard {...defaultProps} connection={uploadConnection} />)
@@ -268,7 +337,7 @@ describe('ConnectionCard', () => {
 
   it('calls sync endpoint when sync button is clicked', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({ ok: true })
+    mockApiPost.mockResolvedValueOnce(undefined)
 
     render(<ConnectionCard {...defaultProps} />)
 
@@ -277,10 +346,22 @@ describe('ConnectionCard', () => {
     )
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/connections/conn-1/sync'),
-        expect.objectContaining({ method: 'POST' })
-      )
+      expect(mockApiPost).toHaveBeenCalledWith('/connections/conn-1/sync')
+    })
+  })
+
+  it('shows sync error when sync fails', async () => {
+    const user = userEvent.setup()
+    mockApiPost.mockRejectedValueOnce(new Error('Server error'))
+
+    render(<ConnectionCard {...defaultProps} />)
+
+    await user.click(
+      screen.getByRole('button', { name: /sync eversource energy/i })
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync failed. Please try again.')).toBeInTheDocument()
     })
   })
 
@@ -339,9 +420,9 @@ describe('ConnectionCard', () => {
     expect(screen.queryByTestId('label-input')).not.toBeInTheDocument()
   })
 
-  it('saves label via PATCH API on save click', async () => {
+  it('saves label via apiClient.patch on save click', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({ ok: true })
+    mockApiPatch.mockResolvedValueOnce(undefined)
 
     render(<ConnectionCard {...defaultProps} />)
 
@@ -352,19 +433,16 @@ describe('ConnectionCard', () => {
     await user.click(screen.getByTestId('save-label'))
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/connections/conn-1'),
-        expect.objectContaining({
-          method: 'PATCH',
-          body: JSON.stringify({ label: 'My Main Account' }),
-        })
+      expect(mockApiPatch).toHaveBeenCalledWith(
+        '/connections/conn-1',
+        { label: 'My Main Account' }
       )
     })
   })
 
   it('shows label error when PATCH fails', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({ ok: false })
+    mockApiPatch.mockRejectedValueOnce(new Error('Server error'))
 
     render(<ConnectionCard {...defaultProps} />)
 

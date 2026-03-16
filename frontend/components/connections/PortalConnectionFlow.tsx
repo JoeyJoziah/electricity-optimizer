@@ -92,6 +92,10 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
 
     if (!validate()) return
 
+    // 30s timeout to match CF Worker wall clock limit
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+
     try {
       setStep('submitting')
 
@@ -103,7 +107,13 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
         consent_given: true,
       })
 
+      clearTimeout(timeout)
+
       // Automatically trigger a scrape after connection creation
+      // with a separate 30s timeout
+      const scrapeController = new AbortController()
+      const scrapeTimeout = setTimeout(() => scrapeController.abort(), 30_000)
+
       try {
         setStep('scraping')
         const result = await triggerPortalScrape(connection.connection_id)
@@ -119,10 +129,20 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
           scraped_at: null,
         })
         setStep('success')
+      } finally {
+        clearTimeout(scrapeTimeout)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create portal connection')
+      const message =
+        err instanceof DOMException && err.name === 'AbortError'
+          ? 'Request timed out. Please try again.'
+          : err instanceof Error
+            ? err.message
+            : 'Failed to create portal connection'
+      setError(message)
       setStep('error')
+    } finally {
+      clearTimeout(timeout)
     }
   }
 

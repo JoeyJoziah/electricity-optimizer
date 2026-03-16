@@ -23,6 +23,7 @@ from models.connections import (
     ConnectionResponse,
     CreateDirectConnectionRequest,
     DeleteConnectionResponse,
+    UpdateConnectionRequest,
 )
 from api.v1.connections.common import require_paid_tier
 
@@ -48,12 +49,17 @@ async def list_connections(
     """Return all active connections belonging to the current user."""
     result = await db.execute(
         text("""
-            SELECT id, user_id, connection_type, supplier_id, supplier_name,
-                   status, account_number_masked, meter_number_masked,
-                   email_provider, label, created_at
-            FROM user_connections
-            WHERE user_id = :uid
-            ORDER BY created_at DESC
+            SELECT uc.id, uc.user_id, uc.connection_type, uc.supplier_id,
+                   uc.supplier_name, uc.status, uc.account_number_masked,
+                   uc.meter_number_masked, uc.email_provider, uc.label,
+                   uc.created_at, uc.last_sync_at, uc.last_sync_error,
+                   (SELECT cer.rate_per_kwh FROM connection_extracted_rates cer
+                    WHERE cer.connection_id = uc.id
+                    ORDER BY cer.effective_date DESC LIMIT 1
+                   ) AS current_rate
+            FROM user_connections uc
+            WHERE uc.user_id = :uid
+            ORDER BY uc.created_at DESC
         """),
         {"uid": current_user.user_id},
     )
@@ -186,11 +192,16 @@ async def get_connection(
     """Return a single connection record, scoped to the current user."""
     result = await db.execute(
         text("""
-            SELECT id, user_id, connection_type, supplier_id, supplier_name,
-                   status, account_number_masked, meter_number_masked,
-                   email_provider, label, created_at
-            FROM user_connections
-            WHERE id = :cid AND user_id = :uid
+            SELECT uc.id, uc.user_id, uc.connection_type, uc.supplier_id,
+                   uc.supplier_name, uc.status, uc.account_number_masked,
+                   uc.meter_number_masked, uc.email_provider, uc.label,
+                   uc.created_at, uc.last_sync_at, uc.last_sync_error,
+                   (SELECT cer.rate_per_kwh FROM connection_extracted_rates cer
+                    WHERE cer.connection_id = uc.id
+                    ORDER BY cer.effective_date DESC LIMIT 1
+                   ) AS current_rate
+            FROM user_connections uc
+            WHERE uc.id = :cid AND uc.user_id = :uid
         """),
         {"cid": connection_id, "uid": current_user.user_id},
     )
@@ -258,7 +269,7 @@ async def delete_connection(
 )
 async def update_connection(
     connection_id: str,
-    label: Optional[str] = None,
+    payload: UpdateConnectionRequest,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -273,9 +284,9 @@ async def update_connection(
 
     updates = []
     params: dict = {"cid": connection_id}
-    if label is not None:
+    if payload.label is not None:
         updates.append("label = :label")
-        params["label"] = label
+        params["label"] = payload.label
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")

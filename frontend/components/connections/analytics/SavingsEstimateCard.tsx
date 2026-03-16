@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
 import { DollarSign, Loader2 } from 'lucide-react'
@@ -41,14 +41,27 @@ export function SavingsEstimateCard({
     load()
   }, [load, refreshKey])
 
+  // Debounce kWh changes to avoid excessive API calls
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const handleKwhChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value
     setInputValue(raw)
     const parsed = parseInt(raw, 10)
     if (!isNaN(parsed) && parsed > 0 && parsed <= 99999) {
-      setMonthlyKwh(parsed)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        setMonthlyKwh(parsed)
+      }, 500)
     }
   }
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {

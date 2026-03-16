@@ -92,22 +92,25 @@ async def scrape_all_portals(
 
     logger.info("scrape_portals_start", total=len(rows))
 
-    # 2. Run scrapes in parallel (bounded by semaphore)
+    # 2. Run scrapes sequentially to avoid shared AsyncSession corruption.
+    #    The semaphore inside _scrape_one still gates external HTTP concurrency.
     sem = asyncio.Semaphore(_SEMAPHORE_LIMIT)
-    tasks = [
-        _scrape_one(
-            db=db,
-            sem=sem,
-            connection_id=str(row[0]),
-            user_id=str(row[1]),
-            supplier_id=str(row[2]) if row[2] else "",
-            portal_username_enc=row[3],
-            portal_password_encrypted=row[4],
-            portal_login_url=row[5] or "",
-        )
-        for row in rows
-    ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = []
+    for row in rows:
+        try:
+            result = await _scrape_one(
+                db=db,
+                sem=sem,
+                connection_id=str(row[0]),
+                user_id=str(row[1]),
+                supplier_id=str(row[2]) if row[2] else "",
+                portal_username_enc=row[3],
+                portal_password_encrypted=row[4],
+                portal_login_url=row[5] or "",
+            )
+            results.append(result)
+        except Exception as exc:
+            results.append(exc)
 
     # 3. Tally outcomes
     succeeded = 0

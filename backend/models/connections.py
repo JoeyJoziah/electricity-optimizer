@@ -105,6 +105,15 @@ class ConnectionResponse(BaseModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    last_sync_at: Optional[datetime] = None
+    last_sync_error: Optional[str] = None
+    current_rate: Optional[float] = None
+
+
+class UpdateConnectionRequest(BaseModel):
+    """Request body for PATCH /connections/{connection_id}."""
+
+    label: Optional[str] = Field(default=None, max_length=100)
 
 
 class EmailConnectionInitResponse(BaseModel):

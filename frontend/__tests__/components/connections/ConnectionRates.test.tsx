@@ -20,7 +20,31 @@ jest.mock('lucide-react', () => ({
   RefreshCw: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-refresh" {...props} />,
 }))
 
-const mockFetch = global.fetch as jest.Mock
+// Mock apiClient
+const mockApiGet = jest.fn()
+
+jest.mock('@/lib/api/client', () => {
+  class _MockApiClientError extends Error {
+    status: number
+    constructor(msg: string, status: number) {
+      super(msg)
+      this.name = 'ApiClientError'
+      this.status = status
+    }
+  }
+  return {
+    apiClient: {
+      get: (...args: unknown[]) => mockApiGet(...args),
+      post: jest.fn(),
+      patch: jest.fn(),
+      delete: jest.fn(),
+    },
+    ApiClientError: _MockApiClientError,
+  }
+})
+
+// Re-import for test use after mock is set up
+const { ApiClientError: MockApiClientError } = jest.requireMock('@/lib/api/client')
 
 const mockRates = [
   {
@@ -68,21 +92,18 @@ describe('ConnectionRates', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockFetch.mockReset()
+    mockApiGet.mockReset()
   })
 
   it('shows loading state while fetching rates', () => {
-    mockFetch.mockImplementation(() => new Promise(() => {}))
+    mockApiGet.mockImplementation(() => new Promise(() => {}))
     render(<ConnectionRates {...defaultProps} />)
 
     expect(screen.getByText('Loading rates...')).toBeInTheDocument()
   })
 
   it('renders heading with supplier name', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -94,10 +115,7 @@ describe('ConnectionRates', () => {
   })
 
   it('renders fallback heading when supplier name is null', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} supplierName={null} />)
 
@@ -107,10 +125,7 @@ describe('ConnectionRates', () => {
   })
 
   it('displays rate count', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -120,10 +135,7 @@ describe('ConnectionRates', () => {
   })
 
   it('displays current rate highlight for most recent rate', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -137,10 +149,7 @@ describe('ConnectionRates', () => {
   })
 
   it('displays usage and amount for current rate', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -158,10 +167,7 @@ describe('ConnectionRates', () => {
   })
 
   it('renders rate table with headers and source badges', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -183,10 +189,7 @@ describe('ConnectionRates', () => {
   })
 
   it('shows em dash for null usage and amount values', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -200,10 +203,7 @@ describe('ConnectionRates', () => {
   })
 
   it('shows empty state when no rates', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: [] }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: [] })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -219,10 +219,7 @@ describe('ConnectionRates', () => {
   })
 
   it('shows upload-specific empty state for bill_upload method', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: [] }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: [] })
 
     const onUploadAnother = jest.fn()
 
@@ -248,19 +245,19 @@ describe('ConnectionRates', () => {
   })
 
   it('shows error state on fetch failure', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 })
+    mockApiGet.mockRejectedValueOnce(new Error('Failed to load rates. Please check your connection.'))
 
     render(<ConnectionRates {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load rates')).toBeInTheDocument()
+      expect(screen.getByText(/failed to load rates/i)).toBeInTheDocument()
     })
 
     expect(screen.getByText('Try again')).toBeInTheDocument()
   })
 
   it('shows upgrade gate on 403 error', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 403 })
+    mockApiGet.mockRejectedValueOnce(new MockApiClientError('Forbidden', 403))
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -277,10 +274,7 @@ describe('ConnectionRates', () => {
 
   it('calls onBack when back button is clicked', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -298,15 +292,9 @@ describe('ConnectionRates', () => {
 
   it('shows refresh button that refetches rates', async () => {
     const user = userEvent.setup()
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ rates: mockRates }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ rates: mockRates }),
-      })
+    mockApiGet
+      .mockResolvedValueOnce({ rates: mockRates })
+      .mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -317,16 +305,13 @@ describe('ConnectionRates', () => {
     await user.click(screen.getByText('Refresh'))
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(mockApiGet).toHaveBeenCalledTimes(2)
     })
   })
 
   it('shows upload another bill button for bill_upload method', async () => {
     const onUploadAnother = jest.fn()
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(
       <ConnectionRates
@@ -344,10 +329,7 @@ describe('ConnectionRates', () => {
   })
 
   it('does not show upload another button for direct_login method', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -361,10 +343,7 @@ describe('ConnectionRates', () => {
   })
 
   it('formats all rates correctly as cents per kWh', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: mockRates }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: mockRates })
 
     render(<ConnectionRates {...defaultProps} />)
 
@@ -380,10 +359,7 @@ describe('ConnectionRates', () => {
   })
 
   it('displays singular "rate" for single rate count', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ rates: [mockRates[0]] }),
-    })
+    mockApiGet.mockResolvedValueOnce({ rates: [mockRates[0]] })
 
     render(<ConnectionRates {...defaultProps} />)
 

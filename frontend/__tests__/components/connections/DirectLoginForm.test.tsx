@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DirectLoginForm } from '@/components/connections/DirectLoginForm'
 import '@testing-library/jest-dom'
@@ -52,23 +52,29 @@ describe('DirectLoginForm', () => {
   it('renders the form heading', async () => {
     render(<DirectLoginForm {...defaultProps} />)
 
+    // findByRole awaits async state settling (loadSuppliers effect) before asserting
     expect(
-      screen.getByRole('heading', { name: /connect utility account/i })
+      await screen.findByRole('heading', { name: /connect utility account/i })
     ).toBeInTheDocument()
   })
 
   it('renders description text', async () => {
     render(<DirectLoginForm {...defaultProps} />)
 
-    expect(
-      screen.getByText(/link your provider account to automatically sync/i)
-    ).toBeInTheDocument()
+    // Wait for supplier fetch to complete so the act() warning is suppressed
+    await waitFor(() =>
+      expect(
+        screen.getByText(/link your provider account to automatically sync/i)
+      ).toBeInTheDocument()
+    )
   })
 
   it('renders supplier dropdown label', async () => {
     render(<DirectLoginForm {...defaultProps} />)
 
-    expect(screen.getByText('Utility Provider')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByText('Utility Provider')).toBeInTheDocument()
+    )
   })
 
   it('loads and displays supplier options', async () => {
@@ -84,7 +90,9 @@ describe('DirectLoginForm', () => {
   it('displays UtilityAPI info panel', async () => {
     render(<DirectLoginForm {...defaultProps} />)
 
-    expect(screen.getByText('Powered by UtilityAPI')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Powered by UtilityAPI')
+    ).toBeInTheDocument()
     expect(
       screen.getByText(/redirected to securely authorize read-only access/i)
     ).toBeInTheDocument()
@@ -93,8 +101,10 @@ describe('DirectLoginForm', () => {
   it('renders consent checkbox', async () => {
     render(<DirectLoginForm {...defaultProps} />)
 
+    // Label text uses the current "RateShift" brand name — not the old
+    // "Electricity Optimizer" working name that was used before the rebrand.
     expect(
-      screen.getByText(/i consent to electricity optimizer accessing/i)
+      await screen.findByText(/i consent to rateshift accessing/i)
     ).toBeInTheDocument()
   })
 
@@ -172,8 +182,10 @@ describe('DirectLoginForm', () => {
       expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
     })
 
+    // fireEvent.submit is wrapped in act() by RTL, avoiding the act() warning
+    // that raw dispatchEvent triggers when it causes synchronous state updates.
     const form = document.querySelector('form')!
-    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    fireEvent.submit(form)
 
     await waitFor(() => {
       expect(

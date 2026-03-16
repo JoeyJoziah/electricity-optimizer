@@ -1011,7 +1011,7 @@ class TestUpdateConnectionEndpoint:
 
         response = client.patch(
             f"{BASE}/{TEST_CONNECTION_ID}",
-            params={"label": "New Label"},
+            json={"label": "New Label"},
         )
 
         assert response.status_code == 200
@@ -1029,7 +1029,7 @@ class TestUpdateConnectionEndpoint:
 
         response = client.patch(
             f"{BASE}/{uuid4()}",
-            params={"label": "Whatever"},
+            json={"label": "Whatever"},
         )
 
         assert response.status_code == 404
@@ -1043,8 +1043,11 @@ class TestUpdateConnectionEndpoint:
         ownership_result.fetchone.return_value = MagicMock()
         db.execute = AsyncMock(return_value=ownership_result)
 
-        # No label param provided
-        response = client.patch(f"{BASE}/{TEST_CONNECTION_ID}")
+        # No label field in body — should return 400 "No fields to update"
+        response = client.patch(
+            f"{BASE}/{TEST_CONNECTION_ID}",
+            json={},
+        )
 
         assert response.status_code == 400
 
@@ -1065,7 +1068,7 @@ class TestUpdateConnectionEndpoint:
 
         response = client.patch(
             f"{BASE}/{TEST_CONNECTION_ID}",
-            params={"label": "Hacker"},
+            json={"label": "Hacker"},
         )
         assert response.status_code == 403
 
@@ -1079,7 +1082,7 @@ class TestUpdateConnectionEndpoint:
 
         response = client.patch(
             f"{BASE}/{TEST_CONNECTION_ID}",
-            params={"label": "Steal"},
+            json={"label": "Steal"},
         )
 
         assert response.status_code == 404
