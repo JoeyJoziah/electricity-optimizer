@@ -1,0 +1,3 @@
+source: backend/services/savings_service.py
+kind: object
+purpose: Savings Service — track, query, and record per-user monetary savings.

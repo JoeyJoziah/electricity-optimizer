@@ -1,0 +1,3 @@
+source: ml/optimization/load_shifter.py
+kind: object
+purpose: MILP Optimizer for Appliance Load Shifting

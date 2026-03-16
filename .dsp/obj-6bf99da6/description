@@ -1,0 +1,3 @@
+source: hnswlib
+kind: external
+purpose: External package: hnswlib

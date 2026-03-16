@@ -1,0 +1,3 @@
+source: backend/api/v1/user_supplier.py
+kind: object
+purpose: User Supplier API Router

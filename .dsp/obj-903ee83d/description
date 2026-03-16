@@ -1,0 +1,3 @@
+source: backend/lib/tracing.py
+kind: object
+purpose: Tracing Helpers — thin wrapper around OpenTelemetry spans.

@@ -1,0 +1,3 @@
+source: backend/api/v1/community.py
+kind: object
+purpose: Community API

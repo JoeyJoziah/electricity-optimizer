@@ -1,0 +1,3 @@
+source: backend/services/kpi_report_service.py
+kind: object
+purpose: KPI Report Service

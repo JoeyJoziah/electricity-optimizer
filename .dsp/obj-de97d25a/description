@@ -1,0 +1,3 @@
+source: backend/api/v1/beta.py
+kind: object
+purpose: Early Access Signup API Endpoint

@@ -1,0 +1,3 @@
+source: backend/auth/neon_auth.py
+kind: object
+purpose: Neon Auth Session Validation

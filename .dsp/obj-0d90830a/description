@@ -1,0 +1,3 @@
+source: frontend/components/dev/DiagramEditor.tsx
+kind: object
+purpose: UI component for Diagrameditor

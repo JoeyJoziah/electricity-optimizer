@@ -1,0 +1,3 @@
+source: frontend/components/connections/BillUploadForm.tsx
+kind: object
+purpose: UI component for Billuploadform

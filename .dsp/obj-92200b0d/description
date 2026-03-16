@@ -1,0 +1,3 @@
+source: backend/repositories/notification_repository.py
+kind: object
+purpose: Notification Repository

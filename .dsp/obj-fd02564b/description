@@ -1,0 +1,3 @@
+source: backend/api/v1/internal/data_pipeline.py
+kind: object
+purpose: Internal data pipeline endpoints.

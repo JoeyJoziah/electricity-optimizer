@@ -1,0 +1,3 @@
+source: backend/api/v1/internal/billing.py
+kind: object
+purpose: Internal billing endpoints.

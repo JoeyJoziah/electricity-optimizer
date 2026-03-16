@@ -1,0 +1,3 @@
+source: frontend/components/connections/BillUploadResults.tsx
+kind: object
+purpose: UI component for Billuploadresults

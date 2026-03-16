@@ -1,0 +1,3 @@
+source: backend/app_factory.py
+kind: object
+purpose: Electricity Optimizer — Application Factory

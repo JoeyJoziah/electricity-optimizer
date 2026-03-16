@@ -1,0 +1,3 @@
+source: backend/services/cca_service.py
+kind: object
+purpose: CCA (Community Choice Aggregation) Service

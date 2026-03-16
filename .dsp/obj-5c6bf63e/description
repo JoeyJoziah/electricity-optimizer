@@ -1,0 +1,3 @@
+source: backend/services/dunning_service.py
+kind: object
+purpose: Dunning Service

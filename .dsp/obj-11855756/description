@@ -1,0 +1,3 @@
+source: frontend/components/gas/GasRatesContent.tsx
+kind: object
+purpose: UI component for Gasratescontent

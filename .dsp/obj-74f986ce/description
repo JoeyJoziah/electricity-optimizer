@@ -1,0 +1,3 @@
+source: frontend/components/layout/Header.tsx
+kind: object
+purpose: Import cn for the component

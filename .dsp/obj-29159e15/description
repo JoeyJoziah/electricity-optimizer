@@ -1,0 +1,3 @@
+source: ml/optimization/objective.py
+kind: object
+purpose: Objective Function for MILP Appliance Scheduling

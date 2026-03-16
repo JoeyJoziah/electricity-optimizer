@@ -113,7 +113,10 @@ function getStorage() {
     getItem: () => null,
     setItem: () => {},
     removeItem: () => {},
-  } as Storage
+    length: 0,
+    clear: () => {},
+    key: () => null,
+  } satisfies Storage
 }
 
 export const useSettingsStore = create<SettingsState>()(

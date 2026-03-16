@@ -1,0 +1,3 @@
+source: backend/integrations/pricing_apis/flatpeak.py
+kind: object
+purpose: Flatpeak API Client

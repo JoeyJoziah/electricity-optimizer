@@ -1,0 +1,3 @@
+source: backend/services/geocoding_service.py
+kind: object
+purpose: Address-to-region resolution via OpenWeatherMap Geocoding + Nominatim fallback.

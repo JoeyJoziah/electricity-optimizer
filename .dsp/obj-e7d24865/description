@@ -1,0 +1,3 @@
+source: frontend/components/dashboard/UtilityTabShell.tsx
+kind: object
+purpose: Lazy-load each utility dashboard to avoid loading all at once

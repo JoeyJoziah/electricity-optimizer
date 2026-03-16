@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/config.ts
+kind: object
+purpose: Workers module: config

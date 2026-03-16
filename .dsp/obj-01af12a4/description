@@ -1,0 +1,3 @@
+source: backend/api/v1/connections/email_oauth.py
+kind: object
+purpose: Gmail / Outlook OAuth initiation and callback endpoints.

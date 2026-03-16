@@ -1,0 +1,3 @@
+source: frontend/components/suppliers/SupplierAccountForm.tsx
+kind: object
+purpose: UI component for Supplieraccountform

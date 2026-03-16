@@ -1,0 +1,3 @@
+source: frontend/components/layout/NotificationBell.tsx
+kind: object
+purpose: UI component for Notificationbell

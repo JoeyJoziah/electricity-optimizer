@@ -1,0 +1,3 @@
+source: backend/api/v1/water.py
+kind: object
+purpose: Water Rate API Endpoints

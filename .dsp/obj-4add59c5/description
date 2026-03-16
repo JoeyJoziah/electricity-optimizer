@@ -1,0 +1,3 @@
+source: backend/models/price.py
+kind: object
+purpose: Price Data Models

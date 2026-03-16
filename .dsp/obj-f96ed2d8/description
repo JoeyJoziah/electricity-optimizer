@@ -1,0 +1,3 @@
+source: backend/models/connections.py
+kind: object
+purpose: Connection Feature Pydantic Models

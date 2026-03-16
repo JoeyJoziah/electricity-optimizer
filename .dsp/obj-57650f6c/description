@@ -1,0 +1,3 @@
+source: backend/services/alert_service.py
+kind: object
+purpose: Price Alert Service

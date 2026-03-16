@@ -1,0 +1,3 @@
+source: backend/api/v1/connections/direct_sync.py
+kind: object
+purpose: Phase 4: UtilityAPI direct sync endpoints.

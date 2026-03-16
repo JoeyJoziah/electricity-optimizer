@@ -1,0 +1,3 @@
+source: frontend/lib/contexts/sidebar-context.tsx
+kind: object
+purpose: Shared library utility for Sidebar Context

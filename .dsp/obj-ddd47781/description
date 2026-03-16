@@ -1,0 +1,3 @@
+source: backend/api/v1/savings.py
+kind: object
+purpose: Savings API — endpoints for retrieving user savings summaries and history.

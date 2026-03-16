@@ -1,0 +1,3 @@
+source: backend/config/settings.py
+kind: object
+purpose: Application Settings and Configuration Management

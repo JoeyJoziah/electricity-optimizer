@@ -1,0 +1,3 @@
+source: backend/services/data_quality_service.py
+kind: object
+purpose: Data Quality Service

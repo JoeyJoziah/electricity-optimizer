@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/middleware/security.ts
+kind: object
+purpose: Middleware handler for Security

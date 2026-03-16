@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/middleware/observability.ts
+kind: object
+purpose: ---------------------------------------------------------------------------

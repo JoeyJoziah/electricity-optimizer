@@ -1,0 +1,3 @@
+source: backend/api/v1/alerts.py
+kind: object
+purpose: API route handler for Alerts

@@ -1,0 +1,3 @@
+source: backend/repositories/forecast_observation_repository.py
+kind: object
+purpose: Forecast Observation Repository

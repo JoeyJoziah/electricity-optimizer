@@ -1,0 +1,3 @@
+source: frontend/components/community-solar/CommunitySolarContent.tsx
+kind: object
+purpose: UI component for Communitysolarcontent

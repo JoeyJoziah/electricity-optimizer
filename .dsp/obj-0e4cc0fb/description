@@ -1,0 +1,3 @@
+source: backend/api/v1/webhooks.py
+kind: object
+purpose: GitHub Webhook Endpoint

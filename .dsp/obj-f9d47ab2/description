@@ -1,0 +1,3 @@
+source: frontend/components/page-error-fallback.tsx
+kind: object
+purpose: UI component for Page Error Fallback

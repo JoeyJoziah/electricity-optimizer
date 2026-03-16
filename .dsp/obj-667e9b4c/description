@@ -1,0 +1,3 @@
+source: backend/scripts/db_maintenance.py
+kind: object
+purpose: Scheduled database maintenance — runs retention cleanup functions.

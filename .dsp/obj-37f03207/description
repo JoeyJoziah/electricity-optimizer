@@ -1,0 +1,3 @@
+source: frontend/components/water/WaterDashboard.tsx
+kind: object
+purpose: UI component for Waterdashboard

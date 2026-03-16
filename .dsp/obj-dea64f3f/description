@@ -1,0 +1,3 @@
+source: @microsoft/fetch-event-source
+kind: external
+purpose: External package: @microsoft/fetch-event-source

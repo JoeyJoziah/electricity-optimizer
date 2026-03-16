@@ -1,0 +1,3 @@
+source: frontend/components/analytics/AnalyticsDashboard.tsx
+kind: object
+purpose: UI component for Analyticsdashboard

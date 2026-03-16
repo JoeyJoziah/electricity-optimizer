@@ -1,0 +1,3 @@
+source: @tanstack/react-query
+kind: external
+purpose: External package: @tanstack/react-query

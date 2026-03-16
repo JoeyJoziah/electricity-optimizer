@@ -1,0 +1,3 @@
+source: frontend/components/charts/ForecastChart.tsx
+kind: object
+purpose: UI component for Forecastchart

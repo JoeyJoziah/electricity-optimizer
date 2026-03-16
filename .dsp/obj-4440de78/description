@@ -1,0 +1,3 @@
+source: backend/services/rate_export_service.py
+kind: object
+purpose: Rate Export Service

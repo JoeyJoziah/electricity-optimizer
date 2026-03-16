@@ -1,0 +1,3 @@
+source: backend/api/v1/users.py
+kind: object
+purpose: Users API Router — User profile management

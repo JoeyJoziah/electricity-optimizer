@@ -1,0 +1,3 @@
+source: backend/integrations/pricing_apis/base.py
+kind: object
+purpose: Abstract Base Class for Pricing API Clients
