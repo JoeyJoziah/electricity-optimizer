@@ -24,20 +24,20 @@ This guide covers the public launch and ongoing operations for RateShift. For de
 
 ### ✅ Infrastructure Readiness
 
-- [x] Backend: Render (srv-d649uhur433s73d557cg, 38 env vars)
+- [x] Backend: Render (srv-d649uhur433s73d557cg, 41 env vars)
 - [x] Frontend: Vercel (rateshift.app + www.rateshift.app)
-- [x] Database: Neon PostgreSQL (cold-rice-23455092, 34 migrations, all applied)
+- [x] Database: Neon PostgreSQL (cold-rice-23455092, 49 migrations deployed, 53 tables)
 - [x] Edge Layer: Cloudflare Worker (rateshift-api-gateway, 2-tier caching, rate limiting)
 - [x] Domain: rateshift.app (Cloudflare Registrar)
 - [x] Email: Resend (custom domain verified, DKIM/SPF/DMARC, TLS enforced)
 - [x] DNS: Cloudflare zone configured (A → Vercel, CNAME api → Worker)
-- [x] CI/CD: 24 GHA workflows (testing, deployment, cron jobs, self-healing)
+- [x] CI/CD: 31 GHA workflows (testing, deployment, cron jobs, self-healing, security scanning)
 - [x] Monitoring: Prometheus + Grafana, Sentry integration
 - [x] Backup strategy: Neon point-in-time recovery, automated snapshots
 
 ### ✅ Application Readiness
 
-- [x] All tests passing (4,500+ across backend/frontend/ML/E2E)
+- [x] All tests passing (~5,674 across backend/frontend/ML/E2E/Worker)
 - [x] Security scan clean (Bandit, npm audit, container scan)
 - [x] Performance targets met (API p95 <500ms, Lighthouse 90+)
 - [x] Documentation complete (8 deployment docs, codemaps)
@@ -64,7 +64,7 @@ This guide covers the public launch and ongoing operations for RateShift. For de
 - **Edge Layer**: Cloudflare Worker (rateshift-api-gateway)
 - **Database**: Neon PostgreSQL (serverless, production branch)
 - **Cache/Queue**: Redis (Upstash or self-hosted)
-- **Scheduling**: GitHub Actions (24 workflows)
+- **Scheduling**: GitHub Actions (31 workflows)
 - **Monitoring**: Prometheus + Grafana, Sentry (error tracking)
 - **Email**: Resend (primary) + Gmail SMTP (fallback)
 - **Push notifications**: OneSignal
@@ -572,7 +572,7 @@ make smoke-test
 ### Must Have (Launch Blocking) ✅
 - [ ] 0 critical bugs (P0) in production
 - [ ] 99%+ uptime (monitoring via Sentry, Grafana)
-- [ ] All 24 GHA workflows passing (CI/CD, cron jobs, deploys)
+- [ ] All 31 GHA workflows passing (CI/CD, cron jobs, deploys, security scans)
 - [ ] Email delivery working (Resend primary + Gmail fallback)
 - [ ] Stripe payments processing (checkout + webhook)
 
@@ -633,7 +633,7 @@ make metrics  # View key metrics
 
 ---
 
-**Last Updated**: 2026-03-11
+**Last Updated**: 2026-03-16
 **Deployment Status**: Production (public launch)
 **Current Users**: Growing (freemium)
 **Architecture**: Vercel + Render + Cloudflare Worker + Neon

@@ -5,7 +5,7 @@
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,835 tests (136 suites)
+**Test Coverage:** Frontend 1,841 tests (136 suites)
 
 ---
 
@@ -140,6 +140,22 @@ frontend/
       AgentChat.tsx             # RateShift AI chat interface (streaming query, example prompts, message bubbles, model+tools display)
     feedback/
       FeedbackWidget.tsx        # In-app feedback collection widget (survey, rating, comment submission)
+    affiliate/                  # Affiliate feature components (Wave 3)
+      FTCDisclosure.tsx         # FTC disclosure banner for affiliate links
+    analytics/                  # Cross-utility analytics components (Wave 4)
+      AnalyticsDashboard.tsx    # Cross-utility analytics overview
+      DataExport.tsx            # Rate data export UI (CSV/JSON)
+      ForecastWidget.tsx        # Multi-utility forecast widget
+      OptimizationReport.tsx    # Cross-utility optimization report
+    charts/                     # Reusable chart components
+      ForecastChart.tsx         # Forecast line chart (Recharts)
+      PriceLineChart.tsx        # Price history line chart
+      SavingsDonut.tsx          # Savings donut chart
+      ScheduleTimeline.tsx      # Appliance schedule timeline
+    gamification/               # Gamification components
+      SavingsTracker.tsx        # Savings progress tracker
+    gas/                        # Natural gas components (Wave 2)
+      GasRatesContent.tsx       # Gas rates page content
     gas-rates/                  # Natural gas components (Wave 2)
       GasRatesDashboard.tsx     # Gas rates overview + regional comparison
       GasSupplierComparison.tsx # Gas supplier comparison table
@@ -167,6 +183,17 @@ frontend/
       PostCard.tsx              # Individual post with vote buttons
       CreatePostForm.tsx        # New post creation form
       ReportDialog.tsx          # Post report dialog
+    onboarding/                 # Onboarding flow components
+      OnboardingWizard.tsx      # Region-only 1-step onboarding (simplified from 4-step)
+      RegionSelector.tsx        # Region selection dropdown (50 states + DC)
+      SupplierPicker.tsx        # Supplier selection during onboarding
+      UtilityTypeSelector.tsx   # Utility type selection
+      AccountLinkStep.tsx       # Account linking step
+    providers/                  # React context providers
+      QueryProvider.tsx         # TanStack React Query provider wrapper
+    pwa/                        # Progressive Web App components
+      InstallPrompt.tsx         # PWA install prompt banner
+      ServiceWorkerRegistrar.tsx # Service worker registration
     rate-changes/               # Rate change components (Wave 3)
       RateChangeAlert.tsx       # Rate change notification card
       RateChangeHistory.tsx     # Rate change history timeline
@@ -2082,7 +2109,7 @@ updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
 
 **Last Reviewed:** 2026-03-16 by documentation engineer
 **Status:** Current with AI Agent, notification delivery, A/B testing framework, Waves 4-5 complete
-**Test Coverage:** 1,835 tests (frontend, 136 suites), ~4,600+ total (all layers)
+**Test Coverage:** 1,841 tests (frontend, 136 suites), ~5,682+ total (all layers)
 **Framework:** Next.js 16 + React 19 + TypeScript
 **Components:** 55+ (19 UI + 36 feature-specific)
 **Pages:** 21 (root + (app) with sidebar + (dev) + auth)

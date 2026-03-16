@@ -6,6 +6,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-16
+
+### Added
+- **End-to-End Performance Optimization**: 9 optimizations across backend + frontend validated via multi-agent brainstorming.
+  - Backend: SQL aggregate `get_price_trend_aggregates()` (CTE+ROW_NUMBER), Redis+in-memory tier cache (30s TTL), rate limiter eviction fix (`setdefault`+10K sweep), moderation timeout 30s to 5s.
+  - Frontend: SSE partial-merge `setQueryData`, `React.memo` on 4 dashboard components, CLS fix, NotificationBell background refetch disabled, 4 `loading.tsx` skeleton loaders.
+- **All connection types fixed**: Direct login, email scan, bill upload, portal scrape, and UtilityAPI connections fully operational.
+- **Test isolation**: conftest autouse fixture for `_tier_cache` (fixed 15 flaky tests).
+
+### Changed
+- Backend tests: 2,478 to 2,480. Frontend tests: 1,835 to 1,841. Total: ~5,680.
+- Full documentation refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs, all codemaps/API ref/DB schema/testing docs updated.
+
+## [1.3.0] - 2026-03-12
+
+### Added
+- **Wave 5: Unification**: Unified tabbed multi-utility dashboard, community features (posts, voting, reporting), AI moderation (Groq `classify_content()` primary, Gemini fallback), nh3 XSS sanitization.
+- **Security hardening**: OWASP ZAP weekly scan (`owasp-zap.yml`), `pip-audit` in backend CI, `npm audit --audit-level=high` in frontend CI. `.zap/rules.tsv` with 5 false-positive suppression rules.
+- **Community tables**: Migrations 048-049 (community_posts, community_votes, community_reports). 15 sidebar nav items.
+
+### Changed
+- Backend tests: 2,306 to 2,478. Frontend tests: 1,718 to 1,835.
+
+## [1.2.0] - 2026-03-12
+
+### Added
+- **Wave 4: Breadth** — Water rates (WaterRateService, 7 methods, `/rates/water`, migration 047), Propane rates (PropaneService, 6 methods, `/rates/propane/*`, migration 046), SEO pages for propane and water.
+- **Wave 3: Depth** — CCA detection (14 programs seeded), heating oil tracking (15 dealers seeded), rate change alerting, SEO engine (153 ISR pages), affiliate revenue tracking, scalability prep.
+- Migrations 042-049 deployed (cca_programs, heating_oil_prices/dealers, alerting tables, affiliate_clicks, propane_prices, water_rates, utility_feature_flags, community_tables).
+
+## [1.1.0] - 2026-03-12
+
+### Added
+- **Wave 2: Infrastructure** — Natural gas rates, community solar programs, onboarding v2 (simplified from 215 to 43 lines), data quality framework (freshness thresholds, anomaly detection, source failure alerts).
+- **OpenTelemetry Distributed Tracing**: `traced()` context manager, 10 services instrumented (16 span types), 37 tracing tests, Grafana Cloud Tempo connected.
+- **CF Worker Resilience**: Graceful KV degradation (fail-open), middleware reordering, native rate limiting bindings, frontend circuit breaker (auto-fallback to Render), per-isolate observability counters.
+- **Project Zenith audit**: 16-section Clarity Gate audit, all sections PASS. P0 fixes: session cache TTL 300 to 60s, generic circuit breaker, CI git-add scoping.
+
+### Changed
+- Database: 33 to 44 public tables, migrations through 041. GHA workflows: 28 to 30.
+- Backend tests: 1,917 to 2,306. Frontend tests: 1,475 to 1,718.
+
 ## [1.0.0] - 2026-03-11
 
 ### Added
@@ -132,7 +174,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **CI/CD**: 23 GitHub Actions workflows, Dependabot for dependency updates.
 - **Documentation**: API reference, deployment guides, security audits.
 
-[Unreleased]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/JoeyJoziah/electricity-optimizer/releases/tag/v1.0.0
 [0.9.0]: https://github.com/JoeyJoziah/electricity-optimizer/releases/tag/v0.9.0
 [0.8.0]: https://github.com/JoeyJoziah/electricity-optimizer/releases/tag/v0.8.0

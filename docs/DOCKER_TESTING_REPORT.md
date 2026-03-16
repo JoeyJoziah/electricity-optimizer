@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-03-16**: This document is outdated and retained for historical reference only. It documents the initial Docker environment validation from 2026-02-06 when the project used TimescaleDB (since removed), had only 5 local tables (now 53 in Neon PostgreSQL), and was branded as "Electricity Optimizer" (now RateShift). For current architecture, see [INFRASTRUCTURE.md](INFRASTRUCTURE.md). For current test counts (~5,674 total), see [TESTING.md](TESTING.md).
+
 # Docker Environment Testing Report
 
 ## Test Date: 2026-02-06

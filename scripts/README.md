@@ -6,7 +6,7 @@ Utility scripts for managing infrastructure, testing, data migration, and operat
 
 | Script | Type | Description | Prerequisites |
 |--------|------|-------------|---------------|
-| `dsp_bootstrap.py` | Python | Build codebase dependency graph (326 entities, 0 cycles) | `dsp-cli.py` in root |
+| `dsp_bootstrap.py` | Python | Build codebase dependency graph (363 entities, 741 imports, 0 cycles) | `dsp-cli.py` in root |
 | `webapp_test.py` | Python | Playwright E2E tests for live production site (25 tests) | System `python3` + Playwright |
 | `scale_check.py` | Python | Infrastructure scaling diagnostic with threshold alerts | Optional: RENDER_API_KEY |
 | `health-check.sh` | Bash | Service health verification (backend, frontend, Redis) | curl, redis-cli |
@@ -26,12 +26,13 @@ Utility scripts for managing infrastructure, testing, data migration, and operat
 | `run_migrations_*.py` | Python | Database migration runners (direct Neon connect) | `.venv`, psycopg2 |
 | `load_test.js` | JavaScript | K6 load testing script (10K RPS simulation) | Node.js, k6 |
 | `setup_uptimerobot.py` | Python | Configure UptimeRobot monitoring for endpoints | UptimeRobot API key |
+| `init_timescaledb.sql` | SQL | Legacy TimescaleDB initialization (archived, now using Neon PostgreSQL) | psql |
 
 ## Core Scripts
 
 ### dsp_bootstrap.py
 
-Build and maintain the DSP (Data Structure Protocol) codebase graph — a map of 326 entities with 327 import relationships and 0 circular dependencies.
+Build and maintain the DSP (Data Structure Protocol) codebase graph -- a map of 363 entities with 741 import relationships and 0 circular dependencies.
 
 ```bash
 # Run full bootstrap (registers all entities)

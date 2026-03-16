@@ -19,23 +19,24 @@ python3.12 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+pip install -r backend/requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your Neon credentials (NEON_DATABASE_URL)
+# Edit .env with your Neon credentials (DATABASE_URL)
 
-# Run migrations
-.venv/bin/python -m alembic upgrade head
+# Run migrations (raw SQL files in backend/migrations/, apply sequentially)
+# Use psql or your preferred migration tool against DATABASE_URL
 
 # Start server
-.venv/bin/python -m uvicorn backend.app:app --reload
+.venv/bin/python -m uvicorn backend.main:app --reload --port 8000
 ```
 
 ### Frontend Setup (Node 18+)
 
 ```bash
+cd frontend
+
 # Install dependencies (note: .npmrc has legacy-peer-deps=true for ESLint compatibility)
 npm install
 
@@ -80,14 +81,14 @@ Example: `feat: add AI agent query streaming endpoint`
 ### Running Tests Before Push
 
 ```bash
-# Backend (always use .venv Python)
-.venv/bin/python -m pytest --cov=backend --cov-report=term-missing
+# Backend (always use .venv Python, run from project root)
+.venv/bin/python -m pytest backend/tests/ --cov=backend --cov-report=term-missing
 
-# Frontend
-npm test -- --coverage
+# Frontend (run from frontend/)
+cd frontend && npm test -- --coverage
 
-# E2E
-npx playwright test
+# E2E (run from frontend/)
+cd frontend && npx playwright test
 ```
 
 ## Code Standards
@@ -137,19 +138,19 @@ When adding new database columns:
 ### Running Tests
 
 ```bash
-# Backend (requires .venv)
-.venv/bin/python -m pytest
+# Backend (requires .venv, run from project root)
+.venv/bin/python -m pytest backend/tests/
 .venv/bin/python -m pytest backend/tests/test_services/ -v
-.venv/bin/python -m pytest --cov=backend
+.venv/bin/python -m pytest backend/tests/ --cov=backend
 
-# Frontend
-npm test
-npm test -- --coverage
-npm test -- --watch
+# Frontend (run from frontend/)
+cd frontend && npm test
+cd frontend && npm test -- --coverage
+cd frontend && npm test -- --watch
 
-# E2E
-npx playwright test
-npx playwright test --debug
+# E2E (run from frontend/)
+cd frontend && npx playwright test
+cd frontend && npx playwright test --debug
 ```
 
 ### Critical Test Patterns
@@ -160,11 +161,11 @@ npx playwright test --debug
 
 ## Migration Guidelines
 
-Migrations are sequential. Next migration number: **034**.
+Migrations are sequential SQL files in `backend/migrations/`. Current count: 50 (init_neon through 050). Next migration number: **051**.
 
 ### Rules
 
-1. **Sequential numbering**: `032_notification_delivery.sql`, `033_model_ab_testing.sql`, etc.
+1. **Sequential numbering**: `050_community_posts_indexes.sql`, `051_your_feature.sql`, etc.
 2. **IF NOT EXISTS**: Always use on CREATE TABLE/INDEX
 3. **No SERIAL/BIGSERIAL**: Use `UUID DEFAULT gen_random_uuid()` instead
 4. **Grant permissions**: `GRANT SELECT, INSERT, UPDATE, DELETE ON table TO neondb_owner`
@@ -173,7 +174,7 @@ Migrations are sequential. Next migration number: **034**.
 
 Example:
 ```sql
--- migrations/034_my_feature.sql
+-- migrations/051_my_feature.sql
 CREATE TABLE IF NOT EXISTS my_table (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -238,14 +239,18 @@ electricity-optimizer/
 
 ## Key Documentation
 
+- **Architecture**: `docs/ARCHITECTURE.md`
+- **Developer Guide**: `docs/DEVELOPER_GUIDE.md`
 - **Database Schema**: `docs/DATABASE_SCHEMA.md`
 - **API Reference**: `docs/API_REFERENCE.md`
 - **Deployment Guide**: `docs/DEPLOYMENT.md`
 - **Testing**: `docs/TESTING.md`
-- **Architecture**: `docs/INFRASTRUCTURE.md`
+- **Observability**: `docs/OBSERVABILITY.md`
+- **Infrastructure**: `docs/INFRASTRUCTURE.md`
 - **Security**: `docs/SECURITY_AUDIT.md`
 - **Automation**: `docs/AUTOMATION_PLAN.md`
 - **Redeployment Runbook**: `docs/REDEPLOYMENT_RUNBOOK.md`
+- **ADRs**: `docs/adr/001-005` (5 Architecture Decision Records)
 
 ## Questions?
 

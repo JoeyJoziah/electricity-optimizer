@@ -20,13 +20,16 @@ Cloudflare Workers (API Gateway)
   ├─ Route Matching
   ├─ Bot Detection (heuristic scoring)
   ├─ Internal Auth (X-API-Key)
-  ├─ Rate Limiting (KV-based per IP/tier)
-  ├─ Cache Lookup (Cache API)
+  ├─ Cache Lookup (Cache API + KV with cacheTtl)
+  ├─ Rate Limiting (native Cloudflare bindings, zero KV cost)
   ├─ Security Headers
+  ├─ Graceful KV Degradation (fail-open, X-Gateway-Degraded header)
   └─ Proxy to Origin
       ↓
 Render Backend (electricity-optimizer.onrender.com)
 ```
+
+**Frontend Circuit Breaker**: Auto-fallback to Render origin on 502/503 (public endpoints only). States: CLOSED -> OPEN -> HALF_OPEN.
 
 ## Features
 
@@ -49,7 +52,7 @@ Used for:
 
 ### 2. Rate Limiting
 
-**Fixed-window KV-based limiter** with 3 configurable tiers:
+**Native Cloudflare rate limiting bindings** with 3 configurable tiers (zero KV cost, migrated from KV-based in Phase 3 of CF Worker resilience track):
 
 | Tier | Limit (per 60s) | Use Case |
 |------|---|---|
@@ -98,8 +101,9 @@ X-Frame-Options: DENY
 
 | Binding | ID | Purpose |
 |---------|----|----|
-| `CACHE` | `6946d19ce8264f6fae4481d6ad8afcd1` | Cache API storage for routes with custom TTL |
-| `RATE_LIMIT` | `c9be3741ee784956a0d99b3fa0c1d6c4` | Fixed-window rate limit counters |
+| `CACHE` | `6946d19ce8264f6fae4481d6ad8afcd1` | Cache API storage for routes with custom TTL (cacheTtl on reads) |
+
+Note: Rate limiting was migrated from KV to native Cloudflare rate limiting bindings (Phase 3). The RATE_LIMIT KV namespace is no longer used for rate limiting.
 
 ## Configuration
 
@@ -115,8 +119,7 @@ routes = [
 ]
 
 kv_namespaces = [
-  { binding = "CACHE", id = "6946d19ce8264f6fae4481d6ad8afcd1" },
-  { binding = "RATE_LIMIT", id = "c9be3741ee784956a0d99b3fa0c1d6c4" }
+  { binding = "CACHE", id = "6946d19ce8264f6fae4481d6ad8afcd1" }
 ]
 
 [vars]
@@ -158,11 +161,14 @@ workers/api-gateway/
 │   │   └── observability.ts     # Structured logging
 │   └── handlers/
 │       └── proxy.ts             # Origin request + response handling
-├── tests/
-│   ├── rate-limiter.test.ts
-│   ├── cache.test.ts
+├── test/
 │   ├── cors.test.ts
-│   └── ...                      # 37 vitest tests total
+│   ├── graceful-degradation.test.ts
+│   ├── internal-auth.test.ts
+│   ├── middleware-ordering.test.ts
+│   ├── observability.test.ts
+│   ├── router.test.ts
+│   └── security.test.ts        # 77 vitest tests total across 7 files
 ├── wrangler.toml
 ├── package.json
 └── tsconfig.json
@@ -193,7 +199,7 @@ npm run typecheck
 ### Run Tests
 
 ```bash
-npm test                 # Run all 37 tests
+npm test                 # Run all 77 tests
 npm test:watch          # Watch mode
 ```
 
@@ -229,6 +235,21 @@ POST requests to key endpoints verify:
 - Bot detection disabled for test client
 
 ## Monitoring
+
+### Per-Isolate Metrics
+
+The worker maintains 7 per-isolate counters for lightweight observability (no external storage required):
+
+- Total requests
+- Cache hits / misses
+- Rate limited requests
+- Bot blocked requests
+- Origin errors
+- Degraded mode requests
+
+Access via: `GET /internal/gateway-stats` (requires `X-API-Key`).
+
+Health monitoring: `gateway-health.yml` GHA workflow runs every 6 hours.
 
 ### Observability
 

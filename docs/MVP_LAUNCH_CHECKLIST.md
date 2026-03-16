@@ -1,6 +1,6 @@
 # MVP Launch Checklist
 
-> **Note**: Test counts in this file reflect the state at MVP launch (2026-03-04). Current test counts are: Backend 1,917, Frontend 1,475, total ~4,600+. See [docs/TESTING.md](TESTING.md) for current numbers.
+> **Note**: Test counts in this file reflect the state at MVP launch (2026-03-04). Current counts (2026-03-16): Backend 2,480, Frontend 1,835, ML 611, E2E 671, CF Worker 77, total ~5,674. Database: 53 tables (44 public + 9 neon_auth), 49 migrations. See [docs/TESTING.md](TESTING.md) for current numbers.
 
 **Project**: Automated Electricity Supplier Price Optimizer
 **Status**: LIVE IN PRODUCTION (2026-03-04)

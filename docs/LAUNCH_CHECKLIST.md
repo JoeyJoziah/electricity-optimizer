@@ -432,7 +432,7 @@ Then it automates the switching process.
 - It's passive. Set it once, save forever.
 
 6/ We launched in private beta 3 months ago. 65 users. 99.8% uptime.
-1,917 backend tests passing. 0 critical bugs.
+2,480 backend tests passing. 0 critical bugs.
 
 7/ Today we're going public on Product Hunt.
 If you're tired of overpaying for electricity, give us a shot:
@@ -459,7 +459,7 @@ RateShift uses machine learning to predict electricity prices
 and automatically switches you to cheaper suppliers.
 
 Technology stack: Next.js 16, FastAPI, Neon PostgreSQL, TensorFlow
-ML ensemble (CNN-LSTM + XGBoost). 4,600+ tests.
+ML ensemble (CNN-LSTM + XGBoost). 5,674+ tests.
 
 Beta results: 65 users, 99.8% uptime, $187/year avg savings, NPS 55.
 

@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-16 (Wave 5 complete: community features, tabbed dashboard, security hardening. Test count: 2,480. Migrations: 49. Tables: 50 = 41 public + 9 neon_auth. Services: 52. API routes: 38 files.)
+> Last updated: 2026-03-16 (Wave 5 complete: community features, utility feature flags, security hardening. Test count: 2,482. Migrations: 50. Tables: 53 = 44 public + 9 neon_auth. Services: 52. API routes: 38 files + connections/ + internal/ subdirectories.)
 
 ## Directory Structure
 
@@ -68,11 +68,18 @@ backend/
 │       ├── savings.py               # Savings tracking endpoints (summary, history, goals)
 │       ├── neighborhood.py          # Neighborhood comparison endpoints (Wave 5)
 │       ├── referrals.py             # Referral program endpoints
+│       ├── webhooks.py              # Stripe webhook handler (POST /webhooks/stripe)
+│       ├── utility_accounts.py      # Utility account CRUD (GET/POST/PUT/DELETE, /types)
 │       ├── internal/
 │       │   ├── __init__.py          # Internal router aggregation
-│       │   ├── data_pipeline.py     # observe-forecasts, learn, observation-stats, scrape-rates (with Diffbot rate extraction + persistence)
-│       │   ├── operations.py        # maintenance/cleanup, check-alerts, sync-connections, dunning-cycle, kpi-report, geocode-address, health-data
-│       │   ├── email_scan.py         # POST /scan-emails — batch scan all active email connections
+│       │   ├── data_pipeline.py     # fetch-weather, market-research, scrape-rates, fetch-gas-rates, fetch-heating-oil, fetch-propane, geocode, detect-rate-changes
+│       │   ├── ml.py                # observe-forecasts, learn, observation-stats, model-versions, model-versions/compare
+│       │   ├── operations.py        # maintenance/cleanup, health-data, kpi-report, PUT/GET flags
+│       │   ├── alerts.py            # POST /check-alerts
+│       │   ├── billing.py           # POST /dunning-cycle
+│       │   ├── sync.py              # POST /sync-users, POST /sync-connections
+│       │   ├── data_quality.py      # GET /freshness, GET /anomalies, GET /sources
+│       │   ├── email_scan.py        # POST /scan-emails — batch scan all active email connections
 │       │   └── portal_scan.py       # POST /scrape-portals — batch scrape all active portal connections
 │
 ├── routers/
@@ -114,7 +121,6 @@ backend/
 │   ├── observation_service.py       # Record forecasts, backfill actuals, track recommendation outcomes
 │   ├── learning_service.py          # Nightly learning: accuracy, bias detection, weight tuning
 │   ├── price_sync_service.py        # Orchestrate external API price fetch + persist via PriceRepository
-│   ├── connection_service.py        # Core connection CRUD, status management
 │   ├── connection_sync_service.py   # UtilityAPI direct sync service (Phase 4)
 │   ├── connection_analytics_service.py # Rate comparison, history, savings estimates, stale detection, rate change alerts
 │   ├── email_oauth_service.py       # OAuth2 flows for Gmail + Outlook, HMAC-SHA256 state validation, token encryption
@@ -149,7 +155,12 @@ backend/
 │   ├── community_service.py         # Community posts, voting, reporting (Wave 5)
 │   ├── savings_aggregator.py        # Community savings aggregation (Wave 5)
 │   ├── neighborhood_service.py      # Neighborhood comparison + benchmarking (Wave 5)
-│   └── referral_service.py          # User referral program tracking
+│   ├── referral_service.py          # User referral program tracking
+│   ├── geocoding_service.py         # Dual-provider geocoding (OWM primary + Nominatim fallback)
+│   ├── market_intelligence_service.py # Market intelligence data aggregation (Tavily + Diffbot)
+│   ├── push_notification_service.py  # OneSignal push notification delivery
+│   ├── rate_scraper_service.py      # Rate scraping orchestration (Diffbot integration)
+│   └── weather_service.py           # OpenWeatherMap integration (circuit breaker, regional caching)
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -233,8 +244,9 @@ backend/
 │   ├── 045_affiliate_tracking.sql     # affiliate_clicks table
 │   ├── 046_propane_prices.sql         # propane_prices table
 │   ├── 047_water_rates.sql            # water_rates table (JSONB rate_tiers)
-│   ├── 048_dashboard_tabs.sql         # Tabbed multi-utility dashboard preferences
-│   └── 049_community_tables.sql       # community_posts, community_votes, community_reports tables
+│   ├── 048_utility_feature_flags.sql  # Seed utility-type feature flags for visibility control
+│   ├── 049_community_tables.sql       # community_posts, community_votes, community_reports tables
+│   └── 050_community_posts_indexes.sql # Optimized partial indexes for community_posts (visible + re-moderation)
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -270,7 +282,12 @@ backend/
     ├── test_observation_service.py  # ObservationService tests (31 tests)
     ├── test_learning_service.py     # LearningService tests (32 tests)
     ├── test_performance.py          # Performance tests (18 tests: query counts, caching, async operations)
-    ├── test_api_internal.py         # Internal API endpoint tests (observe-forecasts, learn, check-alerts, sync-connections, dunning-cycle, kpi-report)
+    ├── test_internal_operations.py  # Internal operations endpoint tests (maintenance, health-data, kpi-report)
+    ├── test_internal_alerts.py      # Internal check-alerts endpoint tests
+    ├── test_internal_billing.py     # Internal dunning-cycle endpoint tests
+    ├── test_internal_sync.py        # Internal sync-users, sync-connections endpoint tests
+    ├── test_internal_data_pipeline.py # Internal data pipeline endpoint tests (fetch-weather, scrape-rates, etc.)
+    ├── test_internal_ml.py          # Internal ML endpoint tests (observe-forecasts, learn, model-versions)
     ├── test_api_regulations.py      # State regulation API tests
     ├── test_analytics_service.py    # AnalyticsService tests
     ├── test_encryption.py           # AES-256-GCM encryption tests
@@ -282,7 +299,6 @@ backend/
     ├── test_bill_upload.py          # Bill upload + parse tests
     ├── test_email_oauth.py          # OAuth state gen/verify, consent URLs, token encryption, email scanning, endpoint tests (70 tests)
     ├── test_connection_analytics.py # Connection analytics service tests (39+ tests)
-    ├── test_connection_service.py   # ConnectionService CRUD + status management tests (51 tests)
     ├── test_supplier_cache.py       # Supplier registry Redis caching tests (25 tests)
     ├── test_middleware_asgi.py      # ASGI middleware compliance tests (9 tests: SSE, rate limits, body size, timeout)
     ├── test_api_alerts.py           # Alert endpoint tests
@@ -294,7 +310,6 @@ backend/
     ├── test_notifications.py        # Notification service tests
     ├── test_resilience.py           # Resilience/circuit breaker tests
     ├── test_savings_service.py      # SavingsService calculation & tracking tests (52 tests)
-    ├── test_forecast_observation_repository.py # ForecastObservationRepository with new coverage/accuracy class methods
     ├── test_dunning_service.py      # DunningService tests (13 tests: record, cooldown, email template selection, escalation, full flow)
     ├── test_kpi_report_service.py   # KPIReportService tests (7 tests: happy path, empty tables, subscription breakdown, MRR calculation, weather freshness)
     ├── test_notification_dispatcher.py # NotificationDispatcher tests (multi-channel, dedup cooldowns, delivery tracking)
@@ -327,7 +342,29 @@ backend/
     ├── test_community_service.py    # Community posts/voting/reporting tests (Wave 5)
     ├── test_savings_aggregator.py   # Community savings aggregation tests (Wave 5)
     ├── test_neighborhood_service.py # Neighborhood comparison tests (Wave 5)
-    └── test_tracing.py              # OpenTelemetry tracing tests (37 tests)
+    ├── test_tracing_helpers.py      # OpenTelemetry traced() context manager tests
+    ├── test_circuit_breaker.py      # Circuit breaker (CLOSED/OPEN/HALF_OPEN) tests
+    ├── test_service_tracing.py      # Service-level tracing integration tests
+    ├── test_ml_tracing.py           # ML pipeline tracing tests
+    ├── test_otlp_export.py          # OTLP exporter tests
+    ├── test_observability.py        # Observability integration tests
+    ├── test_neon_auth.py            # Neon Auth session validation tests
+    ├── test_geocoding_service.py    # Dual-provider geocoding service tests
+    ├── test_webhooks.py             # Stripe webhook handler tests
+    ├── test_utilityapi.py           # UtilityAPI integration tests
+    ├── test_utility_accounts.py     # Utility account CRUD endpoint tests
+    ├── test_utility_feature_flags.py # Utility feature flag service tests
+    ├── test_tier_gating.py          # Tier gating dependency tests
+    ├── test_premium_tier_gating.py  # Premium tier gating endpoint tests
+    ├── test_feedback.py             # Feedback submission tests
+    ├── test_model_config.py         # ML model configuration tests
+    ├── test_api_model_versions.py   # Model version API endpoint tests
+    ├── test_notification_delivery.py # Notification delivery tracking tests
+    ├── test_notification_repository.py # Notification repository tests
+    ├── test_optimization_report_service.py # Optimization report service tests (Wave 4)
+    ├── test_rate_export_service.py   # Rate export service tests (Wave 4)
+    ├── test_utility_discovery_service.py # Utility discovery service tests (Wave 2)
+    └── test_referral_service.py     # Referral service tests
 ```
 
 ## Application Lifecycle
@@ -473,10 +510,30 @@ All endpoints require `X-API-Key` header (same key as `/prices/refresh`).
 | POST | `/observe-forecasts` | Backfill actual prices into unobserved forecast rows |
 | POST | `/learn` | Run adaptive learning cycle (accuracy, bias, weight tuning, pruning) |
 | GET | `/observation-stats` | Forecast accuracy metrics and hourly bias |
+| GET | `/model-versions` | List ML model versions |
+| POST | `/model-versions/compare` | Compare two model versions |
 | POST | `/maintenance/cleanup` | Run data retention cleanup: activity logs, uploads, prices, observations (returns counts deleted) |
+| GET | `/health-data` | Database health and freshness metrics |
+| POST | `/kpi-report` | Aggregate business metrics (active users, MRR, subscriptions) |
+| POST | `/check-alerts` | Trigger alert checking job (deduped by cooldown window) |
+| POST | `/dunning-cycle` | Execute payment dunning cycle (overdue payment escalation) |
+| POST | `/sync-users` | Sync user data from Neon Auth |
+| POST | `/sync-connections` | Auto-sync user connections via UtilityAPI |
+| POST | `/fetch-weather` | Fetch weather data for regions (parallelized) |
+| POST | `/market-research` | Fetch market research (Tavily + Diffbot) |
+| POST | `/scrape-rates` | Scrape supplier rates via Diffbot + extract rate_per_kwh via regex |
+| POST | `/fetch-gas-rates` | Fetch natural gas rate data |
+| POST | `/fetch-heating-oil` | Fetch heating oil pricing data |
+| POST | `/fetch-propane` | Fetch propane pricing data |
+| POST | `/geocode` | Geocode an address (OWM + Nominatim) |
+| POST | `/detect-rate-changes` | Detect rate changes across utility types |
 | POST | `/scan-emails` | Batch scan all active email connections (asyncio.gather + Semaphore) |
 | POST | `/scrape-portals` | Batch scrape all active portal connections (asyncio.gather + Semaphore(2)) |
-| POST | `/scrape-rates` | Scrape supplier rates via Diffbot + extract rate_per_kwh via regex |
+| GET | `/freshness` | Data freshness metrics |
+| GET | `/anomalies` | Detected data anomalies |
+| GET | `/sources` | Data source health |
+| PUT | `/flags/{name}` | Update feature flag |
+| GET | `/flags` | List all feature flags |
 
 ### User Supplier (`/api/v1/user/supplier`)
 
@@ -495,11 +552,11 @@ Key from `FIELD_ENCRYPTION_KEY` env var (32-byte hex).
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/` | Paid tier | Create new connection (email_oauth, bill_upload, direct_login, utilityapi) |
+| POST | `/` | Paid tier | Create new connection (email_oauth, bill_upload, direct_login, utilityapi, portal_scrape) |
 | GET | `/` | Paid tier | List user's connections |
 | GET | `/{connection_id}` | Paid tier | Get connection details |
 | DELETE | `/{connection_id}` | Paid tier | Delete connection |
-| PATCH | `/{connection_id}/label` | Paid tier | Update connection label |
+| PATCH | `/{connection_id}` | Paid tier | Update connection (JSON body: label, settings) |
 | GET | `/email/callback` | None | OAuth callback (Gmail/Outlook), HMAC state verification |
 | POST | `/email/{connection_id}/scan` | Paid tier | Trigger email inbox scan |
 | POST | `/{connection_id}/upload` | Paid tier | Upload bill document (PDF/image) |

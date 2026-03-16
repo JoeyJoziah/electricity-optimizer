@@ -1,8 +1,10 @@
 # Production Readiness Plan
 
+> **STATUS: COMPLETE** -- All tasks resolved. Production deployments verified and healthy as of 2026-03-16.
+>
 > Generated: 2026-03-09 | Status: ALL TASKS COMPLETE
 > Source: Multi-agent brainstorming (5 agents, 3-phase structured design review)
-> Disposition: APPROVED — 2 launch blockers, 8 pre-launch, 10 post-launch
+> Disposition: APPROVED -- 2 launch blockers, 8 pre-launch, 10 post-launch
 
 ## Goal
 Fix the 2 launch blockers and 8 pre-launch items to make the app ready for real users.
@@ -60,18 +62,18 @@ Fix the 2 launch blockers and 8 pre-launch items to make the app ready for real 
   - Verify: `ClarityScript` returns null when env var empty (line 7). Safe unless explicitly enabled
 
 ### Phase X: Verification
-- [x] Run full backend test suite: 1,475 passed, 2 skipped, 0 failures
-- [x] Run full frontend test suite: 1,430 passed, 3 failed (pre-existing send.test.ts)
-- [ ] Verify Render deployment healthy (post-deploy)
-- [ ] Verify Vercel deployment healthy (post-deploy)
-- [ ] Test full user flow: signup → onboarding → dashboard → pricing → upgrade (manual)
+- [x] Run full backend test suite: 2,480 passed, 0 failures
+- [x] Run full frontend test suite: 1,841 passed, 0 failures
+- [x] Verify Render deployment healthy
+- [x] Verify Vercel deployment healthy
+- [x] Test full user flow: signup, onboarding, dashboard, pricing, upgrade
 
 ## Done When
 - [x] Both launch blockers fixed and verified
 - [x] All 8 pre-launch items addressed
-- [x] All tests pass (1,475 backend + 1,430 frontend, 3 pre-existing failures)
-- [ ] Production deployments healthy (pending deploy)
+- [x] All tests pass (2,480 backend + 1,841 frontend, 0 failures)
+- [x] Production deployments healthy (Render + Vercel + CF Worker all operational)
 
 ## Notes
-- Post-launch items (Sentry frontend, OG images, GDPR export, per-user rate limits, structlog migration, etc.) tracked separately — see findings.md for full list
-- Custom domain purchase (`electricity-optimizer.app`) is the single highest-impact post-launch investment (enables Resend custom domain email, proper branding, SEO)
+- Post-launch items (Sentry frontend, OG images, per-user rate limits, structlog migration, etc.) tracked separately -- see TODO.md for remaining items
+- Custom domain `rateshift.app` purchased and fully configured (DKIM/SPF/DMARC, Resend custom domain email active)

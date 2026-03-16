@@ -2,7 +2,7 @@
 
 **Base URL**: `https://api.rateshift.app/api/v1`
 **Version**: 1.0
-**Last Updated**: 2026-03-13
+**Last Updated**: 2026-03-16
 
 ## Overview
 
@@ -1059,6 +1059,54 @@ Auto-discover and scrape supplier rates.
   "duration_seconds": 22.3
 }
 ```
+
+---
+
+### POST /internal/fetch-gas-rates
+
+Fetch natural gas rate data.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+---
+
+### POST /internal/fetch-heating-oil
+
+Fetch heating oil pricing data.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+---
+
+### POST /internal/fetch-propane
+
+Fetch propane pricing data.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+---
+
+### POST /internal/detect-rate-changes
+
+Detect rate changes across all utility types and trigger alerts.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+---
+
+### POST /internal/geocode
+
+Geocode an address using dual-provider (OWM primary, Nominatim fallback).
+
+**Authentication**: Required (X-API-Key)
 
 ---
 

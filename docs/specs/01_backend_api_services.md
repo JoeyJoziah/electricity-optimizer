@@ -3,6 +3,15 @@
 > SPARC Phase: Specification | Version: 1.0.0 | Updated: 2026-03-04
 >
 > **Note (2026-02-24):** This spec predates the refactoring roadmap (2026-02-23). Key changes since: `jwt_handler.py` deleted (replaced by Neon Auth sessions), TimescaleDB replaced by Neon PostgreSQL only, health/ready checks updated. See [REFACTORING_ROADMAP.md](REFACTORING_ROADMAP.md).
+>
+> **Current Status (2026-03-16):** This spec is a historical design document. The backend has evolved significantly since it was written. Key differences from current state:
+> - **Auth**: JWT auth (Section 4) was fully removed. Authentication is now Neon Auth (Better Auth sessions with httpOnly cookies). No `jwt_handler.py` or `middleware.py`.
+> - **Routes**: Section 1.3 lists 9 routers. The backend now has 38 API route files including agent, alerts, connections, community, gas, propane, heating oil, water, internal endpoints, and more.
+> - **Services**: The backend now has 52 services (up from ~10 originally), including multi-utility services, AI agent, community moderation, and data quality.
+> - **Tech Stack**: PyJWT is no longer used. `@microsoft/fetch-event-source` replaced native EventSource for SSE.
+> - **Tests**: 2,480 backend tests passing (up from ~600 at spec time).
+> - **Tables**: 44 public + 9 neon_auth = 53 tables total (49 migrations through 049).
+> - **Edge Layer**: Cloudflare Worker at `api.rateshift.app` sits in front of the backend (not documented in this spec).
 
 ## 1. System Overview
 

@@ -1,28 +1,30 @@
 # RateShift
 
-Automatically shift consumers to lower electricity rates across all 50 US states. Effortless cost reduction with AI-powered recommendations, smart alerts, and real-time price tracking.
+Automatically shift consumers to lower utility rates across all 50 US states. Multi-utility price comparison (electricity, natural gas, propane, heating oil, water), AI-powered recommendations, smart alerts, and real-time price tracking.
 
 [![CI Status](https://github.com/JoeyJoziah/electricity-optimizer/workflows/test/badge.svg)](https://github.com/JoeyJoziah/electricity-optimizer/actions)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-1917%20passing-brightgreen)](docs/TESTING.md)
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1475%20passing-brightgreen)](docs/TESTING.md)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-2480%20passing-brightgreen)](docs/TESTING.md)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1841%20passing-brightgreen)](docs/TESTING.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## What is RateShift?
 
-RateShift is a full-stack energy optimization platform that helps US consumers save money on electricity bills by automatically switching to lower-cost suppliers and times. The platform combines nationwide price monitoring, AI-powered recommendations, and machine learning predictions to deliver effortless savings.
+RateShift is a full-stack multi-utility optimization platform that helps US consumers save money on energy bills by automatically comparing rates, switching to lower-cost suppliers, and optimizing usage timing. The platform covers electricity, natural gas, propane, heating oil, and water -- combining nationwide price monitoring, AI-powered recommendations, community features, and machine learning predictions to deliver effortless savings.
 
 ## Key Features
 
-- **Nationwide coverage** — All 50 US states + DC with real-time rate comparison and optimization
-- **AI-powered assistant** — RateShift AI powered by Gemini 3 Flash + Groq for energy recommendations
-- **Smart alerts** — Configurable price threshold alerts with intelligent dedup and multiple channels (email, push)
-- **Utility connections** — Direct login, email OAuth, and bill OCR to sync existing rates
+- **Multi-utility dashboard** — Tabbed dashboard covering electricity, natural gas, propane, heating oil, and water rates across all 50 US states + DC
+- **AI-powered assistant** — RateShift AI powered by Gemini 3 Flash + Groq Llama 3.3 70B + Composio tools for energy recommendations with SSE streaming
+- **Smart alerts** — Configurable price threshold alerts with intelligent dedup, multiple channels (email, push), and rate change detection across utility types
+- **5 connection types** — Direct login, email scan (OAuth), bill upload (OCR), portal scraping (5 utilities), and UtilityAPI sync for importing existing rates
+- **Community features** — Community posts, voting, and reporting with AI moderation (Groq + Gemini) and XSS sanitization
+- **SEO rate pages** — 153 ISR-generated pages at `/rates/[state]/[utility]` for organic discovery
 - **ML predictions** — Ensemble predictor with HNSW vector search for demand forecasting and price optimization
-- **Notification tracking** — Delivery outcome monitoring and error handling per notification
-- **A/B testing framework** — Deterministic model variant assignment for A/B experimentation
-- **Stripe billing** — Free / Pro ($4.99/mo) / Business ($14.99/mo) tiers with dunning/retry
+- **CCA detection** — Community Choice Aggregation program detection and savings comparison
+- **Savings estimates** — Real-time savings calculations with neighborhood comparisons
+- **Stripe billing** — Free / Pro ($4.99/mo) / Business ($14.99/mo) tiers with dunning/retry and upgrade CTAs
 - **Push notifications** — OneSignal integration for real-time customer engagement
-- **Production-grade ML** — Adaptive learning, model versioning, and performance tracking
+- **Production-grade ML** — Adaptive learning, model versioning, A/B testing framework, and performance tracking
 
 ## Tech Stack
 
@@ -30,16 +32,18 @@ RateShift is a full-stack energy optimization platform that helps US consumers s
 |-------|-----------|
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | **Backend** | FastAPI, Python 3.12, asyncpg + SQLAlchemy ORM |
-| **Database** | Neon PostgreSQL (serverless), 34 migrations, UUID PKs |
+| **Database** | Neon PostgreSQL (serverless), 50 migrations, 53 tables, UUID PKs |
 | **Auth** | Neon Auth (Better Auth) — session-based, httpOnly cookies |
-| **Edge Layer** | Cloudflare Worker — caching, rate limiting, bot detection, CORS |
+| **Edge Layer** | Cloudflare Worker — 2-tier caching, native rate limiting, bot detection, CORS |
 | **ML** | Python ensemble predictor, HNSW vector store, XGBoost |
-| **Payments** | Stripe checkout, webhooks, subscription management |
-| **Email** | Resend (primary) + Gmail SMTP (fallback) |
+| **AI Agent** | Gemini 3 Flash + Groq Llama 3.3 70B + Composio tools |
+| **Payments** | Stripe checkout, webhooks, subscription management, dunning |
+| **Email** | Resend (primary, custom domain) + Gmail SMTP (fallback) |
 | **Hosting** | Render (backend), Vercel (frontend), Cloudflare (edge/DNS) |
 | **Notifications** | OneSignal (push), Email (Resend + SMTP) |
-| **CI/CD** | GitHub Actions (24 workflows), self-healing automation |
-| **Secrets** | 1Password SecretsManager integration |
+| **Observability** | OpenTelemetry + Grafana Cloud Tempo (distributed tracing) |
+| **CI/CD** | GitHub Actions (31 workflows), self-healing automation |
+| **Security** | OWASP ZAP, pip-audit, npm audit, Gitleaks, 1Password |
 
 ## Getting Started
 
@@ -63,12 +67,11 @@ pip install -r backend/requirements.txt
 cp .env.example .env
 # Edit .env with your API keys (Stripe, Resend, NREL, etc.)
 
-# Run migrations (local SQLite, or connect to Neon)
-cd backend
-alembic upgrade head
+# Run migrations (apply SQL files in backend/migrations/ against your DATABASE_URL)
+# Migrations are raw SQL, not Alembic. Apply sequentially via psql or your migration tool.
 
 # Start development server
-uvicorn main:app --reload
+.venv/bin/python -m uvicorn backend.main:app --reload --port 8000
 ```
 
 Backend API available at `http://localhost:8000`
@@ -109,44 +112,42 @@ See `.env.example` and `backend/.env.example` for the complete list.
 ```
 electricity-optimizer/
   backend/                   FastAPI application (Python 3.12)
-    api/v1/                  API route handlers (auth, billing, prices, agent, alerts, ...)
+    api/v1/                  API route handlers (38 route files)
     models/                  Database and Pydantic models
-    services/                Business logic (stripe, alerts, agent, ml, notifications, ...)
+    services/                Business logic (52 services)
     repositories/            Data access layer
     integrations/            External APIs (weather, market research, utility sync, ...)
-    migrations/              Alembic database migrations (34 total)
-    tests/                   Unit and integration tests (1,917 total)
+    migrations/              SQL migrations (50 total, init_neon through 050)
+    tests/                   Unit and integration tests (2,480 total)
   frontend/                  Next.js 16 application
     app/                     App Router structure
-      (app)/                 Authenticated pages (dashboard, alerts, connections, optimize, settings, assistant)
+      (app)/                 Authenticated pages (15 sidebar nav items)
       (dev)/                 Dev-only pages (architecture editor)
     components/              React components (charts, forms, layouts, auth, ...)
     lib/                     Utilities, hooks, API clients, state
-    __tests__/               Jest unit tests (1,475 total)
-    e2e/                     Playwright E2E tests (634 total)
+    __tests__/               Jest unit tests (1,841 total, 136 suites)
+    e2e/                     Playwright E2E tests (671 total)
   ml/                        Machine learning pipelines
     models/                  Predictor definitions, HNSW indexing
     training/                Model training and evaluation
     inference/               Serving and prediction batching
-  workers/                   Cloudflare Worker edge layer (API gateway)
+  workers/                   Cloudflare Worker edge layer (API gateway, 77 tests)
   scripts/                   Deployment and utility scripts
-  docs/                      Project documentation
-  .github/workflows/         CI/CD automation (24 GitHub Actions workflows)
+  docs/                      Project documentation (ARCHITECTURE, DEVELOPER_GUIDE, 5 ADRs, ...)
+  .github/workflows/         CI/CD automation (31 GitHub Actions workflows)
 ```
 
 ## Testing
 
-### Backend (1,917 tests)
+### Backend (2,480 tests)
 
 ```bash
-source .venv/bin/activate
-cd backend
-.venv/bin/python -m pytest tests/ -v
+.venv/bin/python -m pytest backend/tests/ -v
 ```
 
-Always use the project venv (system Python lacks required dependencies).
+Always use `.venv/bin/python` (system Python lacks required dependencies).
 
-### Frontend (1,475 tests, 99 suites)
+### Frontend (1,841 tests, 136 suites)
 
 ```bash
 cd frontend
@@ -157,12 +158,10 @@ npm run test:ci            # Full coverage
 ### ML (611 tests)
 
 ```bash
-source .venv/bin/activate
-cd ml
-.venv/bin/python -m pytest tests/ -v
+.venv/bin/python -m pytest ml/tests/ -v
 ```
 
-### E2E (634 tests)
+### E2E (671 tests)
 
 ```bash
 cd frontend
@@ -170,7 +169,14 @@ npx playwright test
 npx playwright test --ui    # Interactive mode
 ```
 
-**Total test count:** ~4,600+ across all suites. See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
+### CF Worker (77 tests)
+
+```bash
+cd workers/api-gateway
+npm test
+```
+
+**Total test count:** ~5,680 across all suites (2,480 backend + 1,841 frontend + 611 ML + 671 E2E + 77 CF Worker). See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
 
 ## API Documentation
 
@@ -185,13 +191,15 @@ When backend is running locally, interactive docs available at:
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/v1/prices/*` | GET/SSE | Real-time and historical prices |
+| `/api/v1/prices/*` | GET/SSE | Real-time and historical prices, SSE streaming |
 | `/api/v1/suppliers/*` | GET | Supplier details and registry |
 | `/api/v1/recommendations/*` | GET | Switching recommendations |
-| `/api/v1/connections/*` | GET/POST | Utility account connections |
-| `/api/v1/alerts/*` | GET/POST/DELETE | Price threshold alerts |
+| `/api/v1/connections/*` | GET/POST | Utility account connections (5 types) |
+| `/api/v1/alerts/*` | GET/POST/DELETE | Price threshold alerts (multi-utility) |
 | `/api/v1/agent/*` | GET/POST/SSE | AI assistant queries and streaming |
+| `/api/v1/community/*` | GET/POST | Community posts, voting, reporting |
 | `/api/v1/billing/*` | POST/GET | Stripe checkout, portal, webhooks |
+| `/api/v1/rates/*` | GET | Propane, heating oil, water rates |
 | `/api/v1/auth/*` | GET/POST | User profile, auth callbacks |
 | `/api/v1/internal/*` | POST | Internal cron job endpoints (API-key protected) |
 
@@ -214,13 +222,14 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instruction
 
 ## CI/CD
 
-24 GitHub Actions workflows including:
+31 GitHub Actions workflows including:
 
-- **Test workflows** — Backend (pytest), Frontend (Jest, Playwright), ML (pytest)
-- **Cron automation** — Price sync (30min), alerts (30min), weather fetch (6h), market research (daily), dunning cycle (daily), KPI reports (daily)
-- **Deployment** — Production deploy with migration gate, staging deploy with rollback
+- **Test workflows** — Backend (pytest), Frontend (Jest, Playwright), ML (pytest), utility-type tests, CF Worker tests
+- **Cron automation** — Price sync, alerts (30min), weather fetch (6h), market research (daily), dunning cycle (daily), KPI reports (daily), email scan (daily), portal scrape (weekly), gas/heating-oil/propane fetch, rate change detection
+- **Deployment** — Production deploy with migration gate, staging deploy with rollback, CF Worker deploy
 - **Self-healing** — Automated issue creation on repeated failures, CI auto-format, retry logic with exponential backoff
-- **Security** — Secret scanning (Gitleaks), code analysis, container scanning (Trivy)
+- **Security** — OWASP ZAP (weekly), pip-audit, npm audit, Gitleaks, code analysis
+- **Observability** — Gateway health checks (6h), data health checks
 
 See [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for the full workflow inventory.
 
@@ -228,12 +237,18 @@ See [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for the full workflow inven
 
 | Document | Purpose |
 |----------|---------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, design decisions |
+| [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) | Developer onboarding and workflow guide |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment guide (local, staging, production) |
-| [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Architecture overview, service catalog, CI/CD |
+| [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Service catalog, CI/CD workflow inventory |
 | [TESTING.md](docs/TESTING.md) | Test suites, coverage targets, running tests |
+| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | All 53 tables, migration history |
+| [API_REFERENCE.md](docs/API_REFERENCE.md) | Complete API endpoint reference |
+| [OBSERVABILITY.md](docs/OBSERVABILITY.md) | OpenTelemetry tracing, Grafana Cloud |
 | [STRIPE_ARCHITECTURE.md](docs/STRIPE_ARCHITECTURE.md) | Payment flow, webhooks, dunning cycle |
 | [REDEPLOYMENT_RUNBOOK.md](docs/REDEPLOYMENT_RUNBOOK.md) | Emergency redeployment procedures |
 | [AUTOMATION_PLAN.md](docs/AUTOMATION_PLAN.md) | Cron workflow specifications and phase tracking |
+| [ADRs](docs/adr/) | 5 Architecture Decision Records |
 
 ## License
 

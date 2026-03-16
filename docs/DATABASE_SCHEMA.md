@@ -1,8 +1,8 @@
 # Database Schema Reference
 
-RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 49 migrations (init_neon through 049), 41 public tables plus 9 neon_auth tables = 50 total.
+RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 50 migrations (init_neon through 050), 44 public tables plus 9 neon_auth tables = 53 total.
 
-Last updated: 2026-03-13 (Migration 049: community_tables. All 49 migrations deployed to production.)
+Last updated: 2026-03-16 (Migration 050: community_posts_indexes. All 50 migrations deployed to production.)
 
 ## Overview
 
@@ -10,12 +10,12 @@ Last updated: 2026-03-13 (Migration 049: community_tables. All 49 migrations dep
 - **Project ID**: `cold-rice-23455092`
 - **Endpoint (Pooled)**: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (application use)
 - **Endpoint (Direct)**: `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (migrations only)
-- **Migrations**: Sequential init_neon through 049 (49 migrations, all deployed)
-- **Schema**: `public` (41 tables) + `neon_auth` (9 tables, managed by Better Auth)
+- **Migrations**: Sequential init_neon through 050 (50 migrations, all deployed)
+- **Schema**: `public` (44 tables) + `neon_auth` (9 tables, managed by Better Auth)
 - **Primary Keys**: All UUID type via `gen_random_uuid()`
 - **Ownership**: `neondb_owner` role (via GRANT statements)
 
-## Public Schema Tables (41 tables)
+## Public Schema Tables (44 tables)
 
 ### User & Authentication
 
@@ -762,14 +762,15 @@ Managed by Better Auth (Neon Auth). Do NOT modify directly.
 | 045 | 045_affiliate_tracking.sql | 2026-03-11 | affiliate_clicks table |
 | 046 | 046_propane_prices.sql | 2026-03-12 | propane_prices table |
 | 047 | 047_water_rates.sql | 2026-03-12 | water_rates table (JSONB rate_tiers) |
-| 048 | 048_dashboard_tabs.sql | 2026-03-12 | Tabbed multi-utility dashboard preferences |
+| 048 | 048_utility_feature_flags.sql | 2026-03-12 | Seed utility-type feature flags for visibility control |
 | 049 | 049_community_tables.sql | 2026-03-12 | community_posts, community_votes, community_reports tables |
+| 050 | 050_community_posts_indexes.sql | 2026-03-16 | Optimized partial indexes for community_posts (visible posts composite, re-moderation) |
 
 ## Migration Conventions
 
 All migrations follow these patterns:
 
-1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 049)
+1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 050)
 2. **IF NOT EXISTS**: All CREATE TABLE/INDEX statements are idempotent
 3. **Primary Keys**: UUID via `gen_random_uuid()` (no SERIAL/BIGSERIAL)
 4. **Foreign Keys**: ON DELETE CASCADE or ON DELETE RESTRICT with explicit choices

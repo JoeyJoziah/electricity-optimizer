@@ -45,7 +45,7 @@ This document describes the infrastructure architecture, service dependencies, a
 
            +-------------GitHub Actions------------------+
            |                                              |
-           |  24 workflows: CI/CD, deploy, cron jobs      |
+           |  31 workflows: CI/CD, deploy, cron jobs      |
            |  price-sync, check-alerts, kpi-report, etc.  |
            |                                              |
            +----------------------------------------------+
@@ -97,9 +97,17 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | dunning-cycle.yml | Daily 7am UTC | Overdue payment escalation — find failing accounts, send final dunning email, downgrade (Phase 3) |
 | kpi-report.yml | Daily 6am UTC | Nightly business metrics aggregation (Phase 3) |
 | data-health-check.yml | Daily | Data pipeline health check — row counts, last-write timestamps, empty table flags |
-| self-healing-monitor.yml | Daily 9am UTC | Monitors 13 workflows for repeated failures; auto-creates/closes GitHub issues |
+| self-healing-monitor.yml | Daily 9am UTC | Monitors 16 workflows for repeated failures; auto-creates/closes GitHub issues |
 | db-maintenance.yml | Weekly Sunday 3am UTC | Database optimization — vacuum, analyze, index maintenance |
 | secret-scan.yml | PRs + push to main | Gitleaks secret scanning |
+| owasp-zap.yml | Weekly Sunday 4am UTC | OWASP ZAP baseline security scan against Render backend |
+| scan-emails.yml | Daily 4am UTC | Batch scan active email_import connections, extract rates |
+| scrape-portals.yml | Weekly Sunday 5am UTC | Batch scrape portal_scrape connections |
+| fetch-gas-rates.yml | Scheduled | Natural gas rate fetching |
+| fetch-heating-oil.yml | Scheduled | Heating oil price fetching from EIA |
+| detect-rate-changes.yml | Scheduled | Multi-utility rate change detection and alerting |
+| utility-type-tests.yml | On push/PR | Utility-type-specific test suite |
+| deploy-staging.yml | On push to develop | GHCR push + Render deploy hooks + smoke tests |
 | _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
 | _docker-build-push.yml | (callable) | Reusable Docker build + GHCR push |
 
@@ -114,7 +122,7 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | `notify-slack` | Color-coded Slack failure alerts (critical=danger, warning, info=blue) via incoming webhook to `#incidents` |
 | `validate-migrations` | Convention checks: sequential numbering, IF NOT EXISTS on CREATE TABLE, GRANT TO neondb_owner, no SERIAL/BIGSERIAL |
 
-**Concurrency Controls**: All 24 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
+**Concurrency Controls**: All 31 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
 
 **Render Deploy Hooks**: Production and staging deploy workflows trigger Render builds via deploy hook URLs stored in GitHub secrets (`RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`). Deploy workflows include self-healing smoke tests that auto-retry on failure.
 
@@ -264,7 +272,7 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 | Account ID | `b41be0d03c76c0b2cc91efccdb7a10df` |
 | Zone | `ac03dd28616da6d1c4b894c298c1da58` (Cloudflare Registrar for rateshift.app) |
 | SSL Mode | Full (Strict) |
-| Source | `workers/api-gateway/` (16 files, 37 vitest tests) |
+| Source | `workers/api-gateway/` (17 files, 77 vitest tests) |
 | Bundle Size | 20.35 KiB / gzip 5.31 KiB |
 | KV CACHE | `6946d19ce8264f6fae4481d6ad8afcd1` |
 | KV RATE_LIMIT | `c9be3741ee784956a0d99b3fa0c1d6c4` |
@@ -300,24 +308,40 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 | Preview Branch | `vercel-dev` (br-little-salad-ainqjnuj) — for Vercel preview deployments |
 | Pooled Endpoint | `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (PgBouncer) |
 | Direct Endpoint | `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (for DDL/migrations) |
-| Public Tables | 21 (see CODEMAP_BACKEND.md for full list) |
+| Public Tables | 44 (see CODEMAP_BACKEND.md for full list) |
 | Auth Tables | 9 (neon_auth schema — managed by Better Auth) |
-| Cache Tables | 3 (price_history_cache, weather_cache, market_research_cache) |
-| Migrations | 34 total (001_init_neon through 034_portal_credentials) |
+| Total Tables | 53 (44 public + 9 neon_auth) |
+| Migrations | 50 files total (init_neon through 050_community_posts_indexes), 49 deployed to production (through 049_community_tables) |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
 **Neon MCP:** Always use `projectId: "cold-rice-23455092"` when calling `mcp__Neon__*` tools. The previous stale project `holy-pine-81107663` was deleted (0 users, missing tables, wrong region).
 
-**Recent Migrations (2026-03-10 to 2026-03-11):**
-- Migration 026 (2026-03-02): NotificationDispatcher system (notification_history, notification_templates, error_message column)
+**Recent Migrations (2026-03-10 to 2026-03-16):**
+- Migration 026: NotificationDispatcher system (notification_history, notification_templates, error_message column)
 - Migration 027: ModelConfigRepository (model_configs, model_versions tables)
 - Migration 028: FeedbackWidget (feedback entries)
-- Migration 029 (2026-03-10): Notification delivery tracking (notification_delivery_state, notification_error_message)
+- Migration 029: Notification delivery tracking (notification_delivery_state, notification_error_message)
 - Migration 030: Model versioning & A/B testing (model_versions, ab_tests, ab_outcomes, ab_assignments)
 - Migration 031: Agent tables (agent_conversations, agent_usage_daily)
 - Migration 032: Error message tracking (error_message column added)
 - Migration 033: Model predictions & A/B assignments (model_predictions, model_ab_assignments)
+- Migration 034: Portal credentials (portal credential columns on user_connections)
+- Migration 035: Backfill neon_auth users
+- Migration 036-037: Performance indexes
+- Migration 038: Utility accounts
+- Migration 039: Referrals
+- Migration 040: Gas supplier seed (12 suppliers)
+- Migration 041: Community solar programs (15 programs across 13 states)
+- Migration 042: CCA programs
+- Migration 043: Heating oil (prices, dealers)
+- Migration 044: Multi-utility alerts
+- Migration 045: Affiliate tracking
+- Migration 046: Propane prices
+- Migration 047: Water rates (JSONB rate_tiers)
+- Migration 048: Utility feature flags
+- Migration 049: Community tables (posts, votes, reports)
+- Migration 050: Community posts indexes (not yet deployed to production)
 
 **Migration 020 (2026-03-02): Price Query Indexes**
 - Creates 3 composite indexes on `electricity_prices` table:
@@ -576,14 +600,14 @@ deploy:
 ### Secrets Management
 
 - Environment variables for non-sensitive config
-- 1Password for production secrets (vault: "Electricity Optimizer")
+- 1Password for production secrets (vault: "RateShift")
 - Never commit secrets to Git
 - INTERNAL_API_KEY for service-to-service authentication (GitHub Actions + Render)
 - `BETTER_AUTH_SECRET` field validator: enforces 32+ character minimum in production (`Settings` model)
 - `INTERNAL_API_KEY != JWT_SECRET` model validator: prevents key reuse between internal API auth and JWT signing
 - **Env var audit** (2026-03-03): 27 secrets reviewed — 27 PASS, 0 FAIL. Full report: `.swarm-reports/ENV_VAR_AUDIT_FINAL.md`
 
-**1Password Vault** ("Electricity Optimizer" — 19 items, 27 mapped to SecretsManager):
+**1Password Vault** ("RateShift" — 28+ items, mapped to SecretsManager):
 
 | Item | Category | Fields | Purpose |
 |------|----------|--------|---------|
@@ -764,4 +788,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-03-10
+**Last Updated**: 2026-03-16

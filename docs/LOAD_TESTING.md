@@ -1,6 +1,6 @@
 # Load Testing Guide
 
-**Last Updated**: 2026-03-10
+**Last Updated**: 2026-03-16
 **Tool**: k6 (Grafana)
 **Script**: `scripts/load_test.js`
 **Target**: 2000 concurrent users, >95% success rate, p99 latency <2s

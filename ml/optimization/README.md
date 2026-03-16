@@ -336,4 +336,4 @@ result = scheduler.optimize()
 
 ## License
 
-Part of the electricity-optimizer project.
+Part of the RateShift project (electricity-optimizer repository).

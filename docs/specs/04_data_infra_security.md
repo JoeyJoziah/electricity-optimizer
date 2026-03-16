@@ -3,6 +3,14 @@
 > SPARC Phase: Specification | Version: 1.0 | Date: 2026-02-22
 >
 > **Note (2026-02-24):** This spec predates the refactoring roadmap (2026-02-23). Key changes since: Celery removed, TimescaleDB replaced by Neon PostgreSQL, JWT auth replaced by Neon Auth (Better Auth sessions), `ci.yml`/`deploy.yml` workflows deleted, session cache key upgraded to SHA-256. See [REFACTORING_ROADMAP.md](REFACTORING_ROADMAP.md) for the full change log.
+>
+> **Current Status (2026-03-16):** This spec is a historical design document. The infrastructure has been fundamentally restructured since it was written. Key differences from current state:
+> - **Infrastructure**: Section 1 describes 9-10 Docker services (TimescaleDB, Celery, postgres-exporter, etc.). Production now runs on Render (backend) + Vercel (frontend) + Cloudflare Workers (edge) + Neon PostgreSQL (serverless DB). No TimescaleDB, no Celery, no self-hosted Prometheus/Grafana.
+> - **Database**: Section shows 7 base tables. Now 44 public + 9 neon_auth = 53 tables total, with 49 migrations (000-049). UUID PKs throughout, `neondb_owner` role for GRANTs.
+> - **Auth**: JWT auth flow documented here is fully removed. Now Neon Auth (Better Auth sessions with httpOnly cookies).
+> - **CI/CD**: Now 30 GHA workflows including self-healing monitor, retry-curl composite action, validate-migrations, OWASP ZAP scanning, pip-audit, npm audit.
+> - **Monitoring**: OpenTelemetry distributed tracing with Grafana Cloud Tempo (not self-hosted Prometheus). 16 span types across 10 instrumented services.
+> - **Security**: OWASP ZAP weekly baseline scan, pip-audit + npm audit CI gates, AES-256-GCM encrypted portal credentials, nh3 XSS sanitization for community content.
 
 ## 1. Infrastructure Overview
 

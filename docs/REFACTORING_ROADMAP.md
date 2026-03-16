@@ -1,7 +1,7 @@
 # Full Codebase Refactoring Roadmap
 
-> Last Updated: 2026-03-06 (test counts recorded at that date; current counts are Backend 1,917, Frontend 1,475, ~4,600+ total — see docs/TESTING.md)
-> Current State: 1,416 backend tests (pass), 1,391 frontend tests (pass), 611 ML tests (pass), 55 ML tests (skipped), 16 E2E spec files, 3,409+ total tests (Phase 2 automation tests added)
+> Last Updated: 2026-03-16 (test counts recorded at that date; current counts are Backend 2,480, Frontend 1,835, ~5,674+ total — see docs/TESTING.md)
+> Current State: 2,480 backend tests (pass), 1,835 frontend tests (pass), 611 ML tests (pass), 55 ML tests (skipped), 16 E2E spec files, 5,674+ total tests
 > Status: 100% Complete — All refactoring items resolved, codebase optimized for production, PRD gap remediation 100%
 > Agents: code-analyzer, security-reviewer, performance-engineer, architecture-reviewer, maintainability-analyst
 
@@ -355,7 +355,7 @@ P1-1 (remove JWT) --before--> P2-4 (decompose Settings)
 
 ---
 
-## Final Test Results (2026-03-05, Latest Run)
+## Final Test Results (2026-03-05, at refactoring completion)
 
 | Suite | Passing | Failing | Skipped | Coverage |
 |-------|:-------:|:-------:|:-------:|----------:|
@@ -364,5 +364,7 @@ P1-1 (remove JWT) --before--> P2-4 (decompose Settings)
 | ML | 611 | 0 | 55 | 80%+ |
 | E2E | 634 | 0 | 5 | 95%+ |
 | **Total** | **3,629** | **0** | **60** | **80%+ overall** |
+
+> **Note (2026-03-16):** These counts reflect the state at refactoring completion (2026-03-05). Current counts are significantly higher: Backend 2,480, Frontend 1,835, ML 611, E2E 671, CF Worker 77 = ~5,674 total. Growth from Waves 1-5 (multi-utility expansion, community features, security hardening, performance optimization).
 
 **Achievement**: 100% of automated tests passing, comprehensive coverage across all modules, zero critical vulnerabilities, 2,784 core platform tests (backend + frontend), migration 023 fully deployed, circuit breaker + retention scheduler operational, pg_stat_statements monitoring active on production database

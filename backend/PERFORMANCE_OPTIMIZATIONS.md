@@ -1,3 +1,5 @@
+> **ARCHIVE NOTICE (2026-03-16)**: This document was written for the initial Render free-tier deployment (2026-02-07). The project now runs on Render paid tier with Neon PostgreSQL, Cloudflare Workers edge caching, and 41 environment variables. Many of these optimizations (reduced pool sizes, single worker) no longer apply. For current performance work, see the Wave 5 performance optimization track (commit 661f861) which covers SQL aggregate functions, Redis+in-memory tier caching, SSE partial-merge, and React.memo audits.
+
 # Backend Performance Optimizations for Free Tier
 
 > Optimized for Render.com free tier: 512MB RAM, single worker, shared CPU

@@ -8,7 +8,7 @@
 RateShift is a nationwide energy price comparison and optimization platform. Users compare electricity prices across suppliers in all 50 US states + DC, receive ML-powered switching recommendations, and track savings over time. The platform features an AI assistant, smart alerts, utility connections, and A/B-tested prediction models.
 
 **Repository**: `electricity-optimizer`
-**Primary market**: Connecticut (Eversource Energy, United Illuminating, NextEra Energy)
+**Coverage**: All 50 US states + DC (multi-utility: electricity, natural gas, propane, heating oil, water)
 **Billing tiers**: Free / $4.99 Pro / $14.99 Business (Stripe)
 
 ## Tech Stack
@@ -16,14 +16,15 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Backend API | FastAPI + Python | 3.12 |
-| Frontend | Next.js (App Router) + TypeScript | 14 |
+| Frontend | Next.js (App Router) + TypeScript | 16 |
 | Database | Neon PostgreSQL (serverless) | -- |
 | Auth | Neon Auth (Better Auth) | session-based |
 | Payments | Stripe | async SDK |
 | ML | Ensemble predictor + HNSW vector search | hnswlib 0.8+ |
 | Cache | Redis (Upstash) | -- |
-| Hosting | Render | -- |
-| CI | GitHub Actions | 23 workflows |
+| Edge Layer | Cloudflare Worker | 2-tier cache + rate limiting |
+| Hosting | Render (backend), Vercel (frontend), Cloudflare (edge) | -- |
+| CI | GitHub Actions | 31 workflows |
 
 ## Build, Test, and Run Commands
 
@@ -31,7 +32,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 
 ```bash
 # CRITICAL: Always use the project venv, never system Python
-.venv/bin/python -m pytest backend/tests/              # all backend tests (1,917+)
+.venv/bin/python -m pytest backend/tests/              # all backend tests (2,480+)
 .venv/bin/python -m pytest backend/tests/test_auth.py  # single file
 .venv/bin/python -m pytest backend/tests/ -x           # stop on first failure
 .venv/bin/python -m pytest backend/tests/ -k "test_name"  # by name
@@ -47,7 +48,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 
 ```bash
 cd frontend
-npm test                    # Jest unit tests (1,475, 99 suites)
+npm test                    # Jest unit tests (1,841, 136 suites)
 npm run build               # production build
 npm run dev                 # dev server (port 3000)
 npx playwright test         # E2E tests (15 specs)
@@ -103,7 +104,7 @@ electricity-optimizer/
     middleware/
       rate_limiter.py    # Per-IP rate limiting (in-memory or Redis)
       security_headers.py
-    migrations/          # Raw SQL migrations (run against app DB, NOT Neon MCP)
+    migrations/          # Raw SQL migrations (50 total, run against app DB, NOT Neon MCP)
     models/
       price.py           # Price (Pydantic BaseModel, used as SQLAlchemy-ish)
       user.py            # User model
@@ -134,10 +135,18 @@ electricity-optimizer/
       layout.tsx         # Root layout (marketing pages, no sidebar)
       page.tsx           # Landing page
       (app)/
-        layout.tsx       # Authenticated layout (sidebar)
-        dashboard/       # /dashboard
+        layout.tsx       # Authenticated layout (sidebar, 15 nav items)
+        dashboard/       # /dashboard (multi-utility tabbed)
         prices/          # /prices
         suppliers/       # /suppliers
+        connections/     # /connections (5 connection types)
+        alerts/          # /alerts (multi-utility price alerts)
+        assistant/       # /assistant (AI agent chat)
+        community/       # /community (posts, voting, reporting)
+        heating-oil/     # /heating-oil
+        propane/         # /propane
+        water/           # /water
+        gas-rates/       # /gas-rates
         optimize/        # /optimize
         settings/        # /settings
         auth/            # /auth/* (sign-in, sign-up)
@@ -176,13 +185,15 @@ Client --> Next.js middleware (route protection)
   --> Next.js App Router (frontend pages)
   --> /api/auth/* (Better Auth handles sign-in/sign-up/sign-out)
 
-Client --> FastAPI (backend API)
-  --> RateLimitMiddleware --> SecurityHeadersMiddleware
-  --> Router --> Dependency Injection (get_current_user, verify_api_key)
-  --> Service Layer --> Repository Layer --> Neon PostgreSQL
-                    --> External APIs (EIA, NREL, FlatPeak, IEA)
-                    --> Redis (cache, ensemble weights)
-                    --> ML Pipeline (ensemble predictor, vector search)
+Client --> Cloudflare Worker (api.rateshift.app)
+  --> Cache check (Cache API + KV) --> Rate limiting (native bindings) --> Bot detection
+  --> FastAPI (backend on Render)
+    --> RateLimitMiddleware --> SecurityHeadersMiddleware
+    --> Router --> Dependency Injection (get_current_user, verify_api_key)
+    --> Service Layer --> Repository Layer --> Neon PostgreSQL
+                      --> External APIs (EIA, NREL, FlatPeak, IEA)
+                      --> Redis (cache, ensemble weights)
+                      --> ML Pipeline (ensemble predictor, vector search)
 ```
 
 ### Authentication Flow
@@ -208,7 +219,7 @@ The app uses **Neon Auth** (built on Better Auth), NOT JWT for user auth.
 
 ### Utility Types
 
-Five supported utility types, defined in `backend/models/utility.py`:
+Six supported utility types, defined in `backend/models/utility.py`:
 
 | Type | Default Unit | Notes |
 |------|-------------|-------|
@@ -217,6 +228,7 @@ Five supported utility types, defined in `backend/models/utility.py`:
 | `heating_oil` | $/gallon | EIA API |
 | `propane` | $/gallon | EIA API |
 | `community_solar` | $/kWh credit | Credits model |
+| `water` | $/gallon | Municipal tiered pricing |
 
 ### Regions
 
@@ -311,7 +323,7 @@ The `RateLimitMiddleware` uses an in-memory dict when Redis is unavailable. The 
 ### TypeScript (Frontend)
 
 - **Standard**: Strict mode enabled in `tsconfig.json`
-- **Framework**: Next.js 14 App Router (server components by default, `"use client"` where needed)
+- **Framework**: Next.js 16 App Router (server components by default, `"use client"` where needed)
 - **Styling**: Tailwind CSS + `postcss`
 - **Currency formatting**: `Intl.NumberFormat` with `en-US` locale (see `lib/utils/format.ts`)
 - **Auth client**: `better-auth/react` (NOT `@neondatabase/auth`)
@@ -361,7 +373,12 @@ Key variables (see `.env.example` and `backend/.env.example` for full list):
 | `dunning-cycle.yml` | Daily 7AM UTC | Stripe overdue payment escalation |
 | `kpi-report.yml` | Daily 6AM UTC | Nightly business metrics aggregation |
 | `self-healing-monitor.yml` | Daily 9AM UTC | Monitor 13 workflows, auto-create/close issues |
-| (+ 10 more) | Various | See docs/INFRASTRUCTURE.md for full list |
+| `scan-emails.yml` | Daily 4AM UTC | Extract rates from user email connections |
+| `scrape-portals.yml` | Weekly Sun 5AM | Scrape utility portal connections |
+| `gateway-health.yml` | Every 6 hours | CF Worker health check |
+| `owasp-zap.yml` | Weekly Sun 4AM | OWASP ZAP baseline security scan |
+| `deploy-worker.yml` | Manual/On push | Deploy CF Worker to Cloudflare |
+| (+ 8 more) | Various | See docs/INFRASTRUCTURE.md for full list |
 
 ## Common Tasks
 

@@ -28,14 +28,14 @@ I've been building RateShift for the past few months, and we're ready to launch 
 - **Stripe monetization** with Free / $4.99 Pro / $14.99 Business tiers, including dunning for failed payments
 
 **Tech Stack:**
-- Backend: FastAPI + Python 3.12 (1,917 tests passing)
-- Frontend: Next.js 16 + TypeScript + Playwright E2E (1,475 tests)
+- Backend: FastAPI + Python 3.12 (2,480 tests passing)
+- Frontend: Next.js 16 + TypeScript + Playwright E2E (1,835 tests)
 - ML: TensorFlow + XGBoost + scikit-learn + PuLP optimizer
-- Database: Neon PostgreSQL (serverless, 33 public tables + Better Auth integration)
-- Infrastructure: Docker + GitHub Actions (24 automated workflows including self-healing CI/CD)
+- Database: Neon PostgreSQL (serverless, 44 public tables + 9 neon_auth = 53 total)
+- Infrastructure: Vercel + Render + Cloudflare Workers + GitHub Actions (30 automated workflows including self-healing CI/CD)
 
 **Current Status:**
-- 4,600+ total tests (backend 1,917, frontend 1,475, ML 611, E2E 634)
+- 5,674+ total tests (backend 2,480, frontend 1,835, ML 611, E2E 671, CF Worker 77)
 - 80%+ code coverage across all layers
 - Production deployment on Vercel + Render
 - Multi-state expansion complete (not just Connecticut)
@@ -75,13 +75,13 @@ Hey everyone! I've been working on **RateShift** for the past few months and jus
 - Full SaaS with Stripe billing (Free / $4.99 Pro / $14.99 Business)
 
 **Tech Stack (more details):**
-- **Backend:** FastAPI + Python 3.12 with 1,917 tests
-- **Frontend:** Next.js 16 + TypeScript, 1,475 tests + Playwright E2E
+- **Backend:** FastAPI + Python 3.12 with 2,480 tests
+- **Frontend:** Next.js 16 + TypeScript, 1,835 tests + Playwright E2E
 - **ML:** TensorFlow (CNN-LSTM), XGBoost (pattern matching), PuLP (load-shifting optimizer)
-- **Database:** Neon PostgreSQL (serverless) with 21 tables + async migrations
+- **Database:** Neon PostgreSQL (serverless) with 53 tables (44 public + 9 neon_auth), 49 migrations
 - **Auth:** Better Auth (session-based, httpOnly cookies, magic links)
 - **Payments:** Stripe with async webhook handling + dunning for failed payments
-- **Infrastructure:** Docker + GitHub Actions with 23 workflows including self-healing CI/CD
+- **Infrastructure:** Vercel + Render + Cloudflare Workers + GitHub Actions with 30 workflows including self-healing CI/CD
 
 **Challenges I overcame:**
 1. **Multi-state complexity:** Each state has different deregulation rules, utilities, tariffs. I built a Region enum covering all 50 states + DC and a supplier_registry table seeded with utility info
@@ -91,7 +91,7 @@ Hey everyone! I've been working on **RateShift** for the past few months and jus
 5. **Payment webhook reliability:** Stripe invoice events lack user metadata, so I resolve users via stripe_customer_id lookup + had to handle async billing correctly
 
 **Testing & Quality:**
-- 4,600+ total tests across backend/frontend/ML/E2E
+- 5,674+ total tests across backend/frontend/ML/E2E/CF Worker
 - 80%+ code coverage
 - Gitleaks + Trivy container scanning in CI/CD
 - Playwright E2E tests run daily with retry logic
@@ -206,14 +206,14 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 
 **Backend: FastAPI + Python 3.12**
 - RESTful API with async/await throughout
-- 1,917 unit + integration tests (80%+ coverage)
+- 2,480 unit + integration tests (80%+ coverage)
 - Key services: Stripe, Alert System, HNSW Vector Store, Observation Loop, Adaptive Learning
 - Cron workflows for price sync, model retraining, dunning (failed payment escalation)
 - GDPR compliance layer (data export, deletion, consent audit trails)
 
 **Frontend: Next.js 16 + TypeScript**
 - App Router with layout-based navigation
-- 1,475 tests (Jest + Playwright E2E)
+- 1,835 tests (Jest + Playwright E2E)
 - Recharts for visualization
 - Tailwind CSS + custom design tokens
 - OneSignal push notifications with user binding
@@ -233,9 +233,9 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 ```
 
 **Database: Neon PostgreSQL (Serverless)**
-- 33 public tables (+ 9 neon_auth tables from Better Auth)
+- 44 public tables (+ 9 neon_auth tables from Better Auth = 53 total)
 - All PKs are UUIDs
-- 25 migrations with Alembic
+- 49 migrations (000-049)
 - Async connections via asyncpg with optimized pool settings
 - Vector search via HNSW (sine of similarity for fast K-NN lookups)
 
@@ -263,7 +263,7 @@ I spent the last few months building **RateShift**, a real-time electricity rate
    - Async processing via `asyncio.to_thread()` for payment operations
 
 5. **CI/CD Reliability:**
-   - 23 GitHub Actions workflows total
+   - 30 GitHub Actions workflows total
    - Self-healing monitor: auto-creates issues after 3+ consecutive failures
    - Composite actions: `retry-curl` (exponential backoff), `notify-slack` (color-coded alerts), `validate-migrations` (convention checks)
    - E2E tests run daily with Playwright retry logic
@@ -304,14 +304,14 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 
 **Stack Summary:**
 ```
-Frontend:     Next.js 16, React 18, TypeScript, Tailwind, Recharts, Playwright
+Frontend:     Next.js 16, React 19, TypeScript, Tailwind, Recharts, Playwright
 Backend:      FastAPI, Python 3.12, asyncpg, Pydantic
 ML:           TensorFlow, XGBoost, scikit-learn, PuLP
 Database:     Neon PostgreSQL, HNSW vector store, Alembic
 Auth:         Better Auth (session-based, httpOnly cookies)
 Payments:     Stripe (checkout, portal, webhooks, async handling)
 Email:        Resend primary, Gmail SMTP fallback
-Infra:        Docker, GitHub Actions (23 workflows), Vercel, Render
+Infra:        Vercel, Render, Cloudflare Workers, GitHub Actions (30 workflows)
 ```
 
 **Deployment:**
@@ -410,7 +410,7 @@ A: Yes, anytime. You'll keep your pricing history but lose Pro features (forecas
 
 **Q: "Do you plan to expand to other utilities (gas, water)?"**
 
-A: Yes – Natural gas is the next priority (same deregulation logic, similar API landscape). Water is later due to less standardized pricing models.
+A: Already done! RateShift now covers 7 utility types: electricity, natural gas, community solar, CCA, heating oil, propane, and water rate benchmarking. All live with a unified multi-utility dashboard.
 
 **Q: "Can I set custom alert rules?"**
 

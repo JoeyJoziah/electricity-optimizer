@@ -204,7 +204,7 @@ Before deploying to production:
 - [ ] Rollback plan documented
 - [ ] Team notified
 - [ ] Vercel environment variables verified with `vercel env pull` (all values non-empty, especially `BETTER_AUTH_SECRET` and `RESEND_API_KEY`)
-- [ ] Render environment variables verified (all 34 present and non-empty)
+- [ ] Render environment variables verified (all 41 present and non-empty)
 - [ ] 1Password vault in sync with production secrets
 - [ ] `SLACK_INCIDENTS_WEBHOOK_URL` GitHub secret set (required by `notify-slack` composite action and `self-healing-monitor`)
 
@@ -305,7 +305,7 @@ curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
 
 ### Database Migration Rollback
 
-Neon PostgreSQL provides point-in-time recovery via branching. The project has 25 forward-only migrations (`backend/migrations/001_init_neon.sql` through `025_data_cache_tables.sql`).
+Neon PostgreSQL provides point-in-time recovery via branching. The project has 50 forward-only migrations (`backend/migrations/init_neon.sql` through `050_community_posts_indexes.sql`), with 49 deployed to production (through 049_community_tables).
 
 **Rollback strategy by migration type:**
 
@@ -410,8 +410,8 @@ render logs --service srv-d649uhur433s73d557cg
 ### Secrets Management
 
 - Never commit secrets to version control
-- All production secrets stored in 1Password vault "Electricity Optimizer" (19 items, 27 SecretsManager mappings)
-- `SecretsManager` in `backend/config/secrets.py` has 27 mappings covering all environment variables
+- All production secrets stored in 1Password vault "RateShift" (28+ items, SecretsManager mappings)
+- `SecretsManager` in `backend/config/secrets.py` covers all environment variables
 - Rotate keys every 90 days
 - INTERNAL_API_KEY required for service-to-service auth (price-sync workflow)
 
@@ -466,7 +466,7 @@ Alerts are configured in `monitoring/alerts.yml` and sent to:
 
 ---
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-16
 
 ## Production Services (Live)
 
@@ -482,8 +482,8 @@ Backend auto-deploys on push to `main` via Render (~2 minutes). Frontend auto-de
 ### Cloudflare Worker Deployment (Edge Layer)
 
 The `rateshift-api-gateway` Worker at `api.rateshift.app` provides the edge layer between clients and the Render backend. It handles:
-- **2-tier caching**: Cache API (longer-lived) + KV store (rate limit state)
-- **KV rate limiting**: 3 tiers (standard 120/min, strict 30/min, internal 600/min)
+- **2-tier caching**: Cache API (longer-lived) + KV store (response cache)
+- **Native rate limiting**: 3 tiers via native bindings (standard 120/min, strict 30/min, internal 600/min) — zero KV cost
 - **Bot detection**: Heuristic scoring to filter suspicious traffic
 - **Internal authentication**: Constant-time X-API-Key comparison
 - **CORS & security headers**: Origin allowlist, HSTS, X-Content-Type-Options, X-Frame-Options
@@ -513,7 +513,7 @@ wrangler deploy
 - CF Account: `b41be0d03c76c0b2cc91efccdb7a10df` (Mcginvs@gmail.com)
 - DNS: Orange cloud (proxied) on Cloudflare Registrar for rateshift.app
 - SSL: Full (Strict) mode
-- Source: `workers/api-gateway/` (16 files, 37 vitest tests, 0 TS errors)
+- Source: `workers/api-gateway/` (17 files, 77 vitest tests, 0 TS errors)
 - Bundle size: 20.35 KiB / gzip 5.31 KiB
 
 **Free tier limits:**
@@ -530,7 +530,7 @@ wrangler deploy
 
 ### Render Environment Variables (Backend)
 
-The backend service has **38 env vars** on Render, all mapped to 1Password via `SecretsManager` in `backend/config/secrets.py`. Key categories:
+The backend service has **41 env vars** on Render, all mapped to 1Password via `SecretsManager` in `backend/config/secrets.py`. Key categories:
 
 - **Database**: `DATABASE_URL` (Neon pooler endpoint `ep-withered-morning`)
 - **Auth**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
@@ -541,10 +541,11 @@ The backend service has **38 env vars** on Render, all mapped to 1Password via `
 - **OAuth**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
 - **Services**: `REDIS_URL`, `UTILITYAPI_TOKEN`, `OPENWEATHERMAP_API_KEY`
 - **AI Agent**: `GEMINI_API_KEY`, `GROQ_API_KEY`, `COMPOSIO_API_KEY`, `ENABLE_AI_AGENT`
-- **Monitoring & Integration**: `UPTIMEROBOT_API_KEY`, `DIFFBOT_API_TOKEN`, `TAVILY_API_KEY`, `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`, `GOOGLE_MAPS_API_KEY`, `SENTRY_DSN`
+- **Monitoring & Observability**: `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`
+- **Integrations**: `UPTIMEROBOT_API_KEY`, `DIFFBOT_API_TOKEN`, `TAVILY_API_KEY`, `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`, `GOOGLE_MAPS_API_KEY`, `SENTRY_DSN`
 - **Config**: `ENVIRONMENT`, `ALLOWED_REDIRECT_DOMAINS`
 
-**Render API Pagination Gotcha**: When managing environment variables via the Render REST API (`GET /v1/services/{id}/env-vars`), the default pagination limit is 20. Always append `?limit=100` to retrieve all 38 env vars. Without this, you may see only the first 20 vars and incorrectly think some have been deleted.
+**Render API Pagination Gotcha**: When managing environment variables via the Render REST API (`GET /v1/services/{id}/env-vars`), the default pagination limit is 20. Always append `?limit=100` to retrieve all 41 env vars. Without this, you may see only the first 20 vars and incorrectly think some have been deleted.
 
 ### Vercel Environment Variables (Frontend)
 

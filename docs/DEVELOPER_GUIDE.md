@@ -95,7 +95,7 @@ Frontend at `http://localhost:3000`, API at `http://localhost:8000`.
 .venv/bin/python -m pytest ml/tests/ -v
 ```
 
-Coverage threshold: 80%+. Current: 86%+ (2,480 tests).
+Coverage threshold: 80%+. Current: 86%+ (2,482 tests).
 
 > **Module-level cache isolation**: When adding module-level cache dicts (e.g., `_tier_cache`), always add a corresponding `autouse` fixture in `conftest.py` to clear the cache between tests. Detection signal: tests pass individually (`pytest test_foo.py`) but fail when run as a full suite (`pytest backend/tests/`).
 
@@ -107,7 +107,7 @@ npm test              # Watch mode
 npm run test:ci       # CI mode with coverage
 ```
 
-Coverage threshold: 80% branches/functions/lines/statements. Current: 1,835 tests across 130 suites.
+Coverage threshold: 80% branches/functions/lines/statements. Current: 1,841 tests across 136 suites.
 
 ### E2E (Playwright)
 
@@ -137,8 +137,8 @@ Current: 77 tests.
 ### Neon PostgreSQL
 
 - **Project**: `cold-rice-23455092` ("energyoptimize")
-- **Tables**: 50 (41 public + 9 neon_auth)
-- **Migrations**: 49 (init_neon through 049), all deployed to production
+- **Tables**: 53 (44 public + 9 neon_auth)
+- **Migrations**: 50 (init_neon through 050), all deployed to production
 
 ### Running Migrations
 
@@ -250,7 +250,7 @@ Follow the pattern from ADR-005 (`docs/adr/005-multi-utility-expansion.md`):
 
 ## CI/CD
 
-### GitHub Actions (30 workflows)
+### GitHub Actions (31 workflows)
 
 Key workflows:
 - `ci.yml` — Unified CI: lint, test (backend + frontend + ML), security scan, Docker build

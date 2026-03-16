@@ -7,7 +7,7 @@ Complete TDD specifications for programmatic diagram generation, JSON validation
 Three modular specifications covering the full Excalidraw diagram generation pipeline, from structured input to validated, positioned .excalidraw JSON output.
 
 **Project**: RateShift
-**Target**: Next.js 14 + TypeScript + Excalidraw library
+**Target**: Next.js 16 + TypeScript + Excalidraw library
 **Status**: Ready for Implementation
 **Last Updated**: 2026-02-26
 

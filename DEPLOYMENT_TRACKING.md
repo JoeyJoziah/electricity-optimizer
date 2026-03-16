@@ -32,8 +32,8 @@
 - [x] Neon project: "energyoptimize" (project ID: cold-rice-23455092)
 - [x] Connection string from 1Password vault "RateShift"
 - [x] Production branch: `production` (br-shy-sun-aibo9dns), Preview branch: `vercel-dev`
-- [x] 25 migrations deployed (latest: 025_data_cache_tables)
-- [x] 33 public + 9 neon_auth = 42 tables total
+- [x] 50 migrations deployed (latest: 050_community_posts_indexes)
+- [x] 44 public + 9 neon_auth = 53 tables total
 
 **Notes**:
 ```
@@ -58,13 +58,13 @@ DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c
 ### Step 4: Render.com Backend Deployment (10 min)
 - [x] Backend deployed as Web Service on Render
 - [x] URL: https://api.rateshift.app (srv-d649uhur433s73d557cg)
-- [x] 34 environment variables configured
+- [x] 41 environment variables configured
 - [x] Auto-deploy on push to `main` via deploy hooks
 
 ### Step 5: Vercel Frontend Deployment (5 min)
 - [x] Frontend deployed to Vercel (migrated from Render static site)
 - [x] URL: https://rateshift.app
-- [x] Framework: Next.js 14 (auto-detected by Vercel)
+- [x] Framework: Next.js 16 (auto-detected by Vercel)
 - [x] Environment variables set on Vercel (including SMTP)
 - [x] Preview deployments use `vercel-dev` Neon branch
 
@@ -141,7 +141,7 @@ NEXT_PUBLIC_API_URL=
 ### Frontend (Vercel)
 - Status: LIVE
 - URL: https://rateshift.app
-- Framework: Next.js 14
+- Framework: Next.js 16
 
 ### Cost Tracking
 - Render.com Backend: $10.50/month (web service, prod tier)
@@ -179,12 +179,15 @@ NEXT_PUBLIC_API_URL=
 - [x] Stripe checkout/portal/webhook functional
 - [x] Alert system running (check-alerts every 15 min)
 - [x] 7/7 automation workflows live
-- [x] Self-healing CI/CD operational (23 GHA workflows)
-- [ ] Custom domain purchased (rateshift.app)
-- [ ] DKIM/SPF/DMARC configured for Resend
-- [ ] Resend custom domain email (replace Gmail SMTP fallback)
+- [x] Self-healing CI/CD operational (31 GHA workflows)
+- [x] Custom domain purchased (rateshift.app via Cloudflare Registrar)
+- [x] DKIM/SPF/DMARC configured for Resend
+- [x] Resend custom domain email active (`noreply@rateshift.app`)
+- [x] Cloudflare Worker edge layer deployed (api.rateshift.app)
+- [x] OpenTelemetry distributed tracing (Grafana Cloud Tempo)
+- [x] OWASP ZAP + pip-audit + npm audit security gates
 
 ---
 
-**Last Updated**: 2026-03-09
-**Next Step**: Purchase custom domain (rateshift.app), configure DKIM/SPF/DMARC for Resend, switch from Gmail SMTP fallback to Resend custom domain for production email delivery
+**Last Updated**: 2026-03-16
+**Status**: All deployment milestones complete. Platform fully operational with multi-utility support, community features, AI agent, and comprehensive observability.

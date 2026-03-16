@@ -216,11 +216,11 @@ FUNCTION list_pipelines(config_file):
 
 ```
 Step 1 [backend-tests]:   Run .venv/bin/python -m pytest backend/tests/ -v --tb=short
-                          Compare against baseline (1253 tests), flag regressions
+                          Compare against baseline (2480 tests), flag regressions
 Step 2 [frontend-tests]:  Run npx jest --ci --no-cache in frontend/
-                          Compare against baseline (834 tests, 52 suites)
+                          Compare against baseline (1835 tests, 136 suites)
 Step 3 [ml-tests]:        Run .venv/bin/python -m pytest ml/tests/ -v --tb=short
-                          Compare against baseline (257 tests, 41 skipped)
+                          Compare against baseline (611 tests, 55 skipped)
 Step 4 [gap-report]:      Analyze results from steps 1-3
                           Cross-reference endpoints/components/services with test files
                           Output prioritized gap list with suggested filenames

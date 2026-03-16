@@ -185,14 +185,14 @@ Three Rube MCP recipes provide automated monitoring notifications via Composio i
 
 **Workflow**: `.github/workflows/self-healing-monitor.yml` — Daily 9am UTC
 
-The self-healing monitor automatically tracks workflow health across all cron and critical GHA workflows. It runs as a matrix job over 13 monitored workflows and manages a lifecycle of GitHub issues to surface repeated failures.
+The self-healing monitor automatically tracks workflow health across all cron and critical GHA workflows. It runs as a matrix job over 16 monitored workflows and manages a lifecycle of GitHub issues to surface repeated failures.
 
 | Trigger | Action |
 |---------|--------|
 | 3+ failures in 24h | Creates a GitHub issue with `self-healing` + `automated` labels |
 | 3 consecutive successes | Auto-closes the open issue |
 
-**Monitored workflows** (13): `check-alerts`, `fetch-weather`, `market-research`, `sync-connections`, `scrape-rates`, `dunning-cycle`, `kpi-report`, `price-sync`, `observe-forecasts`, `nightly-learning`, `data-retention`, `data-health-check`, `deploy-production`
+**Monitored workflows** (16): `check-alerts`, `fetch-weather`, `market-research`, `sync-connections`, `scrape-rates`, `dunning-cycle`, `kpi-report`, `price-sync`, `observe-forecasts`, `nightly-learning`, `data-retention`, `data-health-check`, `deploy-production`, `fetch-heating-oil`, `detect-rate-changes`, `scan-emails`
 
 **Issue permissions**: `issues: write`, `actions: read`
 
@@ -237,19 +237,21 @@ Fetches `POST /internal/kpi-report` from the backend, then delivers results to t
 
 ## GHA Workflow Inventory
 
-**Total workflows**: 23 (as of 2026-03-09)
+**Total workflows**: 31 (as of 2026-03-16)
 
 | Category | Count | Workflows |
 |----------|-------|-----------|
-| CI/CD | 3 | `ci.yml`, `deploy-production.yml`, `e2e-tests.yml` |
+| CI/CD | 5 | `ci.yml`, `deploy-production.yml`, `deploy-staging.yml`, `deploy-worker.yml`, `e2e-tests.yml` |
 | Cron — Data | 5 | `check-alerts`, `fetch-weather`, `market-research`, `sync-connections`, `scrape-rates` |
 | Cron — Revenue | 2 | `dunning-cycle`, `kpi-report` |
-| Cron — ML | 2 | `observe-forecasts`, `nightly-learning` |
+| Cron — ML | 3 | `observe-forecasts`, `nightly-learning`, `model-retrain` |
 | Cron — Ops | 3 | `price-sync`, `data-retention`, `data-health-check` |
+| Cron — Multi-Utility | 3 | `fetch-gas-rates`, `fetch-heating-oil`, `detect-rate-changes` |
+| Cron — Utility Integration | 2 | `scan-emails`, `scrape-portals` |
 | Self-Healing | 1 | `self-healing-monitor` |
-| Security | 2 | `secret-scan`, `code-analysis` |
-| Docker | 1 | `_docker-build-push` |
-| Automation | 4 | `db-maintenance`, `notify-*, retry-curl`, `validate-migrations` (composite actions) |
+| Security | 3 | `secret-scan`, `code-analysis`, `owasp-zap` |
+| Reusable | 2 | `_backend-tests`, `_docker-build-push` |
+| Specialized | 2 | `gateway-health`, `utility-type-tests` |
 
 All 12 cron workflows use the `retry-curl` + `notify-slack` composite actions for resilience and observability.
 
@@ -257,7 +259,7 @@ All 12 cron workflows use the `retry-curl` + `notify-slack` composite actions fo
 
 | Variable | Service | Where to set |
 |----------|---------|--------------|
-| `UPTIMEROBOT_API_KEY` | UptimeRobot API access | 1Password "Electricity Optimizer" vault + GHA secret |
+| `UPTIMEROBOT_API_KEY` | UptimeRobot API access | 1Password "RateShift" vault + GHA secret |
 | `SLACK_INCIDENTS_WEBHOOK_URL` | Slack `#incidents` incoming webhook | GHA secret (already configured) |
 | `BACKEND_URL` | Backend origin for internal cron calls | GHA secret + Render env var |
 | `INTERNAL_API_KEY` | Internal endpoint authentication | GHA secret + 1Password vault |

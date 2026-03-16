@@ -1,6 +1,7 @@
 # Canary Deployment Strategy for Utility-Specific Changes
 
-> Status: **Documentation only** (Wave 4). Implementation planned for Wave 5+.
+> Status: **Documentation only** (Wave 5 complete). Implementation planned for future waves.
+> Last validated: 2026-03-16
 
 ## Overview
 
@@ -100,7 +101,7 @@ Before advancing each rollout phase, verify:
 - Municipal rate sources vary widely — monitor data quality
 - Benchmark calculations sensitive to tier structure changes
 
-## Implementation Notes (Wave 5+)
+## Implementation Notes (Future Waves)
 
 When implementing the automated canary system:
 

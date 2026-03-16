@@ -1,9 +1,11 @@
 # Multi-Utility Platform Expansion — Final Design Document
 
-**Status:** APPROVED (Multi-Agent Brainstorming complete)
+**Status:** APPROVED AND COMPLETE (Waves 0-5 all delivered as of 2026-03-16)
 **Date:** 2026-03-11
 **Review Process:** Primary Designer + Skeptic/Challenger + Constraint Guardian + User Advocate + Integrator/Arbiter
 **Positioning:** "The US Uswitch" — first multi-utility rate comparison platform
+
+> **Completion Summary (2026-03-16):** All 6 waves (0-5) have been implemented and deployed to production. 53 tables (44 public + 9 neon_auth), 49 migrations through 049, 30 GHA workflows, ~5,674 total tests (Backend 2,480, Frontend 1,835, ML 611, E2E 671, CF Worker 77). All utility types live: electricity, natural gas, community solar, CCA, heating oil, propane, water. Unified multi-utility dashboard with community features and security hardening complete.
 
 ---
 
@@ -222,20 +224,22 @@ Extend utility-by-utility starting with natural gas (highest overlap with existi
 
 ## Execution Plan: 6-Wave Sequence
 
-### Wave 0: Pre-requisites ($0/mo infrastructure)
+### Wave 0: Pre-requisites ($0/mo infrastructure) -- DONE
 - **MU-000**: NREL migration + cache retention + Neon audit
 - **Duration:** 1-2 days
 - **Gate:** NREL endpoints responding, cache policies active, Neon < 400 MiB
+- **Completed:** 2026-03-11. All pre-requisites resolved.
 
-### Wave 1: Foundation ($0/mo infrastructure)
+### Wave 1: Foundation ($0/mo infrastructure) -- DONE
 - **MU-001**: Multi-utility schema foundation (VIEW strategy)
 - **UG-001**: Referral system
 - **UG-005**: PWA basics
 - **OM-001**: OpenTelemetry (existing track)
 - **Duration:** 2-3 weeks
 - **Gate:** `utility_prices` VIEW active, referral codes generating, service worker registered
+- **Completed:** 2026-03-11. Schema foundation deployed, OTel tracing operational (Grafana Cloud Tempo).
 
-### Wave 2: First Expansion ($26/mo: Neon Pro $19 + Render Starter $7)
+### Wave 2: First Expansion ($26/mo: Neon Pro $19 + Render Starter $7) -- DONE
 - **MU-002**: Natural gas integration
 - **MU-003a**: Community solar marketplace
 - **UG-003**: Onboarding V2
@@ -243,8 +247,9 @@ Extend utility-by-utility starting with natural gas (highest overlap with existi
 - **Duration:** 3-4 weeks
 - **Gate:** Gas rates flowing, community solar programs listed, onboarding completion rate > 70%
 - **Infrastructure trigger:** Neon storage > 450 MiB OR gas data pipeline active
+- **Completed:** 2026-03-12. Natural gas (34 tests), community solar (40 tests), onboarding simplified to 1-step (54 tests), data quality framework (25 tests). Migrations 040-041 deployed. 12 gas suppliers + 15 community solar programs seeded.
 
-### Wave 3: Depth ($26/mo continues)
+### Wave 3: Depth ($26/mo continues) -- DONE
 - **MU-003b**: CCA detection
 - **MU-004**: Heating oil tracking
 - **MU-007**: Rate change alerting
@@ -253,21 +258,24 @@ Extend utility-by-utility starting with natural gas (highest overlap with existi
 - **OM-003**: Scalability prep
 - **Duration:** 3-4 weeks
 - **Gate:** CCA lookup functional, heating oil prices displaying, first affiliate click tracked
+- **Completed:** 2026-03-11. 7 phases delivered: CCA detection (45 tests), heating oil (46 tests), rate change alerting (48 tests), SEO engine (28 tests, 153 ISR pages), affiliate revenue (15 tests), scalability prep (CF Worker cache keys). Migrations 042-045. 14 CCA programs + 15 heating oil dealers seeded.
 
-### Wave 4: Breadth ($26/mo continues)
+### Wave 4: Breadth ($26/mo continues) -- DONE
 - **MU-005**: Propane tracking
 - **MU-006**: Water benchmarking
 - **REV-002**: Premium analytics
 - **OM-005**: CI/CD evolution
 - **Duration:** 2-3 weeks
 - **Gate:** All 7 utility types represented, premium analytics generating reports
+- **Completed:** 2026-03-12. Propane (38 tests, migration 046), water (39 tests, migration 047, monitoring-only), sidebar nav at 13 items, 5 SEO utility types generating ISR pages.
 
-### Wave 5: Unification ($26/mo continues)
+### Wave 5: Unification ($26/mo continues) -- DONE
 - **MU-008**: Unified multi-utility dashboard
 - **UG-004**: Community features
 - **OM-004**: Security hardening
 - **Duration:** 2-3 weeks
 - **Gate:** Combined savings metric calculating, community posts submitting, OWASP clean
+- **Completed:** 2026-03-12. Unified tabbed dashboard, community features (posts/voting/reporting with AI moderation via Groq+Gemini, nh3 XSS sanitization), security hardening (OWASP ZAP weekly scan, pip-audit, npm audit CI gates). Migrations 048-049. 15 sidebar nav items. Backend 2,478 tests, Frontend 1,835 tests at wave completion.
 
 ### Wave 6+ (Deferred)
 - REV-003: Data API

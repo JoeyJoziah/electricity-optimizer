@@ -41,9 +41,9 @@ scripts/stream-chain-run.sh --list
 **4 steps, 120s/step**
 
 Runs all three test layers sequentially and produces a coverage gap report:
-1. Backend tests (`.venv/bin/python -m pytest backend/tests/`) — baseline: 1253
-2. Frontend tests (`npx jest --ci`) — baseline: 834 across 52 suites
-3. ML tests (`.venv/bin/python -m pytest ml/tests/`) — baseline: 257 (41 skipped)
+1. Backend tests (`.venv/bin/python -m pytest backend/tests/`) — baseline: 2480
+2. Frontend tests (`npx jest --ci`) — baseline: 1835 across 136 suites
+3. ML tests (`.venv/bin/python -m pytest ml/tests/`) — baseline: 611 (55 skipped)
 4. Gap report — identifies untested endpoints, components, and services
 
 ```bash

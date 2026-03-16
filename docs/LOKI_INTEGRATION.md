@@ -1,6 +1,6 @@
 # Loki Mode Integration Architecture
 
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-03-16
 **Loki Version:** v5.53.0
 **Provider:** Claude (Opus 4.6)
 
@@ -239,7 +239,7 @@ provide domain-specialized context when Loki assigns sub-tasks during RARV cycle
 | Agent             | Domain                                                        |
 |-------------------|---------------------------------------------------------------|
 | EnergyDataAgent   | EIA/NREL APIs, Region enum, utility types, state regulations  |
-| NeonDBAgent       | 17-table schema, endpoint quirk (us-east-1), UUID PKs, migrations |
+| NeonDBAgent       | 53-table schema (44 public + 9 neon_auth), endpoint quirk (us-east-1), UUID PKs, 49 migrations deployed |
 | StripeAgent       | Async billing, $4.99 Pro / $14.99 Business, webhook flow     |
 | MLPipelineAgent   | Ensemble predictor, HNSW vector store, observation loop, nightly learning |
 
@@ -433,4 +433,4 @@ Agentic-flow (v2.0.2-alpha) was integrated alongside Loki Mode via SPARC integra
 - **Key work**: SendGrid→Resend migration, auth email verification, magic link plugin, OAuth conditional, 1Password 27 mappings, Vercel env vars, DNS/OAuth guides
 - **Memory sync**: Claude Flow 921+ entries, Loki 3-tier rebuilt, CONTINUITY.md updated to commit 9a91abf
 - **Learned skills**: 6 patterns extracted
-- **Tests**: 3,402 passing (1393 backend, 1398 frontend, 611 ML, 634 E2E)
+- **Tests**: ~5,674 passing (2,480 backend, 1,835 frontend, 611 ML, 671 E2E, 77 CF Worker)

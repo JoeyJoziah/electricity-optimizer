@@ -1,6 +1,6 @@
 # RateShift — System Architecture
 
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-03-16 (Migration 050, 2,482 backend tests, 31 GHA workflows)
 
 ## System Topology
 
@@ -37,8 +37,8 @@
       ┌──────────▼──┐    ┌──────────▼──┐    ┌──────────▼──┐
       │    Neon      │    │   Grafana   │    │  External   │
       │  PostgreSQL  │    │   Cloud     │    │   APIs      │
-      │  50 tables   │    │   Tempo     │    │ Stripe,     │
-      │  49 migrations│   │   (OTel)    │    │ Resend,     │
+      │  53 tables   │    │   Tempo     │    │ Stripe,     │
+      │  50 migrations│   │   (OTel)    │    │ Resend,     │
       └──────────────┘    └─────────────┘    │ Gemini,     │
                                              │ Groq, etc.  │
                                              └─────────────┘
@@ -231,7 +231,7 @@ Templates: beta welcome, alert notification, dunning soft (amber), dunning final
 
 ## CI/CD Pipeline
 
-**30 GHA workflows** total:
+**31 GHA workflows** total:
 - **CI**: Backend tests (Black + isort + flake8 + pytest), Frontend (ESLint + Jest + build), E2E (Playwright)
 - **Deploy**: Migration-gate → deploy-production (Render), CF Worker deploy
 - **Cron** (12 workflows): check-alerts, fetch-weather, market-research, sync-connections, scrape-rates, scan-emails, scrape-portals, dunning-cycle, kpi-report, fetch-heating-oil, detect-rate-changes, db-maintenance

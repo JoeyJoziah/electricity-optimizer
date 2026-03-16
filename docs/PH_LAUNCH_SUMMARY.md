@@ -48,7 +48,7 @@ See exactly how much you'll save before switching. Join thousands saving $200+/y
 - **Beta Users**: 65+ active users in closed beta
 - **Average Savings**: $187/year per user
 - **System Uptime**: 99.8% in production
-- **Test Coverage**: 4,600+ tests (1,917 backend, 1,475 frontend, 611 ML, 634 E2E)
+- **Test Coverage**: 5,674+ tests (2,480 backend, 1,835 frontend, 611 ML, 671 E2E, 77 CF Worker)
 - **ML Accuracy**: MAPE <10% on price forecasting
 - **States Covered**: 20+ deregulated electricity markets
 - **Critical Bugs**: 0 in production
@@ -162,7 +162,7 @@ See exactly how much you'll save before switching. Join thousands saving $200+/y
 "Passive $200/year savings. Set it once, earn forever."
 
 ### For Tech/Developers
-"ML forecasting in production. Real-time price optimization. 4,600+ tests, 99.8% uptime."
+"ML forecasting in production. Real-time price optimization. 5,674+ tests, 99.8% uptime."
 
 ### For Environmentalists
 "Choosing greener suppliers = lower carbon. RateShift helps you save money AND the planet."

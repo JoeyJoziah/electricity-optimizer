@@ -1,13 +1,13 @@
 # DNS & Email Setup — rateshift.app
 
-> **STATUS (2026-03-10):** Domain `rateshift.app` purchased via Cloudflare Registrar.
-> Currently using Gmail SMTP fallback with `RateShift <autodailynewsletterintake@gmail.com>`.
-> Follow this guide to configure DNS, email, and SSL.
+> **STATUS (2026-03-16):** Domain `rateshift.app` purchased via Cloudflare Registrar.
+> Resend domain verified with DKIM/SPF/DMARC, TLS enforced. Domain ID: `20c95ef2-42f4-4040-be75-2026e97e35c9`.
+> Sender: `RateShift <noreply@rateshift.app>`. Gmail SMTP retained as fallback.
 
 > Purpose: Configure DNS for frontend/backend, set up Resend custom domain email,
 > and provision SSL -- all in one actionable checklist.
 >
-> Last updated: 2026-03-10
+> Last updated: 2026-03-16
 
 ---
 
@@ -16,8 +16,8 @@
 - [x] Budget approved for `.app` domain (~$14-20/year via Cloudflare Registrar)
 - [x] Cloudflare account created
 - [x] `rateshift.app` purchased (2026-03-10)
-- [ ] Access to Resend dashboard (https://resend.com/domains) — add domain, copy DKIM records
-- [ ] Access to Render + Vercel env var settings — update EMAIL_FROM_ADDRESS after domain verified
+- [x] Access to Resend dashboard (https://resend.com/domains) — domain added, DKIM verified
+- [x] Access to Render + Vercel env var settings — EMAIL_FROM_ADDRESS updated to `RateShift <noreply@rateshift.app>`
 
 ---
 
@@ -210,7 +210,7 @@ BACKEND_URL=https://api.rateshift.app       # if migrating from .onrender.com
   - Magic links will fail
   - Password reset will fail
   - After setting the variable, verify with `vercel env pull` (frontend) and Render dashboard (backend)
-- Store both secrets in 1Password ("Electricity Optimizer" vault) and set them as environment variables in Vercel and Render
+- Store both secrets in 1Password ("RateShift" vault) and set them as environment variables in Vercel and Render
 
 See `/frontend/.env.example` for reference, and `/backend/config/settings.py` for backend email configuration.
 
@@ -345,7 +345,7 @@ SMTP_PASSWORD=xxxx-xxxx-xxxx-xxxx    # App Password from Google
 EMAIL_FROM_ADDRESS=RateShift <autodailynewsletterintake@gmail.com>
 ```
 
-These are set on Render backend (34 env vars total) alongside the Resend variables. The email service tries Resend first, then falls back to SMTP.
+These are set on Render backend (41 env vars total) alongside the Resend variables. The email service tries Resend first, then falls back to SMTP.
 
 ### Limitations
 

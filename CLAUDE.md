@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-16 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,480 tests, Frontend 1,835 tests. 49 migrations (049: community tables). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 363 entities, 741 imports. Full docs refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs created; all codemaps/API ref/DB schema/testing docs updated. Performance optimization (SQL aggregates, React.memo audit, SSE partial-merge, tier caching isolation).)
+> Last validated: 2026-03-16 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,490 tests, Frontend 1,835 tests. 50 migrations (050: community_posts_indexes). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 31 GHA workflows. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 363 entities, 741 imports. Full docs refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs created; all codemaps/API ref/DB schema/testing docs updated. Performance optimization (SQL aggregates, React.memo audit, SSE partial-merge, tier caching isolation).)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -66,7 +66,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 44 public + 9 neon_auth = 53 tables (49 migrations: init_neon through 049_community_tables, all deployed to production), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
+- **NeonDBAgent**: 44 public + 9 neon_auth = 53 tables (50 migrations: init_neon through 050_community_posts_indexes), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
@@ -101,7 +101,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest)
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
-- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 44 public + 9 neon_auth = 53 tables total (49 migrations: init_neon through 049_community_tables — all deployed to production)
+- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 44 public + 9 neon_auth = 53 tables total (50 migrations: init_neon through 050_community_posts_indexes)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
 - **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (6h). Source: `workers/api-gateway/` (17 files, 77 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
@@ -111,7 +111,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Notifications**: OneSignal push (user binding via login(userId) post-auth) + email alerts
 - **Alerts**: `/internal/check-alerts` endpoint with dedup cooldowns (immediate=1h, daily=24h, weekly=7d). **UI**: `/alerts` page with CRUD, history tabs, AlertForm (region/thresholds/optimal windows). Sidebar Bell icon
 - **Automation**: 9 workflows planned (docs/AUTOMATION_PLAN.md). ALL PHASES COMPLETE (0-3), 7/7 workflows live. Self-Healing CI/CD: auto-format, retry-curl, notify-slack, validate-migrations, self-healing-monitor, E2E resilience. **Dependabot**: `.github/dependabot.yml` (pip/npm/github-actions, weekly Monday, grouped minor+patch)
-- **AI Agent** (prod 2026-03-11): "RateShift AI" — Gemini 3 Flash Preview (primary, free 10 RPM/250 RPD) + Groq Llama 3.3 70B (fallback on 429) + Composio tools (1K actions/month). Feature flag: `ENABLE_AI_AGENT=true`. Rate limits: Free=3/day, Pro=20/day, Business=unlimited. SSE streaming via `POST /agent/query`, async jobs via `POST /agent/task`, usage via `GET /agent/usage`. Service: `backend/services/agent_service.py`. API: `backend/api/v1/agent.py`. Frontend: `/assistant` page with `AgentChat` component. Migrations 031-033 applied. 13 tests in `test_agent_service.py`. Render env vars: 38 total (34 prior + 4 AI: GEMINI_API_KEY, GROQ_API_KEY, COMPOSIO_API_KEY, ENABLE_AI_AGENT)
+- **AI Agent** (prod 2026-03-11): "RateShift AI" — Gemini 3 Flash Preview (primary, free 10 RPM/250 RPD) + Groq Llama 3.3 70B (fallback on 429) + Composio tools (1K actions/month). Feature flag: `ENABLE_AI_AGENT=true`. Rate limits: Free=3/day, Pro=20/day, Business=unlimited. SSE streaming via `POST /agent/query`, async jobs via `POST /agent/task`, usage via `GET /agent/usage`. Service: `backend/services/agent_service.py`. API: `backend/api/v1/agent.py`. Frontend: `/assistant` page with `AgentChat` component. Migrations 031-033 applied. 13 tests in `test_agent_service.py`. Render env vars: 41 total (34 prior + 4 AI + 3 OTel: GEMINI_API_KEY, GROQ_API_KEY, COMPOSIO_API_KEY, ENABLE_AI_AGENT, OTEL_ENABLED, OTEL_EXPORTER_OTLP_ENDPOINT, GRAFANA_INSTANCE_ID)
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **DSP (Data Structure Protocol)**: `.dsp/` codebase graph — 363 entities, 741 imports, 0 cycles. CLI: `python3 dsp-cli.py --root . <command>`. UID map: `.dsp/uid_map.json`. Bootstrap: `scripts/dsp_bootstrap.py`. Use `search`, `get-recipients`, `get-children --depth N` before refactoring
 - **Slack**: Workspace `electricityoptimizer.slack.com` (T0AK0AJV5NE). Channels: `#incidents` (C0AKV2TK257), `#deployments` (C0AKCN6T02Z), `#metrics` (C0AKDD7P2HX). Webhook: `SLACK_INCIDENTS_WEBHOOK_URL` GHA secret + 1Password. Composio connection: `ca_jI3-cs-HrXPY` (Note: workspace named electricityoptimizer but project is RateShift)
@@ -119,17 +119,17 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ## Critical Reminders
 
-1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 48 base tables (39 public + 9 neon_auth), 38 migrations (latest: 045_affiliate_tracking, all deployed to production). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
+1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 53 tables (44 public + 9 neon_auth), 50 migrations (latest: 050_community_posts_indexes). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
-4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "Electricity Optimizer"
+4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "RateShift"
 5. **Region enum**: `backend/models/region.py` — all 50 states + DC + international, never raw strings
 6. **UUID PKs**: All primary keys use UUID type; GRANTs use `neondb_owner` role
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
 8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
 9. **Internal endpoints**: All `/api/v1/internal/*` routes require `X-API-Key` header and are excluded from RequestTimeoutMiddleware (30s). GHA workflows use `INTERNAL_API_KEY` repo secret
-10. **Self-healing CI/CD**: 28 GHA workflows total (25 main + `deploy-worker.yml` + `gateway-health.yml` + `owasp-zap.yml`). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
-11. **Community**: `/community` page with posts, voting, reporting. AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. nh3 XSS sanitization. Report threshold: 5 unique reporters auto-hides. Rate limit: 10 posts/hour. Community backend: `community_service.py`, `savings_aggregator.py`, `neighborhood_service.py`. Migration 049: 3 tables (community_posts, community_votes, community_reports)
+10. **Self-healing CI/CD**: 31 GHA workflows total. retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
+11. **Community**: `/community` page with posts, voting, reporting. AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. nh3 XSS sanitization. Report threshold: 5 unique reporters auto-hides. Rate limit: 10 posts/hour. Community backend: `community_service.py`, `savings_aggregator.py`, `neighborhood_service.py`. Migration 049: 3 tables (community_posts, community_votes, community_reports). Migration 050: optimized partial indexes for community_posts
 
 ## Cron Jobs & Maintenance
 

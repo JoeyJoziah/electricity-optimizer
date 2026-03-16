@@ -1,4 +1,4 @@
-> **STATUS**: Updated 2026-03-11 for current RateShift deployment architecture. References Neon PostgreSQL, Render paid tier, Vercel frontend, and Cloudflare Workers API Gateway. See [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for comprehensive deployment instructions. Original free-tier checklist archived at [docs/archive/](../docs/archive).
+> **STATUS**: Updated 2026-03-16 for current RateShift deployment architecture. References Neon PostgreSQL (49 migrations, 53 tables), Render paid tier (41 env vars), Vercel frontend, and Cloudflare Workers API Gateway (native rate limiting). Includes OWASP ZAP, pip-audit, and npm audit CI security gates. See [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for comprehensive deployment instructions. Original free-tier checklist archived at [docs/archive/](../docs/archive).
 
 # Deployment Checklist - RateShift Production
 
@@ -7,9 +7,11 @@
 ### Code Review
 - [ ] All code changes reviewed and tested locally
 - [ ] Database migrations validated (`scripts/validate_migrations.py`)
-- [ ] Backend tests passing: `.venv/bin/python -m pytest` (1,917+ tests, 0 failures)
-- [ ] Frontend tests passing: `npm test` (1,475+ tests)
-- [ ] E2E tests passing: `npm run test:e2e` (634+ tests)
+- [ ] Backend tests passing: `.venv/bin/python -m pytest` (2,480+ tests, 0 failures)
+- [ ] Frontend tests passing: `npm test` (1,841+ tests, 136 suites)
+- [ ] E2E tests passing: `npm run test:e2e` (671+ tests)
+- [ ] ML tests passing: `.venv/bin/python -m pytest ml/` (611 tests)
+- [ ] CF Worker tests passing: `cd workers/api-gateway && npm test` (77 tests)
 
 ### Local Testing
 ```bash
@@ -31,7 +33,7 @@ export REDIS_URL=<redis-url>
 ### Services
 - **Backend**: Render.com (`electricity-optimizer.onrender.com` → `api.rateshift.app`)
 - **Frontend**: Vercel (`rateshift.app`, `www.rateshift.app`)
-- **Database**: Neon PostgreSQL (`cold-rice-23455092`, 34 migrations, all deployed)
+- **Database**: Neon PostgreSQL (`cold-rice-23455092`, 49 migrations through 049, 53 tables, all deployed)
 - **Edge Layer**: Cloudflare Worker (`rateshift-api-gateway` at `api.rateshift.app/*`)
 - **Email**: Resend (primary, domain verified) + Gmail SMTP (fallback)
 
@@ -42,7 +44,7 @@ export REDIS_URL=<redis-url>
 - [ ] **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 - [ ] **Python Version**: 3.12
 
-#### 2. Environment Variables (38 total)
+#### 2. Environment Variables (41 total)
 
 **Critical Database & Auth** (5):
 - [ ] `NEON_CONNECTION_STRING` — Neon pooled endpoint (asyncpg)
@@ -75,11 +77,14 @@ export REDIS_URL=<redis-url>
 - [ ] `DIFFBOT_API_KEY` — Enhanced web scraping
 - [ ] `OPENWEATHER_API_KEY` — Weather data
 
-**Monitoring & Logging** (6):
+**Observability & Monitoring** (9):
 - [ ] `SENTRY_DSN` — Error tracking (optional, ~15MB overhead)
 - [ ] `SENTRY_SAMPLE_RATE=0.1` — 10% sample rate for perf
 - [ ] `SLACK_INCIDENTS_WEBHOOK_URL` — For self-healing CI/CD alerts
 - [ ] `RENDER_API_KEY` — For Composio deploy automation (optional)
+- [ ] `OTEL_ENABLED=true` — Enable OpenTelemetry distributed tracing
+- [ ] `OTEL_EXPORTER_OTLP_ENDPOINT` — Grafana Cloud Tempo OTLP/HTTP endpoint
+- [ ] `GRAFANA_INSTANCE_ID` — Grafana Cloud instance ID (1342627)
 
 **Utilities** (4):
 - [ ] `REDIS_URL` — Redis cache (optional, falls back to in-memory)
@@ -116,7 +121,7 @@ python3 -m mcp.neon.client run_sql \
 ```
 
 ### Migration Branches
-- [ ] **production** (default) - All 34 migrations deployed
+- [ ] **production** (default) - All 49 migrations deployed (001 through 049)
 - [ ] **vercel-dev** - For preview deployments (kept in sync with main)
 
 ## Deployment Pipeline
@@ -125,7 +130,7 @@ python3 -m mcp.neon.client run_sql \
 - [ ] All tests passing (backend, frontend, E2E)
 - [ ] Code review approved
 - [ ] Migrations validated against Neon schema
-- [ ] Environment variables set in Render (38 total)
+- [ ] Environment variables set in Render (41 total)
 
 ### 2. Deploy Backend (Render)
 ```bash
@@ -151,10 +156,12 @@ cd workers/api-gateway
 wrangler deploy
 
 # Deployment includes:
-# - 2-tier caching (Cache API + KV)
-# - Rate limiting (KV namespaces: CACHE, RATE_LIMIT)
+# - 2-tier caching (Cache API + KV with cacheTtl)
+# - Native rate limiting bindings (120/30/600 per min, zero KV cost)
 # - Bot detection and security headers
 # - Internal API key validation (X-API-Key)
+# - Graceful KV degradation (fail-open)
+# - Per-isolate metrics counters + /internal/gateway-stats
 ```
 
 ### Alternative: Composio-Based Deployment
@@ -187,7 +194,7 @@ Composio is reliable when GHA workflows are flaky or need manual trigger.
 
 ### 2. Database Health
 - [ ] `curl https://api.rateshift.app/api/v1/internal/health-data` → lists all tables
-- [ ] All 34 migrations deployed to Neon
+- [ ] All 49 migrations deployed to Neon (53 tables: 44 public + 9 neon_auth)
 - [ ] No orphaned connections (check Neon dashboard)
 
 ### 3. API Gateway (CF Worker)
@@ -221,6 +228,13 @@ Composio is reliable when GHA workflows are flaky or need manual trigger.
 - [ ] Slack #incidents receives failure alerts (if `notify-slack` fires)
 - [ ] Failed workflows auto-close issues when 3+ consecutive passes occur
 - [ ] `retry-curl` exponential backoff working: Check GHA logs for "Attempt 2/3"
+
+## Security Scanning (CI Gates)
+
+- [ ] `pip-audit` passes in `_backend-tests.yml` (no known Python dependency vulnerabilities)
+- [ ] `npm audit --audit-level=high` passes in `ci.yml` (no high/critical npm vulnerabilities)
+- [ ] OWASP ZAP baseline scan passes (`owasp-zap.yml`, weekly Sunday 4am UTC against Render backend)
+- [ ] False-positive suppression rules current: `.zap/rules.tsv` (5 rules)
 
 ## Security Verification
 
@@ -382,6 +396,6 @@ After every deployment:
 
 ---
 
-**Last Updated**: 2026-03-11
+**Last Updated**: 2026-03-16
 **Current Architecture**: Render backend + Vercel frontend + Neon database + Cloudflare Workers edge
-**Status**: Production RateShift with self-healing CI/CD
+**Status**: Production RateShift with self-healing CI/CD, OWASP ZAP + pip-audit + npm audit gates

@@ -2,7 +2,7 @@
 
 > **PURPOSE**: Executable step-by-step guide to fully redeploy the RateShift application from scratch across all four deployment layers (Database, Backend, Frontend, Edge Layer).
 >
-> **LAST UPDATED**: 2026-03-11
+> **LAST UPDATED**: 2026-03-16
 > **STATUS**: Production-ready
 > **SCOPE**: Cold start redeployment, assumes DNS already configured per `/docs/DNS_EMAIL_SETUP.md`
 
@@ -111,12 +111,12 @@ rm /tmp/secrets.env
 - **Direct endpoint** (for DDL/migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`
 - **Region**: us-east-1
 - **Branches**: `production` (default), `vercel-dev` (for preview deployments)
-- **Total tables**: 33 public + 9 neon_auth = 42 total (plus 3 cache tables)
-- **All migrations**: 34 files in `backend/migrations/`, using `IF NOT EXISTS` pattern (safe to re-run)
+- **Total tables**: 44 public + 9 neon_auth = 53 total
+- **All migrations**: 50 files in `backend/migrations/` (49 deployed to production through 049), using `IF NOT EXISTS` pattern (safe to re-run)
 
 ### Migration Files (Complete List)
 
-The following 34 migrations must be applied **in order** to the `production` branch:
+The following 50 migrations must be applied **in order** to the `production` branch (49 deployed as of 2026-03-16, 050 pending):
 
 ```
 1.  init_neon.sql                               (core schema, users, prices, suppliers)
@@ -153,6 +153,22 @@ The following 34 migrations must be applied **in order** to the `production` bra
 32. 032_notification_error_message.sql          (notification error message logging)
 33. 033_model_predictions_ab_assignments.sql    (model predictions + AB test assignments)
 34. 034_portal_credentials.sql                  (portal credentials columns on user_connections)
+35. 035_backfill_neon_auth_users.sql            (backfill neon_auth users)
+36. 036_performance_indexes.sql                 (additional performance indexes)
+37. 037_additional_performance_indexes.sql      (further performance indexes)
+38. 038_utility_accounts.sql                    (utility accounts)
+39. 039_referrals.sql                           (referral tracking)
+40. 040_gas_supplier_seed.sql                   (12 gas supplier seed data)
+41. 041_community_solar_programs.sql            (15 community solar programs)
+42. 042_cca_programs.sql                        (CCA programs)
+43. 043_heating_oil.sql                         (heating oil prices, dealers)
+44. 044_multi_utility_alerts.sql                (multi-utility alerting tables)
+45. 045_affiliate_tracking.sql                  (affiliate click tracking)
+46. 046_propane_prices.sql                      (propane price tracking)
+47. 047_water_rates.sql                         (water rates with JSONB rate_tiers)
+48. 048_utility_feature_flags.sql               (utility-specific feature flags)
+49. 049_community_tables.sql                    (community posts, votes, reports)
+50. 050_community_posts_indexes.sql             (community posts indexes — NOT YET DEPLOYED)
 ```
 
 ### Step 1.1: Connect to Neon
@@ -194,7 +210,7 @@ psql "$NEON_CONNECTION_STRING" -c "SELECT version();"
 # Expected output: PostgreSQL 15.x (Neon)
 ```
 
-### Step 1.2: Apply All 33 Migrations
+### Step 1.2: Apply All 50 Migrations
 
 **IMPORTANT**: Migrations use `IF NOT EXISTS`, so they are **safe to re-run** without data loss.
 
@@ -211,7 +227,7 @@ export NEON_CONNECTION="postgresql://neondb_owner:${NEON_PASSWORD}@ep-withered-m
 
 MIGRATIONS_DIR="/Users/devinmcgrath/projects/electricity-optimizer/backend/migrations"
 
-echo "Applying all 34 migrations to Neon..."
+echo "Applying all 50 migrations to Neon..."
 echo "Connection: $(echo $NEON_CONNECTION | cut -d'@' -f2)"
 echo ""
 
@@ -251,6 +267,22 @@ migrations=(
   "032_notification_error_message.sql"
   "033_model_predictions_ab_assignments.sql"
   "034_portal_credentials.sql"
+  "035_backfill_neon_auth_users.sql"
+  "036_performance_indexes.sql"
+  "037_additional_performance_indexes.sql"
+  "038_utility_accounts.sql"
+  "039_referrals.sql"
+  "040_gas_supplier_seed.sql"
+  "041_community_solar_programs.sql"
+  "042_cca_programs.sql"
+  "043_heating_oil.sql"
+  "044_multi_utility_alerts.sql"
+  "045_affiliate_tracking.sql"
+  "046_propane_prices.sql"
+  "047_water_rates.sql"
+  "048_utility_feature_flags.sql"
+  "049_community_tables.sql"
+  "050_community_posts_indexes.sql"
 )
 
 for ((i=0; i<${#migrations[@]}; i++)); do
@@ -263,7 +295,7 @@ for ((i=0; i<${#migrations[@]}; i++)); do
     exit 1
   fi
 
-  echo "[$migration_num/34] Applying: $migration"
+  echo "[$migration_num/50] Applying: $migration"
   psql "$NEON_CONNECTION" -f "$migration_file" > /dev/null 2>&1
 
   if [ $? -eq 0 ]; then
@@ -276,7 +308,7 @@ for ((i=0; i<${#migrations[@]}; i++)); do
 done
 
 echo ""
-echo "All 34 migrations applied successfully!"
+echo "All 50 migrations applied successfully!"
 ```
 
 Run the migration script:
@@ -350,9 +382,9 @@ psql "$NEON_CONNECTION" -c \
 ### Step 1.6: Database Verification Complete
 
 You should see:
-- 33+ public tables
-- 8-9 neon_auth tables
-- 40+ indexes
+- 44 public tables
+- 9 neon_auth tables (53 total)
+- 100+ indexes
 - All tables with `neondb_owner` ownership
 - No errors in the migration logs
 
@@ -375,9 +407,9 @@ unset NEON_CONNECTION
 - **Docker**: Multi-stage build from `backend/Dockerfile`
 - **Deployment**: Via Render deploy hook (triggered by GitHub Actions) or manual Render dashboard
 - **Health endpoint**: `GET /health` → returns `{"status":"healthy"}`
-- **Environment variables**: 38 total (see list below)
+- **Environment variables**: 41 total (see list below)
 
-### Backend Environment Variables (All 38)
+### Backend Environment Variables (All 41)
 
 Create these on the Render dashboard for service `srv-d649uhur433s73d557cg` **before** deploying.
 
@@ -470,8 +502,9 @@ Create these on the Render dashboard for service `srv-d649uhur433s73d557cg` **be
 | Variable | Example | Source | Notes |
 |----------|---------|--------|-------|
 | `SENTRY_DSN` | `https://key@o0.ingest.sentry.io/project-id` | Sentry Dashboard | Optional error tracking. If empty, errors not sent to Sentry. |
-| `OTEL_ENABLED` | `false` | Manual | OpenTelemetry tracing (experimental). Keep `false` in production. |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | Manual | OTEL collector endpoint (if OTEL_ENABLED=true). |
+| `OTEL_ENABLED` | `true` | Manual | OpenTelemetry tracing. Set `true` in production for distributed tracing to Grafana Cloud Tempo. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://otlp-gateway-prod-us-east-2.grafana.net/otlp` | Grafana Cloud | OTLP gateway endpoint (Grafana Cloud Tempo). |
+| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Basic <base64>` | Grafana Cloud / 1Password | OTLP auth header. Store in 1Password "Grafana Cloud OTLP". |
 
 #### Notifications
 

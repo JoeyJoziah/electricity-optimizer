@@ -32,7 +32,7 @@ Use **Neon PostgreSQL** (project `cold-rice-23455092`) as the sole database.
 - Connection pooling via PgBouncer built-in
 
 ### Negative
-- UUID primary keys required (all 41 public tables use UUID PKs)
+- UUID primary keys required (all 44 public tables use UUID PKs)
 - `neondb_owner` role must be used for all GRANTs in migrations
 - No `SERIAL` columns — use `gen_random_uuid()` defaults
 - Cold starts possible on scale-to-zero (mitigated by CF Worker caching)

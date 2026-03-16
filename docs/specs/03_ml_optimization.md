@@ -4,6 +4,13 @@
 > Status: Draft
 > Last updated: 2026-02-22
 > Modules: `ml/`, `backend/routers/predictions.py`, `backend/services/vector_store.py`
+>
+> **Current Status (2026-03-16):** This spec remains largely accurate for the ML architecture. Key updates since it was written:
+> - **Vector Store**: HNSW vector store upgraded with geometric growth (resize *2), async wrappers (`async_insert`, `async_search`, etc.), and batched metadata lookups (single `SELECT ... WHERE id IN`).
+> - **Ensemble Integration**: `EnsemblePredictor` is now wired into `PriceService.get_price_forecast()` with lazy loading and `asyncio.to_thread` for CPU-bound inference.
+> - **Adaptive Learning**: Nightly observation loop operational with `forecast_observations` table, bias detection, and weight retuning.
+> - **Region Enum**: Local 6-value Region enum in `predictions.py` replaced with canonical `Region` from `models/region.py` (50 states + DC + international).
+> - **Tests**: 611 ML tests passing (257 at spec time), 49 HNSW vector store tests.
 
 ---
 

@@ -4,7 +4,7 @@ Modern Next.js 16 + React 19 frontend for electricity price optimization and cos
 
 ## Overview
 
-RateShift's frontend provides a comprehensive dashboard for users to monitor electricity rates, manage connections, receive price alerts, and get AI-powered optimization recommendations. Built with cutting-edge React 19 and TypeScript, it delivers a responsive, accessible experience across all devices.
+RateShift's frontend provides a comprehensive multi-utility dashboard for users to monitor electricity, natural gas, propane, heating oil, and water rates, manage connections, receive price alerts, participate in community discussions, and get AI-powered optimization recommendations. Built with cutting-edge React 19 and TypeScript, it delivers a responsive, accessible experience across all devices.
 
 **Live**: https://rateshift.app
 
@@ -16,8 +16,8 @@ RateShift's frontend provides a comprehensive dashboard for users to monitor ele
 - **State Management**: TanStack Query v5 (server state), React Context (auth/UI state)
 - **Forms**: React Hook Form + custom Input component
 - **API Client**: Fetch API with auth interceptors
-- **Testing**: Jest + React Testing Library (1,475 unit tests, 99 suites)
-- **E2E Testing**: Playwright (634 tests)
+- **Testing**: Jest + React Testing Library (1,841 unit tests, 136 suites)
+- **E2E Testing**: Playwright (671 tests)
 - **Accessibility**: jest-axe (51 tests), WCAG AA compliant
 - **Charts**: Recharts for data visualization
 - **Email**: Resend SDK + nodemailer fallback
@@ -37,17 +37,27 @@ frontend/
 │   ├── pricing/                 # Pricing page (/pricing)
 │   ├── privacy/                 # Privacy policy (/privacy)
 │   ├── terms/                   # Terms of service (/terms)
+│   ├── rates/                   # SEO rate pages
+│   │   └── [state]/             # ISR pages per state
+│   │       └── [utility]/       # Per-utility type (electricity, gas, propane, heating-oil, water)
 │   └── (app)/                   # Authenticated app routes (sidebar layout)
-│       ├── layout.tsx           # Sidebar + navigation
-│       ├── dashboard/           # Home dashboard
+│       ├── layout.tsx           # Sidebar + navigation (15 nav items)
+│       ├── dashboard/           # Tabbed multi-utility dashboard
 │       ├── prices/              # Current electricity prices
 │       ├── suppliers/           # Available suppliers
 │       ├── connections/         # Utility account connections
 │       ├── optimize/            # AI optimization recommendations
 │       ├── alerts/              # Price threshold alerts + history
 │       ├── assistant/           # AI agent chat interface
+│       ├── analytics/           # Usage analytics
+│       ├── community/           # Community posts, voting, reporting
+│       ├── community-solar/     # Community solar programs
+│       ├── gas-rates/           # Natural gas rates
+│       ├── heating-oil/         # Heating oil prices and dealers
+│       ├── propane/             # Propane prices and fill-up timing
+│       ├── water/               # Water rates and conservation
 │       ├── settings/            # User account settings
-│       ├── onboarding/          # First-time user setup
+│       ├── onboarding/          # First-time user setup (region-only 1-step)
 │       ├── beta-signup/         # Early access sign-up
 │       └── auth/                # Authentication flows
 │           ├── login/
@@ -77,9 +87,11 @@ frontend/
 │   │   └── AlertHistory.tsx
 │   ├── connections/             # Connection management
 │   │   ├── ConnectionsOverview.tsx
+│   │   ├── ConnectionMethodPicker.tsx # 4 connection types
 │   │   ├── DirectLoginForm.tsx
 │   │   ├── BillUploadForm.tsx
-│   │   └── BillViewer.tsx
+│   │   ├── BillViewer.tsx
+│   │   └── PortalConnectionFlow.tsx # Multi-step portal scrape
 │   ├── agent/                   # AI agent interface
 │   │   ├── AgentChat.tsx        # Message thread UI
 │   │   ├── AgentControls.tsx    # Query/task submission
@@ -148,21 +160,29 @@ frontend/
 | `/pricing` | Pricing plans and features | No |
 | `/privacy` | Privacy policy | No |
 | `/terms` | Terms of service | No |
+| `/rates/[state]/[utility]` | SEO ISR rate pages (153 pages, 5 utility types) | No |
 | `/auth/login` | User login | No |
 | `/auth/signup` | New user registration | No |
 | `/auth/callback` | OAuth callback handler | No |
 | `/auth/verify-email` | Email verification | No |
 | `/auth/forgot-password` | Password reset request | No |
 | `/auth/reset-password` | Password reset form | No |
-| `/dashboard` | Main dashboard (account overview) | Yes |
-| `/prices` | Current and historical prices | Yes |
+| `/dashboard` | Tabbed multi-utility dashboard | Yes |
+| `/prices` | Current and historical electricity prices | Yes |
+| `/gas-rates` | Natural gas rates | Yes |
+| `/heating-oil` | Heating oil prices and dealers | Yes |
+| `/propane` | Propane prices and fill-up timing | Yes |
+| `/water` | Water rates and conservation tips | Yes |
 | `/suppliers` | Available utility suppliers | Yes |
 | `/connections` | Manage utility account connections | Yes |
-| `/alerts` | Create and manage price alerts | Yes |
 | `/optimize` | AI-powered recommendations | Yes |
+| `/alerts` | Create and manage price alerts | Yes |
 | `/assistant` | AI agent chat interface | Yes |
+| `/analytics` | Usage analytics | Yes |
+| `/community` | Community posts, voting, reporting | Yes |
+| `/community-solar` | Community solar programs | Yes |
 | `/settings` | Account and billing settings | Yes |
-| `/onboarding` | First-time user setup flow | Yes |
+| `/onboarding` | First-time user setup (region-only) | Yes |
 | `/beta-signup` | Early access registration | No |
 | `/architecture` | Architecture diagram (dev only) | Yes + dev mode |
 
@@ -303,7 +323,7 @@ npx playwright test --headed       # See browser
 npx playwright test auth.spec.ts   # Single file
 ```
 
-634 E2E tests cover auth flows, dashboard, alerts, connections, and critical paths. Retry logic handles timing flakes. Extended timeouts for API operations.
+671 E2E tests cover auth flows, dashboard, alerts, connections, community, multi-utility pages, and critical paths. Includes 37 page-load tests covering all 21 pages (183 assertions across 5 browsers). Retry logic handles timing flakes. Extended timeouts for API operations.
 
 ### Coverage Thresholds
 

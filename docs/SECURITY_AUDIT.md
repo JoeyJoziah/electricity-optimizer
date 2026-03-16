@@ -1,8 +1,15 @@
 # Pre-Launch Security Audit Report
 
-**Date**: 2026-03-10
+**Date**: 2026-03-10 (original audit) | Last reviewed: 2026-03-16
 **Grade**: B+
 **Scope**: Full codebase (backend, frontend, infrastructure)
+
+> **Wave 5 Security Additions (2026-03-12):**
+> - OWASP ZAP weekly baseline scan (`owasp-zap.yml`, Sunday 4am UTC) against Render backend
+> - `pip-audit` in `_backend-tests.yml` fails on known Python dependency vulnerabilities
+> - `npm audit --audit-level=high` in `ci.yml` fails on high/critical npm vulnerabilities
+> - `.zap/rules.tsv`: 5 false-positive suppression rules
+> - Community AI moderation: Groq primary, Gemini fallback, nh3 XSS sanitization, fail-closed 30s timeout (reduced to 5s in perf optimization)
 
 ## Summary
 
@@ -89,6 +96,10 @@
 - RequestBodySizeLimitMiddleware (1MB) active
 - Container scanning (Trivy) in CI
 - Secret scanning (gitleaks) in CI
+- OWASP ZAP weekly baseline scan (Wave 5)
+- pip-audit and npm audit CI gates (Wave 5)
+- Community content AI moderation with nh3 XSS sanitization (Wave 5)
+- Circuit breaker pattern for external service calls (Zenith P0)
 
 ## Remediation Timeline
 

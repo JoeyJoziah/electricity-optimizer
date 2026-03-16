@@ -4,6 +4,14 @@
 > Last updated: 2026-03-04
 >
 > **Note (2026-02-24):** This spec predates the refactoring roadmap (2026-02-23). Key changes since: Supabase auth fully replaced by Neon Auth (Better Auth), SSE upgraded to `@microsoft/fetch-event-source` for cookie-based auth, Next.js upgraded to 14.2.35. See [REFACTORING_ROADMAP.md](../REFACTORING_ROADMAP.md).
+>
+> **Current Status (2026-03-16):** This spec is a historical design document. The frontend has evolved significantly since it was written. Key differences from current state:
+> - **Framework**: Now Next.js 16 + React 19 (this spec references Next.js 14).
+> - **Auth**: Supabase auth references throughout are outdated. Authentication is now Neon Auth (Better Auth) with session-based httpOnly cookies. `AuthProvider` uses Better Auth, not Supabase.
+> - **Routes**: Section 1 lists ~8 app pages. The frontend now has 15 sidebar nav items and 21 total pages, including assistant, alerts, community, gas, propane, heating-oil, water, connections, and multi-utility dashboard tabs.
+> - **SSE**: Native EventSource replaced with `@microsoft/fetch-event-source` for cookie-based auth and exponential backoff.
+> - **Tests**: 1,835 frontend tests passing across 136 suites (up from ~346 at spec time).
+> - **Edge Layer**: Frontend circuit breaker auto-falls back to Render on CF Worker 502/503.
 
 ---
 

@@ -390,19 +390,19 @@ if backtest_results.overall_mape < 10.0:
 
 ---
 
-## Next Steps (Phase 4+)
+## Status of Planned Enhancements
 
-### Immediate Priorities
-1. **Integration Testing**: Test full pipeline end-to-end with real data
-2. **Model Registry**: MLflow model versioning and deployment
-3. **A/B Testing**: Compare CNN-LSTM vs XGBoost vs ensemble
-4. **Monitoring Dashboard**: Real-time accuracy tracking
+### Completed (as of Wave 3)
+1. **Ensemble Methods**: CNN-LSTM (50%) + XGBoost (25%) + LightGBM (25%) ensemble with configurable weights
+2. **A/B Testing**: SHA-256 deterministic user hashing for model variant assignment (migration 033)
+3. **Model Versioning**: `model_config` table with `weights_json JSONB`, `model_version`, `is_active` flag
+4. **Adaptive Learning**: Nightly weight adjustment via LearningService based on forecast accuracy
 
 ### Future Enhancements
 - **AutoML**: Neural architecture search (NAS)
-- **Ensemble Methods**: Weighted combination of models
 - **Transfer Learning**: Pre-trained models for new regions
 - **Explainability**: SHAP values for feature importance
+- **MLflow Registry**: Full model lifecycle management (currently using PostgreSQL-based versioning)
 
 ---
 

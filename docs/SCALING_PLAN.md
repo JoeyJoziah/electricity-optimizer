@@ -154,7 +154,7 @@ Implementation: Create a `DATABASE_READ_URL` env var pointing to a Neon read rep
 
 | Timeframe | Estimated Storage | Notes |
 |-----------|------------------|-------|
-| Current | ~50MB | 25 migrations, seed data, small user base |
+| Current | ~100MB | 50 migrations, seed data, small user base |
 | 6 months (200 users) | ~500MB | Price history, weather cache, alerts |
 | 12 months (500 users) | ~2GB | Connection data, bill uploads, ML features |
 | 24 months (2000 users) | ~8GB | Full analytics history, all caches |
@@ -433,7 +433,7 @@ curl -X PUT "https://api.render.com/v1/services/srv-d649uhur433s73d557cg/env-var
 
 ---
 
-**Last Updated**: 2026-03-11
+**Last Updated**: 2026-03-16
 
 ---
 

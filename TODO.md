@@ -1,8 +1,8 @@
 # RateShift - Project TODO
 
-**Last Updated**: 2026-03-11
+**Last Updated**: 2026-03-16
 **Status**: Live in production (Backend: Render, Frontend: Vercel, Edge: CF Worker)
-**Overall Progress**: All features complete, ~4,600+ tests passing (1,917 backend, 1,475 frontend, 611 ML, 634 E2E), 34 migrations (34 deployed), 42 tables (33 public + 9 neon_auth), 24 GHA workflows, self-healing CI/CD
+**Overall Progress**: All features complete across Waves 1-5. ~5,680 tests passing (2,480 backend, 1,841 frontend, 611 ML, 671 E2E, 77 CF Worker). 50 migrations (all deployed), 53 tables (44 public + 9 neon_auth), 31 GHA workflows, self-healing CI/CD. Master TODO registry: 27/27 COMPLETE.
 
 ---
 
@@ -258,18 +258,28 @@
 
 ## Phase 4: Frontend Development (100% COMPLETE)
 
-### Next.js 14 Application - All Completed
+### Next.js 16 Application - All Completed
 - [x] App Router architecture
 - [x] TypeScript strict mode
-- [x] React 18 with server components
+- [x] React 19 with server components
 - [x] Tailwind CSS styling system
 
-### Pages - All Completed
-- [x] /dashboard - Main overview with all widgets
+### Pages - All Completed (15 sidebar nav items + public pages)
+- [x] /dashboard - Multi-utility tabbed dashboard
 - [x] /prices - Price history and forecast analysis
 - [x] /suppliers - Supplier comparison + switching wizard
-- [x] /optimize - Load scheduling configuration
+- [x] /recommendations - ML-powered switching recommendations
+- [x] /savings - Savings estimates + neighborhood comparison
+- [x] /forecast - Demand forecasting
+- [x] /connections - Utility account connections (5 types)
+- [x] /alerts - Price threshold alerts with CRUD + history
 - [x] /settings - User preferences and region selection
+- [x] /assistant - RateShift AI chat (Gemini + Groq + SSE streaming)
+- [x] /community - Posts, voting, reporting with AI moderation
+- [x] /heating-oil - Heating oil dealer tracking
+- [x] /propane - Propane price tracking + fill-up timing
+- [x] /water - Water rate benchmarks + conservation tips
+- [x] /rates/[state]/[utility] - 153 SEO pages (ISR)
 
 ### Components - All Completed
 - [x] PriceLineChart - Real-time prices with forecast overlay
@@ -536,44 +546,15 @@
 - **Documentation**: 15+ comprehensive docs
 
 ### Test Coverage
-- **Total Tests**: ~4,600+ (backend + frontend + ML + E2E)
-- **Test Success Rate**: 100% (3 pre-existing failures in send.test.ts)
-- **Backend Tests**: 1,917 tests (59 test files)
-  - Auth: 40 tests (JWT + Neon Auth + password + API keys)
-  - Security: 34 tests (adversarial testing suite)
-  - Connections: 40 tests (5 phases, paid-tier gating, encryption)
-  - Services: 200+ tests (stripe, alerts, learning, observations, email)
-  - API Endpoints: 300+ tests (health, prices, recommendations, analytics, compliance, billing)
-  - Infrastructure: 100+ tests (middleware, migrations, vector store, performance)
-- **Frontend Unit Tests**: 1,475 tests (98 test suites)
-  - Components: 380 tests (UI primitives, charts, suppliers, connections, layout)
-  - Pages: 22 tests (dashboard, prices, suppliers)
-  - Hooks: 51 tests (useAuth, usePrices, useDiagrams)
-  - Contexts: 59 tests (toast, sidebar)
-  - Integration: 68 tests (full user flows)
-  - Dev Features: 283 tests (Excalidraw architecture diagrams)
-- **ML Tests**: 611 tests, 55 skipped (matplotlib/plotly) (16 test files, 611 test functions)
-  - Models: 22 tests (CNN-LSTM, MILP optimization)
-  - Training: 173 tests (hyperparameter tuning, backtesting, inference)
-  - Predictions: 59 tests (ensemble predictor, uncertainty)
-  - Optimization: 150+ tests (load shifting, scheduling, decision engine)
-  - Metrics: 86 tests (MAPE, accuracy, validation)
-- **E2E Tests**: 16 spec files (634 test cases across Chromium/Firefox/WebKit/Mobile)
-  - Onboarding: 2 specs (full journey, flow)
-  - Authentication: 1 spec (OAuth, magic link, session)
-  - Dashboard: 1 spec (widgets, analytics)
-  - Prices: 1 spec (history, forecast, SSE streaming)
-  - Suppliers: 2 specs (switching, selection, comparison)
-  - Optimization: 1 spec (load scheduling)
-  - Billing: 1 spec (checkout, portal, subscription)
-  - GDPR: 1 spec (data export, deletion)
-  - Settings: 1 spec (profile, region, preferences)
-  - Full Journey: 1 spec (signup to recommendations)
-  - Other: 4 specs (SSE streaming, supplier switching, billing flows)
-- **Security Tests**: 34 tests (included in backend count, adversarial testing)
+- **Total Tests**: ~5,680 (backend + frontend + ML + E2E + CF Worker)
+- **Test Success Rate**: 100%
+- **Backend Tests**: 2,480 tests
+- **Frontend Unit Tests**: 1,841 tests (136 suites)
+- **ML Tests**: 611 tests
+- **E2E Tests**: 671 tests (across Chromium/Firefox/WebKit/Mobile)
+- **CF Worker Tests**: 77 tests
 - **Overall Coverage**: 80%+
 - **Load Tests**: 1000+ concurrent users (Locust)
-- **Performance Tests**: 31 tests (query count, cache, async Stripe, page load time)
 
 ### Git Activity
 - **Commits**: 15+ production commits
@@ -654,48 +635,47 @@ make backup
 - **Code Refactoring** (connections package split, app factory pattern, SessionData consolidation)
 
 **Remaining** (Post-Launch/Future Enhancements):
-1. Custom domain purchase (electricity-optimizer.app) + DKIM/SPF/DMARC + Resend custom domain email
+1. ~~Custom domain purchase~~ DONE — `rateshift.app` purchased, DKIM/SPF/DMARC configured, Resend custom domain email active
 2. Frontend Sentry integration (client errors currently invisible)
 3. OG images for social sharing
-4. GDPR data export endpoint
-5. Cookie consent banner (required before enabling Clarity)
-6. structlog migration (7 services still use stdlib logging)
-7. Per-user rate limits (currently global only)
-8. Mobile app native versions (iOS/Android)
-9. NotificationDispatcher + ML weight persistence + in-app notifications
+4. Cookie consent banner (required before enabling Clarity)
+5. structlog migration (7 services still use stdlib logging)
+6. Per-user rate limits (currently global only)
+7. Mobile app native versions (iOS/Android)
 
 **Production**:
-- Backend: https://electricity-optimizer.onrender.com (Render)
-- Frontend: Vercel (migrated from Render in fd47aad)
+- Backend: https://api.rateshift.app (Render, proxied via CF Worker)
+- Frontend: https://rateshift.app (Vercel)
+- Edge: Cloudflare Worker at api.rateshift.app
 - Auto-deploy on push to `main`
 
 ---
 
 **Statistics**:
-- 35,000+ lines of production code
-- ~4,600+ tests (1,917 backend, 1,475 frontend, 611 ML, 634 E2E)
+- 50,000+ lines of production code
+- ~5,680 tests (2,480 backend, 1,841 frontend, 611 ML, 671 E2E, 77 CF Worker)
 - 100% backend test success rate
-- 100% frontend test success rate (3 pre-existing failures in send.test.ts)
-- 0 security vulnerabilities (SQL injection hardened, SSE auth, session SHA-256 cache keys, AES-256-GCM encryption)
-- 18x faster than traditional development
-- 78% under budget ($11/month vs $50/month)
+- 100% frontend test success rate
+- 53 database tables (44 public + 9 neon_auth), 50 migrations
+- 31 GitHub Actions workflows, self-healing CI/CD
+- OWASP ZAP + pip-audit + npm audit security gates
 - 80%+ code coverage across all modules
 
 ---
 
 ---
 
-## Session Summary: 2026-03-09
+## Session Summary: 2026-03-16
 
-**Latest Session**: Production readiness review — multi-agent brainstorming (5 agents), 2 launch blockers + 8 pre-launch items fixed, documentation swarm (6 agents) updating all project docs
-**Test Status**: ~4,600+ tests passing (1,917 backend, 1,475 frontend, 611 ML, 634 E2E)
-**Database**: 42 tables (33 public + 9 neon_auth), 34 migrations
-**CI/CD**: 23 GHA workflows, self-healing monitor, 6 composite actions, Dependabot
-**Automation**: All 7/7 workflows live, 3 Rube recipes, KPI report → Google Sheets + Slack
+**Latest Session**: End-to-end performance optimization (9 fixes), full documentation refresh (all root-level docs updated)
+**Test Status**: ~5,680 tests passing (2,480 backend, 1,841 frontend, 611 ML, 671 E2E, 77 CF Worker)
+**Database**: 53 tables (44 public + 9 neon_auth), 50 migrations (all deployed to production)
+**CI/CD**: 31 GHA workflows, self-healing monitor, 6 composite actions, Dependabot
+**Automation**: All 7/7 workflows live, 3 Rube recipes, KPI report, OWASP ZAP weekly scan
+**Waves**: 1-5 COMPLETE (foundation, infrastructure, depth, breadth, unification)
 
 ---
 
-**Last Updated**: 2026-03-10
-**Target Market**: Nationwide USA (USD default, multi-currency support)
-**Prepared by**: Complete Hive Mind (All 6 Swarms)
-**Achievement**: Production-ready MVP, continuous improvements ongoing
+**Last Updated**: 2026-03-16
+**Target Market**: Nationwide USA (USD default, multi-utility: electricity, natural gas, propane, heating oil, water)
+**Achievement**: Full production platform with multi-utility support, community features, AI agent, and comprehensive test coverage
