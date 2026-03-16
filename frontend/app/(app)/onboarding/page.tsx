@@ -3,20 +3,35 @@
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
-import { useProfile } from '@/lib/hooks/useProfile'
+import { useProfile, useUpdateProfile } from '@/lib/hooks/useProfile'
 
 export default function OnboardingPage() {
   const { data: profile, isLoading } = useProfile()
+  const updateProfile = useUpdateProfile()
   const router = useRouter()
   const redirectedRef = useRef(false)
 
-  // Redirect completed users to dashboard (guard against double-fire)
+  // Auto-complete onboarding for users who already have a region but
+  // whose onboarding_completed flag is false (data inconsistency).
+  // Also redirect already-completed users to dashboard.
   useEffect(() => {
-    if (!isLoading && profile?.onboarding_completed && profile?.region && !redirectedRef.current) {
+    if (isLoading || redirectedRef.current) return
+
+    // User already has region but onboarding not marked complete — auto-fix
+    if (!profile?.onboarding_completed && profile?.region) {
+      redirectedRef.current = true
+      updateProfile.mutateAsync({ onboarding_completed: true })
+        .then(() => router.replace('/dashboard'))
+        .catch(() => router.replace('/dashboard'))
+      return
+    }
+
+    // Already completed — redirect to dashboard
+    if (profile?.onboarding_completed && profile?.region) {
       redirectedRef.current = true
       router.replace('/dashboard')
     }
-  }, [profile, isLoading, router])
+  }, [profile, isLoading, router, updateProfile])
 
   const handleComplete = () => {
     if (!redirectedRef.current) {

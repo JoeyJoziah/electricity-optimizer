@@ -2,10 +2,12 @@ import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 const mockUseProfile = jest.fn()
+const mockMutateAsync = jest.fn().mockResolvedValue({})
 const mockReplace = jest.fn()
 
 jest.mock('@/lib/hooks/useProfile', () => ({
   useProfile: () => mockUseProfile(),
+  useUpdateProfile: () => ({ mutateAsync: mockMutateAsync }),
 }))
 
 jest.mock('next/navigation', () => ({
@@ -45,14 +47,17 @@ describe('OnboardingPage', () => {
     expect(screen.getByTestId('onboarding-wizard')).toBeInTheDocument()
   })
 
-  it('renders OnboardingWizard when onboarding_completed is false', () => {
+  it('auto-fixes and redirects when region exists but onboarding_completed is false', async () => {
     mockUseProfile.mockReturnValue({
       data: { onboarding_completed: false, region: 'us_ct' },
       isLoading: false,
     })
     render(<OnboardingPage />)
 
-    expect(screen.getByTestId('onboarding-wizard')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({ onboarding_completed: true })
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard')
+    })
   })
 
   it('renders null when profile has completed onboarding (redirect pending)', () => {

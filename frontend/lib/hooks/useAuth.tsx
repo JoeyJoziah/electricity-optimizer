@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, createContext, useCo
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth/client'
 import { getUserSupplier } from '@/lib/api/suppliers'
-import { getUserProfile } from '@/lib/api/profile'
+import { getUserProfile, updateUserProfile } from '@/lib/api/profile'
 import { useSettingsStore } from '@/lib/store/settings'
 import { API_URL } from '@/lib/config/env'
 import { loginOneSignal, logoutOneSignal } from '@/lib/notifications/onesignal'
@@ -200,16 +200,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const path = window.location.pathname
 
             if (isProfileRequiredPath(path)) {
-              // Check 1: Onboarding not completed
-              if (checkNeedsOnboarding(profile)) {
+              // Only redirect when the user genuinely has no region set.
+              // Previously we also redirected on !onboarding_completed, which
+              // caused a redirect loop for users who already had a region but
+              // whose onboarding_completed flag was false.
+              if (checkNeedsRegion(profile)) {
                 routerRef.current.replace('/onboarding')
                 return
               }
 
-              // Check 2: Region not set (independent of onboarding status)
-              if (checkNeedsRegion(profile)) {
-                routerRef.current.replace('/onboarding')
-                return
+              // If region exists but onboarding_completed is false, auto-fix
+              // the flag in the background (fire-and-forget).
+              if (checkNeedsOnboarding(profile)) {
+                updateUserProfile({ onboarding_completed: true }).catch(() => {})
               }
             }
           }
