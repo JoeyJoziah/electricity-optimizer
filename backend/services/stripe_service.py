@@ -90,7 +90,7 @@ class StripeService:
 
         Raises:
             ValueError: If Stripe not configured or invalid tier
-            stripe.error.StripeError: On Stripe API errors
+            stripe.StripeError: On Stripe API errors
         """
         # Support 'plan' as an alias for 'tier'
         if plan is not None and tier is None:
@@ -156,7 +156,7 @@ class StripeService:
                     "customer_id": session.customer,
                 }
 
-            except stripe.error.StripeError as e:
+            except stripe.StripeError as e:
                 logger.error(
                     "checkout_session_failed",
                     user_id=user_id,
@@ -182,7 +182,7 @@ class StripeService:
 
         Raises:
             ValueError: If Stripe not configured
-            stripe.error.StripeError: On Stripe API errors
+            stripe.StripeError: On Stripe API errors
         """
         self._ensure_configured()
 
@@ -201,7 +201,7 @@ class StripeService:
 
             return {"url": session.url}
 
-        except stripe.error.StripeError as e:
+        except stripe.StripeError as e:
             logger.error(
                 "portal_session_failed",
                 customer_id=customer_id,
@@ -230,7 +230,7 @@ class StripeService:
 
         Raises:
             ValueError: If Stripe not configured
-            stripe.error.StripeError: On Stripe API errors
+            stripe.StripeError: On Stripe API errors
         """
         self._ensure_configured()
 
@@ -260,7 +260,7 @@ class StripeService:
                 "subscription_id": subscription.id,
             }
 
-        except stripe.error.StripeError as e:
+        except stripe.StripeError as e:
             logger.error(
                 "subscription_status_failed",
                 customer_id=customer_id,
@@ -285,7 +285,7 @@ class StripeService:
 
         Raises:
             ValueError: If Stripe not configured
-            stripe.error.StripeError: On Stripe API errors
+            stripe.StripeError: On Stripe API errors
         """
         self._ensure_configured()
 
@@ -316,7 +316,7 @@ class StripeService:
                 "canceled_at": subscription.canceled_at,
             }
 
-        except stripe.error.StripeError as e:
+        except stripe.StripeError as e:
             logger.error(
                 "subscription_cancel_failed",
                 subscription_id=subscription_id,
@@ -350,7 +350,7 @@ class StripeService:
                 payload, signature, settings.stripe_webhook_secret
             )
             return event
-        except stripe.error.SignatureVerificationError as e:
+        except stripe.SignatureVerificationError as e:
             logger.error("webhook_signature_verification_failed", error=str(e))
             raise ValueError("Invalid webhook signature") from e
 

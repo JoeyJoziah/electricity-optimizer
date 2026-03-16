@@ -169,7 +169,7 @@ async def create_checkout_session(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         logger.error(
             "checkout_session_stripe_error",
             user_id=current_user.user_id,
@@ -233,7 +233,7 @@ async def create_portal_session(
             portal_url=session_data["url"],
         )
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         logger.error(
             "portal_session_stripe_error",
             user_id=current_user.user_id,
@@ -308,7 +308,7 @@ async def get_subscription_status(
             cancel_at_period_end=subscription["cancel_at_period_end"],
         )
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         logger.error(
             "subscription_status_stripe_error",
             user_id=current_user.user_id,
@@ -397,7 +397,7 @@ async def handle_stripe_webhook(
             user_repo = UserRepository(db)
             await apply_webhook_action(result, user_repo, db=db)
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         # Stripe SDK errors during processing (e.g. API call inside handler).
         # Log with full traceback so alerts fire, but still ACK to Stripe.
         logger.exception(

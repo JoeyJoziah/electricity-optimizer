@@ -9,7 +9,7 @@ asyncpg==0.31.0
 sqlalchemy[asyncio]==2.0.48
 
 # Redis
-redis[hiredis]==5.0.1
+redis[hiredis]>=7.0,<8.0
 
 # HTTP Client
 httpx>=0.26,<0.29
@@ -28,7 +28,7 @@ python-dateutil==2.9.0.post0
 
 # Monitoring & Logging
 prometheus-client==0.24.1
-sentry-sdk[fastapi]==1.45.1
+sentry-sdk[fastapi]>=2.0,<3.0
 structlog==25.5.0
 
 # OpenTelemetry — opt-in distributed tracing (OTEL_ENABLED=true activates)
@@ -42,7 +42,7 @@ opentelemetry-exporter-otlp-proto-http>=1.20.0,<2.0
 # Note: CORS is built into FastAPI, no extra package needed
 
 # Payments
-stripe>=7.0,<8.0
+stripe>=14.0,<15.0
 
 # Email
 resend>=2.0,<3.0

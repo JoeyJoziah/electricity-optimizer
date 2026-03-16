@@ -817,7 +817,7 @@ class TestWebhook:
 
     def test_webhook_stripe_api_error_during_processing_still_returns_200(self, auth_client):
         """
-        S1-07: stripe.error.StripeError raised during event processing (e.g. an
+        S1-07: stripe.StripeError raised during event processing (e.g. an
         API call inside handle_webhook_event) must also return 200 so Stripe
         stops retrying.
         """
@@ -834,7 +834,7 @@ class TestWebhook:
             stripe_instance.is_configured = True
             stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
             stripe_instance.handle_webhook_event = AsyncMock(
-                side_effect=_stripe.error.StripeError("upstream stripe issue")
+                side_effect=_stripe.StripeError("upstream stripe issue")
             )
 
             response = auth_client.post(

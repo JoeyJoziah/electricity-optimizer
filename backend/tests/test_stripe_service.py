@@ -162,9 +162,9 @@ async def test_create_checkout_session_stripe_error(stripe_service):
     """Test checkout session handles Stripe API errors."""
     with patch(
         "stripe.checkout.Session.create",
-        side_effect=stripe.error.StripeError("API error"),
+        side_effect=stripe.StripeError("API error"),
     ):
-        with pytest.raises(stripe.error.StripeError):
+        with pytest.raises(stripe.StripeError):
             await stripe_service.create_checkout_session(
                 user_id="user_123",
                 email="user@example.com",
@@ -211,9 +211,9 @@ async def test_create_portal_session_stripe_error(stripe_service):
     """Test portal session handles Stripe API errors."""
     with patch(
         "stripe.billing_portal.Session.create",
-        side_effect=stripe.error.StripeError("API error"),
+        side_effect=stripe.StripeError("API error"),
     ):
-        with pytest.raises(stripe.error.StripeError):
+        with pytest.raises(stripe.StripeError):
             await stripe_service.create_customer_portal_session(
                 customer_id="cus_test_456",
                 return_url="https://example.com/account",
@@ -251,9 +251,9 @@ async def test_get_subscription_status_stripe_error(stripe_service):
     """Test subscription status handles Stripe API errors."""
     with patch(
         "stripe.Subscription.list",
-        side_effect=stripe.error.StripeError("API error"),
+        side_effect=stripe.StripeError("API error"),
     ):
-        with pytest.raises(stripe.error.StripeError):
+        with pytest.raises(stripe.StripeError):
             await stripe_service.get_subscription_status("cus_test_456")
 
 
@@ -314,7 +314,7 @@ def test_verify_webhook_signature_invalid(stripe_service):
     """Test webhook signature verification with invalid signature."""
     with patch(
         "stripe.Webhook.construct_event",
-        side_effect=stripe.error.SignatureVerificationError("Invalid signature", "sig"),
+        side_effect=stripe.SignatureVerificationError("Invalid signature", "sig"),
     ):
         with pytest.raises(ValueError, match="Invalid webhook signature"):
             stripe_service.verify_webhook_signature(

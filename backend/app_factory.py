@@ -317,14 +317,14 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         if settings.sentry_dsn:
             try:
                 import sentry_sdk
-                from sentry_sdk.integrations.fastapi import FastApiIntegration
 
+                # Sentry v2: FastApiIntegration is auto-detected; no explicit
+                # import or integrations=[...] list required.
                 sentry_sdk.init(
                     dsn=settings.sentry_dsn,
                     environment=settings.environment,
                     traces_sample_rate=0.1 if settings.is_production else 0.05,
                     profiles_sample_rate=0.0,
-                    integrations=[FastApiIntegration()],
                     send_default_pii=False,
                     max_breadcrumbs=30,
                 )
