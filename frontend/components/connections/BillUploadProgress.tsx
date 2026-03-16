@@ -23,8 +23,8 @@ export function BillUploadProgressBar({
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
         <div
-          className="h-full rounded-full bg-primary-500 transition-all duration-300 ease-out"
-          style={{ width: `${uploadProgress}%` }}
+          className="h-full rounded-full bg-primary-500 transition-transform duration-300 ease-out origin-left"
+          style={{ transform: `scaleX(${uploadProgress / 100})` }}
           role="progressbar"
           aria-valuenow={uploadProgress}
           aria-valuemin={0}

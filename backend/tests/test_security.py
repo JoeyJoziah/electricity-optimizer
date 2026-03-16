@@ -250,11 +250,36 @@ class TestPasswordValidation:
         result = validate_password("ValidPassword123!")
         assert result is True
 
+    def test_common_password_rejected(self):
+        """Test that common passwords are rejected even if they meet complexity rules"""
+        from auth.password import validate_password
+
+        # "password" is in the common passwords list
+        with pytest.raises(ValueError) as exc_info:
+            validate_password("password")
+        assert "too common" in str(exc_info.value)
+
+    def test_common_password_case_insensitive(self):
+        """Test that common password check is case-insensitive"""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError) as exc_info:
+            validate_password("PASSWORD")
+        assert "too common" in str(exc_info.value)
+
+    def test_common_password_list_not_empty(self):
+        """Test that the common passwords list has at least 100 entries"""
+        from auth.password import COMMON_PASSWORDS
+
+        assert len(COMMON_PASSWORDS) >= 100
+
     def test_password_strength_check(self):
         """Test password strength assessment"""
         from auth.password import check_password_strength
 
-        weak = check_password_strength("weak")
+        # "password" is in COMMON_PASSWORDS, so not_common=False.
+        # Only lowercase passes -> score 1 -> very_weak
+        weak = check_password_strength("password")
         assert weak["strength"] == "very_weak"
         assert weak["valid"] is False
 

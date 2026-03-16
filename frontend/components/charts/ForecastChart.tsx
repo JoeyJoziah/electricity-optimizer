@@ -16,12 +16,7 @@ import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/format'
 import type { PriceForecast } from '@/types'
 import type { ApiPriceForecastModel } from '@/types/generated/api'
-
-const tooltipStyle = {
-  backgroundColor: 'white',
-  border: '1px solid #e5e7eb',
-  borderRadius: '8px',
-}
+import { chartColor, chartTooltipStyle } from '@/lib/constants/chartTokens'
 
 const CHART_MARGIN = { top: 10, right: 30, left: 0, bottom: 0 }
 
@@ -129,21 +124,21 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
             data={chartData}
             margin={CHART_MARGIN}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartColor.grid} />
             <XAxis
               dataKey="formattedTime"
-              stroke="#6b7280"
+              stroke={chartColor.axis}
               fontSize={12}
               tickLine={false}
             />
             <YAxis
-              stroke="#6b7280"
+              stroke={chartColor.axis}
               fontSize={12}
               tickLine={false}
               tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip
-              contentStyle={tooltipStyle}
+              contentStyle={chartTooltipStyle}
               formatter={(value: number, name: string) => {
                 if (name === 'price') return [formatCurrency(value), 'Forecast']
                 if (name === 'confidenceHigh') return [formatCurrency(value), 'Upper bound']
@@ -159,7 +154,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
                   dataKey="confidenceHigh"
                   stackId="confidence"
                   stroke="none"
-                  fill="#fbbf24"
+                  fill={chartColor.confidence}
                   fillOpacity={0.2}
                 />
                 <Area
@@ -167,7 +162,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
                   dataKey="confidenceLow"
                   stackId="confidence"
                   stroke="none"
-                  fill="#ffffff"
+                  fill={chartColor.tooltipBg}
                   fillOpacity={1}
                 />
               </>
@@ -177,9 +172,9 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
             <Area
               type="monotone"
               dataKey="price"
-              stroke="#f59e0b"
+              stroke={chartColor.warning}
               strokeWidth={2}
-              fill="#fbbf24"
+              fill={chartColor.confidence}
               fillOpacity={0.3}
             />
 
@@ -187,12 +182,12 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
             {currentPrice && (
               <ReferenceLine
                 y={currentPrice}
-                stroke="#3b82f6"
+                stroke={chartColor.primary}
                 strokeDasharray="5 5"
                 label={{
                   value: `Current: ${formatCurrency(currentPrice)}`,
                   position: 'left',
-                  fill: '#3b82f6',
+                  fill: chartColor.primary,
                   fontSize: 12,
                 }}
               />
@@ -201,7 +196,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
             {/* Average line */}
             <ReferenceLine
               y={avgForecast}
-              stroke="#6b7280"
+              stroke={chartColor.axis}
               strokeDasharray="3 3"
             />
           </AreaChart>

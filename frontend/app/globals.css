@@ -68,6 +68,25 @@
   --transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /*
+   * Chart palette — referenced by Recharts components via var().
+   * Numbered --chart-1 through --chart-6 for predictable ordering;
+   * semantic aliases kept for clarity in specific chart contexts.
+   */
+  --chart-1: #3b82f6; /* blue-500  — primary / actual prices */
+  --chart-2: #22c55e; /* green-500 — success / savings */
+  --chart-3: #f59e0b; /* amber-500 — warning / forecast */
+  --chart-4: #ef4444; /* red-500   — danger / alerts */
+  --chart-5: #8b5cf6; /* violet-500 */
+  --chart-6: #06b6d4; /* cyan-500 */
+
+  /* Chart structural tokens */
+  --chart-grid: #e5e7eb;
+  --chart-axis: #6b7280;
+  --chart-tooltip-border: #e5e7eb;
+  --chart-tooltip-bg: #ffffff;
+  --chart-confidence: #fbbf24; /* amber-400 — forecast confidence band */
 }
 
 body {
@@ -172,4 +191,70 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-md);
+}
+
+/* ==========================================================================
+ * Print styles — optimized for cost report pages.
+ * Hides navigation, sidebar, and interactive controls so main content
+ * fills the full page width for clean printouts.
+ * ========================================================================== */
+@media print {
+  /* Hide sidebar, navigation, and interactive elements */
+  .sidebar,
+  aside,
+  nav,
+  header nav,
+  [data-testid="sidebar"],
+  [role="navigation"],
+  button,
+  [role="button"],
+  [role="tablist"],
+  .recharts-tooltip-wrapper {
+    display: none !important;
+  }
+
+  /* Clean background for ink savings */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Main content fills full page width */
+  main,
+  [role="main"],
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Drop decorative shadows */
+  [class*="shadow"] {
+    box-shadow: none !important;
+  }
+
+  /* Charts fill available width */
+  .recharts-responsive-container {
+    width: 100% !important;
+  }
+
+  /* Avoid page breaks inside data cards and charts */
+  [data-testid*="card"],
+  [data-testid*="chart"],
+  .recharts-wrapper {
+    break-inside: avoid;
+  }
+
+  /* Force black text for readability */
+  h1, h2, h3, h4, h5, h6, p, span, td, th {
+    color: black !important;
+  }
+
+  /* Show link URLs after anchor text */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75em;
+    color: #6b7280;
+  }
 }

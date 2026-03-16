@@ -20,13 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import type { PriceDataPoint, TimeRange } from '@/types'
-
-const tooltipStyle = {
-  backgroundColor: 'white',
-  border: '1px solid #e5e7eb',
-  borderRadius: '8px',
-  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-}
+import { chartColor, chartTooltipStyleWithShadow } from '@/lib/constants/chartTokens'
 
 const CHART_MARGIN = { top: 5, right: 30, left: 20, bottom: 5 }
 
@@ -231,21 +225,21 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
             data={chartData}
             margin={CHART_MARGIN}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartColor.grid} />
             <XAxis
               dataKey="formattedTime"
-              stroke="#6b7280"
+              stroke={chartColor.axis}
               fontSize={12}
               tickLine={false}
             />
             <YAxis
-              stroke="#6b7280"
+              stroke={chartColor.axis}
               fontSize={12}
               tickLine={false}
               tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip
-              contentStyle={tooltipStyle}
+              contentStyle={chartTooltipStyleWithShadow}
               formatter={(value: number, name: string) => [
                 formatCurrency(value),
                 name === 'price' ? 'Actual Price' : 'Forecast',
@@ -260,7 +254,7 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
                   key={i}
                   x1={format(parseISO(period.start), 'HH:mm')}
                   x2={format(parseISO(period.end), 'HH:mm')}
-                  fill="#22c55e"
+                  fill={chartColor.success}
                   fillOpacity={0.1}
                 />
               ))}
@@ -269,7 +263,7 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
             <Line
               type="monotone"
               dataKey="price"
-              stroke="#3b82f6"
+              stroke={chartColor.primary}
               strokeWidth={2}
               dot={false}
               name="price"
@@ -280,7 +274,7 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
               <Line
                 type="monotone"
                 dataKey="forecast"
-                stroke="#f59e0b"
+                stroke={chartColor.warning}
                 strokeWidth={2}
                 strokeDasharray="5 5"
                 dot={false}

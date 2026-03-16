@@ -95,8 +95,8 @@ export function SetupChecklist() {
           </p>
           <div className="mt-2 h-1.5 w-full rounded-full bg-gray-200">
             <div
-              className="h-1.5 rounded-full bg-primary-600 transition-all"
-              style={{ width: `${(completedCount / items.length) * 100}%` }}
+              className="h-1.5 rounded-full bg-primary-600 transition-transform origin-left"
+              style={{ transform: `scaleX(${completedCount / items.length})` }}
             />
           </div>
         </div>

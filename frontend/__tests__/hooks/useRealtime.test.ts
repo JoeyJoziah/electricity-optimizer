@@ -40,7 +40,6 @@ import {
   useRealtimePrices,
   useRealtimeOptimization,
   useRealtimeSubscription,
-  useRealtimeBroadcast,
 } from '@/lib/hooks/useRealtime'
 
 // --- Test helpers ---
@@ -557,53 +556,5 @@ describe('useRealtimeSubscription', () => {
     })
 
     expect(onUpdate).not.toHaveBeenCalled()
-  })
-})
-
-// ==========================================================================
-// useRealtimeBroadcast
-// ==========================================================================
-describe('useRealtimeBroadcast', () => {
-  it('returns isConnected true', () => {
-    const { wrapper } = createWrapper()
-
-    const { result } = renderHook(() => useRealtimeBroadcast('test-channel'), {
-      wrapper,
-    })
-
-    expect(result.current.isConnected).toBe(true)
-    expect(typeof result.current.broadcast).toBe('function')
-  })
-
-  it('broadcast function is callable (placeholder)', () => {
-    const { wrapper } = createWrapper()
-
-    const { result } = renderHook(
-      () => useRealtimeBroadcast('price-updates'),
-      { wrapper }
-    )
-
-    // Should not throw
-    expect(() => {
-      result.current.broadcast('price_change', { price: 0.25 })
-    }).not.toThrow()
-  })
-
-  it('reconnects when channel name changes', () => {
-    const { wrapper } = createWrapper()
-
-    const { result, rerender } = renderHook(
-      ({ channel }: { channel: string }) => useRealtimeBroadcast(channel),
-      {
-        wrapper,
-        initialProps: { channel: 'channel-1' },
-      }
-    )
-
-    expect(result.current.isConnected).toBe(true)
-
-    rerender({ channel: 'channel-2' })
-
-    expect(result.current.isConnected).toBe(true)
   })
 })

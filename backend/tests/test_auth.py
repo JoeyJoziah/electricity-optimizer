@@ -631,6 +631,47 @@ class TestPasswordValidation:
         result = validate_password("ValidPass123!")
         assert result is True
 
+    def test_common_password_rejected(self):
+        """Test that common passwords are rejected even if they meet complexity rules"""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError, match="too common"):
+            validate_password("password")
+
+    def test_common_password_case_insensitive(self):
+        """Test that common password check is case-insensitive"""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError, match="too common"):
+            validate_password("PASSWORD")
+
+    def test_common_password_in_list(self):
+        """Test several known common passwords are in the blocklist"""
+        from auth.password import COMMON_PASSWORDS
+
+        for pwd in ["123456", "qwerty", "letmein", "admin", "password123"]:
+            assert pwd in COMMON_PASSWORDS
+
+    def test_uncommon_password_not_blocked(self):
+        """Test that a unique password is not flagged as common"""
+        from auth.password import COMMON_PASSWORDS
+
+        assert "xK9#mQ2vL7pR!" not in COMMON_PASSWORDS
+
+    def test_strength_check_common_password(self):
+        """Test that strength check flags common passwords"""
+        from auth.password import check_password_strength
+
+        result = check_password_strength("password")
+        assert result["checks"]["not_common"] is False
+
+    def test_strength_check_uncommon_password(self):
+        """Test that strength check passes for uncommon passwords"""
+        from auth.password import check_password_strength
+
+        result = check_password_strength("xK9#mQ2vL7pR!abc")
+        assert result["checks"]["not_common"] is True
+
 
 # =============================================================================
 # SECURITY HEADER TESTS

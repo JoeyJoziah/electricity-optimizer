@@ -60,8 +60,8 @@ export function NeighborhoodCard() {
           </div>
           <div className="h-4 rounded bg-gray-100">
             <div
-              className="h-4 rounded bg-primary-500"
-              style={{ width: `${(userRate / maxRate) * 100}%` }}
+              className="h-4 rounded bg-primary-500 origin-left transition-transform duration-300"
+              style={{ transform: `scaleX(${userRate / maxRate})` }}
             />
           </div>
         </div>
@@ -72,8 +72,8 @@ export function NeighborhoodCard() {
           </div>
           <div className="h-4 rounded bg-gray-100">
             <div
-              className="h-4 rounded bg-gray-400"
-              style={{ width: `${(avgRate / maxRate) * 100}%` }}
+              className="h-4 rounded bg-gray-400 origin-left transition-transform duration-300"
+              style={{ transform: `scaleX(${avgRate / maxRate})` }}
             />
           </div>
         </div>

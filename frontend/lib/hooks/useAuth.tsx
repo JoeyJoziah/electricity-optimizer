@@ -48,6 +48,61 @@ interface AuthProviderProps {
   children: ReactNode
 }
 
+// ---------------------------------------------------------------------------
+// Profile redirect helpers
+//
+// Extracted as pure functions so the two concerns — onboarding completion
+// and region selection — are independently testable and clearly separated
+// from the auth init flow.
+// ---------------------------------------------------------------------------
+
+/** App routes that require a fully-completed profile */
+const PROFILE_REQUIRED_PREFIXES = [
+  '/dashboard',
+  '/prices',
+  '/suppliers',
+  '/optimize',
+  '/connections',
+  '/settings',
+  '/alerts',
+  '/assistant',
+  '/community',
+  '/water',
+  '/propane',
+  '/heating-oil',
+  '/natural-gas',
+  '/solar',
+  '/forecast',
+]
+
+/**
+ * Determine whether the current path requires a completed user profile.
+ */
+function isProfileRequiredPath(pathname: string): boolean {
+  return PROFILE_REQUIRED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/')
+  )
+}
+
+/**
+ * Check whether the user still needs to complete onboarding.
+ * Returns true when `onboarding_completed` is falsy.
+ */
+export function checkNeedsOnboarding(profile: { onboarding_completed?: boolean }): boolean {
+  return !profile.onboarding_completed
+}
+
+/**
+ * Check whether the user is missing a region selection.
+ *
+ * This is a separate concern from onboarding — a user may have completed
+ * the wizard in a previous version that did not require region, or the
+ * region could have been cleared by a profile reset.
+ */
+export function checkNeedsRegion(profile: { region?: string | null }): boolean {
+  return !profile.region
+}
+
 /**
  * Authentication Provider
  *
@@ -130,16 +185,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           }
 
-          // Redirect to onboarding if user hasn't completed it yet.
-          // Use router.replace (not window.location.href) to prevent the
-          // browser from adding a history entry that creates back-button loops.
-          // Access via routerRef to avoid stale closure from the mount effect.
+          // ------------------------------------------------------------------
+          // Profile completeness redirects
+          //
+          // Two independent checks, evaluated in order:
+          //   1. Onboarding incomplete  -- user never finished the wizard
+          //   2. Region missing         -- region cleared or legacy account
+          //
+          // Both redirect to /onboarding where the wizard shows the right
+          // step. Only fires on app pages that require a completed profile.
+          // ------------------------------------------------------------------
           if (profileResult.status === 'fulfilled') {
             const profile = profileResult.value
-            if (!profile.onboarding_completed || !profile.region) {
-              const path = window.location.pathname
-              // Only redirect if we're on an app page (not already on onboarding or auth)
-              if (path.startsWith('/dashboard') || path.startsWith('/prices') || path.startsWith('/suppliers') || path.startsWith('/optimize') || path.startsWith('/connections') || path.startsWith('/settings') || path.startsWith('/alerts') || path.startsWith('/assistant')) {
+            const path = window.location.pathname
+
+            if (isProfileRequiredPath(path)) {
+              // Check 1: Onboarding not completed
+              if (checkNeedsOnboarding(profile)) {
+                routerRef.current.replace('/onboarding')
+                return
+              }
+
+              // Check 2: Region not set (independent of onboarding status)
+              if (checkNeedsRegion(profile)) {
                 routerRef.current.replace('/onboarding')
                 return
               }

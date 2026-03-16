@@ -24,6 +24,7 @@ jest.mock('@/lib/api/optimization', () => ({
 import {
   useOptimalSchedule,
   useOptimizationResult,
+  useSavedAppliances,
   useAppliances,
   useSaveAppliances,
   usePotentialSavings,
@@ -255,9 +256,9 @@ describe('useOptimizationResult', () => {
 })
 
 // ==========================================================================
-// useAppliances
+// useSavedAppliances (renamed from useAppliances)
 // ==========================================================================
-describe('useAppliances', () => {
+describe('useSavedAppliances', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockGetAppliances.mockResolvedValue(mockAppliancesResponse)
@@ -266,7 +267,7 @@ describe('useAppliances', () => {
   it('fetches saved appliances', async () => {
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useAppliances(), { wrapper })
+    const { result } = renderHook(() => useSavedAppliances(), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
@@ -281,7 +282,7 @@ describe('useAppliances', () => {
   it('uses correct query key', async () => {
     const { wrapper, queryClient } = createWrapper()
 
-    renderHook(() => useAppliances(), { wrapper })
+    renderHook(() => useSavedAppliances(), { wrapper })
 
     await waitFor(() => {
       const queries = queryClient.getQueryCache().getAll()
@@ -295,13 +296,17 @@ describe('useAppliances', () => {
 
     const { wrapper } = createWrapper()
 
-    const { result } = renderHook(() => useAppliances(), { wrapper })
+    const { result } = renderHook(() => useSavedAppliances(), { wrapper })
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true)
     })
 
     expect(result.current.error?.message).toBe('Not authenticated')
+  })
+
+  it('deprecated useAppliances alias points to useSavedAppliances', () => {
+    expect(useAppliances).toBe(useSavedAppliances)
   })
 })
 

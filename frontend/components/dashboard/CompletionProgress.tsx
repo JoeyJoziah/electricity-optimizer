@@ -3,6 +3,7 @@
 import React from 'react'
 import { useUtilityCompletion } from '@/lib/hooks/useUtilityDiscovery'
 import { useSettingsStore } from '@/lib/store/settings'
+import { chartColor } from '@/lib/constants/chartTokens'
 
 export function CompletionProgress() {
   const region = useSettingsStore((s) => s.region)
@@ -27,7 +28,7 @@ export function CompletionProgress() {
             cy="20"
             r="18"
             fill="none"
-            stroke="#e5e7eb"
+            stroke={chartColor.grid}
             strokeWidth="3"
           />
           <circle
@@ -35,7 +36,7 @@ export function CompletionProgress() {
             cy="20"
             r="18"
             fill="none"
-            stroke="#3b82f6"
+            stroke={chartColor.primary}
             strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray={circumference}

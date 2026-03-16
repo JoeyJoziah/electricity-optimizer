@@ -431,65 +431,18 @@ class TestUserRepository:
 # =============================================================================
 
 
-class TestSupplierRepository:
-    """Tests for SupplierRepository"""
+class TestSupplierRepositoryRemoved:
+    """Verify that the deprecated SupplierRepository has been removed (S4-11)."""
 
-    @pytest.fixture
-    def mock_db_session(self):
-        """Create a mock database session"""
-        session = AsyncMock()
-        session.execute = AsyncMock()
-        session.commit = AsyncMock()
-        return session
-
-    @pytest.mark.asyncio
-    async def test_get_supplier_by_id(self, mock_db_session):
-        """Test fetching a supplier by ID"""
+    def test_supplier_repository_import_raises(self):
+        """Importing SupplierRepository gives a stub that raises ImportError."""
         from repositories.supplier_repository import SupplierRepository
 
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = MagicMock(
-            id="supplier_123",
-            name="Eversource Energy",
-            regions=["us_ct"]
-        )
-        mock_db_session.execute.return_value = mock_result
+        with pytest.raises(ImportError, match="removed"):
+            SupplierRepository(None)
 
-        repo = SupplierRepository(mock_db_session)
-        supplier = await repo.get_by_id("supplier_123")
+    def test_supplier_registry_repository_importable(self):
+        """SupplierRegistryRepository should still be importable and usable."""
+        from repositories.supplier_repository import SupplierRegistryRepository
 
-        assert supplier is not None
-
-    @pytest.mark.asyncio
-    async def test_list_suppliers_by_region(self, mock_db_session):
-        """Test listing suppliers for a specific region"""
-        from repositories.supplier_repository import SupplierRepository
-
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [
-            MagicMock(id="s1", name="Supplier 1", regions=["us_ct"]),
-            MagicMock(id="s2", name="Supplier 2", regions=["us_ct"])
-        ]
-        mock_db_session.execute.return_value = mock_result
-
-        repo = SupplierRepository(mock_db_session)
-        suppliers = await repo.list_by_region("us_ct")
-
-        assert isinstance(suppliers, list)
-
-    @pytest.mark.asyncio
-    async def test_get_supplier_tariffs(self, mock_db_session):
-        """Test fetching tariffs for a supplier"""
-        from repositories.supplier_repository import SupplierRepository
-
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [
-            MagicMock(id="t1", name="Standard Service"),
-            MagicMock(id="t2", name="Time of Use")
-        ]
-        mock_db_session.execute.return_value = mock_result
-
-        repo = SupplierRepository(mock_db_session)
-        tariffs = await repo.get_tariffs("supplier_123")
-
-        assert isinstance(tariffs, list)
+        assert SupplierRegistryRepository is not None

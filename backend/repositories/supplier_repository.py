@@ -7,446 +7,48 @@ and StateRegulationRepository (backed by state_regulations table).
 
 Caching strategy
 ----------------
-Both SupplierRepository and SupplierRegistryRepository accept an optional
-Redis client.  When Redis is unavailable (client is None) the repositories
-fall through to the database transparently.
+SupplierRegistryRepository accepts an optional Redis client.  When Redis is
+unavailable (client is None) the repository falls through to the database
+transparently.
 
 TTL: 3600 s (1 hour) for all supplier queries — supplier data is semi-static.
-Keys follow the pattern:  supplier:<method>:<args...>
+Keys follow the pattern:  supplier_registry:<method>:<args...>
 
-Cache invalidation is explicit via clear_cache() / clear_registry_cache().
+Cache invalidation is explicit via clear_registry_cache().
+
+.. note::
+    The legacy ``SupplierRepository`` class was removed in the Sprint 4
+    audit remediation (S4-11). It used Pydantic models with SQLAlchemy ORM
+    calls, which is fundamentally broken at runtime. All production code
+    paths use :class:`SupplierRegistryRepository` (raw SQL, supplier_registry
+    table). See ADR-006 for details.
 """
 
 import json
-from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Optional, Any
 
-from sqlalchemy import select, and_, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
-from models.supplier import Supplier, Tariff
+from repositories.base import RepositoryError
 
-# 1-hour TTL for all supplier / supplier-registry caches.
+# 1-hour TTL for all supplier-registry caches.
 _SUPPLIER_CACHE_TTL = 3600
 
 
-class SupplierRepository(BaseRepository[Supplier]):
-    """
-    Repository for managing supplier data.
-
-    .. deprecated::
-        This repository uses Pydantic models with SQLAlchemy ORM calls
-        (select/add), which is fundamentally broken at runtime. Use
-        :class:`SupplierRegistryRepository` for all production code paths.
-        Retained only for backwards compatibility with existing tests.
-
-    Wraps get_by_name() and list_by_region() with a Redis TTL cache
-    (1 hour).  All other write paths call clear_cache() to keep the
-    cache consistent.
-    """
-
-    def __init__(self, db_session: AsyncSession, cache: Any = None):
-        """
-        Initialize the supplier repository.
-
-        Args:
-            db_session: SQLAlchemy async session
-            cache: Redis cache client (optional).  Must expose async
-                   get(key), set(key, value, ex=ttl) and delete(*keys).
-        """
-        self._db = db_session
-        self._cache = cache
-
-    # ------------------------------------------------------------------
-    # Internal cache helpers
-    # ------------------------------------------------------------------
-
-    async def _cache_get(self, key: str) -> Optional[Any]:
-        """Return deserialized value from Redis, or None on miss/error."""
-        if not self._cache:
-            return None
-        try:
-            raw = await self._cache.get(key)
-            return json.loads(raw) if raw else None
-        except Exception:
-            return None
-
-    async def _cache_set(self, key: str, value: Any) -> None:
-        """Serialize and store value in Redis with the supplier TTL."""
-        if not self._cache:
-            return
-        try:
-            await self._cache.set(key, json.dumps(value, default=str), ex=_SUPPLIER_CACHE_TTL)
-        except Exception:
-            pass
-
-    async def _cache_delete(self, *keys: str) -> None:
-        """Delete one or more keys from Redis (best-effort)."""
-        if not self._cache or not keys:
-            return
-        try:
-            await self._cache.delete(*keys)
-        except Exception:
-            pass
-
-    async def clear_cache(self) -> None:
-        """
-        Remove all known supplier cache keys.
-
-        Call this after any write operation (create / update / delete)
-        so subsequent reads reflect the latest database state.
-        """
-        if not self._cache:
-            return
-        try:
-            # Scan for all keys matching the supplier namespace.
-            # Uses SCAN so it is non-blocking on large key spaces.
-            async for key in self._cache.scan_iter(match="supplier:*"):
-                await self._cache.delete(key)
-        except Exception:
-            pass
-
-    async def get_by_id(self, id: str) -> Optional[Supplier]:
-        """
-        Get a supplier by ID.
-
-        Args:
-            id: Supplier ID
-
-        Returns:
-            Supplier if found, None otherwise
-        """
-        try:
-            result = await self._db.execute(
-                select(Supplier).where(Supplier.id == id)
-            )
-            return result.scalar_one_or_none()
-
-        except Exception as e:
-            raise RepositoryError(f"Failed to get supplier by ID: {str(e)}", e)
-
-    async def get_by_name(self, name: str) -> Optional[Supplier]:
-        """
-        Get a supplier by name.
-
-        Results are cached in Redis for 1 hour (key: supplier:name:<name>).
-
-        Args:
-            name: Supplier name
-
-        Returns:
-            Supplier if found, None otherwise
-        """
-        cache_key = f"supplier:name:{name}"
-        cached = await self._cache_get(cache_key)
-        if cached is not None:
-            # Reconstruct the ORM object from the cached dict.
-            # Use a lightweight MagicMock-free approach: build a Supplier
-            # from the stored dict and skip any DB round-trip.
-            try:
-                return Supplier(**cached)
-            except Exception:
-                # If reconstruction fails (schema drift, etc.) fall through.
-                pass
-
-        try:
-            result = await self._db.execute(
-                select(Supplier).where(Supplier.name == name)
-            )
-            supplier = result.scalar_one_or_none()
-
-            if supplier is not None:
-                await self._cache_set(cache_key, supplier.model_dump())
-
-            return supplier
-
-        except Exception as e:
-            raise RepositoryError(f"Failed to get supplier by name: {str(e)}", e)
-
-    async def create(self, entity: Supplier) -> Supplier:
-        """
-        Create a new supplier.
-
-        Clears the supplier cache after a successful write so region-list
-        queries reflect the new record immediately.
-
-        Args:
-            entity: Supplier data to create
-
-        Returns:
-            Created supplier
-        """
-        try:
-            entity.created_at = datetime.now(timezone.utc)
-            entity.updated_at = datetime.now(timezone.utc)
-
-            self._db.add(entity)
-            await self._db.commit()
-            await self._db.refresh(entity)
-            await self.clear_cache()
-            return entity
-
-        except Exception as e:
-            await self._db.rollback()
-            raise RepositoryError(f"Failed to create supplier: {str(e)}", e)
-
-    async def update(self, id: str, entity: Supplier) -> Optional[Supplier]:
-        """
-        Update an existing supplier.
-
-        Clears the supplier cache after a successful write.
-
-        Args:
-            id: Supplier ID
-            entity: Updated supplier data
-
-        Returns:
-            Updated supplier if found, None otherwise
-        """
-        try:
-            existing = await self.get_by_id(id)
-            if not existing:
-                return None
-
-            for field, value in entity.model_dump(exclude_unset=True).items():
-                if field not in ["id", "created_at"]:
-                    setattr(existing, field, value)
-
-            existing.updated_at = datetime.now(timezone.utc)
-
-            await self._db.commit()
-            await self._db.refresh(existing)
-            await self.clear_cache()
-            return existing
-
-        except Exception as e:
-            await self._db.rollback()
-            raise RepositoryError(f"Failed to update supplier: {str(e)}", e)
-
-    async def delete(self, id: str) -> bool:
-        """
-        Delete a supplier.
-
-        Clears the supplier cache after a successful deletion.
-
-        Args:
-            id: Supplier ID
-
-        Returns:
-            True if deleted, False if not found
-        """
-        try:
-            existing = await self.get_by_id(id)
-            if not existing:
-                return False
-
-            await self._db.delete(existing)
-            await self._db.commit()
-            await self.clear_cache()
-            return True
-
-        except Exception as e:
-            await self._db.rollback()
-            raise RepositoryError(f"Failed to delete supplier: {str(e)}", e)
-
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[Supplier]:
-        """
-        List suppliers with pagination.
-
-        Args:
-            page: Page number (1-indexed)
-            page_size: Items per page
-            **filters: Filter criteria
-
-        Returns:
-            List of suppliers
-        """
-        try:
-            offset = (page - 1) * page_size
-
-            query = select(Supplier).offset(offset).limit(page_size)
-
-            if "is_active" in filters:
-                query = query.where(Supplier.is_active == filters["is_active"])
-
-            query = query.order_by(Supplier.name)
-
-            result = await self._db.execute(query)
-            return list(result.scalars().all())
-
-        except Exception as e:
-            raise RepositoryError(f"Failed to list suppliers: {str(e)}", e)
-
-    async def count(self, **filters: Any) -> int:
-        """
-        Count suppliers matching filters.
-
-        Args:
-            **filters: Filter criteria
-
-        Returns:
-            Count of matching suppliers
-        """
-        try:
-            from sqlalchemy import func
-
-            query = select(func.count()).select_from(Supplier)
-
-            if "is_active" in filters:
-                query = query.where(Supplier.is_active == filters["is_active"])
-
-            result = await self._db.execute(query)
-            return result.scalar() or 0
-
-        except Exception as e:
-            raise RepositoryError(f"Failed to count suppliers: {str(e)}", e)
-
-    # ==========================================================================
-    # Supplier-specific methods
-    # ==========================================================================
-
-    async def list_by_region(
-        self,
-        region: str,
-        active_only: bool = True
-    ) -> List[Supplier]:
-        """
-        Get all suppliers available in a region.
-
-        Results are cached in Redis for 1 hour.
-        Key: supplier:region:<region>:active_only:<0|1>
-
-        Args:
-            region: Region code
-            active_only: Whether to include only active suppliers
-
-        Returns:
-            List of suppliers in the region
-        """
-        cache_key = f"supplier:region:{region.lower()}:active_only:{int(active_only)}"
-        cached = await self._cache_get(cache_key)
-        if cached is not None:
-            try:
-                return [Supplier(**row) for row in cached]
-            except Exception:
-                pass
-
-        try:
-            # PostgreSQL array contains
-            from sqlalchemy import any_
-
-            conditions = [region.lower() == any_(Supplier.regions)]
-
-            if active_only:
-                conditions.append(Supplier.is_active == True)
-
-            query = select(Supplier).where(and_(*conditions)).order_by(Supplier.name)
-            result = await self._db.execute(query)
-            suppliers = list(result.scalars().all())
-
-            await self._cache_set(cache_key, [s.model_dump() for s in suppliers])
-
-            return suppliers
-
-        except Exception as e:
-            raise RepositoryError(f"Failed to list suppliers by region: {str(e)}", e)
-
-    async def get_tariffs(
-        self,
-        supplier_id: str,
-        available_only: bool = True
-    ) -> List[Tariff]:
-        """
-        Get all tariffs for a supplier.
-
-        Args:
-            supplier_id: Supplier ID
-            available_only: Whether to include only available tariffs
-
-        Returns:
-            List of tariffs
-        """
-        try:
-            conditions = [Tariff.supplier_id == supplier_id]
-
-            if available_only:
-                conditions.append(Tariff.is_available == True)
-
-            query = select(Tariff).where(and_(*conditions)).order_by(Tariff.name)
-            result = await self._db.execute(query)
-            return list(result.scalars().all())
-
-        except Exception as e:
-            raise RepositoryError(f"Failed to get tariffs: {str(e)}", e)
-
-    async def create_tariff(self, tariff: Tariff) -> Tariff:
-        """
-        Create a new tariff.
-
-        Args:
-            tariff: Tariff data to create
-
-        Returns:
-            Created tariff
-        """
-        try:
-            tariff.created_at = datetime.now(timezone.utc)
-            tariff.updated_at = datetime.now(timezone.utc)
-
-            self._db.add(tariff)
-            await self._db.commit()
-            await self._db.refresh(tariff)
-            return tariff
-
-        except Exception as e:
-            await self._db.rollback()
-            raise RepositoryError(f"Failed to create tariff: {str(e)}", e)
-
-    async def get_green_suppliers(
-        self,
-        region: str,
-        min_renewable_percentage: int = 50
-    ) -> List[Supplier]:
-        """
-        Get suppliers with high renewable energy percentage.
-
-        Args:
-            region: Region code
-            min_renewable_percentage: Minimum renewable percentage
-
-        Returns:
-            List of green suppliers
-        """
-        try:
-            from sqlalchemy import any_
-
-            conditions = [
-                region.lower() == any_(Supplier.regions),
-                Supplier.is_active == True,
-                Supplier.green_energy_provider == True
-            ]
-
-            if min_renewable_percentage > 0:
-                conditions.append(
-                    Supplier.average_renewable_percentage >= min_renewable_percentage
-                )
-
-            query = (
-                select(Supplier)
-                .where(and_(*conditions))
-                .order_by(Supplier.average_renewable_percentage.desc())
-            )
-            result = await self._db.execute(query)
-            return list(result.scalars().all())
-
-        except Exception as e:
-            raise RepositoryError(f"Failed to get green suppliers: {str(e)}", e)
+class _RemovedSupplierRepository:
+    """Stub so that any stale import of SupplierRepository raises a clear error."""
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        raise ImportError(
+            "SupplierRepository has been removed (S4-11 audit remediation). "
+            "Use SupplierRegistryRepository instead."
+        )
+
+
+# Backwards-compatible name: importing SupplierRepository still works, but
+# instantiating it raises ImportError with a migration guide.
+SupplierRepository = _RemovedSupplierRepository
 
 
 # ==========================================================================

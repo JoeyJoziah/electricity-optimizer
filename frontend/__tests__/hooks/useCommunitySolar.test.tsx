@@ -5,6 +5,9 @@ import {
   useCommunitySolarSavings,
   useCommunitySolarProgram,
   useCommunitySolarStates,
+  isValidNumericInput,
+  MAX_MONTHLY_BILL,
+  MAX_SAVINGS_PERCENT,
 } from '@/lib/hooks/useCommunitySolar'
 import '@testing-library/jest-dom'
 import React from 'react'
@@ -129,6 +132,71 @@ describe('useCommunitySolar hooks', () => {
     expect(result.current.fetchStatus).toBe('idle')
   })
 
+  it('useCommunitySolarSavings is disabled for negative monthly bill', () => {
+    const { result } = renderHook(
+      () => useCommunitySolarSavings('-50', '10'),
+      { wrapper }
+    )
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetSavings).not.toHaveBeenCalled()
+  })
+
+  it('useCommunitySolarSavings is disabled for negative savings percent', () => {
+    const { result } = renderHook(
+      () => useCommunitySolarSavings('150', '-5'),
+      { wrapper }
+    )
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetSavings).not.toHaveBeenCalled()
+  })
+
+  it('useCommunitySolarSavings is disabled for savings percent > 100', () => {
+    const { result } = renderHook(
+      () => useCommunitySolarSavings('150', '101'),
+      { wrapper }
+    )
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetSavings).not.toHaveBeenCalled()
+  })
+
+  it('useCommunitySolarSavings is disabled for bill exceeding max', () => {
+    const { result } = renderHook(
+      () => useCommunitySolarSavings('99999', '10'),
+      { wrapper }
+    )
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetSavings).not.toHaveBeenCalled()
+  })
+
+  it('useCommunitySolarSavings is disabled for non-numeric bill', () => {
+    const { result } = renderHook(
+      () => useCommunitySolarSavings('abc', '10'),
+      { wrapper }
+    )
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(mockGetSavings).not.toHaveBeenCalled()
+  })
+
+  it('useCommunitySolarSavings allows zero values', async () => {
+    const { result } = renderHook(
+      () => useCommunitySolarSavings('0', '0'),
+      { wrapper }
+    )
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockGetSavings).toHaveBeenCalled()
+  })
+
+  it('useCommunitySolarSavings allows boundary values', async () => {
+    const { result } = renderHook(
+      () => useCommunitySolarSavings(String(MAX_MONTHLY_BILL), String(MAX_SAVINGS_PERCENT)),
+      { wrapper }
+    )
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockGetSavings).toHaveBeenCalled()
+  })
+
   it('useCommunitySolarProgram returns a single program', async () => {
     const { result } = renderHook(
       () => useCommunitySolarProgram('1'),
@@ -180,5 +248,66 @@ describe('useCommunitySolar hooks', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(result.current.error?.message).toBe('Solar API error')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isValidNumericInput unit tests
+// ---------------------------------------------------------------------------
+describe('isValidNumericInput', () => {
+  it('returns false for null', () => {
+    expect(isValidNumericInput(null, 100)).toBe(false)
+  })
+
+  it('returns false for empty string', () => {
+    expect(isValidNumericInput('', 100)).toBe(false)
+  })
+
+  it('returns false for non-numeric string', () => {
+    expect(isValidNumericInput('abc', 100)).toBe(false)
+  })
+
+  it('returns false for negative number', () => {
+    expect(isValidNumericInput('-1', 100)).toBe(false)
+  })
+
+  it('returns false for value exceeding max', () => {
+    expect(isValidNumericInput('101', 100)).toBe(false)
+  })
+
+  it('returns false for Infinity', () => {
+    expect(isValidNumericInput('Infinity', 100)).toBe(false)
+  })
+
+  it('returns false for NaN string', () => {
+    expect(isValidNumericInput('NaN', 100)).toBe(false)
+  })
+
+  it('returns true for zero', () => {
+    expect(isValidNumericInput('0', 100)).toBe(true)
+  })
+
+  it('returns true for valid positive number', () => {
+    expect(isValidNumericInput('50', 100)).toBe(true)
+  })
+
+  it('returns true for max boundary value', () => {
+    expect(isValidNumericInput('100', 100)).toBe(true)
+  })
+
+  it('returns true for decimal values', () => {
+    expect(isValidNumericInput('99.99', 100)).toBe(true)
+  })
+
+  it('returns true for very small positive number', () => {
+    expect(isValidNumericInput('0.01', 100)).toBe(true)
+  })
+
+  it('MAX_MONTHLY_BILL is 50000', () => {
+    expect(MAX_MONTHLY_BILL).toBe(50_000)
+  })
+
+  it('MAX_SAVINGS_PERCENT is 100', () => {
+    expect(MAX_SAVINGS_PERCENT).toBe(100)
   })
 })

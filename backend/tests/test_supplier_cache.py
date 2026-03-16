@@ -1,17 +1,19 @@
 """
 Supplier Repository Cache Tests
 
-Verifies that both SupplierRepository and SupplierRegistryRepository:
-- Return cached results on a cache hit (DB is NOT queried).
-- Fall through to the DB on a cache miss and populate the cache.
-- Invalidate relevant cache keys after write operations.
-- Degrade gracefully when Redis is unavailable (cache=None).
-- clear_cache() / clear_registry_cache() wipe the correct key namespace.
+Verifies that SupplierRegistryRepository:
+- Returns cached results on a cache hit (DB is NOT queried).
+- Falls through to the DB on a cache miss and populates the cache.
+- Invalidates relevant cache keys after write operations.
+- Degrades gracefully when Redis is unavailable (cache=None).
+- clear_registry_cache() wipes the correct key namespace.
+
+Note: The legacy SupplierRepository was removed in S4-11 audit remediation.
 """
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock
 
 
 # ---------------------------------------------------------------------------
@@ -368,237 +370,6 @@ class TestSupplierRegistryClearCache:
         repo = SupplierRegistryRepository(db, cache=redis)
         # Must not raise
         await repo.clear_registry_cache()
-
-
-# ---------------------------------------------------------------------------
-# SupplierRepository — get_by_name
-# ---------------------------------------------------------------------------
-
-
-class TestSupplierRepositoryGetByName:
-
-    @pytest.mark.asyncio
-    async def test_cache_miss_queries_db_and_writes_cache(self):
-        from repositories.supplier_repository import SupplierRepository
-        from models.supplier import Supplier
-
-        supplier_obj = Supplier(
-            id="s1", name="Eversource Energy",
-            regions=["us_ct"], tariff_types=["standard"],
-        )
-
-        db = _make_db_session()
-        result = MagicMock()
-        result.scalar_one_or_none = MagicMock(return_value=supplier_obj)
-        db.execute.return_value = result
-
-        redis = _make_redis(hit_value=None)
-
-        repo = SupplierRepository(db, cache=redis)
-        supplier = await repo.get_by_name("Eversource Energy")
-
-        assert supplier is not None
-        db.execute.assert_called_once()
-        redis.set.assert_called_once()
-        key = redis.set.call_args[0][0]
-        assert "Eversource Energy" in key
-        assert key.startswith("supplier:name:")
-
-    @pytest.mark.asyncio
-    async def test_cache_hit_skips_db_for_get_by_name(self):
-        """
-        On a cache hit the repository reconstructs a Supplier from the cached
-        dict and must not call db.execute at all.
-        """
-        from repositories.supplier_repository import SupplierRepository
-
-        cached_dict = {"name": "Eversource Energy", "id": "s1", "regions": ["us_ct"]}
-        redis = _make_redis(hit_value=json.dumps(cached_dict))
-        db = _make_db_session()
-
-        repo = SupplierRepository(db, cache=redis)
-
-        # Patch the Supplier constructor so we don't need a real SQLAlchemy
-        # session to build the ORM object from the cached dict.
-        with patch(
-            "repositories.supplier_repository.Supplier",
-            side_effect=lambda **kw: MagicMock(**kw),
-        ):
-            supplier = await repo.get_by_name("Eversource Energy")
-
-        db.execute.assert_not_called()
-        assert supplier is not None
-
-    @pytest.mark.asyncio
-    async def test_no_cache_get_by_name_hits_db(self):
-        from repositories.supplier_repository import SupplierRepository
-        from models.supplier import Supplier
-
-        supplier_obj = Supplier(
-            id="s2", name="NextEra Energy",
-            regions=["us_fl"], tariff_types=["standard"],
-        )
-
-        db = _make_db_session()
-        result = MagicMock()
-        result.scalar_one_or_none = MagicMock(return_value=supplier_obj)
-        db.execute.return_value = result
-
-        repo = SupplierRepository(db, cache=None)
-        await repo.get_by_name("NextEra Energy")
-
-        db.execute.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# SupplierRepository — list_by_region
-# ---------------------------------------------------------------------------
-
-
-class TestSupplierRepositoryListByRegion:
-
-    @pytest.mark.asyncio
-    async def test_cache_miss_queries_db_and_writes_cache(self):
-        from repositories.supplier_repository import SupplierRepository
-        from models.supplier import Supplier
-
-        s1 = Supplier(id="s1", name="Alpha", regions=["us_ct"], tariff_types=["standard"])
-        s2 = Supplier(id="s2", name="Beta", regions=["us_ct"], tariff_types=["standard"])
-
-        db = _make_db_session()
-        result = MagicMock()
-        result.scalars.return_value.all.return_value = [s1, s2]
-        db.execute.return_value = result
-
-        redis = _make_redis(hit_value=None)
-
-        repo = SupplierRepository(db, cache=redis)
-        suppliers = await repo.list_by_region("us_ct")
-
-        assert len(suppliers) == 2
-        db.execute.assert_called_once()
-        redis.set.assert_called_once()
-        key = redis.set.call_args[0][0]
-        assert "us_ct" in key
-        assert key.startswith("supplier:region:")
-
-    @pytest.mark.asyncio
-    async def test_cache_hit_skips_db_for_list_by_region(self):
-        from repositories.supplier_repository import SupplierRepository
-
-        cached = json.dumps([
-            {"id": "s1", "name": "Alpha", "regions": ["us_ct"]},
-            {"id": "s2", "name": "Beta", "regions": ["us_ct"]},
-        ])
-        redis = _make_redis(hit_value=cached)
-        db = _make_db_session()
-
-        repo = SupplierRepository(db, cache=redis)
-
-        with patch(
-            "repositories.supplier_repository.Supplier",
-            side_effect=lambda **kw: MagicMock(**kw),
-        ):
-            suppliers = await repo.list_by_region("us_ct")
-
-        db.execute.assert_not_called()
-        assert len(suppliers) == 2
-
-    @pytest.mark.asyncio
-    async def test_active_only_flag_generates_distinct_cache_key(self):
-        """active_only=True and active_only=False must use different cache keys."""
-        from repositories.supplier_repository import SupplierRepository
-
-        db = _make_db_session()
-        result = MagicMock()
-        result.scalars.return_value.all.return_value = []
-        db.execute.return_value = result
-
-        redis = _make_redis(hit_value=None)
-        repo = SupplierRepository(db, cache=redis)
-
-        await repo.list_by_region("us_ct", active_only=True)
-        await repo.list_by_region("us_ct", active_only=False)
-
-        keys = [c.args[0] for c in redis.set.call_args_list]
-        assert len(keys) == 2
-        assert keys[0] != keys[1]
-        assert "active_only:1" in keys[0]
-        assert "active_only:0" in keys[1]
-
-
-# ---------------------------------------------------------------------------
-# SupplierRepository — clear_cache
-# ---------------------------------------------------------------------------
-
-
-class TestSupplierRepositoryClearCache:
-
-    @pytest.mark.asyncio
-    async def test_clear_cache_deletes_all_supplier_keys(self):
-        from repositories.supplier_repository import SupplierRepository
-
-        existing_keys = [
-            "supplier:name:Eversource Energy",
-            "supplier:region:us_ct:active_only:1",
-        ]
-
-        db = _make_db_session()
-        redis = _make_redis()
-        redis.scan_iter = _async_iter_factory(existing_keys)
-
-        repo = SupplierRepository(db, cache=redis)
-        await repo.clear_cache()
-
-        assert redis.delete.call_count == len(existing_keys)
-
-    @pytest.mark.asyncio
-    async def test_clear_cache_no_op_without_redis(self):
-        from repositories.supplier_repository import SupplierRepository
-
-        repo = SupplierRepository(_make_db_session(), cache=None)
-        # Must not raise
-        await repo.clear_cache()
-
-    @pytest.mark.asyncio
-    async def test_create_triggers_cache_clear(self):
-        """Creating a supplier clears the cache so stale region lists are evicted."""
-        from repositories.supplier_repository import SupplierRepository
-        from models.supplier import Supplier
-
-        db = _make_db_session()
-        redis = _make_redis()
-        redis.scan_iter = _async_iter_factory(["supplier:region:us_ct:active_only:1"])
-
-        entity = MagicMock(spec=Supplier)
-        entity.created_at = None
-        entity.updated_at = None
-
-        repo = SupplierRepository(db, cache=redis)
-        await repo.create(entity)
-
-        # scan_iter + at least one delete proves clear_cache was called
-        redis.delete.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_delete_triggers_cache_clear(self):
-        """Deleting a supplier clears the cache."""
-        from repositories.supplier_repository import SupplierRepository
-
-        existing = MagicMock()
-        db = _make_db_session()
-        result = MagicMock()
-        result.scalar_one_or_none.return_value = existing
-        db.execute.return_value = result
-
-        redis = _make_redis()
-        redis.scan_iter = _async_iter_factory(["supplier:name:OldSupplier"])
-
-        repo = SupplierRepository(db, cache=redis)
-        deleted = await repo.delete("some-id")
-
-        assert deleted is True
-        redis.delete.assert_called()
 
 
 # ---------------------------------------------------------------------------

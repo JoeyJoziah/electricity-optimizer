@@ -26,6 +26,7 @@ const mockUsePotentialSavings = jest.fn()
 
 jest.mock('@/lib/hooks/useOptimization', () => ({
   useOptimalSchedule: (...args: unknown[]) => mockUseOptimalSchedule(...args),
+  useSavedAppliances: jest.fn(() => ({ data: null })),
   useAppliances: jest.fn(() => ({ data: null })),
   useSaveAppliances: jest.fn(() => ({ mutate: jest.fn() })),
   usePotentialSavings: (...args: unknown[]) => mockUsePotentialSavings(...args),

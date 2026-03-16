@@ -98,9 +98,9 @@ export function SavingsTracker({
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
           <div
-            className="h-full rounded-full bg-success-500 transition-all duration-500"
+            className="h-full rounded-full bg-success-500 transition-transform duration-500 origin-left"
             style={{
-              width: `${Math.min((monthlySavings / 50) * 100, 100)}%`,
+              transform: `scaleX(${Math.min(monthlySavings / 50, 1)})`,
             }}
           />
         </div>

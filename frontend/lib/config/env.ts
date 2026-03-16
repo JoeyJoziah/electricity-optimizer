@@ -103,6 +103,16 @@ export const APP_URL: string = env(
   { name: 'NEXT_PUBLIC_APP_URL' },
 )
 
+// Warn at startup if NEXT_PUBLIC_APP_URL is missing in production.
+// This variable is critical for auth redirects and SEO metadata.
+if (isProduction && !process.env.NEXT_PUBLIC_APP_URL) {
+  console.warn(
+    '[env] WARNING: NEXT_PUBLIC_APP_URL is not set in production. ' +
+      'Auth redirects and canonical URLs will fall back to http://localhost:3000. ' +
+      'Set NEXT_PUBLIC_APP_URL in your deployment environment.',
+  )
+}
+
 /**
  * Canonical site URL used in SEO metadata (sitemap.xml, robots.txt).
  * Falls back to the Vercel deployment URL in production.

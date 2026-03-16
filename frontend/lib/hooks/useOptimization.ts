@@ -49,15 +49,26 @@ export function useOptimizationResult(date: string, region: string | null | unde
 }
 
 /**
- * Hook for fetching saved appliances
+ * Hook for fetching saved appliances from the backend API.
+ *
+ * Renamed from `useAppliances` to avoid collision with the Zustand store
+ * selector of the same name in `lib/store/settings.ts`. The store selector
+ * returns the local (client-side) appliance list, whereas this hook fetches
+ * the persisted list from the server.
  */
-export function useAppliances() {
+export function useSavedAppliances() {
   return useQuery({
     queryKey: ['appliances'],
     queryFn: ({ signal }) => getAppliances(signal),
     staleTime: 300000,
   })
 }
+
+/**
+ * @deprecated Use `useSavedAppliances` instead. This alias exists only
+ * for backward compatibility and will be removed in a future release.
+ */
+export const useAppliances = useSavedAppliances
 
 /**
  * Hook for saving appliances

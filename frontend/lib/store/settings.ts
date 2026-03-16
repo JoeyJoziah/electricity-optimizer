@@ -208,7 +208,7 @@ export const useRegion = () => useSettingsStore((s) => s.region)
 export const useUtilityTypes = () => useSettingsStore((s) => s.utilityTypes)
 export const useCurrentSupplier = () => useSettingsStore((s) => s.currentSupplier)
 export const useAnnualUsage = () => useSettingsStore((s) => s.annualUsageKwh)
-export const useAppliances = () => useSettingsStore((s) => s.appliances)
+export const useStoredAppliances = () => useSettingsStore((s) => s.appliances)
 export const useCurrency = () =>
   useSettingsStore((s) => s.displayPreferences.currency)
 export const useTheme = () => useSettingsStore((s) => s.displayPreferences.theme)

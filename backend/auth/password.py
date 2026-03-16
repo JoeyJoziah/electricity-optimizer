@@ -16,6 +16,41 @@ REQUIRE_DIGIT = True
 REQUIRE_SPECIAL = True
 SPECIAL_CHARACTERS = r'!@#$%^&*()_+-=[]{}|;:,.<>?'
 
+# Top 200 most common passwords (NIST SP 800-63B compliance).
+# Checked case-insensitively against user input.
+COMMON_PASSWORDS: frozenset[str] = frozenset({
+    "123456", "password", "12345678", "qwerty", "123456789", "12345", "1234",
+    "111111", "1234567", "dragon", "123123", "baseball", "abc123", "football",
+    "monkey", "letmein", "shadow", "master", "666666", "qwertyuiop",
+    "123321", "mustang", "1234567890", "michael", "654321", "superman",
+    "1qaz2wsx", "7777777", "121212", "000000", "qazwsx", "123qwe",
+    "killer", "trustno1", "jordan", "jennifer", "zxcvbnm", "asdfgh",
+    "hunter", "buster", "soccer", "harley", "batman", "andrew", "tigger",
+    "sunshine", "iloveyou", "2000", "charlie", "robert", "thomas", "hockey",
+    "ranger", "daniel", "starwars", "klaster", "112233", "george", "computer",
+    "michelle", "jessica", "pepper", "1111", "zxcvbn", "555555", "11111111",
+    "131313", "freedom", "777777", "pass", "maggie", "159753", "aaaaaa",
+    "ginger", "princess", "joshua", "cheese", "amanda", "summer", "love",
+    "ashley", "nicole", "chelsea", "biteme", "matthew", "access", "yankees",
+    "987654321", "dallas", "austin", "thunder", "taylor", "matrix",
+    "minecraft", "william", "corvette", "hello", "martin", "heather",
+    "secret", "merlin", "diamond", "1234qwer", "gfhjkm", "hammer",
+    "silver", "222222", "88888888", "anthony", "justin", "test", "bailey",
+    "q1w2e3r4t5", "patrick", "internet", "scooter", "orange", "11111",
+    "golfer", "cookie", "richard", "samantha", "bigdog", "guitar",
+    "jackson", "whatever", "mickey", "chicken", "sparky", "snoopy",
+    "maverick", "phoenix", "camaro", "peanut", "morgan", "welcome",
+    "falcon", "cowboy", "ferrari", "samsung", "andrea", "smokey",
+    "steelers", "joseph", "mercedes", "dakota", "arsenal", "eagles",
+    "melissa", "boomer", "booboo", "spider", "nascar", "tigers", "yellow",
+    "xtreme", "gateway", "marina", "diablo", "bulldogs", "compaq",
+    "purple", "hardcore", "banana", "junior", "hannah", "alexander",
+    "william123", "passw0rd", "abcdef", "letmein1", "trustno1!", "admin",
+    "administrator", "welcome1", "changeme", "default", "guest", "root",
+    "login", "master1", "password1", "password123", "p@ssw0rd", "p@ssword",
+    "qwerty123", "abc1234", "iloveu", "monkey1", "dragon1",
+})
+
 
 def validate_password(password: str) -> bool:
     """
@@ -38,6 +73,10 @@ def validate_password(password: str) -> bool:
         ValueError: If password doesn't meet requirements
     """
     errors = []
+
+    # Check against common passwords (case-insensitive)
+    if password.lower() in COMMON_PASSWORDS:
+        errors.append("Password is too common and easily guessed")
 
     # Check minimum length
     if len(password) < MIN_PASSWORD_LENGTH:
@@ -82,6 +121,7 @@ def check_password_strength(password: str) -> dict:
         "lowercase": bool(re.search(r'[a-z]', password)),
         "digit": bool(re.search(r'\d', password)),
         "special": bool(re.search(r'[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]', password)),
+        "not_common": password.lower() not in COMMON_PASSWORDS,
     }
 
     # Score based on checks
@@ -94,9 +134,9 @@ def check_password_strength(password: str) -> dict:
         score += 1
 
     # Determine strength level
-    if score >= 7:
+    if score >= 8:
         strength = "very_strong"
-    elif score >= 5:
+    elif score >= 6:
         strength = "strong"
     elif score >= 4:
         strength = "medium"
@@ -107,7 +147,7 @@ def check_password_strength(password: str) -> dict:
 
     return {
         "score": score,
-        "max_score": 7,
+        "max_score": 8,
         "strength": strength,
         "checks": checks,
         "valid": all(checks.values()),

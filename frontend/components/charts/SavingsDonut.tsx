@@ -10,12 +10,7 @@ import {
 } from 'recharts'
 import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/format'
-
-const tooltipStyle = {
-  backgroundColor: 'white',
-  border: '1px solid #e5e7eb',
-  borderRadius: '8px',
-}
+import { CHART_COLORS, chartTooltipStyle } from '@/lib/constants/chartTokens'
 
 export interface SavingsCategory {
   category: string
@@ -36,8 +31,6 @@ export interface SavingsDonutProps {
   className?: string
 }
 
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
-
 const periodLabels: Record<SavingsData['period'], string> = {
   day: 'Today',
   week: 'This week',
@@ -56,7 +49,7 @@ export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(({
   const chartData = useMemo(() => {
     return breakdown.map((item, index) => ({
       ...item,
-      color: COLORS[index % COLORS.length],
+      color: CHART_COLORS[index % CHART_COLORS.length],
     }))
   }, [breakdown])
 
@@ -99,7 +92,7 @@ export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(({
             </Pie>
             <Tooltip
               formatter={(value: number) => formatCurrency(value, currency)}
-              contentStyle={tooltipStyle}
+              contentStyle={chartTooltipStyle}
             />
           </PieChart>
         </ResponsiveContainer>

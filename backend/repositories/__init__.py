@@ -14,7 +14,7 @@ from repositories.base import (
 
 from repositories.price_repository import PriceRepository
 from repositories.user_repository import UserRepository
-from repositories.supplier_repository import SupplierRepository
+from repositories.supplier_repository import SupplierRegistryRepository
 from repositories.forecast_observation_repository import ForecastObservationRepository
 from repositories.utility_account_repository import UtilityAccountRepository
 
@@ -28,7 +28,7 @@ __all__ = [
     # Repository implementations
     "PriceRepository",
     "UserRepository",
-    "SupplierRepository",
+    "SupplierRegistryRepository",
     "ForecastObservationRepository",
     "UtilityAccountRepository",
 ]

@@ -93,8 +93,8 @@ export const SwitchWizard: React.FC<SwitchWizardProps> = ({
         </div>
         <div className="h-2 w-full rounded-full bg-gray-200">
           <div
-            className="h-2 rounded-full bg-primary-600 transition-all duration-300"
-            style={{ width: `${(step / 4) * 100}%` }}
+            className="h-2 rounded-full bg-primary-600 transition-transform duration-300 origin-left"
+            style={{ transform: `scaleX(${step / 4})` }}
           />
         </div>
       </div>

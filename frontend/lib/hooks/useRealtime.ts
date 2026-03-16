@@ -203,25 +203,3 @@ export function useRealtimeSubscription(
 
   return { isConnected, lastUpdate }
 }
-
-/**
- * Hook for broadcasting updates to other clients.
- * Placeholder for future WebSocket implementation.
- */
-export function useRealtimeBroadcast(channelName: string) {
-  const [isConnected, setIsConnected] = useState(false)
-
-  useEffect(() => {
-    setIsConnected(true)
-    return () => setIsConnected(false)
-  }, [channelName])
-
-  const broadcast = useCallback(
-    (_event: string, _payload: unknown) => {
-      // Future: implement via WebSocket or shared worker
-    },
-    []
-  )
-
-  return { isConnected, broadcast }
-}
