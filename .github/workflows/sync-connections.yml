@@ -2,8 +2,8 @@ name: Sync User Connections
 
 on:
   schedule:
-    # Every 2 hours
-    - cron: "0 */2 * * *"
+    # Every 6 hours — aligns with UtilityAPI update frequency
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 permissions: {}

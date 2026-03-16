@@ -1,9 +1,7 @@
 name: Scrape Supplier Rates
 
 on:
-  schedule:
-    # Daily at 3 AM UTC (after market research at 2 AM)
-    - cron: "0 3 * * *"
+  # Cron trigger moved to daily-data-pipeline.yml (consolidated)
   workflow_dispatch:
 
 permissions: {}

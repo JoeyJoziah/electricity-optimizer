@@ -2,8 +2,8 @@ name: Check Price Alerts
 
 on:
   schedule:
-    # Every 30 minutes
-    - cron: "*/30 * * * *"
+    # Every 2 hours — electricity prices don't change faster
+    - cron: "0 */2 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -25,6 +25,8 @@ jobs:
         uses: ./.github/actions/warmup-backend
         with:
           backend-url: ${{ secrets.BACKEND_URL }}
+          max-attempts: '3'
+          delay-seconds: '10'
 
       - name: Run price alert pipeline
         uses: ./.github/actions/retry-curl

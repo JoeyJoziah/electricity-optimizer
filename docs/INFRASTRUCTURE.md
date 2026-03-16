@@ -517,46 +517,34 @@ deploy:
 
 ## Cost Optimization
 
-### Budget Target: $50/month
+> Comprehensive cost analysis: [`docs/COST_ANALYSIS.md`](./COST_ANALYSIS.md)
 
-#### Current Allocation
+### Current Cost: $0/month (all free tiers)
 
-| Component | Estimated Cost | Notes |
-|-----------|----------------|-------|
-| Neon PostgreSQL | $0 (free tier) | Serverless, 0.5 GB storage |
-| Render.com | $15-35 | Backend + frontend services (render.yaml) |
-| Domain + SSL | $0-10 | Let's Encrypt for SSL |
-| **Total** | **$15-45** | Under $50/month budget |
+| Service | Tier | Free Limit | Status |
+|---------|------|-----------|--------|
+| Neon PostgreSQL | Free | 100 compute-hours, 0.5 GB | ~25h used |
+| Render | Free | 750 hours, cold-sleeps | OK (cron keeps warm) |
+| Vercel | Hobby | 100 GB bandwidth | Well within |
+| Cloudflare | Free | 100K Worker req/day | Well within |
+| GitHub Actions | Free | 2,000 min/mo | **~2,700 min/mo** (over) |
+| Resend / OneSignal / Sentry | Free | Various | Low usage |
+| Grafana Cloud | Free | 50 GB traces | Low usage |
 
-### Cost-Saving Strategies
+### Key Risk: GitHub Actions Minutes
 
-1. **Use Free Tiers**
-   - Neon PostgreSQL free tier for serverless database
-   - GitHub Actions free tier for CI/CD and scheduling
-   - Let's Encrypt for SSL certificates
-
-2. **Self-Host Where Possible**
-   - Run Prometheus/Grafana locally
-   - Use Redis as cache (no managed service)
-   - Neon PostgreSQL free tier for database
-
-3. **Resource Optimization**
-   - Aggressive caching (5-min TTL)
-   - Batch API calls
-   - Compress data before storage
-
-4. **Monitoring Costs**
-   - Use `model-usage` skill to track costs
-   - Set up alerts for cost anomalies
-   - Review usage monthly
+GHA minutes are the primary cost pressure (~2,700 min/mo vs 2,000 free).
+Optimized 2026-03-16: reduced cron frequencies, consolidated daily pipeline, cut warmup overhead.
+See `COST_ANALYSIS.md` for full breakdown, optimization history, and scaling projections.
 
 ### Scaling Cost Impact
 
 | Scale Action | Monthly Cost Impact |
 |--------------|---------------------|
-| Add 1 backend replica | +$10-15 |
-| Double database size | +$5-10 |
-| Add monitoring retention | +$0 (self-hosted) |
+| Render Starter (eliminates cold starts) | +$7 |
+| Neon Launch (more compute + storage) | +$19 |
+| Vercel Pro (team features) | +$20 |
+| Self-hosted GHA runner (unlimited minutes) | +$0 (Oracle free tier) |
 
 ---
 

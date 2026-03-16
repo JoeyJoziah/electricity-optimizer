@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-16 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,490 tests, Frontend 1,835 tests. 50 migrations (050: community_posts_indexes). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 31 GHA workflows. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 470 entities, 920 imports (auto-discovery bootstrap). Full docs refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs created; all codemaps/API ref/DB schema/testing docs updated. Performance optimization (SQL aggregates, React.memo audit, SSE partial-merge, tier caching isolation).)
+> Last validated: 2026-03-16 (Wave 5 complete — unified dashboard, community, security hardening. Backend 2,490 tests, Frontend 1,835 tests. 50 migrations (050: community_posts_indexes). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 32 GHA workflows. OWASP ZAP + pip-audit + npm audit CI gates. Community features: posts, voting, reporting, AI moderation (Groq+Gemini). Tabbed multi-utility dashboard. DSP graph: 470 entities, 920 imports (auto-discovery bootstrap). Full docs refresh: ARCHITECTURE.md, DEVELOPER_GUIDE.md, 5 ADRs created; all codemaps/API ref/DB schema/testing docs updated. Performance optimization (SQL aggregates, React.memo audit, SSE partial-merge, tier caching isolation).)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -103,7 +103,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
 - **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 44 public + 9 neon_auth = 53 tables total (50 migrations: init_neon through 050_community_posts_indexes)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
-- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (6h). Source: `workers/api-gateway/` (17 files, 77 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
+- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Source: `workers/api-gateway/` (17 files, 77 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id. **Plan gating**: `require_tier("pro"/"business")` dependency on 7 endpoints (forecast, savings, recommendations=pro; prices/stream=business). Free tier: 1 alert limit
 - **Email**: Resend (primary, domain `rateshift.app` verified, DKIM/SPF/DMARC, TLS enforced) + Gmail SMTP fallback. Sender: `RateShift <noreply@rateshift.app>`. Frontend uses nodemailer for SMTP
@@ -128,7 +128,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
 8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
 9. **Internal endpoints**: All `/api/v1/internal/*` routes require `X-API-Key` header and are excluded from RequestTimeoutMiddleware (30s). GHA workflows use `INTERNAL_API_KEY` repo secret
-10. **Self-healing CI/CD**: 31 GHA workflows total. retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
+10. **Self-healing CI/CD**: 32 GHA workflows total. retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
 11. **Community**: `/community` page with posts, voting, reporting. AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. nh3 XSS sanitization. Report threshold: 5 unique reporters auto-hides. Rate limit: 10 posts/hour. Community backend: `community_service.py`, `savings_aggregator.py`, `neighborhood_service.py`. Migration 049: 3 tables (community_posts, community_votes, community_reports). Migration 050: optimized partial indexes for community_posts
 
 ## Cron Jobs & Maintenance
@@ -136,14 +136,14 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **db-maintenance**: Weekly Sunday 3am UTC — database optimization, vacuum, analyze, index maintenance
 - **Phase 1 LIVE**: Sentry→Slack (15min, `rcp_sQ1NKouFdXIe`), Deploy→Slack (hourly, `rcp_9f8mVE2Z_DSP`), GitHub→Notion (6h, `rcp_73Kc9K65YC5T`). Rube session: `drew`
 - **Phase 2 COMPLETE** (5 GHA cron workflows):
-  - `check-alerts.yml`: Every 30 min (was */15 min, updated 2026-03-09) — `POST /internal/check-alerts` (price threshold alerts with dedup)
+  - `check-alerts.yml`: Every 2 hours (was */30 min, reduced 2026-03-16 for GHA cost optimization) — `POST /internal/check-alerts` (price threshold alerts with dedup)
   - `fetch-weather.yml`: Every 6 hours (offset :15) — `POST /internal/fetch-weather` (parallelized with asyncio.gather + Semaphore(10))
   - `market-research.yml`: Daily 2am UTC — `POST /internal/market-research` (Tavily + Diffbot)
-  - `sync-connections.yml`: Every 2 hours — `POST /internal/sync-connections` (UtilityAPI auto-sync)
-  - `scrape-rates.yml`: Daily 3am UTC — `POST /internal/scrape-rates` (auto-discovers suppliers with empty body)
+  - `sync-connections.yml`: Every 6 hours (was 2h, reduced 2026-03-16) — `POST /internal/sync-connections` (UtilityAPI auto-sync)
+  - `scrape-rates.yml`: Via `daily-data-pipeline.yml` (was standalone 3am cron, consolidated 2026-03-16) — `POST /internal/scrape-rates`
   - All use `INTERNAL_API_KEY` secret, `/api/v1/internal/` paths excluded from RequestTimeoutMiddleware
 - **Utility Integration Track** (2 GHA cron workflows, 2026-03-11):
-  - `scan-emails.yml`: Daily 4am UTC — `POST /internal/scan-emails` (batch scan all active email_import connections, extract rates from body + attachments)
+  - `scan-emails.yml`: Via `daily-data-pipeline.yml` (was standalone 4am cron, consolidated 2026-03-16) — `POST /internal/scan-emails` (batch scan all active email_import connections, extract rates from body + attachments)
   - `scrape-portals.yml`: Weekly Sunday 5am UTC — `POST /internal/scrape-portals` (batch scrape portal_scrape connections with Semaphore(2))
   - Portal endpoints: `POST /connections/portal` (create with encrypted creds), `POST /connections/portal/{id}/scrape` (trigger manual scrape)
   - PortalScraperService: httpx-based, 5 utilities (Duke Energy, PG&E, Con Edison, ComEd, FPL), AES-256-GCM encrypted credentials
@@ -167,6 +167,12 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
   - Deploy pipeline: migration-gate job before deploy, Slack rollback notification
   - New secret required: `SLACK_INCIDENTS_WEBHOOK_URL`
   - New labels: `self-healing`, `automated`
+- **Cost Optimization** (2026-03-16):
+  - `daily-data-pipeline.yml`: Daily 3am UTC — consolidated pipeline running scrape-rates, scan-emails, nightly-learning, detect-rate-changes sequentially (single checkout + warmup)
+  - `e2e-tests.yml`: Removed daily cron trigger (still runs on push/PR)
+  - `nightly-learning.yml`: Via `daily-data-pipeline.yml` (was standalone 4am cron)
+  - `detect-rate-changes.yml`: Via `daily-data-pipeline.yml` (was standalone 6:30am cron)
+  - Estimated GHA savings: ~3,630 min/mo. Full analysis: `docs/COST_ANALYSIS.md`
 - **Security Scanning** (Wave 5, 2026-03-12):
   - `owasp-zap.yml`: Weekly Sunday 4am UTC — OWASP ZAP baseline scan against Render backend (not CF Worker)
   - `pip-audit` in `_backend-tests.yml`: Fails on known Python dependency vulnerabilities

@@ -1,9 +1,7 @@
 name: Detect Rate Changes
 
 on:
-  schedule:
-    # Daily at 6:30am UTC — after price fetch workflows complete
-    - cron: '30 6 * * *'
+  # Cron trigger moved to daily-data-pipeline.yml (consolidated)
   workflow_dispatch:
 
 jobs:
@@ -11,6 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
 
       - name: Detect rate changes
         uses: ./.github/actions/retry-curl
@@ -24,6 +29,5 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
-          status: 'failure'
-          title: 'Rate Change Detection Failed'
-          message: 'detect-rate-changes workflow failed'
+          workflow-name: "Detect Rate Changes"
+          severity: warning

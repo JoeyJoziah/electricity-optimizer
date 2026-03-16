@@ -1,0 +1,76 @@
+name: Daily Data Pipeline
+
+on:
+  schedule:
+    # Daily at 3am UTC — consolidated from 4 separate workflows
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: daily-data-pipeline
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+
+      # Step 1: Scrape supplier rate pages (previously scrape-rates.yml at 3am)
+      - name: Scrape supplier rates
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/scrape-rates
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+          timeout: '180'
+
+      # Step 2: Scan email connections for rate data (previously scan-emails.yml at 4am)
+      - name: Scan email connections
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/scan-emails
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+
+      # Step 3: Run adaptive ML learning cycle (previously nightly-learning.yml at 4am)
+      - name: Nightly learning cycle
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/learn
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{"regions": ["US"], "days": 7}'
+
+      # Step 4: Detect rate changes after fresh data (previously detect-rate-changes.yml at 6:30am)
+      - name: Detect rate changes
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/detect-rate-changes
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Daily Data Pipeline"
+          severity: warning

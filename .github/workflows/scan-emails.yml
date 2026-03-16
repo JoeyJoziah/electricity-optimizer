@@ -1,9 +1,7 @@
 name: Scan Email Connections
 
 on:
-  schedule:
-    # Daily at 4am UTC
-    - cron: "0 4 * * *"
+  # Cron trigger moved to daily-data-pipeline.yml (consolidated)
   workflow_dispatch:
 
 permissions: {}
