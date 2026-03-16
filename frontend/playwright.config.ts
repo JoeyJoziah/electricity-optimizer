@@ -4,13 +4,32 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1,
+  retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 2 : undefined,
-  reporter: 'html',
+  timeout: 30_000,
+  expect: {
+    timeout: 10_000,
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.02,
+    },
+  },
+  outputDir: './test-results',
+  reporter: process.env.CI
+    ? [
+        ['html', { open: 'never' }],
+        ['junit', { outputFile: 'test-results/e2e-results.xml' }],
+        ['list'],
+      ]
+    : 'html',
+  metadata: {
+    project: 'rateshift',
+    environment: process.env.CI ? 'ci' : 'local',
+  },
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    video: process.env.CI ? 'retain-on-failure' : 'off',
   },
   projects: [
     {

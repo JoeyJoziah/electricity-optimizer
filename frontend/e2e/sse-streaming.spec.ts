@@ -1,140 +1,8 @@
-import { test, expect } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
+import { test, expect } from './fixtures'
 
 test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
-  test.beforeEach(async ({ page }) => {
-    // Set up authenticated state via Better Auth cookie
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
-
-    // Set up local settings
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 3,
-          },
-        })
-      )
-    })
-
-    // Mock prices current endpoint
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            {
-              region: 'US_CT',
-              price: 0.25,
-              timestamp: new Date().toISOString(),
-              trend: 'stable',
-              changePercent: 0,
-            },
-          ],
-        }),
-      })
-    })
-
-    // Mock price history endpoint
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            { time: new Date(Date.now() - 3600000).toISOString(), price: 0.27 },
-            { time: new Date(Date.now() - 1800000).toISOString(), price: 0.26 },
-            { time: new Date().toISOString(), price: 0.25 },
-          ],
-        }),
-      })
-    })
-
-    // Mock forecast endpoint
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          forecast: [
-            { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-            { hour: 2, price: 0.20, confidence: [0.18, 0.22] },
-            { hour: 3, price: 0.18, confidence: [0.16, 0.20] },
-          ],
-        }),
-      })
-    })
-
-    // Mock suppliers endpoint
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          suppliers: [
-            {
-              id: '1',
-              name: 'Eversource Energy',
-              avgPricePerKwh: 0.25,
-              standingCharge: 0.50,
-              greenEnergy: true,
-              rating: 4.5,
-              estimatedAnnualCost: 1200,
-              tariffType: 'variable',
-            },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/users/profile**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ periods: [] }),
-      })
-    })
-  })
-
   // Realtime indicator has class "hidden sm:flex" — not visible on mobile viewports
-  test('dashboard shows realtime indicator', async ({ page, isMobile }) => {
+  test('dashboard shows realtime indicator', { tag: ['@smoke'] }, async ({ authenticatedPage: page, isMobile }) => {
     test.skip(isMobile === true, 'Realtime indicator is hidden on mobile (sm:flex)')
 
     // Mock SSE endpoint to simulate a successful connection
@@ -159,7 +27,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await expect(page.getByTestId('realtime-indicator')).toBeVisible()
   })
 
-  test('price data renders on dashboard load', async ({ page }) => {
+  test('price data renders on dashboard load', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await page.route('**/api/v1/prices/stream**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -182,7 +50,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await expect(page.getByTestId('price-trend').first()).toBeVisible()
   })
 
-  test('handles SSE connection failure gracefully', async ({ page }) => {
+  test('handles SSE connection failure gracefully', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Mock SSE endpoint to return an error
     await page.route('**/api/v1/prices/stream**', async (route) => {
       await route.fulfill({
@@ -202,7 +70,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await expect(page.getByText('Price History')).toBeVisible()
   })
 
-  test('dashboard loads all widgets without SSE dependency', async ({ page }) => {
+  test('dashboard loads all widgets without SSE dependency', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Block SSE entirely to simulate network failure
     await page.route('**/api/v1/prices/stream**', async (route) => {
       await route.abort('connectionrefused')
@@ -220,7 +88,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await expect(page.getByText('Top Suppliers')).toBeVisible()
   })
 
-  test('SSE delivers price update data in correct format', async ({ page }) => {
+  test('SSE delivers price update data in correct format', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     const timestamp = new Date().toISOString()
 
     // Fulfill SSE with a properly formatted event
@@ -250,7 +118,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await expect(page.getByTestId('current-price').first()).toBeVisible()
   })
 
-  test('multiple price updates do not break the dashboard', async ({ page }) => {
+  test('multiple price updates do not break the dashboard', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Create multiple SSE events
     const events: string[] = []
     for (let i = 0; i < 5; i++) {
@@ -286,8 +154,8 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
     await expect(page.getByText(/failed to load/i)).not.toBeVisible()
   })
 
-  test('dashboard shows decreasing price alert banner when trend is down', async ({ page }) => {
-    // Mock current prices with decreasing trend
+  test('dashboard shows decreasing price alert banner when trend is down', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    // Override the prices/current mock with a decreasing trend for this test
     await page.route('**/api/v1/prices/current**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -327,116 +195,7 @@ test.describe('SSE Streaming - Dashboard Real-Time Updates', () => {
 })
 
 test.describe('SSE Streaming - Error Recovery', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
-
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            {
-              region: 'US_CT',
-              price: 0.25,
-              timestamp: new Date().toISOString(),
-              trend: 'stable',
-              changePercent: 0,
-            },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            { time: new Date().toISOString(), price: 0.25 },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          forecast: [
-            { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ suppliers: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/users/profile**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ periods: [] }),
-      })
-    })
-
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 5,
-            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
-          },
-        })
-      )
-    })
-  })
-
-  test('dashboard remains functional when SSE returns 404', async ({ page }) => {
+  test('dashboard remains functional when SSE returns 404', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.route('**/api/v1/prices/stream**', async (route) => {
       await route.fulfill({
         status: 404,
@@ -453,7 +212,7 @@ test.describe('SSE Streaming - Error Recovery', () => {
     await expect(page.getByText('Price History')).toBeVisible()
   })
 
-  test('dashboard handles malformed SSE data without crashing', async ({ page }) => {
+  test('dashboard handles malformed SSE data without crashing', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.route('**/api/v1/prices/stream**', async (route) => {
       // Send malformed SSE data (not valid JSON)
       await route.fulfill({
@@ -477,7 +236,7 @@ test.describe('SSE Streaming - Error Recovery', () => {
     await expect(page.getByText('Price History')).toBeVisible()
   })
 
-  test('dashboard is responsive on mobile even without SSE', async ({ page }) => {
+  test('dashboard is responsive on mobile even without SSE', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.route('**/api/v1/prices/stream**', async (route) => {
       await route.abort('connectionrefused')
     })

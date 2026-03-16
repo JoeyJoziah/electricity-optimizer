@@ -89,7 +89,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Zap className="h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">Electricity Optimizer</span>
+            <span className="text-xl font-bold text-gray-900">RateShift</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900">
@@ -214,7 +214,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-blue-600" />
-              <span className="font-semibold text-gray-900">Electricity Optimizer</span>
+              <span className="font-semibold text-gray-900">RateShift</span>
             </div>
             <div className="flex gap-6 text-sm text-gray-600">
               <Link href="/pricing" className="hover:text-gray-900">Pricing</Link>
@@ -222,7 +222,7 @@ export default function LandingPage() {
               <Link href="/terms" className="hover:text-gray-900">Terms</Link>
             </div>
             <p className="text-sm text-gray-500">
-              &copy; {new Date().getFullYear()} Electricity Optimizer. All rights reserved.
+              &copy; {new Date().getFullYear()} RateShift. All rights reserved.
             </p>
           </div>
         </div>

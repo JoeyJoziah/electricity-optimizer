@@ -1,161 +1,9 @@
-import { test, expect } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
+import { test, expect } from './fixtures'
 
 test.describe('Dashboard', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
-
-    // Initialize settings store with region so hooks fire (enabled: !!region)
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 5,
-            displayPreferences: {
-              currency: 'USD',
-              theme: 'system',
-              timeFormat: '12h',
-            },
-          },
-        })
-      )
-    })
-
-    // Mock API responses
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            {
-              region: 'US_CT',
-              price: 0.25,
-              timestamp: new Date().toISOString(),
-              trend: 'decreasing',
-              changePercent: -2.5,
-            },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            { time: new Date(Date.now() - 3600000).toISOString(), price: 0.28 },
-            { time: new Date(Date.now() - 1800000).toISOString(), price: 0.26 },
-            { time: new Date().toISOString(), price: 0.25 },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          forecast: [
-            { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-            { hour: 2, price: 0.20, confidence: [0.18, 0.22] },
-            { hour: 3, price: 0.18, confidence: [0.16, 0.20] },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          suppliers: [
-            {
-              id: '1',
-              name: 'Eversource Energy',
-              avgPricePerKwh: 0.25,
-              standingCharge: 0.50,
-              greenEnergy: true,
-              rating: 4.5,
-              estimatedAnnualCost: 1200,
-              tariffType: 'variable',
-            },
-            {
-              id: '2',
-              name: 'NextEra Energy',
-              avgPricePerKwh: 0.22,
-              standingCharge: 0.45,
-              greenEnergy: true,
-              rating: 4.3,
-              estimatedAnnualCost: 1050,
-              tariffType: 'variable',
-            },
-          ],
-        }),
-      })
-    })
-
-    // Mock additional endpoints needed when navigating away from dashboard
-    await page.route('**/api/v1/users/profile**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ periods: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers/recommendation**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ recommendation: null }),
-      })
-    })
-
+  test('displays dashboard with all main widgets', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await page.goto('/dashboard')
-  })
 
-  test('displays dashboard with all main widgets', async ({ page }) => {
     // Dashboard title
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 
@@ -173,7 +21,9 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Top Suppliers' })).toBeVisible()
   })
 
-  test('shows live prices and trend', async ({ page }) => {
+  test('shows live prices and trend', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
+    await page.goto('/dashboard')
+
     // Current price should be displayed
     await expect(page.getByTestId('current-price').first()).toContainText('0.25')
 
@@ -181,7 +31,9 @@ test.describe('Dashboard', () => {
     await expect(page.getByTestId('price-trend').first()).toBeVisible()
   })
 
-  test('displays price chart with history', async ({ page }) => {
+  test('displays price chart with history', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await page.goto('/dashboard')
+
     // Wait for chart to load
     await expect(page.getByText('Price History')).toBeVisible()
 
@@ -189,36 +41,44 @@ test.describe('Dashboard', () => {
     await expect(page.getByTestId('price-chart-container')).toBeVisible()
   })
 
-  test('shows 24-hour forecast section', async ({ page }) => {
+  test('shows 24-hour forecast section', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await page.goto('/dashboard')
+
     await expect(page.getByText('24-Hour Forecast').first()).toBeVisible()
   })
 
-  test('displays supplier comparison widget', async ({ page }) => {
+  test('displays supplier comparison widget', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await page.goto('/dashboard')
+
     await expect(page.getByText('Top Suppliers')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Eversource Energy' })).toBeVisible()
   })
 
-  test('navigates to prices page', async ({ page, isMobile }) => {
+  test('navigates to prices page', { tag: ['@smoke'] }, async ({ authenticatedPage: page, isMobile }) => {
     test.skip(isMobile === true, 'Mobile navigation uses different layout')
+    await page.goto('/dashboard')
     await page.getByText('View all prices').click()
     await page.waitForURL(/\/prices/, { timeout: 15000 })
   })
 
   // Client-side navigation from dashboard to suppliers can be slow on webkit
-  test('navigates to suppliers page', async ({ page, isMobile }) => {
+  test('navigates to suppliers page', { tag: ['@regression'] }, async ({ authenticatedPage: page, isMobile }) => {
     test.skip(isMobile === true, 'Mobile navigation uses different layout')
+    await page.goto('/dashboard')
     await page.getByRole('link', { name: 'View all', exact: true }).click()
     await page.waitForURL(/\/suppliers/, { timeout: 20000 })
   })
 
   // Realtime indicator has class "hidden sm:flex" — not visible on mobile viewports
-  test('shows realtime indicator', async ({ page, isMobile }) => {
+  test('shows realtime indicator', { tag: ['@regression'] }, async ({ authenticatedPage: page, isMobile }) => {
     test.skip(isMobile === true, 'Realtime indicator is hidden on mobile (sm:flex)')
+    await page.goto('/dashboard')
     await expect(page.getByTestId('realtime-indicator')).toBeVisible()
   })
 
-  test('is responsive on mobile', async ({ page }) => {
+  test('is responsive on mobile', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
+    await page.goto('/dashboard')
 
     // Dashboard should still load
     await expect(page.getByText('Current Price').first()).toBeVisible()
@@ -229,10 +89,8 @@ test.describe('Dashboard', () => {
 })
 
 test.describe('Dashboard Error Handling', () => {
-  test('handles API errors gracefully', async ({ page }) => {
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
-
+  test('handles API errors gracefully', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    // Override the prices/current mock with a 500 error for this test only
     await page.route('**/api/v1/prices/current**', async (route) => {
       await route.fulfill({
         status: 500,

@@ -195,8 +195,10 @@ describe('GasRatesPage', () => {
   it('shows no-region message when region is null', () => {
     // Override mock to return null region
     jest.spyOn(require('@/lib/store/settings'), 'useSettingsStore').mockImplementation(
-      (selector: (state: Record<string, unknown>) => unknown) =>
-        selector({ region: null, utilityTypes: [], priceAlerts: [] })
+      (selector: unknown) =>
+        typeof selector === 'function'
+          ? (selector as (state: Record<string, unknown>) => unknown)({ region: null, utilityTypes: [], priceAlerts: [] })
+          : undefined
     )
 
     render(<GasRatesPage />, { wrapper })

@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,8 @@ import { SupplierAccountForm } from '@/components/suppliers/SupplierAccountForm'
 import { useSettingsStore } from '@/lib/store/settings'
 import { useSuppliers, useSetSupplier, useLinkAccount, useUserSupplierAccounts } from '@/lib/hooks/useSuppliers'
 import { useUpdateProfile } from '@/lib/hooks/useProfile'
+import { useAuth } from '@/lib/hooks/useAuth'
+import { authClient } from '@/lib/auth/client'
 import { formatCurrency } from '@/lib/utils/format'
 import { US_REGIONS, DEREGULATED_ELECTRICITY_STATES } from '@/lib/constants/regions'
 import type { UtilityType } from '@/lib/store/settings'
@@ -29,6 +32,8 @@ import {
   CheckCircle,
   Link2,
   X,
+  KeyRound,
+  FileText,
 } from 'lucide-react'
 
 const UTILITY_TYPE_OPTIONS: { value: UtilityType; label: string }[] = [
@@ -58,12 +63,31 @@ export default function SettingsPage() {
     resetSettings,
   } = useSettingsStore()
 
-  const { error: toastError } = useToast()
+  const { user } = useAuth()
+  const { success: toastSuccess, error: toastError } = useToast()
   const [saved, setSaved] = React.useState(false)
   const [exporting, setExporting] = React.useState(false)
   const [showSupplierPicker, setShowSupplierPicker] = React.useState(false)
 
+  // Profile editing state
+  const [editName, setEditName] = React.useState('')
+  const [nameInitialized, setNameInitialized] = React.useState(false)
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = React.useState('')
+  const [newPassword, setNewPassword] = React.useState('')
+  const [confirmPassword, setConfirmPassword] = React.useState('')
+  const [changingPassword, setChangingPassword] = React.useState(false)
+
   const updateProfileMutation = useUpdateProfile()
+
+  // Initialize name from user once loaded
+  React.useEffect(() => {
+    if (user?.name && !nameInitialized) {
+      setEditName(user.name)
+      setNameInitialized(true)
+    }
+  }, [user?.name, nameInitialized])
 
   // Fetch suppliers for the region
   const { data: suppliersData } = useSuppliers(region || '', annualUsageKwh)
@@ -122,13 +146,47 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     try {
-      if (region) {
-        await updateProfileMutation.mutateAsync({ region })
+      const updates: Record<string, string> = {}
+      if (region) updates.region = region
+      if (editName && editName !== user?.name) updates.name = editName
+      if (Object.keys(updates).length > 0) {
+        await updateProfileMutation.mutateAsync(updates)
       }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {
       toastError('Save failed', 'Could not save settings to server.')
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      toastError('Passwords do not match', 'New password and confirmation must match.')
+      return
+    }
+    if (newPassword.length < 8) {
+      toastError('Password too short', 'Password must be at least 8 characters.')
+      return
+    }
+    setChangingPassword(true)
+    try {
+      const { error } = await authClient.changePassword({
+        currentPassword,
+        newPassword,
+      })
+      if (error) {
+        toastError('Password change failed', error.message || 'Please check your current password and try again.')
+      } else {
+        toastSuccess('Password changed', 'Your password has been updated successfully.')
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      }
+    } catch {
+      toastError('Password change failed', 'An unexpected error occurred. Please try again.')
+    } finally {
+      setChangingPassword(false)
     }
   }
 
@@ -164,7 +222,6 @@ export default function SettingsPage() {
       resetSettings()
       // Sign out to invalidate session (clears cookies + OneSignal)
       try {
-        const { authClient } = await import('@/lib/auth/client')
         await authClient.signOut()
       } catch {
         // Best-effort — proceed with redirect regardless
@@ -190,30 +247,52 @@ export default function SettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              {/* Profile: Name & Email */}
+              <div className="space-y-3">
                 <div>
-                  <p className="font-medium text-gray-900">Region</p>
-                  <p className="text-sm text-gray-500">
-                    Your energy market region
-                  </p>
+                  <label htmlFor="settings-name" className="block font-medium text-gray-900">Display Name</label>
+                  <p className="text-sm text-gray-500 mb-1">How your name appears across RateShift</p>
+                  <input
+                    id="settings-name"
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Your name"
+                    className="w-full rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
+                  />
                 </div>
-                <select
-                  value={region || ''}
-                  onChange={(e) => setRegion(e.target.value)}
-                  className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
-                >
-                  <option value="" disabled>Select your state...</option>
-                  {US_REGIONS.map((group) => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.states.map((state) => (
-                        <option key={state.value} value={state.value}>
-                          {state.label}
-                          {DEREGULATED_ELECTRICITY_STATES.has(state.abbr) ? ' *' : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <div>
+                  <p className="font-medium text-gray-900">Email</p>
+                  <p className="text-sm text-gray-500">{user?.email || 'Not available'}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Region</p>
+                    <p className="text-sm text-gray-500">
+                      Your energy market region
+                    </p>
+                  </div>
+                  <select
+                    value={region || ''}
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
+                  >
+                    <option value="" disabled>Select your state...</option>
+                    {US_REGIONS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.states.map((state) => (
+                          <option key={state.value} value={state.value}>
+                            {state.label}
+                            {DEREGULATED_ELECTRICITY_STATES.has(state.abbr) ? ' *' : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="border-t border-gray-200 pt-4">
@@ -345,6 +424,55 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Change Password */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Change Password
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <Input
+                  label="Current Password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <Input
+                  label="New Password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  helperText="Must be at least 8 characters"
+                />
+                <Input
+                  label="Confirm New Password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                  >
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    {changingPassword ? 'Changing...' : 'Change Password'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
 
@@ -530,7 +658,7 @@ export default function SettingsPage() {
           <div className="mt-8 border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-900">Data & Privacy</h3>
             <p className="mt-1 text-sm text-gray-500">Manage your personal data in accordance with GDPR regulations.</p>
-            <div className="mt-4 flex gap-3">
+            <div className="mt-4 flex flex-wrap gap-3">
               <Button variant="outline" onClick={handleExportData} disabled={exporting}>
                 <Download className="mr-2 h-4 w-4" />
                 {exporting ? 'Preparing...' : 'Download My Data'}
@@ -543,6 +671,12 @@ export default function SettingsPage() {
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete My Account
               </Button>
+            </div>
+            <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
+              <FileText className="h-4 w-4" />
+              <Link href="/terms" className="hover:text-gray-700 underline">Terms of Service</Link>
+              <span>&middot;</span>
+              <Link href="/privacy" className="hover:text-gray-700 underline">Privacy Policy</Link>
             </div>
           </div>
 

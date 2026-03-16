@@ -222,8 +222,10 @@ describe('CommunitySolarPage', () => {
 
   it('shows no-region message when region is null', () => {
     jest.spyOn(require('@/lib/store/settings'), 'useSettingsStore').mockImplementation(
-      (selector: (state: Record<string, unknown>) => unknown) =>
-        selector({ region: null, utilityTypes: [], priceAlerts: [] })
+      (selector: unknown) =>
+        typeof selector === 'function'
+          ? (selector as (state: Record<string, unknown>) => unknown)({ region: null, utilityTypes: [], priceAlerts: [] })
+          : undefined
     )
 
     render(<CommunitySolarPage />, { wrapper })

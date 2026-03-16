@@ -28,6 +28,8 @@ import {
   LogOut,
   User,
   X,
+  HelpCircle,
+  FileText,
 } from 'lucide-react'
 
 const navigation = [
@@ -64,7 +66,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-6">
         <Zap className="h-8 w-8 text-primary-600" />
         <span className="text-xl font-bold text-gray-900">
-          Electricity Optimizer
+          RateShift
         </span>
       </div>
 
@@ -132,6 +134,25 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <LogOut className="h-5 w-5 text-gray-400" />
               Sign out
             </button>
+            {/* Help & Legal links */}
+            <div className="border-t border-gray-100 pt-2 mt-1 space-y-1">
+              <a
+                href="mailto:support@rateshift.app"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              >
+                <HelpCircle className="h-4 w-4" />
+                Help &amp; Support
+              </a>
+              <div className="flex items-center gap-3 px-3 py-1">
+                <FileText className="h-4 w-4 text-gray-400" />
+                <div className="flex gap-2 text-xs text-gray-400">
+                  <Link href="/terms" onClick={onNavigate} className="hover:text-gray-600">Terms</Link>
+                  <span>&middot;</span>
+                  <Link href="/privacy" onClick={onNavigate} className="hover:text-gray-600">Privacy</Link>
+                </div>
+              </div>
+              <p className="px-3 py-1 text-[10px] text-gray-300">v1.0.0</p>
+            </div>
           </div>
         ) : (
           <div className="rounded-lg bg-primary-50 p-3">
@@ -139,7 +160,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               Need help?
             </p>
             <p className="mt-1 text-xs text-primary-700">
-              Check our documentation or contact support
+              <a href="mailto:support@rateshift.app" className="underline">Contact support</a>
             </p>
           </div>
         )}

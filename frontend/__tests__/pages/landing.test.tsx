@@ -16,7 +16,7 @@ describe('LandingPage', () => {
 
   it('renders the navigation bar', () => {
     // Appears in nav and footer — use getAllByText
-    const matches = screen.getAllByText('Electricity Optimizer')
+    const matches = screen.getAllByText('RateShift')
     expect(matches.length).toBeGreaterThanOrEqual(1)
   })
 
@@ -104,7 +104,7 @@ describe('LandingPage', () => {
   })
 
   it('renders footer with copyright text', () => {
-    expect(screen.getByText(/electricity optimizer. all rights reserved/i)).toBeInTheDocument()
+    expect(screen.getByText(/rateshift. all rights reserved/i)).toBeInTheDocument()
   })
 
   it('renders footer links', () => {

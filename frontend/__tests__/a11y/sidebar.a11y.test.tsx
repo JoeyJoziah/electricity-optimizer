@@ -85,6 +85,8 @@ jest.mock('lucide-react', () => ({
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   User: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   X: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
+  HelpCircle: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
+  FileText: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
 }))
 
 describe('Sidebar a11y', () => {

@@ -1,8 +1,14 @@
-import { test, expect } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
+import { test, expect } from './fixtures'
+
+// ---------------------------------------------------------------------------
+// Billing Flow - Pricing Page
+//
+// These tests are fully public — no authentication needed. They use `page`
+// directly and require no API mocks.
+// ---------------------------------------------------------------------------
 
 test.describe('Billing Flow - Pricing Page', () => {
-  test('displays Free, Pro, and Business tiers on pricing page', async ({ page }) => {
+  test('displays Free, Pro, and Business tiers on pricing page', { tag: ['@smoke'] }, async ({ page }) => {
     await page.goto('/pricing')
 
     // Page header
@@ -26,7 +32,7 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(page.getByText('Contact Sales')).toBeVisible()
   })
 
-  test('Pro tier is highlighted as most popular', async ({ page }) => {
+  test('Pro tier is highlighted as most popular', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/pricing')
 
     await expect(page.getByText('Most Popular')).toBeVisible()
@@ -36,7 +42,7 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(proCard).toBeVisible()
   })
 
-  test('Free tier lists correct features and limitations', async ({ page }) => {
+  test('Free tier lists correct features and limitations', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/pricing')
 
     // Free tier features
@@ -50,7 +56,7 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(page.getByText('No email notifications')).toBeVisible()
   })
 
-  test('Pro tier lists all features', async ({ page }) => {
+  test('Pro tier lists all features', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/pricing')
 
     await expect(page.getByText('Unlimited price alerts')).toBeVisible()
@@ -62,7 +68,7 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(page.getByText('Savings tracker & gamification')).toBeVisible()
   })
 
-  test('Business tier lists all features', async ({ page }) => {
+  test('Business tier lists all features', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/pricing')
 
     await expect(page.getByText('REST API access')).toBeVisible()
@@ -72,7 +78,7 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(page.getByText('Dedicated account manager')).toBeVisible()
   })
 
-  test('CTA buttons link to correct signup pages', async ({ page }) => {
+  test('CTA buttons link to correct signup pages', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/pricing')
 
     // Free tier links to /auth/signup
@@ -88,7 +94,7 @@ test.describe('Billing Flow - Pricing Page', () => {
     await expect(businessLink).toHaveAttribute('href', '/auth/signup?plan=business')
   })
 
-  test('FAQ section is visible and has expected questions', async ({ page }) => {
+  test('FAQ section is visible and has expected questions', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/pricing')
 
     await expect(page.getByText('Frequently asked questions')).toBeVisible()
@@ -99,13 +105,17 @@ test.describe('Billing Flow - Pricing Page', () => {
   })
 })
 
-test.describe('Billing Flow - Upgrade to Pro', () => {
-  test.beforeEach(async ({ page }) => {
-    // Set up authenticated free-tier user via Better Auth
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
+// ---------------------------------------------------------------------------
+// Billing Flow - Upgrade to Pro
+//
+// Tests for free-tier authenticated users visiting the billing / upgrade flow.
+// Uses authenticatedPage (auth cookie + standard API mocks) and adds billing
+// endpoint mocks inline since they are not part of the shared factory.
+// ---------------------------------------------------------------------------
 
-    // Mock billing subscription endpoint - free tier
+test.describe('Billing Flow - Upgrade to Pro', () => {
+  test('clicking Upgrade to Pro triggers checkout session creation', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
+    // Register billing mocks (not in shared factory)
     await page.route('**/api/v1/billing/subscription', async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -121,7 +131,6 @@ test.describe('Billing Flow - Upgrade to Pro', () => {
       }
     })
 
-    // Mock billing checkout endpoint
     await page.route('**/api/v1/billing/checkout', async (route) => {
       await route.fulfill({
         status: 200,
@@ -133,116 +142,6 @@ test.describe('Billing Flow - Upgrade to Pro', () => {
       })
     })
 
-    // Mock billing portal endpoint
-    await page.route('**/api/v1/billing/portal', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          portal_url: 'https://billing.stripe.com/p/session/test_portal_abc123',
-        }),
-      })
-    })
-
-    // Mock standard API endpoints
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [{ region: 'US_CT', price: 0.25, timestamp: new Date().toISOString() }],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          forecast: [
-            { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            { time: new Date().toISOString(), price: 0.25 },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ suppliers: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/users/profile**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ periods: [] }),
-      })
-    })
-
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 5,
-            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
-          },
-        })
-      )
-    })
-  })
-
-  test('clicking Upgrade to Pro triggers checkout session creation', async ({ page }) => {
     // Clear auth for this test - the CTA link goes to /auth/signup which redirects
     // authenticated users. Verify the href attribute instead of clicking through.
     await page.goto('/pricing')
@@ -258,7 +157,22 @@ test.describe('Billing Flow - Upgrade to Pro', () => {
     await expect(page).toHaveURL(/\/(dashboard|auth\/signup\?plan=pro)/)
   })
 
-  test('free tier user sees upgrade prompts on settings page', async ({ page }) => {
+  test('free tier user sees upgrade prompts on settings page', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await page.route('**/api/v1/billing/subscription', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            tier: 'free',
+            status: 'active',
+            current_period_end: null,
+            cancel_at_period_end: false,
+          }),
+        })
+      }
+    })
+
     await page.goto('/settings')
 
     // Settings page should load
@@ -269,7 +183,7 @@ test.describe('Billing Flow - Upgrade to Pro', () => {
     await expect(page.getByText(/Region/)).toBeVisible()
   })
 
-  test('handles checkout error gracefully when Stripe not configured', async ({ page }) => {
+  test('handles checkout error gracefully when Stripe not configured', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Override checkout mock to return 503
     await page.route('**/api/v1/billing/checkout', async (route) => {
       await route.fulfill({
@@ -289,13 +203,15 @@ test.describe('Billing Flow - Upgrade to Pro', () => {
   })
 })
 
-test.describe('Billing Flow - Subscribed User', () => {
-  test.beforeEach(async ({ page }) => {
-    // Set up authenticated pro-tier user via Better Auth
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
+// ---------------------------------------------------------------------------
+// Billing Flow - Subscribed User
+//
+// Tests for a pro-tier authenticated user. Uses authenticatedPage + inline
+// billing mocks for the pro subscription state.
+// ---------------------------------------------------------------------------
 
-    // Mock billing subscription endpoint - pro tier
+test.describe('Billing Flow - Subscribed User', () => {
+  test('subscribed user can access settings page', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await page.route('**/api/v1/billing/subscription', async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -311,7 +227,6 @@ test.describe('Billing Flow - Subscribed User', () => {
       }
     })
 
-    // Mock billing portal endpoint
     await page.route('**/api/v1/billing/portal', async (route) => {
       await route.fulfill({
         status: 200,
@@ -322,105 +237,6 @@ test.describe('Billing Flow - Subscribed User', () => {
       })
     })
 
-    // Mock standard API endpoints
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [{ region: 'US_CT', price: 0.25, timestamp: new Date().toISOString() }],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          forecast: [
-            { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            { time: new Date().toISOString(), price: 0.25 },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ suppliers: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/users/profile**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ periods: [] }),
-      })
-    })
-
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 5,
-            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
-          },
-        })
-      )
-    })
-  })
-
-  test('subscribed user can access settings page', async ({ page }) => {
     await page.goto('/settings')
 
     await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
@@ -430,7 +246,8 @@ test.describe('Billing Flow - Subscribed User', () => {
     await expect(page.getByRole('heading', { name: 'Privacy & Data' })).toBeVisible()
   })
 
-  test('settings page shows subscription region', async ({ page }) => {
+  test('settings page shows subscription region', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    // Override settings preset with lowercase region value expected by the select input
     await page.addInitScript(() => {
       localStorage.setItem(
         'electricity-optimizer-settings',
@@ -450,7 +267,7 @@ test.describe('Billing Flow - Subscribed User', () => {
     await expect(page.locator('select').first()).toHaveValue('us_ct')
   })
 
-  test('customer portal link works for subscribed users', async ({ page }) => {
+  test('customer portal link works for subscribed users', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.route('**/api/v1/billing/portal', async (route) => {
       await route.fulfill({
         status: 200,
@@ -467,7 +284,7 @@ test.describe('Billing Flow - Subscribed User', () => {
     await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
   })
 
-  test('pricing page still renders for already subscribed users', async ({ page }) => {
+  test('pricing page still renders for already subscribed users', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.goto('/pricing')
 
     // Pricing page should still show all tiers
@@ -479,8 +296,15 @@ test.describe('Billing Flow - Subscribed User', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Billing Flow - Upgrade Journey
+//
+// End-to-end upgrade path from public landing page through pricing to signup.
+// Uses `page` directly since this path starts unauthenticated.
+// ---------------------------------------------------------------------------
+
 test.describe('Billing Flow - Upgrade Journey', () => {
-  test('upgrade flow from landing page through pricing to signup', async ({ page }) => {
+  test('upgrade flow from landing page through pricing to signup', { tag: ['@smoke'] }, async ({ page }) => {
     // Step 1: Visit landing page
     await page.goto('/')
     await expect(page.getByText('Save Money on')).toBeVisible()
@@ -502,7 +326,7 @@ test.describe('Billing Flow - Upgrade Journey', () => {
     await expect(page).toHaveURL(/\/auth\/signup\?plan=pro/)
   })
 
-  test('landing page shows pricing preview with all three tiers', async ({ page }) => {
+  test('landing page shows pricing preview with all three tiers', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/')
 
     // Scroll to pricing section on landing page

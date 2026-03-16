@@ -91,7 +91,7 @@ export const SavingsDonut: React.FC<SavingsDonutProps> = React.memo(({
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number) => formatCurrency(value, currency)}
+              formatter={(value) => formatCurrency(Number(value), currency)}
               contentStyle={chartTooltipStyle}
             />
           </PieChart>

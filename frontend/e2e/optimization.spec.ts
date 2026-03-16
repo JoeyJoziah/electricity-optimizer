@@ -1,149 +1,69 @@
-import { test, expect } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
+import { test, expect } from './fixtures'
+
+const OPTIMIZATION_SCHEDULE = {
+  schedules: [
+    {
+      applianceId: '1',
+      applianceName: 'Washing Machine',
+      scheduledStart: new Date().toISOString().replace(/T.*/, 'T02:00:00Z'),
+      scheduledEnd: new Date().toISOString().replace(/T.*/, 'T04:00:00Z'),
+      estimatedCost: 0.45,
+      savings: 0.15,
+      reason: 'Lowest price period',
+    },
+    {
+      applianceId: '2',
+      applianceName: 'Dishwasher',
+      scheduledStart: new Date().toISOString().replace(/T.*/, 'T03:00:00Z'),
+      scheduledEnd: new Date().toISOString().replace(/T.*/, 'T04:30:00Z'),
+      estimatedCost: 0.30,
+      savings: 0.10,
+      reason: 'Off-peak pricing',
+    },
+  ],
+  totalSavings: 0.25,
+  totalCost: 0.75,
+}
+
+const POTENTIAL_SAVINGS = {
+  dailySavings: 0.25,
+  weeklySavings: 1.75,
+  monthlySavings: 7.50,
+  annualSavings: 91.25,
+}
 
 test.describe('Load Optimization', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
+  test.use({
+    apiMockConfig: {
+      optimization: OPTIMIZATION_SCHEDULE,
+    },
+  })
 
-    // Mock optimization API
-    await page.route('**/api/v1/optimization/schedule**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          schedules: [
-            {
-              applianceId: '1',
-              applianceName: 'Washing Machine',
-              scheduledStart: new Date().toISOString().replace(/T.*/, 'T02:00:00Z'),
-              scheduledEnd: new Date().toISOString().replace(/T.*/, 'T04:00:00Z'),
-              estimatedCost: 0.45,
-              savings: 0.15,
-              reason: 'Lowest price period',
-            },
-            {
-              applianceId: '2',
-              applianceName: 'Dishwasher',
-              scheduledStart: new Date().toISOString().replace(/T.*/, 'T03:00:00Z'),
-              scheduledEnd: new Date().toISOString().replace(/T.*/, 'T04:30:00Z'),
-              estimatedCost: 0.30,
-              savings: 0.10,
-              reason: 'Off-peak pricing',
-            },
-          ],
-          totalSavings: 0.25,
-          totalCost: 0.75,
-        }),
-      })
-    })
-
-    // Mock potential savings API
+  // The optimization page also needs a potential-savings route that the shared
+  // factory does not cover — register it inline for all tests via beforeEach
+  test.beforeEach(async ({ authenticatedPage: page }) => {
     await page.route('**/api/v1/optimization/potential-savings**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          dailySavings: 0.25,
-          weeklySavings: 1.75,
-          monthlySavings: 7.50,
-          annualSavings: 91.25,
-        }),
+        body: JSON.stringify(POTENTIAL_SAVINGS),
       })
-    })
-
-    await page.route('**/api/v1/users/profile**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ prices: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ prices: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ forecast: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ suppliers: [] }),
-      })
-    })
-
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 5,
-            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
-          },
-        })
-      )
     })
 
     await page.goto('/optimize')
   })
 
-  test('displays optimization page', async ({ page }) => {
+  test('displays optimization page', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await expect(
       page.getByRole('heading', { name: 'Load Optimization' })
     ).toBeVisible()
   })
 
-  test('shows empty state when no appliances', async ({ page }) => {
+  test('shows empty state when no appliances', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await expect(page.getByText('No appliances added yet')).toBeVisible()
   })
 
-  test('can add appliance using quick add', async ({ page }) => {
+  test('can add appliance using quick add', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Click quick add for Washing Machine
     await page.getByRole('button', { name: /Washing Machine/ }).click()
 
@@ -151,7 +71,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('Washing Machine').first()).toBeVisible()
   })
 
-  test('can add custom appliance', async ({ page }) => {
+  test('can add custom appliance', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Fill in custom appliance form — use click + fill to ensure focus and onChange fires
     const nameInput = page.getByPlaceholder('Appliance name')
     await nameInput.click()
@@ -172,7 +92,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('Pool Pump')).toBeVisible()
   })
 
-  test('can remove appliance in edit mode', async ({ page }) => {
+  test('can remove appliance in edit mode', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Add an appliance first
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await expect(page.getByText('Washing Machine').first()).toBeVisible()
@@ -190,7 +110,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('No appliances added yet')).toBeVisible()
   })
 
-  test('runs optimization and shows results', async ({ page }) => {
+  test('runs optimization and shows results', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await page.getByRole('button', { name: /Dishwasher/ }).click()
     await page.getByRole('button', { name: /Optimize Now/ }).click()
@@ -201,7 +121,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText(/Total savings/i).first()).toBeVisible()
   })
 
-  test('displays schedule details', async ({ page }) => {
+  test('displays schedule details', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await page.getByRole('button', { name: /Optimize Now/ }).click()
     await expect(page.getByText('Schedule Details')).toBeVisible()
@@ -209,7 +129,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('Lowest price period')).toBeVisible()
   })
 
-  test('shows potential savings summary', async ({ page }) => {
+  test('shows potential savings summary', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Add appliances
     await page.getByRole('button', { name: /Washing Machine/ }).click()
 
@@ -219,7 +139,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('Annual Savings')).toBeVisible()
   })
 
-  test('can toggle appliance flexibility', async ({ page }) => {
+  test('can toggle appliance flexibility', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Add an appliance
     await page.getByRole('button', { name: /Washing Machine/ }).click()
 
@@ -234,7 +154,7 @@ test.describe('Load Optimization', () => {
     await expect(checkbox).not.toBeChecked()
   })
 
-  test('shows different priority levels', async ({ page }) => {
+  test('shows different priority levels', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     // Add appliances with different priorities
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await page.getByRole('button', { name: /EV Charger/ }).click()
@@ -244,7 +164,7 @@ test.describe('Load Optimization', () => {
     await expect(page.getByText('high')).toBeVisible()
   })
 
-  test('timeline shows price zones', async ({ page }) => {
+  test('timeline shows price zones', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.getByRole('button', { name: /Washing Machine/ }).click()
     await page.getByRole('button', { name: /Optimize Now/ }).click()
     await expect(page.getByTestId('price-zone-cheap')).toBeVisible()
@@ -253,78 +173,13 @@ test.describe('Load Optimization', () => {
 })
 
 test.describe('Optimization Mobile', () => {
-  test('is responsive on mobile', async ({ page }) => {
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
-
-    await page.route('**/api/v1/users/profile**', async (route) => {
+  test('is responsive on mobile', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await page.route('**/api/v1/optimization/potential-savings**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
+        body: JSON.stringify({ dailySavings: 0, weeklySavings: 0, monthlySavings: 0, annualSavings: 0 }),
       })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ prices: [], forecast: [], periods: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ suppliers: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/optimization/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ schedules: [], totalSavings: 0 }),
-      })
-    })
-
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 5,
-            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
-          },
-        })
-      )
     })
 
     await page.setViewportSize({ width: 375, height: 667 })

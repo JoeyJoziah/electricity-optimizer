@@ -1,16 +1,31 @@
-import { test, expect } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
+import { test, expect } from './fixtures'
 
 /**
  * Onboarding Wizard E2E Tests
  *
  * Tests the multi-step onboarding flow: state -> utility types -> supplier -> dashboard.
+ *
+ * All tests here represent a new user (region: null, onboarding_completed: false).
+ * The profile mock is registered inline per test since it requires per-method
+ * handling (GET returns the new-user profile; PUT echoes back the submitted body).
+ * The shared factory's userProfile mock is disabled via apiMockConfig to avoid
+ * conflicts with the onboarding-specific version.
  */
-test.describe('Onboarding Wizard Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBetterAuth(page)
 
-    // Mock profile API — new user (no region, no onboarding)
+test.describe('Onboarding Wizard Flow', () => {
+  // Disable the shared factory's userProfile mock so the inline onboarding
+  // profile mock (which handles both GET and PUT) is not shadowed.
+  test.use({
+    apiMockConfig: {
+      userProfile: false,
+    },
+    // New user has no settings yet — use the empty preset
+    settingsPreset: {},
+  })
+
+  /** Register the new-user profile mock (GET + PUT) and other onboarding-relevant routes. */
+  async function setupOnboardingMocks(page: import('@playwright/test').Page) {
+    // Profile: GET = new user; PUT = echo body back as updated profile
     await page.route('**/api/v1/users/profile', async (route, request) => {
       if (request.method() === 'GET') {
         await route.fulfill({
@@ -45,7 +60,7 @@ test.describe('Onboarding Wizard Flow', () => {
       }
     })
 
-    // Mock suppliers
+    // Suppliers: TXU and Green Mountain for Texas deregulated flow
     await page.route('**/api/v1/suppliers**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -75,59 +90,18 @@ test.describe('Onboarding Wizard Flow', () => {
         }),
       })
     })
+  }
 
-    // Mock other API routes
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ prices: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ prices: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ forecast: [] }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-  })
-
-  test('shows multi-step wizard starting with state selection', async ({ page }) => {
-    await setAuthenticatedState(page)
+  test('shows multi-step wizard starting with state selection', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
+    await setupOnboardingMocks(page)
     await page.goto('/onboarding')
 
     await expect(page.getByText('Select your state')).toBeVisible()
     await expect(page.getByText('Step 1 of')).toBeVisible()
   })
 
-  test('regulated state flow: state -> utility types -> dashboard', async ({ page }) => {
-    await setAuthenticatedState(page)
+  test('regulated state flow: state -> utility types -> dashboard', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
+    await setupOnboardingMocks(page)
     await page.goto('/onboarding')
 
     // Step 1: Select Florida (regulated state)
@@ -145,8 +119,8 @@ test.describe('Onboarding Wizard Flow', () => {
     await page.waitForURL(/\/dashboard/, { timeout: 10000 })
   })
 
-  test('deregulated state flow includes supplier step', async ({ page }) => {
-    await setAuthenticatedState(page)
+  test('deregulated state flow includes supplier step', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
+    await setupOnboardingMocks(page)
     await page.goto('/onboarding')
 
     // Step 1: Select Texas (deregulated)
@@ -162,8 +136,8 @@ test.describe('Onboarding Wizard Flow', () => {
     await expect(page.getByText('Who is your energy supplier?')).toBeVisible()
   })
 
-  test('can skip supplier selection', async ({ page }) => {
-    await setAuthenticatedState(page)
+  test('can skip supplier selection', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await setupOnboardingMocks(page)
     await page.goto('/onboarding')
 
     // Navigate to supplier step
@@ -177,8 +151,8 @@ test.describe('Onboarding Wizard Flow', () => {
     await page.waitForURL(/\/dashboard/, { timeout: 10000 })
   })
 
-  test('back navigation works between steps', async ({ page }) => {
-    await setAuthenticatedState(page)
+  test('back navigation works between steps', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await setupOnboardingMocks(page)
     await page.goto('/onboarding')
 
     // Go to step 2
@@ -193,8 +167,8 @@ test.describe('Onboarding Wizard Flow', () => {
     await expect(page.getByText('Select your state')).toBeVisible()
   })
 
-  test('can select multiple utility types', async ({ page }) => {
-    await setAuthenticatedState(page)
+  test('can select multiple utility types', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
+    await setupOnboardingMocks(page)
     await page.goto('/onboarding')
 
     // Go to step 2

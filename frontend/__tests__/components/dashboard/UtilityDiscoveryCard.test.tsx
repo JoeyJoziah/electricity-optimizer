@@ -133,11 +133,13 @@ describe('UtilityDiscoveryCard (all tracked)', () => {
   it('returns null when all utilities are tracked', () => {
     // Override mock to track all types
     jest.spyOn(require('@/lib/store/settings'), 'useSettingsStore').mockImplementation(
-      (selector: (state: Record<string, unknown>) => unknown) =>
-        selector({
-          region: 'us_ny',
-          utilityTypes: ['electricity', 'natural_gas', 'heating_oil', 'community_solar'],
-        })
+      (selector: unknown) =>
+        typeof selector === 'function'
+          ? (selector as (state: Record<string, unknown>) => unknown)({
+              region: 'us_ny',
+              utilityTypes: ['electricity', 'natural_gas', 'heating_oil', 'community_solar'],
+            })
+          : undefined
     )
 
     const queryClient = new QueryClient()

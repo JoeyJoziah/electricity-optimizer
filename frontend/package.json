@@ -35,6 +35,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@excalidraw/excalidraw": "^0.18.0",
     "@playwright/test": "^1.40.1",
     "@testing-library/jest-dom": "^6.9.1",

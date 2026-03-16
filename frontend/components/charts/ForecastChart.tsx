@@ -139,10 +139,11 @@ export const ForecastChart: React.FC<ForecastChartProps> = React.memo(({
             />
             <Tooltip
               contentStyle={chartTooltipStyle}
-              formatter={(value: number, name: string) => {
-                if (name === 'price') return [formatCurrency(value), 'Forecast']
-                if (name === 'confidenceHigh') return [formatCurrency(value), 'Upper bound']
-                return [formatCurrency(value), 'Lower bound']
+              formatter={(value, name) => {
+                const v = Number(value)
+                if (name === 'price') return [formatCurrency(v), 'Forecast']
+                if (name === 'confidenceHigh') return [formatCurrency(v), 'Upper bound']
+                return [formatCurrency(v), 'Lower bound']
               }}
             />
 

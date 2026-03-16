@@ -79,6 +79,8 @@ jest.mock('lucide-react', () => ({
   LogOut: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-logout" {...props} />,
   User: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-user" {...props} />,
   X: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-close" {...props} />,
+  HelpCircle: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-help" {...props} />,
+  FileText: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-filetext" {...props} />,
 }))
 
 describe('Sidebar', () => {
@@ -91,7 +93,7 @@ describe('Sidebar', () => {
   it('renders the brand name', () => {
     render(<Sidebar />)
 
-    expect(screen.getByText('Electricity Optimizer')).toBeInTheDocument()
+    expect(screen.getByText('RateShift')).toBeInTheDocument()
   })
 
   it('renders the Zap logo icon', () => {
@@ -180,7 +182,7 @@ describe('Sidebar', () => {
     render(<Sidebar />)
 
     expect(screen.getByText('Need help?')).toBeInTheDocument()
-    expect(screen.getByText(/documentation or contact support/i)).toBeInTheDocument()
+    expect(screen.getByText(/contact support/i)).toBeInTheDocument()
   })
 
   it('renders as an aside element', () => {

@@ -240,8 +240,8 @@ export const PriceLineChart: React.FC<PriceLineChartProps> = React.memo(({
             />
             <Tooltip
               contentStyle={chartTooltipStyleWithShadow}
-              formatter={(value: number, name: string) => [
-                formatCurrency(value),
+              formatter={(value, name) => [
+                formatCurrency(Number(value)),
                 name === 'price' ? 'Actual Price' : 'Forecast',
               ]}
               labelFormatter={(label) => `Time: ${label}`}

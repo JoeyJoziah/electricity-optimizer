@@ -1,163 +1,57 @@
-import { test, expect } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
+import { test, expect } from './fixtures'
+
+// Build the 24-point history array once at module scope so it stays stable
+const now = Date.now()
+const HISTORY_PRICES = Array.from({ length: 24 }, (_, i) => ({
+  time: new Date(now - (23 - i) * 3600000).toISOString(),
+  price: 0.22 + Math.sin(i / 4) * 0.05,
+}))
 
 test.describe('Prices Page', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBetterAuth(page)
-    await setAuthenticatedState(page)
-
-    // Mock price endpoints
-    await page.route('**/api/v1/prices/current**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          prices: [
-            {
-              region: 'US_CT',
-              price: 0.2512,
-              timestamp: new Date().toISOString(),
-              trend: 'decreasing',
-              changePercent: -1.8,
-            },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/history**', async (route) => {
-      const now = Date.now()
-      const prices = Array.from({ length: 24 }, (_, i) => ({
-        time: new Date(now - (23 - i) * 3600000).toISOString(),
-        price: 0.22 + Math.sin(i / 4) * 0.05,
-      }))
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ prices }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/forecast**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          forecast: [
-            { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
-            { hour: 2, price: 0.21, confidence: [0.19, 0.23] },
-            { hour: 3, price: 0.19, confidence: [0.17, 0.21] },
-            { hour: 4, price: 0.20, confidence: [0.18, 0.22] },
-          ],
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/prices/optimal-periods**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          periods: [
-            {
-              start: new Date(Date.now() + 3600000).toISOString(),
-              end: new Date(Date.now() + 7200000).toISOString(),
-              avgPrice: 0.18,
-            },
-          ],
-        }),
-      })
-    })
-
-    // Mock user endpoint
-    await page.route('**/api/v1/user/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'user_e2e_123',
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'us_ct',
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/users/profile**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          name: 'Test User',
-          region: 'US_CT',
-          utility_types: ['electricity'],
-          current_supplier_id: null,
-          annual_usage_kwh: 10500,
-          onboarding_completed: true,
-        }),
-      })
-    })
-
-    await page.route('**/api/v1/user/supplier', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ supplier: null }),
-      })
-    })
-
-    await page.route('**/api/v1/savings/summary**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ monthly: 0, weekly: 0, streak_days: 0 }),
-      })
-    })
-
-    await page.route('**/api/v1/suppliers**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ suppliers: [] }),
-      })
-    })
-
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'electricity-optimizer-settings',
-        JSON.stringify({
-          state: {
-            region: 'US_CT',
-            annualUsageKwh: 10500,
-            peakDemandKw: 5,
-            displayPreferences: { currency: 'USD', theme: 'system', timeFormat: '12h' },
+  test.use({
+    apiMockConfig: {
+      pricesCurrent: { region: 'US_CT', price: 0.2512, trend: 'decreasing', changePercent: -1.8 },
+      pricesHistory: { prices: HISTORY_PRICES },
+      pricesForecast: {
+        forecast: [
+          { hour: 1, price: 0.23, confidence: [0.21, 0.25] },
+          { hour: 2, price: 0.21, confidence: [0.19, 0.23] },
+          { hour: 3, price: 0.19, confidence: [0.17, 0.21] },
+          { hour: 4, price: 0.20, confidence: [0.18, 0.22] },
+        ],
+      },
+      optimalPeriods: {
+        periods: [
+          {
+            start: new Date(now + 3600000).toISOString(),
+            end: new Date(now + 7200000).toISOString(),
+            avgPrice: 0.18,
           },
-        })
-      )
-    })
+        ],
+      },
+    },
   })
 
-  test('displays prices page', async ({ page }) => {
+  test('displays prices page', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await page.goto('/prices')
     await expect(page).toHaveURL(/\/prices/)
   })
 
-  test('shows current price data', async ({ page }) => {
+  test('shows current price data', { tag: ['@smoke'] }, async ({ authenticatedPage: page }) => {
     await page.goto('/prices')
 
     // Should show price information
     await expect(page.getByText(/\$0\.25/)).toBeVisible({ timeout: 5000 })
   })
 
-  test('shows time range selector', async ({ page }) => {
+  test('shows time range selector', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.goto('/prices')
 
     // Time range buttons
     await expect(page.getByRole('button', { name: '24h' })).toBeVisible()
   })
 
-  test('switches time range', async ({ page }) => {
+  test('switches time range', { tag: ['@regression'] }, async ({ authenticatedPage: page }) => {
     await page.goto('/prices')
 
     const btn7d = page.getByRole('button', { name: '7d' })
@@ -169,7 +63,7 @@ test.describe('Prices Page', () => {
   })
 
   // Chart SVGs may not render at mobile viewport sizes (Recharts responsive container)
-  test('renders chart area', async ({ page, isMobile }) => {
+  test('renders chart area', { tag: ['@regression'] }, async ({ authenticatedPage: page, isMobile }) => {
     test.skip(isMobile === true, 'Chart SVGs do not render at mobile viewport sizes')
     await page.goto('/prices')
 

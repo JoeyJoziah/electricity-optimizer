@@ -88,10 +88,10 @@ jobs:
         id: pw-install
         run: |
           cd frontend
-          npx playwright install --with-deps chromium || {
+          npx playwright install --with-deps chromium firefox webkit || {
             echo "First attempt failed, retrying in 10s..."
             sleep 10
-            npx playwright install --with-deps chromium
+            npx playwright install --with-deps chromium firefox webkit
           }
 
       - name: Set up database
@@ -143,8 +143,20 @@ jobs:
           timeout: '120'
           interval: '3'
 
+      - name: Run smoke tests (fast path)
+        id: smoke
+        continue-on-error: true
+        run: |
+          cd frontend
+          npx playwright test --grep @smoke --project=chromium --reporter=list
+        env:
+          CI: true
+          BASE_URL: http://localhost:3000
+          API_URL: http://localhost:8000
+
       - name: Run E2E tests
         id: e2e-first
+        if: steps.smoke.outcome == 'success'
         continue-on-error: true
         run: |
           cd frontend
@@ -156,7 +168,7 @@ jobs:
 
       - name: Retry failed E2E tests
         id: e2e-retry
-        if: steps.e2e-first.outcome == 'failure'
+        if: steps.smoke.outcome == 'success' && steps.e2e-first.outcome == 'failure'
         run: |
           cd frontend
           echo "Retrying failed tests..."
@@ -167,9 +179,13 @@ jobs:
           API_URL: http://localhost:8000
 
       - name: Evaluate E2E results
-        if: steps.e2e-first.outcome == 'failure' && steps.e2e-retry.outcome == 'failure'
+        if: steps.smoke.outcome == 'failure' || (steps.e2e-first.outcome == 'failure' && steps.e2e-retry.outcome == 'failure')
         run: |
-          echo "::error::E2E tests failed after retry"
+          if [ "${{ steps.smoke.outcome }}" == "failure" ]; then
+            echo "::error::Smoke tests failed — skipping full E2E suite"
+          else
+            echo "::error::E2E tests failed after retry"
+          fi
           exit 1
 
       - name: Upload test results
@@ -187,6 +203,28 @@ jobs:
           name: playwright-screenshots
           path: frontend/test-results/
           retention-days: 7
+
+      - name: Upload trace files
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results/**/*.zip
+          retention-days: 7
+
+      - name: Publish E2E Test Results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: E2E Test Results
+          path: frontend/test-results/e2e-results.xml
+          reporter: java-junit
+
+      - name: Playwright Report Summary
+        if: always() && github.event_name == 'pull_request'
+        uses: daun/playwright-report-summary@v3
+        with:
+          report-file: frontend/test-results/e2e-results.xml
 
   lighthouse:
     name: Lighthouse Audit
