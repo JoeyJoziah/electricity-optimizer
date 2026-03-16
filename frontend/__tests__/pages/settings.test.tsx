@@ -88,6 +88,23 @@ jest.mock('@/lib/constants/regions', () => ({
   DEREGULATED_ELECTRICITY_STATES: new Set(['CT', 'NY']),
 }))
 
+// --- Auth mocks ---
+jest.mock('@/lib/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'u1', email: 'test@example.com', name: 'Test User', emailVerified: true, createdAt: '2026-01-01' },
+    isLoading: false,
+    isAuthenticated: true,
+    error: null,
+    signOut: jest.fn(),
+  }),
+}))
+
+jest.mock('@/lib/auth/client', () => ({
+  authClient: {
+    changePassword: jest.fn().mockResolvedValue({ data: {}, error: null }),
+  },
+}))
+
 // --- Format utils ---
 jest.mock('@/lib/utils/format', () => ({
   formatCurrency: (v: number) => `$${v.toFixed(2)}`,
