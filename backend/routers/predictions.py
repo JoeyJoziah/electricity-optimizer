@@ -15,10 +15,12 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 
 from config.database import get_redis, get_timescale_session
+from api.dependencies import get_current_user, SessionData
 from models.region import Region
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
 import structlog
+import time
 
 logger = structlog.get_logger(__name__)
 
@@ -191,6 +193,7 @@ async def store_forecast_in_cache(
 
 
 _model_cache: Dict[str, Any] = {}
+_MODEL_RETRY_INTERVAL = 300  # 5 minutes
 
 
 def _load_model():
@@ -198,22 +201,30 @@ def _load_model():
     Load ML model for inference, trying EnsemblePredictor first, then PricePredictor.
     Returns None if no model files found (triggering simulation fallback).
     Caches loaded model to avoid reloading on every request.
+    Failed loads are retried after _MODEL_RETRY_INTERVAL seconds.
     """
-    if "model" in _model_cache:
-        return _model_cache["model"]
+    cached = _model_cache.get("model")
+    if cached is not None:
+        return cached
+
+    # Check if we recently failed - don't retry too quickly
+    failed_at = _model_cache.get("_failed_at")
+    if failed_at and (time.time() - failed_at) < _MODEL_RETRY_INTERVAL:
+        return None
 
     import os
     from config.settings import settings
 
     model_path = settings.model_path or os.environ.get("MODEL_PATH")
     if not model_path or not os.path.isdir(model_path):
-        _model_cache["model"] = None
+        _model_cache["_failed_at"] = time.time()
         return None
 
     try:
         from ml.inference.ensemble_predictor import EnsemblePredictor
         model = EnsemblePredictor(model_path)
         _model_cache["model"] = model
+        _model_cache.pop("_failed_at", None)
         logger.info("ml_model_loaded", model_type="ensemble", path=model_path)
         return model
     except Exception as e:
@@ -223,12 +234,13 @@ def _load_model():
         from ml.inference.predictor import PricePredictor
         model = PricePredictor(model_path)
         _model_cache["model"] = model
+        _model_cache.pop("_failed_at", None)
         logger.info("ml_model_loaded", model_type="single", path=model_path)
         return model
     except Exception as e:
         logger.warning("single_model_load_failed", error=str(e))
 
-    _model_cache["model"] = None
+    _model_cache["_failed_at"] = time.time()
     return None
 
 
@@ -277,22 +289,24 @@ async def generate_price_forecast(
             # Fetch recent price data from DB for features
             features_df = None
             if session:
-                from sqlalchemy import select, desc
-                from models.price import Price
+                from sqlalchemy import text
                 result = await session.execute(
-                    select(Price)
-                    .where(Price.region == region)
-                    .order_by(desc(Price.timestamp))
-                    .limit(168)
+                    text(
+                        "SELECT region, timestamp, price_per_kwh, is_peak, carbon_intensity "
+                        "FROM electricity_prices "
+                        "WHERE region = :region "
+                        "ORDER BY timestamp DESC LIMIT 168"
+                    ),
+                    {"region": region},
                 )
-                rows = list(result.scalars().all())
+                rows = result.mappings().all()
                 if rows:
                     features_df = pd.DataFrame([{
-                        "price": float(r.price_per_kwh),
-                        "hour": r.timestamp.hour,
-                        "day_of_week": r.timestamp.weekday(),
-                        "is_peak": 1 if r.is_peak else 0,
-                        "carbon_intensity": r.carbon_intensity or 0.0,
+                        "price": float(r["price_per_kwh"]),
+                        "hour": r["timestamp"].hour,
+                        "day_of_week": r["timestamp"].weekday(),
+                        "is_peak": 1 if r.get("is_peak") else 0,
+                        "carbon_intensity": float(r.get("carbon_intensity") or 0.0),
                     } for r in reversed(rows)])
 
             if features_df is None or features_df.empty:
@@ -367,6 +381,7 @@ async def generate_price_forecast(
 @router.post("/predict/price", response_model=PriceForecastResponse, tags=["Predictions"])
 async def predict_prices(
     request: PriceForecastRequest,
+    current_user: SessionData = Depends(get_current_user),
     redis_client = Depends(get_redis),
     session: AsyncSession = Depends(get_timescale_session)
 ):
@@ -447,6 +462,7 @@ async def predict_prices(
 @router.post("/predict/optimal-times", response_model=OptimalTimesResponse, tags=["Predictions"])
 async def find_optimal_times(
     request: OptimalTimesRequest,
+    current_user: SessionData = Depends(get_current_user),
     redis_client = Depends(get_redis),
     session: AsyncSession = Depends(get_timescale_session)
 ):
@@ -534,6 +550,7 @@ async def find_optimal_times(
 @router.post("/predict/savings", response_model=SavingsEstimateResponse, tags=["Predictions"])
 async def estimate_savings(
     request: SavingsEstimateRequest,
+    current_user: SessionData = Depends(get_current_user),
     redis_client = Depends(get_redis),
     session: AsyncSession = Depends(get_timescale_session)
 ):
@@ -588,6 +605,7 @@ async def estimate_savings(
                     latest_end=appliance.latest_end,
                     num_slots=1
                 ),
+                current_user,
                 redis_client,
                 session
             )
@@ -625,7 +643,10 @@ async def estimate_savings(
 
 
 @router.get("/predict/model-info", tags=["Predictions"])
-async def get_model_info(redis_client = Depends(get_redis)):
+async def get_model_info(
+    current_user: SessionData = Depends(get_current_user),
+    redis_client = Depends(get_redis),
+):
     """
     Get information about the deployed forecasting model
 

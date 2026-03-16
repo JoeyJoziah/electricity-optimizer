@@ -193,6 +193,17 @@ async def update_profile(
             detail="No fields to update",
         )
 
+    UPDATABLE_COLUMNS = frozenset({
+        "name", "region", "utility_types", "current_supplier_id",
+        "annual_usage_kwh", "onboarding_completed",
+    })
+    disallowed = set(updates.keys()) - UPDATABLE_COLUMNS
+    if disallowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot update columns: {', '.join(sorted(disallowed))}",
+        )
+
     set_clause = ", ".join(f"{k} = :{k}" for k in updates)
     updates["uid"] = current_user.user_id
 

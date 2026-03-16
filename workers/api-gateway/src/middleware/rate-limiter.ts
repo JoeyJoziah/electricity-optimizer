@@ -19,10 +19,13 @@ export async function checkRateLimit(
     return { allowed: true, remaining: Infinity, limit: Infinity, resetAt: 0 };
   }
 
-  // Check bypass header for GHA cron workflows
-  const bypassKey = request.headers.get("X-RateLimit-Bypass");
-  if (bypassKey && env.RATE_LIMIT_BYPASS_KEY && bypassKey === env.RATE_LIMIT_BYPASS_KEY) {
-    return { allowed: true, remaining: Infinity, limit: Infinity, resetAt: 0 };
+  // Check bypass header for GHA cron workflows — only allowed for internal
+  // tier (requireApiKey routes). NEVER bypass strict (auth) or standard tiers.
+  if (tier === "internal") {
+    const bypassKey = request.headers.get("X-RateLimit-Bypass");
+    if (bypassKey && env.RATE_LIMIT_BYPASS_KEY && bypassKey === env.RATE_LIMIT_BYPASS_KEY) {
+      return { allowed: true, remaining: Infinity, limit: Infinity, resetAt: 0 };
+    }
   }
 
   const binding = getTierBinding(tier, env);

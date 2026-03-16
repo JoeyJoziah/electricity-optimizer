@@ -20,16 +20,21 @@ def predictions_client():
     """Create a TestClient with mocked database dependencies."""
     from main import app
     from config.database import get_redis, get_timescale_session
+    from api.dependencies import get_current_user, SessionData
 
-    # Override DB dependencies so no real connections are needed
+    mock_user = SessionData(user_id="test-user-id", email="test@example.com")
+
+    # Override DB and auth dependencies so no real connections are needed
     app.dependency_overrides[get_redis] = lambda: None
     app.dependency_overrides[get_timescale_session] = lambda: AsyncMock()
+    app.dependency_overrides[get_current_user] = lambda: mock_user
 
     client = TestClient(app)
     yield client
 
     app.dependency_overrides.pop(get_redis, None)
     app.dependency_overrides.pop(get_timescale_session, None)
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture(autouse=True)
@@ -270,6 +275,7 @@ class TestModelInfo:
         """When redis has model version, it should be returned."""
         from main import app
         from config.database import get_redis
+        from api.dependencies import get_current_user, SessionData
 
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(side_effect=lambda key: {
@@ -278,7 +284,9 @@ class TestModelInfo:
             "model:last_updated": "2026-02-22T10:00:00Z",
         }.get(key))
 
+        mock_user = SessionData(user_id="test-user-id", email="test@example.com")
         app.dependency_overrides[get_redis] = lambda: mock_redis
+        app.dependency_overrides[get_current_user] = lambda: mock_user
 
         client = TestClient(app)
         response = client.get("/api/v1/ml/predict/model-info")
@@ -289,3 +297,4 @@ class TestModelInfo:
         assert data["last_updated"] == "2026-02-22T10:00:00Z"
 
         app.dependency_overrides.pop(get_redis, None)
+        app.dependency_overrides.pop(get_current_user, None)

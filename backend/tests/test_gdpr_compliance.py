@@ -484,8 +484,8 @@ class TestGDPRComplianceService:
         result = await gdpr_service.delete_user_data("user-123")
 
         assert result is not None
-        # All deletions go through db_session in the atomic path
-        mock_db_session.commit.assert_called_once()
+        # 2 commits: one for the atomic deletion, one for the deletion_log INSERT
+        assert mock_db_session.commit.call_count == 2
 
     @pytest.mark.asyncio
     async def test_delete_user_data_deletes_all_categories(self, gdpr_service, mock_db_session):
@@ -501,8 +501,8 @@ class TestGDPRComplianceService:
         }
         assert set(result.data_categories_deleted) == expected
 
-        # Verify single commit (atomic)
-        mock_db_session.commit.assert_called_once()
+        # 2 commits: one for the atomic deletion, one for the deletion_log INSERT
+        assert mock_db_session.commit.call_count == 2
         mock_db_session.rollback.assert_not_called()
 
     @pytest.mark.asyncio

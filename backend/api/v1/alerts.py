@@ -23,7 +23,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from api.dependencies import get_current_user, get_db_session, SessionData
-from sqlalchemy import text
 from services.alert_service import AlertService
 
 logger = structlog.get_logger(__name__)
@@ -136,24 +135,6 @@ async def create_alert(
             detail="Database unavailable",
         )
 
-    # Free-tier alert limit: 1 alert max
-    tier_result = await db.execute(
-        text("SELECT subscription_tier FROM public.users WHERE id = :id"),
-        {"id": current_user.user_id},
-    )
-    user_tier = tier_result.scalar_one_or_none() or "free"
-    if user_tier not in ("pro", "business"):
-        count_result = await db.execute(
-            text("SELECT COUNT(*) FROM user_alert_configs WHERE user_id = :id"),
-            {"id": current_user.user_id},
-        )
-        alert_count = count_result.scalar() or 0
-        if alert_count >= 1:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Free plan limited to 1 alert. Upgrade to Pro for unlimited.",
-            )
-
     service = _get_alert_service()
     try:
         alert = await service.create_alert(
@@ -165,6 +146,11 @@ async def create_alert(
             price_above=Decimal(str(body.price_above)) if body.price_above is not None else None,
             notify_optimal_windows=body.notify_optimal_windows,
         )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

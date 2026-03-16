@@ -82,7 +82,10 @@ run_migrations() {
     if [ -d "$migrations_dir" ]; then
         for migration in $(ls "$migrations_dir"/*.sql 2>/dev/null | sort); do
             log_info "Applying migration: $(basename "$migration")"
-            PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres -U postgres -d electricity -f "$migration" 2>&1 || true
+            if ! PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgres -U postgres -d electricity -f "$migration" 2>&1; then
+                log_error "Migration failed: $(basename "$migration")"
+                exit 1
+            fi
         done
         log_info "Migrations completed successfully!"
     else

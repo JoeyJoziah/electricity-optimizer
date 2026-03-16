@@ -78,17 +78,17 @@ class NotificationRepository:
     # Read operations
     # =========================================================================
 
-    async def get_by_id(self, notification_id: str) -> Optional[Notification]:
-        """Return the notification row for the given ID, or None if not found."""
+    async def get_by_id(self, notification_id: str, user_id: str) -> Optional[Notification]:
+        """Return the notification row for the given ID owned by user_id, or None."""
         try:
             result = await self._db.execute(
                 text(
                     f"SELECT {_NOTIFICATION_COLUMNS}"
                     " FROM notifications"
-                    " WHERE id = :nid"
+                    " WHERE id = :nid AND user_id = :uid"
                     " LIMIT 1"
                 ),
-                {"nid": notification_id},
+                {"nid": notification_id, "uid": user_id},
             )
             row = result.mappings().first()
             if row is None:

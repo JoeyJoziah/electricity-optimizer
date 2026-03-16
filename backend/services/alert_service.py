@@ -452,35 +452,38 @@ class AlertService:
             )
 
         in_cooldown: set = set()
+        BATCH_SIZE = 500
 
         for cooldown_hours, tuples in groups.items():
             cutoff = datetime.now(timezone.utc) - timedelta(hours=cooldown_hours)
 
-            # Build a VALUES clause for all (user_id, alert_type, region) in this group
-            params: dict = {"cutoff": cutoff}
-            value_clauses = []
-            for i, (uid, atype, reg) in enumerate(tuples):
-                params[f"uid_{i}"] = uid
-                params[f"atype_{i}"] = atype
-                params[f"reg_{i}"] = reg
-                value_clauses.append(f"(:uid_{i}, :atype_{i}, :reg_{i})")
+            # Process in chunks to prevent unbounded query size
+            for chunk_start in range(0, len(tuples), BATCH_SIZE):
+                chunk = tuples[chunk_start:chunk_start + BATCH_SIZE]
+                params: dict = {"cutoff": cutoff}
+                value_clauses = []
+                for i, (uid, atype, reg) in enumerate(chunk):
+                    params[f"uid_{i}"] = uid
+                    params[f"atype_{i}"] = atype
+                    params[f"reg_{i}"] = reg
+                    value_clauses.append(f"(:uid_{i}, :atype_{i}, :reg_{i})")
 
-            values_sql = ", ".join(value_clauses)
-            query = text(f"""
-                SELECT DISTINCT q.user_id, q.alert_type, q.region
-                FROM (VALUES {values_sql}) AS q(user_id, alert_type, region)
-                WHERE EXISTS (
-                    SELECT 1
-                    FROM alert_history ah
-                    WHERE ah.user_id    = q.user_id::uuid
-                      AND ah.alert_type = q.alert_type
-                      AND ah.region     = q.region
-                      AND ah.triggered_at >= :cutoff
-                )
-            """)
-            result = await db.execute(query, params)
-            for row in result.fetchall():
-                in_cooldown.add((row[0], row[1], row[2]))
+                values_sql = ", ".join(value_clauses)
+                query = text(f"""
+                    SELECT DISTINCT q.user_id, q.alert_type, q.region
+                    FROM (VALUES {values_sql}) AS q(user_id, alert_type, region)
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM alert_history ah
+                        WHERE ah.user_id    = q.user_id::uuid
+                          AND ah.alert_type = q.alert_type
+                          AND ah.region     = q.region
+                          AND ah.triggered_at >= :cutoff
+                    )
+                """)
+                result = await db.execute(query, params)
+                for row in result.fetchall():
+                    in_cooldown.add((row[0], row[1], row[2]))
 
         return in_cooldown
 
@@ -646,6 +649,10 @@ class AlertService:
         """
         Insert a new price alert configuration and return it.
 
+        Free-tier users are limited to 1 alert. The limit check is atomic:
+        the user row is locked with FOR UPDATE to prevent race conditions
+        between concurrent requests.
+
         Args:
             user_id:                UUID string of the user.
             region:                 Region code.
@@ -663,6 +670,7 @@ class AlertService:
         Raises:
             ValueError: If neither price_below nor price_above nor
                         notify_optimal_windows is specified.
+            PermissionError: If free-tier limit (1 alert) is exceeded.
         """
         async with traced("alert.create", attributes={"alert.type": alert_type, "alert.region": region}):
             # Resolve threshold into price_below/price_above based on alert_type
@@ -680,6 +688,30 @@ class AlertService:
                     "At least one of price_below, price_above, or notify_optimal_windows "
                     "must be specified."
                 )
+
+            # Atomic free-tier limit enforcement: lock user row then count alerts
+            # within the same transaction to prevent race conditions.
+            tier_result = await db.execute(
+                text(
+                    "SELECT subscription_tier FROM public.users"
+                    " WHERE id = :id FOR UPDATE"
+                ),
+                {"id": user_id},
+            )
+            user_tier = tier_result.scalar_one_or_none() or "free"
+            if user_tier not in ("pro", "business"):
+                count_result = await db.execute(
+                    text(
+                        "SELECT COUNT(*) FROM price_alert_configs"
+                        " WHERE user_id = :id"
+                    ),
+                    {"id": user_id},
+                )
+                alert_count = count_result.scalar() or 0
+                if alert_count >= 1:
+                    raise PermissionError(
+                        "Free plan limited to 1 alert. Upgrade to Pro for unlimited."
+                    )
 
             result = await db.execute(
                 text("""

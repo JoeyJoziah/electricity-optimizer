@@ -11,6 +11,7 @@ Implements GDPR compliance functionality:
 """
 
 import hashlib
+import json
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from uuid import uuid4
@@ -810,6 +811,37 @@ class GDPRComplianceService:
             data_categories_deleted=deleted_categories,
             legal_basis="user_request",
         )
+
+        # Persist deletion log to the immutable audit table
+        try:
+            await self.db_session.execute(
+                sa_text("""
+                    INSERT INTO deletion_logs
+                        (id, user_id, deleted_at, deleted_by, deletion_type,
+                         ip_address, user_agent, data_categories_deleted, legal_basis)
+                    VALUES
+                        (:id, :user_id, :deleted_at, :deleted_by, :deletion_type,
+                         :ip_address, :user_agent, :categories, :legal_basis)
+                """),
+                {
+                    "id": deletion_log.id,
+                    "user_id": deletion_log.user_id,
+                    "deleted_at": deletion_log.deleted_at,
+                    "deleted_by": deletion_log.deleted_by,
+                    "deletion_type": deletion_log.deletion_type,
+                    "ip_address": deletion_log.ip_address,
+                    "user_agent": deletion_log.user_agent,
+                    "categories": json.dumps(deletion_log.data_categories_deleted),
+                    "legal_basis": deletion_log.legal_basis,
+                },
+            )
+            await self.db_session.commit()
+        except Exception as e:
+            logger.error(
+                "deletion_log_persist_failed",
+                user_id=user_id,
+                error=str(e),
+            )
 
         logger.info(
             "user_data_deleted",

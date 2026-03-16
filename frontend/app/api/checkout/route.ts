@@ -14,6 +14,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Invalid authorization format' },
+        { status: 401 }
+      )
+    }
+
+    if (authHeader.includes('\n') || authHeader.includes('\r')) {
+      return NextResponse.json(
+        { error: 'Invalid authorization header' },
+        { status: 400 }
+      )
+    }
+
     const response = await fetch(`${BACKEND_URL}/api/v1/billing/checkout`, {
       method: 'POST',
       headers: {

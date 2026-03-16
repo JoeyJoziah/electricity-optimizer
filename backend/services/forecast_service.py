@@ -24,6 +24,19 @@ FORECASTABLE_UTILITIES = ("electricity", "natural_gas", "heating_oil", "propane"
 TREND_LOOKBACK_DAYS = 90
 FORECAST_HORIZON_DAYS = 30
 
+# Allowlists for SQL identifiers to prevent injection
+_ALLOWED_TABLES = frozenset({"electricity_prices", "heating_oil_prices", "propane_prices"})
+_ALLOWED_COLS = frozenset({
+    "price_per_kwh", "price_per_gallon", "fetched_at", "timestamp", "region", "state",
+})
+
+
+def _validate_sql_identifier(value: str, allowlist: frozenset, label: str) -> str:
+    """Validate that a SQL identifier is in the allowlist."""
+    if value not in allowlist:
+        raise ValueError(f"Disallowed {label}: {value!r}")
+    return value
+
 
 class ForecastService:
     """Multi-utility rate forecasting service."""
@@ -117,7 +130,7 @@ class ForecastService:
                 SELECT price_per_kwh, timestamp
                 FROM electricity_prices
                 WHERE utility_type = 'ELECTRICITY'
-                  AND timestamp >= NOW() - INTERVAL '{TREND_LOOKBACK_DAYS} days'
+                  AND timestamp >= NOW() - make_interval(days => :lookback_days)
                   {region_filter}
                 ORDER BY timestamp ASC
             """),
@@ -147,13 +160,19 @@ class ForecastService:
         horizon_days: int,
     ) -> dict:
         """Generic trend extrapolation from a price history table."""
+        # Validate all SQL identifiers against allowlists
+        _validate_sql_identifier(table, _ALLOWED_TABLES, "table")
+        _validate_sql_identifier(price_col, _ALLOWED_COLS, "column")
+        _validate_sql_identifier(state_col, _ALLOWED_COLS, "column")
+
         conditions = []
-        params: dict = {}
+        params: dict = {"lookback_days": TREND_LOOKBACK_DAYS}
 
         # Time filter — use fetched_at or period_date depending on table
         time_col = "fetched_at" if table in ("heating_oil_prices", "propane_prices") else "timestamp"
+        _validate_sql_identifier(time_col, _ALLOWED_COLS, "column")
         conditions.append(
-            f"{time_col} >= NOW() - INTERVAL '{TREND_LOOKBACK_DAYS} days'"
+            f"{time_col} >= NOW() - make_interval(days => :lookback_days)"
         )
 
         if where_clause:

@@ -68,7 +68,7 @@ jobs:
         if: steps.stats.outputs.status == 'ok'
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CF_ACCOUNT_ID: b41be0d03c76c0b2cc91efccdb7a10df
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
           if [ -z "$CF_API_TOKEN" ]; then
             echo "has_analytics=false" >> "$GITHUB_OUTPUT"

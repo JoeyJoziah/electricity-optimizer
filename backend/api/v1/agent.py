@@ -228,7 +228,7 @@ async def get_task_result(
     _require_agent_enabled()
 
     service = AgentService()
-    result = await service.get_job_result(job_id)
+    result = await service.get_job_result(job_id, user_id=current_user.user_id)
     return result
 
 

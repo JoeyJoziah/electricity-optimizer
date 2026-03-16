@@ -21,18 +21,24 @@ export function useAgentQuery() {
     setError(null)
     setIsStreaming(true)
 
-    // Add user message
+    // Create new AbortController for this request
+    abortRef.current = new AbortController()
+
     const userMsg: AgentMessage = { role: 'user', content: prompt }
     setMessages((prev) => [...prev, userMsg])
 
     try {
-      for await (const msg of queryAgent(prompt)) {
+      for await (const msg of queryAgent(prompt, undefined, abortRef.current.signal)) {
         if (msg.role === 'error') {
           setError(msg.content)
         }
         setMessages((prev) => [...prev, msg])
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // User cancelled — not an error
+        return
+      }
       const errMsg = err instanceof Error ? err.message : 'Unknown error'
       setError(errMsg)
       setMessages((prev) => [

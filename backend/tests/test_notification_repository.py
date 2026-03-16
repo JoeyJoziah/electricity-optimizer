@@ -239,7 +239,7 @@ class TestNotificationRepositoryGetById:
         db.execute.return_value = _mapping_result([_notification_row(nid=nid, user_id=uid)])
         repo = NotificationRepository(db)
 
-        result = await repo.get_by_id(nid)
+        result = await repo.get_by_id(nid, user_id=uid)
 
         assert result is not None
         assert result.id == nid
@@ -252,7 +252,7 @@ class TestNotificationRepositoryGetById:
         db.execute.return_value = _mapping_result([])
         repo = NotificationRepository(db)
 
-        result = await repo.get_by_id(str(uuid4()))
+        result = await repo.get_by_id(str(uuid4()), user_id=str(uuid4()))
         assert result is None
 
     @pytest.mark.asyncio
@@ -264,20 +264,41 @@ class TestNotificationRepositoryGetById:
         repo = NotificationRepository(db)
 
         with pytest.raises(RepositoryError):
-            await repo.get_by_id(str(uuid4()))
+            await repo.get_by_id(str(uuid4()), user_id=str(uuid4()))
 
     @pytest.mark.asyncio
     async def test_get_by_id_maps_error_message(self):
         from repositories.notification_repository import NotificationRepository
         nid = str(uuid4())
+        uid = str(uuid4())
         db = _mock_db()
         db.execute.return_value = _mapping_result([
-            _notification_row(nid=nid, error_message="Push token expired")
+            _notification_row(nid=nid, user_id=uid, error_message="Push token expired")
         ])
         repo = NotificationRepository(db)
 
-        result = await repo.get_by_id(nid)
+        result = await repo.get_by_id(nid, user_id=uid)
         assert result.error_message == "Push token expired"
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_rejects_wrong_user(self):
+        """IDOR protection: querying with a different user_id returns None."""
+        from repositories.notification_repository import NotificationRepository
+        nid = str(uuid4())
+        owner_uid = str(uuid4())
+        attacker_uid = str(uuid4())
+        db = _mock_db()
+        # The SQL WHERE clause filters by user_id, so DB returns no rows for wrong user
+        db.execute.return_value = _mapping_result([])
+        repo = NotificationRepository(db)
+
+        result = await repo.get_by_id(nid, user_id=attacker_uid)
+        assert result is None
+
+        # Verify the query included user_id parameter
+        call_args = db.execute.call_args
+        params = call_args.args[1] if call_args.args else call_args.kwargs
+        assert params["uid"] == attacker_uid
 
 
 # ===========================================================================

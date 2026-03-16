@@ -5,6 +5,7 @@ Data access layer for user utility accounts.
 Uses raw SQL with text() since UtilityAccount is a Pydantic model, not SQLAlchemy ORM.
 """
 
+import json
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 
@@ -74,7 +75,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
                     "provider_name": entity.provider_name,
                     "account_number_encrypted": entity.account_number_encrypted,
                     "is_primary": entity.is_primary,
-                    "metadata": str(entity.metadata).replace("'", '"') if entity.metadata else "{}",
+                    "metadata": json.dumps(entity.metadata) if entity.metadata else "{}",
                 },
             )
             await self._db.commit()
@@ -100,7 +101,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
                     "id": id,
                     "provider_name": entity.provider_name,
                     "is_primary": entity.is_primary,
-                    "metadata": str(entity.metadata).replace("'", '"') if entity.metadata else None,
+                    "metadata": json.dumps(entity.metadata) if entity.metadata else None,
                 },
             )
             await self._db.commit()

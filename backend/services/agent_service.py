@@ -325,7 +325,7 @@ class AgentService:
             if redis:
                 await redis.set(
                     f"agent:job:{job_id}",
-                    json.dumps({"status": "completed", "result": result, "model_used": model_used}),
+                    json.dumps({"status": "completed", "user_id": user_id, "result": result, "model_used": model_used}),
                     ex=3600,
                 )
         except Exception as e:
@@ -333,12 +333,15 @@ class AgentService:
             if redis:
                 await redis.set(
                     f"agent:job:{job_id}",
-                    json.dumps({"status": "failed", "error": str(e)}),
+                    json.dumps({"status": "failed", "user_id": user_id, "error": str(e)}),
                     ex=3600,
                 )
 
-    async def get_job_result(self, job_id: str) -> dict:
-        """Get the result of an async job from Redis."""
+    async def get_job_result(self, job_id: str, user_id: str) -> dict:
+        """Get the result of an async job from Redis.
+
+        Verifies that the requesting user owns the job to prevent IDOR.
+        """
         try:
             from config.database import db_manager
 
@@ -346,7 +349,18 @@ class AgentService:
             if redis:
                 data = await redis.get(f"agent:job:{job_id}")
                 if data:
-                    return json.loads(data)
+                    result = json.loads(data)
+                    # Verify ownership — jobs store user_id at creation time
+                    job_owner = result.get("user_id")
+                    if job_owner and job_owner != user_id:
+                        logger.warning(
+                            "agent_job_idor_blocked",
+                            job_id=job_id,
+                            requesting_user=user_id,
+                            job_owner=job_owner,
+                        )
+                        return {"status": "not_found"}
+                    return result
         except Exception as e:
             logger.warning("job_result_fetch_failed", job_id=job_id, error=str(e))
         return {"status": "not_found"}

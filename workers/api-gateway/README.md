@@ -61,7 +61,7 @@ Used for:
 | `internal` | 600 requests | GHA cron jobs + server-to-server |
 
 Each IP gets its own counter per tier per time window. Bypass via:
-- Constant-time header comparison: `X-RateLimit-Bypass: <RATE_LIMIT_BYPASS_KEY>`
+- `X-RateLimit-Bypass: <RATE_LIMIT_BYPASS_KEY>` — **internal tier only** (scoped to `requireApiKey` routes; never bypasses strict/auth or standard tiers)
 - Internal API key: `X-API-Key: <INTERNAL_API_KEY>`
 
 ### 3. Bot Detection

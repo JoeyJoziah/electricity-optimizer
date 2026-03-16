@@ -49,13 +49,15 @@ export interface AgentJobResult {
  */
 export async function* queryAgent(
   prompt: string,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
+  signal?: AbortSignal,
 ): AsyncGenerator<AgentMessage> {
   const response = await fetch(`${API_URL}/agent/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ prompt, context }),
+    signal,
   })
 
   if (!response.ok) {

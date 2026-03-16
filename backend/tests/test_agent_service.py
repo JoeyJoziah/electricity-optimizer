@@ -334,23 +334,45 @@ async def test_get_job_result_not_found(agent_service):
         mock_redis.get = AsyncMock(return_value=None)
         mock_dbm.get_redis_client = AsyncMock(return_value=mock_redis)
 
-        result = await agent_service.get_job_result("nonexistent-job-id")
+        result = await agent_service.get_job_result("nonexistent-job-id", user_id=str(uuid.uuid4()))
         assert result["status"] == "not_found"
 
 
 @pytest.mark.asyncio
 async def test_get_job_result_completed(agent_service):
-    """get_job_result should return completed job data."""
+    """get_job_result should return completed job data when user owns the job."""
+    owner_id = str(uuid.uuid4())
     with patch("config.database.db_manager") as mock_dbm:
         mock_redis = AsyncMock()
         job_data = json.dumps({
             "status": "completed",
+            "user_id": owner_id,
             "result": "Your report is ready.",
             "model_used": "gemini-3-flash-preview",
         })
         mock_redis.get = AsyncMock(return_value=job_data)
         mock_dbm.get_redis_client = AsyncMock(return_value=mock_redis)
 
-        result = await agent_service.get_job_result("some-job-id")
+        result = await agent_service.get_job_result("some-job-id", user_id=owner_id)
         assert result["status"] == "completed"
         assert result["result"] == "Your report is ready."
+
+
+@pytest.mark.asyncio
+async def test_get_job_result_idor_blocked(agent_service):
+    """IDOR protection: requesting another user's job returns not_found."""
+    owner_id = str(uuid.uuid4())
+    attacker_id = str(uuid.uuid4())
+    with patch("config.database.db_manager") as mock_dbm:
+        mock_redis = AsyncMock()
+        job_data = json.dumps({
+            "status": "completed",
+            "user_id": owner_id,
+            "result": "Sensitive data.",
+            "model_used": "gemini-3-flash-preview",
+        })
+        mock_redis.get = AsyncMock(return_value=job_data)
+        mock_dbm.get_redis_client = AsyncMock(return_value=mock_redis)
+
+        result = await agent_service.get_job_result("some-job-id", user_id=attacker_id)
+        assert result["status"] == "not_found"

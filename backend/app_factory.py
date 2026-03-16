@@ -143,7 +143,14 @@ class RequestBodySizeLimitMiddleware:
             async def guarded_send(message: dict) -> None:
                 nonlocal response_started
                 if message.get("type") == "http.response.start":
+                    if limit_exceeded and not response_started:
+                        # Suppress the app's response — we will send 413
+                        # after self.app returns.
+                        return
                     response_started = True
+                if not response_started and message.get("type") == "http.response.body":
+                    # Suppress body for a response we already blocked
+                    return
                 await send(message)
 
             await self.app(scope, counting_receive, guarded_send)

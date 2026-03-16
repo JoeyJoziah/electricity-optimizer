@@ -33,9 +33,9 @@ class TracingMiddleware:
 
     Middleware ordering note
     -----------------------
-    Register this middleware *after* (i.e. at a lower position in the stack
-    than) rate-limit and security-header middleware so the trace ID is
-    available to all downstream handlers including exception handlers.
+    Register this middleware *last* in add_middleware() calls so it executes
+    first (LIFO), propagating the trace_id context variable to all downstream
+    middleware and handlers.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -58,7 +58,6 @@ class TracingMiddleware:
         scope.setdefault("state", {})["trace_id"] = trace_id
 
         # Bind to structlog context for automatic inclusion in all log records
-        structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(trace_id=trace_id)
 
         async def send_with_trace_id(message: dict) -> None:
