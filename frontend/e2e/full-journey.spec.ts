@@ -1,5 +1,4 @@
 import { test, expect } from './fixtures'
-import { setAuthenticatedState } from './helpers/auth'
 
 // ---------------------------------------------------------------------------
 // Mock supplier data reused across the Returning User describe block
@@ -45,9 +44,9 @@ const RETURNING_USER_SUPPLIERS = [
 // Full User Journey - Signup to Billing
 //
 // Most tests in this suite exercise public pages (/, /pricing, /auth/*) or
-// navigate to protected pages as part of a logged-in flow. Where individual
-// tests need an authenticated session they call setAuthenticatedState() inline
-// so the shared authenticatedPage fixture isn't forced on the public-page tests.
+// navigate to protected pages as part of a logged-in flow. Tests that need an
+// authenticated session use the `authenticatedPage` fixture; public-page tests
+// use `page` directly so they are not inadvertently redirected by the auth cookie.
 // ---------------------------------------------------------------------------
 
 test.describe('Full User Journey - Signup to Billing', () => {

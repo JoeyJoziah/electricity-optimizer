@@ -12,9 +12,15 @@
  * - Public: accessible without auth (/,  /pricing, /privacy, /terms, /beta-signup)
  * - Auth:   login/signup flows (/auth/*)
  * - Protected: require session cookie (dashboard, prices, suppliers, etc.)
+ *
+ * Refactoring note: This file uses the fixtures `test` export for tagged tests
+ * but keeps the local helper functions (collectConsoleErrors, initSettings,
+ * mockAllApis) because many tests require unauthenticated state or a custom
+ * mock layer that differs from the shared factory.
  */
 
-import { test, expect, Page } from '@playwright/test'
+import { test, expect } from './fixtures'
+import { type Page, type Route } from '@playwright/test'
 import { mockBetterAuth, setAuthenticatedState, clearAuthState } from './helpers/auth'
 
 // ---------------------------------------------------------------------------
@@ -264,7 +270,7 @@ async function mockAllApis(page: Page) {
 // ---------------------------------------------------------------------------
 
 test.describe('Public Pages - Load Successfully', () => {
-  test('/ (landing page) loads without errors', async ({ page }) => {
+  test('/ (landing page) loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -278,7 +284,7 @@ test.describe('Public Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/pricing loads without errors', async ({ page }) => {
+  test('/pricing loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/pricing', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -290,7 +296,7 @@ test.describe('Public Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/privacy loads without errors', async ({ page }) => {
+  test('/privacy loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/privacy', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -301,7 +307,7 @@ test.describe('Public Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/terms loads without errors', async ({ page }) => {
+  test('/terms loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/terms', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -323,7 +329,7 @@ test.describe('Auth Pages - Load Successfully', () => {
     await clearAuthState(page)
   })
 
-  test('/auth/login loads without errors', async ({ page }) => {
+  test('/auth/login loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/auth/login', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -336,7 +342,7 @@ test.describe('Auth Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/auth/signup loads without errors', async ({ page }) => {
+  test('/auth/signup loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/auth/signup', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -348,7 +354,7 @@ test.describe('Auth Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/auth/forgot-password loads without errors', async ({ page }) => {
+  test('/auth/forgot-password loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/auth/forgot-password', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -359,7 +365,7 @@ test.describe('Auth Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/auth/reset-password loads without errors', async ({ page }) => {
+  test('/auth/reset-password loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/auth/reset-password', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -369,7 +375,7 @@ test.describe('Auth Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/auth/verify-email loads without errors', async ({ page }) => {
+  test('/auth/verify-email loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/auth/verify-email', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -378,7 +384,7 @@ test.describe('Auth Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('auth pages redirect authenticated users to dashboard', async ({ page }) => {
+  test('auth pages redirect authenticated users to dashboard', { tag: ['@regression'] }, async ({ page }) => {
     await setAuthenticatedState(page)
     await mockAllApis(page)
     await initSettings(page)
@@ -401,7 +407,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     await initSettings(page)
   })
 
-  test('/dashboard loads without errors', async ({ page }) => {
+  test('/dashboard loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -412,7 +418,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/prices loads without errors', async ({ page }) => {
+  test('/prices loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/prices', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -423,7 +429,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/suppliers loads without errors', async ({ page }) => {
+  test('/suppliers loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/suppliers', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -434,7 +440,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/connections loads without errors', async ({ page }) => {
+  test('/connections loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/connections', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -445,7 +451,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/optimize loads without errors', async ({ page }) => {
+  test('/optimize loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/optimize', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -456,7 +462,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/settings loads without errors', async ({ page }) => {
+  test('/settings loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/settings', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -467,7 +473,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/alerts loads without errors', async ({ page }) => {
+  test('/alerts loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/alerts', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -478,7 +484,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/assistant loads without errors', async ({ page }) => {
+  test('/assistant loads without errors', { tag: ['@smoke'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/assistant', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -489,7 +495,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/onboarding loads without errors', async ({ page }) => {
+  test('/onboarding loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     // Override profile to simulate user needing onboarding
     await page.route('**/api/v1/users/profile**', async (route) => {
       await route.fulfill({
@@ -516,7 +522,7 @@ test.describe('Protected Pages - Load Successfully', () => {
   })
 
   // Wave 4/5 utility pages
-  test('/propane loads without errors', async ({ page }) => {
+  test('/propane loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/propane', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -527,7 +533,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/water loads without errors', async ({ page }) => {
+  test('/water loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/water', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -538,7 +544,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/gas-rates loads without errors', async ({ page }) => {
+  test('/gas-rates loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/gas-rates', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -549,7 +555,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/heating-oil loads without errors', async ({ page }) => {
+  test('/heating-oil loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/heating-oil', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -560,7 +566,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/community-solar loads without errors', async ({ page }) => {
+  test('/community-solar loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/community-solar', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -571,7 +577,7 @@ test.describe('Protected Pages - Load Successfully', () => {
     expect(errors).toEqual([])
   })
 
-  test('/community loads without errors', async ({ page }) => {
+  test('/community loads without errors', { tag: ['@regression'] }, async ({ page }) => {
     const errors = await collectConsoleErrors(page, async () => {
       await page.goto('/community', { waitUntil: 'domcontentloaded', timeout: 15000 })
     })
@@ -612,7 +618,7 @@ test.describe('Protected Pages - Redirect When Unauthenticated', () => {
   ]
 
   for (const path of protectedPages) {
-    test(`${path} redirects to login when unauthenticated`, async ({ page }) => {
+    test(`${path} redirects to login when unauthenticated`, { tag: ['@smoke'] }, async ({ page }) => {
       await page.goto(path)
       await page.waitForURL(/\/auth\/login/, { timeout: 10000 })
       expect(page.url()).toContain('/auth/login')
@@ -627,7 +633,7 @@ test.describe('Protected Pages - Redirect When Unauthenticated', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('No Redirect Loops', () => {
-  test('unauthenticated user on / does not loop', async ({ page }) => {
+  test('unauthenticated user on / does not loop', { tag: ['@regression'] }, async ({ page }) => {
     await mockBetterAuth(page)
     await clearAuthState(page)
 
@@ -641,7 +647,7 @@ test.describe('No Redirect Loops', () => {
     expect(url.length).toBeLessThan(300)
   })
 
-  test('authenticated user does not loop between auth and dashboard', async ({ page }) => {
+  test('authenticated user does not loop between auth and dashboard', { tag: ['@regression'] }, async ({ page }) => {
     await mockBetterAuth(page)
     await setAuthenticatedState(page)
     await mockAllApis(page)
@@ -655,7 +661,7 @@ test.describe('No Redirect Loops', () => {
     expect(page.url().length).toBeLessThan(300)
   })
 
-  test('stale session does not cause infinite redirect', async ({ page }) => {
+  test('stale session does not cause infinite redirect', { tag: ['@regression'] }, async ({ page }) => {
     await mockBetterAuth(page, { sessionExpired: true })
     await setAuthenticatedState(page) // cookie exists but session is expired
 
@@ -690,7 +696,7 @@ test.describe('Page Refresh Stability', () => {
     await initSettings(page)
   })
 
-  test('dashboard survives multiple rapid refreshes', async ({ page }) => {
+  test('dashboard survives multiple rapid refreshes', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 15000 })
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 })
 
@@ -705,7 +711,7 @@ test.describe('Page Refresh Stability', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 })
   })
 
-  test('prices page survives refresh', async ({ page }) => {
+  test('prices page survives refresh', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/prices', { waitUntil: 'domcontentloaded', timeout: 15000 })
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
 
@@ -715,7 +721,7 @@ test.describe('Page Refresh Stability', () => {
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('settings page survives refresh', async ({ page }) => {
+  test('settings page survives refresh', { tag: ['@regression'] }, async ({ page }) => {
     await page.goto('/settings', { waitUntil: 'domcontentloaded', timeout: 15000 })
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10000 })
 
@@ -739,7 +745,7 @@ test.describe('Cross-Page Navigation', () => {
   })
 
   // Sidebar navigation links — skip on mobile (sidebar hidden)
-  test('can navigate between all sidebar pages', async ({ page, isMobile }) => {
+  test('can navigate between all sidebar pages', { tag: ['@smoke'] }, async ({ page, isMobile }) => {
     test.skip(isMobile === true, 'Sidebar is hidden on mobile')
 
     // Use the sidebar nav element to scope link clicks (avoids matching page-body links)
@@ -796,7 +802,7 @@ test.describe('Error Recovery', () => {
     await initSettings(page)
   })
 
-  test('dashboard shows error state when all APIs fail', async ({ page }) => {
+  test('dashboard shows error state when all APIs fail', { tag: ['@regression'] }, async ({ page }) => {
     // Mock all API endpoints to return 500
     await page.route('**/api/v1/**', async (route) => {
       await route.fulfill({
@@ -814,7 +820,7 @@ test.describe('Error Recovery', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 })
   })
 
-  test('pages recover after transient API failure', async ({ page }) => {
+  test('pages recover after transient API failure', { tag: ['@regression'] }, async ({ page }) => {
     let callCount = 0
     await page.route('**/api/v1/prices/current**', async (route) => {
       callCount++
