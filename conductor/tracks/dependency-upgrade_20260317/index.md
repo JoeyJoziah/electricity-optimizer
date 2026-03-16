@@ -1,7 +1,7 @@
 # Track: Dependency Upgrade — Security Remediation & Major Version Bumps
 
 **ID:** dependency-upgrade_20260317
-**Status:** Planned
+**Status:** In Progress
 
 ## Documents
 
@@ -11,25 +11,32 @@
 
 ## Progress
 
-- Phases: 0/4 complete
-- Tasks: 0/18 complete
+- Phases: 3/4 complete
+- Tasks: 14/18 complete
+
+## Commits
+
+| Phase | Commit | Tasks |
+|-------|--------|-------|
+| 1 | `7c1f8a5` | 0-4: jest 30, safe Python patches, safe frontend minors, httpx cap |
+| 2+3 | `313b7da` | 5-14: Sentry v2, Stripe v14, Redis v7, dev tools, 6 frontend majors |
 
 ## Phases
 
 | # | Phase | Tasks | Risk | Status |
 |---|-------|-------|------|--------|
-| 1 | Security Fixes + Safe Patches | 0-4 | Low | Pending |
-| 2 | Medium-Risk Backend (Sentry, Stripe, Redis) | 5-8 | Medium | Pending |
-| 3 | Frontend Major Versions | 9-14 | Medium | Pending |
-| 4 | ML Stack (numpy, pandas) | 16-17 | High | Pending |
+| 1 | Security Fixes + Safe Patches | 0-4 | Low | Complete |
+| 2 | Medium-Risk Backend (Sentry, Stripe, Redis) | 5-8 | Medium | Complete |
+| 3 | Frontend Major Versions | 9-14 | Medium | Complete |
+| 4 | ML Stack (numpy, pandas) | 16-17 | High | In Progress |
 | - | ESLint v10 | 15 | High | DEFERRED |
 
 ## Audit Summary
 
-- **npm vulnerabilities**: 13 (3 HIGH, 6 MOD, 4 LOW) → target: 6 (devDep only)
+- **npm vulnerabilities**: 13 → 5 (0 HIGH, 5 MOD — all @excalidraw transitive)
 - **pip-audit**: clean (no action needed)
-- **Outdated Python**: 73 packages
-- **Outdated npm**: 16 packages
+- **Backend tests**: 2,662 passed (1 pre-existing encryption test excluded)
+- **Frontend tests**: 2,024 passed (152 suites, 1 pre-existing FeedbackWidget failure)
 
 ## Quick Links
 
