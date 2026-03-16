@@ -12,6 +12,7 @@ const customJestConfig = {
     '^better-auth/react$': '<rootDir>/__mocks__/better-auth-react.js',
   },
   testPathIgnorePatterns: ['<rootDir>/e2e/'],
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
   collectCoverageFrom: [
     'components/**/*.{ts,tsx}',
     'lib/**/*.{ts,tsx}',

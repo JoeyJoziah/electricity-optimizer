@@ -1,18 +1,18 @@
 # FastAPI and ASGI Server
 fastapi>=0.115.0
-uvicorn[standard]==0.27.0
+uvicorn[standard]==0.42.0
 pydantic==2.12.5
-pydantic-settings==2.2.0
+pydantic-settings==2.13.1
 
 # Database
-asyncpg==0.29.0
-sqlalchemy[asyncio]==2.0.25
+asyncpg==0.31.0
+sqlalchemy[asyncio]==2.0.48
 
 # Redis
 redis[hiredis]==5.0.1
 
 # HTTP Client
-httpx>=0.24,<0.28
+httpx>=0.26,<0.29
 
 # Authentication & Security
 PyJWT[crypto]>=2.8,<3.0
@@ -23,13 +23,13 @@ bcrypt==4.1.2
 python-dotenv==1.0.0
 
 # Data Validation & Serialization
-email-validator==2.1.0
-python-dateutil==2.8.2
+email-validator==2.3.0
+python-dateutil==2.9.0.post0
 
 # Monitoring & Logging
-prometheus-client==0.19.0
+prometheus-client==0.24.1
 sentry-sdk[fastapi]==1.45.1
-structlog==24.1.0
+structlog==25.5.0
 
 # OpenTelemetry — opt-in distributed tracing (OTEL_ENABLED=true activates)
 opentelemetry-api>=1.20.0,<2.0

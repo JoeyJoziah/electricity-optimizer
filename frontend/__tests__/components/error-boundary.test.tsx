@@ -175,10 +175,7 @@ describe('PageErrorFallback', () => {
 
   it('calls window.location.reload when Try again is clicked without onReset', () => {
     const reloadMock = jest.fn()
-    Object.defineProperty(window, 'location', {
-      value: { ...window.location, reload: reloadMock },
-      writable: true,
-    })
+    window.location.reload = reloadMock
     render(<PageErrorFallback />)
     fireEvent.click(screen.getByText('Try again'))
     expect(reloadMock).toHaveBeenCalledTimes(1)

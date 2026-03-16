@@ -1,0 +1,16 @@
+{
+  "id": "dependency-upgrade_20260317",
+  "title": "Dependency Upgrade — Security Remediation & Major Version Bumps",
+  "type": "chore",
+  "status": "planned",
+  "created": "2026-03-17T00:00:00Z",
+  "updated": "2026-03-17T00:00:00Z",
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 18,
+    "completed": 0
+  }
+}
