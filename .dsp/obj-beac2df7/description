@@ -1,3 +1,0 @@
-source: frontend/lib/api/alerts.ts
-kind: object
-purpose: Shared library utility for Alerts

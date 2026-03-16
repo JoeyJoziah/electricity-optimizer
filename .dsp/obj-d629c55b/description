@@ -1,3 +1,0 @@
-source: frontend/lib/api/circuit-breaker.ts
-kind: object
-purpose: Shared library utility for Circuit Breaker

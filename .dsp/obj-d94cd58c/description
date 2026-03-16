@@ -1,3 +1,0 @@
-source: frontend/components/dashboard/DashboardContent.tsx
-kind: object
-purpose: UI component for Dashboardcontent

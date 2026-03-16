@@ -1,3 +1,0 @@
-source: backend/config/secrets.py
-kind: object
-purpose: Secrets Manager

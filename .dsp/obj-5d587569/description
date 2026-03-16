@@ -1,3 +1,0 @@
-source: frontend/components/dashboard/DashboardTabs.tsx
-kind: object
-purpose: UI component for Dashboardtabs

@@ -1,3 +1,0 @@
-source: frontend/components/suppliers/ComparisonTable.tsx
-kind: object
-purpose: UI component for Comparisontable

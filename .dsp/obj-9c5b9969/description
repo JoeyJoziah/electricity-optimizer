@@ -1,3 +1,0 @@
-source: frontend/components/heating-oil/HeatingOilDashboard.tsx
-kind: object
-purpose: UI component for Heatingoildashboard

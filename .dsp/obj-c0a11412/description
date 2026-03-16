@@ -1,3 +1,0 @@
-source: frontend/lib/api/heating-oil.ts
-kind: object
-purpose: Shared library utility for Heating Oil

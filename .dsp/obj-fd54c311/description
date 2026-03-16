@@ -1,3 +1,0 @@
-source: frontend/app/api/dev/diagrams/route.ts
-kind: object
-purpose: Frontend module: route

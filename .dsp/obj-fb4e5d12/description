@@ -1,3 +1,0 @@
-source: backend/services/neighborhood_service.py
-kind: object
-purpose: Neighborhood Service — compare user rates against their region.

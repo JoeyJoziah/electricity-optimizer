@@ -1,3 +1,0 @@
-source: frontend/components/rate-changes/AlertPreferences.tsx
-kind: object
-purpose: UI component for Alertpreferences

@@ -1,3 +1,0 @@
-source: @neondatabase/serverless
-kind: external
-purpose: External package: @neondatabase/serverless

@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/middleware/rate-limiter.ts
-kind: object
-purpose: Middleware handler for Rate Limiter

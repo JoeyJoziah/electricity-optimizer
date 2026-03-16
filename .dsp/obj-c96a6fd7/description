@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useExport.ts
-kind: object
-purpose: Shared library utility for Useexport

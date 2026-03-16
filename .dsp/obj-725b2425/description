@@ -1,3 +1,0 @@
-source: backend/services/gas_rate_service.py
-kind: object
-purpose: Gas Rate Service

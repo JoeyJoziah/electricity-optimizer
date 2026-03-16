@@ -1,3 +1,0 @@
-source: backend/api/v1/internal/operations.py
-kind: object
-purpose: Internal operations endpoints.

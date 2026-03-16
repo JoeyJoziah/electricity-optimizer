@@ -1,3 +1,0 @@
-source: backend/models/utility_account.py
-kind: object
-purpose: Utility Account Models

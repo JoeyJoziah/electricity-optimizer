@@ -1,3 +1,0 @@
-source: backend/gunicorn_config.py
-kind: object
-purpose: Gunicorn Configuration for Production Deployment (Free Tier Optimized)

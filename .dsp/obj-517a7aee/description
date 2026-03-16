@@ -1,3 +1,0 @@
-source: frontend/tailwind.config.ts
-kind: object
-purpose: Frontend module: tailwind.config

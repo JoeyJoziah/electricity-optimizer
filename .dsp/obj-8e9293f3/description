@@ -1,3 +1,0 @@
-source: frontend/components/dashboard/DashboardSchedule.tsx
-kind: object
-purpose: UI component for Dashboardschedule

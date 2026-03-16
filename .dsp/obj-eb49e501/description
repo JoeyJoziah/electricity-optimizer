@@ -1,3 +1,0 @@
-source: frontend/app/(app)/dashboard/error.tsx
-kind: object
-purpose: App page component for Error

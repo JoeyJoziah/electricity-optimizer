@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useRateChanges.ts
-kind: object
-purpose: Shared library utility for Useratechanges

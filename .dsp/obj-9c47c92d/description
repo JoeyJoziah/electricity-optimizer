@@ -1,3 +1,0 @@
-source: backend/services/savings_aggregator.py
-kind: object
-purpose: Savings Aggregator — combine savings across all monitored utility types.

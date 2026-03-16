@@ -1,3 +1,0 @@
-source: backend/models/model_config.py
-kind: object
-purpose: Model Config — Pydantic models for ML ensemble weight persistence.

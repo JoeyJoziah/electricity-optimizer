@@ -1,3 +1,0 @@
-source: backend/services/email_oauth_service.py
-kind: object
-purpose: Email OAuth2 service for Gmail and Outlook integration.

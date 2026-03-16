@@ -1,3 +1,0 @@
-source: frontend/lib/auth/server.ts
-kind: object
-purpose: Shared library utility for Server

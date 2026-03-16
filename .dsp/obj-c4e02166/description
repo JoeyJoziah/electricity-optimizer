@@ -1,3 +1,0 @@
-source: backend/integrations/pricing_apis/cache.py
-kind: object
-purpose: Redis Caching Layer for Pricing APIs

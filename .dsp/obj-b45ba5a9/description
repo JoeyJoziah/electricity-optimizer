@@ -1,3 +1,0 @@
-source: frontend/lib/config/seo.ts
-kind: object
-purpose: Shared library utility for Seo

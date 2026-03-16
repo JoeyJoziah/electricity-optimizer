@@ -1,3 +1,0 @@
-source: frontend/types/index.ts
-kind: object
-purpose: TypeScript type definition for Types

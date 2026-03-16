@@ -1,3 +1,0 @@
-source: frontend/lib/api/forecast.ts
-kind: object
-purpose: Shared library utility for Forecast

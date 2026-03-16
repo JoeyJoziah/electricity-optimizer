@@ -1,3 +1,0 @@
-source: backend/models/community.py
-kind: object
-purpose: Community Data Models

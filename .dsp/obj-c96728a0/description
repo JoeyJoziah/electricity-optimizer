@@ -1,3 +1,0 @@
-source: backend/observability.py
-kind: object
-purpose: OpenTelemetry Observability Integration

@@ -1,3 +1,0 @@
-source: frontend/lib/utils/devGate.ts
-kind: object
-purpose: Shared library utility for Devgate

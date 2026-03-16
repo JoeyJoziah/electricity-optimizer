@@ -1,3 +1,0 @@
-source: backend/models/notification.py
-kind: object
-purpose: Notification Models

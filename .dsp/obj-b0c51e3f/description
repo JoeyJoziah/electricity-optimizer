@@ -1,3 +1,0 @@
-source: redis
-kind: external
-purpose: External package: redis

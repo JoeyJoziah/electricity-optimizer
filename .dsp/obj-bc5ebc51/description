@@ -1,3 +1,0 @@
-source: backend/services/heating_oil_service.py
-kind: object
-purpose: Heating Oil Price Service

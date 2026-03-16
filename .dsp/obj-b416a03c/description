@@ -1,3 +1,0 @@
-source: backend/api/v1/propane.py
-kind: object
-purpose: Propane API Endpoints

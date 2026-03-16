@@ -5,7 +5,7 @@
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,841 tests (136 suites)
+**Test Coverage:** Frontend 1,898 tests (138 suites)
 
 ---
 
@@ -85,54 +85,75 @@ frontend/
         architecture/page.tsx   # Excalidraw diagram editor (list + canvas)
   components/
     ui/
-      input.tsx                 # Input + Checkbox: validation, success/error states, labelSuffix/labelRight
+      badge.tsx                 # Badge: status indicators (primary/success/danger/warning)
       button.tsx                # Button: primary/secondary/outline variants, loading state
       card.tsx                  # Card: CardHeader, CardTitle, CardContent, CardDescription
-      badge.tsx                 # Badge: status indicators (primary/success/danger/warning)
+      input.tsx                 # Input + Checkbox: validation, success/error states, labelSuffix/labelRight
       modal.tsx                 # Modal: controlled dialog with overlay
-      toast.tsx                 # Toast: notifications (success/error/warning)
-      dropdown.tsx              # Dropdown: menu with keyboard navigation
-      tabs.tsx                  # Tabs: tab navigation (horizontal)
-      tooltip.tsx               # Tooltip: hover text with delay
-      avatar.tsx                # Avatar: user profile images with fallback
       skeleton.tsx              # Skeleton: shimmer loading placeholder
-      spinner.tsx               # Spinner: animated loading indicator
+      toast.tsx                 # Toast: notifications (success/error/warning)
     auth/
       LoginForm.tsx             # Login form (email blur validation, conditional OAuth, magic link toggle)
       SignupForm.tsx            # Signup form (password strength, conditional OAuth, email verification redirect)
     layout/
-      Sidebar.tsx               # Main navigation sidebar (15 nav items: Dashboard, Prices, Suppliers, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Optimize, Connections, Alerts, Community, Assistant, Settings)
       Header.tsx                # Top header (logo, user menu, mobile toggle)
       NotificationBell.tsx      # In-app notification bell (sidebar, unread count badge, dropdown panel, mark read)
+      Sidebar.tsx               # Main navigation sidebar (15 nav items: Dashboard, Prices, Suppliers, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Optimize, Connections, Alerts, Community, Assistant, Settings)
+      StatusBadge.tsx           # Connection/service status indicator badge
+    dev/
       DevBanner.tsx             # Development-only banner (top of page)
+      DiagramEditor.tsx         # Excalidraw diagram editor
+      DiagramList.tsx           # Diagram list view
+      ExcalidrawWrapper.tsx     # Excalidraw library wrapper
     dashboard/
-      StatsCard.tsx             # Metric card (value, label, change %)
-      RecentActivity.tsx        # Activity feed (timestamps, user actions)
-      RecommendationCard.tsx    # Optimization recommendation display
+      AllUtilitiesTab.tsx       # Cross-utility overview tab (combined savings, discovery)
+      CombinedSavingsCard.tsx   # Aggregate savings across all utility types
+      CompletionProgress.tsx    # Utility setup completion progress bar
+      DashboardCharts.tsx       # Price charts section (line chart + donut)
+      DashboardContent.tsx      # Main dashboard orchestrator (tabs, stats, charts)
+      DashboardForecast.tsx     # Forecast widget section
+      DashboardSchedule.tsx     # Today's schedule section
+      DashboardStatsRow.tsx     # Stats row (current price, savings, alerts, score)
+      DashboardTabs.tsx         # Tab navigation for utility types
+      DashboardTypes.ts         # Dashboard TypeScript interfaces
+      NeighborhoodCard.tsx      # Neighborhood comparison card
+      SetupChecklist.tsx        # New user setup checklist
+      UtilityDiscoveryCard.tsx  # Utility type discovery prompts
+      UtilityTabShell.tsx       # Dynamic utility-specific tab content
     prices/
-      PriceTable.tsx            # Prices data table (sortable, filterable)
-      RegionSelector.tsx        # Dropdown to switch regions
-      PriceChart.tsx            # Recharts visualization (line/area)
-      PriceTrendsBadge.tsx      # Up/down indicator with color coding
+      PricesContent.tsx         # Prices page content (table, region selector, charts)
     suppliers/
-      SupplierList.tsx          # Supplier grid/table (region filtered)
+      ComparisonTable.tsx       # Supplier comparison table (sortable, region-filtered)
+      SetSupplierDialog.tsx     # Modal to set current supplier
+      SupplierAccountForm.tsx   # Supplier account linking form
       SupplierCard.tsx          # Supplier info card
+      SuppliersContent.tsx      # Suppliers page orchestrator
       SupplierSelector.tsx      # Dropdown with search (bg-white text-gray-900)
-    optimize/
-      ApplianceForm.tsx         # Add/edit appliance
-      ApplianceCard.tsx         # Display appliance with settings button
-      RecommendationList.tsx    # List of optimization suggestions
-    connections/                # Connection feature UI (10 components)
-      Overview.tsx              # Dashboard of user connections (incl. adding-portal view)
-      MethodPicker.tsx          # Select connection type (direct, bill, email, portal, utilityapi)
-      Card.tsx                  # Connection status card
-      DirectLogin.tsx           # UtilityAPI direct sync form (bg-white, text-gray-900)
-      EmailFlow.tsx             # Gmail/Outlook OAuth flow
-      BillUpload.tsx            # Bill upload form
-      UploadFlow.tsx            # Multi-step upload wizard
+      SwitchWizard.tsx          # Multi-step supplier switching wizard
+    connections/                # Connection feature UI (17 components)
+      BillUploadDropZone.tsx    # Drag-and-drop file drop zone
+      BillUploadFilePreview.tsx # Uploaded file preview with metadata
+      BillUploadForm.tsx        # Bill upload form
+      BillUploadProgress.tsx    # Upload progress indicator
+      BillUploadResults.tsx     # Parsed bill results display
+      BillUploadTypes.ts        # Bill upload TypeScript interfaces
+      ConnectionAnalytics.tsx   # Rate comparison + savings dashboard
+      ConnectionCard.tsx        # Connection status card
+      ConnectionMethodPicker.tsx # Select connection type (direct, bill, email, portal, utilityapi)
+      ConnectionRates.tsx       # Imported rates table (sortable)
+      ConnectionsOverview.tsx   # Dashboard of user connections (incl. adding-portal view)
+      ConnectionUploadFlow.tsx  # Multi-step upload wizard
+      DirectLoginForm.tsx       # UtilityAPI direct sync form
+      EmailConnectionFlow.tsx   # Gmail/Outlook OAuth flow
+      ExtractedField.tsx        # Extracted field display from parsed bills
       PortalConnectionFlow.tsx  # Utility portal credential connection (5 utilities, encrypted creds)
-      Rates.tsx                 # Imported rates table (sortable)
-      Analytics.tsx             # Rate comparison + savings dashboard
+      analytics/                # Connection analytics sub-components
+        ConnectionHealthCard.tsx # Connection health status card
+        RateComparisonCard.tsx  # Rate comparison visualization
+        RateHistoryCard.tsx     # Rate history chart card
+        SavingsEstimateCard.tsx # Savings estimate card
+        index.ts               # Barrel export
+        types.ts               # Analytics TypeScript interfaces
     alerts/
       AlertsContent.tsx         # Main alerts component: My Alerts tab (CRUD) + History tab (paginated)
       AlertForm.tsx             # Create alert form: region select, price thresholds, optimal windows checkbox
@@ -156,19 +177,19 @@ frontend/
       SavingsTracker.tsx        # Savings progress tracker
     gas/                        # Natural gas components (Wave 2)
       GasRatesContent.tsx       # Gas rates page content
-    gas-rates/                  # Natural gas components (Wave 2)
-      GasRatesDashboard.tsx     # Gas rates overview + regional comparison
-      GasSupplierComparison.tsx # Gas supplier comparison table
+    gas/                        # Natural gas components (Wave 2)
+      GasRatesContent.tsx       # Gas rates page content
     community-solar/            # Community solar components (Wave 2)
-      ProgramList.tsx           # Solar program discovery list
-      ProgramCard.tsx           # Solar program detail card
-      EnrollmentFlow.tsx        # Multi-step enrollment form
+      CommunitySolarContent.tsx # Community solar page content
+      SavingsCalculator.tsx     # Community solar savings calculator
     cca/                        # CCA detection components (Wave 3)
-      CCADetector.tsx           # CCA zone detection + program info
-      CCABanner.tsx             # CCA notification banner
+      CCAAlert.tsx              # CCA availability alert banner
+      CCAComparison.tsx         # CCA vs standard rate comparison
+      CCAInfo.tsx               # CCA program information display
     heating-oil/                # Heating oil components (Wave 3)
-      HeatingOilDashboard.tsx   # Heating oil prices + dealer comparison
-      DealerComparison.tsx      # Heating oil dealer comparison table
+      DealerList.tsx            # Heating oil dealer list/comparison
+      HeatingOilDashboard.tsx   # Heating oil prices overview
+      OilPriceHistory.tsx       # Heating oil price history chart
     propane/                    # Propane components (Wave 4)
       PropaneDashboard.tsx      # Propane prices + fill-up timing
       PropanePriceHistory.tsx   # Propane price history chart
@@ -179,10 +200,11 @@ frontend/
       WaterTierCalculator.tsx   # Incremental tier pricing calculator
       ConservationTips.tsx      # Water conservation tips
     community/                  # Community feature components (Wave 5)
+      CommunityStats.tsx        # Community statistics overview
+      PostForm.tsx              # New post creation form
       PostList.tsx              # Community post list with voting
-      PostCard.tsx              # Individual post with vote buttons
-      CreatePostForm.tsx        # New post creation form
-      ReportDialog.tsx          # Post report dialog
+      ReportButton.tsx          # Post report button
+      VoteButton.tsx            # Post vote (upvote/downvote) button
     onboarding/                 # Onboarding flow components
       OnboardingWizard.tsx      # Region-only 1-step onboarding (simplified from 4-step)
       RegionSelector.tsx        # Region selection dropdown (50 states + DC)
@@ -195,57 +217,74 @@ frontend/
       InstallPrompt.tsx         # PWA install prompt banner
       ServiceWorkerRegistrar.tsx # Service worker registration
     rate-changes/               # Rate change components (Wave 3)
-      RateChangeAlert.tsx       # Rate change notification card
-      RateChangeHistory.tsx     # Rate change history timeline
+      AlertPreferences.tsx      # Rate change alert preferences form
+      RateChangeCard.tsx        # Rate change notification card
+      RateChangeFeed.tsx        # Rate change history feed/timeline
     seo/                        # SEO components (Wave 3)
-      StateRatePage.tsx         # ISR state rate page template
-    settings/
-      ProfileForm.tsx           # Edit user info
-      RegionSelector.tsx        # Change region with 50 states + DC support
-      NotificationPrefs.tsx     # Email notification toggles
-      DangerZone.tsx            # Delete account button
+      RatePageContent.tsx       # ISR state rate page content template
+    error-boundary.tsx          # Error boundary component with fallback UI
+    page-error-fallback.tsx     # Page-level error fallback component
   lib/
     hooks/
-      useAuth.tsx               # Custom hook: auth state + sign in/up/out + magic link + email verification + OneSignal login/logout
-      useAlerts.ts              # TanStack Query hooks: useAlerts, useAlertHistory, useCreateAlert, useUpdateAlert, useDeleteAlert (staleTime: 30s)
       useAgent.ts               # Agent query hook: useAgentQuery (streaming, messages, error, cancel, reset), useAgentStatus (usage limits)
-      useConnections.ts         # TanStack Query hook: useConnections — migrated from useEffect+fetch (retry: false, staleTime: 30s, 403 gate preserved)
+      useAlerts.ts              # TanStack Query hooks: useAlerts, useAlertHistory, useCreateAlert, useUpdateAlert, useDeleteAlert (staleTime: 30s)
+      useAuth.tsx               # Custom hook: auth state + sign in/up/out + magic link + email verification + OneSignal login/logout
+      useCCA.ts                 # CCA detection hooks (Wave 3)
+      useCombinedSavings.ts     # Combined cross-utility savings hook
+      useCommunity.ts           # Community posts/voting hooks (Wave 5)
+      useCommunitySolar.ts      # Community solar program hooks (Wave 2)
+      useConnections.ts         # TanStack Query hook: useConnections (retry: false, staleTime: 30s, 403 gate preserved)
+      useDiagrams.ts            # Excalidraw diagram hooks (dev only)
+      useExport.ts              # Rate data export hooks (Wave 4)
+      useForecast.ts            # Multi-utility forecast hooks (Wave 4)
+      useGasRates.ts            # Natural gas rate hooks (Wave 2)
+      useGeocoding.ts           # Geocoding hooks (OWM + Nominatim)
+      useHeatingOil.ts          # Heating oil hooks (Wave 3)
+      useNeighborhood.ts        # Neighborhood comparison hooks (Wave 5)
       useNotifications.ts       # TanStack Query hooks: useNotifications (staleTime 30s), useNotificationCount (refetch 30s), useMarkRead, useMarkAllRead
-      useRealtime.ts            # Custom hook: SSE connection (openWhenHidden: false). Uses setQueryData partial-merge for SSE current price updates (replaces earlier invalidateQueries approach)
-      useLocalStorage.ts        # Persist state to browser storage
-      useDarkMode.ts            # Dark mode toggle (future)
-      useMediaQuery.ts          # Responsive design breakpoint detection
-      useClickOutside.ts        # Detect clicks outside an element
-      useDebounce.ts            # Debounce values/callbacks
+      useOptimization.ts        # Optimization hooks
+      usePrices.ts              # Price data hooks
+      useProfile.ts             # User profile hooks
+      usePropane.ts             # Propane rate hooks (Wave 4)
+      useRateChanges.ts         # Rate change alert hooks (Wave 3)
+      useRealtime.ts            # SSE connection hook (setQueryData partial-merge for current price updates)
+      useReports.ts             # Report generation hooks (Wave 4)
+      useSavings.ts             # Savings tracking hooks
+      useSuppliers.ts           # Supplier listing hooks
+      useUtilityDiscovery.ts    # Utility discovery hooks (Wave 2)
+      useWater.ts               # Water rate hooks (Wave 4)
     utils/
+      calculations.ts           # Energy calculations and unit conversions
       cn.ts                     # clsx + tailwind-merge for className composition
+      devGate.ts                # Development mode gating utility
       format.ts                 # Currency formatting (Intl.NumberFormat, en-US)
       url.ts                    # isSafeRedirect() for same-origin validation
-      api.ts                    # API client + error handling
-      auth.ts                   # Auth utilities (JWT decode, token storage)
-      error.ts                  # Error message extraction + logging
     api/
-      client.ts                 # Fetch wrapper + 401 handler (3-layer callbackUrl guard)
-      alerts.ts                 # Alerts API: getAlerts, createAlert, updateAlert, deleteAlert, getAlertHistory. Types: Alert, AlertHistoryItem, GetAlertsResponse, GetAlertHistoryResponse
-      agent.ts                  # Agent API: queryAgent (SSE streaming, async generator), submitTask (async job), getAgentUsage (rate limits). Types: AgentMessage, AgentUsage, AgentTaskResponse, AgentJobResult
-      notifications.ts          # Notifications API: getNotifications, getNotificationCount, markNotificationRead, markAllRead. Types: Notification, GetNotificationsResponse, GetNotificationCountResponse
-      gas-rates.ts              # Gas rates API client (Wave 2)
-      community-solar.ts        # Community solar API client (Wave 2)
-      utility-discovery.ts      # Utility discovery API client (Wave 2)
-      cca.ts                    # CCA detection API client (Wave 3)
-      heating-oil.ts            # Heating oil API client (Wave 3)
-      rate-changes.ts           # Rate changes API client (Wave 3)
-      public-rates.ts           # Public SEO rates API client (Wave 3)
       affiliate.ts              # Affiliate tracking API client (Wave 3)
-      propane.ts                # Propane API client (Wave 4)
-      water.ts                  # Water rates API client (Wave 4)
-      forecast.ts               # Multi-utility forecast API client (Wave 4)
-      reports.ts                # Optimization reports API client (Wave 4)
-      export.ts                 # Rate data export API client (Wave 4)
+      agent.ts                  # Agent API: queryAgent (SSE streaming), submitTask (async job), getAgentUsage (rate limits)
+      alerts.ts                 # Alerts API: getAlerts, createAlert, updateAlert, deleteAlert, getAlertHistory
+      cca.ts                    # CCA detection API client (Wave 3)
+      circuit-breaker.ts        # Frontend circuit breaker (CLOSED/OPEN/HALF_OPEN, auto-fallback to Render)
+      client.ts                 # Fetch wrapper + 401 handler (3-layer callbackUrl guard)
+      community-solar.ts        # Community solar API client (Wave 2)
       community.ts              # Community posts/voting API client (Wave 5)
-      savings.ts                # Savings API client (Wave 5)
+      export.ts                 # Rate data export API client (Wave 4)
+      forecast.ts               # Multi-utility forecast API client (Wave 4)
+      gas-rates.ts              # Gas rates API client (Wave 2)
+      heating-oil.ts            # Heating oil API client (Wave 3)
       neighborhood.ts           # Neighborhood comparison API client (Wave 5)
+      notifications.ts          # Notifications API: getNotifications, getNotificationCount, markNotificationRead, markAllRead
+      optimization.ts           # Optimization API client
       portal.ts                 # Portal connection API client
+      prices.ts                 # Prices API client
+      profile.ts                # User profile API client
+      propane.ts                # Propane API client (Wave 4)
+      rate-changes.ts           # Rate changes API client (Wave 3)
+      reports.ts                # Optimization reports API client (Wave 4)
+      savings.ts                # Savings API client (Wave 5)
+      suppliers.ts              # Suppliers API client
+      utility-discovery.ts      # Utility discovery API client (Wave 2)
+      water.ts                  # Water rates API client (Wave 4)
       __tests__/
         client-401-redirect.test.ts  # 9 tests for 401 edge cases
     auth/
@@ -257,6 +296,17 @@ frontend/
       onesignal.ts              # OneSignal push: loginOneSignal(userId), logoutOneSignal(). Uses v3+ API (login() replaces deprecated setExternalUserId())
     config/
       env.ts                    # Centralized NEXT_PUBLIC_* validation
+      seo.ts                    # SEO configuration (meta tags, OG images)
+    constants/
+      chartTokens.ts            # Shared chart color tokens (--chart-1 through --chart-6)
+      regions.ts                # Region constants and labels
+    contexts/
+      sidebar-context.tsx       # Sidebar open/close state context
+      toast-context.tsx         # Toast notification context
+    store/
+      settings.ts               # Zustand settings store (persisted to localStorage)
+    analytics/
+      clarity.tsx               # Microsoft Clarity analytics integration
   styles/
     (additional global styles imported in globals.css)
   public/
@@ -2107,11 +2157,11 @@ updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
 
 ---
 
-**Last Reviewed:** 2026-03-16 by documentation engineer
-**Status:** Current with AI Agent, notification delivery, A/B testing framework, Waves 4-5 complete
-**Test Coverage:** 1,841 tests (frontend, 136 suites), ~5,682+ total (all layers)
+**Last Reviewed:** 2026-03-16 (full audit — component names, hooks, API clients, utils verified against filesystem)
+**Status:** Current with all Waves 0-5 complete, codebase audit remediation, performance optimization
+**Test Coverage:** 1,898 tests (frontend, 138 suites), ~5,793+ total (all layers)
 **Framework:** Next.js 16 + React 19 + TypeScript
-**Components:** 55+ (19 UI + 36 feature-specific)
-**Pages:** 21 (root + (app) with sidebar + (dev) + auth)
-**Hooks:** 12+ (auth, alerts, agent, notifications, connections, prices, suppliers, etc.)
-**API Clients:** 8+ (alerts, agent, notifications, prices, suppliers, profile, optimization, connections)
+**Components:** 106 .tsx files across 20 component directories
+**Pages:** 29 page.tsx files (root + (app) with sidebar + (dev) + auth + SEO)
+**Hooks:** 27 (useAuth, useAlerts, useAgent, usePrices, useSuppliers, useConnections, + 21 more)
+**API Clients:** 25 (client.ts + circuit-breaker.ts + 23 domain-specific clients)

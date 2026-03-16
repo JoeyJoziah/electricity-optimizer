@@ -1,3 +1,0 @@
-source: backend/services/water_rate_service.py
-kind: object
-purpose: Water Rate Benchmarking Service

@@ -1,3 +1,0 @@
-source: frontend/lib/api/water.ts
-kind: object
-purpose: Shared library utility for Water

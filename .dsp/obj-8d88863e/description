@@ -1,3 +1,0 @@
-source: backend/services/alert_renderer.py
-kind: object
-purpose: Alert Email Renderer

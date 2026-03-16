@@ -1,3 +1,0 @@
-source: ml/optimization/scheduler.py
-kind: object
-purpose: High-Level Scheduling API for Appliance Optimization

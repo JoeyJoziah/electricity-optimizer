@@ -1,3 +1,0 @@
-source: ml/training/train_forecaster.py
-kind: object
-purpose: Training Script for Electricity Price Forecasting Models

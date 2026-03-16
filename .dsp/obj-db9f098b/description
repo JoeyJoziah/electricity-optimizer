@@ -1,3 +1,0 @@
-source: backend/api/v1/public_rates.py
-kind: object
-purpose: Public Rate Pages API

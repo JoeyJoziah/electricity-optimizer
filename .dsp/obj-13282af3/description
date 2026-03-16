@@ -1,3 +1,0 @@
-source: frontend/components/water/WaterTierCalculator.tsx
-kind: object
-purpose: UI component for Watertiercalculator

@@ -1,3 +1,0 @@
-source: frontend/lib/notifications/onesignal.ts
-kind: object
-purpose: Shared library utility for Onesignal

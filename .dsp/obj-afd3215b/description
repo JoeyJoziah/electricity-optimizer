@@ -1,3 +1,0 @@
-source: backend/api/v1/heating_oil.py
-kind: object
-purpose: Heating Oil API Endpoints

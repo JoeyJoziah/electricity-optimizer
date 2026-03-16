@@ -1,3 +1,0 @@
-source: backend/main.py
-kind: object
-purpose: Electricity Optimizer - FastAPI Backend Entry Point

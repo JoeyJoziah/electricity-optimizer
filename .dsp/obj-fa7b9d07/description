@@ -1,3 +1,0 @@
-source: backend/services/community_service.py
-kind: object
-purpose: Community Service — CRUD for community posts, votes, reports, and moderation.

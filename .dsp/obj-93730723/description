@@ -1,3 +1,0 @@
-source: backend/api/v1/connections/crud.py
-kind: object
-purpose: Basic CRUD endpoints for the Connections feature.

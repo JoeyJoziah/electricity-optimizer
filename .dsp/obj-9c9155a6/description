@@ -1,3 +1,0 @@
-source: frontend/components/community/PostList.tsx
-kind: object
-purpose: UI component for Postlist

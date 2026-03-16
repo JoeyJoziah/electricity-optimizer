@@ -1,3 +1,0 @@
-source: backend/api/v1/rate_changes.py
-kind: object
-purpose: Rate Changes API

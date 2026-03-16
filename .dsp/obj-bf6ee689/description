@@ -1,3 +1,0 @@
-source: backend/api/v1/compliance.py
-kind: object
-purpose: GDPR Compliance API Endpoints

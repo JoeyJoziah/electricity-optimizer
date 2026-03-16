@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useOptimization.ts
-kind: object
-purpose: Shared library utility for Useoptimization

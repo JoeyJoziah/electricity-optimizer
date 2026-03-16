@@ -1,3 +1,0 @@
-source: frontend/components/heating-oil/DealerList.tsx
-kind: object
-purpose: UI component for Dealerlist

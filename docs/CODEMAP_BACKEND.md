@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-16 (Wave 5 complete: community features, utility feature flags, security hardening. Test count: 2,482. Migrations: 50. Tables: 53 = 44 public + 9 neon_auth. Services: 52. API routes: 38 files + connections/ + internal/ subdirectories.)
+> Last updated: 2026-03-16 (Codebase audit remediation complete. Test count: 2,536. Migrations: 50. Tables: 53 = 44 public + 9 neon_auth. Services: 51. API routes: 56 files incl. connections/ + internal/ subdirectories.)
 
 ## Directory Structure
 

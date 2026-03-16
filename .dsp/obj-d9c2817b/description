@@ -1,3 +1,0 @@
-source: frontend/components/connections/ConnectionsOverview.tsx
-kind: object
-purpose: UI component for Connectionsoverview

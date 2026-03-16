@@ -1,3 +1,0 @@
-source: frontend/lib/api/suppliers.ts
-kind: object
-purpose: Shared library utility for Suppliers

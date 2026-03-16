@@ -1,3 +1,0 @@
-source: frontend/lib/constants/regions.ts
-kind: object
-purpose: Shared library utility for Regions

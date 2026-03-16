@@ -1,3 +1,0 @@
-source: backend/services/notification_dispatcher.py
-kind: object
-purpose: NotificationDispatcher

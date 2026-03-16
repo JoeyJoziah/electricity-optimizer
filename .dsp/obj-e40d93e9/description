@@ -1,3 +1,0 @@
-source: frontend/components/dashboard/DashboardStatsRow.tsx
-kind: object
-purpose: UI component for Dashboardstatsrow

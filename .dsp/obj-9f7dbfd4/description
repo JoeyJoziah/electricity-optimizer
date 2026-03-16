@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useGasRates.ts
-kind: object
-purpose: Shared library utility for Usegasrates

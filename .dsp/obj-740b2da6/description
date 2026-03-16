@@ -1,3 +1,0 @@
-source: backend/services/hnsw_vector_store.py
-kind: object
-purpose: HNSW Vector Store

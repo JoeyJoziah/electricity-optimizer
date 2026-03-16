@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/usePropane.ts
-kind: object
-purpose: Shared library utility for Usepropane

@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useAuth.tsx
-kind: object
-purpose: Shared library utility for Useauth

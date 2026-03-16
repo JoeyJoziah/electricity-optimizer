@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useAgent.ts
-kind: object
-purpose: Shared library utility for Useagent

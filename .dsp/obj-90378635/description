@@ -1,3 +1,0 @@
-source: backend/services/push_notification_service.py
-kind: object
-purpose: Push notification service via OneSignal REST API.

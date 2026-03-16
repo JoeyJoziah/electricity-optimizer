@@ -1,3 +1,0 @@
-source: frontend/playwright.config.ts
-kind: object
-purpose: Frontend module: playwright.config

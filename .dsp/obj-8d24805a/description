@@ -1,3 +1,0 @@
-source: backend/integrations/pricing_apis/nrel.py
-kind: object
-purpose: NREL (National Renewable Energy Laboratory) API Client

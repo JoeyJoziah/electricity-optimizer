@@ -1,3 +1,0 @@
-source: backend/api/v1/connections/portal_scrape.py
-kind: object
-purpose: Portal connection endpoints — Phase 3.

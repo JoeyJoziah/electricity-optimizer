@@ -1,3 +1,0 @@
-source: backend/middleware/security_headers.py
-kind: object
-purpose: Security Headers Middleware

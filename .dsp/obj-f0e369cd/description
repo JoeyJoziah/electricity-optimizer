@@ -1,3 +1,0 @@
-source: frontend/lib/api/gas-rates.ts
-kind: object
-purpose: Shared library utility for Gas Rates

@@ -1,3 +1,0 @@
-source: frontend/lib/api/propane.ts
-kind: object
-purpose: Shared library utility for Propane

@@ -1,3 +1,0 @@
-source: backend/compliance/gdpr.py
-kind: object
-purpose: GDPR Compliance Service

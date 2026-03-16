@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useForecast.ts
-kind: object
-purpose: Shared library utility for Useforecast

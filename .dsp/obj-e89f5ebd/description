@@ -1,3 +1,0 @@
-source: frontend/lib/api/cca.ts
-kind: object
-purpose: Shared library utility for Cca

@@ -1,3 +1,0 @@
-source: frontend/components/prices/PricesContent.tsx
-kind: object
-purpose: UI component for Pricescontent

@@ -1,3 +1,0 @@
-source: ml/optimization/appliance_models.py
-kind: object
-purpose: Appliance Data Models for MILP Optimization

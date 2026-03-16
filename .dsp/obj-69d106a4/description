@@ -1,3 +1,0 @@
-source: ml/inference/ensemble_predictor.py
-kind: object
-purpose: Ensemble Predictor Module

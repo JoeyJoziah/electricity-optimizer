@@ -1,3 +1,0 @@
-source: backend/api/v1/reports.py
-kind: object
-purpose: Reports API — Multi-utility optimization reports.

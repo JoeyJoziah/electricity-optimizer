@@ -1,3 +1,0 @@
-source: backend/services/propane_service.py
-kind: object
-purpose: Propane Price Service

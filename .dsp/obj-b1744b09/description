@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/index.ts
-kind: object
-purpose: Workers module: index

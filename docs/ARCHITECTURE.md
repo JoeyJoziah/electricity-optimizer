@@ -1,6 +1,6 @@
 # RateShift — System Architecture
 
-**Last Updated**: 2026-03-16 (Migration 050, 2,482 backend tests, 32 GHA workflows)
+**Last Updated**: 2026-03-16 (Migration 050, 2,536 backend tests, 1,898 frontend tests, 32 GHA workflows)
 
 ## System Topology
 

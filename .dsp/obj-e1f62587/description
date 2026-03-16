@@ -1,3 +1,0 @@
-source: frontend/lib/api/export.ts
-kind: object
-purpose: Shared library utility for Export

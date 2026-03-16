@@ -1,3 +1,0 @@
-source: backend/models/user_supplier.py
-kind: object
-purpose: User-Supplier Pydantic Models

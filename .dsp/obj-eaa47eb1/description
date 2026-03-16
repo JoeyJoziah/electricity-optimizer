@@ -1,3 +1,0 @@
-source: frontend/lib/auth/client.ts
-kind: object
-purpose: Shared library utility for Client

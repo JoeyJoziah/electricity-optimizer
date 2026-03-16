@@ -1,3 +1,0 @@
-source: backend/models/user.py
-kind: object
-purpose: User Data Models

@@ -1,3 +1,0 @@
-source: frontend/e2e/helpers/auth.ts
-kind: object
-purpose: Frontend module: auth

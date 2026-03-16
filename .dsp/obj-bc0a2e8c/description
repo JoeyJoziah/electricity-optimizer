@@ -1,3 +1,0 @@
-source: backend/api/v1/forecast.py
-kind: object
-purpose: Forecast API — Multi-utility rate forecasting.

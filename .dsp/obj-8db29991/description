@@ -1,3 +1,0 @@
-source: ml/optimization/constraints.py
-kind: object
-purpose: Constraint Builder for MILP Appliance Scheduling

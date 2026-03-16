@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/types.ts
-kind: object
-purpose: Workers module: types

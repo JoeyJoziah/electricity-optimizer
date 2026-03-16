@@ -1,3 +1,0 @@
-source: backend/api/dependencies.py
-kind: object
-purpose: API Dependencies

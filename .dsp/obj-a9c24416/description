@@ -1,3 +1,0 @@
-source: backend/repositories/utility_account_repository.py
-kind: object
-purpose: Utility Account Repository

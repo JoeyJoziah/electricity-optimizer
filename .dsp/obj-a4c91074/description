@@ -1,3 +1,0 @@
-source: frontend/app/(app)/assistant/loading.tsx
-kind: object
-purpose: App page component for Loading

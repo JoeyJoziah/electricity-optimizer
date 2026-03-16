@@ -1,3 +1,0 @@
-source: frontend/components/connections/ConnectionUploadFlow.tsx
-kind: object
-purpose: UI component for Connectionuploadflow

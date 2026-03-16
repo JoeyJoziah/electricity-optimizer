@@ -1,3 +1,0 @@
-source: backend/config/database.py
-kind: object
-purpose: Database Configuration and Connection Management

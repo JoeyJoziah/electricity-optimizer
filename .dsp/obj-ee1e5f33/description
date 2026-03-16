@@ -1,3 +1,0 @@
-source: backend/repositories/model_config_repository.py
-kind: object
-purpose: Model Config Repository

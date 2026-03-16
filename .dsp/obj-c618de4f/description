@@ -1,3 +1,0 @@
-source: backend/api/v1/internal/email_scan.py
-kind: object
-purpose: Internal email-scan endpoint.

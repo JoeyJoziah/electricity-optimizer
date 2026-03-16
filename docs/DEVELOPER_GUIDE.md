@@ -95,7 +95,7 @@ Frontend at `http://localhost:3000`, API at `http://localhost:8000`.
 .venv/bin/python -m pytest ml/tests/ -v
 ```
 
-Coverage threshold: 80%+. Current: 86%+ (2,482 tests).
+Coverage threshold: 80%+. Current: 86%+ (2,536 tests).
 
 > **Module-level cache isolation**: When adding module-level cache dicts (e.g., `_tier_cache`), always add a corresponding `autouse` fixture in `conftest.py` to clear the cache between tests. Detection signal: tests pass individually (`pytest test_foo.py`) but fail when run as a full suite (`pytest backend/tests/`).
 
@@ -107,7 +107,7 @@ npm test              # Watch mode
 npm run test:ci       # CI mode with coverage
 ```
 
-Coverage threshold: 80% branches/functions/lines/statements. Current: 1,841 tests across 136 suites.
+Coverage threshold: 80% branches/functions/lines/statements. Current: 1,898 tests across 138 suites.
 
 ### E2E (Playwright)
 

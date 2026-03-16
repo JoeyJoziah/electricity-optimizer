@@ -1,3 +1,0 @@
-source: backend/models/consent.py
-kind: object
-purpose: Consent Data Models

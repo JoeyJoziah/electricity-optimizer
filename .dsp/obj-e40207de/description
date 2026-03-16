@@ -1,3 +1,0 @@
-source: backend/repositories/user_repository.py
-kind: object
-purpose: User Repository

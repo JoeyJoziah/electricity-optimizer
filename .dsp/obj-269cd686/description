@@ -1,3 +1,0 @@
-source: backend/models/observation.py
-kind: object
-purpose: Observation Models

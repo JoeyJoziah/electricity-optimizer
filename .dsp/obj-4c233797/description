@@ -1,3 +1,0 @@
-source: frontend/lib/contexts/toast-context.tsx
-kind: object
-purpose: Shared library utility for Toast Context

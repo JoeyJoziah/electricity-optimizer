@@ -1,3 +1,0 @@
-source: frontend/components/dashboard/NeighborhoodCard.tsx
-kind: object
-purpose: UI component for Neighborhoodcard

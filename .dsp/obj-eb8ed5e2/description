@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useProfile.ts
-kind: object
-purpose: Shared library utility for Useprofile

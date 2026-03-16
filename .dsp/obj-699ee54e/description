@@ -1,3 +1,0 @@
-source: backend/services/community_solar_service.py
-kind: object
-purpose: Community Solar Service

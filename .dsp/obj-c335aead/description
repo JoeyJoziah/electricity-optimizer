@@ -1,3 +1,0 @@
-source: backend/integrations/pricing_apis/iea.py
-kind: object
-purpose: IEA (International Energy Agency) API Client

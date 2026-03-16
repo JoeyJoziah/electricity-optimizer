@@ -1,3 +1,0 @@
-source: frontend/components/pwa/ServiceWorkerRegistrar.tsx
-kind: object
-purpose: UI component for Serviceworkerregistrar

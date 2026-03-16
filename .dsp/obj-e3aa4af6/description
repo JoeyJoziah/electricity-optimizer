@@ -1,3 +1,0 @@
-source: backend/services/rate_scraper_service.py
-kind: object
-purpose: Supplier rate scraping via Diffbot Extract API.

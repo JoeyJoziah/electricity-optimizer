@@ -1,3 +1,0 @@
-source: backend/services/rate_change_detector.py
-kind: object
-purpose: Rate Change Detection Service

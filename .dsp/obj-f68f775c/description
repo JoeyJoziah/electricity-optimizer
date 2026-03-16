@@ -1,3 +1,0 @@
-source: frontend/lib/hooks/useCommunity.ts
-kind: object
-purpose: Shared library utility for Usecommunity

@@ -1,3 +1,0 @@
-source: uvicorn
-kind: external
-purpose: External package: uvicorn

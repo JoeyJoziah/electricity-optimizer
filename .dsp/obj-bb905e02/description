@@ -1,3 +1,0 @@
-source: frontend/lib/api/rate-changes.ts
-kind: object
-purpose: Shared library utility for Rate Changes

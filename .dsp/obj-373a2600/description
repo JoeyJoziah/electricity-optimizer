@@ -1,3 +1,0 @@
-source: backend/api/v1/connections/common.py
-kind: object
-purpose: Shared helpers for the Connections feature package.
