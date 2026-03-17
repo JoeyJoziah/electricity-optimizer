@@ -189,7 +189,19 @@ async def email_oauth_callback(
     # ``patch("api.v1.connections.settings")`` in tests is observed at call time.
     import api.v1.connections as _pkg
     _settings = _pkg.settings
-    frontend_url = _settings.frontend_url
+    frontend_url = (_settings.frontend_url or "").rstrip("/")
+
+    # Validate redirect target to prevent open redirect
+    _ALLOWED_FRONTENDS = {
+        "https://rateshift.app",
+        "https://www.rateshift.app",
+        "http://localhost:3000",
+        "http://localhost:3001",
+    }
+    if frontend_url not in _ALLOWED_FRONTENDS:
+        logger.warning("oauth_callback_invalid_frontend_url", frontend_url=frontend_url)
+        frontend_url = "https://rateshift.app"
+
     return RedirectResponse(
         url=f"{frontend_url}/connections?connected={connection_id}",
         status_code=302,

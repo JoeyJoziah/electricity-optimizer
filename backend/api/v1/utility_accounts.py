@@ -4,6 +4,7 @@ Utility Accounts API Router
 CRUD endpoints for managing user utility accounts (electricity, gas, etc.).
 """
 
+import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -80,13 +81,13 @@ async def list_utility_types():
 
 @router.get("/{account_id}", response_model=UtilityAccountResponse)
 async def get_utility_account(
-    account_id: str,
+    account_id: uuid.UUID,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get a specific utility account (must belong to current user)."""
     repo = UtilityAccountRepository(db)
-    account = await repo.get_by_id(account_id)
+    account = await repo.get_by_id(str(account_id))
 
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found")
@@ -98,16 +99,17 @@ async def get_utility_account(
 
 @router.put("/{account_id}", response_model=UtilityAccountResponse)
 async def update_utility_account(
-    account_id: str,
+    account_id: uuid.UUID,
     body: UtilityAccountUpdate,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Update a utility account (must belong to current user)."""
     repo = UtilityAccountRepository(db)
+    account_id_str = str(account_id)
 
     # Ownership check
-    existing = await repo.get_by_id(account_id)
+    existing = await repo.get_by_id(account_id_str)
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found")
     if existing.user_id != current_user.user_id:
@@ -115,7 +117,7 @@ async def update_utility_account(
 
     # Build partial update entity
     update_entity = UtilityAccount(
-        id=account_id,
+        id=account_id_str,
         user_id=current_user.user_id,
         utility_type=existing.utility_type,
         region=existing.region,
@@ -124,32 +126,33 @@ async def update_utility_account(
         metadata=body.metadata if body.metadata is not None else existing.metadata,
     )
 
-    updated = await repo.update(account_id, update_entity)
+    updated = await repo.update(account_id_str, update_entity)
     if not updated:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Update failed")
 
-    logger.info("utility_account_updated", user_id=current_user.user_id, account_id=account_id)
+    logger.info("utility_account_updated", user_id=current_user.user_id, account_id=account_id_str)
     return UtilityAccountResponse.model_validate(updated)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_utility_account(
-    account_id: str,
+    account_id: uuid.UUID,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Delete a utility account (must belong to current user)."""
     repo = UtilityAccountRepository(db)
+    account_id_str = str(account_id)
 
     # Ownership check
-    existing = await repo.get_by_id(account_id)
+    existing = await repo.get_by_id(account_id_str)
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found")
     if existing.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
 
-    deleted = await repo.delete(account_id)
+    deleted = await repo.delete(account_id_str)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Delete failed")
 
-    logger.info("utility_account_deleted", user_id=current_user.user_id, account_id=account_id)
+    logger.info("utility_account_deleted", user_id=current_user.user_id, account_id=account_id_str)

@@ -140,12 +140,7 @@ describe('useRealtimePrices', () => {
       ['prices', 'current', 'us_ct'],
       expect.any(Function)
     )
-    // Should invalidate history prices
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['prices', 'history', 'us_ct'],
-      })
-    )
+    // History cache is no longer invalidated on SSE — the next poll will refresh it
   })
 
   it('ignores messages with empty data', async () => {

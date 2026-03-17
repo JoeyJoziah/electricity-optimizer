@@ -70,7 +70,7 @@ export default async function RatePage({ params }: PageProps) {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
     const res = await fetch(
       `${backendUrl}/api/v1/public/rates/${stateCode}/${utilityKey}`,
-      { next: { revalidate: 3600 } }
+      { next: { revalidate: 3600 }, signal: AbortSignal.timeout(10_000) }
     )
     if (res.ok) {
       rateData = await res.json()

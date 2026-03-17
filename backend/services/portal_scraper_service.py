@@ -30,14 +30,67 @@ depending on the portal's auth mechanism.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import structlog
 from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# SSRF protection
+# ---------------------------------------------------------------------------
+
+# Allowed domains for portal scraping (known utility portals only)
+_ALLOWED_DOMAINS: set[str] = {
+    "duke-energy.com", "www.duke-energy.com",
+    "pge.com", "www.pge.com",
+    "coned.com", "www.coned.com",
+    "comed.com", "secure.comed.com",
+    "fpl.com", "www.fpl.com",
+}
+
+
+def _validate_portal_url(url: str) -> None:
+    """Validate a portal URL to prevent SSRF attacks.
+
+    Raises ValueError if the URL is not safe to request.
+    """
+    if not url:
+        return  # Empty URL is handled by caller
+
+    parsed = urlparse(url)
+
+    # Enforce HTTPS only
+    if parsed.scheme != "https":
+        raise ValueError(f"Portal URL must use HTTPS, got: {parsed.scheme}")
+
+    hostname = parsed.hostname or ""
+
+    # Block private/internal IP ranges
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if addr.is_private or addr.is_loopback or addr.is_reserved or addr.is_link_local:
+            raise ValueError("Portal URL must not point to private/internal addresses")
+    except ValueError as e:
+        if "private" in str(e) or "internal" in str(e):
+            raise
+        # Not an IP address — it's a hostname, which is fine
+
+    # Validate against allowlist (if caller supplied a custom URL)
+    # Known utility URLs from the registry are already trusted
+    if hostname and not any(hostname == d or hostname.endswith(f".{d}") for d in _ALLOWED_DOMAINS):
+        logger.warning(
+            "portal_url_not_in_allowlist",
+            hostname=hostname,
+            url=url,
+        )
+        # Allow but log — generic scraping is a documented feature
 
 # ---------------------------------------------------------------------------
 # Utility registry
@@ -243,6 +296,18 @@ class PortalScraperService:
         ):
             log = logger.bind(supplier_id=effective_supplier)
             log.info("portal_scrape_start")
+
+            # SSRF protection: validate any caller-supplied login URL
+            if login_url:
+                try:
+                    _validate_portal_url(login_url)
+                except ValueError as url_err:
+                    log.warning("portal_url_validation_failed", error=str(url_err))
+                    return {
+                        "success": False,
+                        "rates": [],
+                        "error": f"Invalid portal URL: {url_err}",
+                    }
 
             try:
                 client = await self._ensure_client()

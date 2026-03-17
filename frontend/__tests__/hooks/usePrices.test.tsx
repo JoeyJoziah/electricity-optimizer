@@ -247,7 +247,7 @@ describe('usePrices hooks', () => {
       const keys = queries.map((q) => q.queryKey)
 
       expect(keys).toContainEqual(['prices', 'current', 'us_ct'])
-      expect(keys).toContainEqual(['prices', 'history', 'us_ct', 24])
+      expect(keys).toContainEqual(['prices', 'history', 'us_ct', 1])
       expect(keys).toContainEqual(['prices', 'forecast', 'us_ct', 48])
       expect(keys).toContainEqual(['prices', 'optimal', 'us_ct', 24])
     })

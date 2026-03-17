@@ -28,6 +28,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Construct redirect URLs server-side — never trust client-supplied URLs
+    const origin = request.nextUrl.origin
+    const successUrl = `${origin}/dashboard?checkout=success`
+    const cancelUrl = `${origin}/pricing?checkout=cancelled`
+
     const response = await fetch(`${BACKEND_URL}/api/v1/billing/checkout`, {
       method: 'POST',
       headers: {
@@ -36,15 +41,17 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         tier: body.tier,
-        success_url: body.success_url || `${request.nextUrl.origin}/dashboard?checkout=success`,
-        cancel_url: body.cancel_url || `${request.nextUrl.origin}/pricing?checkout=cancelled`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
       }),
     })
 
     const data = await response.json()
 
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status })
+      // Sanitize error — only pass safe fields, never raw backend internals
+      const safeError = typeof data?.detail === 'string' ? data.detail : 'Checkout failed'
+      return NextResponse.json({ error: safeError }, { status: response.status })
     }
 
     return NextResponse.json(data)

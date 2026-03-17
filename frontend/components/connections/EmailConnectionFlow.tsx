@@ -52,13 +52,26 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
 
-  // Check URL for ?connected=CONNECTION_ID on mount
+  // Check URL for ?connected=CONNECTION_ID on mount — verify against API
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const connectedId = params.get('connected')
     if (connectedId) {
-      setConnectionId(connectedId)
-      setConnected(true)
+      // Validate the connection ID belongs to the current user
+      fetch(`${API_ORIGIN}/api/v1/connections/${encodeURIComponent(connectedId)}`, {
+        credentials: 'include',
+      })
+        .then((res) => {
+          if (res.ok) {
+            setConnectionId(connectedId)
+            setConnected(true)
+          } else {
+            setError('Invalid or expired connection. Please try connecting again.')
+          }
+        })
+        .catch(() => {
+          setError('Could not verify connection. Please try again.')
+        })
     }
   }, [])
 

@@ -16,9 +16,10 @@ from lib.tracing import traced
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache for the ensemble predictor (loaded once)
+# Module-level cache for the ensemble predictor (loaded once, guarded by lock)
 _ensemble_predictor = None
 _ensemble_load_attempted = False
+_ensemble_lock = asyncio.Lock()
 
 
 class PriceService:
@@ -207,10 +208,13 @@ class PriceService:
 
         try:
             if not _ensemble_load_attempted:
-                _ensemble_load_attempted = True
-                _ensemble_predictor = await asyncio.to_thread(
-                    self._load_ensemble_predictor
-                )
+                async with _ensemble_lock:
+                    # Double-check after acquiring lock (another task may have loaded)
+                    if not _ensemble_load_attempted:
+                        _ensemble_load_attempted = True
+                        _ensemble_predictor = await asyncio.to_thread(
+                            self._load_ensemble_predictor
+                        )
                 if _ensemble_predictor is None:
                     return None
 
@@ -390,39 +394,58 @@ class PriceService:
         Returns:
             List of optimal usage windows with start/end times and avg price
         """
-        # Get historical prices for analysis
-        end = datetime.now(timezone.utc)
-        start = end - timedelta(hours=within_hours)
+        # Use SQL window function for sliding-window average (pushes O(n*k) to DB)
+        from sqlalchemy import text as sa_text
 
-        prices = await self._repo.get_historical_prices(
-            region=region,
-            start_date=start,
-            end_date=end,
-            supplier=supplier
+        supplier_filter = ""
+        params: Dict[str, Any] = {
+            "region": region.value if hasattr(region, "value") else str(region),
+            "within_hours": within_hours,
+            "dur": duration_hours,
+        }
+        if supplier:
+            supplier_filter = "AND supplier = :supplier"
+            params["supplier"] = supplier
+
+        result = await self._repo._db.execute(
+            sa_text(f"""
+                WITH ordered AS (
+                    SELECT
+                        price_per_kwh,
+                        timestamp,
+                        ROW_NUMBER() OVER (ORDER BY timestamp) AS rn,
+                        AVG(price_per_kwh) OVER (
+                            ORDER BY timestamp
+                            ROWS BETWEEN CURRENT ROW AND :dur - 1 FOLLOWING
+                        ) AS window_avg,
+                        COUNT(*) OVER (
+                            ORDER BY timestamp
+                            ROWS BETWEEN CURRENT ROW AND :dur - 1 FOLLOWING
+                        ) AS window_size
+                    FROM electricity_prices
+                    WHERE region = :region
+                      AND timestamp >= NOW() - make_interval(hours => :within_hours)
+                      {supplier_filter}
+                )
+                SELECT timestamp AS window_start, window_avg
+                FROM ordered
+                WHERE window_size = :dur
+                ORDER BY window_avg ASC
+                LIMIT 5
+            """),
+            params,
         )
+        rows = result.mappings().all()
 
-        if len(prices) < duration_hours:
-            return []
-
-        # Sort by timestamp
-        prices = sorted(prices, key=lambda p: p.timestamp)
-
-        # Find windows with lowest average price
-        windows = []
-        for i in range(len(prices) - duration_hours + 1):
-            window_prices = prices[i:i + duration_hours]
-            avg_price = sum(p.price_per_kwh for p in window_prices) / duration_hours
-
-            windows.append({
-                'start': window_prices[0].timestamp,
-                'end': window_prices[-1].timestamp + timedelta(hours=1),
-                'avg_price': avg_price.quantize(Decimal("0.0001")),
-                'prices': [p.price_per_kwh for p in window_prices]
-            })
-
-        # Sort by average price and return top 5
-        windows.sort(key=lambda w: w['avg_price'])
-        return windows[:5]
+        return [
+            {
+                "start": row["window_start"],
+                "end": row["window_start"] + timedelta(hours=duration_hours),
+                "avg_price": Decimal(str(row["window_avg"])).quantize(Decimal("0.0001")),
+                "prices": [],  # individual prices not fetched in SQL path
+            }
+            for row in rows
+        ]
 
     async def get_historical_prices(
         self,

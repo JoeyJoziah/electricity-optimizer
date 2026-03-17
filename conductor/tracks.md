@@ -17,4 +17,6 @@
 
 | [x] | dependency-upgrade_20260317 | Dependency Upgrade — Security Remediation & Major Version Bumps | 2026-03-17 | 2026-03-17 |
 
+| [~] | audit-remediation_20260317 | Codebase Audit Remediation 2026-03-17 | 2026-03-17 | 2026-03-17 |
+
 <!-- Tracks registered by /conductor:new-track -->

@@ -127,12 +127,16 @@ class ForecastService:
 
         result = await self.db.execute(
             text(f"""
-                SELECT price_per_kwh, timestamp
+                SELECT
+                    AVG(price_per_kwh) AS price_per_kwh,
+                    DATE_TRUNC('day', timestamp) AS timestamp
                 FROM electricity_prices
                 WHERE utility_type = 'ELECTRICITY'
                   AND timestamp >= NOW() - make_interval(days => :lookback_days)
                   {region_filter}
+                GROUP BY DATE_TRUNC('day', timestamp)
                 ORDER BY timestamp ASC
+                LIMIT 400
             """),
             params,
         )

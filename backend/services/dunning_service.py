@@ -334,6 +334,9 @@ class DunningService:
             "escalation_action": None,
         }
 
+        # Commit the payment failure record before any early returns
+        await self._db.commit()
+
         # 2. Cooldown check
         should_send = await self.should_send_dunning(user_id, stripe_invoice_id)
         if not should_send:

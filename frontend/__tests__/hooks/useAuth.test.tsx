@@ -42,11 +42,13 @@ jest.mock('@/lib/api/profile', () => ({
 // Mock settings store
 const mockSetCurrentSupplier = jest.fn()
 const mockSetRegion = jest.fn()
+const mockResetSettings = jest.fn()
 jest.mock('@/lib/store/settings', () => ({
   useSettingsStore: {
     getState: () => ({
       setCurrentSupplier: mockSetCurrentSupplier,
       setRegion: mockSetRegion,
+      resetSettings: mockResetSettings,
     }),
   },
 }))

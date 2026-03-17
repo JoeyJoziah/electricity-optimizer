@@ -72,7 +72,8 @@ class RateScraperService:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(
                 DIFFBOT_EXTRACT_URL,
-                params={"token": self._token, "url": url},
+                params={"url": url},
+                headers={"Authorization": f"Bearer {self._token}"},
             )
             resp.raise_for_status()
             return resp.json()

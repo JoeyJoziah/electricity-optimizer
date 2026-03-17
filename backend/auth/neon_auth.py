@@ -90,6 +90,7 @@ async def _get_session_from_token(
         WHERE s.token = :token
           AND s."expiresAt" > NOW()
           AND (u.banned IS NULL OR u.banned = false)
+          AND u."emailVerified" = true
     """)
 
     result = await db.execute(query, {"token": session_token})

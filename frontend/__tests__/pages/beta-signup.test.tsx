@@ -226,7 +226,7 @@ describe('BetaSignupPage', () => {
     expect(heading.textContent?.toLowerCase()).not.toContain('beta')
   })
 
-  it('POSTs to /api/beta-signup on submit', async () => {
+  it('POSTs to /api/v1/beta/signup on submit', async () => {
     const user = userEvent.setup()
     render(<BetaSignupPage />)
 
@@ -240,7 +240,7 @@ describe('BetaSignupPage', () => {
     await user.click(screen.getByRole('button', { name: /sign up free/i }))
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/beta-signup', expect.objectContaining({
+      expect(mockFetch).toHaveBeenCalledWith('/api/v1/beta/signup', expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       }))

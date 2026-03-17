@@ -32,7 +32,7 @@ export function buildCacheKey(
   for (const key of sorted) {
     const val = searchParams.get(key);
     if (val !== null) {
-      parts.push(`${key}=${val}`);
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
     }
   }
 

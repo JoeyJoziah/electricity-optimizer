@@ -79,6 +79,30 @@ services:
         sync: false
       - key: OTEL_EXPORTER_OTLP_HEADERS
         sync: false
+      # --- AI Agent ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: COMPOSIO_API_KEY
+        sync: false
+      - key: ENABLE_AI_AGENT
+        value: "true"
+      # --- Frontend + UtilityAPI ---
+      - key: FRONTEND_URL
+        sync: false
+      - key: UTILITYAPI_KEY
+        sync: false
+      # --- Gmail OAuth (email import connections) ---
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      # --- Outlook OAuth (email import connections) ---
+      - key: OUTLOOK_CLIENT_ID
+        sync: false
+      - key: OUTLOOK_CLIENT_SECRET
+        sync: false
       # --- Gmail SMTP (transactional email fallback) ---
       - key: SMTP_HOST
         sync: false

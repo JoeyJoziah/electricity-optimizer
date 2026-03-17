@@ -1,6 +1,7 @@
 'use client'
 
 import { useCCAInfo } from '@/lib/hooks/useCCA'
+import { isSafeHref } from '@/lib/utils/url'
 
 interface CCAInfoProps {
   ccaId: string
@@ -95,9 +96,9 @@ export function CCAInfo({ ccaId, onClose }: CCAInfoProps) {
         </div>
       )}
 
-      {(data.opt_out_url || data.program_url) && (
+      {((data.opt_out_url && isSafeHref(data.opt_out_url)) || (data.program_url && isSafeHref(data.program_url))) && (
         <div className="mt-4 flex gap-3 border-t pt-4">
-          {data.program_url && (
+          {data.program_url && isSafeHref(data.program_url) && (
             <a
               href={data.program_url}
               target="_blank"
@@ -107,7 +108,7 @@ export function CCAInfo({ ccaId, onClose }: CCAInfoProps) {
               Program Website
             </a>
           )}
-          {data.opt_out_url && (
+          {data.opt_out_url && isSafeHref(data.opt_out_url) && (
             <a
               href={data.opt_out_url}
               target="_blank"

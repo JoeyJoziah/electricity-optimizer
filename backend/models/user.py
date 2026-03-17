@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, EmailStr, field_validator, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator, ConfigDict
 
 from models.region import Region
 
@@ -129,17 +129,60 @@ class User(BaseModel):
 
 
 class UserCreate(BaseModel):
-    """Schema for creating a new user"""
+    """Schema for creating a new user.
+
+    GDPR compliance requires explicit affirmative consent at registration time.
+    Both ``consent_given`` (Article 6 lawful basis) and ``data_processing_agreed``
+    (Article 7 conditions) must be ``True`` — omitting them or passing ``False``
+    raises a 422 Unprocessable Entity error so callers cannot silently skip consent.
+    """
 
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=200)
     region: str = Field(..., min_length=2, max_length=50)
     password: str = Field(..., min_length=8)
 
+    # GDPR consent — required at registration; must be explicitly True
+    consent_given: bool = Field(
+        ...,
+        description=(
+            "User has given explicit consent to data processing "
+            "(GDPR Article 6 lawful basis). Must be True to register."
+        ),
+    )
+    data_processing_agreed: bool = Field(
+        ...,
+        description=(
+            "User has agreed to the data processing terms "
+            "(GDPR Article 7 conditions). Must be True to register."
+        ),
+    )
+
     # Optional fields
     current_supplier: Optional[str] = None
     average_daily_kwh: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
     household_size: Optional[int] = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def require_gdpr_consent(self) -> "UserCreate":
+        """Reject registration if either GDPR consent field is not True.
+
+        Silently defaulting consent to False would violate GDPR Article 7(1)
+        which requires a clear affirmative act.  Callers must pass both fields
+        explicitly as ``True``; passing ``False`` or omitting them is a
+        client error that surfaces as HTTP 422.
+        """
+        if not self.consent_given:
+            raise ValueError(
+                "consent_given must be True — explicit GDPR consent is required "
+                "to create an account (GDPR Article 6 lawful basis)."
+            )
+        if not self.data_processing_agreed:
+            raise ValueError(
+                "data_processing_agreed must be True — agreement to data processing "
+                "terms is required to create an account (GDPR Article 7 conditions)."
+            )
+        return self
 
 
 class UserUpdate(BaseModel):

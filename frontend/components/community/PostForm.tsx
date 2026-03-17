@@ -109,8 +109,9 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
     <form onSubmit={handleSubmit} data-testid="post-form" className="rounded-xl border bg-white p-4 space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Post Type</label>
+          <label htmlFor="post-type" className="block text-xs font-medium text-gray-600 mb-1">Post Type</label>
           <select
+            id="post-type"
             value={postType}
             onChange={(e) => setPostType(e.target.value)}
             className="w-full rounded-lg border px-3 py-2 text-sm"
@@ -122,8 +123,9 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Utility Type</label>
+          <label htmlFor="utility-type" className="block text-xs font-medium text-gray-600 mb-1">Utility Type</label>
           <select
+            id="utility-type"
             value={utilityType}
             onChange={(e) => setUtilityType(e.target.value)}
             className="w-full rounded-lg border px-3 py-2 text-sm"
@@ -137,37 +139,44 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+        <label htmlFor="post-title" className="block text-xs font-medium text-gray-600 mb-1">Title</label>
         <input
+          id="post-title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Brief summary..."
           className="w-full rounded-lg border px-3 py-2 text-sm"
           data-testid="post-title-input"
+          aria-invalid={errors.title ? 'true' : undefined}
+          aria-describedby={errors.title ? 'post-title-error' : undefined}
         />
-        {errors.title && <p className="mt-1 text-xs text-danger-500" data-testid="title-error">{errors.title}</p>}
+        {errors.title && <p id="post-title-error" className="mt-1 text-xs text-danger-500" role="alert" data-testid="title-error">{errors.title}</p>}
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Body</label>
+        <label htmlFor="post-body" className="block text-xs font-medium text-gray-600 mb-1">Body</label>
         <textarea
+          id="post-body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Share details..."
           rows={4}
           className="w-full rounded-lg border px-3 py-2 text-sm"
           data-testid="post-body-input"
+          aria-invalid={errors.body ? 'true' : undefined}
+          aria-describedby={errors.body ? 'post-body-error' : undefined}
         />
-        {errors.body && <p className="mt-1 text-xs text-danger-500" data-testid="body-error">{errors.body}</p>}
+        {errors.body && <p id="post-body-error" className="mt-1 text-xs text-danger-500" role="alert" data-testid="body-error">{errors.body}</p>}
       </div>
 
       {/* Rate fields — only for rate_report */}
       {postType === 'rate_report' && (
         <div className="grid gap-4 sm:grid-cols-3" data-testid="rate-fields">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Rate per unit</label>
+            <label htmlFor="post-rate" className="block text-xs font-medium text-gray-600 mb-1">Rate per unit</label>
             <input
+              id="post-rate"
               type="number"
               step="0.0001"
               value={ratePerUnit}
@@ -178,8 +187,9 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Unit</label>
+            <label htmlFor="post-rate-unit" className="block text-xs font-medium text-gray-600 mb-1">Unit</label>
             <select
+              id="post-rate-unit"
               value={rateUnit}
               onChange={(e) => setRateUnit(e.target.value)}
               className="w-full rounded-lg border px-3 py-2 text-sm"
@@ -191,8 +201,9 @@ export function PostForm({ defaultUtilityType, onSuccess }: PostFormProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Supplier (optional)</label>
+            <label htmlFor="post-supplier" className="block text-xs font-medium text-gray-600 mb-1">Supplier (optional)</label>
             <input
+              id="post-supplier"
               type="text"
               value={supplierName}
               onChange={(e) => setSupplierName(e.target.value)}

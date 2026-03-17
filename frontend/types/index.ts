@@ -70,14 +70,20 @@ export interface RawSupplierRecord {
   logo?: string
   /** Frontend camelCase */
   avgPricePerKwh?: number
+  /** Backend snake_case */
+  avg_price_per_kwh?: number
   /** Frontend camelCase */
   standingCharge?: number
+  /** Backend snake_case */
+  standing_charge?: number
   /** Frontend camelCase */
   greenEnergy?: boolean
   /** Rating returned as number | null from the backend */
   rating?: number | null
   /** Frontend camelCase */
   estimatedAnnualCost?: number
+  /** Backend snake_case */
+  estimated_annual_cost?: number
   /** Frontend camelCase */
   tariffType?: 'fixed' | 'variable' | 'time-of-use'
   /** Frontend camelCase */

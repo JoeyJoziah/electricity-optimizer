@@ -189,6 +189,94 @@ class TestMigration017AdditionalIndexes:
         )
 
 
+class TestMigration053NotificationDedupIndex:
+    """Validate migration 053: notification deduplication partial unique index.
+
+    Sprint 5.1 — database-level guard against duplicate alert notifications
+    within the same calendar day for a given (user, alert, type) combination.
+    """
+
+    def test_migration_file_exists(self):
+        """Migration 053 file must be present."""
+        files = get_migration_files()
+        prefixed = [f for f in files if f.startswith("053")]
+        assert prefixed, "Migration 053 file not found in migrations directory"
+
+    def test_adds_alert_id_column_with_if_not_exists(self):
+        """Migration must add alert_id column to notifications using IF NOT EXISTS."""
+        content = _read_migration("053")
+        # ADD COLUMN IF NOT EXISTS alert_id
+        assert "ADD COLUMN IF NOT EXISTS" in content.upper()
+        assert "alert_id" in content
+
+    def test_alert_id_column_is_uuid(self):
+        """alert_id column must be UUID type."""
+        content = _read_migration("053")
+        # Find the ADD COLUMN line for alert_id
+        for line in content.split("\n"):
+            if "alert_id" in line and "ADD COLUMN" in line.upper():
+                assert "UUID" in line.upper(), (
+                    f"alert_id column should be UUID type, got: {line.strip()}"
+                )
+                break
+
+    def test_fk_constraint_uses_set_null(self):
+        """FK from notifications.alert_id to price_alert_configs must use ON DELETE SET NULL."""
+        content = _read_migration("053")
+        assert "price_alert_configs" in content
+        assert "ON DELETE SET NULL" in content
+
+    def test_fk_constraint_uses_drop_if_exists(self):
+        """FK constraint must be dropped with IF EXISTS before re-adding."""
+        content = _read_migration("053")
+        assert "DROP CONSTRAINT IF EXISTS" in content.upper()
+        assert "notifications_alert_id_fkey" in content
+
+    def test_dedup_unique_index_is_partial(self):
+        """Dedup index must be a UNIQUE partial index on the correct columns."""
+        content = _read_migration("053")
+        assert "CREATE UNIQUE INDEX IF NOT EXISTS" in content.upper()
+        assert "idx_notifications_dedup_alert" in content
+        # Index covers user_id, alert_id, type, and a day partition
+        assert "user_id" in content
+        assert "alert_id" in content
+        assert "type" in content
+        # Day partitioning via DATE()
+        assert "DATE(created_at)" in content
+
+    def test_dedup_index_excludes_dismissed(self):
+        """Partial index WHERE clause must exclude dismissed delivery_status."""
+        content = _read_migration("053")
+        # Find the idx_notifications_dedup_alert block
+        idx_start = content.find("idx_notifications_dedup_alert")
+        assert idx_start != -1, "idx_notifications_dedup_alert not found"
+        after_idx = content[idx_start:]
+        assert "dismissed" in after_idx, (
+            "Partial index should exclude dismissed notifications"
+        )
+        assert "delivery_status" in after_idx
+
+    def test_dedup_index_requires_alert_id_not_null(self):
+        """Partial index should only apply when alert_id IS NOT NULL."""
+        content = _read_migration("053")
+        idx_start = content.find("idx_notifications_dedup_alert")
+        assert idx_start != -1
+        after_idx = content[idx_start:]
+        assert "alert_id IS NOT NULL" in after_idx
+
+    def test_supporting_lookup_index_exists(self):
+        """Supporting index idx_notifications_alert_id must be present."""
+        content = _read_migration("053")
+        assert "idx_notifications_alert_id" in content
+        assert "CREATE INDEX IF NOT EXISTS" in content.upper()
+
+    def test_grant_included(self):
+        """Migration must include GRANT for neondb_owner on notifications."""
+        content = _read_migration("053")
+        assert "neondb_owner" in content
+        assert "notifications" in content
+
+
 class TestMigration019NationwideSuppliers:
     """Validate migration 019: nationwide supplier seeding."""
 

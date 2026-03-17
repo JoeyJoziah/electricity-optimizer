@@ -20,6 +20,10 @@ export function VoteButton({ postId, count }: VoteButtonProps) {
 
   function handleClick() {
     const newVoted = !voted
+    // Capture the pre-click count for rollback (avoids stale closure over `count` prop)
+    const prevCount = optimisticCount
+    const prevVoted = voted
+
     setVoted(newVoted)
     setOptimisticCount((c) => (newVoted ? c + 1 : Math.max(0, c - 1)))
 
@@ -29,9 +33,9 @@ export function VoteButton({ postId, count }: VoteButtonProps) {
         setOptimisticCount(data.upvote_count)
       },
       onError: () => {
-        // Revert optimistic update
-        setVoted(!newVoted)
-        setOptimisticCount(count)
+        // Revert optimistic update to the values captured at click time
+        setVoted(prevVoted)
+        setOptimisticCount(prevCount)
       },
     })
   }

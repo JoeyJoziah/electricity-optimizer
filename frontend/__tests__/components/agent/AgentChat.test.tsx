@@ -178,10 +178,9 @@ describe('AgentChat', () => {
     const cancelBtn = buttons.find(
       (btn) => btn.getAttribute('type') === 'button'
     )
-    if (cancelBtn) {
-      await user.click(cancelBtn)
-      expect(mockCancel).toHaveBeenCalled()
-    }
+    expect(cancelBtn).toBeDefined()
+    await user.click(cancelBtn!)
+    expect(mockCancel).toHaveBeenCalled()
   })
 
   it('shows error banner when error exists', () => {

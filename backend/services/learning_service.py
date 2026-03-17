@@ -146,6 +146,11 @@ class LearningService:
 
         # Convert to the format EnsemblePredictor expects:
         # {"model_name": {"weight": 0.5}, ...}
+        # NOTE: keys here are model_version strings from forecast_observations
+        # (e.g. "v2.1"), which may not match the predictor's model type keys
+        # (e.g. "cnn_lstm"). When no match is found, the predictor falls back
+        # to equal weighting — safe but suboptimal.  A full fix requires
+        # recording per-component model_type in forecast_observations.
         ensemble_payload = {k: {"weight": v} for k, v in weights.items()}
 
         # --- Store in Redis (fast, ephemeral) ---

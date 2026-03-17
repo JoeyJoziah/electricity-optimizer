@@ -38,9 +38,9 @@ describe("matchRoute", () => {
     expect(route.cache).toBeUndefined();
   });
 
-  it("matches /api/v1/webhooks/* with bypass rate limit", () => {
+  it("matches /api/v1/webhooks/* with internal rate limit", () => {
     const route = matchRoute("/api/v1/webhooks/stripe");
-    expect(route.rateLimit).toBe("bypass");
+    expect(route.rateLimit).toBe("internal");
     expect(route.passthrough).toBe(true);
   });
 

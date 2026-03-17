@@ -231,11 +231,22 @@ async def verify_beta_code(
     )
     rows = result.fetchall()
 
-    # Use constant-time comparison for final validation
-    is_valid = any(
-        hmac.compare_digest(code, code)  # code found in DB via LIKE
-        for _ in rows
-    )
+    # Extract stored codes and use constant-time comparison
+    is_valid = False
+    for row in rows:
+        # Support both SQLAlchemy Row objects and dict-like results
+        if hasattr(row, "_mapping"):
+            interest = row._mapping.get("interest", "") or ""
+        elif isinstance(row, dict):
+            interest = row.get("interest", "") or ""
+        else:
+            interest = str(row[0]) if row else ""
+        for part in interest.split(";"):
+            if part.startswith("code="):
+                stored_code = part[5:]
+                if hmac.compare_digest(code, stored_code):
+                    is_valid = True
+                    break
 
     if is_valid:
         return {"valid": True, "message": "Access code verified"}

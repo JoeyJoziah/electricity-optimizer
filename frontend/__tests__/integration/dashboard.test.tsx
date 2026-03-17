@@ -400,7 +400,7 @@ describe('Dashboard Integration', () => {
     })
   })
 
-  it('displays notification banner for price alerts', async () => {
+  it('does not show price dropping banner (trend hardcoded to stable)', async () => {
     // NOTE: DashboardContent now hardcodes trend='stable' when building
     // CurrentPriceInfo, so the "prices dropping" banner cannot be triggered
     // by providing price_change_24h alone. This test verifies the banner

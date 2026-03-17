@@ -206,7 +206,10 @@ describe('EmailConnectionFlow', () => {
     })
   })
 
-  it('shows connected state when URL has connected param', () => {
+  it('shows connected state when URL has connected param and API verifies', async () => {
+    // Mock the verification API call
+    mockFetch.mockResolvedValueOnce({ ok: true })
+
     Object.defineProperty(window, 'location', {
       writable: true,
       value: {
@@ -218,15 +221,19 @@ describe('EmailConnectionFlow', () => {
 
     render(<EmailConnectionFlow {...defaultProps} />)
 
-    expect(
-      screen.getByText('Email Connected Successfully')
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByText('Email Connected Successfully')
+      ).toBeInTheDocument()
+    })
     expect(
       screen.getByText(/your email account is linked/i)
     ).toBeInTheDocument()
   })
 
-  it('shows scan inbox button in connected state', () => {
+  it('shows error when URL has connected param but API rejects', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
+
     Object.defineProperty(window, 'location', {
       writable: true,
       value: {
@@ -238,14 +245,39 @@ describe('EmailConnectionFlow', () => {
 
     render(<EmailConnectionFlow {...defaultProps} />)
 
-    expect(
-      screen.getByRole('button', { name: /scan inbox/i })
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByText(/invalid or expired connection/i)
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows scan inbox button in connected state', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true })
+
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...originalLocation,
+        search: '?connected=conn-123',
+        href: 'http://localhost:3000?connected=conn-123',
+      },
+    })
+
+    render(<EmailConnectionFlow {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /scan inbox/i })
+      ).toBeInTheDocument()
+    })
     expect(screen.getByText('Done')).toBeInTheDocument()
   })
 
   it('calls onComplete when Done is clicked in connected state', async () => {
     const user = userEvent.setup()
+    mockFetch.mockResolvedValueOnce({ ok: true })
+
     Object.defineProperty(window, 'location', {
       writable: true,
       value: {
@@ -257,12 +289,32 @@ describe('EmailConnectionFlow', () => {
 
     render(<EmailConnectionFlow {...defaultProps} />)
 
+    await waitFor(() => {
+      expect(screen.getByText('Done')).toBeInTheDocument()
+    })
     await user.click(screen.getByText('Done'))
     expect(defaultProps.onComplete).toHaveBeenCalled()
   })
 
   it('scans inbox and displays scan results', async () => {
     const user = userEvent.setup()
+    // First call: verify connection; second call: scan inbox
+    mockFetch
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            total_emails_scanned: 150,
+            utility_bills_found: 3,
+            bills: [
+              { subject: 'Eversource Bill - January 2026', sender: 'billing@eversource.com', date: '2026-01-15', amount: 142.50 },
+              { subject: 'Eversource Bill - December 2025', sender: 'billing@eversource.com', date: '2025-12-15', amount: 128.00 },
+              { subject: 'Eversource Bill - November 2025', sender: 'billing@eversource.com', date: '2025-11-15', amount: 98.50 },
+            ],
+          }),
+      })
+
     Object.defineProperty(window, 'location', {
       writable: true,
       value: {
@@ -272,21 +324,13 @@ describe('EmailConnectionFlow', () => {
       },
     })
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          total_emails_scanned: 150,
-          utility_bills_found: 3,
-          bills: [
-            { subject: 'Eversource Bill - January 2026', sender: 'billing@eversource.com', date: '2026-01-15', amount: 142.50 },
-            { subject: 'Eversource Bill - December 2025', sender: 'billing@eversource.com', date: '2025-12-15', amount: 128.00 },
-            { subject: 'Eversource Bill - November 2025', sender: 'billing@eversource.com', date: '2025-11-15', amount: 98.50 },
-          ],
-        }),
-    })
-
     render(<EmailConnectionFlow {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /scan inbox/i })
+      ).toBeInTheDocument()
+    })
 
     await user.click(
       screen.getByRole('button', { name: /scan inbox/i })
@@ -306,6 +350,19 @@ describe('EmailConnectionFlow', () => {
 
   it('shows empty state when no bills are found during scan', async () => {
     const user = userEvent.setup()
+    // First call: verify connection; second call: scan inbox
+    mockFetch
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            total_emails_scanned: 100,
+            utility_bills_found: 0,
+            bills: [],
+          }),
+      })
+
     Object.defineProperty(window, 'location', {
       writable: true,
       value: {
@@ -315,17 +372,13 @@ describe('EmailConnectionFlow', () => {
       },
     })
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          total_emails_scanned: 100,
-          utility_bills_found: 0,
-          bills: [],
-        }),
-    })
-
     render(<EmailConnectionFlow {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /scan inbox/i })
+      ).toBeInTheDocument()
+    })
 
     await user.click(
       screen.getByRole('button', { name: /scan inbox/i })

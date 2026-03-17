@@ -3,13 +3,14 @@
 import Script from 'next/script'
 import { CLARITY_PROJECT_ID } from '@/lib/config/env'
 
-export function ClarityScript() {
+export function ClarityScript({ nonce }: { nonce?: string }) {
   if (!CLARITY_PROJECT_ID) return null
 
   return (
     <Script
       id="microsoft-clarity"
       strategy="afterInteractive"
+      nonce={nonce}
       dangerouslySetInnerHTML={{
         __html: `
           (function(c,l,a,r,i,t,y){

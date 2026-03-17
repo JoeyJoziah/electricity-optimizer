@@ -347,9 +347,10 @@ class HyperparameterTuner:
         logger.info(f"Best score: {best_score:.6f}")
         logger.info(f"Best params: {best_params}")
 
-        # Save Optuna study
+        # Save Optuna study (joblib — optuna.save_study removed in v4)
         study_path = self.results_dir / f"{study_name}.pkl"
-        optuna.save_study(study, str(study_path))
+        import joblib
+        joblib.dump(study, str(study_path))
 
         self._save_results()
 

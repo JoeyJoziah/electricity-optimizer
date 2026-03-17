@@ -22,7 +22,7 @@ export function useGeocoding() {
     setLoading(true)
     setError(null)
     try {
-      const data = await apiClient.post<GeocodeResponse>('/internal/geocode', { address })
+      const data = await apiClient.post<GeocodeResponse>('/geocode', { address })
       return data.result ?? null
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Geocoding failed')

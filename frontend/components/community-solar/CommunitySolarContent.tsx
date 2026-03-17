@@ -8,6 +8,7 @@ import {
 } from '@/lib/hooks/useCommunitySolar'
 import { CommunitySolarService } from './SavingsCalculator'
 import { Sun, ExternalLink, Users, MapPin } from 'lucide-react'
+import { isSafeHref } from '@/lib/utils/url'
 
 export default function CommunitySolarContent() {
   const region = useSettingsStore((s) => s.region)
@@ -195,7 +196,7 @@ export default function CommunitySolarContent() {
               </div>
 
               {/* CTA */}
-              {program.enrollment_url && (
+              {program.enrollment_url && isSafeHref(program.enrollment_url) && (
                 <div className="mt-4">
                   <a
                     href={program.enrollment_url}

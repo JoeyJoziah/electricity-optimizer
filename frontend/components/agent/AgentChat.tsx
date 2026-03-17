@@ -76,7 +76,7 @@ export function AgentChat() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = input.trim()
-    if (!trimmed || isStreaming) return
+    if (!trimmed || isStreaming || trimmed.length > 2000) return
     setInput('')
     sendQuery(trimmed)
   }

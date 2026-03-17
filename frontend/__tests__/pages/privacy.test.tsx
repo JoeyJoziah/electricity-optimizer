@@ -57,7 +57,7 @@ describe('PrivacyPage', () => {
   })
 
   it('renders privacy contact email', () => {
-    expect(screen.getByText(/autodailynewsletterintake@gmail\.com/i)).toBeInTheDocument()
+    expect(screen.getByText(/support@rateshift\.app/i)).toBeInTheDocument()
   })
 
   it('renders footer navigation links', () => {

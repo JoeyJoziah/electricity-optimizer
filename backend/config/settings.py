@@ -236,7 +236,9 @@ class Settings(BaseSettings):
     @field_validator("jwt_secret")
     @classmethod
     def validate_jwt_secret(cls, v: str) -> str:
-        """Ensure JWT secret is not using default value in production"""
+        """Ensure JWT secret is not using default value in production/staging."""
+        import logging as _logging
+
         env = os.environ.get("ENVIRONMENT", "development")
         insecure_defaults = [
             "your-super-secret-key-change-in-production",
@@ -244,6 +246,14 @@ class Settings(BaseSettings):
             "secret",
             "changeme",
         ]
+        # In production or staging, JWT_SECRET must be explicitly set
+        jwt_from_env = os.environ.get("JWT_SECRET")
+        if env in ("production", "staging") and not jwt_from_env:
+            raise ValueError(
+                "CRITICAL: JWT_SECRET env var is absent. An ephemeral key was "
+                "generated which will invalidate all sessions on restart. "
+                "Set JWT_SECRET to a stable value."
+            )
         if env == "production" and v in insecure_defaults:
             raise ValueError(
                 "CRITICAL: JWT_SECRET must be set to a strong, unique value in production. "
@@ -253,13 +263,22 @@ class Settings(BaseSettings):
             raise ValueError(
                 "JWT_SECRET must be at least 32 characters in production."
             )
+        if env == "development" and not jwt_from_env:
+            _logging.getLogger(__name__).warning(
+                "JWT_SECRET not set — using ephemeral key (sessions lost on restart)"
+            )
         return v
 
     @field_validator("better_auth_secret")
     @classmethod
     def validate_better_auth_secret(cls, v: Optional[str]) -> Optional[str]:
-        """Ensure Better Auth secret is strong when provided in production."""
+        """Ensure Better Auth secret is present and strong in production."""
         env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production" and not v:
+            raise ValueError(
+                "BETTER_AUTH_SECRET must be set in production. "
+                "Generate one with: openssl rand -hex 32"
+            )
         if env == "production" and v is not None and len(v) < 32:
             raise ValueError(
                 "BETTER_AUTH_SECRET must be at least 32 characters in production. "

@@ -33,7 +33,7 @@ export function usePriceHistory(region: string | null | undefined, hours: number
   // The backend uses `days` not `hours`; convert for the params object
   const days = Math.max(1, Math.ceil(hours / 24))
   return useQuery({
-    queryKey: ['prices', 'history', region, hours],
+    queryKey: ['prices', 'history', region, days],
     queryFn: ({ signal }) => getPriceHistory({ region: region!, days }, signal),
     enabled: !!region,
     staleTime: 60000, // Consider stale after 1 minute

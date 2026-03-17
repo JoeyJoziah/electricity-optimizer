@@ -24,7 +24,7 @@ export default function BetaSignupPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/beta-signup', {
+      const response = await fetch('/api/v1/beta/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -83,8 +83,8 @@ export default function BetaSignupPage() {
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600">
                 Questions? Email{' '}
-                <a href="mailto:autodailynewsletterintake@gmail.com" className="text-blue-600 hover:underline">
-                  autodailynewsletterintake@gmail.com
+                <a href="mailto:support@rateshift.app" className="text-blue-600 hover:underline">
+                  support@rateshift.app
                 </a>
               </p>
             </div>

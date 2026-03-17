@@ -7,6 +7,7 @@ Handles model loading, feature preprocessing, and prediction generation.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from datetime import datetime
@@ -83,9 +84,44 @@ class PricePredictor:
         else:
             raise ValueError(f"Cannot infer model type from {self.model_path}")
 
+    @staticmethod
+    def _verify_hash(file_path: str, metadata_hashes: dict) -> bool:
+        """Verify a file's SHA-256 hash against the manifest in metadata.yaml.
+
+        Returns True if the hash matches or no manifest is available
+        (backward-compatible). Raises ValueError on mismatch.
+        """
+        basename = os.path.basename(file_path)
+        expected = metadata_hashes.get(basename)
+        if expected is None:
+            # No hash recorded — allow loading but log a warning
+            logger.warning("model_hash_missing: %s", basename)
+            return True
+
+        sha = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                sha.update(chunk)
+        actual = sha.hexdigest()
+        if actual != expected:
+            raise ValueError(
+                f"Model file hash mismatch for {basename}: "
+                f"expected {expected[:16]}…, got {actual[:16]}…"
+            )
+        logger.info("model_hash_verified: %s", basename)
+        return True
+
     def _load_model(self):
         """Load the trained model."""
         logger.info(f"Loading {self.model_type} model from {self.model_path}")
+
+        # Load known-good SHA-256 hashes from metadata.yaml (if present)
+        hashes: dict = {}
+        metadata_path = os.path.join(self.model_path, "metadata.yaml")
+        if os.path.exists(metadata_path):
+            with open(metadata_path) as f:
+                meta = yaml.safe_load(f) or {}
+            hashes = meta.get("file_hashes", {})
 
         if self.model_type == "cnn_lstm":
             import torch
@@ -97,15 +133,12 @@ class PricePredictor:
                 with open(config_path) as f:
                     self.config = yaml.safe_load(f)
 
-            # Initialize and load model.
-            # NOTE: This loads a full serialized nn.Module (not just a state
-            # dict), so weights_only=True cannot be used here — PyTorch would
-            # raise an error because the pickle stream contains class objects.
-            # Mitigate the risk by ensuring model files come only from trusted,
-            # internally-produced sources (never user uploads).
-            # TODO: Migrate to state-dict format (torch.save(model.state_dict()))
-            #       so weights_only=True can be enforced.
+            # Verify hash before unsafe deserialization.
+            # NOTE: weights_only=False is required for full nn.Module; we
+            # mitigate with hash verification + trusted-source policy.
+            # TODO: Migrate to state-dict format so weights_only=True works.
             model_file = os.path.join(self.model_path, "model.pt")
+            self._verify_hash(model_file, hashes)
             self.model = torch.load(  # noqa: S614
                 model_file, map_location="cpu", weights_only=False
             )
@@ -124,23 +157,33 @@ class PricePredictor:
             model_file = os.path.join(self.model_path, "model.txt")
             self.model = lgb.Booster(model_file=model_file)
 
-        # Load scaler if exists
+        # Load scaler if exists — verify hash before joblib deserialization
         scaler_path = os.path.join(self.model_path, "scaler.pkl")
         if os.path.exists(scaler_path):
+            self._verify_hash(scaler_path, hashes)
             import joblib
             self.scaler = joblib.load(scaler_path)
 
         logger.info(f"Model loaded successfully")
 
     def _load_metadata(self):
-        """Load model metadata."""
+        """Load model metadata including training date for freshness checks."""
         metadata_path = os.path.join(self.model_path, "metadata.yaml")
         if os.path.exists(metadata_path):
             with open(metadata_path) as f:
-                metadata = yaml.safe_load(f)
+                metadata = yaml.safe_load(f) or {}
                 self.model_version = metadata.get("version", "unknown")
+                trained_at = metadata.get("trained_at")
+                if trained_at:
+                    self._trained_at = datetime.fromisoformat(str(trained_at))
+                else:
+                    self._trained_at = None
+                # Expected input ranges for sanity checking predictions
+                self._input_ranges = metadata.get("input_ranges", {})
         else:
             self.model_version = "unknown"
+            self._trained_at = None
+            self._input_ranges = {}
 
     def _preprocess_features(
         self,
@@ -208,6 +251,26 @@ class PricePredictor:
                 - lower: Lower bounds (horizon,)
                 - upper: Upper bounds (horizon,)
         """
+        # Model freshness check: warn if model is older than 30 days
+        max_age_days = 30
+        if getattr(self, "_trained_at", None):
+            age_days = (datetime.utcnow() - self._trained_at).days
+            if age_days > max_age_days:
+                logger.warning(
+                    "model_stale: version=%s age=%dd max=%dd",
+                    self.model_version, age_days, max_age_days,
+                )
+
+        # Input range validation: flag out-of-distribution values
+        input_ranges = getattr(self, "_input_ranges", {})
+        for col, bounds in input_ranges.items():
+            if col in df.columns:
+                col_min, col_max = bounds.get("min"), bounds.get("max")
+                if col_min is not None and df[col].min() < col_min:
+                    logger.warning("input_below_range: %s=%.4f (min=%.4f)", col, float(df[col].min()), col_min)
+                if col_max is not None and df[col].max() > col_max:
+                    logger.warning("input_above_range: %s=%.4f (max=%.4f)", col, float(df[col].max()), col_max)
+
         # Preprocess features
         features = self._preprocess_features(df)
 
@@ -247,8 +310,12 @@ class PricePredictor:
 
                 point.append(pred)
 
-                # Update features for next step (simplified)
-                # In production, would properly update lag features
+                # Shift lag features: roll existing lags right, insert
+                # latest prediction at position 0 (convention: col 0 = lag_1)
+                if len(current_features.shape) == 2:
+                    current_features = current_features.copy()
+                    current_features[0, 1:] = current_features[0, :-1]
+                    current_features[0, 0] = pred
 
             point = np.array(point)
 

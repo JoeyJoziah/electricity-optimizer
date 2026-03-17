@@ -37,7 +37,7 @@ class SecretsManager:
     """
 
     # 1Password vault and item references
-    OP_VAULT = "Electricity Optimizer"
+    OP_VAULT = "RateShift"
 
     # Cache TTL in seconds (1 hour) — rotated secrets picked up within this window
     CACHE_TTL = 3600

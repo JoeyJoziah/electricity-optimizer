@@ -83,9 +83,15 @@ export async function storeInCache(
   const cacheKey = buildCacheKey(url.pathname, url.searchParams, cacheConfig.varyOn);
   const body = await response.clone().text();
 
+  // Build stored headers, adding Vary for proper downstream cache discrimination
+  const storedHeaders = Object.fromEntries(response.headers.entries());
+  if (cacheConfig.varyOn && cacheConfig.varyOn.length > 0) {
+    storedHeaders["Vary"] = cacheConfig.varyOn.join(", ");
+  }
+
   const entry: CacheEntry = {
     body,
-    headers: Object.fromEntries(response.headers.entries()),
+    headers: storedHeaders,
     status: response.status,
     storedAt: Math.floor(Date.now() / 1000),
     ttlSeconds: cacheConfig.ttlSeconds,

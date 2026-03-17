@@ -72,8 +72,9 @@ export function SavingsEstimateCard({
     }).format(amount)
   }
 
-  const isPositiveSavings =
-    data !== null && data.estimated_annual_savings_vs_best > 0
+  const safeSavings = data !== null ? Math.max(0, data.estimated_annual_savings_vs_best) : 0
+  const safeMonthlySavings = data !== null ? Math.max(0, data.estimated_monthly_savings_vs_best) : 0
+  const isPositiveSavings = safeSavings > 0
 
   return (
     <Card data-testid="savings-estimate-card">
@@ -116,10 +117,10 @@ export function SavingsEstimateCard({
               )}
               data-testid="annual-savings-amount"
             >
-              {formatCurrency(data.estimated_annual_savings_vs_best)}
+              {formatCurrency(safeSavings)}
             </p>
             <p className="mt-1 text-sm text-gray-500">
-              {formatCurrency(data.estimated_monthly_savings_vs_best)}/month vs best available
+              {formatCurrency(safeMonthlySavings)}/month vs best available
             </p>
           </div>
 

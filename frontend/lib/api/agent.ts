@@ -61,6 +61,14 @@ export async function* queryAgent(
   })
 
   if (!response.ok) {
+    // Handle 401 consistently with apiClient — redirect to login
+    if (response.status === 401 && typeof window !== 'undefined') {
+      const pathname = window.location.pathname
+      if (!pathname.startsWith('/auth/')) {
+        window.location.href = `/auth/login?callbackUrl=${encodeURIComponent(pathname)}`
+        return
+      }
+    }
     const errorData = await response.json().catch(() => ({}))
     yield {
       role: 'error',

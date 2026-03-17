@@ -229,13 +229,18 @@ class TestGetAccount:
         assert resp.json()["id"] == ACCOUNT_ID
 
     def test_get_nonexistent_account(self, client):
-        """404 for missing account."""
+        """404 for missing account (valid UUID that doesn't exist)."""
         result = MagicMock()
         result.mappings.return_value.first.return_value = None
         self._db.execute.return_value = result
 
-        resp = client.get("/api/v1/utility-accounts/nonexistent-id")
+        resp = client.get("/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000")
         assert resp.status_code == 404
+
+    def test_get_invalid_uuid_account(self, client):
+        """422 for non-UUID account ID."""
+        resp = client.get("/api/v1/utility-accounts/nonexistent-id")
+        assert resp.status_code == 422
 
     def test_get_other_users_account(self, client):
         """403 when trying to access another user's account."""
@@ -272,12 +277,12 @@ class TestUpdateAccount:
         assert resp.json()["provider_name"] == "UI"
 
     def test_update_nonexistent(self, client):
-        """404 for updating missing account."""
+        """404 for updating missing account (valid UUID)."""
         result = MagicMock()
         result.mappings.return_value.first.return_value = None
         self._db.execute.return_value = result
 
-        resp = client.put("/api/v1/utility-accounts/nonexistent-id", json={
+        resp = client.put("/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000", json={
             "provider_name": "Test",
         })
         assert resp.status_code == 404
@@ -334,12 +339,12 @@ class TestDeleteAccount:
         assert resp.status_code == 204
 
     def test_delete_nonexistent(self, client):
-        """404 for deleting missing account."""
+        """404 for deleting missing account (valid UUID)."""
         result = MagicMock()
         result.mappings.return_value.first.return_value = None
         self._db.execute.return_value = result
 
-        resp = client.delete("/api/v1/utility-accounts/nonexistent-id")
+        resp = client.delete("/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000")
         assert resp.status_code == 404
 
     def test_delete_other_users_account(self, client):

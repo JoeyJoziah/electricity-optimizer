@@ -1,6 +1,6 @@
 name = "rateshift-api-gateway"
 main = "src/index.ts"
-compatibility_date = "2024-12-01"
+compatibility_date = "2026-03-01"
 
 # Route: all requests to api.rateshift.app go through this Worker
 routes = [

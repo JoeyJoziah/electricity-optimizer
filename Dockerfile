@@ -43,12 +43,12 @@ RUN chown -R appuser:appuser /app/backend
 # Switch to non-root user
 USER appuser
 
-# Health check
+# Health check (uses same default port as CMD)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+    CMD curl -f http://localhost:${PORT:-10000}/health || exit 1
 
-# Expose port (Render uses PORT env var, default 10000)
+# Expose port (Render injects PORT env var, default 10000)
 EXPOSE ${PORT:-10000}
 
-# Run uvicorn
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --timeout-graceful-shutdown 30"]
+# Run uvicorn (Render sets PORT=10000 at runtime)
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1 --timeout-graceful-shutdown 30"]

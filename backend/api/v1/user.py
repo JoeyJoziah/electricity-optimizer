@@ -22,6 +22,11 @@ logger = structlog.get_logger()
 router = APIRouter(tags=["User"])
 
 
+class GeocodeRequest(BaseModel):
+    """Geocode request body"""
+    address: str
+
+
 class UserPreferencesUpdate(BaseModel):
     """User preferences update request (partial update)"""
     notification_enabled: Optional[bool] = None
@@ -96,3 +101,22 @@ async def update_preferences(
         "preferences": merged_prefs.model_dump(),
         "message": "Preferences updated successfully",
     }
+
+
+@router.post("/geocode", tags=["User"])
+async def geocode_address(
+    request: GeocodeRequest,
+    current_user: SessionData = Depends(get_current_user),
+):
+    """Resolve a US address to coordinates and state/region.
+
+    Public endpoint (session auth) used by frontend onboarding and settings.
+    Delegates to the same GeocodingService used by the internal pipeline.
+    """
+    from services.geocoding_service import GeocodingService
+
+    service = GeocodingService()
+    result = await service.geocode(request.address)
+    if not result:
+        raise HTTPException(status_code=404, detail="Could not geocode address")
+    return {"result": result}

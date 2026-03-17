@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useExportRates, useExportTypes } from '@/lib/hooks/useExport'
 
@@ -31,17 +31,30 @@ export function DataExport({ state }: DataExportProps) {
     setExportTriggered(true)
   }
 
-  // Trigger CSV download when data arrives
-  if (exportData && format === 'csv' && typeof exportData.data === 'string') {
-    const blob = new Blob([exportData.data], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `rateshift_${selectedUtility}_rates.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    setExportTriggered(false)
-  }
+  // Track whether we already triggered a download for the current data
+  const downloadedRef = useRef(false)
+
+  // Trigger CSV download when data arrives (in useEffect, not during render)
+  useEffect(() => {
+    if (exportData && format === 'csv' && typeof exportData.data === 'string' && !downloadedRef.current) {
+      downloadedRef.current = true
+      const blob = new Blob([exportData.data], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `rateshift_${selectedUtility}_rates.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      setExportTriggered(false)
+    }
+  }, [exportData, format, selectedUtility])
+
+  // Reset download guard when export is re-triggered
+  useEffect(() => {
+    if (exportTriggered) {
+      downloadedRef.current = false
+    }
+  }, [exportTriggered])
 
   return (
     <Card>

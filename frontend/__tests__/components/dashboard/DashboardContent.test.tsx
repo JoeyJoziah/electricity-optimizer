@@ -737,11 +737,9 @@ describe('DashboardContent', () => {
   // (which requires trend === 'decreasing') cannot trigger via mock data alone.
   // This test verifies the banner does NOT appear given the current component logic.
 
-  it('shows price dropping banner when trend is decreasing', () => {
-    // The component derives trend as 'stable' regardless of price_change_24h.
-    // With the current implementation, this banner never shows. Updating mock to
-    // new format; the test expectation checks for the banner using queryByText
-    // (which returns null when not found) to confirm the banner is absent.
+  it('does not show price dropping banner even with negative 24h change (trend hardcoded to stable)', () => {
+    // The component derives trend as 'stable' regardless of price_change_24h,
+    // so the "prices dropping" banner never appears even with negative change.
     mockUseCurrentPrices.mockReturnValue({
       data: {
         prices: [

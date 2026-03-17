@@ -83,11 +83,11 @@ test: ## Run all tests
 
 test-backend: ## Run backend tests
 	@echo "$(BLUE)Running backend tests...$(NC)"
-	cd backend && pytest --cov=. --cov-report=term-missing -v
+	cd backend && ../.venv/bin/python -m pytest --cov=. --cov-report=term-missing -v
 
 test-ml: ## Run ML tests
 	@echo "$(BLUE)Running ML tests...$(NC)"
-	cd ml && pytest --cov=. --cov-report=term-missing -v
+	cd ml && ../.venv/bin/python -m pytest --cov=. --cov-report=term-missing -v
 
 test-frontend: ## Run frontend tests
 	@echo "$(BLUE)Running frontend tests...$(NC)"

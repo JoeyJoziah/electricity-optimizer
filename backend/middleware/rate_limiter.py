@@ -326,8 +326,11 @@ class UserRateLimiter:
 
         # Record failed attempt
         if self.redis:
-            attempts = await self.redis.incr(key)
-            await self.redis.expire(key, self.lockout_minutes * 60)
+            pipe = self.redis.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, self.lockout_minutes * 60)
+            results = await pipe.execute()
+            attempts = results[0]
         else:
             if key not in self._memory_store:
                 self._memory_store[key] = {"count": 0, "expires": 0}
@@ -432,12 +435,15 @@ class RateLimitMiddleware:
         # Process request, injecting rate-limit headers into the response
         limit_str = str(self.rate_limiter.requests_per_minute).encode()
         remaining_str = str(remaining).encode()
+        now = int(__import__("time").time())
+        reset_at = str(now - (now % 60) + 60)
 
         async def send_wrapper(message) -> None:
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
                 headers["X-RateLimit-Limit"] = limit_str.decode()
                 headers["X-RateLimit-Remaining"] = remaining_str.decode()
+                headers["X-RateLimit-Reset"] = reset_at
             await send(message)
 
         await self.app(scope, receive, send_wrapper)

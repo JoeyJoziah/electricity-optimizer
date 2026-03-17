@@ -53,44 +53,54 @@ jobs:
     steps:
       - name: Count recent failures
         id: count
+        env:
+          WORKFLOW_FILE: ${{ matrix.workflow.file }}
+          WORKFLOW_NAME: ${{ matrix.workflow.name }}
         run: |
           SINCE=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
           FAILURES=$(gh run list \
             --repo "${{ github.repository }}" \
-            --workflow "${{ matrix.workflow.file }}" \
+            --workflow "$WORKFLOW_FILE" \
             --created ">$SINCE" \
             --status failure \
             --json conclusion \
             --jq 'length' 2>/dev/null || echo "0")
           echo "failures=$FAILURES" >> "$GITHUB_OUTPUT"
-          echo "${{ matrix.workflow.name }}: $FAILURES failures in last 24h"
+          echo "$WORKFLOW_NAME: $FAILURES failures in last 24h"
 
       - name: Check for existing issue
         id: existing
         if: steps.count.outputs.failures >= env.FAILURE_THRESHOLD
+        env:
+          WORKFLOW_NAME: ${{ matrix.workflow.name }}
         run: |
           ISSUE=$(gh issue list \
             --repo "${{ github.repository }}" \
             --label "self-healing,automated" \
             --state open \
-            --search "${{ matrix.workflow.name }}" \
+            --search "$WORKFLOW_NAME" \
             --json number \
             --jq '.[0].number // empty' 2>/dev/null || echo "")
           echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
 
       - name: Create new issue
         if: steps.count.outputs.failures >= env.FAILURE_THRESHOLD && steps.existing.outputs.issue == ''
+        env:
+          WORKFLOW_FILE: ${{ matrix.workflow.file }}
+          WORKFLOW_NAME: ${{ matrix.workflow.name }}
+          WORKFLOW_SEVERITY: ${{ matrix.workflow.severity }}
+          FAILURE_COUNT: ${{ steps.count.outputs.failures }}
         run: |
           gh issue create \
             --repo "${{ github.repository }}" \
-            --title "Self-healing: ${{ matrix.workflow.name }} has ${{ steps.count.outputs.failures }} failures in 24h" \
+            --title "Self-healing: $WORKFLOW_NAME has $FAILURE_COUNT failures in 24h" \
             --label "self-healing,automated" \
-            --body "$(cat <<'BODY'
+            --body "$(cat <<BODY
           ## Automated Failure Detection
 
-          **Workflow**: ${{ matrix.workflow.name }} (`${{ matrix.workflow.file }}`)
-          **Severity**: ${{ matrix.workflow.severity }}
-          **Failures in last 24h**: ${{ steps.count.outputs.failures }}
+          **Workflow**: $WORKFLOW_NAME (\`$WORKFLOW_FILE\`)
+          **Severity**: $WORKFLOW_SEVERITY
+          **Failures in last 24h**: $FAILURE_COUNT
           **Detected at**: $(date -u '+%Y-%m-%d %H:%M UTC')
 
           ## Investigation Checklist
@@ -109,10 +119,13 @@ jobs:
 
       - name: Update existing issue
         if: steps.count.outputs.failures >= env.FAILURE_THRESHOLD && steps.existing.outputs.issue != ''
+        env:
+          EXISTING_ISSUE: ${{ steps.existing.outputs.issue }}
+          FAILURE_COUNT: ${{ steps.count.outputs.failures }}
         run: |
-          gh issue comment "${{ steps.existing.outputs.issue }}" \
+          gh issue comment "$EXISTING_ISSUE" \
             --repo "${{ github.repository }}" \
-            --body "**Update**: ${{ steps.count.outputs.failures }} failures detected in the last 24h ($(date -u '+%Y-%m-%d %H:%M UTC')). Issue remains open."
+            --body "**Update**: $FAILURE_COUNT failures detected in the last 24h ($(date -u '+%Y-%m-%d %H:%M UTC')). Issue remains open."
 
       - uses: actions/checkout@v4
         if: steps.count.outputs.failures >= env.FAILURE_THRESHOLD && steps.existing.outputs.issue == ''
@@ -125,7 +138,7 @@ jobs:
         with:
           webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
           workflow-name: "Self-Healing: ${{ matrix.workflow.name }} (${{ steps.count.outputs.failures }} failures)"
-          severity: ${{ matrix.workflow.severity }}
+          severity: "${{ matrix.workflow.severity }}"
 
   # ===========================================================================
   # Auto-close resolved issues

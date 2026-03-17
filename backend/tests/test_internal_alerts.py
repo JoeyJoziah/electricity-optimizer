@@ -327,7 +327,7 @@ class TestCheckAlerts:
 
         assert response.status_code == 500
         assert "Alert check failed" in response.json()["detail"]
-        assert "Neon connection lost" in response.json()["detail"]
+        # Error details are sanitized in production (not leaked to clients)
 
     # ------------------------------------------------------------------
     # API key enforcement

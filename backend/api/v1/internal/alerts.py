@@ -76,18 +76,12 @@ async def check_alerts(
         # ------------------------------------------------------------------
         regions = list({cfg["region"] for cfg in configs if cfg["region"]})
 
-        # Fetch the most recent prices for each region (1 DB call per region)
-        all_prices = []
-        for region in regions:
-            try:
-                prices = await price_repo.list(region=region, page=1, page_size=20)
-                all_prices.extend(prices)
-            except Exception as exc:
-                logger.warning(
-                    "check_alerts_price_fetch_failed",
-                    region=region,
-                    error=str(exc),
-                )
+        # Fetch latest prices for all needed regions in a single query
+        try:
+            all_prices = await price_repo.list_latest_by_regions(regions, limit_per_region=20)
+        except Exception as exc:
+            logger.warning("check_alerts_price_fetch_failed", error=str(exc))
+            all_prices = []
 
         # ------------------------------------------------------------------
         # 3. Build AlertThreshold objects from the DB config rows
@@ -186,4 +180,4 @@ async def check_alerts(
 
     except Exception as exc:
         logger.error("check_alerts_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail=f"Alert check failed: {str(exc)}")
+        raise HTTPException(status_code=500, detail="Alert check failed. See server logs for details.")

@@ -54,6 +54,8 @@ class HNSWVectorStore:
         self._store = VectorStore(db_path=db_path, dimension=dimension)
         self._dimension = dimension
         self._max_elements = max_elements
+        # Hard cap to prevent unbounded memory growth (each vector ~100B + graph overhead)
+        self._max_elements_cap = 100_000
         self._ef_search = ef_search
         self._M = M
 
@@ -152,9 +154,13 @@ class HNSWVectorStore:
 
                 # Resize index if needed (geometric doubling amortizes O(1) per insert)
                 if self._next_label >= self._index.get_max_elements():
-                    self._index.resize_index(
-                        self._index.get_max_elements() * 2
-                    )
+                    new_size = self._index.get_max_elements() * 2
+                    if new_size > self._max_elements_cap:
+                        logger.warning(
+                            "hnsw_index_at_cap max=%d", self._max_elements_cap
+                        )
+                        return vec_id  # Skip HNSW, still in SQLite
+                    self._index.resize_index(new_size)
 
                 label = self._next_label
                 self._next_label += 1
@@ -162,7 +168,7 @@ class HNSWVectorStore:
                 self._id_to_label[vec_id] = label
                 self._index.add_items(v.reshape(1, -1), [label])
             except Exception as e:
-                logger.warning("hnsw_insert_failed", error=str(e))
+                logger.warning("hnsw_insert_failed error=%s", str(e))
 
         return vec_id
 

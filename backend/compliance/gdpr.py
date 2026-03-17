@@ -931,7 +931,39 @@ class GDPRComplianceService:
             )
             deleted_categories.append("feedback")
 
-            # 13. Delete user profile (last — FK constraints)
+            # 13. Delete savings data
+            await self.db_session.execute(
+                sa_text("DELETE FROM user_savings WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("savings")
+
+            # 14. Delete recommendation outcomes
+            await self.db_session.execute(
+                sa_text("DELETE FROM recommendation_outcomes WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("recommendation_outcomes")
+
+            # 15. Delete ML predictions and A/B assignments
+            await self.db_session.execute(
+                sa_text("DELETE FROM model_predictions WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            await self.db_session.execute(
+                sa_text("DELETE FROM model_ab_assignments WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("ml_data")
+
+            # 16. Delete referrals (as referrer; referee SET NULL via FK)
+            await self.db_session.execute(
+                sa_text("DELETE FROM referrals WHERE referrer_id = :uid"),
+                {"uid": user_id},
+            )
+            deleted_categories.append("referrals")
+
+            # 17. Delete user profile (last — FK constraints)
             await self.db_session.execute(
                 sa_text("DELETE FROM users WHERE id = :uid"),
                 {"uid": user_id},

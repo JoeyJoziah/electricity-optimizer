@@ -165,8 +165,8 @@ export default function SettingsPage() {
       toastError('Passwords do not match', 'New password and confirmation must match.')
       return
     }
-    if (newPassword.length < 8) {
-      toastError('Password too short', 'Password must be at least 8 characters.')
+    if (newPassword.length < 12) {
+      toastError('Password too short', 'Password must be at least 12 characters.')
       return
     }
     setChangingPassword(true)
@@ -452,7 +452,7 @@ export default function SettingsPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  helperText="Must be at least 8 characters"
+                  helperText="Must be at least 12 characters"
                 />
                 <Input
                   label="Confirm New Password"

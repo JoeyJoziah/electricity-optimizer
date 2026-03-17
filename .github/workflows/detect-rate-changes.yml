@@ -4,6 +4,9 @@ on:
   # Cron trigger moved to daily-data-pipeline.yml (consolidated)
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   detect:
     runs-on: ubuntu-latest
@@ -20,7 +23,7 @@ jobs:
       - name: Detect rate changes
         uses: ./.github/actions/retry-curl
         with:
-          url: ${{ vars.BACKEND_URL }}/api/v1/internal/detect-rate-changes
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/detect-rate-changes
           method: POST
           api-key: ${{ secrets.INTERNAL_API_KEY }}
 

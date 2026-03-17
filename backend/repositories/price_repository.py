@@ -298,6 +298,40 @@ class PriceRepository(BaseRepository[Price]):
         except Exception as e:
             raise RepositoryError(f"Failed to list prices: {str(e)}", e)
 
+    async def list_latest_by_regions(
+        self,
+        regions: List[str],
+        limit_per_region: int = 20,
+    ) -> List[Price]:
+        """Fetch the latest prices for multiple regions in a single query.
+
+        Uses a lateral join to get up to `limit_per_region` most-recent rows
+        per region efficiently, replacing N sequential queries with one.
+        """
+        if not regions:
+            return []
+        try:
+            # Build region value list for IN clause
+            region_params = {f"r{i}": (r.value if hasattr(r, "value") else r) for i, r in enumerate(regions)}
+            placeholders = ", ".join(f":{k}" for k in region_params)
+
+            sql = f"""
+                SELECT {_PRICE_COLUMNS}
+                FROM (
+                    SELECT *, ROW_NUMBER() OVER (PARTITION BY region ORDER BY timestamp DESC) AS rn
+                    FROM electricity_prices
+                    WHERE region IN ({placeholders})
+                ) sub
+                WHERE rn <= :lim
+                ORDER BY region, timestamp DESC
+            """
+            params = {**region_params, "lim": limit_per_region}
+            result = await self._db.execute(text(sql), params)
+            rows = result.mappings().all()
+            return [_row_to_price(row) for row in rows]
+        except Exception as e:
+            raise RepositoryError(f"Failed to list latest prices by regions: {str(e)}", e)
+
     async def count(self, **filters: Any) -> int:
         """
         Count prices matching filters.
@@ -562,10 +596,10 @@ class PriceRepository(BaseRepository[Price]):
             """)
             page_params = {**base_params, "limit": page_size, "offset": offset}
 
-            count_result, rows_result = await asyncio.gather(
-                self._db.execute(count_sql, base_params),
-                self._db.execute(rows_sql, page_params),
-            )
+            # Sequential execution — asyncio.gather on a shared AsyncSession
+            # can corrupt internal state (see SA docs on session concurrency)
+            count_result = await self._db.execute(count_sql, base_params)
+            rows_result = await self._db.execute(rows_sql, page_params)
 
             total = count_result.scalar() or 0
             rows = rows_result.mappings().all()

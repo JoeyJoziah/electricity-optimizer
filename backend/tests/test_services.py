@@ -152,17 +152,17 @@ class TestPriceService:
         from services.price_service import PriceService
         from models.price import PriceRegion
 
-        # Create price data with varying prices
+        # The SQL-based implementation uses self._repo._db.execute() directly
         base_time = datetime.now(timezone.utc).replace(minute=0, second=0)
-        prices = []
-        for i in range(24):
-            price = Decimal("0.30") if 16 <= i <= 20 else Decimal("0.15")  # Peak vs off-peak
-            prices.append(MagicMock(
-                price_per_kwh=price,
-                timestamp=base_time + timedelta(hours=i)
-            ))
 
-        mock_price_repo.get_historical_prices.return_value = prices
+        # Mock the DB execute result to return rows with window_start and window_avg
+        mock_result = MagicMock()
+        mock_result.mappings.return_value.all.return_value = [
+            {"window_start": base_time, "window_avg": Decimal("0.1200")},
+            {"window_start": base_time + timedelta(hours=1), "window_avg": Decimal("0.1500")},
+        ]
+        mock_price_repo._db = AsyncMock()
+        mock_price_repo._db.execute.return_value = mock_result
 
         service = PriceService(mock_price_repo, mock_cache)
         windows = await service.get_optimal_usage_windows(
@@ -172,9 +172,11 @@ class TestPriceService:
         )
 
         assert isinstance(windows, list)
-        assert len(windows) > 0
-        # First window should be during off-peak
-        assert windows[0]['avg_price'] < Decimal("0.20")
+        assert len(windows) == 2
+        # First window should have lowest avg price
+        assert windows[0]['avg_price'] == Decimal("0.1200")
+        assert windows[0]['start'] == base_time
+        assert windows[0]['end'] == base_time + timedelta(hours=2)
 
 
 # =============================================================================

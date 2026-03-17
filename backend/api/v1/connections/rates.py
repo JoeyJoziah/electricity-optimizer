@@ -13,7 +13,7 @@ this correctly as long as the rates router is included before the generic
 CRUD wildcard router.
 """
 
-import asyncio
+
 import math
 from typing import List, Optional
 
@@ -47,7 +47,7 @@ async def get_rates(
 ) -> ExtractedRateListResponse:
     """Return a paginated list of rates extracted for the given connection (scoped to current user).
 
-    Runs the COUNT and data queries in parallel via asyncio.gather for minimal
+    Runs the COUNT and data queries sequentially (shared AsyncSession) for minimal
     latency.  When the result set is empty a lightweight EXISTS check distinguishes
     "connection not found" (404) from "connection exists but has no rates" (200,
     empty page).
@@ -85,10 +85,10 @@ async def get_rates(
         LIMIT :limit OFFSET :offset
     """)
 
-    count_result, data_result = await asyncio.gather(
-        db.execute(count_query, params),
-        db.execute(data_query, {**params, "limit": page_size, "offset": offset}),
-    )
+    # Sequential execution — asyncio.gather on a shared AsyncSession
+    # can corrupt internal state (see SA docs on session concurrency)
+    count_result = await db.execute(count_query, params)
+    data_result = await db.execute(data_query, {**params, "limit": page_size, "offset": offset})
 
     total: int = count_result.scalar() or 0
     rows = data_result.mappings().all()

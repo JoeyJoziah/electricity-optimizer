@@ -22,7 +22,10 @@ export default function OnboardingPage() {
       redirectedRef.current = true
       updateProfile.mutateAsync({ onboarding_completed: true })
         .then(() => router.replace('/dashboard'))
-        .catch(() => router.replace('/dashboard'))
+        .catch(() => {
+          // Don't redirect on error — let user complete wizard normally
+          redirectedRef.current = false
+        })
       return
     }
 

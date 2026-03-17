@@ -25,6 +25,7 @@ function createAuthClient() {
     signOut: async () => ({ data: null, error: null }),
     getSession: async () => ({ data: null, error: null }),
     forgetPassword: async () => ({ data: null, error: null }),
+    changePassword: async () => ({ data: null, error: null }),
   }
 }
 

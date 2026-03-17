@@ -529,3 +529,143 @@ class TestAPISchemas:
         assert len(response.prices) == 1
         assert response.total == 100
         assert response.page == 1
+
+
+# =============================================================================
+# USER CREATE GDPR CONSENT TESTS
+# =============================================================================
+
+
+class TestUserCreateGdprConsent:
+    """
+    Tests for UserCreate GDPR consent validation (Sprint 5.1 fix).
+
+    Both consent_given and data_processing_agreed must be supplied as True
+    at registration time.  Passing False or omitting either field must raise
+    a ValidationError so the FastAPI layer returns HTTP 422.
+    """
+
+    _VALID_BASE = dict(
+        email="user@example.com",
+        name="Test User",
+        region="us_ct",
+        password="SecurePass1!",
+        consent_given=True,
+        data_processing_agreed=True,
+    )
+
+    def test_user_create_valid_with_both_consents(self):
+        """UserCreate succeeds when both consent fields are True."""
+        from models.user import UserCreate
+
+        user = UserCreate(**self._VALID_BASE)
+        assert user.consent_given is True
+        assert user.data_processing_agreed is True
+
+    def test_user_create_fails_when_consent_given_is_false(self):
+        """consent_given=False must raise ValidationError."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**{**self._VALID_BASE, "consent_given": False})
+
+        errors = exc_info.value.errors()
+        messages = " ".join(str(e) for e in errors)
+        assert "consent_given" in messages
+
+    def test_user_create_fails_when_data_processing_agreed_is_false(self):
+        """data_processing_agreed=False must raise ValidationError."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**{**self._VALID_BASE, "data_processing_agreed": False})
+
+        errors = exc_info.value.errors()
+        messages = " ".join(str(e) for e in errors)
+        assert "data_processing_agreed" in messages
+
+    def test_user_create_fails_when_consent_given_is_missing(self):
+        """Omitting consent_given must raise ValidationError (field is required)."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        payload = {k: v for k, v in self._VALID_BASE.items() if k != "consent_given"}
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**payload)
+
+        errors = exc_info.value.errors()
+        missing_fields = [e["loc"][0] for e in errors if e["type"] == "missing"]
+        assert "consent_given" in missing_fields
+
+    def test_user_create_fails_when_data_processing_agreed_is_missing(self):
+        """Omitting data_processing_agreed must raise ValidationError."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        payload = {k: v for k, v in self._VALID_BASE.items() if k != "data_processing_agreed"}
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**payload)
+
+        errors = exc_info.value.errors()
+        missing_fields = [e["loc"][0] for e in errors if e["type"] == "missing"]
+        assert "data_processing_agreed" in missing_fields
+
+    def test_user_create_fails_when_both_consents_missing(self):
+        """Omitting both consent fields must raise ValidationError listing both."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        payload = {
+            k: v for k, v in self._VALID_BASE.items()
+            if k not in ("consent_given", "data_processing_agreed")
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**payload)
+
+        errors = exc_info.value.errors()
+        missing_fields = [e["loc"][0] for e in errors if e["type"] == "missing"]
+        assert "consent_given" in missing_fields
+        assert "data_processing_agreed" in missing_fields
+
+    def test_user_create_fails_when_both_consents_false(self):
+        """Both consent fields False must raise ValidationError."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            UserCreate(**{**self._VALID_BASE, "consent_given": False, "data_processing_agreed": False})
+
+    def test_user_create_error_message_mentions_gdpr(self):
+        """ValidationError messages should reference GDPR to aid debugging."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**{**self._VALID_BASE, "consent_given": False})
+
+        full_message = str(exc_info.value)
+        assert "GDPR" in full_message or "consent" in full_message.lower()
+
+    def test_user_create_optional_fields_still_optional(self):
+        """Optional fields remain optional when both consents are True."""
+        from models.user import UserCreate
+
+        # current_supplier, average_daily_kwh, household_size all absent
+        user = UserCreate(**self._VALID_BASE)
+        assert user.current_supplier is None
+        assert user.average_daily_kwh is None
+        assert user.household_size is None
+
+    def test_user_create_preserves_other_required_field_validation(self):
+        """Consent validation does not suppress other field errors (e.g. short password)."""
+        from models.user import UserCreate
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**{**self._VALID_BASE, "password": "short"})
+
+        errors = exc_info.value.errors()
+        error_locs = [e["loc"][0] for e in errors]
+        assert "password" in error_locs

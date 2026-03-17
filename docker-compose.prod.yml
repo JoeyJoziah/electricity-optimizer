@@ -283,7 +283,7 @@ services:
     ports:
       - "127.0.0.1:9187:9187"
     environment:
-      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/electricity?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/electricity?sslmode=require
     depends_on:
       postgres:
         condition: service_healthy

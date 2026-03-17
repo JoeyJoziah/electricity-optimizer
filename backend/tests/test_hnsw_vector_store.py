@@ -247,6 +247,7 @@ class TestInsert:
         store._store = mock_store
         store._dimension = 24
         store._max_elements = 100
+        store._max_elements_cap = 100_000
         store._ef_search = 50
         store._M = 16
         store._index = mock_index
@@ -418,6 +419,7 @@ class TestSearch:
         store._store._db_path = "/tmp/test.db"
         store._dimension = 24
         store._max_elements = 100
+        store._max_elements_cap = 100_000
         store._ef_search = 50
         store._M = 16
         store._index = index

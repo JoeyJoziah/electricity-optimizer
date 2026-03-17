@@ -25,14 +25,25 @@ jest.mock('next/font/google', () => ({
   Inter: () => ({ className: 'mock-inter' }),
 }))
 
+// Mock next/headers — layout reads the CSP nonce from request headers
+jest.mock('next/headers', () => ({
+  headers: () => Promise.resolve(new Map([['x-nonce', 'test-nonce']])),
+}))
+
 import RootLayout from '@/app/layout'
 
+// Helper to render async server components
+async function renderAsync(jsx: Promise<React.JSX.Element>) {
+  const resolved = await jsx
+  return render(resolved)
+}
+
 describe('RootLayout', () => {
-  it('renders children inside all providers', () => {
-    render(
-      <RootLayout>
-        <p data-testid="child-content">Hello</p>
-      </RootLayout>
+  it('renders children inside all providers', async () => {
+    await renderAsync(
+      RootLayout({
+        children: <p data-testid="child-content">Hello</p>,
+      })
     )
 
     // All providers must wrap the children
@@ -42,11 +53,11 @@ describe('RootLayout', () => {
     expect(screen.getByTestId('child-content')).toBeInTheDocument()
   })
 
-  it('wraps providers in correct nesting order', () => {
-    render(
-      <RootLayout>
-        <span data-testid="child">content</span>
-      </RootLayout>
+  it('wraps providers in correct nesting order', async () => {
+    await renderAsync(
+      RootLayout({
+        children: <span data-testid="child">content</span>,
+      })
     )
 
     const queryProvider = screen.getByTestId('query-provider')
@@ -62,11 +73,11 @@ describe('RootLayout', () => {
     expect(toastProvider).toContainElement(child)
   })
 
-  it('renders children content', () => {
-    render(
-      <RootLayout>
-        <main>Main content</main>
-      </RootLayout>
+  it('renders children content', async () => {
+    await renderAsync(
+      RootLayout({
+        children: <main>Main content</main>,
+      })
     )
 
     expect(screen.getByText('Main content')).toBeInTheDocument()

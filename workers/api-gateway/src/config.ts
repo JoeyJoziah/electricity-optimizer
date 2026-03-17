@@ -1,10 +1,10 @@
 import type { RouteConfig } from "./types";
 
 export const ROUTES: RouteConfig[] = [
-  // Webhooks — passthrough, no rate limit (Stripe sends retries)
+  // Webhooks — passthrough, internal rate limit (Stripe retries are infrequent)
   {
     pattern: /^\/api\/v1\/webhooks\//,
-    rateLimit: "bypass",
+    rateLimit: "internal",
     passthrough: true,
   },
 

@@ -171,7 +171,7 @@ async def data_health_check(
                 "last_write": last_write,
             }
         except Exception as e:
-            health[table_name] = {"count": -1, "error": str(e)}
+            health[table_name] = {"count": -1, "error": "query failed"}
 
     # Flag critical tables that should not be empty
     critical_empty = [

@@ -99,13 +99,19 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
     try {
       setStep('submitting')
 
-      const connection = await createPortalConnection({
-        supplier_id: selectedSupplierId,
-        portal_username: portalUsername.trim(),
-        portal_password: portalPassword,
-        portal_login_url: portalLoginUrl.trim() || undefined,
-        consent_given: true,
-      })
+      const connection = await createPortalConnection(
+        {
+          supplier_id: selectedSupplierId,
+          portal_username: portalUsername.trim(),
+          portal_password: portalPassword,
+          portal_login_url: portalLoginUrl.trim() || undefined,
+          consent_given: true,
+        },
+        { signal: controller.signal },
+      )
+
+      // Clear sensitive credential from React state immediately
+      setPortalPassword('')
 
       clearTimeout(timeout)
 
@@ -116,7 +122,7 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
 
       try {
         setStep('scraping')
-        const result = await triggerPortalScrape(connection.connection_id)
+        const result = await triggerPortalScrape(connection.connection_id, { signal: scrapeController.signal })
         setScrapeResult(result)
         setStep('success')
       } catch {

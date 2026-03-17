@@ -97,7 +97,7 @@ class TestExtractRatesFromUrl:
         assert result == extracted
 
     @pytest.mark.asyncio
-    async def test_request_passes_token_as_param(self):
+    async def test_request_passes_token_in_auth_header(self):
         svc = RateScraperService(settings=_settings_with_token())
         mock_client = _make_client(_http_response({}))
 
@@ -105,8 +105,9 @@ class TestExtractRatesFromUrl:
             await svc.extract_rates_from_url("https://example.com")
 
         call_kwargs = mock_client.get.call_args
+        headers = call_kwargs.kwargs.get("headers", {})
+        assert headers.get("Authorization") == "Bearer diffbot-test-token"
         params = call_kwargs.kwargs.get("params", {})
-        assert params.get("token") == "diffbot-test-token"
         assert params.get("url") == "https://example.com"
 
     @pytest.mark.asyncio

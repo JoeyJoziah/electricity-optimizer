@@ -170,6 +170,13 @@ async def check_password(http_request: Request, request: PasswordStrengthRequest
     Rate limited to 5 requests/minute per IP to prevent brute-force
     enumeration on this unauthenticated endpoint.
     """
+    # Lazily inject Redis so the limiter uses distributed state, not in-memory
+    if _password_check_limiter.redis is None:
+        try:
+            _password_check_limiter.redis = await db_manager.get_redis_client()
+        except Exception:
+            pass  # Falls back to in-memory limiting
+
     # Per-endpoint rate limit (5/min) — stricter than global middleware
     client_ip = http_request.client.host if http_request.client else "unknown"
     identifier = f"password_check:ip:{client_ip}"

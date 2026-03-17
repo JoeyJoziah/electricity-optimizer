@@ -24,6 +24,24 @@ export function isSafeRedirect(url: string): boolean {
 }
 
 /**
+ * Returns true if `href` uses a safe URL scheme (http: or https:).
+ * Rejects `javascript:`, `data:`, `vbscript:`, and other dangerous schemes
+ * that could be injected via server-supplied URLs rendered as `<a href>`.
+ *
+ * Usage:
+ *   if (isSafeHref(program.enrollment_url)) ...render link...
+ */
+export function isSafeHref(href: string): boolean {
+  try {
+    const parsed = new URL(href)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+  } catch {
+    // Relative URLs or malformed strings — reject
+    return false
+  }
+}
+
+/**
  * Returns true if `url` is a known safe OAuth provider origin or the same
  * origin as the current page. Used for OAuth flow redirects where the
  * destination is an external identity provider (Google, Microsoft, UtilityAPI).

@@ -69,7 +69,7 @@ def sign_callback_state(connection_id: str, user_id: str) -> str:
     timestamp = str(int(time.time()))
     key = _get_hmac_key()
     payload = f"{connection_id}:{user_id}:{timestamp}"
-    sig = hmac.new(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    sig = hmac.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"{payload}:{sig}"
 
 
@@ -90,7 +90,7 @@ def verify_callback_state(state: str) -> tuple:
 
     key = _get_hmac_key()
     payload = f"{connection_id}:{user_id}:{timestamp}"
-    expected_sig = hmac.new(
+    expected_sig = hmac.HMAC(
         key, payload.encode("utf-8"), hashlib.sha256
     ).hexdigest()
 

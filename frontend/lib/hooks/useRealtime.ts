@@ -43,7 +43,7 @@ export function useRealtimePrices(region: string | null | undefined, interval: n
     mountedRef.current = true
     if (typeof window === 'undefined' || !region) return
 
-    const url = `${API_URL}/prices/stream?region=${region}&interval=${interval}`
+    const url = `${API_URL}/prices/stream?region=${encodeURIComponent(region)}&interval=${interval}`
     const MAX_RETRY_DELAY = 30_000
 
     const ctrl = new AbortController()
@@ -72,20 +72,24 @@ export function useRealtimePrices(region: string | null | undefined, interval: n
           const data: PriceUpdate = JSON.parse(event.data)
           if (!mountedRef.current) return
           setLastPrice(data)
-          // Partial-merge: update matching supplier entry in cache, preserve existing fields
-          queryClient.setQueryData<unknown>(
+          // Partial-merge: update matching supplier entry in cache, preserve existing fields.
+          // ApiCurrentPriceResponse shape: { price, prices, region }
+          queryClient.setQueryData<Record<string, unknown>>(
             ['prices', 'current', region],
-            (old: unknown) => {
-              if (!old || !Array.isArray(old)) return old
-              return old.map((entry: Record<string, unknown>) =>
-                entry.supplier === data.supplier
-                  ? { ...entry, price_per_kwh: Number(data.price_per_kwh), timestamp: data.timestamp, is_peak: data.is_peak }
-                  : entry
-              )
+            (old) => {
+              if (!old) return old
+              const prices = old.prices
+              if (!Array.isArray(prices)) return old
+              return {
+                ...old,
+                prices: prices.map((entry: Record<string, unknown>) =>
+                  entry.supplier === data.supplier
+                    ? { ...entry, price_per_kwh: Number(data.price_per_kwh), timestamp: data.timestamp, is_peak: data.is_peak }
+                    : entry
+                ),
+              }
             }
           )
-          // History cache: invalidate since it needs full refetch for chart data
-          queryClient.invalidateQueries({ queryKey: ['prices', 'history', region] })
         } catch {
           // Ignore parse errors for non-JSON events (heartbeats)
         }

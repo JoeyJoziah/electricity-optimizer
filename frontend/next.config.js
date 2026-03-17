@@ -1,5 +1,3 @@
-const isDev = process.env.NODE_ENV === 'development'
-
 // Require NEXT_PUBLIC_APP_URL in production builds (skip during tests)
 if (
   process.env.NODE_ENV === 'production' &&
@@ -40,7 +38,7 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
 
-  // Security headers
+  // Security headers (CSP is set per-request in middleware.ts with nonce)
   async headers() {
     return [
       {
@@ -51,21 +49,6 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              `script-src 'self' 'unsafe-inline' https://*.clarity.ms https://cdn.onesignal.com${isDev ? " 'unsafe-eval'" : ''}`,
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.rateshift.app https://*.clarity.ms",
-              `font-src 'self'${isDev ? ' data:' : ''}`,
-              `connect-src 'self' https://*.rateshift.app https://*.onrender.com https://*.vercel.app https://www.clarity.ms https://*.clarity.ms https://onesignal.com https://*.onesignal.com${isDev ? ' http://localhost:* ws://localhost:*' : ''}`,
-              "worker-src 'self'",
-              "frame-ancestors 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-            ].join('; '),
-          },
         ],
       },
     ]

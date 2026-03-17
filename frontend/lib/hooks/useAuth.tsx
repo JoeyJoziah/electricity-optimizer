@@ -14,6 +14,7 @@ import { getUserSupplier } from '@/lib/api/suppliers'
 import { getUserProfile, updateUserProfile } from '@/lib/api/profile'
 import { useSettingsStore } from '@/lib/store/settings'
 import { API_URL } from '@/lib/config/env'
+import { isSafeRedirect } from '@/lib/utils/url'
 import { loginOneSignal, logoutOneSignal } from '@/lib/notifications/onesignal'
 
 // Auth user type
@@ -263,18 +264,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       // Honor callbackUrl if the middleware set one, otherwise go to dashboard.
-      // Validate that it resolves to the same origin (blocks //evil.com, /\evil.com, javascript:, etc).
+      // Validate via shared isSafeRedirect (blocks //evil.com, /\evil.com, javascript:, etc).
       const params = new URLSearchParams(window.location.search)
       const callback = params.get('callbackUrl') || '/dashboard'
-      let destination = '/dashboard'
-      try {
-        const parsed = new URL(callback, window.location.origin)
-        if (parsed.origin === window.location.origin && parsed.pathname.startsWith('/')) {
-          destination = parsed.pathname + parsed.search + parsed.hash
-        }
-      } catch {
-        // Malformed URL — fall back to dashboard
-      }
+      const destination = isSafeRedirect(callback) ? callback : '/dashboard'
 
       // Full-page navigation ensures middleware evaluates with the fresh
       // session cookie (router.push uses cached prefetch that may predate
@@ -341,6 +334,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       // Swallow signOut errors — always clear local state
     } finally {
+      // Clear persisted Zustand settings (region, supplier, appliances, etc.)
+      // so the next user who signs in starts with a clean slate.
+      useSettingsStore.getState().resetSettings()
+
       setUser(null)
       setIsLoading(false)
       router.push('/auth/login')

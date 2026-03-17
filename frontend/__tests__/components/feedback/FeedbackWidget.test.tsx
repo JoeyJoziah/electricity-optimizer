@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
 import React from 'react'
@@ -103,10 +103,13 @@ describe('FeedbackWidget', () => {
     await user.click(screen.getByTestId('feedback-fab'))
     expect(screen.getByTestId('feedback-modal')).toBeInTheDocument()
 
-    // Click the backdrop (aria-hidden overlay div)
-    const backdrop = document.querySelector('[aria-hidden="true"]')
+    // Click the backdrop (aria-hidden overlay div inside the modal).
+    // Scope to the modal — document.querySelector would match lucide SVGs first.
+    // Use fireEvent instead of userEvent — userEvent respects aria-hidden.
+    const modal = screen.getByTestId('feedback-modal')
+    const backdrop = modal.querySelector(':scope > [aria-hidden="true"]')
     expect(backdrop).not.toBeNull()
-    await user.click(backdrop as Element)
+    fireEvent.click(backdrop as Element)
 
     expect(screen.queryByTestId('feedback-modal')).not.toBeInTheDocument()
   })

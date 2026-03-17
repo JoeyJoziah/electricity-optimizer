@@ -8,11 +8,14 @@ Implements GDPR data subject rights:
 - GET /gdpr/consents: Get consent history
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 from api.dependencies import get_current_user, get_db_session, SessionData
 from compliance.gdpr import GDPRComplianceService, UserNotFoundError
@@ -45,6 +48,7 @@ async def get_gdpr_service(session=Depends(get_db_session)):
     return GDPRComplianceService(
         consent_repository=consent_repo,
         user_repository=user_repo,
+        db_session=session,
     )
 
 
@@ -281,9 +285,10 @@ async def delete_user_data(
             detail="User not found"
         )
     except Exception as e:
+        logger.error("gdpr_deletion_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete user data: {str(e)}"
+            detail="Failed to delete user data. Please try again or contact support."
         )
 
 
@@ -337,9 +342,10 @@ async def delete_account(
             detail="User not found"
         )
     except Exception as e:
+        logger.error("gdpr_deletion_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete user data: {str(e)}"
+            detail="Failed to delete user data. Please try again or contact support."
         )
 
 
