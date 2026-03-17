@@ -32,6 +32,7 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   error: string | null
+  profileFetchFailed: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name?: string) => Promise<void>
   signOut: () => Promise<void>
@@ -104,6 +105,14 @@ export function checkNeedsRegion(profile: { region?: string | null }): boolean {
   return !profile.region
 }
 
+/** Delay helper for retry logic */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Profile retry delay in milliseconds */
+const PROFILE_RETRY_DELAY_MS = 1000
+
 /**
  * Authentication Provider
  *
@@ -113,6 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [profileFetchFailed, setProfileFetchFailed] = useState(false)
   const router = useRouter()
 
   // Keep a ref to the latest router so the mount-only initAuth effect always
@@ -176,43 +186,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
             })
           }
 
+          // ------------------------------------------------------------------
+          // Profile fetch with retry
+          //
+          // If the initial profile fetch failed (network error, backend cold
+          // start, timeout), retry once after a 1s delay before deciding
+          // whether to redirect. This prevents false onboarding redirects
+          // when the backend is slow to respond.
+          // ------------------------------------------------------------------
+          let resolvedProfile = profileResult.status === 'fulfilled'
+            ? profileResult.value
+            : null
+
+          if (profileResult.status === 'rejected' && !isPublicPage) {
+            await delay(PROFILE_RETRY_DELAY_MS)
+            try {
+              resolvedProfile = await getUserProfile()
+            } catch {
+              // Retry also failed — set flag and do NOT redirect based on
+              // missing region since we cannot determine the true state.
+              setProfileFetchFailed(true)
+              setIsLoading(false)
+              return
+            }
+          }
+
           // Sync region from profile if available.
-          // useProfile hook is the primary sync source; this is a fallback for
-          // pages that don't call useProfile (e.g. first load before dashboard).
-          if (profileResult.status === 'fulfilled' && profileResult.value.region) {
+          if (resolvedProfile && resolvedProfile.region) {
             const store = useSettingsStore.getState()
             if (!store.region) {
-              store.setRegion(profileResult.value.region)
+              store.setRegion(resolvedProfile.region)
             }
           }
 
           // ------------------------------------------------------------------
-          // Profile completeness redirects
-          //
-          // Two independent checks, evaluated in order:
-          //   1. Onboarding incomplete  -- user never finished the wizard
-          //   2. Region missing         -- region cleared or legacy account
-          //
-          // Both redirect to /onboarding where the wizard shows the right
-          // step. Only fires on app pages that require a completed profile.
+          // Profile completeness redirects — ONLY when fetch SUCCEEDED
           // ------------------------------------------------------------------
-          if (profileResult.status === 'fulfilled') {
-            const profile = profileResult.value
+          if (resolvedProfile) {
             const path = window.location.pathname
 
             if (isProfileRequiredPath(path)) {
-              // Only redirect when the user genuinely has no region set.
-              // Previously we also redirected on !onboarding_completed, which
-              // caused a redirect loop for users who already had a region but
-              // whose onboarding_completed flag was false.
-              if (checkNeedsRegion(profile)) {
+              if (checkNeedsRegion(resolvedProfile)) {
                 routerRef.current.replace('/onboarding')
                 return
               }
 
-              // If region exists but onboarding_completed is false, auto-fix
-              // the flag in the background (fire-and-forget).
-              if (checkNeedsOnboarding(profile)) {
+              if (checkNeedsOnboarding(resolvedProfile)) {
                 updateUserProfile({ onboarding_completed: true }).catch(() => {})
               }
             }
@@ -339,10 +358,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       useSettingsStore.getState().resetSettings()
 
       setUser(null)
+      setProfileFetchFailed(false)
       setIsLoading(false)
-      router.push('/auth/login')
+      // Full-page navigation to clear all client-side state (React Query cache,
+      // Zustand stores, WebSocket connections). router.push keeps stale state.
+      window.location.href = '/auth/login'
     }
-  }, [router])
+  }, [])
 
   // Sign in with Google
   const signInWithGoogle = useCallback(async () => {
@@ -415,6 +437,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAuthenticated: !!user,
     error,
+    profileFetchFailed,
     signIn,
     signUp,
     signOut,
@@ -422,7 +445,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signInWithGitHub,
     sendMagicLink,
     clearError,
-  }), [user, isLoading, error, signIn, signUp, signOut, signInWithGoogle, signInWithGitHub, sendMagicLink, clearError])
+  }), [user, isLoading, error, profileFetchFailed, signIn, signUp, signOut, signInWithGoogle, signInWithGitHub, sendMagicLink, clearError])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

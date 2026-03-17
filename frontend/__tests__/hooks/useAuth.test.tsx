@@ -672,7 +672,8 @@ describe('useAuth hook', () => {
 
     expect(result.current.user).toBeNull()
     expect(result.current.isAuthenticated).toBe(false)
-    expect(mockPush).toHaveBeenCalledWith('/auth/login')
+    // signOut now uses full-page navigation to clear all client state
+    expect(window.location.href).toBe('/auth/login')
   })
 
   it('signOut calls logoutOneSignal', async () => {
@@ -763,7 +764,8 @@ describe('useAuth hook', () => {
     // User should still be cleared
     expect(result.current.user).toBeNull()
     expect(result.current.isAuthenticated).toBe(false)
-    expect(mockPush).toHaveBeenCalledWith('/auth/login')
+    // signOut now uses full-page navigation to clear all client state
+    expect(window.location.href).toBe('/auth/login')
   })
 
   // -------------------------------------------------------------------------
