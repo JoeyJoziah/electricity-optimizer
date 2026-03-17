@@ -14,11 +14,10 @@ create_app() -> tuple[FastAPI, UserRateLimiter]
 
 import asyncio
 import json
+import time
 from contextlib import asynccontextmanager
 
 import structlog
-import time
-
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,8 +26,8 @@ from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from config.settings import settings
 from config.database import db_manager
+from config.settings import settings
 
 logger = structlog.get_logger()
 
@@ -167,14 +166,16 @@ class RequestBodySizeLimitMiddleware:
         body = json.dumps(
             {"detail": f"Request body too large. Maximum size is {max_mb} MB."}
         ).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 413,
-            "headers": [
-                [b"content-type", b"application/json"],
-                [b"content-length", str(len(body)).encode()],
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(body)).encode()],
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
 
 
@@ -227,14 +228,16 @@ class RequestTimeoutMiddleware:
         except asyncio.TimeoutError:
             if not response_started:
                 body = json.dumps({"detail": "Request timed out"}).encode("utf-8")
-                await send({
-                    "type": "http.response.start",
-                    "status": 504,
-                    "headers": [
-                        [b"content-type", b"application/json"],
-                        [b"content-length", str(len(body)).encode()],
-                    ],
-                })
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 504,
+                        "headers": [
+                            [b"content-type", b"application/json"],
+                            [b"content-length", str(len(body)).encode()],
+                        ],
+                    }
+                )
                 await send({"type": "http.response.body", "body": body})
 
 
@@ -287,9 +290,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
                     logger.warning("otel_sqlalchemy_wire_failed", error=str(_sa_exc))
         except Exception as e:
             logger.error("database_init_failed", error=str(e))
-            logger.warning(
-                "continuing_without_full_db", environment=settings.environment
-            )
+            logger.warning("continuing_without_full_db", environment=settings.environment)
 
         # Wire Redis into the rate limiter for distributed rate limiting.
         # Skipped in the test environment to prevent cross-test state leakage.
@@ -389,7 +390,13 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-API-Key", "X-Fallback-Mode"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-ID",
+            "X-API-Key",
+            "X-Fallback-Mode",
+        ],
     )
 
     # GZip compression
@@ -459,18 +466,14 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     # ------------------------------------------------------------------
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(
-        request: Request, exc: RequestValidationError
-    ):
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
         """Handle validation errors — never echo back potentially sensitive input."""
         sanitized_errors = []
         for err in exc.errors():
             sanitized = {k: v for k, v in err.items() if k not in ("input", "ctx")}
             sanitized_errors.append(sanitized)
 
-        logger.warning(
-            "validation_error", errors=sanitized_errors, path=request.url.path
-        )
+        logger.warning("validation_error", errors=sanitized_errors, path=request.url.path)
 
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -491,6 +494,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         if settings.sentry_dsn:
             try:
                 import sentry_sdk
+
                 sentry_sdk.capture_exception(exc)
             except Exception:
                 pass
@@ -517,9 +521,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         if request.url.path.startswith("/metrics"):
             api_key = request.headers.get("X-API-Key")
             if settings.internal_api_key and api_key != settings.internal_api_key:
-                return JSONResponse(
-                    status_code=403, content={"detail": "Forbidden"}
-                )
+                return JSONResponse(status_code=403, content={"detail": "Forbidden"})
         return await call_next(request)
 
     app.mount("/metrics", metrics_app)
@@ -546,46 +548,46 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     # API routers
     # ------------------------------------------------------------------
 
-    from routers import predictions
+    from api.v1 import affiliate as affiliate_v1
+    from api.v1 import agent as agent_v1
+    from api.v1 import alerts as alerts_v1
+    from api.v1 import auth as auth_v1
+    from api.v1 import beta as beta_v1
+    from api.v1 import billing as billing_v1
+    from api.v1 import cca as cca_v1
+    from api.v1 import community as community_v1
+    from api.v1 import community_solar as community_solar_v1
+    from api.v1 import compliance as compliance_v1
+    from api.v1 import connections as connections_v1
+    from api.v1 import export as export_v1
+    from api.v1 import feedback as feedback_v1
+    from api.v1 import forecast as forecast_v1
+    from api.v1 import gas_rates as gas_rates_v1
+    from api.v1 import health as health_v1
+    from api.v1 import heating_oil as heating_oil_v1
+    from api.v1 import internal as internal_v1
+    from api.v1 import neighborhood as neighborhood_v1
+    from api.v1 import notifications as notifications_v1
     from api.v1 import prices as prices_v1
-    from api.v1 import suppliers as suppliers_v1
     from api.v1 import prices_analytics as prices_analytics_v1
     from api.v1 import prices_sse as prices_sse_v1
-    from api.v1 import beta as beta_v1
-    from api.v1 import auth as auth_v1
-    from api.v1 import compliance as compliance_v1
-    from api.v1 import user as user_v1
-    from api.v1 import recommendations as recommendations_v1
-    from api.v1 import billing as billing_v1
-    from api.v1 import internal as internal_v1
-    from api.v1 import regulations as regulations_v1
-    from api.v1 import user_supplier as user_supplier_v1
-    from api.v1 import webhooks as webhooks_v1
-    from api.v1 import connections as connections_v1
-    from api.v1 import users as users_v1
-    from api.v1 import savings as savings_v1
-    from api.v1 import alerts as alerts_v1
-    from api.v1 import notifications as notifications_v1
-    from api.v1 import health as health_v1
-    from api.v1 import feedback as feedback_v1
-    from api.v1 import agent as agent_v1
-    from api.v1 import utility_accounts as utility_accounts_v1
-    from api.v1 import referrals as referrals_v1
-    from api.v1 import gas_rates as gas_rates_v1
-    from api.v1 import community_solar as community_solar_v1
-    from api.v1 import utility_discovery as utility_discovery_v1
-    from api.v1 import cca as cca_v1
-    from api.v1 import heating_oil as heating_oil_v1
-    from api.v1 import rate_changes as rate_changes_v1
-    from api.v1 import public_rates as public_rates_v1
-    from api.v1 import affiliate as affiliate_v1
     from api.v1 import propane as propane_v1
-    from api.v1 import water as water_v1
-    from api.v1 import forecast as forecast_v1
+    from api.v1 import public_rates as public_rates_v1
+    from api.v1 import rate_changes as rate_changes_v1
+    from api.v1 import recommendations as recommendations_v1
+    from api.v1 import referrals as referrals_v1
+    from api.v1 import regulations as regulations_v1
     from api.v1 import reports as reports_v1
-    from api.v1 import export as export_v1
-    from api.v1 import community as community_v1
-    from api.v1 import neighborhood as neighborhood_v1
+    from api.v1 import savings as savings_v1
+    from api.v1 import suppliers as suppliers_v1
+    from api.v1 import user as user_v1
+    from api.v1 import user_supplier as user_supplier_v1
+    from api.v1 import users as users_v1
+    from api.v1 import utility_accounts as utility_accounts_v1
+    from api.v1 import utility_discovery as utility_discovery_v1
+    from api.v1 import water as water_v1
+    from api.v1 import webhooks as webhooks_v1
+    from routers import predictions
 
     app.include_router(
         predictions.router,

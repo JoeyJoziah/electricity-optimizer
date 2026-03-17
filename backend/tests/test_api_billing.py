@@ -15,8 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 TEST_USER = SessionData(user_id="user-billing-1", email="billing@test.com")
 
@@ -104,11 +103,10 @@ class TestCheckoutSession:
         """Valid checkout request should return session_id and checkout_url."""
         mock_user = _make_mock_user(stripe_customer_id="cus_existing123")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -138,11 +136,10 @@ class TestCheckoutSession:
         """Checkout with 'business' tier should also succeed."""
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -171,11 +168,10 @@ class TestCheckoutSession:
         """Localhost redirect URLs should be accepted for development."""
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -298,11 +294,10 @@ class TestCheckoutSession:
         """ValueError from StripeService should return 400."""
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -336,11 +331,10 @@ class TestPortalSession:
         """Valid portal request for a user with stripe_customer_id should succeed."""
         mock_user = _make_mock_user(stripe_customer_id="cus_portal789")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -362,11 +356,10 @@ class TestPortalSession:
         """User without stripe_customer_id should get 400."""
         mock_user = _make_mock_user(stripe_customer_id=None)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -382,11 +375,10 @@ class TestPortalSession:
 
     def test_portal_user_not_found(self, auth_client):
         """When user does not exist in DB, customer_id is None -> 400."""
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(user=None)
 
             stripe_instance = MockStripe.return_value
@@ -436,11 +428,10 @@ class TestSubscriptionStatus:
         """User without stripe_customer_id should be reported as free tier."""
         mock_user = _make_mock_user(stripe_customer_id=None)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -458,11 +449,10 @@ class TestSubscriptionStatus:
 
     def test_subscription_free_tier_user_not_found(self, auth_client):
         """User not found in DB should also be reported as free tier."""
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(user=None)
 
             stripe_instance = MockStripe.return_value
@@ -478,11 +468,10 @@ class TestSubscriptionStatus:
         mock_user = _make_mock_user(stripe_customer_id="cus_sub123")
         period_end = datetime(2026, 3, 15, 0, 0, 0, tzinfo=timezone.utc)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -511,11 +500,10 @@ class TestSubscriptionStatus:
         mock_user = _make_mock_user(stripe_customer_id="cus_trial")
         period_end = datetime(2026, 4, 1, 0, 0, 0, tzinfo=timezone.utc)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -541,11 +529,10 @@ class TestSubscriptionStatus:
         mock_user = _make_mock_user(stripe_customer_id="cus_pastdue")
         period_end = datetime(2026, 2, 20, 0, 0, 0, tzinfo=timezone.utc)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -569,11 +556,10 @@ class TestSubscriptionStatus:
         """Customer exists but no subscription returns free tier."""
         mock_user = _make_mock_user(stripe_customer_id="cus_nosub")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -621,11 +607,10 @@ class TestWebhook:
         }
         mock_user = _make_mock_user(stripe_customer_id="cus_wh_123")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             repo_instance = _make_mock_user_repo(mock_user)
             MockRepo.return_value = repo_instance
 
@@ -746,11 +731,10 @@ class TestWebhook:
         }
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             repo_instance = _make_mock_user_repo(mock_user)
             MockRepo.return_value = repo_instance
 
@@ -769,7 +753,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -805,7 +789,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -839,7 +823,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -862,12 +846,13 @@ class TestWebhook:
             },
         }
 
-        with patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe, patch(
-            "api.v1.billing.apply_webhook_action",
-            new_callable=AsyncMock,
-            side_effect=Exception("unexpected DB error"),
+        with (
+            patch("api.v1.billing.StripeService") as MockStripe,
+            patch(
+                "api.v1.billing.apply_webhook_action",
+                new_callable=AsyncMock,
+                side_effect=Exception("unexpected DB error"),
+            ),
         ):
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
@@ -884,7 +869,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -906,11 +891,10 @@ class TestWebhook:
         mock_user = _make_mock_user(stripe_customer_id="cus_del")
         mock_user.subscription_tier = "pro"
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             repo_instance = _make_mock_user_repo(mock_user)
             MockRepo.return_value = repo_instance
 
@@ -929,7 +913,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -995,7 +979,7 @@ class TestUnauthenticatedAccess:
 
             response = unauth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig"},
             )
 

@@ -11,7 +11,7 @@ Integration Tests — 5 Critical Missing Paths (Sprint 2, WS-C, S2-07)
 import hashlib
 import json
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -90,7 +90,7 @@ class TestStripePaymentFailedFlow:
                     "id": "in_test_001",
                     "customer": "cus_test_abc",
                     "subscription": "sub_test_xyz",
-                    "amount_due": 499,   # cents → $4.99
+                    "amount_due": 499,  # cents → $4.99
                     "currency": "usd",
                 }
             },
@@ -112,8 +112,10 @@ class TestStripePaymentFailedFlow:
         """StripeService.handle_webhook_event correctly parses invoice.payment_failed."""
         from services.stripe_service import StripeService
 
-        with patch("services.stripe_service.settings") as mock_settings, \
-             patch("services.stripe_service.traced") as mock_traced:
+        with (
+            patch("services.stripe_service.settings") as mock_settings,
+            patch("services.stripe_service.traced") as mock_traced,
+        ):
             mock_settings.stripe_secret_key = "sk_test_mock"
             mock_ctx = AsyncMock()
             mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
@@ -161,10 +163,16 @@ class TestStripePaymentFailedFlow:
 
         dunning_mock = AsyncMock()
         dunning_mock.handle_payment_failure = AsyncMock(
-            return_value={"recorded": True, "retry_count": 1, "email_sent": True, "escalation_action": None}
+            return_value={
+                "recorded": True,
+                "retry_count": 1,
+                "email_sent": True,
+                "escalation_action": None,
+            }
         )
 
         import services.dunning_service  # ensure module loaded before patching
+
         with patch.object(services.dunning_service, "DunningService", return_value=dunning_mock):
             applied = await apply_webhook_action(payment_failed_result, user_repo, db=mock_db)
 
@@ -224,10 +232,17 @@ class TestStripePaymentFailedFlow:
         call_log = []
 
         dunning_mock = AsyncMock()
-        dunning_mock.handle_payment_failure = AsyncMock(side_effect=lambda **kw: (
-            call_log.append(("dunning_called", kw)) or
-            {"recorded": True, "retry_count": 1, "email_sent": True, "escalation_action": None}
-        ))
+        dunning_mock.handle_payment_failure = AsyncMock(
+            side_effect=lambda **kw: (
+                call_log.append(("dunning_called", kw))
+                or {
+                    "recorded": True,
+                    "retry_count": 1,
+                    "email_sent": True,
+                    "escalation_action": None,
+                }
+            )
+        )
 
         user_repo = AsyncMock()
         user_repo.get_by_stripe_customer_id = AsyncMock(return_value=mock_user)
@@ -235,9 +250,12 @@ class TestStripePaymentFailedFlow:
         mock_db = AsyncMock()
 
         import services.dunning_service  # ensure module loaded before patching
-        with patch("services.stripe_service.settings") as mock_settings, \
-             patch("services.stripe_service.traced") as mock_traced, \
-             patch.object(services.dunning_service, "DunningService", return_value=dunning_mock):
+
+        with (
+            patch("services.stripe_service.settings") as mock_settings,
+            patch("services.stripe_service.traced") as mock_traced,
+            patch.object(services.dunning_service, "DunningService", return_value=dunning_mock),
+        ):
 
             mock_settings.stripe_secret_key = "sk_test_mock"
             mock_ctx = AsyncMock()
@@ -273,6 +291,7 @@ class TestCommunityRateLimiting:
     @pytest.fixture
     def service(self):
         from services.community_service import CommunityService
+
         return CommunityService()
 
     def _make_db(self, post_count: int) -> AsyncMock:
@@ -304,11 +323,13 @@ class TestCommunityRateLimiting:
         )
 
         # First call = rate check, subsequent calls = insert + moderation updates
-        db.execute = AsyncMock(side_effect=[
-            rate_result,        # rate limit check
-            insert_result,      # INSERT
-            MagicMock(),        # moderation UPDATE
-        ])
+        db.execute = AsyncMock(
+            side_effect=[
+                rate_result,  # rate limit check
+                insert_result,  # INSERT
+                MagicMock(),  # moderation UPDATE
+            ]
+        )
         db.commit = AsyncMock()
         return db
 
@@ -370,11 +391,18 @@ class TestCommunityRateLimiting:
 
         # User B has only 2 posts
         post_row = _row_mock(
-            id=str(uuid4()), user_id="user-b",
-            region="US_CT", utility_type="electric", post_type="tip",
-            title="B tip", body="B body",
-            rate_per_unit=None, rate_unit=None, supplier_name=None,
-            is_hidden=False, is_pending_moderation=True,
+            id=str(uuid4()),
+            user_id="user-b",
+            region="US_CT",
+            utility_type="electric",
+            post_type="tip",
+            title="B tip",
+            body="B body",
+            rate_per_unit=None,
+            rate_unit=None,
+            supplier_name=None,
+            is_hidden=False,
+            is_pending_moderation=True,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -664,21 +692,21 @@ class TestDunningEscalationCycle:
 
         cooldown_result = MagicMock()
         # If email_in_cooldown, return a row (meaning we recently sent) → skip email
-        cooldown_result.first = MagicMock(
-            return_value=MagicMock() if email_in_cooldown else None
-        )
+        cooldown_result.first = MagicMock(return_value=MagicMock() if email_in_cooldown else None)
 
         update_result = MagicMock()
         update_result.rowcount = 1
 
         # Call sequence: COUNT, INSERT, cooldown SELECT, UPDATE email, UPDATE escalation
-        db.execute = AsyncMock(side_effect=[
-            count_result,     # get_retry_count
-            insert_result,    # record_payment_failure INSERT
-            cooldown_result,  # should_send_dunning SELECT
-            update_result,    # mark email sent UPDATE
-            update_result,    # escalation UPDATE (if needed)
-        ])
+        db.execute = AsyncMock(
+            side_effect=[
+                count_result,  # get_retry_count
+                insert_result,  # record_payment_failure INSERT
+                cooldown_result,  # should_send_dunning SELECT
+                update_result,  # mark email sent UPDATE
+                update_result,  # escalation UPDATE (if needed)
+            ]
+        )
         db.commit = AsyncMock()
         return db
 
@@ -847,9 +875,7 @@ class TestDunningEscalationCycle:
 
         db = AsyncMock()
         db_result = MagicMock()
-        db_result.mappings = MagicMock(
-            return_value=MagicMock(all=MagicMock(return_value=[]))
-        )
+        db_result.mappings = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
         db.execute = AsyncMock(return_value=db_result)
 
         svc = DunningService(db)
@@ -888,13 +914,15 @@ class TestSessionAuthCache:
         from auth.neon_auth import _get_session_from_token
 
         token = "valid-session-token"
-        cached_payload = json.dumps({
-            "user_id": "user-cached",
-            "email": "cached@example.com",
-            "name": "Cached User",
-            "email_verified": True,
-            "role": None,
-        })
+        cached_payload = json.dumps(
+            {
+                "user_id": "user-cached",
+                "email": "cached@example.com",
+                "name": "Cached User",
+                "email_verified": True,
+                "role": None,
+            }
+        )
 
         redis = AsyncMock()
         redis.get = AsyncMock(return_value=cached_payload.encode())
@@ -914,7 +942,7 @@ class TestSessionAuthCache:
     @pytest.mark.asyncio
     async def test_cache_miss_falls_through_to_db(self):
         """Cache miss: DB is queried and result is cached with 60s TTL."""
-        from auth.neon_auth import _get_session_from_token, _SESSION_CACHE_TTL
+        from auth.neon_auth import _SESSION_CACHE_TTL, _get_session_from_token
 
         token = "uncached-session-token"
 

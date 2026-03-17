@@ -8,13 +8,13 @@ Comprehensive tests for security features:
 - Password validation
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-import time
-
 import sys
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -31,9 +31,10 @@ class TestSecurityHeaders:
     @pytest.fixture(scope="class")
     def security_app(self):
         """Class-scoped SecurityHeaders test app — avoids 7 redundant constructions."""
-        from middleware.security_headers import SecurityHeadersMiddleware
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from middleware.security_headers import SecurityHeadersMiddleware
 
         app = FastAPI()
         app.add_middleware(SecurityHeadersMiddleware)
@@ -299,6 +300,7 @@ class TestSecretsManager:
     def test_get_secret_from_env(self):
         """Test getting secret from environment variable"""
         import os
+
         from config.secrets import SecretsManager
 
         os.environ["TEST_SECRET"] = "test-value"
@@ -321,7 +323,7 @@ class TestSecretsManager:
 
     def test_get_secret_missing_raises(self):
         """Test missing secret without default raises error"""
-        from config.secrets import SecretsManager, SecretsError
+        from config.secrets import SecretsError, SecretsManager
 
         manager = SecretsManager(use_1password=False)
 
@@ -331,6 +333,7 @@ class TestSecretsManager:
     def test_secrets_are_cached(self):
         """Test secrets are cached after first retrieval"""
         import os
+
         from config.secrets import SecretsManager
 
         os.environ["CACHED_SECRET"] = "original-value"
@@ -351,6 +354,7 @@ class TestSecretsManager:
     def test_clear_cache(self):
         """Test clearing secrets cache"""
         import os
+
         from config.secrets import SecretsManager
 
         os.environ["CLEAR_TEST"] = "value1"

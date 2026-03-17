@@ -1,15 +1,12 @@
 """Tests for the Geocoding Service (OWM + Nominatim)."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 
-from services.geocoding_service import (
-    GeocodingService,
-    _STATE_NAME_TO_ABBR,
-    _US_STATES,
-)
+from services.geocoding_service import (_STATE_NAME_TO_ABBR, _US_STATES,
+                                        GeocodingService)
 
 
 def _make_settings(owm_key="test-owm-key"):
@@ -24,19 +21,24 @@ def _owm_response(name="Los Angeles", lat=34.05, lon=-118.24, state="California"
 
 
 def _nominatim_response(
-    lat="34.0522", lon="-118.2437", display_name="Los Angeles, CA, USA",
-    country_code="us", iso_code="US-CA",
+    lat="34.0522",
+    lon="-118.2437",
+    display_name="Los Angeles, CA, USA",
+    country_code="us",
+    iso_code="US-CA",
 ):
     """Build a mock Nominatim search JSON response."""
-    return [{
-        "lat": lat,
-        "lon": lon,
-        "display_name": display_name,
-        "address": {
-            "country_code": country_code,
-            "ISO3166-2-lvl4": iso_code,
-        },
-    }]
+    return [
+        {
+            "lat": lat,
+            "lon": lon,
+            "display_name": display_name,
+            "address": {
+                "country_code": country_code,
+                "ISO3166-2-lvl4": iso_code,
+            },
+        }
+    ]
 
 
 class TestGeocodeViaOWM:
@@ -107,7 +109,9 @@ class TestGeocodeNominatimFallback:
         mock_client_nom.__aexit__ = AsyncMock(return_value=False)
 
         clients = iter([mock_client_owm, mock_client_nom])
-        with patch("services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)
+        ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("Los Angeles, CA")
 
@@ -153,7 +157,9 @@ class TestGeocodeNominatimFallback:
         mock_client_nom.__aexit__ = AsyncMock(return_value=False)
 
         clients = iter([mock_client_owm, mock_client_nom])
-        with patch("services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)
+        ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("New York, NY")
 
@@ -199,9 +205,7 @@ class TestAddressToRegion:
     async def test_address_to_region_non_us_returns_none(self):
         """Non-US address (no matching state) returns None."""
         mock_resp = MagicMock()
-        mock_resp.json.return_value = _owm_response(
-            name="London", state="England", country="GB"
-        )
+        mock_resp.json.return_value = _owm_response(name="London", state="England", country="GB")
         mock_resp.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()

@@ -36,12 +36,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.portal_scraper_service import (
-    PortalScraperService,
-    SUPPORTED_UTILITIES,
-    _extract_rates_from_html,
-)
-
+from services.portal_scraper_service import (SUPPORTED_UTILITIES,
+                                             PortalScraperService,
+                                             _extract_rates_from_html)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,7 +79,7 @@ class TestScrapeKnownUtility:
 
         client.get = AsyncMock(
             side_effect=[
-                _mock_response(login_html),    # GET login page
+                _mock_response(login_html),  # GET login page
                 _mock_response(billing_html),  # GET billing page
             ]
         )
@@ -161,8 +158,8 @@ class TestScrapeKnownUtility:
 
         client.get = AsyncMock(
             side_effect=[
-                _mock_response(login_html),      # GET login page
-                httpx.ConnectError("Timeout"),   # GET billing page (fails)
+                _mock_response(login_html),  # GET login page
+                httpx.ConnectError("Timeout"),  # GET billing page (fails)
             ]
         )
         client.post = AsyncMock(return_value=_mock_response(post_html))
@@ -282,16 +279,12 @@ class TestExtractHiddenFields:
     """Unit tests for PortalScraperService._extract_hidden_fields()."""
 
     def test_standard_name_value_order(self):
-        html = (
-            '<input type="hidden" name="csrf_token" value="abc123">'
-        )
+        html = '<input type="hidden" name="csrf_token" value="abc123">'
         fields = PortalScraperService._extract_hidden_fields(html)
         assert fields == {"csrf_token": "abc123"}
 
     def test_alternate_value_name_order(self):
-        html = (
-            "<input type='hidden' value='xyz789' name='__RequestVerificationToken'>"
-        )
+        html = "<input type='hidden' value='xyz789' name='__RequestVerificationToken'>"
         fields = PortalScraperService._extract_hidden_fields(html)
         assert fields == {"__RequestVerificationToken": "xyz789"}
 

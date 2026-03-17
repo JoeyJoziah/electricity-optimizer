@@ -11,17 +11,13 @@ Coverage:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.rate_export_service import (
-    RateExportService,
-    EXPORT_CONFIGS,
-    MAX_EXPORT_DAYS,
-)
-
+from services.rate_export_service import (EXPORT_CONFIGS, MAX_EXPORT_DAYS,
+                                          RateExportService)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -86,8 +82,13 @@ class TestExportJSON:
     async def test_json_format_structure(self):
         now = datetime.now(timezone.utc)
         rows = [
-            {"region": "us_ct", "supplier": "A", "price_per_kwh": 0.15,
-             "currency": "USD", "timestamp": now},
+            {
+                "region": "us_ct",
+                "supplier": "A",
+                "price_per_kwh": 0.15,
+                "currency": "USD",
+                "timestamp": now,
+            },
         ]
         db = _make_db(rows)
         service = RateExportService(db)
@@ -116,8 +117,13 @@ class TestExportCSV:
     async def test_csv_format_structure(self):
         now = datetime.now(timezone.utc)
         rows = [
-            {"region": "us_ct", "supplier": "A", "price_per_kwh": 0.15,
-             "currency": "USD", "timestamp": now},
+            {
+                "region": "us_ct",
+                "supplier": "A",
+                "price_per_kwh": 0.15,
+                "currency": "USD",
+                "timestamp": now,
+            },
         ]
         db = _make_db(rows)
         service = RateExportService(db)
@@ -162,8 +168,10 @@ class TestDateRangeEnforcement:
         far_past = now - timedelta(days=500)
         service = RateExportService(_make_db([]))
         result = await service.export_rates(
-            "electricity", format="json",
-            start_date=far_past, end_date=now,
+            "electricity",
+            format="json",
+            start_date=far_past,
+            end_date=now,
         )
         assert "error" not in result
         assert result["count"] == 0

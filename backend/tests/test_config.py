@@ -10,9 +10,9 @@ RED phase: These tests verify the existing Settings class works correctly.
 """
 
 import os
-import pytest
 from unittest.mock import patch
 
+import pytest
 
 # =============================================================================
 # SETTINGS TESTS
@@ -27,13 +27,16 @@ class TestSettings:
         from config.settings import Settings
 
         # Create settings with test environment
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-            "ENVIRONMENT": "test"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+                "ENVIRONMENT": "test",
+            },
+        ):
             settings = Settings()
 
             assert settings.database_url == "postgresql://test:test@localhost:5432/test"
@@ -42,16 +45,20 @@ class TestSettings:
 
     def test_settings_validates_environment(self):
         """Test that environment must be one of allowed values"""
-        from config.settings import Settings
         from pydantic import ValidationError
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-            "ENVIRONMENT": "invalid_environment"  # Invalid
-        }):
+        from config.settings import Settings
+
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+                "ENVIRONMENT": "invalid_environment",  # Invalid
+            },
+        ):
             with pytest.raises(ValidationError):
                 Settings()
 
@@ -59,23 +66,30 @@ class TestSettings:
         """Test default environment is development"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-        }, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+            },
+            clear=False,
+        ):
             # Remove ENVIRONMENT if it exists
             env = os.environ.copy()
             env.pop("ENVIRONMENT", None)
             with patch.dict(os.environ, env, clear=True):
                 # Force required fields
-                with patch.dict(os.environ, {
-                    "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-                    "JWT_SECRET": "test-secret-key",
-                    "FLATPEAK_API_KEY": "test-flatpeak",
-                    "NREL_API_KEY": "test-nrel",
-                }):
+                with patch.dict(
+                    os.environ,
+                    {
+                        "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                        "JWT_SECRET": "test-secret-key",
+                        "FLATPEAK_API_KEY": "test-flatpeak",
+                        "NREL_API_KEY": "test-nrel",
+                    },
+                ):
                     settings = Settings()
                     assert settings.environment == "development"
 
@@ -83,12 +97,15 @@ class TestSettings:
         """Test database URL is properly formatted"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://user:pass@host:5432/db",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://user:pass@host:5432/db",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+            },
+        ):
             settings = Settings()
             assert settings.database_url.startswith("postgresql://")
 
@@ -96,13 +113,16 @@ class TestSettings:
         """Test CORS origins can be parsed from JSON string"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-            "CORS_ORIGINS": '["http://localhost:3000","http://localhost:8000","https://app.example.com"]'
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+                "CORS_ORIGINS": '["http://localhost:3000","http://localhost:8000","https://app.example.com"]',
+            },
+        ):
             settings = Settings()
 
             assert len(settings.cors_origins) == 3
@@ -113,17 +133,20 @@ class TestSettings:
         """Test is_production property works correctly"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key-that-is-at-least-32-chars-long-for-production",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-            "ENVIRONMENT": "production",
-            "FIELD_ENCRYPTION_KEY": "a" * 64,
-            "INTERNAL_API_KEY": "a" * 64,
-            "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
-            "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key-that-is-at-least-32-chars-long-for-production",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+                "ENVIRONMENT": "production",
+                "FIELD_ENCRYPTION_KEY": "a" * 64,
+                "INTERNAL_API_KEY": "a" * 64,
+                "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
+                "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
+            },
+        ):
             settings = Settings()
 
             assert settings.is_production is True
@@ -133,13 +156,16 @@ class TestSettings:
         """Test is_development property works correctly"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-            "ENVIRONMENT": "development"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+                "ENVIRONMENT": "development",
+            },
+        ):
             settings = Settings()
 
             assert settings.is_development is True
@@ -149,12 +175,15 @@ class TestSettings:
         """Test API prefix has correct default"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+            },
+        ):
             settings = Settings()
 
             assert settings.api_prefix == "/api/v1"
@@ -163,12 +192,15 @@ class TestSettings:
         """Test rate limit defaults are sensible"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+            },
+        ):
             settings = Settings()
 
             assert settings.rate_limit_per_minute == 100
@@ -178,12 +210,15 @@ class TestSettings:
         """Test ML model config defaults"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+            },
+        ):
             settings = Settings()
 
             assert settings.model_forecast_hours == 24
@@ -194,14 +229,17 @@ class TestSettings:
         """Test GDPR compliance settings"""
         from config.settings import Settings
 
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-            "JWT_SECRET": "test-secret-key",
-            "FLATPEAK_API_KEY": "test-flatpeak",
-            "NREL_API_KEY": "test-nrel",
-            "DATA_RETENTION_DAYS": "365",
-            "DATA_RESIDENCY": "UK"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "JWT_SECRET": "test-secret-key",
+                "FLATPEAK_API_KEY": "test-flatpeak",
+                "NREL_API_KEY": "test-nrel",
+                "DATA_RETENTION_DAYS": "365",
+                "DATA_RESIDENCY": "UK",
+            },
+        ):
             settings = Settings()
 
             assert settings.data_retention_days == 365

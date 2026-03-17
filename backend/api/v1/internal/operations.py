@@ -29,9 +29,7 @@ router = APIRouter()
 class FlagUpdateBody(BaseModel):
     enabled: Optional[bool] = Field(None, description="Enable or disable the flag")
     tier_required: Optional[str] = Field(None, description="Minimum subscription tier required")
-    percentage: Optional[int] = Field(
-        None, ge=0, le=100, description="Rollout percentage (0-100)"
-    )
+    percentage: Optional[int] = Field(None, ge=0, le=100, description="Rollout percentage (0-100)")
 
 
 # ---------------------------------------------------------------------------
@@ -146,22 +144,19 @@ async def data_health_check(
     _HEALTH_TABLES = frozenset(t[0] for t in tables)
     _HEALTH_COLS = frozenset(t[1] for t in tables)
     for table_name, ts_col in tables:
-        assert table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS, \
-            f"Unexpected health check identifier: {table_name}.{ts_col}"
+        assert (
+            table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS
+        ), f"Unexpected health check identifier: {table_name}.{ts_col}"
 
     health = {}
     for table_name, ts_col in tables:
         try:
-            count_result = await db.execute(
-                text(f"SELECT COUNT(*) FROM {table_name}")
-            )
+            count_result = await db.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
             count = count_result.scalar() or 0
 
             last_write = None
             if count > 0:
-                ts_result = await db.execute(
-                    text(f"SELECT MAX({ts_col}) FROM {table_name}")
-                )
+                ts_result = await db.execute(text(f"SELECT MAX({ts_col}) FROM {table_name}"))
                 last_write_val = ts_result.scalar()
                 if last_write_val:
                     last_write = str(last_write_val)
@@ -175,7 +170,8 @@ async def data_health_check(
 
     # Flag critical tables that should not be empty
     critical_empty = [
-        t for t in ["electricity_prices", "supplier_registry", "weather_cache"]
+        t
+        for t in ["electricity_prices", "supplier_registry", "weather_cache"]
         if health.get(t, {}).get("count", 0) == 0
     ]
 

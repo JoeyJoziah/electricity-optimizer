@@ -15,15 +15,14 @@ Covers:
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 from uuid import uuid4
 
 import pytest
 
-from services.community_service import CommunityService, REPORT_HIDE_THRESHOLD
-
+from services.community_service import REPORT_HIDE_THRESHOLD, CommunityService
 
 # =============================================================================
 # Fixtures
@@ -41,6 +40,7 @@ def mock_db():
 
 class _AgentServiceStub:
     """Stub that only has classify_content (not classify_content_groq/gemini)."""
+
     pass
 
 
@@ -92,7 +92,9 @@ def sample_rate_report_data():
 
 class TestCreatePost:
     @pytest.mark.asyncio
-    async def test_create_post_success(self, service, mock_db, mock_agent_service, sample_post_data):
+    async def test_create_post_success(
+        self, service, mock_db, mock_agent_service, sample_post_data
+    ):
         """create_post returns a post with UUID id and is_pending_moderation=true."""
         user_id = str(uuid4())
 
@@ -142,7 +144,7 @@ class TestCreatePost:
 
         user_id = str(uuid4())
         xss_title = '<script>alert("xss")</script>My Great Tip'
-        xss_body = 'Check this out <img src=x onerror=alert(1)> really useful tip for saving money on electricity.'
+        xss_body = "Check this out <img src=x onerror=alert(1)> really useful tip for saving money on electricity."
 
         data = {
             "title": xss_title,
@@ -200,7 +202,9 @@ class TestCreatePost:
         assert sanitized_body == nh3.clean(xss_body)
 
     @pytest.mark.asyncio
-    async def test_create_post_triggers_moderation(self, service, mock_db, mock_agent_service, sample_post_data):
+    async def test_create_post_triggers_moderation(
+        self, service, mock_db, mock_agent_service, sample_post_data
+    ):
         """create_post should call classify_content on the agent service."""
         user_id = str(uuid4())
 
@@ -233,7 +237,9 @@ class TestCreatePost:
         mock_agent_service.classify_content.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_post_fail_closed(self, service, mock_db, mock_agent_service, sample_post_data):
+    async def test_create_post_fail_closed(
+        self, service, mock_db, mock_agent_service, sample_post_data
+    ):
         """Post starts as is_pending_moderation=true until AI classifies it."""
         user_id = str(uuid4())
         post_id = str(uuid4())
@@ -346,7 +352,9 @@ class TestListPosts:
 
         mock_db.execute = AsyncMock(return_value=list_result)
 
-        result = await service.list_posts(mock_db, region="us_ct", utility_type="electricity", page=1, per_page=10)
+        result = await service.list_posts(
+            mock_db, region="us_ct", utility_type="electricity", page=1, per_page=10
+        )
 
         assert result["total"] == 3
         assert len(result["items"]) == 3
@@ -362,7 +370,9 @@ class TestListPosts:
 
         mock_db.execute = AsyncMock(return_value=list_result)
 
-        result = await service.list_posts(mock_db, region="us_ny", utility_type="natural_gas", page=1, per_page=10)
+        result = await service.list_posts(
+            mock_db, region="us_ny", utility_type="natural_gas", page=1, per_page=10
+        )
 
         assert result["total"] == 0
         assert result["items"] == []
@@ -377,7 +387,9 @@ class TestListPosts:
 
         mock_db.execute = AsyncMock(return_value=list_result)
 
-        result = await service.list_posts(mock_db, region="us_ct", utility_type="electricity", page=5, per_page=10)
+        result = await service.list_posts(
+            mock_db, region="us_ct", utility_type="electricity", page=5, per_page=10
+        )
 
         assert result["items"] == []
         assert result["total"] == 0
@@ -531,9 +543,7 @@ class TestModeratePost:
 
         # Agent with both groq and gemini methods
         mock_agent = _AgentServiceStub()
-        mock_agent.classify_content_groq = AsyncMock(
-            side_effect=Exception("429 Too Many Requests")
-        )
+        mock_agent.classify_content_groq = AsyncMock(side_effect=Exception("429 Too Many Requests"))
         mock_agent.classify_content_gemini = AsyncMock(return_value="safe")
 
         self._mock_post_select(mock_db, post_id)
@@ -550,12 +560,8 @@ class TestModeratePost:
         post_id = str(uuid4())
 
         mock_agent = _AgentServiceStub()
-        mock_agent.classify_content_groq = AsyncMock(
-            side_effect=Exception("429 Too Many Requests")
-        )
-        mock_agent.classify_content_gemini = AsyncMock(
-            side_effect=asyncio.TimeoutError
-        )
+        mock_agent.classify_content_groq = AsyncMock(side_effect=Exception("429 Too Many Requests"))
+        mock_agent.classify_content_gemini = AsyncMock(side_effect=asyncio.TimeoutError)
 
         # SELECT returns post, then UPDATE for clearing pending
         select_result = MagicMock()
@@ -648,7 +654,9 @@ class TestEditAndResubmit:
             "body": "Edited body with better content that passes moderation guidelines.",
         }
 
-        result = await service.edit_and_resubmit(mock_db, user_id, post_id, edit_data, mock_agent_service)
+        result = await service.edit_and_resubmit(
+            mock_db, user_id, post_id, edit_data, mock_agent_service
+        )
 
         assert result["is_pending_moderation"] is True
         assert result["is_hidden"] is False

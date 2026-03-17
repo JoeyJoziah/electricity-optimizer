@@ -16,7 +16,7 @@ Notification routing:
     to direct EmailService delivery so existing callers are unaffected.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import uuid4
@@ -25,9 +25,9 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.email_service import EmailService
-from services.alert_renderer import AlertRenderer
 from lib.tracing import traced
+from services.alert_renderer import AlertRenderer
+from services.email_service import EmailService
 
 if TYPE_CHECKING:
     from services.notification_dispatcher import NotificationDispatcher
@@ -206,9 +206,7 @@ class AlertService:
         window_end_price = forecast_prices[best_start + window_hours - 1]
 
         # Calculate average price across all hours for savings estimate
-        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(
-            forecast_prices
-        )
+        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(forecast_prices)
         estimated_savings = (all_avg - best_avg) * window_hours
 
         triggered = []
@@ -281,7 +279,11 @@ class AlertService:
                                 type="price_alert",
                                 title=subject,
                                 body=f"Current price: ${alert.current_price}/kWh"
-                                     + (f" (threshold: ${alert.threshold}/kWh)" if alert.threshold else ""),
+                                + (
+                                    f" (threshold: ${alert.threshold}/kWh)"
+                                    if alert.threshold
+                                    else ""
+                                ),
                                 channels=[
                                     NotificationChannel.IN_APP,
                                     NotificationChannel.PUSH,
@@ -462,7 +464,7 @@ class AlertService:
 
             # Process in chunks to prevent unbounded query size
             for chunk_start in range(0, len(tuples), BATCH_SIZE):
-                chunk = tuples[chunk_start:chunk_start + BATCH_SIZE]
+                chunk = tuples[chunk_start : chunk_start + BATCH_SIZE]
                 params: dict = {"cutoff": cutoff}
                 value_clauses = []
                 for i, (uid, atype, reg) in enumerate(chunk):
@@ -542,8 +544,12 @@ class AlertService:
                 "email": row["email"],
                 "region": row["region"],
                 "currency": row["currency"],
-                "price_below": Decimal(str(row["price_below"])) if row["price_below"] is not None else None,
-                "price_above": Decimal(str(row["price_above"])) if row["price_above"] is not None else None,
+                "price_below": (
+                    Decimal(str(row["price_below"])) if row["price_below"] is not None else None
+                ),
+                "price_above": (
+                    Decimal(str(row["price_above"])) if row["price_above"] is not None else None
+                ),
                 "notify_optimal_windows": row["notify_optimal_windows"],
                 "notification_frequency": row["notification_frequency"] or "daily",
             }
@@ -675,7 +681,9 @@ class AlertService:
                         notify_optimal_windows is specified.
             PermissionError: If free-tier limit (1 alert) is exceeded.
         """
-        async with traced("alert.create", attributes={"alert.type": alert_type, "alert.region": region}):
+        async with traced(
+            "alert.create", attributes={"alert.type": alert_type, "alert.region": region}
+        ):
             # Resolve threshold into price_below/price_above based on alert_type
             if threshold is not None:
                 if alert_type == "price_drop" and price_below is None:
@@ -695,10 +703,7 @@ class AlertService:
             # Atomic free-tier limit enforcement: lock user row then count alerts
             # within the same transaction to prevent race conditions.
             tier_result = await db.execute(
-                text(
-                    "SELECT subscription_tier FROM public.users"
-                    " WHERE id = :id FOR UPDATE"
-                ),
+                text("SELECT subscription_tier FROM public.users" " WHERE id = :id FOR UPDATE"),
                 {"id": user_id},
             )
             user_tier = tier_result.scalar_one_or_none() or "free"
@@ -766,8 +771,12 @@ class AlertService:
             Updated alert dict, or None if the alert was not found / not owned.
         """
         allowed_fields = {
-            "region", "currency", "price_below", "price_above",
-            "notify_optimal_windows", "is_active",
+            "region",
+            "currency",
+            "price_below",
+            "price_above",
+            "notify_optimal_windows",
+            "is_active",
         }
         filtered = {k: v for k, v in updates.items() if k in allowed_fields}
         if not filtered:
@@ -929,9 +938,7 @@ class AlertService:
         return {
             "id": str(row["id"]),
             "user_id": str(row["user_id"]),
-            "alert_config_id": (
-                str(row["alert_config_id"]) if row["alert_config_id"] else None
-            ),
+            "alert_config_id": (str(row["alert_config_id"]) if row["alert_config_id"] else None),
             "alert_type": row["alert_type"],
             "current_price": float(row["current_price"]),
             "threshold": float(row["threshold"]) if row["threshold"] is not None else None,
@@ -939,20 +946,14 @@ class AlertService:
             "supplier": row["supplier"],
             "currency": row["currency"],
             "optimal_window_start": (
-                row["optimal_window_start"].isoformat()
-                if row.get("optimal_window_start")
-                else None
+                row["optimal_window_start"].isoformat() if row.get("optimal_window_start") else None
             ),
             "optimal_window_end": (
-                row["optimal_window_end"].isoformat()
-                if row.get("optimal_window_end")
-                else None
+                row["optimal_window_end"].isoformat() if row.get("optimal_window_end") else None
             ),
             "estimated_savings": (
                 float(row["estimated_savings"]) if row["estimated_savings"] is not None else None
             ),
-            "triggered_at": (
-                row["triggered_at"].isoformat() if row.get("triggered_at") else None
-            ),
+            "triggered_at": (row["triggered_at"].isoformat() if row.get("triggered_at") else None),
             "email_sent": row["email_sent"],
         }

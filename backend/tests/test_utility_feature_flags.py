@@ -11,7 +11,6 @@ import pytest
 
 from services.feature_flag_service import FeatureFlagService
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -171,18 +170,14 @@ class TestUtilityFlagPercentageRollout:
         db = _mock_db()
         db.execute.return_value = _enabled_row(percentage=0)
         svc = FeatureFlagService(db)
-        assert await svc.is_enabled(
-            "utility_electricity", user_id="test-user"
-        ) is False
+        assert await svc.is_enabled("utility_electricity", user_id="test-user") is False
 
     @pytest.mark.asyncio
     async def test_hundred_percent_allows_all(self):
         db = _mock_db()
         db.execute.return_value = _enabled_row(percentage=100)
         svc = FeatureFlagService(db)
-        assert await svc.is_enabled(
-            "utility_electricity", user_id="test-user"
-        ) is True
+        assert await svc.is_enabled("utility_electricity", user_id="test-user") is True
 
     @pytest.mark.asyncio
     async def test_rollout_is_deterministic(self):
@@ -191,11 +186,7 @@ class TestUtilityFlagPercentageRollout:
         db.execute.return_value = _enabled_row(percentage=50)
         svc = FeatureFlagService(db)
 
-        first = await svc.is_enabled(
-            "utility_propane", user_id="deterministic-user"
-        )
+        first = await svc.is_enabled("utility_propane", user_id="deterministic-user")
         db.execute.return_value = _enabled_row(percentage=50)
-        second = await svc.is_enabled(
-            "utility_propane", user_id="deterministic-user"
-        )
+        second = await svc.is_enabled("utility_propane", user_id="deterministic-user")
         assert first == second

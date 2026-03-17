@@ -25,12 +25,12 @@ async def run_dunning_cycle(
 
     Protected by the router-level X-API-Key dependency.
     """
+    from repositories.user_repository import UserRepository
     from services.dunning_service import DunningService
+    from services.email_service import EmailService
     from services.notification_dispatcher import NotificationDispatcher
     from services.notification_service import NotificationService
     from services.push_notification_service import PushNotificationService
-    from services.email_service import EmailService
-    from repositories.user_repository import UserRepository
 
     # Build a NotificationDispatcher so dunning notifications reach all channels.
     try:

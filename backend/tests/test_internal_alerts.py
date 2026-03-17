@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -94,6 +93,7 @@ class TestCheckAlerts:
         notification_frequency="daily",
     ):
         from decimal import Decimal
+
         return {
             "id": "cfg-1",
             "user_id": user_id,
@@ -112,9 +112,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_no_active_configs_returns_zeros(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_no_active_configs_returns_zeros(self, mock_repo_cls, mock_svc_cls, auth_client):
         """When there are no active alert configs the endpoint returns all zeros."""
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[])
@@ -132,13 +130,12 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_alert_triggered_and_sent(
-        self, mock_repo_cls, mock_svc_cls, auth_client, mock_db
-    ):
+    def test_alert_triggered_and_sent(self, mock_repo_cls, mock_svc_cls, auth_client, mock_db):
         """A triggered alert that passes dedup should be sent and recorded."""
-        from decimal import Decimal
-        from services.alert_service import AlertThreshold, PriceAlert
         from datetime import datetime, timezone
+        from decimal import Decimal
+
+        from services.alert_service import AlertThreshold, PriceAlert
 
         cfg = self._make_config(price_below=0.25, notification_frequency="immediate")
 
@@ -169,7 +166,9 @@ class TestCheckAlerts:
         mock_svc_cls.return_value = mock_svc
 
         mock_repo = MagicMock()
-        mock_repo.list = AsyncMock(return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))])
+        mock_repo.list = AsyncMock(
+            return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))]
+        )
         mock_repo_cls.return_value = mock_repo
 
         response = auth_client.post(f"{BASE_URL}/check-alerts")
@@ -189,13 +188,12 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_alert_deduplicated(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_alert_deduplicated(self, mock_repo_cls, mock_svc_cls, auth_client):
         """When _should_send_alert returns False the alert must be deduplicated."""
-        from decimal import Decimal
-        from services.alert_service import AlertThreshold, PriceAlert
         from datetime import datetime, timezone
+        from decimal import Decimal
+
+        from services.alert_service import AlertThreshold, PriceAlert
 
         cfg = self._make_config(price_below=0.25, notification_frequency="daily")
 
@@ -228,7 +226,9 @@ class TestCheckAlerts:
         mock_svc_cls.return_value = mock_svc
 
         mock_repo = MagicMock()
-        mock_repo.list = AsyncMock(return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))])
+        mock_repo.list = AsyncMock(
+            return_value=[MagicMock(region="us_ct", price_per_kwh=Decimal("0.20"))]
+        )
         mock_repo_cls.return_value = mock_repo
 
         response = auth_client.post(f"{BASE_URL}/check-alerts")
@@ -250,9 +250,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_no_prices_returns_zero_triggered(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_no_prices_returns_zero_triggered(self, mock_repo_cls, mock_svc_cls, auth_client):
         """When the price repo returns empty lists, no alerts are triggered."""
         cfg = self._make_config(price_below=0.25)
 
@@ -282,9 +280,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_price_fetch_error_is_tolerated(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_price_fetch_error_is_tolerated(self, mock_repo_cls, mock_svc_cls, auth_client):
         """A price fetch error for a region should be logged and skipped, not 500."""
         cfg = self._make_config(region="us_ct")
 
@@ -313,9 +309,7 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_service_exception_returns_500(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_service_exception_returns_500(self, mock_repo_cls, mock_svc_cls, auth_client):
         """An unhandled exception inside get_active_alert_configs should return 500."""
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(
@@ -345,18 +339,20 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_mixed_dedup_outcomes(
-        self, mock_repo_cls, mock_svc_cls, auth_client
-    ):
+    def test_mixed_dedup_outcomes(self, mock_repo_cls, mock_svc_cls, auth_client):
         """2 triggered alerts: 1 sent, 1 deduplicated — counts must match."""
-        from decimal import Decimal
-        from services.alert_service import AlertThreshold, PriceAlert
         from datetime import datetime, timezone
+        from decimal import Decimal
+
+        from services.alert_service import AlertThreshold, PriceAlert
 
         def _threshold(uid, email):
             return AlertThreshold(
-                user_id=uid, email=email,
-                price_below=Decimal("0.25"), region="us_ct", currency="USD",
+                user_id=uid,
+                email=email,
+                price_below=Decimal("0.25"),
+                region="us_ct",
+                currency="USD",
             )
 
         def _alert(uid):
@@ -372,8 +368,18 @@ class TestCheckAlerts:
         t1, a1 = _threshold("user-1", "a@example.com"), _alert("user-1")
         t2, a2 = _threshold("user-2", "b@example.com"), _alert("user-2")
 
-        cfg1 = self._make_config(user_id="user-1", email="a@example.com", price_below=0.25, notification_frequency="daily")
-        cfg2 = self._make_config(user_id="user-2", email="b@example.com", price_below=0.25, notification_frequency="weekly")
+        cfg1 = self._make_config(
+            user_id="user-1",
+            email="a@example.com",
+            price_below=0.25,
+            notification_frequency="daily",
+        )
+        cfg2 = self._make_config(
+            user_id="user-2",
+            email="b@example.com",
+            price_below=0.25,
+            notification_frequency="weekly",
+        )
         cfg1["id"] = "cfg-1"
         cfg2["id"] = "cfg-2"
 

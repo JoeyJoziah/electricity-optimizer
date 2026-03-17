@@ -5,12 +5,12 @@ Manages community solar program discovery, savings estimation,
 and enrollment status for the community solar marketplace.
 """
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.region import COMMUNITY_SOLAR_STATES
 
@@ -138,12 +138,8 @@ class CommunitySolarService:
         monthly_savings = (monthly_bill * savings_rate).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
-        annual_savings = (monthly_savings * 12).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        five_year_savings = (annual_savings * 5).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        annual_savings = (monthly_savings * 12).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        five_year_savings = (annual_savings * 5).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         new_monthly_bill = (monthly_bill - monthly_savings).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
@@ -159,14 +155,12 @@ class CommunitySolarService:
 
     async def get_state_program_count(self) -> dict:
         """Get count of open community solar programs per state."""
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT state, COUNT(*) as program_count
                 FROM community_solar_programs
                 WHERE enrollment_status IN ('open', 'waitlist')
                 GROUP BY state
                 ORDER BY program_count DESC
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return {r["state"]: r["program_count"] for r in rows}

@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -195,10 +194,14 @@ class TestLearnCycle:
     @patch("services.learning_service.LearningService")
     @patch("services.hnsw_vector_store.HNSWVectorStore")
     @patch("services.observation_service.ObservationService")
-    def test_learn_custom_regions_and_days(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
+    def test_learn_custom_regions_and_days(
+        self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client
+    ):
         """Learn with custom regions and days should pass them through."""
         mock_learner = MagicMock()
-        mock_learner.run_full_cycle = AsyncMock(return_value={"regions_processed": ["US_CT", "US_TX"]})
+        mock_learner.run_full_cycle = AsyncMock(
+            return_value={"regions_processed": ["US_CT", "US_TX"]}
+        )
         mock_learner_cls.return_value = mock_learner
 
         response = auth_client.post(
@@ -221,9 +224,7 @@ class TestLearnCycle:
     def test_learn_service_error(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
         """Service exception during learning should return 500."""
         mock_learner = MagicMock()
-        mock_learner.run_full_cycle = AsyncMock(
-            side_effect=RuntimeError("Redis unavailable")
-        )
+        mock_learner.run_full_cycle = AsyncMock(side_effect=RuntimeError("Redis unavailable"))
         mock_learner_cls.return_value = mock_learner
 
         response = auth_client.post(f"{BASE_URL}/learn")
@@ -267,15 +268,16 @@ class TestObservationStats:
     def test_stats_happy_path(self, mock_obs_cls, auth_client):
         """Stats with defaults should return accuracy and hourly_bias."""
         mock_obs = MagicMock()
-        mock_obs.get_forecast_accuracy = AsyncMock(return_value={
-            "mape": 0.08,
-            "rmse": 0.012,
-            "sample_size": 168,
-        })
-        mock_obs.get_hourly_bias = AsyncMock(return_value={
-            str(h): round(0.002 * (h - 12), 4)
-            for h in range(24)
-        })
+        mock_obs.get_forecast_accuracy = AsyncMock(
+            return_value={
+                "mape": 0.08,
+                "rmse": 0.012,
+                "sample_size": 168,
+            }
+        )
+        mock_obs.get_hourly_bias = AsyncMock(
+            return_value={str(h): round(0.002 * (h - 12), 4) for h in range(24)}
+        )
         mock_obs_cls.return_value = mock_obs
 
         response = auth_client.get(f"{BASE_URL}/observation-stats")
@@ -314,9 +316,7 @@ class TestObservationStats:
     def test_stats_service_error(self, mock_obs_cls, auth_client):
         """Service exception during stats should return 500."""
         mock_obs = MagicMock()
-        mock_obs.get_forecast_accuracy = AsyncMock(
-            side_effect=RuntimeError("Query timeout")
-        )
+        mock_obs.get_forecast_accuracy = AsyncMock(side_effect=RuntimeError("Query timeout"))
         mock_obs_cls.return_value = mock_obs
 
         response = auth_client.get(f"{BASE_URL}/observation-stats")

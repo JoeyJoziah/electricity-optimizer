@@ -4,15 +4,13 @@ Referrals API Router
 Endpoints for referral code management and user growth.
 """
 
-from pydantic import BaseModel, Field
-
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-from services.referral_service import ReferralService, ReferralError
-
-import structlog
+from api.dependencies import SessionData, get_current_user, get_db_session
+from services.referral_service import ReferralError, ReferralService
 
 logger = structlog.get_logger()
 

@@ -14,7 +14,7 @@ Notification routing:
     the service falls back to direct EmailService delivery.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import uuid4
 
@@ -207,9 +207,13 @@ class DunningService:
                         type="dunning",
                         title=subject,
                         body=(
-                            f"Payment of {currency} {amount:.2f} could not be processed. "
-                            "Please update your payment method."
-                        ) if amount else subject,
+                            (
+                                f"Payment of {currency} {amount:.2f} could not be processed. "
+                                "Please update your payment method."
+                            )
+                            if amount
+                            else subject
+                        ),
                         channels=[
                             NotificationChannel.EMAIL,
                             NotificationChannel.PUSH,

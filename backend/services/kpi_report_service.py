@@ -40,8 +40,7 @@ class KPIReportService:
             weather_freshness_hours
         """
         # Single CTE query for all scalar metrics (was 5 sequential queries)
-        scalars = await self._db.execute(
-            text("""
+        scalars = await self._db.execute(text("""
                 WITH active AS (
                     SELECT COUNT(DISTINCT "userId") AS val
                     FROM neon_auth.session
@@ -68,8 +67,7 @@ class KPIReportService:
                     (SELECT val FROM prices) AS prices_tracked,
                     (SELECT val FROM alerts) AS alerts_sent_today,
                     (SELECT val FROM freshness) AS weather_freshness
-            """)
-        )
+            """))
         row = scalars.mappings().one()
 
         # Two lightweight GROUP BY queries (breakdown results need row iteration)
@@ -91,25 +89,21 @@ class KPIReportService:
         }
 
     async def _connection_status_breakdown(self) -> Dict[str, int]:
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT status, COUNT(*) AS cnt
                 FROM user_connections
                 GROUP BY status
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return {row["status"]: row["cnt"] for row in rows}
 
     async def _subscription_breakdown(self) -> Dict[str, int]:
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT COALESCE(subscription_tier, 'free') AS tier, COUNT(*) AS cnt
                 FROM users
                 WHERE is_active = TRUE
                 GROUP BY subscription_tier
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return {row["tier"]: row["cnt"] for row in rows}
 
@@ -118,4 +112,3 @@ class KPIReportService:
         pro_count = subscriptions.get("pro", 0)
         business_count = subscriptions.get("business", 0)
         return round(pro_count * 4.99 + business_count * 14.99, 2)
-

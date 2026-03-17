@@ -5,12 +5,12 @@ Provides token bucket and sliding window rate limiting for API calls.
 Supports both in-memory and Redis-backed rate limiting for distributed systems.
 """
 
+import asyncio
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
-import asyncio
-import time
 
 import structlog
 
@@ -158,10 +158,7 @@ class TokenBucketLimiter(RateLimiter):
         """Refill tokens based on elapsed time"""
         now = time.monotonic()
         elapsed = now - bucket["last_update"]
-        bucket["tokens"] = min(
-            self.capacity,
-            bucket["tokens"] + (elapsed * self.rate)
-        )
+        bucket["tokens"] = min(self.capacity, bucket["tokens"] + (elapsed * self.rate))
         bucket["last_update"] = now
 
     async def acquire(self, key: str = "default", tokens: int = 1) -> bool:
@@ -295,7 +292,8 @@ class SlidingWindowLimiter(RateLimiter):
         # Periodic sweep: evict stale *other* keys when the dict is too large.
         if len(self._windows) >= self._MAX_KEYS:
             stale = [
-                k for k, timestamps in self._windows.items()
+                k
+                for k, timestamps in self._windows.items()
                 if k != key and (not timestamps or timestamps[-1] <= cutoff)
             ]
             for k in stale:
@@ -484,12 +482,12 @@ class RedisRateLimiter(RateLimiter):
 
         result = await self.redis.eval(
             _REDIS_RATE_LIMIT_LUA,
-            1,                          # numkeys
-            redis_key,                  # KEYS[1]
-            now,                        # ARGV[1]
-            int(self.window_seconds),   # ARGV[2]
-            self.requests_per_window,   # ARGV[3]
-            tokens,                     # ARGV[4]
+            1,  # numkeys
+            redis_key,  # KEYS[1]
+            now,  # ARGV[1]
+            int(self.window_seconds),  # ARGV[2]
+            self.requests_per_window,  # ARGV[3]
+            tokens,  # ARGV[4]
         )
 
         allowed = bool(int(result[0]))

@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -101,17 +100,19 @@ class TestDunningCycle:
     def test_happy_path_with_overdue(self, mock_repo_cls, mock_svc_cls, auth_client):
         """Overdue accounts should be emailed and escalated."""
         mock_svc = MagicMock()
-        mock_svc.get_overdue_accounts = AsyncMock(return_value=[
-            {
-                "user_id": "user-1",
-                "email": "test@example.com",
-                "name": "Test",
-                "retry_count": 3,
-                "amount_owed": 4.99,
-                "currency": "USD",
-                "subscription_tier": "pro",
-            },
-        ])
+        mock_svc.get_overdue_accounts = AsyncMock(
+            return_value=[
+                {
+                    "user_id": "user-1",
+                    "email": "test@example.com",
+                    "name": "Test",
+                    "retry_count": 3,
+                    "amount_owed": 4.99,
+                    "currency": "USD",
+                    "subscription_tier": "pro",
+                },
+            ]
+        )
         mock_svc.send_dunning_email = AsyncMock(return_value=True)
         mock_svc.escalate_if_needed = AsyncMock(return_value="downgraded_to_free")
         mock_svc_cls.return_value = mock_svc
@@ -129,9 +130,7 @@ class TestDunningCycle:
     def test_service_error(self, mock_repo_cls, mock_svc_cls, auth_client):
         """Service exception should return 500."""
         mock_svc = MagicMock()
-        mock_svc.get_overdue_accounts = AsyncMock(
-            side_effect=RuntimeError("DB error")
-        )
+        mock_svc.get_overdue_accounts = AsyncMock(side_effect=RuntimeError("DB error"))
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/dunning-cycle")

@@ -17,10 +17,9 @@ Covers:
 
 import json
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-
 
 # =============================================================================
 # Helpers / fixtures
@@ -66,6 +65,7 @@ def mock_db():
 @pytest.fixture
 def repo(mock_db):
     from repositories.model_config_repository import ModelConfigRepository
+
     return ModelConfigRepository(mock_db)
 
 
@@ -144,7 +144,11 @@ class TestSaveConfig:
     @pytest.mark.asyncio
     async def test_returns_model_config_with_correct_fields(self, repo, mock_db):
         """Should return a ModelConfig with the provided values."""
-        weights = {"cnn_lstm": {"weight": 0.5}, "xgboost": {"weight": 0.25}, "lightgbm": {"weight": 0.25}}
+        weights = {
+            "cnn_lstm": {"weight": 0.5},
+            "xgboost": {"weight": 0.25},
+            "lightgbm": {"weight": 0.25},
+        }
         result = await repo.save_config(
             model_name="ensemble",
             version="v3.0",
@@ -193,14 +197,13 @@ class TestSaveConfig:
     async def test_returns_uuid_id(self, repo, mock_db):
         """The returned ModelConfig should have a non-empty UUID id."""
         import re
+
         result = await repo.save_config(
             model_name="ensemble",
             version="v1.0",
             weights={"cnn_lstm": {"weight": 1.0}},
         )
-        uuid_pattern = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_pattern.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     @pytest.mark.asyncio
@@ -471,7 +474,11 @@ class TestWeightVersioning:
     @pytest.mark.asyncio
     async def test_weights_json_serialised_as_json_string_in_insert(self, repo, mock_db):
         """weights_json must be serialised to a JSON string for the INSERT."""
-        weights = {"cnn_lstm": {"weight": 0.5}, "xgboost": {"weight": 0.25}, "lightgbm": {"weight": 0.25}}
+        weights = {
+            "cnn_lstm": {"weight": 0.5},
+            "xgboost": {"weight": 0.25},
+            "lightgbm": {"weight": 0.25},
+        }
         await repo.save_config(
             model_name="ensemble",
             version="v1.0",
@@ -516,9 +523,11 @@ class TestLearningServiceDbPersistence:
         """update_ensemble_weights should call save_config when db_session is provided."""
         mock_db = AsyncMock()
         service, mock_obs, _ = self._make_service(mock_db)
-        mock_obs.get_model_accuracy_by_version = AsyncMock(return_value=[
-            {"model_version": "v2.1", "mape": 5.0, "count": 50},
-        ])
+        mock_obs.get_model_accuracy_by_version = AsyncMock(
+            return_value=[
+                {"model_version": "v2.1", "mape": 5.0, "count": 50},
+            ]
+        )
 
         MockRepo = MagicMock()
         instance = MockRepo.return_value
@@ -535,9 +544,11 @@ class TestLearningServiceDbPersistence:
     async def test_update_ensemble_weights_no_db_still_returns_weights(self):
         """update_ensemble_weights should work fine when db_session is None."""
         service, mock_obs, _ = self._make_service(mock_db=None)
-        mock_obs.get_model_accuracy_by_version = AsyncMock(return_value=[
-            {"model_version": "v2.1", "mape": 5.0, "count": 50},
-        ])
+        mock_obs.get_model_accuracy_by_version = AsyncMock(
+            return_value=[
+                {"model_version": "v2.1", "mape": 5.0, "count": 50},
+            ]
+        )
 
         result = await service.update_ensemble_weights("US")
 
@@ -551,12 +562,19 @@ class TestLearningServiceDbPersistence:
         mock_db.execute.side_effect = Exception("DB unavailable")
         mock_db.rollback = AsyncMock()
         service, mock_obs, _ = self._make_service(mock_db)
-        mock_obs.get_model_accuracy_by_version = AsyncMock(return_value=[
-            {"model_version": "v2.1", "mape": 5.0, "count": 50},
-        ])
-        mock_obs.get_forecast_accuracy = AsyncMock(return_value={
-            "total": 50, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
-        })
+        mock_obs.get_model_accuracy_by_version = AsyncMock(
+            return_value=[
+                {"model_version": "v2.1", "mape": 5.0, "count": 50},
+            ]
+        )
+        mock_obs.get_forecast_accuracy = AsyncMock(
+            return_value={
+                "total": 50,
+                "mape": 5.0,
+                "rmse": 0.01,
+                "coverage": 90.0,
+            }
+        )
         mock_obs.get_hourly_bias = AsyncMock(return_value=[])
 
         # Should not raise even though DB is broken
@@ -567,8 +585,8 @@ class TestLearningServiceDbPersistence:
     @pytest.mark.asyncio
     async def test_load_weights_from_db_returns_weights_json_when_active(self):
         """load_weights_from_db should return the weights_json of the active config."""
-        from services.learning_service import LearningService
         from models.model_config import ModelConfig
+        from services.learning_service import LearningService
 
         mock_db = AsyncMock()
         mock_obs = AsyncMock()
@@ -614,9 +632,7 @@ class TestLearningServiceDbPersistence:
 
         MockRepo = MagicMock()
         instance = MockRepo.return_value
-        instance.get_active_config = AsyncMock(
-            side_effect=Exception("connection reset")
-        )
+        instance.get_active_config = AsyncMock(side_effect=Exception("connection reset"))
         with patch(
             "repositories.model_config_repository.ModelConfigRepository",
             MockRepo,

@@ -6,17 +6,17 @@ and deletion logs.
 """
 
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, ForeignKey, String, Boolean, DateTime, JSON, text
+from sqlalchemy import (JSON, Boolean, Column, DateTime, ForeignKey, String,
+                        text)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from config.database import Base
 from models.consent import ConsentRecord, DeletionLog
-
 
 # =============================================================================
 # SQLAlchemy ORM Models
@@ -167,10 +167,7 @@ class ConsentRepository:
         """
         result = await self.session.execute(
             select(ConsentRecordORM)
-            .where(
-                ConsentRecordORM.user_id == user_id,
-                ConsentRecordORM.purpose == purpose
-            )
+            .where(ConsentRecordORM.user_id == user_id, ConsentRecordORM.purpose == purpose)
             .order_by(ConsentRecordORM.timestamp.desc())
         )
         orm_records = result.scalars().all()
@@ -203,9 +200,7 @@ class ConsentRepository:
                 "WHERE user_id = :uid AND purpose = :purpose "
                 "ORDER BY purpose, timestamp DESC"
             )
-            result = await self.session.execute(
-                query, {"uid": user_id, "purpose": purpose}
-            )
+            result = await self.session.execute(query, {"uid": user_id, "purpose": purpose})
         else:
             query = text(
                 "SELECT DISTINCT ON (purpose) purpose, consent_given "
@@ -233,8 +228,7 @@ class ConsentRepository:
             Number of records deleted
         """
         result = await self.session.execute(
-            text("DELETE FROM consent_records WHERE user_id = :user_id"),
-            {"user_id": user_id}
+            text("DELETE FROM consent_records WHERE user_id = :user_id"), {"user_id": user_id}
         )
 
         return result.rowcount
