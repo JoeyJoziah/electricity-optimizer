@@ -88,7 +88,7 @@ async def send_welcome_email(email: str, name: str, beta_code: str):
             betaCode=beta_code,
         )
 
-        subject = "Welcome to Electricity Optimizer!"
+        subject = "Welcome to RateShift!"
         success = await service.send(to=email, subject=subject, html_body=html_body)
 
         if success:
@@ -165,7 +165,7 @@ async def beta_signup(
 
     return BetaSignupResponse(
         success=True,
-        message="Welcome to Electricity Optimizer! Check your email for next steps.",
+        message="Welcome to RateShift! Check your email for next steps.",
         betaCode=beta_code
     )
 

@@ -7,8 +7,9 @@
  * Uses shared Input component for consistent styling and validation.
  */
 
-import { useState, FormEvent, useMemo } from 'react'
+import { useState, useEffect, FormEvent, useMemo } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Input } from '@/components/ui/input'
 
@@ -46,6 +47,15 @@ function checkPasswordStrength(password: string): PasswordStrength {
 
 export function SignupForm({ onSuccess }: SignupFormProps) {
   const { signUp, signInWithGoogle, signInWithGitHub, isLoading, error, clearError } = useAuth()
+  const searchParams = useSearchParams()
+
+  // Persist ?plan= query param so post-signup flow can surface upgrade prompt
+  useEffect(() => {
+    const plan = searchParams.get('plan')
+    if (plan && (plan === 'pro' || plan === 'business')) {
+      sessionStorage.setItem('signup_plan', plan)
+    }
+  }, [searchParams])
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')

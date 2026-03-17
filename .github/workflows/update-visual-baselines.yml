@@ -1,0 +1,109 @@
+name: Update Visual Regression Baselines
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Playwright project to generate baselines for'
+        required: false
+        default: 'chromium'
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+          - all
+
+concurrency:
+  group: visual-baselines
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  generate-baselines:
+    name: Generate Visual Baselines (${{ inputs.project || 'chromium' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node-env
+
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          if [ "${{ inputs.project }}" = "all" ]; then
+            npx playwright install --with-deps chromium firefox webkit
+          else
+            npx playwright install --with-deps ${{ inputs.project || 'chromium' }}
+          fi
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-
+            nextjs-${{ runner.os }}-
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+        env:
+          NEXT_PUBLIC_API_URL: /api/v1
+
+      - name: Generate visual regression baselines
+        run: |
+          cd frontend
+          PROJECT="${{ inputs.project || 'chromium' }}"
+          if [ "$PROJECT" = "all" ]; then
+            npx playwright test visual-regression --update-snapshots --reporter=list
+          else
+            npx playwright test visual-regression --update-snapshots --project=$PROJECT --reporter=list
+          fi
+        env:
+          CI: true
+
+      - name: Check for new/updated snapshots
+        id: check
+        run: |
+          cd frontend
+          if [ -d "e2e/visual-regression.spec.ts-snapshots" ]; then
+            COUNT=$(find e2e/visual-regression.spec.ts-snapshots -name "*.png" | wc -l | tr -d ' ')
+            echo "snapshot_count=$COUNT" >> "$GITHUB_OUTPUT"
+            echo "Found $COUNT snapshot files"
+            ls -la e2e/visual-regression.spec.ts-snapshots/
+          else
+            echo "snapshot_count=0" >> "$GITHUB_OUTPUT"
+            echo "No snapshots directory created"
+          fi
+
+      - name: Commit baselines
+        if: steps.check.outputs.snapshot_count != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/e2e/visual-regression.spec.ts-snapshots/
+          git diff --staged --quiet || git commit -m "chore(e2e): update visual regression baselines [skip ci]
+
+          Generated ${{ steps.check.outputs.snapshot_count }} baseline screenshots
+          Project: ${{ inputs.project || 'chromium' }}
+          Runner: ubuntu-latest
+
+          Co-Authored-By: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          git push
+
+      - name: Upload baselines as artifact
+        if: always() && steps.check.outputs.snapshot_count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines-${{ inputs.project || 'chromium' }}
+          path: frontend/e2e/visual-regression.spec.ts-snapshots/
+          retention-days: 30

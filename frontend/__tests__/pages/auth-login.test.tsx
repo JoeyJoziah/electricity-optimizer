@@ -14,12 +14,12 @@ describe('LoginPage', () => {
 
   it('renders the app name heading', () => {
     expect(
-      screen.getByRole('heading', { level: 1, name: /electricity optimizer/i })
+      screen.getByRole('heading', { level: 1, name: /rateshift/i })
     ).toBeInTheDocument()
   })
 
   it('renders the subtitle', () => {
-    expect(screen.getByText(/AI-powered electricity price optimization/i)).toBeInTheDocument()
+    expect(screen.getByText(/AI-powered electricity rate optimization/i)).toBeInTheDocument()
   })
 
   it('renders the LoginForm component', () => {

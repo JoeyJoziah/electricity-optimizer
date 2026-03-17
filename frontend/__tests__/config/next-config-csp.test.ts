@@ -10,7 +10,8 @@ describe('next.config.js CSP', () => {
     // Clear module cache to re-evaluate next.config.js
     jest.resetModules()
     // Default to production mode
-    process.env.NODE_ENV = 'production'
+    // NODE_ENV is read-only in TS strict mode — override via Object.defineProperty
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true })
     nextConfig = require('../../next.config.js')
   })
 

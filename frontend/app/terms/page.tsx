@@ -4,7 +4,7 @@ import { Zap } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'Electricity Optimizer terms of service.',
+  description: 'RateShift terms of service.',
 }
 
 export default function TermsPage() {
@@ -14,7 +14,7 @@ export default function TermsPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2">
             <Zap className="h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">Electricity Optimizer</span>
+            <span className="text-xl font-bold text-gray-900">RateShift</span>
           </Link>
         </div>
       </nav>
@@ -26,13 +26,13 @@ export default function TermsPage() {
         <div className="prose prose-gray mt-8 max-w-none">
           <h2 className="text-xl font-semibold text-gray-900 mt-8">1. Acceptance of Terms</h2>
           <p className="mt-3 text-gray-600">
-            By accessing or using Electricity Optimizer, you agree to be bound by these
+            By accessing or using RateShift, you agree to be bound by these
             Terms of Service. If you do not agree, please do not use the service.
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">2. Service Description</h2>
           <p className="mt-3 text-gray-600">
-            Electricity Optimizer provides AI-powered electricity price monitoring, forecasting,
+            RateShift provides AI-powered electricity price monitoring, forecasting,
             and optimization tools for US consumers across all 50 states. Our service uses data from NREL,
             EIA, and other sources to help users make informed decisions about electricity usage.
           </p>
@@ -72,7 +72,7 @@ export default function TermsPage() {
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">8. Limitation of Liability</h2>
           <p className="mt-3 text-gray-600">
-            Electricity Optimizer is provided &quot;as is&quot; without warranty of any kind.
+            RateShift is provided &quot;as is&quot; without warranty of any kind.
             We are not liable for any direct, indirect, incidental, or consequential damages
             arising from use of the service, including any financial decisions made based
             on our data or recommendations.
@@ -95,7 +95,7 @@ export default function TermsPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-blue-600" />
-            <span className="font-semibold text-gray-900">Electricity Optimizer</span>
+            <span className="font-semibold text-gray-900">RateShift</span>
           </div>
           <div className="flex gap-6 text-sm text-gray-600">
             <Link href="/" className="hover:text-gray-900">Home</Link>

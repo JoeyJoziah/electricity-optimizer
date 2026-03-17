@@ -18,6 +18,10 @@ jest.mock('@/lib/hooks/useAuth', () => ({
   }),
 }))
 
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 jest.mock('next/link', () => {
   const MockLink = ({
     children,

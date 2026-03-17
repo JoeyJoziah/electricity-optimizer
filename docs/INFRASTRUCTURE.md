@@ -83,13 +83,13 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | deploy-production.yml | On release publish | Multi-stage security gate (Bandit + npm audit + OWASP) + GHCR multi-platform builds (linux/amd64 + linux/arm64) + parallel backend/frontend deploy hooks + migration-gate validation + progressive retry (15s/30s/60s) + Slack/webhook notification + rollback automation |
 | deploy-staging.yml | On push to develop | GHCR push + Render deploy hooks + smoke tests |
 | deploy-worker.yml | Manual trigger or release | Cloudflare Worker deployment via `wrangler deploy` + smoke tests to api.rateshift.app |
-| price-sync.yml | `0 */6 * * *` | Electricity price data ingestion |
-| observe-forecasts.yml | `30 */6 * * *` | Backfill actual prices into forecast observations |
+| price-sync.yml | Manual trigger only (`workflow_dispatch`) | Electricity price data ingestion — cron moved to CF Worker (every 6h) |
+| observe-forecasts.yml | Manual trigger only (`workflow_dispatch`) | Backfill actual prices into forecast observations — cron moved to CF Worker (30min after price-sync) |
 | nightly-learning.yml | Via daily-data-pipeline | Adaptive learning: accuracy, bias detection, weight tuning |
 | model-retrain.yml | Weekly Sun 2AM UTC | ML model retraining pipeline |
 | keepalive.yml | Hourly | Render backend keep-alive ping |
 | code-analysis.yml | PRs to main | Claude Flow diff risk, complexity, security analysis |
-| check-alerts.yml | Every 2 hours | Price alert pipeline (Phase 2) |
+| check-alerts.yml | Manual trigger only (`workflow_dispatch`) | Price alert pipeline — cron moved to CF Worker (every 3h) |
 | fetch-weather.yml | Every 6 hours | Weather data ingestion for all 51 US regions (Phase 2) |
 | market-research.yml | Daily 2am UTC | Top 10 regions market intelligence (Phase 2) |
 | sync-connections.yml | Every 6 hours | UtilityAPI connection sync (Phase 2) |
@@ -272,7 +272,7 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 | Account ID | `b41be0d03c76c0b2cc91efccdb7a10df` |
 | Zone | `ac03dd28616da6d1c4b894c298c1da58` (Cloudflare Registrar for rateshift.app) |
 | SSL Mode | Full (Strict) |
-| Source | `workers/api-gateway/` (17 files, 77 vitest tests) |
+| Source | `workers/api-gateway/` (18 files, 90 vitest tests) |
 | Bundle Size | 20.35 KiB / gzip 5.31 KiB |
 | KV CACHE | `6946d19ce8264f6fae4481d6ad8afcd1` |
 | KV RATE_LIMIT | `c9be3741ee784956a0d99b3fa0c1d6c4` |
@@ -285,6 +285,7 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 - **CORS & security headers**: Origin allowlist, HSTS, X-Content-Type-Options, X-Frame-Options
 - **Structured JSON logging**: All requests logged to Worker analytics
 - **Request/response modification**: Headers, redirects, streaming support
+- **Cron Triggers** (wrangler.toml `[triggers]`): 3 scheduled crons (check-alerts every 3h, price-sync every 6h, observe-forecasts 30min after price-sync) — replaces GHA crons for ~480 min/mo savings
 
 **Deployment via GHA:**
 - Workflow: `.github/workflows/deploy-worker.yml`
@@ -311,13 +312,13 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 | Public Tables | 44 (see CODEMAP_BACKEND.md for full list) |
 | Auth Tables | 9 (neon_auth schema — managed by Better Auth) |
 | Total Tables | 53 (44 public + 9 neon_auth) |
-| Migrations | 50 files total (init_neon through 050_community_posts_indexes), 49 deployed to production (through 049_community_tables) |
+| Migrations | 51 files total (init_neon through 051_gdpr_cascade_fixes), all deployed to production |
 | PK Type | UUID (all tables) |
 | App Role | `neondb_owner` |
 
 **Neon MCP:** Always use `projectId: "cold-rice-23455092"` when calling `mcp__Neon__*` tools. The previous stale project `holy-pine-81107663` was deleted (0 users, missing tables, wrong region).
 
-**Recent Migrations (2026-03-10 to 2026-03-16):**
+**Recent Migrations (2026-03-10 to 2026-03-17):**
 - Migration 026: NotificationDispatcher system (notification_history, notification_templates, error_message column)
 - Migration 027: ModelConfigRepository (model_configs, model_versions tables)
 - Migration 028: FeedbackWidget (feedback entries)
@@ -341,7 +342,8 @@ Next.js Server → BACKEND_URL=https://api.rateshift.app (server-to-server)
 - Migration 047: Water rates (JSONB rate_tiers)
 - Migration 048: Utility feature flags
 - Migration 049: Community tables (posts, votes, reports)
-- Migration 050: Community posts indexes (not yet deployed to production)
+- Migration 050: Community posts indexes
+- Migration 051: GDPR CASCADE fixes (community_posts, community_votes, community_reports, notifications FKs)
 
 **Migration 020 (2026-03-02): Price Query Indexes**
 - Creates 3 composite indexes on `electricity_prices` table:
@@ -533,8 +535,9 @@ deploy:
 
 ### Key Risk: GitHub Actions Minutes
 
-GHA minutes are the primary cost pressure (~2,700 min/mo vs 2,000 free).
+GHA minutes reduced from ~2,700 to ~1,283 min/mo (within 2,000 free limit).
 Optimized 2026-03-16: reduced cron frequencies, consolidated daily pipeline, cut warmup overhead.
+Optimized 2026-03-17: Migrated price-sync and observe-forecasts to CF Worker cron triggers (~480 min/mo savings).
 See `COST_ANALYSIS.md` for full breakdown, optimization history, and scaling projections.
 
 ### Scaling Cost Impact
@@ -776,4 +779,4 @@ One-time bootstrap via `npx claude-flow hooks pretrain --directory .` populates 
 
 ---
 
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-03-17 (Sprint 0-2: CF Worker cron triggers for price-sync and observe-forecasts)

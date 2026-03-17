@@ -67,9 +67,12 @@ describe('useWaterBenchmark', () => {
     jest.clearAllMocks()
     mockGetWaterBenchmark.mockResolvedValue({
       state: 'CT',
-      avg_cost: 45,
-      user_cost: 52,
-      percentile: 65,
+      municipalities: 3,
+      usage_gallons: 5760,
+      avg_monthly_cost: 45,
+      min_monthly_cost: 30,
+      max_monthly_cost: 65,
+      rates: [],
     })
   })
 
@@ -84,7 +87,7 @@ describe('useWaterBenchmark', () => {
     const { result } = renderHook(() => useWaterBenchmark('CT', 5000), { wrapper })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data?.percentile).toBe(65)
+    expect(result.current.data?.avg_monthly_cost).toBe(45)
   })
 
   it('uses correct query key with usage', async () => {

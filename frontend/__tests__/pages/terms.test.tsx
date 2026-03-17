@@ -25,7 +25,7 @@ describe('TermsPage', () => {
   })
 
   it('renders nav logo linking to home', () => {
-    const logoLink = screen.getByRole('link', { name: /electricity optimizer/i })
+    const logoLink = screen.getByRole('link', { name: /rateshift/i })
     expect(logoLink).toHaveAttribute('href', '/')
   })
 

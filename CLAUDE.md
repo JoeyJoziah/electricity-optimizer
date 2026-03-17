@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-17 (Quality hardening complete — 10-track swarm audit. Backend 2,663 tests, Frontend 2,024 tests (152 suites). 51 migrations (051: gdpr_cascade_fixes). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 32 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 9 bugs fixed incl. GDPR critical, Stripe subscription state, agent rate limit TOCTOU, Redis key leak.)
+> Last validated: 2026-03-17 (Sprint 0-2 complete — CF Worker 3 cron triggers. Backend 2,663 tests, Frontend 2,024 tests (152 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90 (was 85), ML 611 = ~6,993 total. 51 migrations (051: gdpr_cascade_fixes). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 32 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. GHA estimated ~1,283 min/mo (was ~1,763, reduced by price-sync/observe-forecasts CF Worker cron migration).)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -103,7 +103,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
 - **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 44 public + 9 neon_auth = 53 tables total (51 migrations: init_neon through 051_gdpr_cascade_fixes)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
-- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Cron: `[triggers] crons = ["0 */3 * * *"]` (check-alerts, replaces GHA cron). Source: `workers/api-gateway/` (18 files, 85 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
+- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Cron: `[triggers] crons = ["0 */3 * * *", "0 */6 * * *", "30 */6 * * *"]` (check-alerts every 3h, price-sync every 6h, observe-forecasts 30min after price-sync). Source: `workers/api-gateway/` (18 files, 90 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id. **Plan gating**: `require_tier("pro"/"business")` dependency on 7 endpoints (forecast, savings, recommendations=pro; prices/stream=business). Free tier: 1 alert limit
 - **Email**: Resend (primary, domain `rateshift.app` verified, DKIM/SPF/DMARC, TLS enforced) + Gmail SMTP fallback. Sender: `RateShift <noreply@rateshift.app>`. Frontend uses nodemailer for SMTP
@@ -139,10 +139,11 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Phase 1 LIVE**: Sentry→Slack (15min, `rcp_sQ1NKouFdXIe`), Deploy→Slack (hourly, `rcp_9f8mVE2Z_DSP`), GitHub→Notion (6h, `rcp_73Kc9K65YC5T`). Rube session: `drew`
 - **Phase 2 COMPLETE** (5 GHA cron workflows):
   - `check-alerts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 3h). `POST /internal/check-alerts` (price threshold alerts with dedup)
+  - `price-sync.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 6h). `POST /internal/scrape-rates` (electricity price data ingestion)
+  - `observe-forecasts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (30min after price-sync, every 6h). `POST /internal/observe-forecasts` (backfill actual prices into forecast observations)
   - `fetch-weather.yml`: Every 12 hours (offset :15, was 6h, reduced for GHA cost optimization) — `POST /internal/fetch-weather` (parallelized with asyncio.gather + Semaphore(10))
   - `market-research.yml`: Daily 2am UTC — `POST /internal/market-research` (Tavily + Diffbot)
   - `sync-connections.yml`: Every 6 hours (was 2h, reduced 2026-03-16) — `POST /internal/sync-connections` (UtilityAPI auto-sync)
-  - `scrape-rates.yml`: Via `daily-data-pipeline.yml` (was standalone 3am cron, consolidated 2026-03-16) — `POST /internal/scrape-rates`
   - All use `INTERNAL_API_KEY` secret, `/api/v1/internal/` paths excluded from RequestTimeoutMiddleware
 - **Utility Integration Track** (2 GHA cron workflows, 2026-03-11):
   - `scan-emails.yml`: Via `daily-data-pipeline.yml` (was standalone 4am cron, consolidated 2026-03-16) — `POST /internal/scan-emails` (batch scan all active email_import connections, extract rates from body + attachments)
@@ -169,12 +170,14 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
   - Deploy pipeline: migration-gate job before deploy, Slack rollback notification
   - New secret required: `SLACK_INCIDENTS_WEBHOOK_URL`
   - New labels: `self-healing`, `automated`
-- **Cost Optimization** (2026-03-16):
+- **Cost Optimization** (2026-03-16 to 2026-03-17):
   - `daily-data-pipeline.yml`: Daily 3am UTC — consolidated pipeline running scrape-rates, scan-emails, nightly-learning, detect-rate-changes sequentially (single checkout + warmup)
   - `e2e-tests.yml`: Removed daily cron trigger (still runs on push/PR)
   - `nightly-learning.yml`: Via `daily-data-pipeline.yml` (was standalone 4am cron)
   - `detect-rate-changes.yml`: Via `daily-data-pipeline.yml` (was standalone 6:30am cron)
-  - Estimated GHA savings: ~5,003 min/mo total (~3,990 prior + 480 check-alerts→CF Worker + 360 quality hardening crons + 173 other). Full analysis: `docs/COST_ANALYSIS.md`
+  - `price-sync.yml` (Sprint 0-2): Moved to CF Worker Cron Trigger (every 6h) — saves ~240 min/mo
+  - `observe-forecasts.yml` (Sprint 0-2): Moved to CF Worker Cron Trigger (30min after price-sync) — saves ~240 min/mo
+  - Total estimated GHA savings: ~4,470 min/mo (from baseline). Current usage: ~1,283 min/mo (down from ~2,700 pre-optimization). Full analysis: `docs/COST_ANALYSIS.md`
 - **Security Scanning** (Wave 5, 2026-03-12):
   - `owasp-zap.yml`: Weekly Sunday 4am UTC — OWASP ZAP baseline scan against Render backend (not CF Worker)
   - `pip-audit` in `_backend-tests.yml`: Fails on known Python dependency vulnerabilities

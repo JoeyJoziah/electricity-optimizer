@@ -24,11 +24,16 @@ function createWrapper() {
 
 const mockReport = {
   state: 'CT',
-  total_savings: 250,
-  opportunities: [
-    { action: 'Switch supplier', savings: 150, difficulty: 'easy' },
-    { action: 'Shift usage to off-peak', savings: 100, difficulty: 'moderate' },
+  generated_at: '2026-01-01T00:00:00Z',
+  utilities: [],
+  total_monthly_spend: 150,
+  total_annual_spend: 1800,
+  savings_opportunities: [
+    { utility_type: 'electricity', action: 'Switch supplier', monthly_savings: 150, annual_savings: 1800, difficulty: 'easy' as const },
   ],
+  total_potential_monthly_savings: 250,
+  total_potential_annual_savings: 3000,
+  utility_count: 1,
 }
 
 describe('useOptimizationReport', () => {
@@ -42,7 +47,7 @@ describe('useOptimizationReport', () => {
     const { result } = renderHook(() => useOptimizationReport('CT'), { wrapper })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data?.total_savings).toBe(250)
+    expect(result.current.data?.total_potential_monthly_savings).toBe(250)
   })
 
   it('is disabled when state is undefined', () => {

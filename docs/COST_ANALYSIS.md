@@ -1,6 +1,6 @@
 # RateShift — Cost Analysis & Infrastructure Budget
 
-> Last updated: 2026-03-16
+> Last updated: 2026-03-17 (Sprint 0-2 complete: price-sync + observe-forecasts CF Worker cron migration)
 
 RateShift runs on an all-free-tier infrastructure stack. This document tracks actual resource consumption, identifies cost risks, and documents optimizations.
 
@@ -34,7 +34,9 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 
 | Workflow | Schedule | Runs/mo | Est. min/run | Est. min/mo |
 |----------|----------|---------|-------------|-------------|
-| `check-alerts.yml` | Every 3h | 240 | 2 | 480 |
+| `check-alerts.yml` | CF Worker every 3h | 0 | — | 0 |
+| `price-sync.yml` | CF Worker every 6h | 0 | — | 0 |
+| `observe-forecasts.yml` | CF Worker 30min after price-sync | 0 | — | 0 |
 | `fetch-weather.yml` | Every 12h | 60 | 2 | 120 |
 | `sync-connections.yml` | Every 6h | 120 | 2 | 240 |
 | `gateway-health.yml` | Every 12h | 60 | 2 | 120 |
@@ -47,7 +49,7 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | `scrape-portals.yml` | Weekly Sun | 4 | 3 | 12 |
 | `owasp-zap.yml` | Weekly Sun | 4 | 5 | 20 |
 | `db-maintenance.yml` | Weekly Sun | 4 | 2 | 8 |
-| **Cron Subtotal** | | **626** | | **~1,338** |
+| **Cron Subtotal** | | **406** | | **~858** |
 
 #### Event-Triggered Workflows (variable)
 
@@ -60,9 +62,9 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | Other CI/CD | various | 10 | 2 | 20 |
 | **Event Subtotal** | | **~165** | | **~905** |
 
-#### **Total Estimated: ~2,243 min/mo**
+#### **Total Estimated: ~1,763 min/mo**
 
-> Still ~243 min over the 2K free limit after P0 cron reductions (check-alerts 2h→3h, fetch-weather 6h→12h). See [Future Optimizations](#6-future-optimizations) for closing the gap.
+> Reduced by ~480 min/mo after Sprint 0-2 CF Worker cron migrations (price-sync + observe-forecasts moved from GHA to CF Worker). Now within free tier. Previous estimate: ~2,243 min/mo (March 16). Full history in [Optimization History](#optimization-history) below.
 
 ### Optimization History
 
@@ -76,7 +78,9 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | 2026-03-16 | `e2e-tests` remove daily cron | 450 |
 | 2026-03-16 | Consolidate 4 daily workflows into 1 pipeline | 180 |
 | 2026-03-16 | Reduce warmup overhead on high-freq workflows | ~240 |
-| **Total Saved** | | **~3,990** |
+| 2026-03-17 | `price-sync` every 6h → CF Worker cron | 240 |
+| 2026-03-17 | `observe-forecasts` 30min after price-sync → CF Worker cron | 240 |
+| **Total Saved** | | **~4,470** |
 
 ---
 

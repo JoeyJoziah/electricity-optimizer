@@ -42,7 +42,7 @@ function createAuth() {
       sendResetPassword: async ({ user, url }) => {
         await sendEmail({
           to: user.email,
-          subject: "Reset your password — Electricity Optimizer",
+          subject: "Reset your password — RateShift",
           html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Click the link below to reset your password:</p><p><a href="${url}">Reset password</a></p><p>If you didn&apos;t request this, you can safely ignore this email.</p>`,
         })
       },
@@ -57,8 +57,8 @@ function createAuth() {
         console.log(`[Auth] sendVerificationEmail called for user=${user.email} url=${url}`)
         await sendEmail({
           to: user.email,
-          subject: "Verify your email — Electricity Optimizer",
-          html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Welcome to Electricity Optimizer! Please verify your email by clicking the link below:</p><p><a href="${url}">Verify email</a></p><p>This link will expire in 24 hours.</p>`,
+          subject: "Verify your email — RateShift",
+          html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Welcome to RateShift! Please verify your email by clicking the link below:</p><p><a href="${url}">Verify email</a></p><p>This link will expire in 24 hours.</p>`,
         })
       },
     },
@@ -69,8 +69,8 @@ function createAuth() {
         sendMagicLink: async ({ email, url }) => {
           await sendEmail({
             to: email,
-            subject: "Your sign-in link — Electricity Optimizer",
-            html: `<p>Click the link below to sign in to Electricity Optimizer:</p><p><a href="${url}">Sign in</a></p><p>This link expires in 5 minutes. If you didn&apos;t request this, you can safely ignore this email.</p>`,
+            subject: "Your sign-in link — RateShift",
+            html: `<p>Click the link below to sign in to RateShift:</p><p><a href="${url}">Sign in</a></p><p>This link expires in 5 minutes. If you didn&apos;t request this, you can safely ignore this email.</p>`,
           })
         },
         expiresIn: 300, // 5 minutes

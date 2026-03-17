@@ -1,7 +1,7 @@
 import { ConnectionsOverview } from '@/components/connections/ConnectionsOverview'
 
 export const metadata = {
-  title: 'Connections | Electricity Optimizer',
+  title: 'Connections | RateShift',
   description: 'Connect your utility accounts to sync rates and billing data',
 }
 

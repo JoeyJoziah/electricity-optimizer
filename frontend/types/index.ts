@@ -46,11 +46,24 @@ export interface RawForecastPriceEntry {
 
 /**
  * Raw backend supplier record before field normalization.
- * The backend returns snake_case names; the frontend Supplier type uses camelCase.
+ * Combines both the actual backend API response fields (snake_case from
+ * SupplierResponse Pydantic model) and the legacy camelCase frontend field
+ * names used by normalization mappers. `rating` is `number | null` to match
+ * the backend schema (backend returns null, not undefined).
  */
 export interface RawSupplierRecord {
   id: string
   name: string
+  /** Backend snake_case list of region codes (e.g. ["us_ct"]) */
+  regions?: string[]
+  /** Backend snake_case list of tariff type strings */
+  tariff_types?: string[]
+  /** Backend: whether a supplier API integration is available */
+  api_available?: boolean
+  /** Backend snake_case */
+  green_energy_provider?: boolean
+  /** Backend active status */
+  is_active?: boolean
   /** Backend field */
   logo_url?: string
   /** Frontend-normalized field */
@@ -61,15 +74,12 @@ export interface RawSupplierRecord {
   standingCharge?: number
   /** Frontend camelCase */
   greenEnergy?: boolean
-  /** Backend snake_case */
-  green_energy_provider?: boolean
-  rating?: number
+  /** Rating returned as number | null from the backend */
+  rating?: number | null
   /** Frontend camelCase */
   estimatedAnnualCost?: number
   /** Frontend camelCase */
   tariffType?: 'fixed' | 'variable' | 'time-of-use'
-  /** Backend array of tariff type strings */
-  tariff_types?: string[]
   /** Frontend camelCase */
   exitFee?: number
   /** Backend snake_case */

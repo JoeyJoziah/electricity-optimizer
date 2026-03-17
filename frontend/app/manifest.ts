@@ -2,10 +2,10 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Electricity Optimizer',
-    short_name: 'ElecOpt',
+    name: 'RateShift',
+    short_name: 'RateShift',
     description:
-      'AI-powered electricity price optimization for US consumers',
+      'AI-powered electricity rate optimization for US consumers',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: '#ffffff',

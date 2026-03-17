@@ -3,10 +3,24 @@
  */
 
 import { apiClient } from './client'
-import type { Supplier, SupplierRecommendation } from '@/types'
+import type { Supplier, SupplierRecommendation, RawSupplierRecord } from '@/types'
+
+/**
+ * Backend API response shape for a supplier record.
+ * Matches the `SupplierResponse` Pydantic model in backend/models/supplier.py.
+ * Uses snake_case as returned by the backend (not the camelCase UI Supplier type).
+ *
+ * This is an alias for documentation purposes — RawSupplierRecord is the
+ * broader type used by normalization mappers throughout the app.
+ */
+export type SupplierApiRecord = RawSupplierRecord
 
 export interface GetSuppliersResponse {
-  suppliers: Supplier[]
+  suppliers: RawSupplierRecord[]
+  /** Pagination total count from the backend envelope */
+  total: number
+  page?: number
+  page_size?: number
 }
 
 export interface GetRecommendationResponse {

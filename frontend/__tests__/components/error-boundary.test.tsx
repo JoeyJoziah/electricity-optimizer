@@ -27,8 +27,8 @@ afterAll(() => {
   console.error = originalConsoleError
 })
 
-// A component that always throws
-function ThrowingComponent({ message }: { message?: string }) {
+// A component that always throws — return type is `never` because it always throws
+function ThrowingComponent({ message }: { message?: string }): never {
   throw new Error(message || 'Test error')
 }
 

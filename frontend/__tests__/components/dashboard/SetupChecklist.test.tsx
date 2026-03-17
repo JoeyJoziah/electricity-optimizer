@@ -20,6 +20,11 @@ jest.mock('@/lib/hooks/useSuppliers', () => ({
   useUserSupplier: () => ({ data: null }),
 }))
 
+const mockConnectionsData = jest.fn<{ connections: unknown[] } | undefined, []>(() => undefined)
+jest.mock('@/lib/hooks/useConnections', () => ({
+  useConnections: () => ({ data: mockConnectionsData() }),
+}))
+
 jest.mock('@/lib/constants/regions', () => ({
   STATE_LABELS: { us_ct: 'Connecticut', us_tx: 'Texas' },
 }))
@@ -41,6 +46,7 @@ describe('SetupChecklist', () => {
     localStorage.clear()
     mockRegion.mockReturnValue('us_ct')
     mockCurrentSupplier.mockReturnValue(null)
+    mockConnectionsData.mockReturnValue(undefined)
   })
 
   it('renders checklist with state completed', () => {

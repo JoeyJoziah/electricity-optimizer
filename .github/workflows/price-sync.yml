@@ -1,8 +1,8 @@
 name: Sync Electricity Prices
 
 on:
-  schedule:
-    - cron: "0 */6 * * *"
+  # Cron moved to CF Worker Cron Trigger (wrangler.toml: "0 */6 * * *")
+  # Manual trigger retained for ad-hoc runs
   workflow_dispatch:
 
 permissions: {}

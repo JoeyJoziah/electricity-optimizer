@@ -6,7 +6,7 @@ test.describe('Settings Page', () => {
     await expect(page).toHaveURL(/\/settings/)
 
     // Should show main settings sections — use exact match to avoid
-    // matching "Electricity Optimizer" in the sidebar (hidden on mobile)
+    // matching "RateShift" in the sidebar (hidden on mobile)
     await expect(page.getByText(/region/i).first()).toBeVisible()
     await expect(page.getByText('Electricity', { exact: true })).toBeVisible()
   })
@@ -15,7 +15,7 @@ test.describe('Settings Page', () => {
     await page.goto('/settings')
 
     // Utility type options should be present
-    // Use { exact: true } to avoid matching "Electricity Optimizer" in sidebar
+    // Use { exact: true } to avoid matching "RateShift" in sidebar
     await expect(page.getByText('Electricity', { exact: true })).toBeVisible()
     await expect(page.getByText('Natural Gas')).toBeVisible()
     await expect(page.getByText('Heating Oil')).toBeVisible()

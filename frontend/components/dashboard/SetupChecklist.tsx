@@ -8,6 +8,7 @@ import { useUserSupplier } from '@/lib/hooks/useSuppliers'
 import { CheckCircle2, Circle, ArrowRight, X, Sparkles } from 'lucide-react'
 import { STATE_LABELS } from '@/lib/constants/regions'
 import { cn } from '@/lib/utils/cn'
+import { useConnections } from '@/lib/hooks/useConnections'
 
 const DISMISSED_KEY = 'setup-checklist-dismissed'
 
@@ -26,6 +27,7 @@ export function SetupChecklist() {
   const region = useSettingsStore((s) => s.region)
   const currentSupplier = useSettingsStore((s) => s.currentSupplier)
   const { data: supplierData } = useUserSupplier()
+  const { data: connectionsData } = useConnections()
 
   // Check localStorage on mount
   useEffect(() => {
@@ -53,7 +55,7 @@ export function SetupChecklist() {
     {
       id: 'connection',
       label: 'Connect your utility account',
-      done: false, // We'll assume false; connections page will show actual state
+      done: (connectionsData?.connections?.length ?? 0) > 0,
       href: '/connections',
       cta: 'Set up Connection',
     },

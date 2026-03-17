@@ -14,7 +14,7 @@ describe('SignupPage', () => {
 
   it('renders the app name heading', () => {
     expect(
-      screen.getByRole('heading', { level: 1, name: /electricity optimizer/i })
+      screen.getByRole('heading', { level: 1, name: /rateshift/i })
     ).toBeInTheDocument()
   })
 

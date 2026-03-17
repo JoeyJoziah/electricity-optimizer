@@ -4,6 +4,10 @@ import { axe } from 'jest-axe'
 import { SignupForm } from '@/components/auth/SignupForm'
 import '@testing-library/jest-dom'
 
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 jest.mock('next/link', () => {
   const MockLink = ({
     children,

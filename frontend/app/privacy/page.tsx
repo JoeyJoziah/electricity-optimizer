@@ -4,7 +4,7 @@ import { Zap } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'Electricity Optimizer privacy policy - how we handle your data.',
+  description: 'RateShift privacy policy - how we handle your data.',
 }
 
 export default function PrivacyPage() {
@@ -14,7 +14,7 @@ export default function PrivacyPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2">
             <Zap className="h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">Electricity Optimizer</span>
+            <span className="text-xl font-bold text-gray-900">RateShift</span>
           </Link>
         </div>
       </nav>
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-blue-600" />
-            <span className="font-semibold text-gray-900">Electricity Optimizer</span>
+            <span className="font-semibold text-gray-900">RateShift</span>
           </div>
           <div className="flex gap-6 text-sm text-gray-600">
             <Link href="/" className="hover:text-gray-900">Home</Link>

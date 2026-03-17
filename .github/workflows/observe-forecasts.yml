@@ -1,9 +1,8 @@
 name: Observe Forecast Actuals
 
 on:
-  schedule:
-    # Run 30 minutes after price-sync (which runs at 0 */6 * * *)
-    - cron: "30 */6 * * *"
+  # Cron moved to CF Worker Cron Trigger (wrangler.toml: "30 */6 * * *")
+  # Manual trigger retained for ad-hoc runs
   workflow_dispatch:
 
 permissions: {}

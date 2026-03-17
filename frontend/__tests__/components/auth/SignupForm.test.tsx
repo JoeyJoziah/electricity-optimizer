@@ -23,6 +23,11 @@ jest.mock('@/lib/hooks/useAuth', () => ({
   }),
 }))
 
+// Mock next/navigation (useSearchParams used by SignupForm for ?plan= param)
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 // Mock next/link
 jest.mock('next/link', () => {
   const MockLink = ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
