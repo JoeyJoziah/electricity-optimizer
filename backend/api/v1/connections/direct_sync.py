@@ -31,6 +31,107 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
+# POST /direct/authorize  —  initiate UtilityAPI OAuth flow
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/direct/authorize",
+    status_code=status.HTTP_201_CREATED,
+    summary="Initiate UtilityAPI authorization flow",
+)
+async def initiate_utilityapi_authorization(
+    payload: dict,
+    current_user: SessionData = Depends(require_paid_tier),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Create a pending connection and return a UtilityAPI authorization URL.
+
+    The user is redirected to UtilityAPI to grant data access. After
+    authorization, UtilityAPI calls back to GET /direct/callback.
+
+    Returns 503 if UTILITYAPI_KEY is not configured.
+    """
+    from uuid import uuid4
+    import api.v1.connections as _pkg
+
+    _settings = _pkg.settings
+    if not _settings.utilityapi_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="UtilityAPI connection is not yet configured. Please try bill upload instead.",
+        )
+
+    supplier_id = payload.get("supplier_id")
+    consent_given = payload.get("consent_given", False)
+    if not consent_given:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Consent is required.",
+        )
+    if not supplier_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="supplier_id is required.",
+        )
+
+    # Look up supplier name
+    sup_result = await db.execute(
+        text("SELECT id, name FROM supplier_registry WHERE id = :sid"),
+        {"sid": str(supplier_id)},
+    )
+    supplier = sup_result.mappings().first()
+    if not supplier:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier {supplier_id} not found.",
+        )
+
+    # Create a pending connection
+    connection_id = str(uuid4())
+    await db.execute(
+        text("""
+            INSERT INTO user_connections
+                (id, user_id, connection_type, supplier_id, supplier_name,
+                 status, created_at)
+            VALUES
+                (:id, :uid, 'direct', :sid, :sname, 'pending', NOW())
+        """),
+        {
+            "id": connection_id,
+            "uid": current_user.user_id,
+            "sid": str(supplier_id),
+            "sname": supplier["name"],
+        },
+    )
+    await db.commit()
+
+    # Build the UtilityAPI authorization form URL
+    from integrations.utilityapi import UtilityAPIClient
+    from api.v1.connections.common import sign_callback_state
+
+    state = sign_callback_state(connection_id, current_user.user_id)
+    callback_url = f"{_settings.frontend_url}/api/v1/connections/direct/callback"
+
+    client = UtilityAPIClient()
+    try:
+        redirect_url = await client.create_authorization_form(
+            supplier_name=supplier["name"],
+            state=state,
+            redirect_url=callback_url,
+        )
+    finally:
+        await client.close()
+
+    return {
+        "id": connection_id,
+        "connection_id": connection_id,
+        "redirect_url": redirect_url,
+    }
+
+
+# ---------------------------------------------------------------------------
 # GET /direct/callback  —  UtilityAPI authorization callback
 # ---------------------------------------------------------------------------
 

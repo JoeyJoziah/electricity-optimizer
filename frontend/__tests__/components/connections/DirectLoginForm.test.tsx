@@ -203,7 +203,7 @@ describe('DirectLoginForm', () => {
           json: () => Promise.resolve({ suppliers: mockSuppliers }),
         })
       }
-      if (url.includes('/connections/direct') && options?.method === 'POST') {
+      if (url.includes('/connections/direct/authorize') && options?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: () =>
@@ -218,7 +218,7 @@ describe('DirectLoginForm', () => {
             last_sync_at: null,
             next_sync_at: null,
             last_sync_error: null,
-            rates_found: 0,
+            sync_frequency_hours: 6,
           }),
       })
     })
@@ -243,12 +243,12 @@ describe('DirectLoginForm', () => {
     await waitFor(() => {
       const postCalls = mockFetch.mock.calls.filter(
         ([url, opts]: [string, RequestInit?]) =>
-          url.includes('/connections/direct') && opts?.method === 'POST'
+          url.includes('/connections/direct/authorize') && opts?.method === 'POST'
       )
       expect(postCalls).toHaveLength(1)
       const body = JSON.parse(postCalls[0][1].body as string)
       expect(body.supplier_id).toBe('sup-1')
-      expect(body.consent).toBe(true)
+      expect(body.consent_given).toBe(true)
     })
   })
 
@@ -261,7 +261,7 @@ describe('DirectLoginForm', () => {
           json: () => Promise.resolve({ suppliers: mockSuppliers }),
         })
       }
-      if (url.includes('/connections/direct') && options?.method === 'POST') {
+      if (url.includes('/connections/direct/authorize') && options?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ id: 'new-conn-1' }),
@@ -275,7 +275,7 @@ describe('DirectLoginForm', () => {
               last_sync_at: null,
               next_sync_at: null,
               last_sync_error: null,
-              rates_found: 0,
+              sync_frequency_hours: 6,
             }),
         })
       }
@@ -315,7 +315,7 @@ describe('DirectLoginForm', () => {
           json: () => Promise.resolve({ suppliers: mockSuppliers }),
         })
       }
-      if (url.includes('/connections/direct') && options?.method === 'POST') {
+      if (url.includes('/connections/direct/authorize') && options?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ id: 'new-conn-1' }),
@@ -328,7 +328,7 @@ describe('DirectLoginForm', () => {
             last_sync_at: null,
             next_sync_at: null,
             last_sync_error: null,
-            rates_found: 0,
+            sync_frequency_hours: 6,
           }),
       })
     })
@@ -360,7 +360,7 @@ describe('DirectLoginForm', () => {
           json: () => Promise.resolve({ suppliers: mockSuppliers }),
         })
       }
-      if (url.includes('/connections/direct') && options?.method === 'POST') {
+      if (url.includes('/connections/direct/authorize') && options?.method === 'POST') {
         return Promise.resolve({
           ok: false,
           status: 403,
@@ -399,7 +399,7 @@ describe('DirectLoginForm', () => {
           json: () => Promise.resolve({ suppliers: mockSuppliers }),
         })
       }
-      if (url.includes('/connections/direct') && options?.method === 'POST') {
+      if (url.includes('/connections/direct/authorize') && options?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ id: 'new-conn-1' }),
@@ -412,7 +412,7 @@ describe('DirectLoginForm', () => {
             last_sync_at: null,
             next_sync_at: null,
             last_sync_error: null,
-            rates_found: 0,
+            sync_frequency_hours: 6,
           }),
       })
     })

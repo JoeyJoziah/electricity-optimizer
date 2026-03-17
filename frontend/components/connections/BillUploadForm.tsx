@@ -126,7 +126,21 @@ export function BillUploadForm({
           )
 
           if (res.ok) {
-            const data: ParseResult = await res.json()
+            const raw = await res.json()
+            // Map backend BillUploadResponse fields to frontend ParseResult
+            const data: ParseResult = {
+              status: raw.parse_status || raw.status || 'pending',
+              extracted_data: (raw.detected_rate_per_kwh != null || raw.detected_supplier != null) ? {
+                rate_per_kwh: raw.detected_rate_per_kwh ?? null,
+                supplier_name: raw.detected_supplier ?? null,
+                period_start: raw.detected_billing_period_start ?? null,
+                period_end: raw.detected_billing_period_end ?? null,
+                usage_kwh: raw.detected_total_kwh ?? null,
+                amount: raw.detected_total_amount ?? null,
+                currency: 'USD',
+              } : null,
+              error_message: raw.parse_error ?? raw.error_message ?? null,
+            }
             setParseResult(data)
 
             if (data.status === 'complete' || data.status === 'failed') {
@@ -162,7 +176,7 @@ export function BillUploadForm({
       formData.append('file', selectedFile)
 
       // Use XMLHttpRequest for upload progress tracking
-      const uploadResult = await new Promise<{ upload_id: string }>(
+      const uploadResult = await new Promise<{ id: string; upload_id?: string }>(
         (resolve, reject) => {
           const xhr = new XMLHttpRequest()
 
@@ -212,7 +226,7 @@ export function BillUploadForm({
       // Upload complete, start polling for parse status
       setUploadProgress(100)
       setParseResult({ status: 'pending', extracted_data: null, error_message: null })
-      pollParseStatus(uploadResult.upload_id)
+      pollParseStatus(uploadResult.upload_id || uploadResult.id)
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Upload failed. Please try again.'

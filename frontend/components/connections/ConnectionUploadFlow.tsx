@@ -43,7 +43,7 @@ export function ConnectionUploadFlow({ onComplete }: ConnectionUploadFlowProps) 
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          method: 'manual_upload',
+          consent_given: true,
         }),
         signal: controller.signal,
       })

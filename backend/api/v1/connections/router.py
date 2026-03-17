@@ -62,6 +62,7 @@ router.include_router(bill_upload.router)
 router.include_router(portal_scrape.router)
 
 # 5. Direct sync (Phase 4 / UtilityAPI):
+#    POST /direct/authorize                    (initiate UtilityAPI OAuth — before wildcard)
 #    GET  /direct/callback                     (UtilityAPI callback — before wildcard)
 #    POST /{connection_id}/sync
 #    GET  /{connection_id}/sync-status

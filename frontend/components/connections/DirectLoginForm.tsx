@@ -34,7 +34,7 @@ interface SyncStatus {
   last_sync_at: string | null
   next_sync_at: string | null
   last_sync_error: string | null
-  rates_found: number
+  sync_frequency_hours: number | null
 }
 
 interface SyncResult {
@@ -122,14 +122,13 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
       setSubmitting(true)
       setError(null)
 
-      const res = await fetch(`${API_ORIGIN}/api/v1/connections/direct`, {
+      const res = await fetch(`${API_ORIGIN}/api/v1/connections/direct/authorize`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           supplier_id: selectedSupplierId,
-          oauth_provider: 'utility_api',
-          consent: true,
+          consent_given: true,
         }),
       })
 
@@ -158,6 +157,10 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
       } else if (res.status === 403) {
         setError(
           'Direct connections are available on Pro and Business plans. Please upgrade to continue.'
+        )
+      } else if (res.status === 503) {
+        setError(
+          'Direct utility connection is not yet available. Please try bill upload instead.'
         )
       } else {
         const data = await res.json().catch(() => null)
@@ -192,7 +195,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
         const data = await res.json()
         setSyncResult({
           success: true,
-          rates_found: data.rates_found ?? data.new_rates ?? 0,
+          rates_found: data.new_rates_found ?? data.rates_found ?? 0,
           error: null,
         })
         // Refresh sync status
@@ -263,12 +266,12 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
                   </span>
                 </div>
               )}
-              {syncStatus.rates_found > 0 && (
+              {syncStatus.sync_frequency_hours && (
                 <div className="flex items-center gap-2 text-sm">
                   <Zap className="h-4 w-4 text-primary-500" />
-                  <span className="text-gray-600">Rates on file:</span>
+                  <span className="text-gray-600">Auto-sync:</span>
                   <span className="font-medium text-gray-900">
-                    {syncStatus.rates_found}
+                    Every {syncStatus.sync_frequency_hours} hours
                   </span>
                 </div>
               )}
