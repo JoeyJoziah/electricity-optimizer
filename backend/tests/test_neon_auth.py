@@ -10,21 +10,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from auth.neon_auth import (
-    _SESSION_CACHE_TTL,
-    _get_session_from_token,
-    SessionData,
-    invalidate_session_cache,
-)
+from auth.neon_auth import (_SESSION_CACHE_TTL, SessionData,
+                            _get_session_from_token, invalidate_session_cache)
 
 
 class TestSessionCacheTTL:
     """Zenith H-15-01: session cache TTL must be 60 seconds."""
 
     def test_session_cache_ttl_is_60(self):
-        assert _SESSION_CACHE_TTL == 60, (
-            f"Expected _SESSION_CACHE_TTL=60 (Zenith H-15-01), got {_SESSION_CACHE_TTL}"
-        )
+        assert (
+            _SESSION_CACHE_TTL == 60
+        ), f"Expected _SESSION_CACHE_TTL=60 (Zenith H-15-01), got {_SESSION_CACHE_TTL}"
 
     @pytest.mark.asyncio
     async def test_session_cached_with_correct_ttl(self):
@@ -46,9 +42,7 @@ class TestSessionCacheTTL:
         mock_result.fetchone.return_value = mock_row
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        session = await _get_session_from_token(
-            "test-session-token", mock_db, redis=mock_redis
-        )
+        session = await _get_session_from_token("test-session-token", mock_db, redis=mock_redis)
 
         assert session is not None
         assert session.user_id == "user-123"
@@ -57,28 +51,26 @@ class TestSessionCacheTTL:
         # Verify setex was called with TTL=60
         mock_redis.setex.assert_called_once()
         call_args = mock_redis.setex.call_args
-        assert call_args[0][1] == 60, (
-            f"Expected setex TTL=60, got {call_args[0][1]}"
-        )
+        assert call_args[0][1] == 60, f"Expected setex TTL=60, got {call_args[0][1]}"
 
     @pytest.mark.asyncio
     async def test_session_returned_from_cache(self):
         """Verify cached sessions are returned without hitting DB."""
-        cached_data = json.dumps({
-            "user_id": "cached-user",
-            "email": "cached@example.com",
-            "name": "Cached",
-            "email_verified": True,
-            "role": None,
-        })
+        cached_data = json.dumps(
+            {
+                "user_id": "cached-user",
+                "email": "cached@example.com",
+                "name": "Cached",
+                "email_verified": True,
+                "role": None,
+            }
+        )
         mock_redis = AsyncMock()
         mock_redis.get = AsyncMock(return_value=cached_data)
 
         mock_db = AsyncMock()
 
-        session = await _get_session_from_token(
-            "cached-token", mock_db, redis=mock_redis
-        )
+        session = await _get_session_from_token("cached-token", mock_db, redis=mock_redis)
 
         assert session is not None
         assert session.user_id == "cached-user"

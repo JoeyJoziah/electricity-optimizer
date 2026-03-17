@@ -12,14 +12,14 @@ from decimal import Decimal
 from typing import Optional
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from integrations.pricing_apis.base import APIError, PricingRegion
 from integrations.pricing_apis.eia import EIAClient
-from integrations.pricing_apis.base import PricingRegion, APIError
 from models.price import Price
-from models.utility import UtilityType, PriceUnit
 from models.region import DEREGULATED_GAS_STATES
+from models.utility import PriceUnit, UtilityType
 from repositories.price_repository import PriceRepository
 
 logger = structlog.get_logger(__name__)
@@ -82,11 +82,13 @@ class GasRateService:
                     await self._price_repo.create(price)
                     results["fetched"] += 1
                     results["stored"] += 1
-                    results["details"].append({
-                        "state": state_code,
-                        "price_therm": str(price_data.price),
-                        "status": "ok",
-                    })
+                    results["details"].append(
+                        {
+                            "state": state_code,
+                            "price_therm": str(price_data.price),
+                            "status": "ok",
+                        }
+                    )
                     logger.info(
                         "gas_rate_fetched",
                         state=state_code,
@@ -94,19 +96,23 @@ class GasRateService:
                     )
                 except APIError as e:
                     results["errors"] += 1
-                    results["details"].append({
-                        "state": state_code,
-                        "status": "error",
-                        "error": str(e),
-                    })
+                    results["details"].append(
+                        {
+                            "state": state_code,
+                            "status": "error",
+                            "error": str(e),
+                        }
+                    )
                     logger.warning("gas_rate_fetch_failed", state=state_code, error=str(e))
                 except Exception as e:
                     results["errors"] += 1
-                    results["details"].append({
-                        "state": state_code,
-                        "status": "error",
-                        "error": str(e),
-                    })
+                    results["details"].append(
+                        {
+                            "state": state_code,
+                            "status": "error",
+                            "error": str(e),
+                        }
+                    )
                     logger.error("gas_rate_fetch_unexpected", state=state_code, error=str(e))
 
         await asyncio.gather(*[fetch_state(s) for s in target_states])
@@ -156,14 +162,12 @@ class GasRateService:
 
     async def get_deregulated_states(self) -> list[dict]:
         """Get list of gas-deregulated states with regulation details."""
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT state_code, state_name, puc_name, puc_website,
                        comparison_tool_url
                 FROM state_regulations
                 WHERE gas_deregulated = TRUE
                 ORDER BY state_name
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return [dict(r) for r in rows]

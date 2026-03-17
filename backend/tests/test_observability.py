@@ -90,6 +90,7 @@ class TestOtelDisabledByDefault:
     def test_init_telemetry_returns_false_when_disabled(self):
         """Return value is False when settings.otel_enabled is False."""
         from fastapi import FastAPI
+
         import observability
 
         app = FastAPI()
@@ -104,6 +105,7 @@ class TestOtelDisabledByDefault:
         from fastapi import FastAPI
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
+
         import observability
 
         app = FastAPI()
@@ -116,6 +118,7 @@ class TestOtelDisabledByDefault:
     def test_init_telemetry_with_env_false(self):
         """settings.otel_enabled=False keeps instrumentation off regardless of env."""
         from fastapi import FastAPI
+
         import observability
 
         app = FastAPI()
@@ -148,12 +151,15 @@ class TestOtelEnabledNoEndpoint:
         from fastapi import FastAPI
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = None
             mock_settings.is_production = False
@@ -167,12 +173,15 @@ class TestOtelEnabledNoEndpoint:
         from fastapi import FastAPI
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = None
             mock_settings.is_production = True
@@ -187,12 +196,15 @@ class TestOtelEnabledNoEndpoint:
         from opentelemetry import trace
         from opentelemetry.sdk.resources import SERVICE_NAME
         from opentelemetry.sdk.trace import TracerProvider
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = None
             mock_settings.is_production = False
@@ -216,17 +228,20 @@ class TestOtelEnabledWithEndpoint:
         from fastapi import FastAPI
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
+
         import observability
 
         fake_endpoint = "http://localhost:4318"
         app = FastAPI()
 
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"), \
-             patch(
-                 "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter"
-             ) as mock_exporter_cls:
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+            patch(
+                "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter"
+            ) as mock_exporter_cls,
+        ):
             mock_exporter_cls.return_value = MagicMock()
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = fake_endpoint
@@ -240,12 +255,15 @@ class TestOtelEnabledWithEndpoint:
     def test_get_tracer_returns_real_tracer_when_enabled(self):
         """After init, get_tracer() returns a real SDK tracer."""
         from fastapi import FastAPI
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = None
             mock_settings.is_production = False
@@ -268,12 +286,15 @@ class TestIdempotency:
     def test_double_init_does_not_raise(self):
         """Second call to init_telemetry returns True without raising."""
         from fastapi import FastAPI
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = None
             mock_settings.is_production = False
@@ -287,12 +308,15 @@ class TestIdempotency:
         """Double init must not replace the provider on the second call."""
         from fastapi import FastAPI
         from opentelemetry import trace
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = None
             mock_settings.is_production = False
@@ -317,8 +341,7 @@ class TestConfigureTracerProvider:
         """_configure_tracer_provider returns True when it succeeds."""
         from observability import _configure_tracer_provider
 
-        with patch("observability._instrument_fastapi"), \
-             patch("observability._instrument_httpx"):
+        with patch("observability._instrument_fastapi"), patch("observability._instrument_httpx"):
             result = _configure_tracer_provider(endpoint=None, is_production=False)
 
         assert result is True
@@ -326,16 +349,19 @@ class TestConfigureTracerProvider:
     def test_console_exporter_dev_path(self):
         """ConsoleSpanExporter is selected for dev with no endpoint."""
         from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
         from observability import _configure_tracer_provider
 
         captured = []
 
-        with patch("observability._instrument_fastapi"), \
-             patch("observability._instrument_httpx"), \
-             patch(
-                 "opentelemetry.sdk.trace.TracerProvider.add_span_processor",
-                 side_effect=lambda p: captured.append(p),
-             ):
+        with (
+            patch("observability._instrument_fastapi"),
+            patch("observability._instrument_httpx"),
+            patch(
+                "opentelemetry.sdk.trace.TracerProvider.add_span_processor",
+                side_effect=lambda p: captured.append(p),
+            ),
+        ):
             _configure_tracer_provider(endpoint=None, is_production=False)
 
         # At least one processor should have been registered.
@@ -343,12 +369,12 @@ class TestConfigureTracerProvider:
 
     def test_production_does_not_use_console_exporter(self):
         """Production path uses the silent exporter, NOT ConsoleSpanExporter."""
-        from observability import _configure_tracer_provider
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
 
-        with patch("observability._instrument_fastapi"), \
-             patch("observability._instrument_httpx"):
+        from observability import _configure_tracer_provider
+
+        with patch("observability._instrument_fastapi"), patch("observability._instrument_httpx"):
             result = _configure_tracer_provider(endpoint=None, is_production=True)
 
         assert result is True
@@ -357,13 +383,14 @@ class TestConfigureTracerProvider:
         # Verify the exporter is NOT a ConsoleSpanExporter by checking the
         # processor chain registered on the provider.
         from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
         provider = trace.get_tracer_provider()
         for proc in provider._active_span_processor._span_processors:
             exporter = getattr(proc, "span_exporter", None)
             if exporter is not None:
-                assert not isinstance(exporter, ConsoleSpanExporter), (
-                    f"Production must not use ConsoleSpanExporter; got {type(exporter)}"
-                )
+                assert not isinstance(
+                    exporter, ConsoleSpanExporter
+                ), f"Production must not use ConsoleSpanExporter; got {type(exporter)}"
 
 
 # ---------------------------------------------------------------------------
@@ -453,14 +480,17 @@ class TestSubInstrumentors:
     def test_httpx_instrumentor_called_during_init(self):
         """HTTPXClientInstrumentor().instrument() is called when OTEL is active."""
         from fastapi import FastAPI
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch(
-                 "opentelemetry.instrumentation.httpx.HTTPXClientInstrumentor.instrument"
-             ) as mock_instrument:
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch(
+                "opentelemetry.instrumentation.httpx.HTTPXClientInstrumentor.instrument"
+            ) as mock_instrument,
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = None
             mock_settings.is_production = False
@@ -472,15 +502,16 @@ class TestSubInstrumentors:
         """SQLAlchemyInstrumentor().instrument(engine=...) is invoked with the engine."""
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
+
         import observability
 
         # Install a real TracerProvider so instrument_sqlalchemy_engine
         # sees it as active (its guard checks isinstance(..., TracerProvider)).
-        with patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
-            observability._configure_tracer_provider(
-                endpoint=None, is_production=False
-            )
+        with (
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
+            observability._configure_tracer_provider(endpoint=None, is_production=False)
 
         mock_engine = MagicMock()
         with patch(
@@ -508,6 +539,7 @@ class TestSubInstrumentors:
     def test_instrument_fastapi_app_skipped_when_otel_off(self):
         """instrument_fastapi_app is a no-op when no TracerProvider is set."""
         from fastapi import FastAPI
+
         from observability import instrument_fastapi_app
 
         app = FastAPI()
@@ -530,15 +562,18 @@ class TestErrorResilience:
     def test_init_returns_false_on_internal_exception(self):
         """init_telemetry returns False (not raises) if _configure_tracer_provider raises."""
         from fastapi import FastAPI
+
         import observability
 
         app = FastAPI()
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(
-                 observability,
-                 "_configure_tracer_provider",
-                 side_effect=RuntimeError("boom"),
-             ):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(
+                observability,
+                "_configure_tracer_provider",
+                side_effect=RuntimeError("boom"),
+            ),
+        ):
             mock_settings.otel_enabled = True
             result = observability.init_telemetry(app)
 
@@ -546,12 +581,15 @@ class TestErrorResilience:
 
     def test_fastapi_instrument_failure_does_not_propagate(self):
         """Failure inside _instrument_fastapi is caught and logged as a warning."""
-        with patch(
-            "opentelemetry.instrumentation.fastapi.FastAPIInstrumentor.instrument",
-            side_effect=RuntimeError("fastapi instrumentation failed"),
-        ), patch(
-            "opentelemetry.instrumentation.fastapi.FastAPIInstrumentor.instrument_app",
-            side_effect=RuntimeError("fastapi instrumentation failed"),
+        with (
+            patch(
+                "opentelemetry.instrumentation.fastapi.FastAPIInstrumentor.instrument",
+                side_effect=RuntimeError("fastapi instrumentation failed"),
+            ),
+            patch(
+                "opentelemetry.instrumentation.fastapi.FastAPIInstrumentor.instrument_app",
+                side_effect=RuntimeError("fastapi instrumentation failed"),
+            ),
         ):
             from observability import _instrument_fastapi
 
@@ -570,14 +608,15 @@ class TestErrorResilience:
     def test_sqlalchemy_instrument_failure_does_not_propagate(self):
         """Failure in instrument_sqlalchemy_engine is caught and logged as a warning."""
         from opentelemetry import trace
+
         import observability
 
         # Put a real TracerProvider in place so the guard passes.
-        with patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"):
-            observability._configure_tracer_provider(
-                endpoint=None, is_production=False
-            )
+        with (
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+        ):
+            observability._configure_tracer_provider(endpoint=None, is_production=False)
 
         mock_engine = MagicMock()
         with patch(

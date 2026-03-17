@@ -152,9 +152,7 @@ class UtilityAPIClient:
         # Zenith H-16-02: fast-fail if the circuit breaker is open
         cb = self._circuit_breaker
         if cb.state.value == "open":
-            raise UtilityAPIError(
-                f"Circuit breaker open for UtilityAPI — skipping {method} {path}"
-            )
+            raise UtilityAPIError(f"Circuit breaker open for UtilityAPI — skipping {method} {path}")
 
         client = await self._get_client()
         try:
@@ -177,9 +175,7 @@ class UtilityAPIClient:
                 error=str(exc),
             )
             await cb.record_failure()
-            raise UtilityAPIError(
-                f"Request to UtilityAPI timed out: {method} {path}"
-            ) from exc
+            raise UtilityAPIError(f"Request to UtilityAPI timed out: {method} {path}") from exc
         except httpx.RequestError as exc:
             logger.warning(
                 "utilityapi_request_error",
@@ -188,9 +184,7 @@ class UtilityAPIClient:
                 error=str(exc),
             )
             await cb.record_failure()
-            raise UtilityAPIError(
-                f"Network error calling UtilityAPI: {exc}"
-            ) from exc
+            raise UtilityAPIError(f"Network error calling UtilityAPI: {exc}") from exc
 
         if response.status_code >= 400:
             body: Any = None
@@ -220,9 +214,7 @@ class UtilityAPIClient:
         try:
             return response.json()
         except Exception as exc:
-            raise UtilityAPIError(
-                f"Could not parse UtilityAPI JSON response: {exc}"
-            ) from exc
+            raise UtilityAPIError(f"Could not parse UtilityAPI JSON response: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Authorization form
@@ -357,9 +349,7 @@ class UtilityAPIClient:
             "limit": _BILLS_FETCH_LIMIT,
         }
         if since is not None:
-            params["start"] = since.astimezone(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            )
+            params["start"] = since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         logger.info(
             "utilityapi_get_bills",
@@ -501,6 +491,7 @@ def _parse_date(date_str: str) -> datetime:
 
     # Date-only: treat as midnight UTC
     from datetime import date as _date  # noqa: F401 (avoid shadowing built-in)
+
     parts = normalized.split("-")
     if len(parts) != 3:
         raise ValueError(f"Unrecognized date format: {date_str!r}")

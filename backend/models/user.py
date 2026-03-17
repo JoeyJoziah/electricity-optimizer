@@ -6,10 +6,10 @@ Pydantic models for user data with validation.
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, EmailStr, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from models.region import Region
 
@@ -25,7 +25,9 @@ class UserPreferences(BaseModel):
     notification_enabled: bool = True
     email_notifications: bool = True
     push_notifications: bool = False
-    notification_frequency: str = Field(default="daily", pattern=r"^(immediate|hourly|daily|weekly)$")
+    notification_frequency: str = Field(
+        default="daily", pattern=r"^(immediate|hourly|daily|weekly)$"
+    )
 
     # Cost preferences
     cost_threshold: Optional[Decimal] = Field(default=None, ge=Decimal("0"))

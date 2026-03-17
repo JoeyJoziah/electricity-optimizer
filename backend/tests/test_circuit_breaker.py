@@ -11,7 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
-from lib.circuit_breaker import CircuitBreaker, CircuitBreakerOpen, CircuitState
+from lib.circuit_breaker import (CircuitBreaker, CircuitBreakerOpen,
+                                 CircuitState)
 
 
 class TestCircuitBreakerStates:
@@ -119,9 +120,7 @@ class TestCircuitBreakerStates:
 
     @pytest.mark.asyncio
     async def test_half_open_max_limits_probe_calls(self):
-        cb = CircuitBreaker(
-            "test", failure_threshold=1, recovery_timeout=0.0, half_open_max=1
-        )
+        cb = CircuitBreaker("test", failure_threshold=1, recovery_timeout=0.0, half_open_max=1)
         await cb.record_failure()
         assert cb.state == CircuitState.HALF_OPEN
 

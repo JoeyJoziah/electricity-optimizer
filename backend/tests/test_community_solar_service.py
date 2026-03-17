@@ -7,9 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.community_solar_service import CommunitySolarService
 from models.region import COMMUNITY_SOLAR_STATES
-
+from services.community_solar_service import CommunitySolarService
 
 # ---------------------------------------------------------------------------
 # Unit tests: CommunitySolarService.calculate_savings (pure logic, no DB)

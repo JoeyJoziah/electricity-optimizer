@@ -16,6 +16,7 @@ app, _app_rate_limiter = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     from config.settings import settings
 
     uvicorn.run(

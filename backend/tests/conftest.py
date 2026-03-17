@@ -11,17 +11,16 @@ import os
 os.environ.setdefault("ENVIRONMENT", "test")
 
 import asyncio
+# Add backend directory to path for imports
+import sys
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 import httpx
-
-# Add backend directory to path for imports
-import sys
-from pathlib import Path
+import pytest
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -48,6 +47,7 @@ def event_loop():
 @pytest.fixture
 def mock_httpx_response():
     """Factory fixture for creating mock HTTP responses"""
+
     def _create_response(
         status_code: int = 200,
         json_data: dict = None,
@@ -85,7 +85,8 @@ def mock_httpx_client():
 @pytest.fixture
 def sample_price_data():
     """Sample price data for testing"""
-    from integrations.pricing_apis.base import PriceData, PricingRegion, PriceUnit
+    from integrations.pricing_apis.base import (PriceData, PriceUnit,
+                                                PricingRegion)
 
     return PriceData(
         region=PricingRegion.US_CT,
@@ -109,13 +110,10 @@ def sample_price_data():
 @pytest.fixture
 def sample_forecast_data():
     """Sample forecast data for testing"""
-    from integrations.pricing_apis.base import (
-        PriceData,
-        PriceForecast,
-        PricingRegion,
-        PriceUnit,
-    )
     from datetime import timedelta
+
+    from integrations.pricing_apis.base import (PriceData, PriceForecast,
+                                                PriceUnit, PricingRegion)
 
     base_time = datetime(2024, 1, 15, 0, 0, tzinfo=timezone.utc)
 
@@ -236,7 +234,7 @@ def iea_price_response():
 @pytest.fixture
 def memory_cache():
     """In-memory cache for testing"""
-    from integrations.pricing_apis.cache import InMemoryCache, CacheConfig
+    from integrations.pricing_apis.cache import CacheConfig, InMemoryCache
 
     return InMemoryCache(CacheConfig(current_price_ttl=60))
 
@@ -427,6 +425,7 @@ def mock_sqlalchemy_select(monkeypatch):
     manually save and restore model class attributes to prevent state
     leakage between tests.
     """
+
     def _mock_select(*args, **kwargs):
         return _ChainableMock()
 
@@ -460,6 +459,7 @@ def mock_sqlalchemy_select(monkeypatch):
     # Patch sqlalchemy.any_ (imported locally in supplier_repository)
     try:
         import sqlalchemy
+
         monkeypatch.setattr(sqlalchemy, "any_", lambda *a, **kw: MagicMock(), raising=False)
     except (ImportError, AttributeError):
         pass
@@ -476,12 +476,28 @@ def mock_sqlalchemy_select(monkeypatch):
     # save originals from the class __dict__ and restore them in teardown.
     model_attrs = {
         "models.price": {
-            "Price": ["id", "region", "supplier", "price_per_kwh", "timestamp", "currency", "is_peak", "utility_type"],
+            "Price": [
+                "id",
+                "region",
+                "supplier",
+                "price_per_kwh",
+                "timestamp",
+                "currency",
+                "is_peak",
+                "utility_type",
+            ],
         },
         "models.user": {
             "User": [
-                "id", "email", "name", "region", "created_at", "is_active",
-                "current_supplier_id", "utility_types", "annual_usage_kwh",
+                "id",
+                "email",
+                "name",
+                "region",
+                "created_at",
+                "is_active",
+                "current_supplier_id",
+                "utility_types",
+                "annual_usage_kwh",
                 "onboarding_completed",
             ],
         },
@@ -538,12 +554,14 @@ def reset_tier_cache():
     """Clear the in-memory tier cache between tests to prevent state leakage."""
     try:
         from api.dependencies import _tier_cache
+
         _tier_cache.clear()
     except (ImportError, AttributeError):
         pass
     yield
     try:
         from api.dependencies import _tier_cache
+
         _tier_cache.clear()
     except (ImportError, AttributeError):
         pass
@@ -565,22 +583,26 @@ def reset_rate_limiter():
     """
     try:
         from main import _app_rate_limiter
+
         _app_rate_limiter.reset()
     except (ImportError, AttributeError):
         pass
     try:
         from api.v1.auth import _password_check_limiter
+
         _password_check_limiter.reset()
     except (ImportError, AttributeError):
         pass
     yield
     try:
         from main import _app_rate_limiter
+
         _app_rate_limiter.reset()
     except (ImportError, AttributeError):
         pass
     try:
         from api.v1.auth import _password_check_limiter
+
         _password_check_limiter.reset()
     except (ImportError, AttributeError):
         pass

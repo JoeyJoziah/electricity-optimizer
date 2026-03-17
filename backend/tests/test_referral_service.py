@@ -9,11 +9,11 @@ Tests cover:
 - API: auth, validation, responses
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
 
+import pytest
+from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -28,6 +28,7 @@ NOW = datetime(2026, 3, 11, 12, 0, 0, tzinfo=timezone.utc)
 
 def _make_session_data(user_id=USER_ID, email="test@example.com"):
     from auth.neon_auth import SessionData
+
     return SessionData(user_id=user_id, email=email, name="Test User", email_verified=True)
 
 
@@ -61,6 +62,7 @@ def _referral_row(
 # ---------------------------------------------------------------------------
 # Unit Tests: ReferralService
 # ---------------------------------------------------------------------------
+
 
 class TestReferralServiceUnit:
     """Unit tests for ReferralService methods."""
@@ -128,7 +130,7 @@ class TestReferralServiceUnit:
     @pytest.mark.asyncio
     async def test_apply_referral_self_referral_blocked(self):
         """Cannot use your own referral code."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
@@ -142,7 +144,7 @@ class TestReferralServiceUnit:
     @pytest.mark.asyncio
     async def test_apply_referral_nonexistent_code(self):
         """Nonexistent code raises error."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
@@ -156,11 +158,13 @@ class TestReferralServiceUnit:
     @pytest.mark.asyncio
     async def test_apply_referral_already_used(self):
         """Already-completed code raises error."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
-        lookup_result.mappings.return_value.first.return_value = _referral_row(status_val="completed")
+        lookup_result.mappings.return_value.first.return_value = _referral_row(
+            status_val="completed"
+        )
         db.execute.return_value = lookup_result
 
         svc = ReferralService(db)
@@ -170,11 +174,13 @@ class TestReferralServiceUnit:
     @pytest.mark.asyncio
     async def test_apply_referral_already_claimed(self):
         """Code with referee_id already set raises error."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
-        lookup_result.mappings.return_value.first.return_value = _referral_row(referee_id="someone-else")
+        lookup_result.mappings.return_value.first.return_value = _referral_row(
+            referee_id="someone-else"
+        )
         db.execute.return_value = lookup_result
 
         svc = ReferralService(db)
@@ -228,17 +234,19 @@ class TestReferralServiceUnit:
 # API Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def client():
     from main import app
+
     with TestClient(app) as c:
         yield c
 
 
 @pytest.fixture(autouse=True)
 def _override_deps(request):
-    from main import app
     from api.dependencies import get_current_user, get_db_session
+    from main import app
 
     db = _mock_db()
     session_data = _make_session_data()

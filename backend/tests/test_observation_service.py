@@ -19,7 +19,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # =============================================================================
 # HELPERS
 # =============================================================================
@@ -60,6 +59,7 @@ class TestRecordForecast:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -245,6 +245,7 @@ class TestObserveActualsBatch:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -302,6 +303,7 @@ class TestRecordRecommendation:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -387,6 +389,7 @@ class TestRecordRecommendationResponse:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -463,6 +466,7 @@ class TestGetForecastAccuracy:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -540,6 +544,7 @@ class TestGetHourlyBias:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -608,6 +613,7 @@ class TestGetModelAccuracyByVersion:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -695,6 +701,7 @@ class TestArchiveOldObservations:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio
@@ -814,6 +821,7 @@ class TestGetObservationSummary:
     @pytest.fixture
     def service(self, db):
         from services.observation_service import ObservationService
+
         return ObservationService(db)
 
     @pytest.mark.asyncio

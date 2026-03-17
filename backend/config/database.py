@@ -6,14 +6,15 @@ Handles connections to:
 - Redis for caching and task queues
 """
 
-import asyncpg
-from typing import Optional
 from contextlib import asynccontextmanager
-from redis import asyncio as aioredis
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+from typing import Optional
 
+import asyncpg
 import structlog
+from redis import asyncio as aioredis
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
+from sqlalchemy.orm import declarative_base
 
 from config.settings import settings
 
@@ -52,6 +53,7 @@ class DatabaseManager:
             # Handle Neon SSL requirement
             connect_args = {}
             from urllib.parse import urlparse
+
             _host = urlparse(db_url).hostname or ""
             if _host.endswith(".neon.tech"):
                 connect_args["ssl"] = "require"
@@ -64,7 +66,8 @@ class DatabaseManager:
                 connect_args["statement_cache_size"] = 0
 
             # Strip sslmode and channel_binding from URL (asyncpg uses connect_args instead)
-            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+            from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
             parsed = urlparse(db_url)
             params = parse_qs(parsed.query)
             params.pop("sslmode", None)
@@ -84,15 +87,13 @@ class DatabaseManager:
                 max_overflow=settings.db_max_overflow,
                 pool_pre_ping=True,
                 pool_recycle=200,  # recycle 100s before Neon's 5-min auto-suspend
-                pool_timeout=20,   # fail faster to avoid cascading timeouts
+                pool_timeout=20,  # fail faster to avoid cascading timeouts
                 connect_args=connect_args,
             )
 
             # Create async session maker
             self.async_session_maker = async_sessionmaker(
-                self.timescale_engine,
-                class_=AsyncSession,
-                expire_on_commit=False
+                self.timescale_engine, class_=AsyncSession, expire_on_commit=False
             )
 
             # Create asyncpg pool for raw queries (skip for Neon - use SQLAlchemy only)
@@ -104,7 +105,7 @@ class DatabaseManager:
                         min_size=1,  # Reduced from 2
                         max_size=5,  # Reduced from 10 for free tier
                         command_timeout=30,  # Reduced from 60 to fail faster
-                        max_inactive_connection_lifetime=300  # Close idle connections after 5 min
+                        max_inactive_connection_lifetime=300,  # Close idle connections after 5 min
                     )
                 except Exception as pool_err:
                     logger.warning("asyncpg_pool_unavailable", error=str(pool_err))
@@ -130,7 +131,7 @@ class DatabaseManager:
                 max_connections=10,  # Reduced from 20 for free tier
                 socket_keepalive=True,
                 socket_connect_timeout=5,
-                retry_on_timeout=True
+                retry_on_timeout=True,
             )
 
             # Test connection
@@ -181,6 +182,7 @@ class DatabaseManager:
 
         if self.timescale_engine:
             from sqlalchemy import text
+
             async with self.timescale_engine.connect() as conn:
                 result = await conn.execute(text(query))
                 return result.fetchall()

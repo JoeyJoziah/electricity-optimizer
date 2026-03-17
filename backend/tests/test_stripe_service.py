@@ -4,13 +4,14 @@ Tests for Stripe Service
 Tests subscription management with mocked Stripe calls.
 """
 
-from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, AsyncMock
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 import stripe
 
-from services.stripe_service import StripeService, apply_webhook_action
 from config.settings import settings
+from services.stripe_service import StripeService, apply_webhook_action
 
 
 @pytest.fixture
@@ -438,9 +439,7 @@ async def test_handle_webhook_unhandled_event(stripe_service):
     event = {
         "id": "evt_test_xyz",
         "type": "unknown.event.type",
-        "data": {
-            "object": {}
-        },
+        "data": {"object": {}},
     }
 
     result = await stripe_service.handle_webhook_event(event)

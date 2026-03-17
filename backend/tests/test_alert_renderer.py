@@ -1,9 +1,10 @@
 """Tests for the AlertRenderer service."""
 
-import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock
+
+import pytest
 
 from services.alert_renderer import AlertRenderer
 from services.alert_service import AlertThreshold, PriceAlert
@@ -29,7 +30,9 @@ def _make_alert(
         timestamp=timestamp or datetime(2024, 6, 15, 14, 30, tzinfo=timezone.utc),
         optimal_window_start=optimal_window_start,
         optimal_window_end=optimal_window_end,
-        estimated_savings=Decimal(str(estimated_savings)) if estimated_savings is not None else None,
+        estimated_savings=(
+            Decimal(str(estimated_savings)) if estimated_savings is not None else None
+        ),
     )
 
 

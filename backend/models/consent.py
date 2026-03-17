@@ -6,14 +6,15 @@ Pydantic models for GDPR consent tracking and data portability.
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ConsentPurpose(str, Enum):
     """Valid consent purposes for GDPR compliance"""
+
     DATA_PROCESSING = "data_processing"
     MARKETING = "marketing"
     ANALYTICS = "analytics"
@@ -33,7 +34,9 @@ class ConsentRecord(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str = Field(default_factory=lambda: str(uuid4()))
-    user_id: Optional[str] = Field(default=None, description="User ID this consent belongs to (nullable for GDPR SET NULL)")
+    user_id: Optional[str] = Field(
+        default=None, description="User ID this consent belongs to (nullable for GDPR SET NULL)"
+    )
     purpose: str = Field(..., description="Purpose of data processing")
     consent_given: bool = Field(..., description="Whether consent was given or withdrawn")
     timestamp: datetime = Field(..., description="When consent was recorded")
@@ -42,7 +45,9 @@ class ConsentRecord(BaseModel):
 
     # Optional fields
     consent_version: Optional[str] = Field(default="1.0", description="Version of consent policy")
-    withdrawal_timestamp: Optional[datetime] = Field(default=None, description="When consent was withdrawn")
+    withdrawal_timestamp: Optional[datetime] = Field(
+        default=None, description="When consent was withdrawn"
+    )
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata")
 
     @field_validator("timestamp", "withdrawal_timestamp", mode="before")
@@ -133,8 +138,7 @@ class DataDeletionRequest(BaseModel):
     confirmation: bool = Field(..., description="User confirms deletion request")
     reason: Optional[str] = Field(default=None, description="Optional reason for deletion")
     retain_anonymized: bool = Field(
-        default=False,
-        description="Whether to retain anonymized data for analytics"
+        default=False, description="Whether to retain anonymized data for analytics"
     )
 
 
@@ -166,7 +170,9 @@ class DeletionLog(BaseModel):
     ip_address: str = Field(..., description="IP address of requestor")
     user_agent: str = Field(..., description="Client of requestor")
     data_categories_deleted: List[str] = Field(..., description="Categories of data deleted")
-    legal_basis: Optional[str] = Field(default="user_request", description="Legal basis for deletion")
+    legal_basis: Optional[str] = Field(
+        default="user_request", description="Legal basis for deletion"
+    )
     metadata: Optional[Dict[str, Any]] = Field(default=None)
 
     @field_validator("deleted_at", mode="before")

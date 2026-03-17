@@ -75,7 +75,7 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _clean_overrides():
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -85,8 +85,8 @@ def _clean_overrides():
 
 
 def _install_auth(db: AsyncMock = None, user_id: str = TEST_USER_ID):
-    from main import app
     from api.dependencies import get_current_user, get_db_session
+    from main import app
 
     session = _session_data(user_id=user_id)
     if db is None:

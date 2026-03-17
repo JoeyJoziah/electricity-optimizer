@@ -18,13 +18,12 @@ import uuid
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from services.alert_service import AlertService
 
 logger = structlog.get_logger(__name__)

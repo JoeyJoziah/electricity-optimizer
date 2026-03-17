@@ -41,9 +41,7 @@ class NeighborhoodService:
               AND utility_type = :utility_type
               AND created_at >= NOW() - INTERVAL '30 days'
         """)
-        count_result = await db.execute(
-            count_sql, {"region": region, "utility_type": utility_type}
-        )
+        count_result = await db.execute(count_sql, {"region": region, "utility_type": utility_type})
         user_count = count_result.scalar()
 
         if user_count < MIN_USERS_FOR_COMPARISON:

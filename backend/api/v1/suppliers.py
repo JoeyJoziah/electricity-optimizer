@@ -8,25 +8,21 @@ Backed by the supplier_registry table (migration 006).
 
 import re
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel
 from sqlalchemy import text
-import structlog
 
-from models.supplier import (
-    SupplierResponse,
-    SupplierDetailResponse,
-    SupplierListResponse,
-    TariffResponse,
-    TariffListResponse,
-)
+from api.dependencies import (SessionData, get_current_user_optional,
+                              get_db_session, get_redis)
+from models.supplier import (SupplierDetailResponse, SupplierListResponse,
+                             SupplierResponse, TariffListResponse,
+                             TariffResponse)
 from models.utility import UtilityType
-from api.dependencies import get_db_session, get_redis, get_current_user_optional, SessionData
 from repositories.supplier_repository import SupplierRegistryRepository
-
 
 logger = structlog.get_logger(__name__)
 
@@ -42,8 +38,7 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
         UUID(value)
     except (ValueError, AttributeError):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"{label} '{value}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"{label} '{value}' not found"
         )
 
 
@@ -52,7 +47,7 @@ def _validate_region_code(value: str) -> None:
     if not _REGION_RE.match(value):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid region code: '{value}'"
+            detail=f"Invalid region code: '{value}'",
         )
 
 
@@ -63,6 +58,7 @@ def _validate_region_code(value: str) -> None:
 
 class SuppliersResponse(BaseModel):
     """Response for suppliers list endpoint"""
+
     suppliers: List[SupplierResponse]
     total: int
     page: int
@@ -73,6 +69,7 @@ class SuppliersResponse(BaseModel):
 
 class SupplierTariffsResponse(BaseModel):
     """Response for supplier tariffs endpoint"""
+
     supplier_id: str
     supplier_name: str
     tariffs: List[TariffResponse]
@@ -90,11 +87,14 @@ class SupplierTariffsResponse(BaseModel):
     summary="List energy suppliers",
     responses={
         200: {"description": "Suppliers retrieved successfully"},
-    }
+    },
 )
 async def list_suppliers(
     region: Optional[str] = Query(None, description="Filter by region (e.g., us_ct, us_ma)"),
-    utility_type: Optional[str] = Query(None, description="Filter by utility type (electricity, natural_gas, heating_oil, propane, community_solar)"),
+    utility_type: Optional[str] = Query(
+        None,
+        description="Filter by utility type (electricity, natural_gas, heating_oil, propane, community_solar)",
+    ),
     green_only: bool = Query(False, description="Filter for green energy providers"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -184,7 +184,7 @@ async def list_registry_suppliers(
     responses={
         200: {"description": "Supplier retrieved successfully"},
         404: {"description": "Supplier not found"},
-    }
+    },
 )
 async def get_supplier(
     supplier_id: UUID = Path(..., description="Supplier ID (UUID)"),
@@ -203,7 +203,7 @@ async def get_supplier(
     if not supplier:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID '{supplier_id}' not found"
+            detail=f"Supplier with ID '{supplier_id}' not found",
         )
 
     return SupplierDetailResponse(
@@ -230,7 +230,7 @@ async def get_supplier(
     responses={
         200: {"description": "Tariffs retrieved successfully"},
         404: {"description": "Supplier not found"},
-    }
+    },
 )
 async def get_supplier_tariffs(
     supplier_id: UUID = Path(..., description="Supplier ID (UUID)"),
@@ -251,10 +251,10 @@ async def get_supplier_tariffs(
     if not supplier:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID '{supplier_id}' not found"
+            detail=f"Supplier with ID '{supplier_id}' not found",
         )
 
-    from models.supplier import TariffType, ContractLength
+    from models.supplier import ContractLength, TariffType
 
     # Build WHERE clause incrementally so we keep one parameterised query string
     where_clauses = ["supplier_id = :supplier_id"]
@@ -318,7 +318,7 @@ async def get_supplier_tariffs(
     summary="Get suppliers by region",
     responses={
         200: {"description": "Suppliers retrieved successfully"},
-    }
+    },
 )
 async def get_suppliers_by_region(
     region: str = Path(..., description="Region code (e.g., us_ct, us_ma, us_tx)"),
@@ -358,7 +358,7 @@ async def get_suppliers_by_region(
     summary="Compare suppliers in a region",
     responses={
         200: {"description": "Comparison retrieved successfully"},
-    }
+    },
 )
 async def compare_suppliers(
     region: str = Path(..., description="Region code"),
@@ -381,16 +381,18 @@ async def compare_suppliers(
 
     comparison = []
     for supplier in suppliers_data:
-        comparison.append({
-            "supplier_id": supplier["id"],
-            "supplier_name": supplier["name"],
-            "utility_types": supplier["utility_types"],
-            "cheapest_tariff": "Standard Variable",
-            "unit_rate": "0.25",
-            "standing_charge": "0.40",
-            "rating": supplier.get("rating"),
-            "green_energy_provider": supplier["green_energy_provider"],
-        })
+        comparison.append(
+            {
+                "supplier_id": supplier["id"],
+                "supplier_name": supplier["name"],
+                "utility_types": supplier["utility_types"],
+                "cheapest_tariff": "Standard Variable",
+                "unit_rate": "0.25",
+                "standing_charge": "0.40",
+                "rating": supplier.get("rating"),
+                "green_energy_provider": supplier["green_energy_provider"],
+            }
+        )
 
     comparison.sort(key=lambda x: float(x["unit_rate"]))
 
@@ -399,5 +401,5 @@ async def compare_suppliers(
         "utility_type": utility_type,
         "suppliers": comparison,
         "total": len(comparison),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }

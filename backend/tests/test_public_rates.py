@@ -1,15 +1,12 @@
 """Tests for public rates API endpoints."""
 
-import pytest
-from decimal import Decimal
 from datetime import datetime, timezone
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
-from api.v1.public_rates import (
-    get_available_states,
-    get_rate_summary,
-)
+from api.v1.public_rates import get_available_states, get_rate_summary
 
 
 def _mock_db():
@@ -68,18 +65,22 @@ class TestGetRateSummary:
         db = _mock_db()
         now = datetime.now(timezone.utc)
         rows = [
-            _row({
-                "supplier": "Eversource",
-                "price_per_kwh": Decimal("0.1200"),
-                "rate_type": "standard",
-                "updated_at": now,
-            }),
-            _row({
-                "supplier": "CheapCo",
-                "price_per_kwh": Decimal("0.1000"),
-                "rate_type": "standard",
-                "updated_at": now,
-            }),
+            _row(
+                {
+                    "supplier": "Eversource",
+                    "price_per_kwh": Decimal("0.1200"),
+                    "rate_type": "standard",
+                    "updated_at": now,
+                }
+            ),
+            _row(
+                {
+                    "supplier": "CheapCo",
+                    "price_per_kwh": Decimal("0.1000"),
+                    "rate_type": "standard",
+                    "updated_at": now,
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -98,12 +99,14 @@ class TestGetRateSummary:
         db = _mock_db()
         now = datetime.now(timezone.utc)
         rows = [
-            _row({
-                "supplier": "EIA",
-                "price": Decimal("1.20"),
-                "source": "eia",
-                "fetched_at": now,
-            }),
+            _row(
+                {
+                    "supplier": "EIA",
+                    "price": Decimal("1.20"),
+                    "source": "eia",
+                    "fetched_at": now,
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -120,13 +123,15 @@ class TestGetRateSummary:
         db = _mock_db()
         now = datetime.now(timezone.utc)
         rows = [
-            _row({
-                "state": "CT",
-                "price_per_gallon": Decimal("3.50"),
-                "source": "eia",
-                "period_date": "2026-03-01",
-                "fetched_at": now,
-            }),
+            _row(
+                {
+                    "state": "CT",
+                    "price_per_gallon": Decimal("3.50"),
+                    "source": "eia",
+                    "period_date": "2026-03-01",
+                    "fetched_at": now,
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows

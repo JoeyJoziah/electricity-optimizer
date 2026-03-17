@@ -15,15 +15,15 @@ accumulation across tests.
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -65,7 +65,12 @@ class _MockCommunityDB:
 
     def _dispatch(self, sql: str, params: dict) -> MagicMock:
         # --- Rate limit check (has CREATED_AT + user_id) ---
-        if "COMMUNITY_POSTS" in sql and "COUNT(*)" in sql and "CREATED_AT" in sql and "USER_ID" in sql:
+        if (
+            "COMMUNITY_POSTS" in sql
+            and "COUNT(*)" in sql
+            and "CREATED_AT" in sql
+            and "USER_ID" in sql
+        ):
             return self._rate_count(params)
 
         # --- INSERT post ---
@@ -135,7 +140,8 @@ class _MockCommunityDB:
         region = params.get("region", "")
         utype = params.get("utility_type", "")
         count = sum(
-            1 for p in self._posts
+            1
+            for p in self._posts
             if not p["is_hidden"]
             and not p["is_pending_moderation"]
             and str(p["region"]) == str(region)
@@ -173,8 +179,14 @@ class _MockCommunityDB:
         pid = params.get("post_id") or params.get("id")
         post = next((p for p in self._posts if str(p["id"]) == str(pid)), None)
         if post:
-            for key in ("is_hidden", "is_pending_moderation", "hidden_reason",
-                        "title", "body", "supplier_name"):
+            for key in (
+                "is_hidden",
+                "is_pending_moderation",
+                "hidden_reason",
+                "title",
+                "body",
+                "supplier_name",
+            ):
                 if key in params:
                     post[key] = params[key]
         return MagicMock()
@@ -190,7 +202,8 @@ class _MockCommunityDB:
         region = params.get("region", "")
         utype = params.get("utility_type", "")
         visible = [
-            p for p in self._posts
+            p
+            for p in self._posts
             if not p["is_hidden"]
             and not p["is_pending_moderation"]
             and str(p["region"]) == str(region)
@@ -198,16 +211,12 @@ class _MockCommunityDB:
         ]
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
-        page = visible[offset:offset + limit]
+        page = visible[offset : offset + limit]
         total = len(visible)
         # Add derived counts + window function total
         for p in page:
-            p["upvote_count"] = sum(
-                1 for v in self._votes if str(v["post_id"]) == str(p["id"])
-            )
-            p["report_count"] = sum(
-                1 for r in self._reports if str(r["post_id"]) == str(p["id"])
-            )
+            p["upvote_count"] = sum(1 for v in self._votes if str(v["post_id"]) == str(p["id"]))
+            p["report_count"] = sum(1 for r in self._reports if str(r["post_id"]) == str(p["id"]))
             p["_total_count"] = total
         result = MagicMock()
         result.mappings.return_value.fetchall.return_value = page
@@ -219,7 +228,8 @@ class _MockCommunityDB:
         uid = params.get("user_id", "")
         pid = params.get("post_id", "")
         match = [
-            v for v in self._votes
+            v
+            for v in self._votes
             if str(v["user_id"]) == str(uid) and str(v["post_id"]) == str(pid)
         ]
         result = MagicMock()
@@ -227,18 +237,21 @@ class _MockCommunityDB:
         return result
 
     def _insert_vote(self, params: dict) -> MagicMock:
-        self._votes.append({
-            "user_id": params.get("user_id"),
-            "post_id": params.get("post_id"),
-            "created_at": datetime.now(tz=timezone.utc),
-        })
+        self._votes.append(
+            {
+                "user_id": params.get("user_id"),
+                "post_id": params.get("post_id"),
+                "created_at": datetime.now(tz=timezone.utc),
+            }
+        )
         return MagicMock()
 
     def _delete_vote(self, params: dict) -> MagicMock:
         uid = params.get("user_id", "")
         pid = params.get("post_id", "")
         self._votes = [
-            v for v in self._votes
+            v
+            for v in self._votes
             if not (str(v["user_id"]) == str(uid) and str(v["post_id"]) == str(pid))
         ]
         result = MagicMock()
@@ -250,23 +263,27 @@ class _MockCommunityDB:
         uid = params.get("user_id", "")
         pid = params.get("post_id", "")
         match = [
-            v for v in self._votes
+            v
+            for v in self._votes
             if str(v["user_id"]) == str(uid) and str(v["post_id"]) == str(pid)
         ]
         if match:
             # Vote exists → delete it
             self._votes = [
-                v for v in self._votes
+                v
+                for v in self._votes
                 if not (str(v["user_id"]) == str(uid) and str(v["post_id"]) == str(pid))
             ]
             action = "deleted"
         else:
             # Vote doesn't exist → insert it
-            self._votes.append({
-                "user_id": uid,
-                "post_id": pid,
-                "created_at": datetime.now(tz=timezone.utc),
-            })
+            self._votes.append(
+                {
+                    "user_id": uid,
+                    "post_id": pid,
+                    "created_at": datetime.now(tz=timezone.utc),
+                }
+            )
             action = "inserted"
         count = sum(1 for v in self._votes if str(v["post_id"]) == str(pid))
         result = MagicMock()
@@ -292,16 +309,17 @@ class _MockCommunityDB:
         threshold = params.get("threshold", 5)
         # Deduplicate insert
         exists = any(
-            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid)
-            for r in self._reports
+            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid) for r in self._reports
         )
         if not exists:
-            self._reports.append({
-                "user_id": uid,
-                "post_id": pid,
-                "reason": params.get("reason"),
-                "created_at": datetime.now(tz=timezone.utc),
-            })
+            self._reports.append(
+                {
+                    "user_id": uid,
+                    "post_id": pid,
+                    "reason": params.get("reason"),
+                    "created_at": datetime.now(tz=timezone.utc),
+                }
+            )
         # Count + conditional hide
         count = sum(1 for r in self._reports if str(r["post_id"]) == str(pid))
         if count >= threshold:
@@ -316,16 +334,17 @@ class _MockCommunityDB:
         pid = params.get("post_id", "")
         # Deduplicate
         exists = any(
-            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid)
-            for r in self._reports
+            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid) for r in self._reports
         )
         if not exists:
-            self._reports.append({
-                "user_id": uid,
-                "post_id": pid,
-                "reason": params.get("reason"),
-                "created_at": datetime.now(tz=timezone.utc),
-            })
+            self._reports.append(
+                {
+                    "user_id": uid,
+                    "post_id": pid,
+                    "reason": params.get("reason"),
+                    "created_at": datetime.now(tz=timezone.utc),
+                }
+            )
         return MagicMock()
 
     def _count_reports(self, params: dict) -> MagicMock:
@@ -458,23 +477,25 @@ class TestListPosts:
     def test_list_posts_with_filters(self, auth_client, mock_db):
         """200 with region + utility_type query params."""
         # Seed a visible post
-        mock_db._posts.append({
-            "id": str(uuid4()),
-            "user_id": TEST_USER_ID,
-            "region": "us_ct",
-            "utility_type": "electricity",
-            "post_type": "tip",
-            "title": "Visible post",
-            "body": "Body text",
-            "rate_per_unit": None,
-            "rate_unit": None,
-            "supplier_name": None,
-            "is_hidden": False,
-            "is_pending_moderation": False,
-            "hidden_reason": None,
-            "created_at": datetime.now(tz=timezone.utc),
-            "updated_at": datetime.now(tz=timezone.utc),
-        })
+        mock_db._posts.append(
+            {
+                "id": str(uuid4()),
+                "user_id": TEST_USER_ID,
+                "region": "us_ct",
+                "utility_type": "electricity",
+                "post_type": "tip",
+                "title": "Visible post",
+                "body": "Body text",
+                "rate_per_unit": None,
+                "rate_unit": None,
+                "supplier_name": None,
+                "is_hidden": False,
+                "is_pending_moderation": False,
+                "hidden_reason": None,
+                "created_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc),
+            }
+        )
 
         resp = auth_client.get(
             "/api/v1/community/posts",
@@ -504,23 +525,25 @@ class TestVote:
     def test_vote_toggle(self, auth_client, mock_db):
         """200, toggles vote on a post."""
         post_id = str(uuid4())
-        mock_db._posts.append({
-            "id": post_id,
-            "user_id": OTHER_USER_ID,
-            "region": "us_ct",
-            "utility_type": "electricity",
-            "post_type": "tip",
-            "title": "Votable",
-            "body": "Body",
-            "rate_per_unit": None,
-            "rate_unit": None,
-            "supplier_name": None,
-            "is_hidden": False,
-            "is_pending_moderation": False,
-            "hidden_reason": None,
-            "created_at": datetime.now(tz=timezone.utc),
-            "updated_at": datetime.now(tz=timezone.utc),
-        })
+        mock_db._posts.append(
+            {
+                "id": post_id,
+                "user_id": OTHER_USER_ID,
+                "region": "us_ct",
+                "utility_type": "electricity",
+                "post_type": "tip",
+                "title": "Votable",
+                "body": "Body",
+                "rate_per_unit": None,
+                "rate_unit": None,
+                "supplier_name": None,
+                "is_hidden": False,
+                "is_pending_moderation": False,
+                "hidden_reason": None,
+                "created_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc),
+            }
+        )
 
         resp = auth_client.post(f"/api/v1/community/posts/{post_id}/vote")
         assert resp.status_code == 200
@@ -541,23 +564,25 @@ class TestReport:
     def test_report_post(self, auth_client, mock_db):
         """200, inserts report."""
         post_id = str(uuid4())
-        mock_db._posts.append({
-            "id": post_id,
-            "user_id": OTHER_USER_ID,
-            "region": "us_ct",
-            "utility_type": "electricity",
-            "post_type": "discussion",
-            "title": "Reportable",
-            "body": "Body",
-            "rate_per_unit": None,
-            "rate_unit": None,
-            "supplier_name": None,
-            "is_hidden": False,
-            "is_pending_moderation": False,
-            "hidden_reason": None,
-            "created_at": datetime.now(tz=timezone.utc),
-            "updated_at": datetime.now(tz=timezone.utc),
-        })
+        mock_db._posts.append(
+            {
+                "id": post_id,
+                "user_id": OTHER_USER_ID,
+                "region": "us_ct",
+                "utility_type": "electricity",
+                "post_type": "discussion",
+                "title": "Reportable",
+                "body": "Body",
+                "rate_per_unit": None,
+                "rate_unit": None,
+                "supplier_name": None,
+                "is_hidden": False,
+                "is_pending_moderation": False,
+                "hidden_reason": None,
+                "created_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc),
+            }
+        )
 
         resp = auth_client.post(
             f"/api/v1/community/posts/{post_id}/report",
@@ -568,26 +593,30 @@ class TestReport:
     def test_report_post_duplicate(self, auth_client, mock_db):
         """200 idempotent — same user reporting twice doesn't error."""
         post_id = str(uuid4())
-        mock_db._posts.append({
-            "id": post_id,
-            "user_id": OTHER_USER_ID,
-            "region": "us_ct",
-            "utility_type": "electricity",
-            "post_type": "discussion",
-            "title": "Report twice",
-            "body": "Body",
-            "rate_per_unit": None,
-            "rate_unit": None,
-            "supplier_name": None,
-            "is_hidden": False,
-            "is_pending_moderation": False,
-            "hidden_reason": None,
-            "created_at": datetime.now(tz=timezone.utc),
-            "updated_at": datetime.now(tz=timezone.utc),
-        })
+        mock_db._posts.append(
+            {
+                "id": post_id,
+                "user_id": OTHER_USER_ID,
+                "region": "us_ct",
+                "utility_type": "electricity",
+                "post_type": "discussion",
+                "title": "Report twice",
+                "body": "Body",
+                "rate_per_unit": None,
+                "rate_unit": None,
+                "supplier_name": None,
+                "is_hidden": False,
+                "is_pending_moderation": False,
+                "hidden_reason": None,
+                "created_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc),
+            }
+        )
 
         auth_client.post(f"/api/v1/community/posts/{post_id}/report", json={"reason": "spam"})
-        resp = auth_client.post(f"/api/v1/community/posts/{post_id}/report", json={"reason": "spam"})
+        resp = auth_client.post(
+            f"/api/v1/community/posts/{post_id}/report", json={"reason": "spam"}
+        )
         assert resp.status_code == 200
 
 
@@ -600,23 +629,25 @@ class TestEditResubmit:
     def test_edit_resubmit_flagged_post(self, auth_client, mock_db):
         """200, author can edit flagged post."""
         post_id = str(uuid4())
-        mock_db._posts.append({
-            "id": post_id,
-            "user_id": TEST_USER_ID,
-            "region": "us_ct",
-            "utility_type": "electricity",
-            "post_type": "tip",
-            "title": "Flagged",
-            "body": "Bad content",
-            "rate_per_unit": None,
-            "rate_unit": None,
-            "supplier_name": None,
-            "is_hidden": True,
-            "is_pending_moderation": False,
-            "hidden_reason": "flagged",
-            "created_at": datetime.now(tz=timezone.utc),
-            "updated_at": datetime.now(tz=timezone.utc),
-        })
+        mock_db._posts.append(
+            {
+                "id": post_id,
+                "user_id": TEST_USER_ID,
+                "region": "us_ct",
+                "utility_type": "electricity",
+                "post_type": "tip",
+                "title": "Flagged",
+                "body": "Bad content",
+                "rate_per_unit": None,
+                "rate_unit": None,
+                "supplier_name": None,
+                "is_hidden": True,
+                "is_pending_moderation": False,
+                "hidden_reason": "flagged",
+                "created_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc),
+            }
+        )
 
         resp = auth_client.put(
             f"/api/v1/community/posts/{post_id}",
@@ -633,23 +664,25 @@ class TestEditResubmit:
 class TestCommunityStats:
     def test_community_stats(self, auth_client, mock_db):
         """200 with aggregated data."""
-        mock_db._posts.append({
-            "id": str(uuid4()),
-            "user_id": TEST_USER_ID,
-            "region": "us_ct",
-            "utility_type": "electricity",
-            "post_type": "tip",
-            "title": "Top tip",
-            "body": "Body",
-            "rate_per_unit": None,
-            "rate_unit": None,
-            "supplier_name": None,
-            "is_hidden": False,
-            "is_pending_moderation": False,
-            "hidden_reason": None,
-            "created_at": datetime.now(tz=timezone.utc),
-            "updated_at": datetime.now(tz=timezone.utc),
-        })
+        mock_db._posts.append(
+            {
+                "id": str(uuid4()),
+                "user_id": TEST_USER_ID,
+                "region": "us_ct",
+                "utility_type": "electricity",
+                "post_type": "tip",
+                "title": "Top tip",
+                "body": "Body",
+                "rate_per_unit": None,
+                "rate_unit": None,
+                "supplier_name": None,
+                "is_hidden": False,
+                "is_pending_moderation": False,
+                "hidden_reason": None,
+                "created_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc),
+            }
+        )
 
         resp = auth_client.get("/api/v1/community/stats", params={"region": "us_ct"})
         assert resp.status_code == 200

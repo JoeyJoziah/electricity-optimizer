@@ -1,9 +1,10 @@
 """Tests for the Price Alert Service."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, call, patch
+
+import pytest
 
 from services.alert_service import AlertService, AlertThreshold, PriceAlert
 
@@ -303,9 +304,7 @@ class TestAlertServiceWithDispatcher:
         """When the dispatcher deduplicates a send, the alert should NOT count as sent."""
         mock_email = MagicMock()
         mock_email.render_template = MagicMock(return_value="<html>alert</html>")
-        dispatcher = self._make_dispatcher(
-            send_return={"skipped_dedup": True, "channels": {}}
-        )
+        dispatcher = self._make_dispatcher(send_return={"skipped_dedup": True, "channels": {}})
 
         service = AlertService(email_service=mock_email, dispatcher=dispatcher)
         threshold = self._make_threshold()

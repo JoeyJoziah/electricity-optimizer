@@ -12,15 +12,15 @@ import json
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
+from api.dependencies import (SessionData, get_current_user, get_price_service,
+                              require_tier)
+from config.settings import get_settings
 from models.price import PriceRegion
 from services.price_service import PriceService
-from api.dependencies import get_current_user, get_price_service, require_tier, SessionData
-from config.settings import get_settings
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 settings = get_settings()
@@ -40,6 +40,7 @@ _SSE_REDIS_TTL = 3600  # Safety TTL: auto-expire leaked keys after 1 hour
 async def _sse_incr(user_id: str) -> int:
     """Increment SSE connection count. Uses Redis if available, else in-memory."""
     from config.database import get_redis
+
     redis = await get_redis()
     if redis:
         key = f"sse:conn:{user_id}"
@@ -54,6 +55,7 @@ async def _sse_incr(user_id: str) -> int:
 async def _sse_decr(user_id: str) -> None:
     """Decrement SSE connection count."""
     from config.database import get_redis
+
     redis = await get_redis()
     if redis:
         key = f"sse:conn:{user_id}"
@@ -101,6 +103,7 @@ async def _price_event_generator(
             if not prices:
                 # No prices in DB — use mock fallback
                 from api.v1.prices import _generate_mock_prices
+
                 prices = _generate_mock_prices(region.value, 1)
                 source = "fallback"
 
@@ -121,6 +124,7 @@ async def _price_event_generator(
             logger.warning("sse_event_error", error=str(e), fallback="mock")
             try:
                 from api.v1.prices import _generate_mock_prices
+
                 now = datetime.now(timezone.utc)
                 mock = _generate_mock_prices(region.value, 1)
                 if mock:

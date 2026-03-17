@@ -87,9 +87,9 @@ async def run_learning_cycle(
     Computes rolling accuracy, detects bias, updates ensemble weights in Redis,
     stores bias correction vectors, and prunes stale patterns.
     """
-    from services.observation_service import ObservationService
     from services.hnsw_vector_store import HNSWVectorStore
     from services.learning_service import LearningService
+    from services.observation_service import ObservationService
 
     obs = ObservationService(db)
     vs = HNSWVectorStore()

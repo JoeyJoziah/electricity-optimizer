@@ -293,9 +293,7 @@ class CommunityService:
                 COALESCE((SELECT action FROM result), 'noop') AS action,
                 (SELECT COUNT(*) FROM community_votes WHERE post_id = :post_id) AS upvote_count
         """)
-        result = await db.execute(
-            toggle_sql, {"user_id": user_id, "post_id": post_id}
-        )
+        result = await db.execute(toggle_sql, {"user_id": user_id, "post_id": post_id})
         row = result.mappings().fetchone()
         await db.commit()
 

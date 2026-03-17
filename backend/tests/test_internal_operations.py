@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -85,16 +84,18 @@ class TestKPIReport:
     def test_happy_path(self, mock_svc_cls, auth_client):
         """KPI report should return status + metrics."""
         mock_svc = MagicMock()
-        mock_svc.aggregate_metrics = AsyncMock(return_value={
-            "active_users_7d": 42,
-            "total_users": 100,
-            "prices_tracked": 5000,
-            "alerts_sent_today": 15,
-            "connections_active": {"active": 10},
-            "subscription_breakdown": {"free": 80, "pro": 15, "business": 5},
-            "estimated_mrr": 149.80,
-            "weather_freshness_hours": 3.2,
-        })
+        mock_svc.aggregate_metrics = AsyncMock(
+            return_value={
+                "active_users_7d": 42,
+                "total_users": 100,
+                "prices_tracked": 5000,
+                "alerts_sent_today": 15,
+                "connections_active": {"active": 10},
+                "subscription_breakdown": {"free": 80, "pro": 15, "business": 5},
+                "estimated_mrr": 149.80,
+                "weather_freshness_hours": 3.2,
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/kpi-report")
@@ -110,9 +111,7 @@ class TestKPIReport:
     def test_service_error(self, mock_svc_cls, auth_client):
         """Service exception should return 500."""
         mock_svc = MagicMock()
-        mock_svc.aggregate_metrics = AsyncMock(
-            side_effect=RuntimeError("Query failed")
-        )
+        mock_svc.aggregate_metrics = AsyncMock(side_effect=RuntimeError("Query failed"))
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/kpi-report")
@@ -143,18 +142,30 @@ class TestDataHealthCheck:
         mock_ts_result = MagicMock()
         mock_ts_result.scalar.return_value = "2026-03-06T12:00:00+00:00"
 
-        mock_db.execute = AsyncMock(side_effect=[
-            mock_count_result, mock_ts_result,  # electricity_prices
-            mock_count_result, mock_ts_result,  # supplier_registry
-            mock_count_result, mock_ts_result,  # weather_cache
-            mock_count_result, mock_ts_result,  # market_intelligence
-            mock_count_result, mock_ts_result,  # scraped_rates
-            mock_count_result, mock_ts_result,  # alert_history
-            mock_count_result, mock_ts_result,  # users
-            mock_count_result, mock_ts_result,  # user_connections
-            mock_count_result, mock_ts_result,  # forecast_observations
-            mock_count_result, mock_ts_result,  # payment_retry_history
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                mock_count_result,
+                mock_ts_result,  # electricity_prices
+                mock_count_result,
+                mock_ts_result,  # supplier_registry
+                mock_count_result,
+                mock_ts_result,  # weather_cache
+                mock_count_result,
+                mock_ts_result,  # market_intelligence
+                mock_count_result,
+                mock_ts_result,  # scraped_rates
+                mock_count_result,
+                mock_ts_result,  # alert_history
+                mock_count_result,
+                mock_ts_result,  # users
+                mock_count_result,
+                mock_ts_result,  # user_connections
+                mock_count_result,
+                mock_ts_result,  # forecast_observations
+                mock_count_result,
+                mock_ts_result,  # payment_retry_history
+            ]
+        )
 
         response = auth_client.get(f"{BASE_URL}/health-data")
 
@@ -184,6 +195,7 @@ class TestDataHealthCheck:
     def test_health_check_db_unavailable(self, auth_client):
         """When DB is None, should return 503."""
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: None
 
         response = auth_client.get(f"{BASE_URL}/health-data")
@@ -192,6 +204,7 @@ class TestDataHealthCheck:
 
         # Restore mock db
         from unittest.mock import AsyncMock
+
         app.dependency_overrides[get_db_session] = lambda: AsyncMock()
 
     def test_health_check_requires_api_key(self, unauth_client):
@@ -216,9 +229,15 @@ class TestMaintenanceCleanup:
         mock_svc.cleanup_expired_uploads = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
-        mock_svc.cleanup_weather_cache = AsyncMock(return_value={"deleted": 0, "retention_days": 30})
-        mock_svc.cleanup_scraped_rates = AsyncMock(return_value={"deleted": 0, "retention_days": 90})
-        mock_svc.cleanup_market_intelligence = AsyncMock(return_value={"deleted": 0, "retention_days": 180})
+        mock_svc.cleanup_weather_cache = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 30}
+        )
+        mock_svc.cleanup_scraped_rates = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 90}
+        )
+        mock_svc.cleanup_market_intelligence = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 180}
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")
@@ -236,9 +255,15 @@ class TestMaintenanceCleanup:
         mock_svc.cleanup_expired_uploads = AsyncMock(side_effect=RuntimeError("DB timeout"))
         mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
-        mock_svc.cleanup_weather_cache = AsyncMock(return_value={"deleted": 0, "retention_days": 30})
-        mock_svc.cleanup_scraped_rates = AsyncMock(return_value={"deleted": 0, "retention_days": 90})
-        mock_svc.cleanup_market_intelligence = AsyncMock(return_value={"deleted": 0, "retention_days": 180})
+        mock_svc.cleanup_weather_cache = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 30}
+        )
+        mock_svc.cleanup_scraped_rates = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 90}
+        )
+        mock_svc.cleanup_market_intelligence = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 180}
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")

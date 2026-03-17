@@ -78,10 +78,7 @@ class MaintenanceService:
         upload_ids = [str(r[0]) for r in old_uploads]
         if upload_ids:
             await self._db.execute(
-                text(
-                    "DELETE FROM connection_extracted_rates"
-                    " WHERE bill_upload_id = ANY(:ids)"
-                ),
+                text("DELETE FROM connection_extracted_rates" " WHERE bill_upload_id = ANY(:ids)"),
                 {"ids": upload_ids},
             )
 

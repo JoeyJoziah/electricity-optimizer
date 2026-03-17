@@ -5,14 +5,14 @@ Verifies price queries, history, comparison, dealer directory,
 data ingestion, and state checks.
 """
 
-import pytest
+from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
-from datetime import date, datetime, timezone
 
-from services.heating_oil_service import HeatingOilService
+import pytest
+
 from models.region import HEATING_OIL_STATES
-
+from services.heating_oil_service import HeatingOilService
 
 PRICE_ROW = {
     "id": uuid4(),
@@ -188,20 +188,22 @@ class TestStoreprices:
         mock_db.commit = AsyncMock()
 
         service = HeatingOilService(mock_db)
-        stored = await service.store_prices([
-            {
-                "state": "CT",
-                "price_per_gallon": 3.45,
-                "source": "eia",
-                "period_date": "2026-03-10",
-            },
-            {
-                "state": "US",
-                "price_per_gallon": 3.50,
-                "source": "eia",
-                "period_date": "2026-03-10",
-            },
-        ])
+        stored = await service.store_prices(
+            [
+                {
+                    "state": "CT",
+                    "price_per_gallon": 3.45,
+                    "source": "eia",
+                    "period_date": "2026-03-10",
+                },
+                {
+                    "state": "US",
+                    "price_per_gallon": 3.50,
+                    "source": "eia",
+                    "period_date": "2026-03-10",
+                },
+            ]
+        )
 
         assert stored == 2
         assert mock_db.execute.call_count == 2

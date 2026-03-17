@@ -32,8 +32,8 @@ from typing import Any, Dict, Optional
 from uuid import uuid4
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -240,6 +240,7 @@ def _extract_text_from_pdf(data: bytes) -> str:
     # Try pypdf (optional)
     try:
         import io
+
         import pypdf  # type: ignore
 
         reader = pypdf.PdfReader(io.BytesIO(data))
@@ -276,6 +277,7 @@ def _extract_text_from_image(data: bytes) -> str:
     """
     try:
         import io
+
         import pytesseract  # type: ignore
         from PIL import Image  # type: ignore
 

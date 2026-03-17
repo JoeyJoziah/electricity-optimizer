@@ -10,18 +10,20 @@ Tests cover:
 - DELETE /user/supplier/accounts/{id} — unlink account
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
 
+import pytest
+from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_session_data(user_id="test-user-123", email="test@example.com"):
     """Create a mock SessionData for auth."""
     from auth.neon_auth import SessionData
+
     return SessionData(user_id=user_id, email=email, name="Test User", email_verified=True)
 
 
@@ -40,10 +42,12 @@ def _mock_db():
 # across the full test suite.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def client():
     """Function-scoped TestClient so the rate limiter resets cleanly between tests."""
     from main import app
+
     with TestClient(app) as c:
         yield c
 
@@ -55,8 +59,8 @@ def _override_auth_and_db(request):
     Tests store their mock_db on the class/module via `request.instance`.
     Cleans up only its own overrides (not conftest's).
     """
-    from main import app
     from api.dependencies import get_current_user, get_db_session
+    from main import app
 
     db = _mock_db()
     session_data = _make_session_data()
@@ -77,6 +81,7 @@ def _override_auth_and_db(request):
 # ---------------------------------------------------------------------------
 # Tests: PUT /user/supplier
 # ---------------------------------------------------------------------------
+
 
 class TestSetCurrentSupplier:
     """Tests for PUT /api/v1/user/supplier."""
@@ -103,11 +108,13 @@ class TestSetCurrentSupplier:
 
         update_result = MagicMock()
 
-        self._db.execute = AsyncMock(side_effect=[
-            user_check_result,
-            supplier_result,
-            update_result,
-        ])
+        self._db.execute = AsyncMock(
+            side_effect=[
+                user_check_result,
+                supplier_result,
+                update_result,
+            ]
+        )
 
         response = client.put(
             "/api/v1/user/supplier",
@@ -187,9 +194,12 @@ class TestSetCurrentSupplier:
             "is_active": True,
         }
 
-        self._db.execute = AsyncMock(side_effect=[
-            user_check_result, supplier_result,
-        ])
+        self._db.execute = AsyncMock(
+            side_effect=[
+                user_check_result,
+                supplier_result,
+            ]
+        )
 
         response = client.put(
             "/api/v1/user/supplier",
@@ -201,8 +211,8 @@ class TestSetCurrentSupplier:
 
     def test_set_supplier_unauthenticated(self):
         """Unauthenticated request should return 401 or 503."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
+        from main import app
 
         # Remove auth override for this test only
         saved_auth = app.dependency_overrides.pop(get_current_user, None)
@@ -225,6 +235,7 @@ class TestSetCurrentSupplier:
 # ---------------------------------------------------------------------------
 # Tests: GET /user/supplier
 # ---------------------------------------------------------------------------
+
 
 class TestGetCurrentSupplier:
     """Tests for GET /api/v1/user/supplier."""
@@ -276,6 +287,7 @@ class TestGetCurrentSupplier:
 # Tests: DELETE /user/supplier
 # ---------------------------------------------------------------------------
 
+
 class TestRemoveSupplier:
     """Tests for DELETE /api/v1/user/supplier."""
 
@@ -292,6 +304,7 @@ class TestRemoveSupplier:
 # ---------------------------------------------------------------------------
 # Tests: POST /user/supplier/link
 # ---------------------------------------------------------------------------
+
 
 class TestLinkAccount:
     """Tests for POST /api/v1/user/supplier/link."""
@@ -375,6 +388,7 @@ class TestLinkAccount:
 # Tests: GET /user/supplier/accounts
 # ---------------------------------------------------------------------------
 
+
 class TestGetLinkedAccounts:
     """Tests for GET /api/v1/user/supplier/accounts."""
 
@@ -393,6 +407,7 @@ class TestGetLinkedAccounts:
 # ---------------------------------------------------------------------------
 # Tests: DELETE /user/supplier/accounts/{supplier_id}
 # ---------------------------------------------------------------------------
+
 
 class TestUnlinkAccount:
     """Tests for DELETE /api/v1/user/supplier/accounts/{supplier_id}."""

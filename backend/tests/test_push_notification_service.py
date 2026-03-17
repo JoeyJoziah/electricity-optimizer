@@ -18,7 +18,8 @@ from uuid import uuid4
 
 import pytest
 
-from services.push_notification_service import PushNotificationService, ONESIGNAL_API_URL
+from services.push_notification_service import (ONESIGNAL_API_URL,
+                                                PushNotificationService)
 
 # =============================================================================
 # Fixtures
@@ -97,7 +98,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Test",
@@ -128,7 +131,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Test",
@@ -145,7 +150,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Test",
@@ -164,7 +171,9 @@ class TestSendPush:
 
         custom_data = {"type": "price_alert", "region": "CT"}
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Price Alert",
@@ -174,7 +183,11 @@ class TestSendPush:
 
         mock_client.post.assert_awaited_once()
         call_kwargs = mock_client.post.call_args
-        url_arg = call_kwargs.args[0] if call_kwargs.args else call_kwargs.kwargs.get("url", call_kwargs.args[0] if call_kwargs.args else None)
+        url_arg = (
+            call_kwargs.args[0]
+            if call_kwargs.args
+            else call_kwargs.kwargs.get("url", call_kwargs.args[0] if call_kwargs.args else None)
+        )
         # Verify the URL is the OneSignal endpoint
         assert ONESIGNAL_API_URL in str(call_kwargs)
 
@@ -193,7 +206,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="T",
@@ -212,7 +227,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="T",
@@ -231,7 +248,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="T",

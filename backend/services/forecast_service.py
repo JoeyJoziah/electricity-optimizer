@@ -7,7 +7,7 @@ Provides rate forecasting across utility types:
 - Water: not forecasted (rates change via municipal schedule, not market)
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -26,9 +26,16 @@ FORECAST_HORIZON_DAYS = 30
 
 # Allowlists for SQL identifiers to prevent injection
 _ALLOWED_TABLES = frozenset({"electricity_prices", "heating_oil_prices", "propane_prices"})
-_ALLOWED_COLS = frozenset({
-    "price_per_kwh", "price_per_gallon", "fetched_at", "timestamp", "region", "state",
-})
+_ALLOWED_COLS = frozenset(
+    {
+        "price_per_kwh",
+        "price_per_gallon",
+        "fetched_at",
+        "timestamp",
+        "region",
+        "state",
+    }
+)
 
 
 def _validate_sql_identifier(value: str, allowlist: frozenset, label: str) -> str:
@@ -111,9 +118,7 @@ class ForecastService:
 
         return {"utility_type": utility_type, "error": "Unknown utility type"}
 
-    async def _forecast_electricity(
-        self, state: Optional[str], horizon_days: int
-    ) -> dict:
+    async def _forecast_electricity(self, state: Optional[str], horizon_days: int) -> dict:
         """Electricity forecast using historical price data and trend extrapolation.
 
         Note: The ML EnsemblePredictor is already available via PriceService.get_price_forecast
@@ -169,11 +174,11 @@ class ForecastService:
         params: dict = {"lookback_days": TREND_LOOKBACK_DAYS}
 
         # Time filter — use fetched_at or period_date depending on table
-        time_col = "fetched_at" if table in ("heating_oil_prices", "propane_prices") else "timestamp"
-        _validate_sql_identifier(time_col, _ALLOWED_COLS, "column")
-        conditions.append(
-            f"{time_col} >= NOW() - make_interval(days => :lookback_days)"
+        time_col = (
+            "fetched_at" if table in ("heating_oil_prices", "propane_prices") else "timestamp"
         )
+        _validate_sql_identifier(time_col, _ALLOWED_COLS, "column")
+        conditions.append(f"{time_col} >= NOW() - make_interval(days => :lookback_days)")
 
         if where_clause:
             conditions.append(where_clause)
@@ -278,7 +283,9 @@ class ForecastService:
         forecasted_rate = max(forecasted_rate, 0.0)
 
         # Trend direction
-        pct_change = ((forecasted_rate - current_rate) / current_rate * 100) if current_rate > 0 else 0
+        pct_change = (
+            ((forecasted_rate - current_rate) / current_rate * 100) if current_rate > 0 else 0
+        )
         if pct_change > 1:
             trend = "increasing"
         elif pct_change < -1:

@@ -76,12 +76,14 @@ class TestOTLPExporterConfiguration:
 
         import observability
 
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"), \
-             patch(
-                 "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter"
-             ) as mock_exporter_cls:
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+            patch(
+                "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter"
+            ) as mock_exporter_cls,
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = "https://otlp-gateway.example.net/otlp"
             mock_settings.is_production = True
@@ -89,13 +91,12 @@ class TestOTLPExporterConfiguration:
             mock_exporter_cls.return_value = MagicMock()
 
             from fastapi import FastAPI
+
             app = FastAPI()
             result = observability.init_telemetry(app)
 
         assert result is True
-        mock_exporter_cls.assert_called_once_with(
-            endpoint="https://otlp-gateway.example.net/otlp"
-        )
+        mock_exporter_cls.assert_called_once_with(endpoint="https://otlp-gateway.example.net/otlp")
 
         # Verify a real TracerProvider was installed
         provider = trace.get_tracer_provider()
@@ -107,21 +108,22 @@ class TestOTLPExporterConfiguration:
 
         mock_exporter_instance = MagicMock()
 
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"), \
-             patch(
-                 "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
-                 return_value=mock_exporter_instance,
-             ), \
-             patch(
-                 "opentelemetry.sdk.trace.export.BatchSpanProcessor"
-             ) as mock_batch:
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+            patch(
+                "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
+                return_value=mock_exporter_instance,
+            ),
+            patch("opentelemetry.sdk.trace.export.BatchSpanProcessor") as mock_batch,
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = "https://otlp-gateway.example.net/otlp"
             mock_settings.is_production = True
 
             from fastapi import FastAPI
+
             app = FastAPI()
             observability.init_telemetry(app)
 
@@ -134,18 +136,21 @@ class TestOTLPExporterConfiguration:
 
         import observability
 
-        with patch.object(observability, "settings") as mock_settings, \
-             patch.object(observability, "_instrument_fastapi"), \
-             patch.object(observability, "_instrument_httpx"), \
-             patch(
-                 "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
-                 return_value=MagicMock(),
-             ):
+        with (
+            patch.object(observability, "settings") as mock_settings,
+            patch.object(observability, "_instrument_fastapi"),
+            patch.object(observability, "_instrument_httpx"),
+            patch(
+                "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
+                return_value=MagicMock(),
+            ),
+        ):
             mock_settings.otel_enabled = True
             mock_settings.otel_endpoint = "https://otlp-gateway.example.net/otlp"
             mock_settings.is_production = True
 
             from fastapi import FastAPI
+
             app = FastAPI()
             observability.init_telemetry(app)
 
@@ -172,10 +177,11 @@ class TestOTLPHeadersEnvVar:
         This test verifies that our observability.py does NOT override headers,
         allowing the SDK's native env var reading to work.
         """
-        import observability
-
         # Inspect the source to confirm we only pass `endpoint`, not `headers`
         import inspect
+
+        import observability
+
         source = inspect.getsource(observability._configure_tracer_provider)
 
         # Verify OTLPSpanExporter is called with endpoint= only
@@ -197,11 +203,9 @@ class TestSpanExportPayload:
         from opentelemetry import trace
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            SimpleSpanProcessor,
-            SpanExporter,
-            SpanExportResult,
-        )
+        from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                    SpanExporter,
+                                                    SpanExportResult)
 
         class _InMemoryExporter(SpanExporter):
             def __init__(self):
@@ -240,11 +244,9 @@ class TestSpanExportPayload:
         from opentelemetry import trace
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            SimpleSpanProcessor,
-            SpanExporter,
-            SpanExportResult,
-        )
+        from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                    SpanExporter,
+                                                    SpanExportResult)
 
         class _InMemoryExporter(SpanExporter):
             def __init__(self):
@@ -258,9 +260,7 @@ class TestSpanExportPayload:
                 pass
 
         exporter = _InMemoryExporter()
-        provider = TracerProvider(
-            resource=Resource.create({SERVICE_NAME: "rateshift-backend"})
-        )
+        provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "rateshift-backend"}))
         provider.add_span_processor(SimpleSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
 
@@ -283,11 +283,9 @@ class TestSpanExportPayload:
         from opentelemetry import trace
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            SimpleSpanProcessor,
-            SpanExporter,
-            SpanExportResult,
-        )
+        from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                    SpanExporter,
+                                                    SpanExportResult)
         from opentelemetry.trace import StatusCode
 
         class _InMemoryExporter(SpanExporter):
@@ -302,9 +300,7 @@ class TestSpanExportPayload:
                 pass
 
         exporter = _InMemoryExporter()
-        provider = TracerProvider(
-            resource=Resource.create({SERVICE_NAME: "rateshift-backend"})
-        )
+        provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "rateshift-backend"}))
         provider.add_span_processor(SimpleSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
 

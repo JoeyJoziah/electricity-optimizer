@@ -8,12 +8,11 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -62,8 +61,8 @@ def api_client():
     - API key auth bypassed
     - DB session stubbed (execute returns empty result by default)
     """
-    from main import app
     from api.dependencies import get_db_session, verify_api_key
+    from main import app
 
     db_session = AsyncMock()
     db_session.execute = AsyncMock(return_value=MagicMock(fetchall=lambda: []))
@@ -201,7 +200,8 @@ class TestCompareModelVersions:
 
     def test_returns_200_with_comparison_result(self, api_client):
         """Should return 200 with metric deltas when both versions exist."""
-        from models.model_version import VersionComparisonResult, ModelVersionResponse
+        from models.model_version import (ModelVersionResponse,
+                                          VersionComparisonResult)
 
         client, db = api_client
 
@@ -292,7 +292,8 @@ class TestCompareModelVersions:
 
     def test_returns_comparison_with_metric_comparison_key(self, api_client):
         """Response must include a metric_comparison dict."""
-        from models.model_version import VersionComparisonResult, ModelVersionResponse
+        from models.model_version import (ModelVersionResponse,
+                                          VersionComparisonResult)
 
         client, db = api_client
 

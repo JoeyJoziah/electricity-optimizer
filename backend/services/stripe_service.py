@@ -6,9 +6,10 @@ Handles subscription lifecycle, checkout sessions, webhooks, and customer portal
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
-import structlog
+from typing import Any, Dict, Optional
+
 import stripe
+import structlog
 
 from config.settings import settings
 from lib.tracing import traced
@@ -291,9 +292,7 @@ class StripeService:
 
         try:
             if cancel_immediately:
-                subscription = await asyncio.to_thread(
-                    stripe.Subscription.cancel, subscription_id
-                )
+                subscription = await asyncio.to_thread(stripe.Subscription.cancel, subscription_id)
                 logger.info(
                     "subscription_canceled_immediately",
                     subscription_id=subscription_id,
@@ -374,7 +373,9 @@ class StripeService:
                 "customer_id": str,
             }
         """
-        async with traced("stripe.webhook", attributes={"stripe.event_type": event.get("type", "unknown")}):
+        async with traced(
+            "stripe.webhook", attributes={"stripe.event_type": event.get("type", "unknown")}
+        ):
             event_type = event["type"]
             data = event["data"]["object"]
 
@@ -395,13 +396,15 @@ class StripeService:
                 tier = session.get("metadata", {}).get("tier")
                 customer_id = session.get("customer")
 
-                result.update({
-                    "handled": True,
-                    "action": "activate_subscription",
-                    "user_id": user_id,
-                    "tier": tier,
-                    "customer_id": customer_id,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "activate_subscription",
+                        "user_id": user_id,
+                        "tier": tier,
+                        "customer_id": customer_id,
+                    }
+                )
 
                 logger.info(
                     "checkout_completed",
@@ -423,14 +426,16 @@ class StripeService:
                 # during grace periods (Stripe retries before hard-canceling).
                 _downgrade_statuses = {"canceled", "unpaid"}
                 effective_tier = "free" if status in _downgrade_statuses else (tier or "free")
-                result.update({
-                    "handled": True,
-                    "action": "update_subscription",
-                    "user_id": user_id,
-                    "tier": effective_tier,
-                    "customer_id": customer_id,
-                    "status": status,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "update_subscription",
+                        "user_id": user_id,
+                        "tier": effective_tier,
+                        "customer_id": customer_id,
+                        "status": status,
+                    }
+                )
 
                 logger.info(
                     "subscription_updated",
@@ -446,13 +451,15 @@ class StripeService:
                 user_id = subscription.get("metadata", {}).get("user_id")
                 customer_id = subscription.get("customer")
 
-                result.update({
-                    "handled": True,
-                    "action": "deactivate_subscription",
-                    "user_id": user_id,
-                    "tier": "free",
-                    "customer_id": customer_id,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "deactivate_subscription",
+                        "user_id": user_id,
+                        "tier": "free",
+                        "customer_id": customer_id,
+                    }
+                )
 
                 logger.info(
                     "subscription_deleted",
@@ -473,15 +480,17 @@ class StripeService:
                 if amount_due and isinstance(amount_due, (int, float)):
                     amount_due = amount_due / 100.0
 
-                result.update({
-                    "handled": True,
-                    "action": "payment_failed",
-                    "customer_id": customer_id,
-                    "subscription_id": subscription_id,
-                    "amount_due": amount_due,
-                    "currency": currency,
-                    "invoice_id": invoice_id,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "payment_failed",
+                        "customer_id": customer_id,
+                        "subscription_id": subscription_id,
+                        "amount_due": amount_due,
+                        "currency": currency,
+                        "invoice_id": invoice_id,
+                    }
+                )
 
                 logger.warning(
                     "payment_failed",
@@ -495,7 +504,6 @@ class StripeService:
                 logger.info("webhook_event_ignored", event_type=event_type)
 
             return result
-
 
 
 async def apply_webhook_action(
