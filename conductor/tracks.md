@@ -19,4 +19,6 @@
 
 | [~] | audit-remediation_20260317 | Codebase Audit Remediation 2026-03-17 | 2026-03-17 | 2026-03-17 |
 
+| [x] | verification-gates_20260318 | Verification & Integration Quality Gates | 2026-03-18 | 2026-03-18 |
+
 <!-- Tracks registered by /conductor:new-track -->

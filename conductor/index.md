@@ -30,6 +30,8 @@ Navigation hub for project context and feature development.
 - [ ] [Wave 4 — Breadth](tracks/mu-wave4-breadth_20260311/) — Propane tracking, water benchmarking, premium analytics, CI/CD evolution (5 phases, 19 tasks)
 - [ ] [Wave 5 — Unification](tracks/mu-wave5-unification_20260311/) — Unified multi-utility dashboard, community features, security hardening (4 phases, 19 tasks)
 
+- [ ] [Verification & Integration Quality Gates](tracks/verification-gates_20260318/) — Pre-commit, pre-push, conductor verification, API contract checks (5 phases, 17 tasks)
+
 <!-- Auto-populated by /conductor:new-track -->
 
 ## Getting Started

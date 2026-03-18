@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff-format
+        args: [--check]
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  - repo: local
+    hooks:
+      - id: frontend-lint-staged
+        name: frontend lint-staged
+        entry: bash -c 'cd frontend && npx lint-staged'
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.(ts|tsx|css|json|md)$
+
+      - id: pre-push-verify
+        name: pre-push verification
+        entry: scripts/pre-push-verify.sh
+        language: script
+        pass_filenames: false
+        stages: [pre-push]

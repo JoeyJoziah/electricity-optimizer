@@ -14,10 +14,11 @@ COOLDOWN_FILE="$STATE_DIR/post-task-cooldown"
 LOG_FILE="$REPO_ROOT/.claude/logs/orchestration-hooks.log"
 PI_FAILURES="$REPO_ROOT/.project-intelligence/signals/QUALITY_GATE_FAILURES.log"
 VERIFY_SCRIPT="$REPO_ROOT/scripts/loki-verify.sh"
-MIN_EDITS=5
-MIN_SECONDS=120
+SUMMARY_LOG="$REPO_ROOT/.claude/logs/verification-summary.log"
+MIN_EDITS=3
+MIN_SECONDS=60
 
-mkdir -p "$STATE_DIR" "$(dirname "$LOG_FILE")"
+mkdir -p "$STATE_DIR" "$(dirname "$LOG_FILE")" "$(dirname "$SUMMARY_LOG")"
 
 log() { echo "[$(date '+%H:%M:%S')] [continuous-verify] $*" >> "$LOG_FILE"; }
 
@@ -27,7 +28,7 @@ current_count=0
 current_count=$((current_count + 1))
 echo "$current_count" > "$COUNTER_FILE"
 
-# Track edit categories for cross-category detection
+# Track edit categories (for logging, no longer gates verification)
 CATEGORY_FILE="$STATE_DIR/edit-categories"
 if [[ -n "$FILE_PATH" ]]; then
     if echo "$FILE_PATH" | grep -q "backend/"; then
@@ -54,28 +55,43 @@ if [[ -f "$COOLDOWN_FILE" ]]; then
     fi
 fi
 
-# ── 4. Check cross-category edits ────────────────────────────────────
-if [[ -f "$CATEGORY_FILE" ]]; then
-    unique_categories=$(sort -u "$CATEGORY_FILE" 2>/dev/null | wc -l | tr -d ' ')
-    if (( unique_categories < 2 )); then
-        # All edits in single category — skip continuous verify
-        exit 0
-    fi
-fi
+# ── 4. Cross-category no longer required — any 3 edits trigger verification
 
 # ── 5. Threshold met — run quick verification in background ──────────
-if [[ ! -x "$VERIFY_SCRIPT" ]]; then
-    log "WARN: loki-verify.sh not found, skipping"
-    exit 0
-fi
+VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
 
-log "Threshold met ($current_count edits, cross-category) — triggering quick verification"
+run_fallback_verify() {
+    local failures=0
+    if ! "$VENV_PYTHON" -m pytest "$REPO_ROOT/backend/tests/" -q --tb=short --timeout=60 2>&1; then
+        failures=$((failures + 1))
+    fi
+    if ! (cd "$REPO_ROOT/frontend" && npx jest --silent 2>&1); then
+        failures=$((failures + 1))
+    fi
+    return $failures
+}
+
+log "Threshold met ($current_count edits) — triggering quick verification"
 
 {
-    if "$VERIFY_SCRIPT" --quick 2>&1; then
+    verify_result=0
+    if [[ -x "$VERIFY_SCRIPT" ]]; then
+        if ! "$VERIFY_SCRIPT" --quick 2>&1; then
+            verify_result=1
+        fi
+    else
+        log "loki-verify.sh not found, falling back to direct test execution"
+        if ! run_fallback_verify 2>&1; then
+            verify_result=1
+        fi
+    fi
+
+    if [[ $verify_result -eq 0 ]]; then
         log "Continuous verification PASSED"
+        echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] PASS ($current_count edits)" >> "$SUMMARY_LOG" 2>/dev/null || true
     else
         log "Continuous verification FAILED"
+        echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] FAIL ($current_count edits)" >> "$SUMMARY_LOG" 2>/dev/null || true
         if [[ -d "$(dirname "$PI_FAILURES")" ]]; then
             echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] QUALITY_GATE_FAILURE: continuous verify failed after $current_count edits" >> "$PI_FAILURES" 2>/dev/null || true
         fi
