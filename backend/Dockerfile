@@ -1,7 +1,7 @@
 # Multi-stage build for FastAPI backend
 # Optimized for production with minimal image size
 
-FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b as base
+FROM python:3.14-slim@sha256:584e89d31009a79ae4d9e3ab2fba078524a6c0921cb2711d05e8bb5f628fc9b9 as base
 
 # Set working directory
 WORKDIR /app
@@ -48,7 +48,7 @@ COPY . .
 RUN python -m compileall -b .
 
 # Production stage
-FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b as production
+FROM python:3.14-slim@sha256:584e89d31009a79ae4d9e3ab2fba078524a6c0921cb2711d05e8bb5f628fc9b9 as production
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
