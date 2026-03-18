@@ -19,7 +19,6 @@ import uuid
 import structlog
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-
 logger = structlog.get_logger(__name__)
 
 # Only allow safe ASCII tokens as caller-supplied request IDs (max 64 chars)

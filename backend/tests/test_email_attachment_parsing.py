@@ -25,7 +25,7 @@ Coverage:
 from __future__ import annotations
 
 import base64
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -93,9 +93,11 @@ class TestDownloadGmailAttachments:
 
         msg_resp = MagicMock()
         msg_resp.raise_for_status = MagicMock()
-        msg_resp.json.return_value = _make_gmail_msg_resp([
-            _make_gmail_part("bill.pdf", "application/pdf", "att-001"),
-        ])
+        msg_resp.json.return_value = _make_gmail_msg_resp(
+            [
+                _make_gmail_part("bill.pdf", "application/pdf", "att-001"),
+            ]
+        )
 
         att_resp = MagicMock()
         att_resp.raise_for_status = MagicMock()
@@ -125,10 +127,12 @@ class TestDownloadGmailAttachments:
 
         msg_resp = MagicMock()
         msg_resp.raise_for_status = MagicMock()
-        msg_resp.json.return_value = _make_gmail_msg_resp([
-            _make_gmail_part("scan.png", "image/png", "att-png"),
-            _make_gmail_part("scan.jpg", "image/jpeg", "att-jpg"),
-        ])
+        msg_resp.json.return_value = _make_gmail_msg_resp(
+            [
+                _make_gmail_part("scan.png", "image/png", "att-png"),
+                _make_gmail_part("scan.jpg", "image/jpeg", "att-jpg"),
+            ]
+        )
 
         png_resp = MagicMock()
         png_resp.raise_for_status = MagicMock()
@@ -158,12 +162,18 @@ class TestDownloadGmailAttachments:
 
         msg_resp = MagicMock()
         msg_resp.raise_for_status = MagicMock()
-        msg_resp.json.return_value = _make_gmail_msg_resp([
-            _make_gmail_part("bill.pdf", "application/pdf", "att-001"),
-            _make_gmail_part("letter.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "att-002"),
-            _make_gmail_part("inline.html", "text/html", "att-003"),
-            _make_gmail_part("note.txt", "text/plain", "att-004"),
-        ])
+        msg_resp.json.return_value = _make_gmail_msg_resp(
+            [
+                _make_gmail_part("bill.pdf", "application/pdf", "att-001"),
+                _make_gmail_part(
+                    "letter.docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "att-002",
+                ),
+                _make_gmail_part("inline.html", "text/html", "att-003"),
+                _make_gmail_part("note.txt", "text/plain", "att-004"),
+            ]
+        )
 
         att_resp = MagicMock()
         att_resp.raise_for_status = MagicMock()
@@ -187,8 +197,7 @@ class TestDownloadGmailAttachments:
         from services.email_scanner_service import download_gmail_attachments
 
         parts = [
-            _make_gmail_part(f"bill{i}.pdf", "application/pdf", f"att-{i:03d}")
-            for i in range(8)
+            _make_gmail_part(f"bill{i}.pdf", "application/pdf", f"att-{i:03d}") for i in range(8)
         ]
 
         msg_resp = MagicMock()
@@ -222,10 +231,12 @@ class TestDownloadGmailAttachments:
 
         msg_resp = MagicMock()
         msg_resp.raise_for_status = MagicMock()
-        msg_resp.json.return_value = _make_gmail_msg_resp([
-            _make_gmail_part("good.pdf", "application/pdf", "att-good"),
-            _make_gmail_part("bad.pdf", "application/pdf", "att-bad"),
-        ])
+        msg_resp.json.return_value = _make_gmail_msg_resp(
+            [
+                _make_gmail_part("good.pdf", "application/pdf", "att-good"),
+                _make_gmail_part("bad.pdf", "application/pdf", "att-bad"),
+            ]
+        )
 
         good_att_resp = MagicMock()
         good_att_resp.raise_for_status = MagicMock()
@@ -339,9 +350,11 @@ class TestDownloadGmailAttachments:
 
         msg_resp = MagicMock()
         msg_resp.raise_for_status = MagicMock()
-        msg_resp.json.return_value = _make_gmail_msg_resp([
-            _make_gmail_part("scan.jpg", "image/jpg", "att-jpg"),
-        ])
+        msg_resp.json.return_value = _make_gmail_msg_resp(
+            [
+                _make_gmail_part("scan.jpg", "image/jpg", "att-jpg"),
+            ]
+        )
 
         att_resp = MagicMock()
         att_resp.raise_for_status = MagicMock()
@@ -606,26 +619,54 @@ class TestExtractRatesFromAttachments:
             "services.email_scanner_service.extract_supplier": MagicMock(return_value=supplier),
             "services.email_scanner_service.extract_billing_period": MagicMock(return_value=period),
             "services.email_scanner_service.extract_total_kwh": MagicMock(return_value=total_kwh),
-            "services.email_scanner_service.extract_total_amount": MagicMock(return_value=total_amount),
-            "services.email_scanner_service._validate_magic_bytes": MagicMock(return_value=magic_type),
+            "services.email_scanner_service.extract_total_amount": MagicMock(
+                return_value=total_amount
+            ),
+            "services.email_scanner_service._validate_magic_bytes": MagicMock(
+                return_value=magic_type
+            ),
         }
 
     @pytest.mark.asyncio
     async def test_extracts_all_fields_from_pdf_attachment(self):
         """Full extraction pipeline: all bill_parser fields populated."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
         patches = self._bill_parser_patches()
 
         # Patch the lazily-imported names at the service module level
-        with patch("services.bill_parser.extract_text", patches["services.email_scanner_service.extract_text"]), \
-             patch("services.bill_parser.extract_rate_per_kwh", patches["services.email_scanner_service.extract_rate_per_kwh"]), \
-             patch("services.bill_parser.extract_supplier", patches["services.email_scanner_service.extract_supplier"]), \
-             patch("services.bill_parser.extract_billing_period", patches["services.email_scanner_service.extract_billing_period"]), \
-             patch("services.bill_parser.extract_total_kwh", patches["services.email_scanner_service.extract_total_kwh"]), \
-             patch("services.bill_parser.extract_total_amount", patches["services.email_scanner_service.extract_total_amount"]), \
-             patch("services.bill_parser._validate_magic_bytes", patches["services.email_scanner_service._validate_magic_bytes"]):
+        with (
+            patch(
+                "services.bill_parser.extract_text",
+                patches["services.email_scanner_service.extract_text"],
+            ),
+            patch(
+                "services.bill_parser.extract_rate_per_kwh",
+                patches["services.email_scanner_service.extract_rate_per_kwh"],
+            ),
+            patch(
+                "services.bill_parser.extract_supplier",
+                patches["services.email_scanner_service.extract_supplier"],
+            ),
+            patch(
+                "services.bill_parser.extract_billing_period",
+                patches["services.email_scanner_service.extract_billing_period"],
+            ),
+            patch(
+                "services.bill_parser.extract_total_kwh",
+                patches["services.email_scanner_service.extract_total_kwh"],
+            ),
+            patch(
+                "services.bill_parser.extract_total_amount",
+                patches["services.email_scanner_service.extract_total_amount"],
+            ),
+            patch(
+                "services.bill_parser._validate_magic_bytes",
+                patches["services.email_scanner_service._validate_magic_bytes"],
+            ),
+        ):
             results = await extract_rates_from_attachments([att])
 
         assert len(results) == 1
@@ -641,7 +682,8 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_skips_attachment_with_empty_data(self):
         """An attachment dict with empty bytes is skipped without crashing."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment(data=b"")
         results = await extract_rates_from_attachments([att])
@@ -651,7 +693,8 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_skips_attachment_when_magic_bytes_mismatch(self):
         """If _validate_magic_bytes returns None and MIME type yields no type, skip."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         # Data is not a valid PDF/PNG/JPG magic bytes sequence
         garbage_data = b"\x00\x01\x02\x03garbage"
@@ -670,12 +713,15 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_skips_attachment_when_extracted_text_is_blank(self):
         """When extract_text returns only whitespace the attachment is skipped."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
-        with patch("services.bill_parser._validate_magic_bytes", return_value="pdf"), \
-             patch("services.bill_parser.extract_text", return_value="   \n  "):
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", return_value="   \n  "),
+        ):
             results = await extract_rates_from_attachments([att])
 
         assert results == []
@@ -683,17 +729,20 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_omits_rate_when_confidence_below_threshold(self):
         """rate_per_kwh is omitted when confidence < 0.5."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
-        with patch("services.bill_parser._validate_magic_bytes", return_value="pdf"), \
-             patch("services.bill_parser.extract_text", return_value="some text"), \
-             patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.15, 0.3)), \
-             patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)), \
-             patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)):
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", return_value="some text"),
+            patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.15, 0.3)),
+            patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
+        ):
             results = await extract_rates_from_attachments([att])
 
         assert len(results) == 1
@@ -703,17 +752,20 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_includes_rate_at_exactly_confidence_threshold(self):
         """rate_per_kwh IS included when confidence == 0.5 (boundary case)."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
-        with patch("services.bill_parser._validate_magic_bytes", return_value="pdf"), \
-             patch("services.bill_parser.extract_text", return_value="some text"), \
-             patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.1234, 0.5)), \
-             patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)), \
-             patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)):
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", return_value="some text"),
+            patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.1234, 0.5)),
+            patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
+        ):
             results = await extract_rates_from_attachments([att])
 
         assert len(results) == 1
@@ -723,17 +775,20 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_omits_optional_fields_when_not_found(self):
         """Fields like supplier and billing period are omitted when None."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
-        with patch("services.bill_parser._validate_magic_bytes", return_value="pdf"), \
-             patch("services.bill_parser.extract_text", return_value="some text"), \
-             patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.12, 0.8)), \
-             patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)), \
-             patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)):
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", return_value="some text"),
+            patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.12, 0.8)),
+            patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
+        ):
             results = await extract_rates_from_attachments([att])
 
         r = results[0]
@@ -746,12 +801,15 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_recovers_gracefully_when_bill_parser_raises(self):
         """If bill_parser raises an exception, the attachment gets a fallback result."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment(filename="broken.pdf")
 
-        with patch("services.bill_parser._validate_magic_bytes", return_value="pdf"), \
-             patch("services.bill_parser.extract_text", side_effect=RuntimeError("parser crash")):
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", side_effect=RuntimeError("parser crash")),
+        ):
             results = await extract_rates_from_attachments([att])
 
         # Fallback result has only filename, no rate fields, no exception raised
@@ -761,7 +819,8 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_handles_multiple_attachments_independently(self):
         """Each attachment is processed independently; one failure does not affect others."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att1 = self._make_attachment(filename="good.pdf", data=_PDF_MAGIC)
         att2 = self._make_attachment(filename="bad.pdf", data=_PDF_MAGIC)
@@ -774,13 +833,15 @@ class TestExtractRatesFromAttachments:
                 return "Rate: 0.15/kWh"
             raise RuntimeError("OCR failed on bad.pdf")
 
-        with patch("services.bill_parser._validate_magic_bytes", return_value="pdf"), \
-             patch("services.bill_parser.extract_text", side_effect=extract_text_side_effect), \
-             patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.15, 0.9)), \
-             patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)), \
-             patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)):
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", side_effect=extract_text_side_effect),
+            patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.15, 0.9)),
+            patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
+        ):
             results = await extract_rates_from_attachments([att1, att2])
 
         assert len(results) == 2
@@ -792,19 +853,22 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_processes_png_attachment(self):
         """PNG attachments are routed through the image extraction path."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
-        att = self._make_attachment(
-            filename="scan.png", data=_PNG_MAGIC, mime_type="image/png"
-        )
+        att = self._make_attachment(filename="scan.png", data=_PNG_MAGIC, mime_type="image/png")
 
-        with patch("services.bill_parser._validate_magic_bytes", return_value="png"), \
-             patch("services.bill_parser.extract_text", return_value="Usage: 600 kWh") as mock_extract, \
-             patch("services.bill_parser.extract_rate_per_kwh", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)), \
-             patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)), \
-             patch("services.bill_parser.extract_total_kwh", return_value=(600.0, 0.85)), \
-             patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)):
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="png"),
+            patch(
+                "services.bill_parser.extract_text", return_value="Usage: 600 kWh"
+            ) as mock_extract,
+            patch("services.bill_parser.extract_rate_per_kwh", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch("services.bill_parser.extract_total_kwh", return_value=(600.0, 0.85)),
+            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
+        ):
             results = await extract_rates_from_attachments([att])
 
         assert len(results) == 1
@@ -815,7 +879,8 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_returns_empty_list_for_empty_attachment_list(self):
         """No attachments input produces empty output with no bill_parser calls."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         results = await extract_rates_from_attachments([])
 

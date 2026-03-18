@@ -23,7 +23,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Shared filesystem paths
@@ -49,12 +49,11 @@ def _get_hmac_key() -> bytes:
     ``patch("api.v1.connections.settings")`` in tests takes effect.
     """
     import api.v1.connections as _pkg
+
     _settings = _pkg.settings
     key = _settings.internal_api_key
     if not key:
-        raise RuntimeError(
-            "INTERNAL_API_KEY must be configured to sign callback state parameters."
-        )
+        raise RuntimeError("INTERNAL_API_KEY must be configured to sign callback state parameters.")
     return key.encode("utf-8")
 
 
@@ -90,9 +89,7 @@ def verify_callback_state(state: str) -> tuple:
 
     key = _get_hmac_key()
     payload = f"{connection_id}:{user_id}:{timestamp}"
-    expected_sig = hmac.HMAC(
-        key, payload.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
+    expected_sig = hmac.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(received_sig, expected_sig):
         raise HTTPException(

@@ -6,11 +6,13 @@ PUC information, and compliance data for all 50 states + DC.
 """
 
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class StateRegulation(BaseModel):
     """State-level energy regulation data."""
+
     state_code: str = Field(..., description="Two-letter state code (e.g. CT, TX)")
     state_name: str = Field(..., description="Full state name")
     electricity_deregulated: bool = Field(default=False)
@@ -28,10 +30,12 @@ class StateRegulation(BaseModel):
 
 class StateRegulationResponse(StateRegulation):
     """API response for a single state's regulation data."""
+
     pass
 
 
 class StateRegulationListResponse(BaseModel):
     """API response for list of state regulations."""
+
     states: list[StateRegulationResponse]
     total: int

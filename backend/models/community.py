@@ -11,11 +11,12 @@ from enum import Enum
 from typing import Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PostType(str, Enum):
     """Types of community posts."""
+
     TIP = "tip"
     RATE_REPORT = "rate_report"
     DISCUSSION = "discussion"
@@ -24,6 +25,7 @@ class PostType(str, Enum):
 
 class CommunityUtilityType(str, Enum):
     """Utility types for community posts (includes 'general')."""
+
     ELECTRICITY = "electricity"
     NATURAL_GAS = "natural_gas"
     HEATING_OIL = "heating_oil"
@@ -70,8 +72,13 @@ class CommunityPost(BaseModel):
     @classmethod
     def validate_utility_type(cls, v: str) -> str:
         valid = {
-            "electricity", "natural_gas", "heating_oil", "propane",
-            "community_solar", "water", "general",
+            "electricity",
+            "natural_gas",
+            "heating_oil",
+            "propane",
+            "community_solar",
+            "water",
+            "general",
         }
         if v not in valid:
             raise ValueError(f"utility_type must be one of {valid}")
@@ -102,8 +109,13 @@ class CommunityPostCreate(BaseModel):
     @classmethod
     def validate_utility_type(cls, v: str) -> str:
         valid = {
-            "electricity", "natural_gas", "heating_oil", "propane",
-            "community_solar", "water", "general",
+            "electricity",
+            "natural_gas",
+            "heating_oil",
+            "propane",
+            "community_solar",
+            "water",
+            "general",
         }
         if v not in valid:
             raise ValueError(f"utility_type must be one of {valid}")

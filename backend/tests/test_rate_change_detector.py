@@ -1,16 +1,14 @@
 """Tests for RateChangeDetector and AlertPreferenceService."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.rate_change_detector import (
-    RateChangeDetector,
-    AlertPreferenceService,
-    DEFAULT_THRESHOLDS,
-    LOOKBACK_DAYS,
-)
+import pytest
+
+from services.rate_change_detector import (DEFAULT_THRESHOLDS, LOOKBACK_DAYS,
+                                           AlertPreferenceService,
+                                           RateChangeDetector)
 
 
 def _mock_db():
@@ -38,12 +36,14 @@ class TestDetectChanges:
     async def test_detects_electricity_increase(self):
         db = _mock_db()
         rows = [
-            _row({
-                "region": "us_ct",
-                "supplier": "Eversource",
-                "current_price": Decimal("0.12"),
-                "previous_price": Decimal("0.10"),
-            }),
+            _row(
+                {
+                    "region": "us_ct",
+                    "supplier": "Eversource",
+                    "current_price": Decimal("0.12"),
+                    "previous_price": Decimal("0.10"),
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -61,12 +61,14 @@ class TestDetectChanges:
     async def test_detects_gas_decrease(self):
         db = _mock_db()
         rows = [
-            _row({
-                "region": "TX",
-                "supplier": "TXU",
-                "current_price": Decimal("0.80"),
-                "previous_price": Decimal("1.00"),
-            }),
+            _row(
+                {
+                    "region": "TX",
+                    "supplier": "TXU",
+                    "current_price": Decimal("0.80"),
+                    "previous_price": Decimal("1.00"),
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -83,12 +85,14 @@ class TestDetectChanges:
     async def test_skips_below_threshold(self):
         db = _mock_db()
         rows = [
-            _row({
-                "region": "CT",
-                "supplier": "EIA",
-                "current_price": Decimal("3.51"),
-                "previous_price": Decimal("3.50"),  # 0.3% change
-            }),
+            _row(
+                {
+                    "region": "CT",
+                    "supplier": "EIA",
+                    "current_price": Decimal("3.51"),
+                    "previous_price": Decimal("3.50"),  # 0.3% change
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -103,12 +107,14 @@ class TestDetectChanges:
     async def test_detects_heating_oil_change(self):
         db = _mock_db()
         rows = [
-            _row({
-                "region": "CT",
-                "supplier": "EIA",
-                "current_price": Decimal("3.80"),
-                "previous_price": Decimal("3.50"),  # 8.6% change
-            }),
+            _row(
+                {
+                    "region": "CT",
+                    "supplier": "EIA",
+                    "current_price": Decimal("3.80"),
+                    "previous_price": Decimal("3.50"),  # 8.6% change
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -200,20 +206,22 @@ class TestGetRecentChanges:
         db = _mock_db()
         now = datetime.now(timezone.utc)
         rows = [
-            _row({
-                "id": "abc-123",
-                "utility_type": "electricity",
-                "region": "us_ct",
-                "supplier": "Eversource",
-                "previous_price": Decimal("0.10"),
-                "current_price": Decimal("0.12"),
-                "change_pct": Decimal("20.0"),
-                "change_direction": "increase",
-                "detected_at": now,
-                "recommendation_supplier": None,
-                "recommendation_price": None,
-                "recommendation_savings": None,
-            }),
+            _row(
+                {
+                    "id": "abc-123",
+                    "utility_type": "electricity",
+                    "region": "us_ct",
+                    "supplier": "Eversource",
+                    "previous_price": Decimal("0.10"),
+                    "current_price": Decimal("0.12"),
+                    "change_pct": Decimal("20.0"),
+                    "change_direction": "increase",
+                    "detected_at": now,
+                    "recommendation_supplier": None,
+                    "recommendation_price": None,
+                    "recommendation_savings": None,
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -250,16 +258,18 @@ class TestGetPreferences:
         db = _mock_db()
         now = datetime.now(timezone.utc)
         rows = [
-            _row({
-                "id": "pref-1",
-                "user_id": "user-1",
-                "utility_type": "electricity",
-                "enabled": True,
-                "channels": ["email", "push"],
-                "cadence": "daily",
-                "created_at": now,
-                "updated_at": now,
-            }),
+            _row(
+                {
+                    "id": "pref-1",
+                    "user_id": "user-1",
+                    "utility_type": "electricity",
+                    "enabled": True,
+                    "channels": ["email", "push"],
+                    "cadence": "daily",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -278,16 +288,18 @@ class TestUpsertPreference:
     async def test_upsert_creates_pref(self):
         db = _mock_db()
         now = datetime.now(timezone.utc)
-        row = _row({
-            "id": "pref-new",
-            "user_id": "user-1",
-            "utility_type": "natural_gas",
-            "enabled": True,
-            "channels": ["email"],
-            "cadence": "weekly",
-            "created_at": now,
-            "updated_at": now,
-        })
+        row = _row(
+            {
+                "id": "pref-new",
+                "user_id": "user-1",
+                "utility_type": "natural_gas",
+                "enabled": True,
+                "channels": ["email"],
+                "cadence": "weekly",
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
         result_mock = MagicMock()
         result_mock.mappings.return_value.first.return_value = row
         db.execute.return_value = result_mock

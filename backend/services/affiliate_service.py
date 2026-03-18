@@ -151,9 +151,7 @@ class AffiliateService:
                 "utility_type": r["utility_type"],
                 "total_clicks": r["total_clicks"],
                 "conversions": r["conversions"],
-                "conversion_rate": round(
-                    r["conversions"] / max(r["total_clicks"], 1) * 100, 1
-                ),
+                "conversion_rate": round(r["conversions"] / max(r["total_clicks"], 1) * 100, 1),
                 "total_commission_cents": r["total_commission_cents"],
             }
             for r in rows

@@ -11,7 +11,6 @@ import os
 os.environ.setdefault("ENVIRONMENT", "test")
 
 import asyncio
-
 # Add backend directory to path for imports
 import sys
 from datetime import UTC, datetime
@@ -85,7 +84,8 @@ def mock_httpx_client():
 @pytest.fixture
 def sample_price_data():
     """Sample price data for testing"""
-    from integrations.pricing_apis.base import PriceData, PriceUnit, PricingRegion
+    from integrations.pricing_apis.base import (PriceData, PriceUnit,
+                                                PricingRegion)
 
     return PriceData(
         region=PricingRegion.US_CT,
@@ -111,12 +111,8 @@ def sample_forecast_data():
     """Sample forecast data for testing"""
     from datetime import timedelta
 
-    from integrations.pricing_apis.base import (
-        PriceData,
-        PriceForecast,
-        PriceUnit,
-        PricingRegion,
-    )
+    from integrations.pricing_apis.base import (PriceData, PriceForecast,
+                                                PriceUnit, PricingRegion)
 
     base_time = datetime(2024, 1, 15, 0, 0, tzinfo=UTC)
 

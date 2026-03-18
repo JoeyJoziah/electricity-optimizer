@@ -28,7 +28,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ---------------------------------------------------------------------------
 # Delivery status literals
 # ---------------------------------------------------------------------------
@@ -59,9 +58,7 @@ class Notification(BaseModel):
     title: str
     body: Optional[str] = None
     read_at: Optional[datetime] = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Dispatcher metadata (migration 026)
     metadata: Optional[Dict[str, Any]] = None

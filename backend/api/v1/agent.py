@@ -15,14 +15,13 @@ GET    /agent/usage         — remaining queries today
 import json
 from typing import Any, Dict, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
-import structlog
-
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from config.settings import settings
 from services.agent_service import AgentService
 
@@ -38,8 +37,11 @@ router = APIRouter(prefix="/agent", tags=["Agent"])
 
 class AgentQueryRequest(BaseModel):
     """Body for POST /agent/query and /agent/task."""
+
     prompt: str = Field(
-        ..., min_length=3, max_length=2000,
+        ...,
+        min_length=3,
+        max_length=2000,
         description="User prompt for the AI agent",
     )
     context: Optional[Dict[str, Any]] = Field(
@@ -65,6 +67,7 @@ def _require_agent_enabled():
 async def _get_user_tier(user_id: str, db: AsyncSession) -> str:
     """Look up the user's subscription tier."""
     from sqlalchemy import text
+
     result = await db.execute(
         text("SELECT subscription_tier FROM public.users WHERE id = :id"),
         {"id": user_id},
@@ -75,6 +78,7 @@ async def _get_user_tier(user_id: str, db: AsyncSession) -> str:
 async def _get_user_context(user_id: str, db: AsyncSession) -> dict:
     """Build user context dict with region, supplier, tier."""
     from sqlalchemy import text
+
     result = await db.execute(
         text("SELECT region, subscription_tier FROM public.users WHERE id = :id"),
         {"id": user_id},
@@ -143,14 +147,16 @@ async def query_agent(
             context=context,
             db=db,
         ):
-            data = json.dumps({
-                "role": msg.role,
-                "content": msg.content,
-                "model_used": msg.model_used,
-                "tools_used": msg.tools_used,
-                "tokens_used": msg.tokens_used,
-                "duration_ms": msg.duration_ms,
-            })
+            data = json.dumps(
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "model_used": msg.model_used,
+                    "tools_used": msg.tools_used,
+                    "tokens_used": msg.tokens_used,
+                    "duration_ms": msg.duration_ms,
+                }
+            )
             yield f"data: {data}\n\n"
         yield "data: [DONE]\n\n"
 

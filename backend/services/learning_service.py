@@ -20,14 +20,14 @@ On EnsemblePredictor startup the load order is:
 
 import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-from services.observation_service import ObservationService
 from services.hnsw_vector_store import HNSWVectorStore
+from services.observation_service import ObservationService
 from services.vector_store import price_curve_to_vector
 
 logger = logging.getLogger(__name__)
@@ -204,8 +204,10 @@ class LearningService:
         in-memory learning cycle from completing.
         """
         try:
-            from repositories.model_config_repository import ModelConfigRepository
             from datetime import datetime, timezone
+
+            from repositories.model_config_repository import \
+                ModelConfigRepository
 
             repo = ModelConfigRepository(self._db)
             # Build a version string based on the best-performing model
@@ -231,14 +233,13 @@ class LearningService:
                 best_version,
             )
         except Exception as e:
-            logger.warning(
-                "db_weight_persist_failed error=%s", str(e)
-            )
+            logger.warning("db_weight_persist_failed error=%s", str(e))
 
         # --- Create a new ModelVersion record for lineage tracking ---
         try:
-            from services.model_version_service import ModelVersionService
             from datetime import datetime, timezone
+
+            from services.model_version_service import ModelVersionService
 
             mv_svc = ModelVersionService(self._db)
             new_version = await mv_svc.create_version(
@@ -278,9 +279,7 @@ class LearningService:
                         active_mape,
                     )
         except Exception as e:
-            logger.warning(
-                "model_version_create_failed error=%s", str(e)
-            )
+            logger.warning("model_version_create_failed error=%s", str(e))
 
     async def load_weights_from_db(
         self,
@@ -295,7 +294,8 @@ class LearningService:
         if self._db is None:
             return None
         try:
-            from repositories.model_config_repository import ModelConfigRepository
+            from repositories.model_config_repository import \
+                ModelConfigRepository
 
             repo = ModelConfigRepository(self._db)
             config = await repo.get_active_config(model_name)
@@ -312,9 +312,7 @@ class LearningService:
             )
             return config.weights_json
         except Exception as e:
-            logger.warning(
-                "db_weight_load_failed model_name=%s error=%s", model_name, str(e)
-            )
+            logger.warning("db_weight_load_failed model_name=%s error=%s", model_name, str(e))
             return None
 
     async def store_bias_correction(
@@ -428,10 +426,12 @@ class LearningService:
             if bias_id:
                 results["bias_corrections"][region] = bias_id
 
-            results["regions_processed"].append({
-                "region": region,
-                "accuracy": accuracy,
-            })
+            results["regions_processed"].append(
+                {
+                    "region": region,
+                    "accuracy": accuracy,
+                }
+            )
 
         # 4. Prune stale patterns
         results["pruned"] = await self.prune_stale_patterns()

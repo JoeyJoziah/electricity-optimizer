@@ -22,12 +22,8 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.notification import (
-    DeliveryChannel,
-    DeliveryStatus,
-    Notification,
-    NotificationDeliveryUpdate,
-)
+from models.notification import (DeliveryChannel, DeliveryStatus, Notification,
+                                 NotificationDeliveryUpdate)
 from repositories.base import NotFoundError, RepositoryError
 
 logger = structlog.get_logger(__name__)
@@ -100,9 +96,7 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to fetch notification {notification_id}", exc
-            )
+            raise RepositoryError(f"Failed to fetch notification {notification_id}", exc)
 
     async def get_by_delivery_status(
         self,
@@ -138,9 +132,7 @@ class NotificationRepository:
                 status=status,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to query notifications by status={status}", exc
-            )
+            raise RepositoryError(f"Failed to query notifications by status={status}", exc)
 
     async def get_by_channel(
         self,
@@ -177,9 +169,7 @@ class NotificationRepository:
                 channel=channel,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to query notifications by channel={channel}", exc
-            )
+            raise RepositoryError(f"Failed to query notifications by channel={channel}", exc)
 
     # =========================================================================
     # Write operations
@@ -223,11 +213,7 @@ class NotificationRepository:
             set_clauses.append("error_message = :error_message")
             params["error_message"] = update.error_message
 
-        sql = (
-            "UPDATE notifications"
-            " SET " + ", ".join(set_clauses) +
-            " WHERE id = :nid"
-        )
+        sql = "UPDATE notifications" " SET " + ", ".join(set_clauses) + " WHERE id = :nid"
 
         try:
             result = await self._db.execute(text(sql), params)
@@ -252,6 +238,4 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to update delivery tracking for {notification_id}", exc
-            )
+            raise RepositoryError(f"Failed to update delivery tracking for {notification_id}", exc)

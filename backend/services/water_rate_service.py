@@ -89,7 +89,8 @@ class WaterRateService:
     # ------------------------------------------------------------------
 
     async def get_rates(
-        self, state: Optional[str] = None,
+        self,
+        state: Optional[str] = None,
     ) -> list[dict]:
         """Get water rates, optionally filtered by state."""
         if state:
@@ -118,7 +119,9 @@ class WaterRateService:
         return [self._format_rate(r) for r in rows]
 
     async def get_rate_by_municipality(
-        self, municipality: str, state: str,
+        self,
+        municipality: str,
+        state: str,
     ) -> Optional[dict]:
         """Get water rate for a specific municipality."""
         result = await self.db.execute(
@@ -139,7 +142,9 @@ class WaterRateService:
     # ------------------------------------------------------------------
 
     def calculate_monthly_cost(
-        self, rate: dict, usage_gallons: int,
+        self,
+        rate: dict,
+        usage_gallons: int,
     ) -> dict:
         """Calculate monthly water cost using tiered pricing.
 
@@ -181,12 +186,14 @@ class WaterRateService:
             charge = gallons_in_tier * rate_per_gallon
             tier_charges += charge
 
-            breakdown.append({
-                "tier": i + 1,
-                "gallons": gallons_in_tier,
-                "rate_per_gallon": rate_per_gallon,
-                "charge": round(charge, 2),
-            })
+            breakdown.append(
+                {
+                    "tier": i + 1,
+                    "gallons": gallons_in_tier,
+                    "rate_per_gallon": rate_per_gallon,
+                    "charge": round(charge, 2),
+                }
+            )
 
             remaining -= gallons_in_tier
             if limit is not None:
@@ -234,11 +241,13 @@ class WaterRateService:
             cost = self.calculate_monthly_cost(rate, AVG_MONTHLY_GALLONS)
             total = cost["total_monthly"]
             costs.append(total)
-            rate_details.append({
-                "municipality": rate["municipality"],
-                "monthly_cost": total,
-                "base_charge": float(rate["base_charge"]),
-            })
+            rate_details.append(
+                {
+                    "municipality": rate["municipality"],
+                    "monthly_cost": total,
+                    "base_charge": float(rate["base_charge"]),
+                }
+            )
 
         avg_cost = sum(costs) / len(costs) if costs else 0
 
@@ -318,7 +327,5 @@ class WaterRateService:
                 row["effective_date"].isoformat() if row["effective_date"] else None
             ),
             "source_url": row["source_url"],
-            "updated_at": (
-                row["updated_at"].isoformat() if row["updated_at"] else None
-            ),
+            "updated_at": (row["updated_at"].isoformat() if row["updated_at"] else None),
         }

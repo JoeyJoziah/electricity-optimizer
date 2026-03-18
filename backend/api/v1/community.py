@@ -16,13 +16,12 @@ GET    /community/stats              — aggregated community stats
 
 from typing import Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from services.community_service import CommunityService
 
 logger = structlog.get_logger(__name__)
@@ -36,8 +35,13 @@ router = APIRouter(prefix="/community", tags=["Community"])
 
 VALID_POST_TYPES = {"tip", "rate_report", "discussion", "review"}
 VALID_UTILITY_TYPES = {
-    "electricity", "natural_gas", "heating_oil", "propane",
-    "community_solar", "water", "general",
+    "electricity",
+    "natural_gas",
+    "heating_oil",
+    "propane",
+    "community_solar",
+    "water",
+    "general",
 }
 
 

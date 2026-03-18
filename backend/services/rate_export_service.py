@@ -7,7 +7,7 @@ Business tier only.
 
 import csv
 import io
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import structlog
@@ -189,10 +189,12 @@ class RateExportService:
         writer.writerow(columns)
 
         for row in rows:
-            writer.writerow([
-                row[col].isoformat() if hasattr(row[col], 'isoformat') else str(row[col])
-                for col in columns
-            ])
+            writer.writerow(
+                [
+                    row[col].isoformat() if hasattr(row[col], "isoformat") else str(row[col])
+                    for col in columns
+                ]
+            )
 
         return output.getvalue()
 
@@ -204,9 +206,9 @@ class RateExportService:
             item = {}
             for col in columns:
                 val = row[col]
-                if hasattr(val, 'isoformat'):
+                if hasattr(val, "isoformat"):
                     item[col] = val.isoformat()
-                elif hasattr(val, '__float__'):
+                elif hasattr(val, "__float__"):
                     item[col] = float(val)
                 else:
                     item[col] = str(val) if val is not None else None

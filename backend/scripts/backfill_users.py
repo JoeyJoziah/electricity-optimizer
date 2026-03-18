@@ -36,6 +36,7 @@ from typing import NamedTuple
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass  # python-dotenv not installed — that is fine in production
@@ -51,6 +52,7 @@ except ImportError:
 # Data model
 # ---------------------------------------------------------------------------
 
+
 class NeonUser(NamedTuple):
     id: str
     email: str
@@ -60,7 +62,7 @@ class NeonUser(NamedTuple):
 class SyncResult(NamedTuple):
     user_id: str
     email: str
-    action: str          # "created" | "updated" | "skipped" | "error"
+    action: str  # "created" | "updated" | "skipped" | "error"
     detail: str = ""
 
 
@@ -68,18 +70,17 @@ class SyncResult(NamedTuple):
 # Core logic
 # ---------------------------------------------------------------------------
 
+
 async def fetch_neon_users(conn: asyncpg.Connection) -> list[NeonUser]:
     """Return all users from neon_auth.user ordered by creation date."""
-    rows = await conn.fetch(
-        '''
+    rows = await conn.fetch("""
         SELECT
             id::text          AS id,
             email             AS email,
             COALESCE(name, '') AS name
         FROM neon_auth."user"
         ORDER BY "createdAt"
-        '''
-    )
+        """)
     return [NeonUser(id=r["id"], email=r["email"], name=r["name"]) for r in rows]
 
 
@@ -119,10 +120,7 @@ async def sync_user(
 
     # Determine whether an update is needed
     needs_email_update = existing["email"] != user.email.lower()
-    needs_name_update = (
-        user.name != ""
-        and existing["name"] != user.name
-    )
+    needs_name_update = user.name != "" and existing["name"] != user.name
 
     if not needs_email_update and not needs_name_update:
         return SyncResult(user_id=user.id, email=user.email, action="skipped")
@@ -166,6 +164,7 @@ async def sync_user(
 # Main
 # ---------------------------------------------------------------------------
 
+
 async def run(*, dry_run: bool, verbose: bool) -> None:
     database_url = os.environ.get("DATABASE_URL", "")
     if not database_url:
@@ -206,7 +205,7 @@ async def run(*, dry_run: bool, verbose: bool) -> None:
                     "created": "[CREATE]",
                     "updated": "[UPDATE]",
                     "skipped": "[skip  ]",
-                    "error":   "[ERROR ]",
+                    "error": "[ERROR ]",
                 }[result.action]
                 line = f"  {tag} {result.email} ({result.user_id[:8]}…)"
                 if result.detail:
@@ -238,9 +237,7 @@ async def run(*, dry_run: bool, verbose: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Backfill public.users from neon_auth.user"
-    )
+    parser = argparse.ArgumentParser(description="Backfill public.users from neon_auth.user")
     parser.add_argument(
         "--dry-run",
         action="store_true",

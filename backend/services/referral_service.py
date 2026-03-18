@@ -9,12 +9,11 @@ Reward redemption deferred to Wave 3 (Stripe integration).
 import secrets
 import string
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
-
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, Dict, Optional
 
 import structlog
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
 
