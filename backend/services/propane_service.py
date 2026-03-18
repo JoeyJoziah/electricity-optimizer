@@ -32,7 +32,8 @@ class PropaneService:
     # ------------------------------------------------------------------
 
     async def get_current_prices(
-        self, state: Optional[str] = None,
+        self,
+        state: Optional[str] = None,
     ) -> list[dict]:
         """Get latest propane prices, optionally filtered by state.
 
@@ -78,7 +79,9 @@ class PropaneService:
         ]
 
     async def get_price_history(
-        self, state: str, weeks: int = 12,
+        self,
+        state: str,
+        weeks: int = 12,
     ) -> list[dict]:
         """Get price history for a state over the last N weeks."""
         state = state.upper()

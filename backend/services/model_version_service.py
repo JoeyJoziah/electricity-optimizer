@@ -58,14 +58,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-
-from models.model_version import (
-    ABAssignment,
-    ABOutcome,
-    ABTest,
-    ModelVersion,
-    VersionComparisonResult,
-)
+from models.model_version import (ABAssignment, ABOutcome, ABTest,
+                                  ModelVersion, VersionComparisonResult)
 
 logger = structlog.get_logger(__name__)
 
@@ -517,8 +511,7 @@ class ModelVersionService:
                 raise ValueError(f"Model version not found: {vid!r}")
             if ver.model_name != model_name:
                 raise ValueError(
-                    f"Version {vid!r} belongs to model {ver.model_name!r}, "
-                    f"not {model_name!r}"
+                    f"Version {vid!r} belongs to model {ver.model_name!r}, " f"not {model_name!r}"
                 )
 
         new_id = str(uuid4())

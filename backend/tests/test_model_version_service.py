@@ -135,9 +135,7 @@ class TestCreateVersion:
         import re
 
         result = await service.create_version("ensemble", config={}, metrics={})
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     @pytest.mark.asyncio
@@ -581,12 +579,8 @@ class TestCreateABTest:
         no_test = MagicMock()
         no_test.fetchone.return_value = None
 
-        ver_a_row = _make_version_row(
-            id="ver-a", model_name=model_name, is_active=True
-        )
-        ver_b_row = _make_version_row(
-            id="ver-b", model_name=model_name, is_active=False
-        )
+        ver_a_row = _make_version_row(id="ver-a", model_name=model_name, is_active=True)
+        ver_b_row = _make_version_row(id="ver-b", model_name=model_name, is_active=False)
         result_a = MagicMock()
         result_a.fetchone.return_value = ver_a_row
         result_b = MagicMock()
@@ -621,9 +615,7 @@ class TestCreateABTest:
         """Supplied traffic_split must be stored correctly."""
         self._setup_no_running_test_and_two_versions(mock_db)
 
-        result = await service.create_ab_test(
-            "ensemble", "ver-a", "ver-b", traffic_split=0.3
-        )
+        result = await service.create_ab_test("ensemble", "ver-a", "ver-b", traffic_split=0.3)
 
         assert result.traffic_split == pytest.approx(0.3)
 
@@ -669,9 +661,7 @@ class TestCreateABTest:
         no_test.fetchone.return_value = None
 
         # version_a belongs to model "other_model", not "ensemble"
-        wrong_model_row = _make_version_row(
-            id="ver-wrong", model_name="other_model"
-        )
+        wrong_model_row = _make_version_row(id="ver-wrong", model_name="other_model")
         result_wrong = MagicMock()
         result_wrong.fetchone.return_value = wrong_model_row
         mock_db.execute.side_effect = [no_test, result_wrong]
@@ -686,9 +676,7 @@ class TestCreateABTest:
 
         self._setup_no_running_test_and_two_versions(mock_db)
         result = await service.create_ab_test("ensemble", "ver-a", "ver-b")
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     @pytest.mark.asyncio
@@ -704,13 +692,9 @@ class TestCreateABTest:
         no_test = MagicMock()
         no_test.fetchone.return_value = None
         ver_a_result = MagicMock()
-        ver_a_result.fetchone.return_value = _make_version_row(
-            id="ver-a", model_name="ensemble"
-        )
+        ver_a_result.fetchone.return_value = _make_version_row(id="ver-a", model_name="ensemble")
         ver_b_result = MagicMock()
-        ver_b_result.fetchone.return_value = _make_version_row(
-            id="ver-b", model_name="ensemble"
-        )
+        ver_b_result.fetchone.return_value = _make_version_row(id="ver-b", model_name="ensemble")
         mock_db.execute.side_effect = [
             no_test,
             ver_a_result,
@@ -776,9 +760,9 @@ class TestGetABAssignment:
             assignment = await service.get_ab_assignment("ensemble", "stable-user-id")
             assignments.append(assignment.bucket)
 
-        assert len(set(assignments)) == 1, (
-            f"Expected all assignments to be the same bucket, got: {assignments}"
-        )
+        assert (
+            len(set(assignments)) == 1
+        ), f"Expected all assignments to be the same bucket, got: {assignments}"
 
     @pytest.mark.asyncio
     async def test_different_users_can_get_different_buckets(self, service, mock_db):
@@ -826,9 +810,7 @@ class TestGetABAssignment:
                 bucket_a_count += 1
 
         ratio = bucket_a_count / total
-        assert ratio >= 0.70, (
-            f"Expected >= 70% in bucket A with 0.9 split, got {ratio:.2%}"
-        )
+        assert ratio >= 0.70, f"Expected >= 70% in bucket A with 0.9 split, got {ratio:.2%}"
 
     @pytest.mark.asyncio
     async def test_assignment_is_stable_across_calls_via_hash(self):
@@ -903,9 +885,7 @@ class TestRecordABOutcome:
             user_id="user-1",
             outcome="success",
         )
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     @pytest.mark.asyncio
@@ -969,8 +949,9 @@ class TestPromoteDeactivateIntegration:
     @pytest.mark.asyncio
     async def test_promotion_produces_unique_promoted_at_timestamps(self, mock_db):
         """Two promotions for different versions should get different promoted_at values."""
-        from services.model_version_service import ModelVersionService
         import asyncio
+
+        from services.model_version_service import ModelVersionService
 
         svc = ModelVersionService(mock_db)
 
@@ -981,10 +962,11 @@ class TestPromoteDeactivateIntegration:
         result_1.fetchone.return_value = row_1
         result_2 = MagicMock()
         result_2.fetchone.return_value = row_2
-        mock_db.execute.side_effect = (
-            [result_1, MagicMock(), MagicMock()]
-            + [result_2, MagicMock(), MagicMock()]
-        )
+        mock_db.execute.side_effect = [result_1, MagicMock(), MagicMock()] + [
+            result_2,
+            MagicMock(),
+            MagicMock(),
+        ]
 
         promo_1 = await svc.promote_version("v1")
         await asyncio.sleep(0.001)  # ensure clock advances slightly

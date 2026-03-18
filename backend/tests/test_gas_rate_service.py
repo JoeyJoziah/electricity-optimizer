@@ -11,15 +11,14 @@ Covers:
 - POST /internal/fetch-gas-rates — internal cron endpoint
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_db_session, get_current_user, verify_api_key
-
+from api.dependencies import get_current_user, get_db_session, verify_api_key
 
 BASE_URL = "/api/v1/rates/natural-gas"
 INTERNAL_URL = "/api/v1/internal"
@@ -71,20 +70,23 @@ class TestGasRateService:
     @pytest.mark.asyncio
     async def test_fetch_gas_rates_success(self):
         """Fetching gas rates stores prices for each state."""
+        from integrations.pricing_apis.base import (PriceData, PriceUnit,
+                                                    PricingRegion)
         from services.gas_rate_service import GasRateService
-        from integrations.pricing_apis.base import PriceData, PricingRegion, PriceUnit
 
         mock_db = AsyncMock()
         mock_eia = AsyncMock()
-        mock_eia.get_gas_price = AsyncMock(return_value=PriceData(
-            region=PricingRegion.US_CT,
-            timestamp=datetime.now(timezone.utc),
-            price=Decimal("1.2345"),
-            unit=PriceUnit.THERM,
-            currency="USD",
-            supplier=None,
-            source_api="eia",
-        ))
+        mock_eia.get_gas_price = AsyncMock(
+            return_value=PriceData(
+                region=PricingRegion.US_CT,
+                timestamp=datetime.now(timezone.utc),
+                price=Decimal("1.2345"),
+                unit=PriceUnit.THERM,
+                currency="USD",
+                supplier=None,
+                source_api="eia",
+            )
+        )
 
         service = GasRateService(db=mock_db, eia_client=mock_eia)
         result = await service.fetch_gas_rates(states=["CT", "PA"])
@@ -97,8 +99,9 @@ class TestGasRateService:
     @pytest.mark.asyncio
     async def test_fetch_gas_rates_partial_failure(self):
         """Partial failure should not crash the entire batch."""
+        from integrations.pricing_apis.base import (APIError, PriceData,
+                                                    PriceUnit, PricingRegion)
         from services.gas_rate_service import GasRateService
-        from integrations.pricing_apis.base import PriceData, PricingRegion, PriceUnit, APIError
 
         mock_db = AsyncMock()
         mock_eia = AsyncMock()
@@ -140,17 +143,21 @@ class TestGasRateService:
     @pytest.mark.asyncio
     async def test_get_gas_prices_delegates_to_repo(self):
         """get_gas_prices should call PriceRepository with NATURAL_GAS."""
-        from services.gas_rate_service import GasRateService
         from models.utility import UtilityType
+        from services.gas_rate_service import GasRateService
 
         mock_db = AsyncMock()
         service = GasRateService(db=mock_db)
 
-        with patch.object(service._price_repo, "get_current_prices", new_callable=AsyncMock) as mock_get:
+        with patch.object(
+            service._price_repo, "get_current_prices", new_callable=AsyncMock
+        ) as mock_get:
             mock_get.return_value = []
             result = await service.get_gas_prices(region="us_ct")
             mock_get.assert_awaited_once_with(
-                region="us_ct", limit=10, utility_type=UtilityType.NATURAL_GAS,
+                region="us_ct",
+                limit=10,
+                utility_type=UtilityType.NATURAL_GAS,
             )
 
     @pytest.mark.asyncio
@@ -161,8 +168,13 @@ class TestGasRateService:
         mock_db = AsyncMock()
         mock_result = MagicMock()
         mock_result.mappings.return_value.all.return_value = [
-            {"state_code": "CT", "state_name": "Connecticut", "puc_name": "PURA",
-             "puc_website": "https://portal.ct.gov/pura", "comparison_tool_url": None},
+            {
+                "state_code": "CT",
+                "state_name": "Connecticut",
+                "puc_name": "PURA",
+                "puc_website": "https://portal.ct.gov/pura",
+                "comparison_tool_url": None,
+            },
         ]
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -245,10 +257,20 @@ class TestGasRatesAPI:
         """GET /rates/natural-gas/deregulated-states returns states."""
         mock_result = MagicMock()
         mock_result.mappings.return_value.all.return_value = [
-            {"state_code": "CT", "state_name": "Connecticut", "puc_name": "PURA",
-             "puc_website": None, "comparison_tool_url": None},
-            {"state_code": "OH", "state_name": "Ohio", "puc_name": "PUCO",
-             "puc_website": None, "comparison_tool_url": None},
+            {
+                "state_code": "CT",
+                "state_name": "Connecticut",
+                "puc_name": "PURA",
+                "puc_website": None,
+                "comparison_tool_url": None,
+            },
+            {
+                "state_code": "OH",
+                "state_name": "Ohio",
+                "puc_name": "PUCO",
+                "puc_website": None,
+                "comparison_tool_url": None,
+            },
         ]
         mock_db.execute = AsyncMock(return_value=mock_result)
 

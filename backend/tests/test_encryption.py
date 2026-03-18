@@ -3,8 +3,8 @@ Tests for field-level encryption utility.
 """
 
 import os
-import pytest
 
+import pytest
 
 # Provide a test encryption key for all tests in this module
 TEST_KEY_HEX = "a" * 64  # 32 bytes = 64 hex chars
@@ -14,8 +14,9 @@ TEST_KEY_HEX = "a" * 64  # 32 bytes = 64 hex chars
 def set_encryption_key(monkeypatch):
     """Set encryption key via env var — no mocking."""
     monkeypatch.setenv("FIELD_ENCRYPTION_KEY", TEST_KEY_HEX)
-    from config.settings import Settings
     import utils.encryption as enc_mod
+    from config.settings import Settings
+
     enc_mod.settings = Settings()
     yield
 
@@ -24,21 +25,21 @@ class TestEncryptDecrypt:
     """AES-256-GCM encrypt/decrypt round-trip tests."""
 
     def test_round_trip_basic(self):
-        from utils.encryption import encrypt_field, decrypt_field
+        from utils.encryption import decrypt_field, encrypt_field
 
         plaintext = "1234567890"
         ciphertext = encrypt_field(plaintext)
         assert decrypt_field(ciphertext) == plaintext
 
     def test_round_trip_alphanumeric(self):
-        from utils.encryption import encrypt_field, decrypt_field
+        from utils.encryption import decrypt_field, encrypt_field
 
         plaintext = "ABC-123 456"
         ciphertext = encrypt_field(plaintext)
         assert decrypt_field(ciphertext) == plaintext
 
     def test_round_trip_unicode(self):
-        from utils.encryption import encrypt_field, decrypt_field
+        from utils.encryption import decrypt_field, encrypt_field
 
         plaintext = "Test-Value-123"
         ciphertext = encrypt_field(plaintext)
@@ -73,7 +74,7 @@ class TestEncryptDecrypt:
         assert ct1 != ct2
 
     def test_tampered_ciphertext_raises(self):
-        from utils.encryption import encrypt_field, decrypt_field
+        from utils.encryption import decrypt_field, encrypt_field
 
         ct = bytearray(encrypt_field("secret"))
         # Flip a byte in the ciphertext portion
@@ -82,15 +83,16 @@ class TestEncryptDecrypt:
             decrypt_field(bytes(ct))
 
     def test_different_key_cannot_decrypt(self, monkeypatch):
-        from utils.encryption import encrypt_field, decrypt_field
+        from utils.encryption import decrypt_field, encrypt_field
 
         ct = encrypt_field("secret")
 
         # Swap to a different key via env var
         different_key = "b" * 64
         monkeypatch.setenv("FIELD_ENCRYPTION_KEY", different_key)
-        from config.settings import Settings
         import utils.encryption as enc_mod
+        from config.settings import Settings
+
         enc_mod.settings = Settings()
         with pytest.raises(Exception):
             decrypt_field(ct)
@@ -164,20 +166,24 @@ class TestMissingKey:
 
     def test_encrypt_without_key_raises(self, monkeypatch):
         monkeypatch.delenv("FIELD_ENCRYPTION_KEY", raising=False)
-        from config.settings import Settings
         import utils.encryption as enc_mod
+        from config.settings import Settings
+
         enc_mod.settings = Settings()
 
         from utils.encryption import encrypt_field
+
         with pytest.raises(RuntimeError, match="FIELD_ENCRYPTION_KEY"):
             encrypt_field("test")
 
     def test_invalid_key_length_raises(self, monkeypatch):
         monkeypatch.setenv("FIELD_ENCRYPTION_KEY", "aa" * 10)  # 10 bytes, not 32
-        from config.settings import Settings
         import utils.encryption as enc_mod
+        from config.settings import Settings
+
         enc_mod.settings = Settings()
 
         from utils.encryption import encrypt_field
+
         with pytest.raises(RuntimeError, match="32 bytes"):
             encrypt_field("test")

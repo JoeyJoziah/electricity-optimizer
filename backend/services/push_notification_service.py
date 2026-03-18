@@ -4,9 +4,10 @@ Push notification service via OneSignal REST API.
 Free tier: Unlimited mobile push, 10K web push/send, 10K emails/month. No card.
 """
 
+from typing import Optional
+
 import httpx
 import structlog
-from typing import Optional
 
 from config.settings import get_settings
 

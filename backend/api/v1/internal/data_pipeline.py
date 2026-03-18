@@ -53,9 +53,7 @@ def _extract_rate_from_diffbot_data(extracted_data: dict) -> Optional[float]:
     text_content: str = extracted_data.get("text", "") or ""
     if not text_content and isinstance(extracted_data.get("objects"), list):
         text_content = " ".join(
-            obj.get("text", "")
-            for obj in extracted_data["objects"]
-            if obj.get("text")
+            obj.get("text", "") for obj in extracted_data["objects"] if obj.get("text")
         )
 
     if not text_content:
@@ -76,11 +74,57 @@ def _extract_rate_from_diffbot_data(extracted_data: dict) -> Optional[float]:
 
 # All 51 US state/territory abbreviations for default weather fetch
 _ALL_US_STATES = [
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
-    "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
-    "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
-    "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
-    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "DC",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
 ]
 
 
@@ -141,14 +185,16 @@ async def fetch_weather_data(
     # Persist weather data to weather_cache table
     rows = []
     for state, data in results.items():
-        rows.append({
-            "state": state,
-            "temp": data.get("temp_f"),
-            "humidity": data.get("humidity"),
-            "wind": data.get("wind_mph"),
-            "conditions": data.get("description"),
-            "raw": json.dumps(data),
-        })
+        rows.append(
+            {
+                "state": state,
+                "temp": data.get("temp_f"),
+                "humidity": data.get("humidity"),
+                "wind": data.get("wind_mph"),
+                "conditions": data.get("description"),
+                "raw": json.dumps(data),
+            }
+        )
 
     persisted = 0
     if db and rows:
@@ -194,15 +240,17 @@ async def run_market_research(
             query_str = item.get("query", "")
             region = query_str.split()[0] if query_str else None
             for result in item.get("data", {}).get("results", []):
-                rows.append({
-                    "query": query_str[:500],
-                    "region": region,
-                    "title": (result.get("title") or "")[:500],
-                    "url": (result.get("url") or "")[:1000],
-                    "content": result.get("content"),
-                    "score": result.get("score"),
-                    "raw": json.dumps(result),
-                })
+                rows.append(
+                    {
+                        "query": query_str[:500],
+                        "region": region,
+                        "title": (result.get("title") or "")[:500],
+                        "url": (result.get("url") or "")[:1000],
+                        "content": result.get("content"),
+                        "score": result.get("score"),
+                        "raw": json.dumps(result),
+                    }
+                )
 
     persisted = 0
     if db and rows:
@@ -240,21 +288,16 @@ async def scrape_supplier_rates(
 
     # Auto-discover suppliers with website URLs when no explicit list provided
     if not supplier_urls:
-        result = await db.execute(
-            text("""
+        result = await db.execute(text("""
                 SELECT id, name, website
                 FROM supplier_registry
                 WHERE is_active = true
                   AND website IS NOT NULL
                   AND website != ''
                 ORDER BY name
-            """)
-        )
+            """))
         rows_db = result.fetchall()
-        supplier_urls = [
-            {"supplier_id": str(row[0]), "url": row[2]}
-            for row in rows_db
-        ]
+        supplier_urls = [{"supplier_id": str(row[0]), "url": row[2]} for row in rows_db]
 
     if not supplier_urls:
         return {"status": "ok", "results": [], "message": "No suppliers with website URLs found"}
@@ -281,14 +324,16 @@ async def scrape_supplier_rates(
             if extracted_rate is not None and isinstance(extracted_data, dict):
                 extracted_data = {**extracted_data, "_detected_rate_kwh": extracted_rate}
 
-            rows.append({
-                "sid": r.get("supplier_id"),
-                "name": name_lookup.get(r.get("supplier_id")),
-                "url": url_lookup.get(r.get("supplier_id")),
-                "data": json.dumps(extracted_data),
-                "success": r.get("success", False),
-                "rate": extracted_rate,
-            })
+            rows.append(
+                {
+                    "sid": r.get("supplier_id"),
+                    "name": name_lookup.get(r.get("supplier_id")),
+                    "url": url_lookup.get(r.get("supplier_id")),
+                    "data": json.dumps(extracted_data),
+                    "success": r.get("success", False),
+                    "rate": extracted_rate,
+                }
+            )
 
         if rows:
             persisted = await persist_batch(
@@ -353,12 +398,10 @@ async def fetch_heating_oil_prices(
     Stores prices in heating_oil_prices table.
     """
     from config.settings import get_settings
-    from integrations.pricing_apis.eia import (
-        EIAClient,
-        HEATING_OIL_STATE_SERIES,
-        HEATING_OIL_SERIES,
-    )
     from integrations.pricing_apis.base import PricingRegion
+    from integrations.pricing_apis.eia import (HEATING_OIL_SERIES,
+                                               HEATING_OIL_STATE_SERIES,
+                                               EIAClient)
     from services.heating_oil_service import HeatingOilService
 
     app_settings = get_settings()
@@ -385,12 +428,14 @@ async def fetch_heating_oil_prices(
             )
             rows = data.get("response", {}).get("data", [])
             if rows:
-                prices_to_store.append({
-                    "state": "US",
-                    "price_per_gallon": float(rows[0]["value"]),
-                    "source": "eia",
-                    "period_date": rows[0]["period"],
-                })
+                prices_to_store.append(
+                    {
+                        "state": "US",
+                        "price_per_gallon": float(rows[0]["value"]),
+                        "source": "eia",
+                        "period_date": rows[0]["period"],
+                    }
+                )
         except Exception as e:
             errors.append(f"US national: {e}")
 
@@ -410,12 +455,14 @@ async def fetch_heating_oil_prices(
                 )
                 rows = data.get("response", {}).get("data", [])
                 if rows:
-                    prices_to_store.append({
-                        "state": state_code,
-                        "price_per_gallon": float(rows[0]["value"]),
-                        "source": "eia",
-                        "period_date": rows[0]["period"],
-                    })
+                    prices_to_store.append(
+                        {
+                            "state": state_code,
+                            "price_per_gallon": float(rows[0]["value"]),
+                            "source": "eia",
+                            "period_date": rows[0]["period"],
+                        }
+                    )
             except Exception as e:
                 errors.append(f"{state_code}: {e}")
 
@@ -439,11 +486,8 @@ async def fetch_propane_prices(
     Stores prices in propane_prices table.
     """
     from config.settings import get_settings
-    from integrations.pricing_apis.eia import (
-        EIAClient,
-        PROPANE_STATE_SERIES,
-        PROPANE_SERIES,
-    )
+    from integrations.pricing_apis.eia import (PROPANE_SERIES,
+                                               PROPANE_STATE_SERIES, EIAClient)
     from services.propane_service import PropaneService
 
     app_settings = get_settings()
@@ -470,12 +514,14 @@ async def fetch_propane_prices(
             )
             rows = data.get("response", {}).get("data", [])
             if rows:
-                prices_to_store.append({
-                    "state": "US",
-                    "price_per_gallon": float(rows[0]["value"]),
-                    "source": "eia",
-                    "period_date": rows[0]["period"],
-                })
+                prices_to_store.append(
+                    {
+                        "state": "US",
+                        "price_per_gallon": float(rows[0]["value"]),
+                        "source": "eia",
+                        "period_date": rows[0]["period"],
+                    }
+                )
         except Exception as e:
             errors.append(f"US national: {e}")
 
@@ -495,12 +541,14 @@ async def fetch_propane_prices(
                 )
                 rows = data.get("response", {}).get("data", [])
                 if rows:
-                    prices_to_store.append({
-                        "state": state_code,
-                        "price_per_gallon": float(rows[0]["value"]),
-                        "source": "eia",
-                        "period_date": rows[0]["period"],
-                    })
+                    prices_to_store.append(
+                        {
+                            "state": state_code,
+                            "price_per_gallon": float(rows[0]["value"]),
+                            "source": "eia",
+                            "period_date": rows[0]["period"],
+                        }
+                    )
             except Exception as e:
                 errors.append(f"{state_code}: {e}")
 

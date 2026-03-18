@@ -10,10 +10,10 @@ Covers:
 - auto_promote: promotes challenger when threshold met; returns None otherwise.
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # =============================================================================
 # Helpers / fixtures
@@ -58,6 +58,7 @@ def mock_db():
 @pytest.fixture
 def service(mock_db):
     from services.ab_test_service import ABTestService
+
     return ABTestService(mock_db)
 
 
@@ -119,7 +120,8 @@ class TestAssignUser:
         Multiple calls for the same user_id should return the same version
         deterministically — hash is stable so same inputs produce same output.
         """
-        from services.ab_test_service import ABTestService, _hash_user_to_bucket
+        from services.ab_test_service import (ABTestService,
+                                              _hash_user_to_bucket)
 
         user_id = "stable-user"
         version_a, version_b = "v1.0", "v2.0"
@@ -193,9 +195,7 @@ class TestAssignUser:
                 version_a_count += 1
 
         ratio = version_a_count / total
-        assert ratio >= 0.70, (
-            f"Expected >= 70% assigned to v1.0 with 0.9 split, got {ratio:.2%}"
-        )
+        assert ratio >= 0.70, f"Expected >= 70% assigned to v1.0 with 0.9 split, got {ratio:.2%}"
 
 
 # =============================================================================
@@ -247,10 +247,9 @@ class TestRecordPrediction:
     async def test_returns_uuid_string(self, service, mock_db):
         """Should return a valid UUID string for the new prediction record."""
         import re
+
         result = await service.record_prediction("u1", "v1.0", "NY", 0.15)
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result), f"Expected UUID, got: {result!r}"
 
     @pytest.mark.asyncio
@@ -593,9 +592,7 @@ class TestHashDeterminism:
         from services.ab_test_service import _hash_user_to_bucket
 
         uid = "collision-test-user"
-        buckets = {
-            _hash_user_to_bucket(uid, f"salt-{i}") for i in range(10)
-        }
+        buckets = {_hash_user_to_bucket(uid, f"salt-{i}") for i in range(10)}
         # With 10 different salts, we expect at least 2 distinct bucket values
         # (probabilistically extremely likely)
         assert len(buckets) > 1

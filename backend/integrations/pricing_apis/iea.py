@@ -16,18 +16,11 @@ from typing import Optional
 
 import structlog
 
-from .base import (
-    BasePricingClient,
-    PriceData,
-    PriceForecast,
-    PricingRegion,
-    PriceUnit,
-    APIError,
-    RetryConfig,
-    CircuitBreakerConfig,
-)
-from .rate_limiter import RateLimiter, create_api_rate_limiter
+from .base import (APIError, BasePricingClient, CircuitBreakerConfig,
+                   PriceData, PriceForecast, PriceUnit, PricingRegion,
+                   RetryConfig)
 from .cache import PricingCache
+from .rate_limiter import RateLimiter, create_api_rate_limiter
 
 logger = structlog.get_logger(__name__)
 

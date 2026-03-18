@@ -7,13 +7,14 @@ Adds logging and business-level coordination on top of raw data operations.
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-from repositories.forecast_observation_repository import ForecastObservationRepository
+from repositories.forecast_observation_repository import \
+    ForecastObservationRepository
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,9 @@ class ObservationService:
         model_version: Optional[str] = None,
     ) -> int:
         """Batch-INSERT forecast predictions into forecast_observations."""
-        async with traced("ml.record_forecast", attributes={"ml.region": region, "ml.forecast_id": forecast_id}):
+        async with traced(
+            "ml.record_forecast", attributes={"ml.region": region, "ml.forecast_id": forecast_id}
+        ):
             count = await self._repo.insert_forecasts(
                 forecast_id, region, predictions, model_version
             )

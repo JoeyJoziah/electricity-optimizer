@@ -157,12 +157,18 @@ class AgentService:
         from sqlalchemy import text
 
         result = await db.execute(
-            text("SELECT query_count FROM agent_usage_daily WHERE user_id = :user_id AND date = CURRENT_DATE"),
+            text(
+                "SELECT query_count FROM agent_usage_daily WHERE user_id = :user_id AND date = CURRENT_DATE"
+            ),
             {"user_id": user_id},
         )
         used = result.scalar() or 0
-        limit = -1 if tier == "business" else (
-            settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
+        limit = (
+            -1
+            if tier == "business"
+            else (
+                settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
+            )
         )
         return {
             "used": used,
@@ -329,7 +335,14 @@ class AgentService:
             if redis:
                 await redis.set(
                     f"agent:job:{job_id}",
-                    json.dumps({"status": "completed", "user_id": user_id, "result": result, "model_used": model_used}),
+                    json.dumps(
+                        {
+                            "status": "completed",
+                            "user_id": user_id,
+                            "result": result,
+                            "model_used": model_used,
+                        }
+                    ),
                     ex=3600,
                 )
         except Exception as e:

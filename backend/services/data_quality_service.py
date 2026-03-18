@@ -17,10 +17,10 @@ logger = structlog.get_logger(__name__)
 
 # Expected freshness windows per utility type (in hours)
 FRESHNESS_THRESHOLDS: dict[str, int] = {
-    "electricity": 1,       # 1 hour
-    "natural_gas": 168,     # 7 days
-    "heating_oil": 168,     # 7 days
-    "community_solar": 720, # 30 days
+    "electricity": 1,  # 1 hour
+    "natural_gas": 168,  # 7 days
+    "heating_oil": 168,  # 7 days
+    "community_solar": 720,  # 30 days
 }
 
 # Alert when data exceeds 2x the expected freshness window
@@ -52,16 +52,14 @@ class DataQualityService:
         Returns list of dicts with: utility_type, region, last_updated,
         threshold_hours, is_stale, hours_since_update.
         """
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT utility_type, region,
                        MAX(updated_at) as last_updated,
                        COUNT(*) as record_count
                 FROM electricity_prices
                 GROUP BY utility_type, region
                 ORDER BY utility_type, region
-            """)
-        )
+            """))
         rows = result.mappings().all()
         now = datetime.now(timezone.utc)
         report = []
@@ -81,16 +79,20 @@ class DataQualityService:
 
             is_stale = hours_since > (threshold_hours * FRESHNESS_ALERT_MULTIPLIER)
 
-            report.append({
-                "utility_type": utility_type,
-                "region": r["region"],
-                "last_updated": last_updated.isoformat() if last_updated else None,
-                "record_count": r["record_count"],
-                "threshold_hours": threshold_hours,
-                "alert_threshold_hours": threshold_hours * FRESHNESS_ALERT_MULTIPLIER,
-                "hours_since_update": round(hours_since, 1) if hours_since != float("inf") else None,
-                "is_stale": is_stale,
-            })
+            report.append(
+                {
+                    "utility_type": utility_type,
+                    "region": r["region"],
+                    "last_updated": last_updated.isoformat() if last_updated else None,
+                    "record_count": r["record_count"],
+                    "threshold_hours": threshold_hours,
+                    "alert_threshold_hours": threshold_hours * FRESHNESS_ALERT_MULTIPLIER,
+                    "hours_since_update": (
+                        round(hours_since, 1) if hours_since != float("inf") else None
+                    ),
+                    "is_stale": is_stale,
+                }
+            )
 
         return report
 
@@ -186,7 +188,11 @@ class DataQualityService:
                     "successes": r["successes"],
                     "failures": r["failures"],
                     "failure_rate": round(r["failures"] / r["total"], 3) if r["total"] > 0 else 0,
-                    "is_degraded": (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD if r["total"] > 0 else False,
+                    "is_degraded": (
+                        (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD
+                        if r["total"] > 0
+                        else False
+                    ),
                     "last_attempt": r["last_attempt"].isoformat() if r["last_attempt"] else None,
                 }
                 for r in rows

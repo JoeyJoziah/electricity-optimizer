@@ -32,14 +32,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, SessionData
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
-from models.connections import (
-    CreatePortalConnectionRequest,
-    PortalConnectionResponse,
-    PortalScrapeResponse,
-)
-from utils.encryption import encrypt_field, decrypt_field
+from models.connections import (CreatePortalConnectionRequest,
+                                PortalConnectionResponse, PortalScrapeResponse)
+from utils.encryption import decrypt_field, encrypt_field
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

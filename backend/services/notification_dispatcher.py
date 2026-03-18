@@ -42,9 +42,9 @@ Usage:
 
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 import structlog
@@ -53,9 +53,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.notification import NotificationDeliveryUpdate
 from repositories.notification_repository import NotificationRepository
+from services.email_service import EmailService
 from services.notification_service import NotificationService
 from services.push_notification_service import PushNotificationService
-from services.email_service import EmailService
 
 logger = structlog.get_logger(__name__)
 
@@ -385,9 +385,7 @@ class NotificationDispatcher:
             (success, error_message) — error_message is None on success.
         """
         try:
-            html_body = html or (
-                f"<p>{body}</p>" if body else f"<p>{subject}</p>"
-            )
+            html_body = html or (f"<p>{body}</p>" if body else f"<p>{subject}</p>")
             ok = await self._email_service.send(
                 to=to,
                 subject=subject,

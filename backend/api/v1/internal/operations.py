@@ -145,9 +145,9 @@ async def data_health_check(
     _HEALTH_TABLES = frozenset(t[0] for t in tables)
     _HEALTH_COLS = frozenset(t[1] for t in tables)
     for table_name, ts_col in tables:
-        assert table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS, (
-            f"Unexpected health check identifier: {table_name}.{ts_col}"
-        )
+        assert (
+            table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS
+        ), f"Unexpected health check identifier: {table_name}.{ts_col}"
 
     health = {}
     for table_name, ts_col in tables:

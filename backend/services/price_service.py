@@ -6,13 +6,13 @@ Business logic for electricity price operations.
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta, date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from models.price import Price, PriceRegion, PriceForecast
-from repositories.price_repository import PriceRepository
 from lib.tracing import traced
+from models.price import Price, PriceForecast, PriceRegion
+from repositories.price_repository import PriceRepository
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +41,7 @@ class PriceService:
         self._repo = price_repo
         self._cache = cache
 
-    async def get_current_price(
-        self,
-        region: PriceRegion,
-        supplier: str
-    ) -> Optional[Price]:
+    async def get_current_price(self, region: PriceRegion, supplier: str) -> Optional[Price]:
         """
         Get the current price for a specific supplier in a region.
 
@@ -56,14 +52,16 @@ class PriceService:
         Returns:
             Current price if available
         """
-        async with traced("price.get_current", attributes={"price.region": getattr(region, "state_code", None) or str(region), "price.source": supplier}):
+        async with traced(
+            "price.get_current",
+            attributes={
+                "price.region": getattr(region, "state_code", None) or str(region),
+                "price.source": supplier,
+            },
+        ):
             return await self._repo.get_latest_by_supplier(region, supplier)
 
-    async def get_current_prices(
-        self,
-        region: PriceRegion,
-        limit: int = 10
-    ) -> List[Price]:
+    async def get_current_prices(self, region: PriceRegion, limit: int = 10) -> List[Price]:
         """
         Get current prices for all suppliers in a region.
 
@@ -76,10 +74,7 @@ class PriceService:
         """
         return await self._repo.get_current_prices(region, limit)
 
-    async def get_cheapest_supplier(
-        self,
-        region: PriceRegion
-    ) -> Optional[Price]:
+    async def get_cheapest_supplier(self, region: PriceRegion) -> Optional[Price]:
         """
         Find the cheapest supplier in a region.
 
@@ -96,10 +91,7 @@ class PriceService:
         # Find minimum price
         return min(prices, key=lambda p: p.price_per_kwh)
 
-    async def get_price_comparison(
-        self,
-        region: PriceRegion
-    ) -> List[Price]:
+    async def get_price_comparison(self, region: PriceRegion) -> List[Price]:
         """
         Get price comparison across suppliers, sorted by price.
 
@@ -113,11 +105,7 @@ class PriceService:
         return sorted(prices, key=lambda p: p.price_per_kwh)
 
     async def calculate_daily_cost(
-        self,
-        region: PriceRegion,
-        supplier: str,
-        kwh_usage: Decimal,
-        target_date: date
+        self, region: PriceRegion, supplier: str, kwh_usage: Decimal, target_date: date
     ) -> Decimal:
         """
         Calculate daily cost based on actual prices.
@@ -136,10 +124,7 @@ class PriceService:
         end = start + timedelta(days=1)
 
         prices = await self._repo.get_historical_prices(
-            region=region,
-            start_date=start,
-            end_date=end,
-            supplier=supplier
+            region=region, start_date=start, end_date=end, supplier=supplier
         )
 
         if not prices:
@@ -156,10 +141,7 @@ class PriceService:
         return (kwh_usage * avg_price).quantize(Decimal("0.01"))
 
     async def get_price_forecast(
-        self,
-        region: PriceRegion,
-        hours: int = 24,
-        supplier: Optional[str] = None
+        self, region: PriceRegion, hours: int = 24, supplier: Optional[str] = None
     ) -> Optional[PriceForecast]:
         """
         Get price forecast for upcoming hours.
@@ -175,7 +157,10 @@ class PriceService:
         Returns:
             Price forecast if available
         """
-        async with traced("price.forecast", attributes={"price.region": getattr(region, "state_code", None) or str(region)}):
+        async with traced(
+            "price.forecast",
+            attributes={"price.region": getattr(region, "state_code", None) or str(region)},
+        ):
             current_prices = await self._repo.get_current_prices(region, limit=1)
             if not current_prices:
                 return None
@@ -193,13 +178,9 @@ class PriceService:
                 )
 
             # Fallback: simple peak/off-peak heuristic
-            return self._simple_forecast(
-                region, hours, now, base_price, default_supplier, currency
-            )
+            return self._simple_forecast(region, hours, now, base_price, default_supplier, currency)
 
-    async def _try_ml_forecast(
-        self, region: PriceRegion, hours: int
-    ) -> Optional[Dict[str, Any]]:
+    async def _try_ml_forecast(self, region: PriceRegion, hours: int) -> Optional[Dict[str, Any]]:
         """Attempt to generate a forecast using the ML EnsemblePredictor."""
         global _ensemble_predictor, _ensemble_load_attempted
 
@@ -212,9 +193,7 @@ class PriceService:
                     # Double-check after acquiring lock (another task may have loaded)
                     if not _ensemble_load_attempted:
                         _ensemble_load_attempted = True
-                        _ensemble_predictor = await asyncio.to_thread(
-                            self._load_ensemble_predictor
-                        )
+                        _ensemble_predictor = await asyncio.to_thread(self._load_ensemble_predictor)
                 if _ensemble_predictor is None:
                     return None
 
@@ -248,12 +227,16 @@ class PriceService:
 
         try:
             import sys
+
             # Add project root so ml package is importable
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            project_root = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
             if project_root not in sys.path:
                 sys.path.insert(0, project_root)
 
             from ml.inference.ensemble_predictor import EnsemblePredictor
+
             predictor = EnsemblePredictor(model_path)
             logger.info("ensemble_predictor_loaded", version=predictor.version)
             return predictor
@@ -277,13 +260,15 @@ class PriceService:
 
             rows = []
             for p in prices:
-                rows.append({
-                    "timestamp": p.timestamp,
-                    "price": float(p.price_per_kwh),
-                    "hour": p.timestamp.hour,
-                    "day_of_week": p.timestamp.weekday(),
-                    "is_peak": 1 if (16 <= p.timestamp.hour <= 20) else 0,
-                })
+                rows.append(
+                    {
+                        "timestamp": p.timestamp,
+                        "price": float(p.price_per_kwh),
+                        "hour": p.timestamp.hour,
+                        "day_of_week": p.timestamp.weekday(),
+                        "is_peak": 1 if (16 <= p.timestamp.hour <= 20) else 0,
+                    }
+                )
 
             return pd.DataFrame(rows)
 
@@ -322,7 +307,7 @@ class PriceService:
             )
 
         # Confidence from interval width — narrower = higher confidence
-        avg_width = float((upper - lower).mean()) if hasattr(upper, 'mean') else 0
+        avg_width = float((upper - lower).mean()) if hasattr(upper, "mean") else 0
         confidence = max(0.3, min(0.95, 1.0 - avg_width * 0.1))
 
         return PriceForecast(
@@ -380,7 +365,7 @@ class PriceService:
         region: PriceRegion,
         duration_hours: int,
         within_hours: int = 24,
-        supplier: Optional[str] = None
+        supplier: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Find optimal low-price windows for appliance usage.
@@ -509,11 +494,7 @@ class PriceService:
             supplier=supplier,
         )
 
-    async def get_price_statistics(
-        self,
-        region: PriceRegion,
-        days: int = 7
-    ) -> Dict[str, Any]:
+    async def get_price_statistics(self, region: PriceRegion, days: int = 7) -> Dict[str, Any]:
         """
         Get price statistics for a region.
 

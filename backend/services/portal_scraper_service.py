@@ -37,6 +37,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 import structlog
+
 from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
@@ -48,11 +49,16 @@ logger = structlog.get_logger(__name__)
 
 # Allowed domains for portal scraping (known utility portals only)
 _ALLOWED_DOMAINS: set[str] = {
-    "duke-energy.com", "www.duke-energy.com",
-    "pge.com", "www.pge.com",
-    "coned.com", "www.coned.com",
-    "comed.com", "secure.comed.com",
-    "fpl.com", "www.fpl.com",
+    "duke-energy.com",
+    "www.duke-energy.com",
+    "pge.com",
+    "www.pge.com",
+    "coned.com",
+    "www.coned.com",
+    "comed.com",
+    "secure.comed.com",
+    "fpl.com",
+    "www.fpl.com",
 }
 
 
@@ -91,6 +97,7 @@ def _validate_portal_url(url: str) -> None:
             url=url,
         )
         # Allow but log — generic scraping is a documented feature
+
 
 # ---------------------------------------------------------------------------
 # Utility registry
@@ -145,9 +152,7 @@ SUPPORTED_UTILITIES: Dict[str, Dict[str, str]] = {
 
 _DEFAULT_TIMEOUT = 30  # seconds
 _DEFAULT_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (compatible; RateShift/1.0; +https://rateshift.app/bot)"
-    ),
+    "User-Agent": ("Mozilla/5.0 (compatible; RateShift/1.0; +https://rateshift.app/bot)"),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
 }
@@ -318,9 +323,7 @@ class PortalScraperService:
                         client, utility_config, username, password, login_url
                     )
                 else:
-                    result = await self._scrape_generic(
-                        client, login_url, username, password
-                    )
+                    result = await self._scrape_generic(client, login_url, username, password)
 
                 log.info(
                     "portal_scrape_complete",
@@ -444,9 +447,13 @@ class PortalScraperService:
             rates = _extract_rates_from_html(post_resp.text)
             # Mark as success if we found any rates; otherwise partial
             success = len(rates) > 0
-            error = None if success else (
-                "No rate data extracted. The portal may require JavaScript or "
-                "multi-factor authentication not supported by HTTP-based scraping."
+            error = (
+                None
+                if success
+                else (
+                    "No rate data extracted. The portal may require JavaScript or "
+                    "multi-factor authentication not supported by HTTP-based scraping."
+                )
             )
             return {
                 "success": success,

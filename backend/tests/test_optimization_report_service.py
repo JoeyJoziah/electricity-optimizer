@@ -14,11 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.optimization_report_service import (
-    OptimizationReportService,
-    AVG_MONTHLY_CONSUMPTION,
-)
-
+from services.optimization_report_service import (AVG_MONTHLY_CONSUMPTION,
+                                                  OptimizationReportService)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -37,9 +34,7 @@ def _make_db(row_sets=None):
     """Create a mock DB that returns different row sets per call."""
     db = AsyncMock()
     if row_sets:
-        db.execute = AsyncMock(
-            side_effect=[_mapping_result(rs) for rs in row_sets]
-        )
+        db.execute = AsyncMock(side_effect=[_mapping_result(rs) for rs in row_sets])
     else:
         db.execute = AsyncMock(return_value=_mapping_result([]))
     return db
