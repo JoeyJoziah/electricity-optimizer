@@ -49,11 +49,8 @@ def _install_recording_provider():
     from opentelemetry import trace
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import (
-        SimpleSpanProcessor,
-        SpanExporter,
-        SpanExportResult,
-    )
+    from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                SpanExporter, SpanExportResult)
 
     class _InMemoryExporter(SpanExporter):
         def __init__(self):
@@ -140,9 +137,7 @@ class TestObservationServiceTracing:
 
         mock_db = AsyncMock()
         # Patch the repository to avoid DB calls
-        with patch(
-            "services.observation_service.ForecastObservationRepository"
-        ) as MockRepo:
+        with patch("services.observation_service.ForecastObservationRepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.insert_forecasts = AsyncMock(return_value=5)
             MockRepo.return_value = mock_repo
@@ -163,9 +158,7 @@ class TestObservationServiceTracing:
         exporter = _install_recording_provider()
 
         mock_db = AsyncMock()
-        with patch(
-            "services.observation_service.ForecastObservationRepository"
-        ) as MockRepo:
+        with patch("services.observation_service.ForecastObservationRepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.backfill_actuals = AsyncMock(return_value=10)
             MockRepo.return_value = mock_repo

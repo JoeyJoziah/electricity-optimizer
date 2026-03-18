@@ -31,7 +31,6 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Stable test identifiers
 # ---------------------------------------------------------------------------
@@ -98,15 +97,17 @@ def _active_connection_row(
     """Return a fake active connection DB row with encrypted token placeholder."""
     # Use a real encrypted token so decrypt_field won't be called with garbage.
     # We'll patch decrypt_field in tests that need it.
-    return _DictRow({
-        "id": connection_id,
-        "user_id": TEST_USER_ID,
-        "email_provider": provider,
-        "status": "active",
-        "oauth_access_token": base64.b64encode(b"encrypted_access").decode(),
-        "oauth_refresh_token": None,
-        "oauth_token_expires_at": None,
-    })
+    return _DictRow(
+        {
+            "id": connection_id,
+            "user_id": TEST_USER_ID,
+            "email_provider": provider,
+            "status": "active",
+            "oauth_access_token": base64.b64encode(b"encrypted_access").decode(),
+            "oauth_refresh_token": None,
+            "oauth_token_expires_at": None,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +127,7 @@ def client():
 @pytest.fixture(autouse=True)
 def _clean_overrides():
     """Clear dependency overrides and reset rate limiter after every test."""
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -137,9 +138,9 @@ def _clean_overrides():
 
 def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
     """Install auth + DB overrides; returns the mock db."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id, tier=tier)
     db = _mock_db()
@@ -349,8 +350,9 @@ class TestDownloadGmailAttachments:
     @pytest.mark.asyncio
     async def test_failed_attachment_download_is_skipped(self):
         """A failed individual attachment download should not abort the rest."""
-        from services.email_scanner_service import download_gmail_attachments
         import httpx
+
+        from services.email_scanner_service import download_gmail_attachments
 
         parts = [
             {
@@ -377,9 +379,7 @@ class TestDownloadGmailAttachments:
         # First attachment raises, second succeeds
         bad_att_response = MagicMock()
         bad_att_response.raise_for_status = MagicMock(
-            side_effect=httpx.HTTPStatusError(
-                "403", request=MagicMock(), response=MagicMock()
-            )
+            side_effect=httpx.HTTPStatusError("403", request=MagicMock(), response=MagicMock())
         )
 
         good_att_response = MagicMock()
@@ -389,9 +389,7 @@ class TestDownloadGmailAttachments:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(
-            side_effect=[msg_response, bad_att_response, good_att_response]
-        )
+        mock_client.get = AsyncMock(side_effect=[msg_response, bad_att_response, good_att_response])
 
         with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
             results = await download_gmail_attachments("token123", "msg-004")
@@ -623,27 +621,27 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_extracts_rate_from_pdf_attachment(self):
         """Should call bill_parser extractors and return rate data."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         fake_pdf_data = b"%PDF-1.4 fake"
         attachments = [
             {"filename": "bill.pdf", "data": fake_pdf_data, "mime_type": "application/pdf"}
         ]
 
-        with patch(
-            "services.bill_parser.extract_text", return_value="Rate: $0.1850/kWh\nTotal: $95.00"
-        ), patch(
-            "services.bill_parser._validate_magic_bytes", return_value="pdf"
-        ), patch(
-            "services.bill_parser.extract_rate_per_kwh", return_value=(0.185, 1.0)
-        ), patch(
-            "services.bill_parser.extract_supplier", return_value=("Eversource", 0.9)
-        ), patch(
-            "services.bill_parser.extract_billing_period", return_value=("2025-01-01", "2025-01-31", 0.85)
-        ), patch(
-            "services.bill_parser.extract_total_kwh", return_value=(512.0, 0.85)
-        ), patch(
-            "services.bill_parser.extract_total_amount", return_value=(95.00, 0.9)
+        with (
+            patch(
+                "services.bill_parser.extract_text", return_value="Rate: $0.1850/kWh\nTotal: $95.00"
+            ),
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.185, 1.0)),
+            patch("services.bill_parser.extract_supplier", return_value=("Eversource", 0.9)),
+            patch(
+                "services.bill_parser.extract_billing_period",
+                return_value=("2025-01-01", "2025-01-31", 0.85),
+            ),
+            patch("services.bill_parser.extract_total_kwh", return_value=(512.0, 0.85)),
+            patch("services.bill_parser.extract_total_amount", return_value=(95.00, 0.9)),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -656,27 +654,26 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_skips_attachment_with_empty_data(self):
         """Empty data bytes should produce no results."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
-        attachments = [
-            {"filename": "empty.pdf", "data": b"", "mime_type": "application/pdf"}
-        ]
+        attachments = [{"filename": "empty.pdf", "data": b"", "mime_type": "application/pdf"}]
         results = await extract_rates_from_attachments(attachments)
         assert results == []
 
     @pytest.mark.asyncio
     async def test_attachment_with_no_extractable_text_returns_partial_result(self):
         """An attachment whose text extraction yields blank should be skipped."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "scan.pdf", "data": b"%PDF-blank", "mime_type": "application/pdf"}
         ]
 
-        with patch(
-            "services.bill_parser._validate_magic_bytes", return_value="pdf"
-        ), patch(
-            "services.bill_parser.extract_text", return_value="   "
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", return_value="   "),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -686,26 +683,24 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_rate_below_confidence_threshold_not_included(self):
         """Rates with confidence < 0.5 should be omitted from the result dict."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "bill.pdf", "data": b"%PDF-low-conf", "mime_type": "application/pdf"}
         ]
 
-        with patch(
-            "services.bill_parser._validate_magic_bytes", return_value="pdf"
-        ), patch(
-            "services.bill_parser.extract_text", return_value="kWh 500"
-        ), patch(
-            "services.bill_parser.extract_rate_per_kwh", return_value=(0.12, 0.3)  # low confidence
-        ), patch(
-            "services.bill_parser.extract_supplier", return_value=(None, 0.0)
-        ), patch(
-            "services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)
-        ), patch(
-            "services.bill_parser.extract_total_kwh", return_value=(500.0, 0.85)
-        ), patch(
-            "services.bill_parser.extract_total_amount", return_value=(None, 0.0)
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", return_value="kWh 500"),
+            patch(
+                "services.bill_parser.extract_rate_per_kwh",
+                return_value=(0.12, 0.3),  # low confidence
+            ),
+            patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch("services.bill_parser.extract_total_kwh", return_value=(500.0, 0.85)),
+            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -716,16 +711,16 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_exception_in_extractor_returns_partial_result(self):
         """An exception in bill_parser should not crash — filename entry is returned."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "corrupt.pdf", "data": b"%PDF-corrupt", "mime_type": "application/pdf"}
         ]
 
-        with patch(
-            "services.bill_parser._validate_magic_bytes", return_value="pdf"
-        ), patch(
-            "services.bill_parser.extract_text", side_effect=RuntimeError("corrupt PDF")
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", side_effect=RuntimeError("corrupt PDF")),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -736,7 +731,8 @@ class TestExtractRatesFromAttachments:
     @pytest.mark.asyncio
     async def test_multiple_attachments_all_processed(self):
         """All qualifying attachments in the list should be processed."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "jan.pdf", "data": b"%PDF-jan", "mime_type": "application/pdf"},
@@ -751,20 +747,14 @@ class TestExtractRatesFromAttachments:
             call_count[0] += 1
             return (r, 1.0)
 
-        with patch(
-            "services.bill_parser._validate_magic_bytes", return_value="pdf"
-        ), patch(
-            "services.bill_parser.extract_text", return_value="Rate: $0.185/kWh"
-        ), patch(
-            "services.bill_parser.extract_rate_per_kwh", side_effect=_rate_side_effect
-        ), patch(
-            "services.bill_parser.extract_supplier", return_value=(None, 0.0)
-        ), patch(
-            "services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)
-        ), patch(
-            "services.bill_parser.extract_total_kwh", return_value=(None, 0.0)
-        ), patch(
-            "services.bill_parser.extract_total_amount", return_value=(None, 0.0)
+        with (
+            patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
+            patch("services.bill_parser.extract_text", return_value="Rate: $0.185/kWh"),
+            patch("services.bill_parser.extract_rate_per_kwh", side_effect=_rate_side_effect),
+            patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)),
+            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -810,16 +800,18 @@ class TestTriggerEmailScanBodyExtraction:
 
         bill = _make_scan_result(email_id="msg-body-1", attachment_count=0)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={"rate_per_kwh": 0.1750, "total_amount": 88.50},
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={"rate_per_kwh": 0.1750, "total_amount": 88.50},
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -838,16 +830,18 @@ class TestTriggerEmailScanBodyExtraction:
 
         bill = _make_scan_result(email_id="msg-no-rate", attachment_count=0)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={"total_amount": 55.00},  # no rate_per_kwh
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={"total_amount": 55.00},  # no rate_per_kwh
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -864,16 +858,18 @@ class TestTriggerEmailScanBodyExtraction:
 
         bill = _make_scan_result(email_id="msg-crash", attachment_count=0)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            side_effect=Exception("API timeout"),
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                side_effect=Exception("API timeout"),
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -888,21 +884,20 @@ class TestTriggerEmailScanBodyExtraction:
         connection_id = str(uuid4())
         self._setup_scan(db, connection_id, "gmail", [])
 
-        bills = [
-            _make_scan_result(email_id=f"msg-multi-{i}", attachment_count=0)
-            for i in range(3)
-        ]
+        bills = [_make_scan_result(email_id=f"msg-multi-{i}", attachment_count=0) for i in range(3)]
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=bills,
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={"rate_per_kwh": 0.2100},
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=bills,
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={"rate_per_kwh": 0.2100},
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -926,17 +921,19 @@ class TestTriggerEmailScanBodyExtraction:
         )
         bill = _make_scan_result(email_id="msg-bill", is_utility_bill=True)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[non_bill, bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={"rate_per_kwh": 0.1500},
-        ) as mock_extract:
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[non_bill, bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={"rate_per_kwh": 0.1500},
+            ) as mock_extract,
+        ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
         assert resp.status_code == 200
@@ -976,24 +973,28 @@ class TestTriggerEmailScanAttachmentExtraction:
         ]
         parsed_result = [{"filename": "bill.pdf", "rate_per_kwh": 0.2150}]
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={},  # no rate from body
-        ), patch(
-            "services.email_scanner_service.download_gmail_attachments",
-            new_callable=AsyncMock,
-            return_value=fake_attachment,
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_attachments",
-            new_callable=AsyncMock,
-            return_value=parsed_result,
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={},  # no rate from body
+            ),
+            patch(
+                "services.email_scanner_service.download_gmail_attachments",
+                new_callable=AsyncMock,
+                return_value=fake_attachment,
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_attachments",
+                new_callable=AsyncMock,
+                return_value=parsed_result,
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1015,24 +1016,28 @@ class TestTriggerEmailScanAttachmentExtraction:
         ]
         parsed_result = [{"filename": "invoice.pdf", "rate_per_kwh": 0.1890}]
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_outlook_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={},
-        ), patch(
-            "services.email_scanner_service.download_outlook_attachments",
-            new_callable=AsyncMock,
-            return_value=fake_attachment,
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_attachments",
-            new_callable=AsyncMock,
-            return_value=parsed_result,
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_outlook_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+            patch(
+                "services.email_scanner_service.download_outlook_attachments",
+                new_callable=AsyncMock,
+                return_value=fake_attachment,
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_attachments",
+                new_callable=AsyncMock,
+                return_value=parsed_result,
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1050,20 +1055,23 @@ class TestTriggerEmailScanAttachmentExtraction:
 
         bill = _make_scan_result(email_id="msg-att-crash", attachment_count=1)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={},
-        ), patch(
-            "services.email_scanner_service.download_gmail_attachments",
-            new_callable=AsyncMock,
-            side_effect=Exception("Network error"),
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+            patch(
+                "services.email_scanner_service.download_gmail_attachments",
+                new_callable=AsyncMock,
+                side_effect=Exception("Network error"),
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1081,20 +1089,23 @@ class TestTriggerEmailScanAttachmentExtraction:
 
         bill = _make_scan_result(email_id="msg-no-att", attachment_count=0)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={},
-        ), patch(
-            "services.email_scanner_service.download_gmail_attachments",
-            new_callable=AsyncMock,
-        ) as mock_download:
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+            patch(
+                "services.email_scanner_service.download_gmail_attachments",
+                new_callable=AsyncMock,
+            ) as mock_download,
+        ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
         assert resp.status_code == 200
@@ -1114,24 +1125,28 @@ class TestTriggerEmailScanAttachmentExtraction:
         # Parsed but no rate found
         parsed_result = [{"filename": "bill.pdf", "supplier": "Eversource"}]
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={},
-        ), patch(
-            "services.email_scanner_service.download_gmail_attachments",
-            new_callable=AsyncMock,
-            return_value=fake_attachment,
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_attachments",
-            new_callable=AsyncMock,
-            return_value=parsed_result,
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+            patch(
+                "services.email_scanner_service.download_gmail_attachments",
+                new_callable=AsyncMock,
+                return_value=fake_attachment,
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_attachments",
+                new_callable=AsyncMock,
+                return_value=parsed_result,
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1153,24 +1168,28 @@ class TestTriggerEmailScanAttachmentExtraction:
         ]
         parsed_result = [{"filename": "bill.pdf", "rate_per_kwh": 0.2200}]
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={"rate_per_kwh": 0.1950},  # from body
-        ), patch(
-            "services.email_scanner_service.download_gmail_attachments",
-            new_callable=AsyncMock,
-            return_value=fake_attachment,
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_attachments",
-            new_callable=AsyncMock,
-            return_value=parsed_result,  # from attachment
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={"rate_per_kwh": 0.1950},  # from body
+            ),
+            patch(
+                "services.email_scanner_service.download_gmail_attachments",
+                new_callable=AsyncMock,
+                return_value=fake_attachment,
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_attachments",
+                new_callable=AsyncMock,
+                return_value=parsed_result,  # from attachment
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1205,16 +1224,18 @@ class TestTriggerEmailScanResponse:
 
         bill = _make_scan_result(email_id="msg-resp", attachment_count=0)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[bill],
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={},
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[bill],
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1222,8 +1243,13 @@ class TestTriggerEmailScanResponse:
         data = resp.json()
 
         required_keys = {
-            "connection_id", "provider", "total_emails_scanned",
-            "utility_bills_found", "rates_extracted", "attachments_parsed", "bills",
+            "connection_id",
+            "provider",
+            "total_emails_scanned",
+            "utility_bills_found",
+            "rates_extracted",
+            "attachments_parsed",
+            "bills",
         }
         assert required_keys.issubset(set(data.keys()))
 
@@ -1239,16 +1265,18 @@ class TestTriggerEmailScanResponse:
             for i in range(25)
         ]
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=bills,
-        ), patch(
-            "services.email_scanner_service.extract_rates_from_email",
-            new_callable=AsyncMock,
-            return_value={},
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=bills,
+            ),
+            patch(
+                "services.email_scanner_service.extract_rates_from_email",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1264,12 +1292,13 @@ class TestTriggerEmailScanResponse:
         connection_id = str(uuid4())
         self._setup_db(db, connection_id)
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_gmail_inbox",
-            new_callable=AsyncMock,
-            return_value=[],
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 
@@ -1293,12 +1322,13 @@ class TestTriggerEmailScanResponse:
         insert_result.mappings.return_value.first.return_value = None
         db.execute.side_effect = [conn_result] + [insert_result] * 10
 
-        with patch(
-            "utils.encryption.decrypt_field", return_value="fake_access_token"
-        ), patch(
-            "services.email_scanner_service.scan_outlook_inbox",
-            new_callable=AsyncMock,
-            return_value=[],
+        with (
+            patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
+            patch(
+                "services.email_scanner_service.scan_outlook_inbox",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             resp = client.post(f"{BASE}/email/{connection_id}/scan")
 

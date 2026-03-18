@@ -5,18 +5,15 @@ FastAPI dependency injection for database, services, and authentication.
 """
 
 from typing import AsyncGenerator, Optional
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
 
-from config.settings import settings
-from config.database import db_manager
-
 # Re-export auth dependencies from neon_auth module.
-from auth.neon_auth import (
-    get_current_user,
-    get_current_user_optional,
-    SessionData,
-)
+from auth.neon_auth import (SessionData, get_current_user,
+                            get_current_user_optional)
+from config.database import db_manager
+from config.settings import settings
 
 # API Key header for service-to-service auth
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -53,9 +50,7 @@ async def get_redis():
 # =============================================================================
 
 
-async def verify_api_key(
-    api_key: Optional[str] = Depends(api_key_header)
-) -> bool:
+async def verify_api_key(api_key: Optional[str] = Depends(api_key_header)) -> bool:
     """
     Verify API key for service-to-service authentication.
 
@@ -69,25 +64,20 @@ async def verify_api_key(
         HTTPException: If API key is missing or invalid
     """
     if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key required")
 
     # Validate against a dedicated API key (never reuse the JWT signing secret)
     if not settings.internal_api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="API key authentication not configured"
+            detail="API key authentication not configured",
         )
 
     # Use constant-time comparison to prevent timing attacks
     import hmac
+
     if not hmac.compare_digest(api_key, settings.internal_api_key):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
     return True
 
@@ -130,6 +120,7 @@ async def _get_user_tier(user_id: str, db) -> str:
 
     # Cache miss — query DB
     from sqlalchemy import text
+
     result = await db.execute(
         text("SELECT subscription_tier FROM public.users WHERE id = :id"),
         {"id": user_id},
@@ -176,6 +167,7 @@ def require_tier(min_tier: str):
         require_tier("pro")      — allows pro + business
         require_tier("business") — allows business only
     """
+
     async def check_tier(
         current_user: SessionData = Depends(get_current_user),
         db=Depends(get_db_session),
@@ -199,10 +191,7 @@ def require_tier(min_tier: str):
 # =============================================================================
 
 
-async def get_price_service(
-    db=Depends(get_db_session),
-    redis=Depends(get_redis)
-):
+async def get_price_service(db=Depends(get_db_session), redis=Depends(get_redis)):
     """
     Get PriceService instance.
 
@@ -220,10 +209,7 @@ async def get_price_service(
     return PriceService(repo, redis)
 
 
-async def get_recommendation_service(
-    db=Depends(get_db_session),
-    redis=Depends(get_redis)
-):
+async def get_recommendation_service(db=Depends(get_db_session), redis=Depends(get_redis)):
     """
     Get RecommendationService instance.
 
@@ -247,6 +233,7 @@ async def get_recommendation_service(
     vector_store = None
     try:
         from services.hnsw_vector_store import get_vector_store_singleton
+
         vector_store = get_vector_store_singleton()
     except Exception:
         pass  # Graceful fallback — recommendations work without vector store
@@ -267,6 +254,7 @@ async def get_observation_service(
         ObservationService instance
     """
     from services.observation_service import ObservationService
+
     return ObservationService(db)
 
 
@@ -278,6 +266,7 @@ def get_hnsw_vector_store():
         HNSWVectorStore instance
     """
     from services.hnsw_vector_store import get_vector_store_singleton
+
     return get_vector_store_singleton()
 
 
@@ -295,19 +284,16 @@ async def get_learning_service(
     Returns:
         LearningService instance
     """
-    from services.observation_service import ObservationService
     from services.hnsw_vector_store import get_vector_store_singleton
     from services.learning_service import LearningService
+    from services.observation_service import ObservationService
 
     obs = ObservationService(db)
     vs = get_vector_store_singleton()
     return LearningService(obs, vs, redis)
 
 
-async def get_analytics_service(
-    db=Depends(get_db_session),
-    redis=Depends(get_redis)
-):
+async def get_analytics_service(db=Depends(get_db_session), redis=Depends(get_redis)):
     """
     Get AnalyticsService instance.
 

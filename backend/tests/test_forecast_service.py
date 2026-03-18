@@ -10,18 +10,14 @@ Coverage:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.forecast_service import (
-    ForecastService,
-    FORECASTABLE_UTILITIES,
-    TREND_LOOKBACK_DAYS,
-    FORECAST_HORIZON_DAYS,
-)
-
+from services.forecast_service import (FORECAST_HORIZON_DAYS,
+                                       FORECASTABLE_UTILITIES,
+                                       TREND_LOOKBACK_DAYS, ForecastService)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -157,10 +153,7 @@ class TestExtrapolateTrend:
 
     def test_increasing_trend(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        rows = _make_rows([
-            (base + timedelta(days=i), 0.10 + 0.002 * i)
-            for i in range(30)
-        ])
+        rows = _make_rows([(base + timedelta(days=i), 0.10 + 0.002 * i) for i in range(30)])
         result = ForecastService._extrapolate_trend(
             utility_type="electricity",
             rows=rows,
@@ -176,10 +169,7 @@ class TestExtrapolateTrend:
 
     def test_decreasing_trend(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        rows = _make_rows([
-            (base + timedelta(days=i), 0.20 - 0.003 * i)
-            for i in range(30)
-        ])
+        rows = _make_rows([(base + timedelta(days=i), 0.20 - 0.003 * i) for i in range(30)])
         result = ForecastService._extrapolate_trend(
             utility_type="electricity",
             rows=rows,
@@ -194,10 +184,7 @@ class TestExtrapolateTrend:
 
     def test_stable_trend(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        rows = _make_rows([
-            (base + timedelta(days=i), 0.15)
-            for i in range(30)
-        ])
+        rows = _make_rows([(base + timedelta(days=i), 0.15) for i in range(30)])
         result = ForecastService._extrapolate_trend(
             utility_type="electricity",
             rows=rows,
@@ -211,10 +198,7 @@ class TestExtrapolateTrend:
 
     def test_negative_forecast_clamped_to_zero(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        rows = _make_rows([
-            (base + timedelta(days=i), 0.05 - 0.005 * i)
-            for i in range(10)
-        ])
+        rows = _make_rows([(base + timedelta(days=i), 0.05 - 0.005 * i) for i in range(10)])
         result = ForecastService._extrapolate_trend(
             utility_type="propane",
             rows=rows,
@@ -228,10 +212,7 @@ class TestExtrapolateTrend:
 
     def test_response_keys_complete(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        rows = _make_rows([
-            (base + timedelta(days=i), 0.12 + 0.001 * i)
-            for i in range(10)
-        ])
+        rows = _make_rows([(base + timedelta(days=i), 0.12 + 0.001 * i) for i in range(10)])
         result = ForecastService._extrapolate_trend(
             utility_type="natural_gas",
             rows=rows,
@@ -242,9 +223,19 @@ class TestExtrapolateTrend:
             horizon_days=30,
         )
         expected_keys = {
-            "utility_type", "state", "unit", "current_rate", "forecasted_rate",
-            "horizon_days", "trend", "percent_change", "confidence", "model",
-            "data_points", "r_squared", "generated_at",
+            "utility_type",
+            "state",
+            "unit",
+            "current_rate",
+            "forecasted_rate",
+            "horizon_days",
+            "trend",
+            "percent_change",
+            "confidence",
+            "model",
+            "data_points",
+            "r_squared",
+            "generated_at",
         }
         assert expected_keys <= set(result.keys())
         assert result["model"] == "trend_extrapolation_v1"

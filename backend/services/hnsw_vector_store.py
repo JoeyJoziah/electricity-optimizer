@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 import sqlite3
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import hnswlib
+
     HNSW_AVAILABLE = True
 except ImportError:
     HNSW_AVAILABLE = False
@@ -83,9 +84,7 @@ class HNSWVectorStore:
 
             # Load all vectors from SQLite
             with sqlite3.connect(self._store._db_path) as conn:
-                rows = conn.execute(
-                    "SELECT id, vector FROM vectors"
-                ).fetchall()
+                rows = conn.execute("SELECT id, vector FROM vectors").fetchall()
 
             if rows:
                 ids = []
@@ -150,15 +149,13 @@ class HNSWVectorStore:
                 if v.shape[0] < self._dimension:
                     v = np.pad(v, (0, self._dimension - v.shape[0]))
                 elif v.shape[0] > self._dimension:
-                    v = v[:self._dimension]
+                    v = v[: self._dimension]
 
                 # Resize index if needed (geometric doubling amortizes O(1) per insert)
                 if self._next_label >= self._index.get_max_elements():
                     new_size = self._index.get_max_elements() * 2
                     if new_size > self._max_elements_cap:
-                        logger.warning(
-                            "hnsw_index_at_cap max=%d", self._max_elements_cap
-                        )
+                        logger.warning("hnsw_index_at_cap max=%d", self._max_elements_cap)
                         return vec_id  # Skip HNSW, still in SQLite
                     self._index.resize_index(new_size)
 
@@ -205,7 +202,7 @@ class HNSWVectorStore:
         if q.shape[0] < self._dimension:
             q = np.pad(q, (0, self._dimension - q.shape[0]))
         elif q.shape[0] > self._dimension:
-            q = q[:self._dimension]
+            q = q[: self._dimension]
 
         try:
             # HNSW search (fetch more than k to allow domain filtering)
@@ -246,19 +243,22 @@ class HNSWVectorStore:
                 _, vec_domain, meta_json, confidence = row
                 if domain and vec_domain != domain:
                     continue
-                results.append({
-                    "id": vec_id,
-                    "domain": vec_domain,
-                    "similarity": round(similarity, 4),
-                    "confidence": confidence,
-                    "metadata": json.loads(meta_json),
-                })
+                results.append(
+                    {
+                        "id": vec_id,
+                        "domain": vec_domain,
+                        "similarity": round(similarity, 4),
+                        "confidence": confidence,
+                        "metadata": json.loads(meta_json),
+                    }
+                )
                 if len(results) >= k:
                     break
 
             # Batch usage count update (single connection)
             if results:
                 from datetime import datetime, timezone
+
                 now = datetime.now(timezone.utc).isoformat()
                 with sqlite3.connect(self._store._db_path) as conn:
                     for r in results:
@@ -315,7 +315,12 @@ class HNSWVectorStore:
     ) -> str:
         """Async wrapper for insert — runs SQLite I/O in a thread."""
         return await asyncio.to_thread(
-            self.insert, domain, vector, metadata, confidence, vector_id,
+            self.insert,
+            domain,
+            vector,
+            metadata,
+            confidence,
+            vector_id,
         )
 
     async def async_search(
@@ -327,7 +332,11 @@ class HNSWVectorStore:
     ) -> List[Dict[str, Any]]:
         """Async wrapper for search — runs SQLite I/O in a thread."""
         return await asyncio.to_thread(
-            self.search, query_vector, domain, k, min_similarity,
+            self.search,
+            query_vector,
+            domain,
+            k,
+            min_similarity,
         )
 
     async def async_record_outcome(self, vector_id: str, success: bool) -> None:

@@ -13,11 +13,10 @@ connection.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -47,8 +46,8 @@ def _make_db_session(healthy: bool = True):
 @pytest.fixture()
 def healthy_client():
     """Client where DB is healthy and Redis is healthy."""
-    from main import app
     from api.dependencies import get_db_session, verify_api_key
+    from main import app
 
     db_session = _make_db_session(healthy=True)
     app.dependency_overrides[get_db_session] = lambda: db_session
@@ -69,8 +68,8 @@ def healthy_client():
 @pytest.fixture()
 def db_unhealthy_client():
     """Client where DB execute raises an exception."""
-    from main import app
     from api.dependencies import get_db_session, verify_api_key
+    from main import app
 
     db_session = _make_db_session(healthy=False)
     app.dependency_overrides[get_db_session] = lambda: db_session
@@ -91,8 +90,8 @@ def db_unhealthy_client():
 @pytest.fixture()
 def redis_not_configured_client():
     """Client where Redis is not configured (get_redis_client returns None)."""
-    from main import app
     from api.dependencies import get_db_session, verify_api_key
+    from main import app
 
     db_session = _make_db_session(healthy=True)
     app.dependency_overrides[get_db_session] = lambda: db_session
@@ -110,8 +109,8 @@ def redis_not_configured_client():
 @pytest.fixture()
 def redis_unhealthy_client():
     """Client where Redis is configured but ping raises."""
-    from main import app
     from api.dependencies import get_db_session, verify_api_key
+    from main import app
 
     db_session = _make_db_session(healthy=True)
     app.dependency_overrides[get_db_session] = lambda: db_session
@@ -153,9 +152,18 @@ class TestHealthIntegrationsShape:
     def test_response_contains_external_api_keys(self, healthy_client):
         response = healthy_client.get("/health/integrations")
         integrations = response.json()["integrations"]
-        for key in ("eia", "nrel", "openweathermap", "stripe", "utilityapi",
-                    "resend", "gmail_oauth", "outlook_oauth",
-                    "field_encryption", "internal_api_key"):
+        for key in (
+            "eia",
+            "nrel",
+            "openweathermap",
+            "stripe",
+            "utilityapi",
+            "resend",
+            "gmail_oauth",
+            "outlook_oauth",
+            "field_encryption",
+            "internal_api_key",
+        ):
             assert key in integrations, f"Missing integration key: {key}"
 
     def test_database_check_has_status_field(self, healthy_client):
@@ -227,9 +235,7 @@ class TestDatabaseUnhealthy:
 
 
 class TestRedisNotConfigured:
-    def test_overall_status_healthy_when_redis_not_configured(
-        self, redis_not_configured_client
-    ):
+    def test_overall_status_healthy_when_redis_not_configured(self, redis_not_configured_client):
         """
         Redis is not configured in many dev / free-tier deployments.
         The endpoint should still return 200/healthy (not_configured counts as OK).
@@ -274,8 +280,8 @@ class TestExternalApiKeyChecks:
     """
 
     def test_eia_configured(self):
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         db_session = _make_db_session(healthy=True)
         app.dependency_overrides[get_db_session] = lambda: db_session
@@ -284,8 +290,10 @@ class TestExternalApiKeyChecks:
         redis_mock = AsyncMock()
         redis_mock.ping = AsyncMock(return_value=True)
 
-        with patch("api.v1.health.db_manager") as mock_manager, \
-             patch("api.v1.health.settings") as mock_settings:
+        with (
+            patch("api.v1.health.db_manager") as mock_manager,
+            patch("api.v1.health.settings") as mock_settings,
+        ):
             mock_manager.get_redis_client = AsyncMock(return_value=redis_mock)
             # Set only EIA key
             mock_settings.eia_api_key = "test-eia-key"
@@ -313,8 +321,8 @@ class TestExternalApiKeyChecks:
         assert integrations["nrel"]["status"] == "not_configured"
 
     def test_stripe_not_configured(self):
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         db_session = _make_db_session(healthy=True)
         app.dependency_overrides[get_db_session] = lambda: db_session
@@ -323,8 +331,10 @@ class TestExternalApiKeyChecks:
         redis_mock = AsyncMock()
         redis_mock.ping = AsyncMock(return_value=True)
 
-        with patch("api.v1.health.db_manager") as mock_manager, \
-             patch("api.v1.health.settings") as mock_settings:
+        with (
+            patch("api.v1.health.db_manager") as mock_manager,
+            patch("api.v1.health.settings") as mock_settings,
+        ):
             mock_manager.get_redis_client = AsyncMock(return_value=redis_mock)
             mock_settings.eia_api_key = None
             mock_settings.nrel_api_key = None
@@ -357,8 +367,8 @@ class TestExternalApiKeyChecks:
 class TestHealthIntegrationsEdgeCases:
     def test_no_db_session_returns_unhealthy(self):
         """When get_db_session yields None the DB check should return unhealthy."""
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         app.dependency_overrides[get_db_session] = lambda: None
         app.dependency_overrides[verify_api_key] = _noop_verify_api_key
@@ -382,8 +392,8 @@ class TestHealthIntegrationsEdgeCases:
         /health/integrations should be reachable even when the rate limiter
         would normally block requests (exclude_paths in main.py covers /health).
         """
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         db_session = _make_db_session(healthy=True)
         app.dependency_overrides[get_db_session] = lambda: db_session

@@ -31,6 +31,7 @@ def webhook_client():
     """Client with a configured webhook secret."""
     with patch.object(settings, "github_webhook_secret", _TEST_WEBHOOK_SECRET):
         from main import app
+
         with TestClient(app) as client:
             yield client
 
@@ -40,11 +41,13 @@ def unconfigured_client():
     """Client without a webhook secret."""
     with patch.object(settings, "github_webhook_secret", None):
         from main import app
+
         with TestClient(app) as client:
             yield client
 
 
 # --- Signature verification ---
+
 
 class TestGitHubWebhookSignature:
     """Tests for webhook signature verification."""
@@ -108,6 +111,7 @@ class TestGitHubWebhookSignature:
 
 # --- Secret not configured ---
 
+
 class TestWebhookNotConfigured:
     """When GITHUB_WEBHOOK_SECRET is not set, endpoint returns 503."""
 
@@ -125,6 +129,7 @@ class TestWebhookNotConfigured:
 
 
 # --- Event types ---
+
 
 class TestWebhookEventTypes:
     """Various GitHub event types are accepted."""

@@ -12,22 +12,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from auth.neon_auth import (
-    _SESSION_CACHE_TTL,
-    _decrypt_session_cache,
-    _encrypt_session_cache,
-    _get_session_from_token,
-    invalidate_session_cache,
-)
+from auth.neon_auth import (_SESSION_CACHE_TTL, _decrypt_session_cache,
+                            _encrypt_session_cache, _get_session_from_token,
+                            invalidate_session_cache)
 
 
 class TestSessionCacheTTL:
     """Zenith H-15-01: session cache TTL must be 60 seconds."""
 
     def test_session_cache_ttl_is_60(self):
-        assert _SESSION_CACHE_TTL == 60, (
-            f"Expected _SESSION_CACHE_TTL=60 (Zenith H-15-01), got {_SESSION_CACHE_TTL}"
-        )
+        assert (
+            _SESSION_CACHE_TTL == 60
+        ), f"Expected _SESSION_CACHE_TTL=60 (Zenith H-15-01), got {_SESSION_CACHE_TTL}"
 
     @pytest.mark.asyncio
     async def test_session_cached_with_correct_ttl(self):

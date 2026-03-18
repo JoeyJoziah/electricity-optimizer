@@ -7,18 +7,16 @@ Provides per-user and per-IP rate limiting using Redis-backed sliding window.
 import hashlib
 import json
 import time
-from typing import Optional
 from datetime import datetime, timezone
-
-from fastapi import HTTPException, status
-from starlette.datastructures import MutableHeaders
-from starlette.types import ASGIApp, Receive, Scope, Send
-from redis import asyncio as aioredis
+from typing import Optional
 
 import structlog
+from fastapi import HTTPException, status
+from redis import asyncio as aioredis
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from config.settings import settings
-
 
 logger = structlog.get_logger()
 
@@ -165,11 +163,11 @@ class UserRateLimiter:
 
         request_count = await self.redis.eval(
             _SLIDING_WINDOW_LUA,
-            1,          # number of KEYS
-            key,        # KEYS[1]
-            now,        # ARGV[1]
-            window,     # ARGV[2]
-            limit,      # ARGV[3]
+            1,  # number of KEYS
+            key,  # KEYS[1]
+            now,  # ARGV[1]
+            window,  # ARGV[2]
+            limit,  # ARGV[3]
         )
         request_count = int(request_count)
 
@@ -230,12 +228,20 @@ class UserRateLimiter:
 
         minute_count_raw, hour_count_raw = await _asyncio.gather(
             self.redis.eval(
-                _SLIDING_WINDOW_LUA, 1,
-                minute_key, now, 60, self.requests_per_minute,
+                _SLIDING_WINDOW_LUA,
+                1,
+                minute_key,
+                now,
+                60,
+                self.requests_per_minute,
             ),
             self.redis.eval(
-                _SLIDING_WINDOW_LUA, 1,
-                hour_key, now, 3600, self.requests_per_hour,
+                _SLIDING_WINDOW_LUA,
+                1,
+                hour_key,
+                now,
+                3600,
+                self.requests_per_hour,
             ),
         )
 
@@ -284,7 +290,8 @@ class UserRateLimiter:
         # Periodic sweep: cap total keys to prevent unbounded growth during Redis outage
         if len(self._memory_store) > 10_000:
             stale_keys = [
-                k for k, v in self._memory_store.items()
+                k
+                for k, v in self._memory_store.items()
                 if isinstance(v, list) and (not v or v[-1] < window_start)
             ]
             for k in stale_keys:
@@ -454,15 +461,17 @@ class RateLimitMiddleware:
         body = json.dumps(
             {"detail": f"Rate limit exceeded. Retry after {retry_after} seconds."}
         ).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 429,
-            "headers": [
-                [b"content-type", b"application/json"],
-                [b"content-length", str(len(body)).encode()],
-                [b"retry-after", str(retry_after).encode()],
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 429,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(body)).encode()],
+                    [b"retry-after", str(retry_after).encode()],
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
 
     def _get_identifier(self, scope: Scope) -> str:

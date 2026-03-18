@@ -12,13 +12,14 @@ Note: The legacy SupplierRepository was removed in S4-11 audit remediation.
 """
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_redis(*, hit_value=None) -> AsyncMock:
     """
@@ -38,9 +39,11 @@ def _make_redis(*, hit_value=None) -> AsyncMock:
 
 def _async_iter_factory(items):
     """Return a factory that produces a fresh async generator each call."""
+
     async def _gen(*args, **kwargs):
         for item in items:
             yield item
+
     return _gen
 
 
@@ -115,27 +118,29 @@ class TestSupplierRegistryCacheListSuppliers:
         """On a cache hit list_suppliers returns cached data without DB access."""
         from repositories.supplier_repository import SupplierRegistryRepository
 
-        cached_payload = json.dumps({
-            "suppliers": [
-                {
-                    "id": "abc",
-                    "name": "Cached Supplier",
-                    "utility_types": ["electricity"],
-                    "regions": ["us_ct"],
-                    "website": None,
-                    "phone": None,
-                    "api_available": False,
-                    "rating": None,
-                    "review_count": 0,
-                    "green_energy_provider": False,
-                    "carbon_neutral": False,
-                    "is_active": True,
-                    "metadata": {},
-                    "tariff_types": ["fixed", "variable"],
-                }
-            ],
-            "total": 1,
-        })
+        cached_payload = json.dumps(
+            {
+                "suppliers": [
+                    {
+                        "id": "abc",
+                        "name": "Cached Supplier",
+                        "utility_types": ["electricity"],
+                        "regions": ["us_ct"],
+                        "website": None,
+                        "phone": None,
+                        "api_available": False,
+                        "rating": None,
+                        "review_count": 0,
+                        "green_energy_provider": False,
+                        "carbon_neutral": False,
+                        "is_active": True,
+                        "metadata": {},
+                        "tariff_types": ["fixed", "variable"],
+                    }
+                ],
+                "total": 1,
+            }
+        )
 
         db = _make_db_session()
         redis = _make_redis(hit_value=cached_payload)
@@ -192,24 +197,38 @@ class TestSupplierRegistryCacheListSuppliers:
             "name": "Supplier A",
             "utility_types": ["electricity"],
             "regions": ["us_ct"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
         row_b = {
             "id": "bbb",
             "name": "Supplier B",
             "utility_types": ["natural_gas"],
             "regions": ["us_ma"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": True,
-            "carbon_neutral": True, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": True,
+            "carbon_neutral": True,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
         db.execute.side_effect = [
-            _mapping_result([row_a]), _mapping_result([row_a]),
-            _mapping_result([row_b]), _mapping_result([row_b]),
+            _mapping_result([row_a]),
+            _mapping_result([row_a]),
+            _mapping_result([row_b]),
+            _mapping_result([row_b]),
         ]
         redis = _make_redis(hit_value=None)
 
@@ -276,16 +295,24 @@ class TestSupplierRegistryCacheGetById:
     async def test_cache_hit_skips_db_get_by_id(self):
         from repositories.supplier_repository import SupplierRegistryRepository
 
-        cached = json.dumps({
-            "id": "00000000-0000-0000-0000-000000000010",
-            "name": "Eversource Energy",
-            "utility_types": ["electricity"],
-            "regions": ["us_ct"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": 4.2, "review_count": 55, "green_energy_provider": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
-            "tariff_types": ["fixed", "variable"],
-        })
+        cached = json.dumps(
+            {
+                "id": "00000000-0000-0000-0000-000000000010",
+                "name": "Eversource Energy",
+                "utility_types": ["electricity"],
+                "regions": ["us_ct"],
+                "website": None,
+                "phone": None,
+                "api_available": False,
+                "rating": 4.2,
+                "review_count": 55,
+                "green_energy_provider": False,
+                "carbon_neutral": False,
+                "is_active": True,
+                "metadata": {},
+                "tariff_types": ["fixed", "variable"],
+            }
+        )
 
         db = _make_db_session()
         redis = _make_redis(hit_value=cached)
@@ -389,10 +416,15 @@ class TestCacheErrorResilience:
             "name": "Fallback Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_tx"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0,
-            "green_energy": False, "carbon_neutral": False,
-            "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
@@ -417,10 +449,15 @@ class TestCacheErrorResilience:
             "name": "Resilient Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_oh"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0,
-            "green_energy": False, "carbon_neutral": False,
-            "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
@@ -446,9 +483,15 @@ class TestCacheErrorResilience:
             "name": "DB Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_il"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }[k]
 
         db = _make_db_session()
@@ -476,16 +519,23 @@ class TestCacheTTL:
     @pytest.mark.asyncio
     async def test_list_suppliers_uses_3600s_ttl(self):
         """Cache entries for list_suppliers must be set with a 1-hour TTL."""
-        from repositories.supplier_repository import SupplierRegistryRepository, _SUPPLIER_CACHE_TTL
+        from repositories.supplier_repository import (
+            _SUPPLIER_CACHE_TTL, SupplierRegistryRepository)
 
         row = {
             "id": "00000000-0000-0000-0000-000000000040",
             "name": "TTL Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_ny"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
@@ -504,7 +554,8 @@ class TestCacheTTL:
     @pytest.mark.asyncio
     async def test_get_by_id_uses_3600s_ttl(self):
         """Cache entries for get_by_id must be set with a 1-hour TTL."""
-        from repositories.supplier_repository import SupplierRegistryRepository, _SUPPLIER_CACHE_TTL
+        from repositories.supplier_repository import (
+            _SUPPLIER_CACHE_TTL, SupplierRegistryRepository)
 
         row = MagicMock()
         row.__getitem__ = lambda self, k: {
@@ -512,9 +563,15 @@ class TestCacheTTL:
             "name": "TTL Lookup",
             "utility_types": ["electricity"],
             "regions": ["us_pa"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }[k]
 
         db = _make_db_session()

@@ -7,14 +7,13 @@ Uses raw SQL with text() since UtilityAccount is a Pydantic model, not SQLAlchem
 
 import json
 from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.utility_account import UtilityAccount
-
+from repositories.base import BaseRepository, NotFoundError, RepositoryError
 
 _COLUMNS = (
     "id, user_id, utility_type, region, provider_name, "
@@ -186,10 +185,6 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
         """Get all utility accounts for a user."""
         return await self.list(page=1, page_size=100, user_id=user_id)
 
-    async def get_by_user_and_type(
-        self, user_id: str, utility_type: str
-    ) -> List[UtilityAccount]:
+    async def get_by_user_and_type(self, user_id: str, utility_type: str) -> List[UtilityAccount]:
         """Get utility accounts for a user filtered by utility type."""
-        return await self.list(
-            page=1, page_size=100, user_id=user_id, utility_type=utility_type
-        )
+        return await self.list(page=1, page_size=100, user_id=user_id, utility_type=utility_type)

@@ -4,10 +4,11 @@ Email scanner service — searches Gmail/Outlook inboxes for utility bill emails
 Uses Gmail API (REST) and Microsoft Graph API to find emails matching
 utility bill keywords, then extracts rate data from email body/attachments.
 """
+
 import base64
 import re
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -18,10 +19,19 @@ _OAUTH_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 # Keywords that indicate a utility bill email
 UTILITY_KEYWORDS = [
-    "electricity bill", "electric bill", "energy bill", "utility bill",
-    "energy statement", "account statement", "kWh", "kilowatt",
-    "monthly statement", "billing statement", "energy usage",
-    "your bill is ready", "payment due",
+    "electricity bill",
+    "electric bill",
+    "energy bill",
+    "utility bill",
+    "energy statement",
+    "account statement",
+    "kWh",
+    "kilowatt",
+    "monthly statement",
+    "billing statement",
+    "energy usage",
+    "your bill is ready",
+    "payment due",
 ]
 
 # Subject line patterns (case-insensitive)
@@ -116,7 +126,9 @@ async def scan_gmail_inbox(
                 continue
 
             msg_data = msg_resp.json()
-            headers = {h["name"]: h["value"] for h in msg_data.get("payload", {}).get("headers", [])}
+            headers = {
+                h["name"]: h["value"] for h in msg_data.get("payload", {}).get("headers", [])
+            }
 
             subject = headers.get("Subject", "")
             sender = headers.get("From", "")
@@ -133,18 +145,21 @@ async def scan_gmail_inbox(
                 if date_str:
                     # Parse RFC 2822 date (simplified)
                     from email.utils import parsedate_to_datetime
+
                     email_date = parsedate_to_datetime(date_str)
             except (ValueError, TypeError):
                 email_date = datetime.now(timezone.utc)
 
-            results.append(EmailScanResult(
-                email_id=msg_stub["id"],
-                subject=subject,
-                sender=sender,
-                date=email_date,
-                is_utility_bill=is_bill,
-                attachment_count=attachment_count,
-            ))
+            results.append(
+                EmailScanResult(
+                    email_id=msg_stub["id"],
+                    subject=subject,
+                    sender=sender,
+                    date=email_date,
+                    is_utility_bill=is_bill,
+                    attachment_count=attachment_count,
+                )
+            )
 
     return results
 
@@ -192,14 +207,16 @@ async def scan_outlook_inbox(
 
             is_bill = _matches_utility_keywords(subject) or _matches_utility_keywords(sender)
 
-            results.append(EmailScanResult(
-                email_id=msg["id"],
-                subject=subject,
-                sender=sender,
-                date=email_date,
-                is_utility_bill=is_bill,
-                attachment_count=1 if msg.get("hasAttachments") else 0,
-            ))
+            results.append(
+                EmailScanResult(
+                    email_id=msg["id"],
+                    subject=subject,
+                    sender=sender,
+                    date=email_date,
+                    is_utility_bill=is_bill,
+                    attachment_count=1 if msg.get("hasAttachments") else 0,
+                )
+            )
 
     return results
 
@@ -306,11 +323,13 @@ async def download_gmail_attachments(
             attachment_id = part.get("body", {}).get("attachmentId")
 
             if filename and attachment_id and mime_type.lower() in _ALLOWED_MIME:
-                results.append({
-                    "filename": filename,
-                    "attachment_id": attachment_id,
-                    "mime_type": mime_type.lower(),
-                })
+                results.append(
+                    {
+                        "filename": filename,
+                        "attachment_id": attachment_id,
+                        "mime_type": mime_type.lower(),
+                    }
+                )
 
             for sub in part.get("parts", []):
                 _collect_parts(sub)
@@ -332,11 +351,13 @@ async def download_gmail_attachments(
                 raw_data = att_resp.json().get("data", "")
                 # Gmail returns base64url-encoded data
                 file_bytes = base64.urlsafe_b64decode(raw_data + "==")
-                results.append({
-                    "filename": meta["filename"],
-                    "data": file_bytes,
-                    "mime_type": meta["mime_type"],
-                })
+                results.append(
+                    {
+                        "filename": meta["filename"],
+                        "data": file_bytes,
+                        "mime_type": meta["mime_type"],
+                    }
+                )
             except Exception:
                 # Skip attachments that fail to download
                 continue
@@ -378,11 +399,13 @@ async def download_outlook_attachments(
                 continue
             try:
                 file_bytes = base64.b64decode(content_bytes)
-                results.append({
-                    "filename": att.get("name", "attachment"),
-                    "data": file_bytes,
-                    "mime_type": mime_type,
-                })
+                results.append(
+                    {
+                        "filename": att.get("name", "attachment"),
+                        "data": file_bytes,
+                        "mime_type": mime_type,
+                    }
+                )
             except Exception:
                 continue
 
@@ -404,15 +427,11 @@ async def extract_rates_from_attachments(
     billing_period_end).
     """
     # Lazy import to avoid circular deps
-    from services.bill_parser import (
-        extract_text,
-        extract_rate_per_kwh,
-        extract_supplier,
-        extract_billing_period,
-        extract_total_kwh,
-        extract_total_amount,
-        _validate_magic_bytes,
-    )
+    from services.bill_parser import (_validate_magic_bytes,
+                                      extract_billing_period,
+                                      extract_rate_per_kwh, extract_supplier,
+                                      extract_text, extract_total_amount,
+                                      extract_total_kwh)
 
     _MIME_TO_TYPE = {
         "application/pdf": "pdf",

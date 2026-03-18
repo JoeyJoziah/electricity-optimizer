@@ -13,13 +13,12 @@ PUT  /rate-changes/preferences   — upsert per-utility alert preference
 
 from typing import Any, Dict, List, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 logger = structlog.get_logger(__name__)
 
@@ -34,8 +33,12 @@ router = APIRouter(prefix="/rate-changes", tags=["Rate Changes"])
 class UpsertPreferenceRequest(BaseModel):
     """Body for PUT /rate-changes/preferences."""
 
-    utility_type: str = Field(description="Utility type: electricity, natural_gas, heating_oil, etc.")
-    enabled: Optional[bool] = Field(default=None, description="Enable/disable alerts for this utility")
+    utility_type: str = Field(
+        description="Utility type: electricity, natural_gas, heating_oil, etc."
+    )
+    enabled: Optional[bool] = Field(
+        default=None, description="Enable/disable alerts for this utility"
+    )
     channels: Optional[List[str]] = Field(
         default=None,
         description="Notification channels: email, push, in_app",

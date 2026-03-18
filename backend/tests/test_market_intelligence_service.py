@@ -15,12 +15,11 @@ Coverage:
 - weekly_market_scan: calls search_energy_news once per region
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
 from services.market_intelligence_service import MarketIntelligenceService
-
 
 # =============================================================================
 # Fixtures
@@ -39,7 +38,9 @@ def _settings_no_key() -> MagicMock:
     return settings
 
 
-def _tavily_response(answer: str = "Test answer", n_results: int = 2, long_content: bool = False) -> dict:
+def _tavily_response(
+    answer: str = "Test answer", n_results: int = 2, long_content: bool = False
+) -> dict:
     """Build a synthetic Tavily API response."""
     content = "X" * 1000 if long_content else "Short content"
     return {
@@ -90,7 +91,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response())
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("CT electricity rates")
 
         assert result is not None
@@ -104,7 +107,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response(n_results=1))
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("query")
 
         item = result["results"][0]
@@ -117,7 +122,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response(n_results=1, long_content=True))
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("query")
 
         content = result["results"][0]["content"]
@@ -128,7 +135,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response(n_results=3))
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.search_energy_news("query", max_results=3)
 
         json_body = mock_client.post.call_args.kwargs.get("json", {})
@@ -139,7 +148,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response())
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.search_energy_news("query")
 
         json_body = mock_client.post.call_args.kwargs.get("json", {})
@@ -150,7 +161,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response())
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.search_energy_news("query")
 
         json_body = mock_client.post.call_args.kwargs.get("json", {})
@@ -161,7 +174,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client({}, status_code=429)
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             with pytest.raises(Exception):
                 await svc.search_energy_news("query")
 
@@ -170,7 +185,9 @@ class TestSearchEnergyNews:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client({"answer": "No data", "results": []})
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("obscure query")
 
         assert result is not None
@@ -183,7 +200,9 @@ class TestSearchEnergyNews:
         # Tavily response without 'answer' key
         mock_client = _mock_http_client({"results": []})
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("query")
 
         assert result["answer"] is None

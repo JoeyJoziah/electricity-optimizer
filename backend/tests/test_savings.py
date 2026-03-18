@@ -14,15 +14,15 @@ Tests use function-scoped TestClient to avoid rate-limiter state accumulation.
 
 from __future__ import annotations
 
-import pytest
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -133,16 +133,8 @@ class _MockDB:
         month_ago = now - timedelta(days=30)
 
         total = sum(float(r["amount"]) for r in user_rows)
-        weekly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= week_ago
-        )
-        monthly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= month_ago
-        )
+        weekly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago)
+        monthly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago)
         currency = user_rows[0]["currency"] if user_rows else "USD"
 
         agg = {
@@ -169,16 +161,8 @@ class _MockDB:
         month_ago = now - timedelta(days=30)
 
         total = sum(float(r["amount"]) for r in user_rows)
-        weekly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= week_ago
-        )
-        monthly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= month_ago
-        )
+        weekly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago)
+        monthly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago)
         currency = user_rows[0]["currency"] if user_rows else "USD"
 
         # Compute streak (consecutive days ending today)
@@ -242,12 +226,10 @@ class _MockDB:
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
 
-        user_rows = [
-            r for r in self._rows if str(r["user_id"]) == str(uid)
-        ]
+        user_rows = [r for r in self._rows if str(r["user_id"]) == str(uid)]
         # Sort newest first (matches ORDER BY created_at DESC)
         user_rows = sorted(user_rows, key=lambda r: r["created_at"], reverse=True)
-        page_rows = user_rows[offset: offset + limit]
+        page_rows = user_rows[offset : offset + limit]
         return self._mapping_all(page_rows)
 
     # ------------------------------------------------------------------

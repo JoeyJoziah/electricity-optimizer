@@ -10,11 +10,11 @@ Tests cover:
 - GET /utility-accounts/types — list utility types
 """
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
 
+import pytest
+from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,6 +29,7 @@ NOW = datetime(2026, 3, 11, 12, 0, 0, tzinfo=timezone.utc)
 
 def _make_session_data(user_id=USER_ID, email="test@example.com"):
     from auth.neon_auth import SessionData
+
     return SessionData(user_id=user_id, email=email, name="Test User", email_verified=True)
 
 
@@ -66,17 +67,19 @@ def _account_row(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def client():
     from main import app
+
     with TestClient(app) as c:
         yield c
 
 
 @pytest.fixture(autouse=True)
 def _override_deps(request):
-    from main import app
     from api.dependencies import get_current_user, get_db_session
+    from main import app
 
     db = _mock_db()
     session_data = _make_session_data()
@@ -97,6 +100,7 @@ def _override_deps(request):
 # Tests: GET /utility-accounts/types
 # ---------------------------------------------------------------------------
 
+
 class TestListUtilityTypes:
     def test_returns_utility_types(self, client):
         resp = client.get("/api/v1/utility-accounts/types")
@@ -116,6 +120,7 @@ class TestListUtilityTypes:
 # ---------------------------------------------------------------------------
 # Tests: GET /utility-accounts
 # ---------------------------------------------------------------------------
+
 
 class TestListAccounts:
     def test_list_empty(self, client):
@@ -161,6 +166,7 @@ class TestListAccounts:
 # Tests: POST /utility-accounts
 # ---------------------------------------------------------------------------
 
+
 class TestCreateAccount:
     def test_create_success(self, client):
         """Valid payload creates account."""
@@ -168,12 +174,15 @@ class TestCreateAccount:
         result.mappings.return_value.first.return_value = _account_row()
         self._db.execute.return_value = result
 
-        resp = client.post("/api/v1/utility-accounts/", json={
-            "utility_type": "electricity",
-            "region": "us_ct",
-            "provider_name": "Eversource",
-            "is_primary": False,
-        })
+        resp = client.post(
+            "/api/v1/utility-accounts/",
+            json={
+                "utility_type": "electricity",
+                "region": "us_ct",
+                "provider_name": "Eversource",
+                "is_primary": False,
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["provider_name"] == "Eversource"
@@ -188,34 +197,44 @@ class TestCreateAccount:
         result.mappings.return_value.first.return_value = _account_row()
         self._db.execute.return_value = result
 
-        resp = client.post("/api/v1/utility-accounts/", json={
-            "utility_type": "electricity",
-            "region": "us_ct",
-            "provider_name": "Eversource",
-            "account_number": "12345",
-        })
+        resp = client.post(
+            "/api/v1/utility-accounts/",
+            json={
+                "utility_type": "electricity",
+                "region": "us_ct",
+                "provider_name": "Eversource",
+                "account_number": "12345",
+            },
+        )
         assert resp.status_code == 201
 
     def test_create_missing_required_fields(self, client):
         """Missing required fields returns 422."""
-        resp = client.post("/api/v1/utility-accounts/", json={
-            "provider_name": "Eversource",
-        })
+        resp = client.post(
+            "/api/v1/utility-accounts/",
+            json={
+                "provider_name": "Eversource",
+            },
+        )
         assert resp.status_code == 422
 
     def test_create_invalid_region_too_short(self, client):
         """Region must be at least 2 chars."""
-        resp = client.post("/api/v1/utility-accounts/", json={
-            "utility_type": "electricity",
-            "region": "x",
-            "provider_name": "Eversource",
-        })
+        resp = client.post(
+            "/api/v1/utility-accounts/",
+            json={
+                "utility_type": "electricity",
+                "region": "x",
+                "provider_name": "Eversource",
+            },
+        )
         assert resp.status_code == 422
 
 
 # ---------------------------------------------------------------------------
 # Tests: GET /utility-accounts/{id}
 # ---------------------------------------------------------------------------
+
 
 class TestGetAccount:
     def test_get_own_account(self, client):
@@ -256,6 +275,7 @@ class TestGetAccount:
 # Tests: PUT /utility-accounts/{id}
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateAccount:
     def test_update_provider_name(self, client):
         """Update provider_name on own account."""
@@ -270,9 +290,12 @@ class TestUpdateAccount:
 
         self._db.execute.side_effect = [result_existing, result_updated]
 
-        resp = client.put(f"/api/v1/utility-accounts/{ACCOUNT_ID}", json={
-            "provider_name": "UI",
-        })
+        resp = client.put(
+            f"/api/v1/utility-accounts/{ACCOUNT_ID}",
+            json={
+                "provider_name": "UI",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["provider_name"] == "UI"
 
@@ -282,9 +305,12 @@ class TestUpdateAccount:
         result.mappings.return_value.first.return_value = None
         self._db.execute.return_value = result
 
-        resp = client.put("/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000", json={
-            "provider_name": "Test",
-        })
+        resp = client.put(
+            "/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000",
+            json={
+                "provider_name": "Test",
+            },
+        )
         assert resp.status_code == 404
 
     def test_update_other_users_account(self, client):
@@ -293,9 +319,12 @@ class TestUpdateAccount:
         result.mappings.return_value.first.return_value = _account_row(user_id=OTHER_USER_ID)
         self._db.execute.return_value = result
 
-        resp = client.put(f"/api/v1/utility-accounts/{ACCOUNT_ID}", json={
-            "provider_name": "Hacked",
-        })
+        resp = client.put(
+            f"/api/v1/utility-accounts/{ACCOUNT_ID}",
+            json={
+                "provider_name": "Hacked",
+            },
+        )
         assert resp.status_code == 403
 
     def test_update_is_primary(self, client):
@@ -311,9 +340,12 @@ class TestUpdateAccount:
 
         self._db.execute.side_effect = [result_existing, result_updated]
 
-        resp = client.put(f"/api/v1/utility-accounts/{ACCOUNT_ID}", json={
-            "is_primary": True,
-        })
+        resp = client.put(
+            f"/api/v1/utility-accounts/{ACCOUNT_ID}",
+            json={
+                "is_primary": True,
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["is_primary"] is True
 
@@ -321,6 +353,7 @@ class TestUpdateAccount:
 # ---------------------------------------------------------------------------
 # Tests: DELETE /utility-accounts/{id}
 # ---------------------------------------------------------------------------
+
 
 class TestDeleteAccount:
     def test_delete_own_account(self, client):

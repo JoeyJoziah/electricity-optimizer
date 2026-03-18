@@ -5,29 +5,19 @@ Tests the new models, enums, and integrations added for the
 multi-utility expansion (migration 006).
 """
 
-import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from models.utility import (
-    UtilityType,
-    PriceUnit,
-    UTILITY_DEFAULT_UNITS,
-    UTILITY_LABELS,
-    UNIT_LABELS,
-)
-from models.region import (
-    Region,
-    PriceRegion,
-    PricingRegion,
-    DEREGULATED_ELECTRICITY_STATES,
-    DEREGULATED_GAS_STATES,
-    HEATING_OIL_STATES,
-    COMMUNITY_SOLAR_STATES,
-)
-from models.price import Price
+import pytest
 
+from models.price import Price
+from models.region import (COMMUNITY_SOLAR_STATES,
+                           DEREGULATED_ELECTRICITY_STATES,
+                           DEREGULATED_GAS_STATES, HEATING_OIL_STATES,
+                           PriceRegion, PricingRegion, Region)
+from models.utility import (UNIT_LABELS, UTILITY_DEFAULT_UNITS, UTILITY_LABELS,
+                            PriceUnit, UtilityType)
 
 # =============================================================================
 # UtilityType enum tests
@@ -243,7 +233,8 @@ class TestEIAClient:
     @pytest.fixture
     def mock_eia_client(self):
         from integrations.pricing_apis.eia import EIAClient
-        from integrations.pricing_apis.rate_limiter import create_api_rate_limiter
+        from integrations.pricing_apis.rate_limiter import \
+            create_api_rate_limiter
 
         client = EIAClient(
             api_key="test-key",
@@ -262,6 +253,7 @@ class TestEIAClient:
         """EIA client rejects non-US regions."""
         with pytest.raises(ValueError, match="US regions"):
             import asyncio
+
             asyncio.get_event_loop().run_until_complete(
                 mock_eia_client.get_electricity_price(Region.UK)
             )
@@ -283,6 +275,7 @@ class TestNRELExpansion:
 
     def test_all_us_states_mapped(self):
         from integrations.pricing_apis.nrel import NREL_REGION_MAP
+
         # All US regions should be in the map
         us_regions = Region.us_regions()
         for r in us_regions:
@@ -290,21 +283,25 @@ class TestNRELExpansion:
 
     def test_all_states_have_zip_codes(self):
         from integrations.pricing_apis.nrel import STATE_ZIP_CODES
+
         # All 50 states + DC should have ZIP codes
         assert len(STATE_ZIP_CODES) >= 51
 
     def test_ct_zip_unchanged(self):
         from integrations.pricing_apis.nrel import STATE_ZIP_CODES
+
         assert STATE_ZIP_CODES["CT"] == "06510"
 
     def test_state_codes_are_two_letters(self):
         from integrations.pricing_apis.nrel import STATE_ZIP_CODES
+
         for code in STATE_ZIP_CODES:
             assert len(code) == 2
             assert code.isupper()
 
     def test_zip_codes_are_five_digits(self):
         from integrations.pricing_apis.nrel import STATE_ZIP_CODES
+
         for zip_code in STATE_ZIP_CODES.values():
             assert len(zip_code) == 5
             assert zip_code.isdigit()
@@ -320,6 +317,7 @@ class TestSupplierUtilityTypes:
 
     def test_supplier_default_utility_types(self):
         from models.supplier import Supplier
+
         supplier = Supplier(
             name="Test Supplier",
             regions=["us_ct"],
@@ -329,6 +327,7 @@ class TestSupplierUtilityTypes:
 
     def test_supplier_multiple_utility_types(self):
         from models.supplier import Supplier
+
         supplier = Supplier(
             name="Multi Utility Co",
             regions=["us_ct", "us_ma"],
@@ -350,6 +349,7 @@ class TestTariffUtilityType:
 
     def test_tariff_default_utility_type(self):
         from models.supplier import Tariff, TariffType
+
         tariff = Tariff(
             supplier_id="test",
             name="Standard",
@@ -362,6 +362,7 @@ class TestTariffUtilityType:
 
     def test_tariff_gas_utility_type(self):
         from models.supplier import Tariff, TariffType
+
         tariff = Tariff(
             supplier_id="test",
             name="Gas Fixed",

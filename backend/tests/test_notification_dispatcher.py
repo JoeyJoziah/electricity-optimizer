@@ -23,13 +23,10 @@ from uuid import uuid4
 
 import pytest
 
-from services.notification_dispatcher import (
-    NotificationChannel,
-    NotificationDispatcher,
-    ALL_CHANNELS,
-    _DEFAULT_COOLDOWN_SECONDS,
-)
-
+from services.notification_dispatcher import (_DEFAULT_COOLDOWN_SECONDS,
+                                              ALL_CHANNELS,
+                                              NotificationChannel,
+                                              NotificationDispatcher)
 
 # =============================================================================
 # Fixtures
@@ -135,9 +132,7 @@ class TestSendAllChannels:
         assert NotificationChannel.EMAIL.value in channels
 
     @pytest.mark.asyncio
-    async def test_all_channels_succeed(
-        self, dispatcher, mock_push_service, mock_email_service
-    ):
+    async def test_all_channels_succeed(self, dispatcher, mock_push_service, mock_email_service):
         """All three channels should report True on success."""
         mock_push_service.send_push.return_value = True
         mock_email_service.send.return_value = True
@@ -189,9 +184,7 @@ class TestChannelRouting:
         mock_email_service.send.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_only_push_when_specified(
-        self, dispatcher, mock_db, mock_push_service
-    ):
+    async def test_only_push_when_specified(self, dispatcher, mock_db, mock_push_service):
         """Only push channel should fire when [PUSH] is passed."""
         result = await dispatcher.send(
             user_id=TEST_USER_ID,
@@ -205,9 +198,7 @@ class TestChannelRouting:
         mock_push_service.send_push.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_only_email_when_specified(
-        self, dispatcher, mock_email_service
-    ):
+    async def test_only_email_when_specified(self, dispatcher, mock_email_service):
         """Only email channel should fire when [EMAIL] is passed."""
         result = await dispatcher.send(
             user_id=TEST_USER_ID,
@@ -267,9 +258,7 @@ class TestDeduplication:
         mock_email_service.send.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_dedup_allows_send_when_no_prior_record(
-        self, dispatcher, mock_db
-    ):
+    async def test_dedup_allows_send_when_no_prior_record(self, dispatcher, mock_db):
         """When no prior notification exists, send should proceed."""
         # First call: dedup SELECT returns no row; second call: INSERT succeeds.
         mock_db.execute.side_effect = [_no_dedup_result(), _insert_result()]
@@ -287,9 +276,7 @@ class TestDeduplication:
         assert result["channels"][NotificationChannel.IN_APP.value] is True
 
     @pytest.mark.asyncio
-    async def test_dedup_uses_default_cooldown_when_not_specified(
-        self, dispatcher, mock_db
-    ):
+    async def test_dedup_uses_default_cooldown_when_not_specified(self, dispatcher, mock_db):
         """When cooldown_seconds is omitted, _DEFAULT_COOLDOWN_SECONDS is used."""
         mock_db.execute.return_value = _dup_found_result()
 
@@ -333,14 +320,12 @@ class TestDeduplication:
         mock_db.execute.assert_awaited_once()
         # The single execute call should be an INSERT, not a dedup SELECT
         call_sql = str(mock_db.execute.call_args.args[0])
-        assert "INSERT" in call_sql.upper(), (
-            "Expected the sole db.execute call to be an INSERT, not a dedup SELECT"
-        )
+        assert (
+            "INSERT" in call_sql.upper()
+        ), "Expected the sole db.execute call to be an INSERT, not a dedup SELECT"
 
     @pytest.mark.asyncio
-    async def test_dedup_key_stored_in_metadata(
-        self, dispatcher, mock_db
-    ):
+    async def test_dedup_key_stored_in_metadata(self, dispatcher, mock_db):
         """The dedup_key should be written into the notification metadata column."""
         mock_db.execute.side_effect = [_no_dedup_result(), _insert_result()]
 
@@ -358,6 +343,7 @@ class TestDeduplication:
         # params dict is positional arg index 1
         params = insert_call.args[1] if insert_call.args else insert_call.kwargs.get("params", {})
         import json
+
         meta = json.loads(params["meta"])
         assert meta["dedup_key"] == "my_unique_key"
 
@@ -431,9 +417,7 @@ class TestFallbackChain:
         assert result["channels"][NotificationChannel.EMAIL.value] is False
 
     @pytest.mark.asyncio
-    async def test_push_exception_is_caught_and_returns_false(
-        self, dispatcher, mock_push_service
-    ):
+    async def test_push_exception_is_caught_and_returns_false(self, dispatcher, mock_push_service):
         """An exception raised by push_service.send_push is caught and returns False."""
         mock_push_service.send_push.side_effect = Exception("OneSignal unreachable")
 
@@ -455,9 +439,7 @@ class TestFallbackChain:
 class TestPushNotConfigured:
 
     @pytest.mark.asyncio
-    async def test_push_skipped_when_not_configured(
-        self, dispatcher, mock_push_service
-    ):
+    async def test_push_skipped_when_not_configured(self, dispatcher, mock_push_service):
         """Push channel should return False without calling send_push when not configured."""
         mock_push_service.is_configured = False
 
@@ -480,9 +462,7 @@ class TestPushNotConfigured:
 class TestEmailChannel:
 
     @pytest.mark.asyncio
-    async def test_email_skipped_when_no_address_provided(
-        self, dispatcher, mock_email_service
-    ):
+    async def test_email_skipped_when_no_address_provided(self, dispatcher, mock_email_service):
         """EMAIL channel should report False and not call send() when email_to is missing."""
         result = await dispatcher.send(
             user_id=TEST_USER_ID,
@@ -496,9 +476,7 @@ class TestEmailChannel:
         mock_email_service.send.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_email_uses_custom_subject(
-        self, dispatcher, mock_email_service
-    ):
+    async def test_email_uses_custom_subject(self, dispatcher, mock_email_service):
         """email_subject should override the title as the email subject."""
         await dispatcher.send(
             user_id=TEST_USER_ID,
@@ -513,9 +491,7 @@ class TestEmailChannel:
         assert call_kwargs.get("subject") == "Custom Subject Line"
 
     @pytest.mark.asyncio
-    async def test_email_falls_back_to_title_as_subject(
-        self, dispatcher, mock_email_service
-    ):
+    async def test_email_falls_back_to_title_as_subject(self, dispatcher, mock_email_service):
         """When email_subject is not provided, title should be used as subject."""
         await dispatcher.send(
             user_id=TEST_USER_ID,
@@ -529,9 +505,7 @@ class TestEmailChannel:
         assert call_kwargs.get("subject") == "Alert Title"
 
     @pytest.mark.asyncio
-    async def test_email_uses_custom_html(
-        self, dispatcher, mock_email_service
-    ):
+    async def test_email_uses_custom_html(self, dispatcher, mock_email_service):
         """email_html should be passed as html_body to the email service."""
         custom_html = "<h1>Custom Template</h1><p>Price dropped!</p>"
 
@@ -573,9 +547,7 @@ class TestEmailChannel:
 class TestDedupFailOpen:
 
     @pytest.mark.asyncio
-    async def test_dedup_query_exception_allows_delivery(
-        self, dispatcher, mock_db
-    ):
+    async def test_dedup_query_exception_allows_delivery(self, dispatcher, mock_db):
         """If the dedup SELECT raises an exception, delivery should proceed (fail-open)."""
         # First execute raises; second execute succeeds (the INSERT)
         mock_db.execute.side_effect = [
@@ -596,9 +568,7 @@ class TestDedupFailOpen:
         assert result["skipped_dedup"] is False
 
     @pytest.mark.asyncio
-    async def test_dedup_failure_still_delivers_in_app(
-        self, dispatcher, mock_db
-    ):
+    async def test_dedup_failure_still_delivers_in_app(self, dispatcher, mock_db):
         """After a dedup check failure, in-app delivery is attempted."""
         # Dedup query fails → fail open → in-app INSERT succeeds
         mock_db.execute.side_effect = [
@@ -625,9 +595,7 @@ class TestDedupFailOpen:
 class TestMetadataPassthrough:
 
     @pytest.mark.asyncio
-    async def test_metadata_passed_to_push_service(
-        self, dispatcher, mock_push_service
-    ):
+    async def test_metadata_passed_to_push_service(self, dispatcher, mock_push_service):
         """Custom metadata should be forwarded to push_service.send_push as data."""
         custom_meta = {"region": "us_ct", "price": 0.08}
 
@@ -646,9 +614,7 @@ class TestMetadataPassthrough:
         assert data_arg.get("price") == 0.08
 
     @pytest.mark.asyncio
-    async def test_dedup_key_merged_into_existing_metadata(
-        self, dispatcher, mock_db
-    ):
+    async def test_dedup_key_merged_into_existing_metadata(self, dispatcher, mock_db):
         """dedup_key should be added to user-supplied metadata without overwriting it."""
         mock_db.execute.side_effect = [_no_dedup_result(), _insert_result()]
 
@@ -665,6 +631,7 @@ class TestMetadataPassthrough:
         insert_call = mock_db.execute.call_args_list[1]
         params = insert_call.args[1] if insert_call.args else {}
         import json
+
         meta = json.loads(params["meta"])
         # Both the original metadata and dedup_key should be present
         assert meta["region"] == "us_ma"

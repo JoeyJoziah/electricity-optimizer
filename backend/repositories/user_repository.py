@@ -7,15 +7,15 @@ Uses raw SQL queries to avoid ORM-model mismatch with Pydantic models.
 
 import json
 from datetime import datetime, timezone
-from typing import Optional, List, Any, Dict
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.user import User, UserPreferences
+from repositories.base import BaseRepository, NotFoundError, RepositoryError
 
 logger = structlog.get_logger(__name__)
 
@@ -159,7 +159,11 @@ class UserRepository(BaseRepository[User]):
                     "stripe_customer_id": entity.stripe_customer_id,
                     "email_verified": entity.email_verified,
                     "current_tariff": entity.current_tariff,
-                    "average_daily_kwh": float(entity.average_daily_kwh) if entity.average_daily_kwh is not None else None,
+                    "average_daily_kwh": (
+                        float(entity.average_daily_kwh)
+                        if entity.average_daily_kwh is not None
+                        else None
+                    ),
                     "household_size": entity.household_size,
                     "created_at": now,
                     "updated_at": now,
@@ -174,16 +178,28 @@ class UserRepository(BaseRepository[User]):
             raise RepositoryError(f"Failed to create user: {str(e)}", e)
 
     # Columns allowed in dynamic UPDATE SET clause (prevents SQL injection via field names)
-    _UPDATABLE_COLUMNS = frozenset({
-        "email", "name", "region", "preferences",
-        "current_supplier", "is_active", "is_verified",
-        "subscription_tier", "stripe_customer_id",
-        "email_verified", "current_tariff",
-        "average_daily_kwh", "household_size",
-        "current_supplier_id", "utility_types",
-        "annual_usage_kwh", "onboarding_completed",
-        "updated_at",
-    })
+    _UPDATABLE_COLUMNS = frozenset(
+        {
+            "email",
+            "name",
+            "region",
+            "preferences",
+            "current_supplier",
+            "is_active",
+            "is_verified",
+            "subscription_tier",
+            "stripe_customer_id",
+            "email_verified",
+            "current_tariff",
+            "average_daily_kwh",
+            "household_size",
+            "current_supplier_id",
+            "utility_types",
+            "annual_usage_kwh",
+            "onboarding_completed",
+            "updated_at",
+        }
+    )
 
     async def update(self, id: str, entity: User) -> Optional[User]:
         """Update an existing user."""
@@ -245,12 +261,7 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete user: {str(e)}", e)
 
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[User]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> List[User]:
         """List users with pagination."""
         try:
             offset = (page - 1) * page_size
@@ -310,13 +321,12 @@ class UserRepository(BaseRepository[User]):
     # ==========================================================================
 
     async def update_preferences(
-        self,
-        user_id: str,
-        preferences: UserPreferences
+        self, user_id: str, preferences: UserPreferences
     ) -> Optional[User]:
         """Update user preferences."""
         try:
             import json
+
             result = await self._db.execute(
                 text(f"""
                     UPDATE users
@@ -376,10 +386,7 @@ class UserRepository(BaseRepository[User]):
             raise RepositoryError(f"Failed to verify email: {str(e)}", e)
 
     async def record_consent(
-        self,
-        user_id: str,
-        consent_given: bool = True,
-        data_processing_agreed: bool = True
+        self, user_id: str, consent_given: bool = True, data_processing_agreed: bool = True
     ) -> bool:
         """Record user's GDPR consent (direct UPDATE, no SELECT)."""
         try:
@@ -422,11 +429,7 @@ class UserRepository(BaseRepository[User]):
         except Exception as e:
             raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e)
 
-    async def get_users_by_region(
-        self,
-        region: str,
-        active_only: bool = True
-    ) -> List[User]:
+    async def get_users_by_region(self, region: str, active_only: bool = True) -> List[User]:
         """Get users in a region (with LIMIT for safety)."""
         try:
             conditions = ["region = :region"]

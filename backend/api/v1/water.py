@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session
-from services.water_rate_service import WaterRateService, AVG_MONTHLY_GALLONS
+from services.water_rate_service import AVG_MONTHLY_GALLONS, WaterRateService
 
 logger = structlog.get_logger(__name__)
 
@@ -72,7 +72,5 @@ async def get_water_tips():
     return {
         "tips": tips,
         "count": len(tips),
-        "estimated_annual_savings_gallons": sum(
-            t["estimated_savings_gallons"] for t in tips
-        ),
+        "estimated_annual_savings_gallons": sum(t["estimated_savings_gallons"] for t in tips),
     }

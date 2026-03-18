@@ -7,20 +7,21 @@ Provides RESTful API for electricity price predictions and optimization:
 - /predict/savings: Estimated cost savings from optimization
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, status
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
+
+import numpy as np
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta, timezone
-import numpy as np
-
-from config.database import get_redis, get_timescale_session
-from api.dependencies import get_current_user, SessionData
-from models.region import Region
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import uuid4
-import structlog
-import time
+
+from api.dependencies import SessionData, get_current_user
+from config.database import get_redis, get_timescale_session
+from models.region import Region
 
 logger = structlog.get_logger(__name__)
 
@@ -28,11 +29,23 @@ router = APIRouter()
 
 # Currency mapping for international regions (US states default to USD)
 _REGION_CURRENCY: Dict[str, str] = {
-    "uk": "GBP", "uk_scotland": "GBP", "uk_wales": "GBP", "ie": "EUR",
-    "de": "EUR", "fr": "EUR", "es": "EUR", "it": "EUR",
-    "nl": "EUR", "be": "EUR", "at": "EUR",
-    "jp": "JPY", "au": "AUD", "ca": "CAD", "cn": "CNY",
-    "in": "INR", "br": "BRL",
+    "uk": "GBP",
+    "uk_scotland": "GBP",
+    "uk_wales": "GBP",
+    "ie": "EUR",
+    "de": "EUR",
+    "fr": "EUR",
+    "es": "EUR",
+    "it": "EUR",
+    "nl": "EUR",
+    "be": "EUR",
+    "at": "EUR",
+    "jp": "JPY",
+    "au": "AUD",
+    "ca": "CAD",
+    "cn": "CNY",
+    "in": "INR",
+    "br": "BRL",
 }
 
 
@@ -48,6 +61,7 @@ def _get_currency(region_value: str) -> str:
 
 class PriceForecastRequest(BaseModel):
     """Request for price forecast"""
+
     region: Region
     hours_ahead: int = Field(default=24, ge=1, le=168, description="Hours to forecast (1-168)")
     include_confidence: bool = Field(default=True, description="Include confidence intervals")
@@ -55,6 +69,7 @@ class PriceForecastRequest(BaseModel):
 
 class PricePrediction(BaseModel):
     """Single price prediction"""
+
     timestamp: datetime
     predicted_price: float = Field(description="Predicted price in local currency per kWh")
     confidence_lower: Optional[float] = Field(None, description="Lower bound (95% confidence)")
@@ -64,6 +79,7 @@ class PricePrediction(BaseModel):
 
 class PriceForecastResponse(BaseModel):
     """Price forecast response"""
+
     region: str
     forecast_time: datetime
     model_version: str
@@ -73,6 +89,7 @@ class PriceForecastResponse(BaseModel):
 
 class OptimalTimeSlot(BaseModel):
     """Optimal time slot for appliance usage"""
+
     start_time: datetime
     end_time: datetime
     duration_hours: float
@@ -83,6 +100,7 @@ class OptimalTimeSlot(BaseModel):
 
 class OptimalTimesRequest(BaseModel):
     """Request for optimal time slots"""
+
     region: Region
     duration_hours: float = Field(ge=0.25, le=24, description="Required duration (0.25-24 hours)")
     earliest_start: Optional[datetime] = Field(None, description="Earliest acceptable start time")
@@ -92,6 +110,7 @@ class OptimalTimesRequest(BaseModel):
 
 class OptimalTimesResponse(BaseModel):
     """Optimal time slots response"""
+
     region: str
     requested_duration_hours: float
     optimal_slots: List[OptimalTimeSlot]
@@ -100,6 +119,7 @@ class OptimalTimesResponse(BaseModel):
 
 class ApplianceSchedule(BaseModel):
     """Appliance for optimization"""
+
     name: str
     power_kw: float = Field(gt=0, description="Power consumption in kW")
     duration_hours: float = Field(gt=0, le=24, description="Required runtime (hours)")
@@ -110,12 +130,14 @@ class ApplianceSchedule(BaseModel):
 
 class SavingsEstimateRequest(BaseModel):
     """Request for savings estimate"""
+
     region: Region
     appliances: List[ApplianceSchedule]
 
 
 class SavingsEstimateResponse(BaseModel):
     """Savings estimate response"""
+
     region: str
     unoptimized_cost: float
     optimized_cost: float
@@ -128,6 +150,7 @@ class SavingsEstimateResponse(BaseModel):
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
 
 async def get_latest_model_version(redis_client) -> str:
     """Get latest deployed model version from cache"""
@@ -152,9 +175,7 @@ async def get_model_accuracy(redis_client) -> Optional[float]:
 
 
 async def load_forecast_from_cache(
-    redis_client,
-    region: str,
-    hours_ahead: int
+    redis_client, region: str, hours_ahead: int
 ) -> Optional[List[Dict]]:
     """Load cached forecast if available"""
     if not redis_client:
@@ -164,6 +185,7 @@ async def load_forecast_from_cache(
         cached = await redis_client.get(cache_key)
         if cached:
             import json
+
             return json.loads(cached)
     except Exception:
         pass
@@ -171,23 +193,16 @@ async def load_forecast_from_cache(
 
 
 async def store_forecast_in_cache(
-    redis_client,
-    region: str,
-    hours_ahead: int,
-    forecast: List[Dict],
-    ttl_seconds: int = 3600
+    redis_client, region: str, hours_ahead: int, forecast: List[Dict], ttl_seconds: int = 3600
 ):
     """Store forecast in cache"""
     if not redis_client:
         return
     try:
         import json
+
         cache_key = f"forecast:{region}:{hours_ahead}"
-        await redis_client.setex(
-            cache_key,
-            ttl_seconds,
-            json.dumps(forecast, default=str)
-        )
+        await redis_client.setex(cache_key, ttl_seconds, json.dumps(forecast, default=str))
     except Exception:
         pass
 
@@ -213,6 +228,7 @@ def _load_model():
         return None
 
     import os
+
     from config.settings import settings
 
     model_path = settings.model_path or os.environ.get("MODEL_PATH")
@@ -222,6 +238,7 @@ def _load_model():
 
     try:
         from ml.inference.ensemble_predictor import EnsemblePredictor
+
         model = EnsemblePredictor(model_path)
         _model_cache["model"] = model
         _model_cache.pop("_failed_at", None)
@@ -232,6 +249,7 @@ def _load_model():
 
     try:
         from ml.inference.predictor import PricePredictor
+
         model = PricePredictor(model_path)
         _model_cache["model"] = model
         _model_cache.pop("_failed_at", None)
@@ -250,7 +268,7 @@ def _simulate_forecast(region: str, hours_ahead: int) -> List[PricePrediction]:
     predictions = []
 
     for i in range(hours_ahead):
-        timestamp = base_time + timedelta(hours=i+1)
+        timestamp = base_time + timedelta(hours=i + 1)
         hour = timestamp.hour
         base_price = 0.20 + 0.05 * np.sin((hour - 6) * np.pi / 12)
         noise = np.random.normal(0, 0.01)
@@ -258,21 +276,21 @@ def _simulate_forecast(region: str, hours_ahead: int) -> List[PricePrediction]:
         confidence_lower = predicted_price * 0.85
         confidence_upper = predicted_price * 1.15
 
-        predictions.append(PricePrediction(
-            timestamp=timestamp,
-            predicted_price=round(predicted_price, 4),
-            confidence_lower=round(confidence_lower, 4),
-            confidence_upper=round(confidence_upper, 4),
-            currency=_get_currency(region),
-        ))
+        predictions.append(
+            PricePrediction(
+                timestamp=timestamp,
+                predicted_price=round(predicted_price, 4),
+                confidence_lower=round(confidence_lower, 4),
+                confidence_upper=round(confidence_upper, 4),
+                currency=_get_currency(region),
+            )
+        )
 
     return predictions
 
 
 async def generate_price_forecast(
-    region: str,
-    hours_ahead: int,
-    session: AsyncSession
+    region: str, hours_ahead: int, session: AsyncSession
 ) -> List[PricePrediction]:
     """
     Generate price forecast using ML model with graceful fallback to simulation.
@@ -290,6 +308,7 @@ async def generate_price_forecast(
             features_df = None
             if session:
                 from sqlalchemy import text
+
                 result = await session.execute(
                     text(
                         "SELECT region, timestamp, price_per_kwh, is_peak, carbon_intensity "
@@ -301,13 +320,18 @@ async def generate_price_forecast(
                 )
                 rows = result.mappings().all()
                 if rows:
-                    features_df = pd.DataFrame([{
-                        "price": float(r["price_per_kwh"]),
-                        "hour": r["timestamp"].hour,
-                        "day_of_week": r["timestamp"].weekday(),
-                        "is_peak": 1 if r.get("is_peak") else 0,
-                        "carbon_intensity": float(r.get("carbon_intensity") or 0.0),
-                    } for r in reversed(rows)])
+                    features_df = pd.DataFrame(
+                        [
+                            {
+                                "price": float(r["price_per_kwh"]),
+                                "hour": r["timestamp"].hour,
+                                "day_of_week": r["timestamp"].weekday(),
+                                "is_peak": 1 if r.get("is_peak") else 0,
+                                "carbon_intensity": float(r.get("carbon_intensity") or 0.0),
+                            }
+                            for r in reversed(rows)
+                        ]
+                    )
 
             if features_df is None or features_df.empty:
                 logger.warning("ml_inference_no_data", region=region)
@@ -322,19 +346,22 @@ async def generate_price_forecast(
             upper = result["upper"]
 
             for i in range(min(hours_ahead, len(point))):
-                predictions.append(PricePrediction(
-                    timestamp=base_time + timedelta(hours=i+1),
-                    predicted_price=round(float(point[i]), 4),
-                    confidence_lower=round(float(lower[i]), 4),
-                    confidence_upper=round(float(upper[i]), 4),
-                    currency=_get_currency(region)
-                ))
+                predictions.append(
+                    PricePrediction(
+                        timestamp=base_time + timedelta(hours=i + 1),
+                        predicted_price=round(float(point[i]), 4),
+                        confidence_lower=round(float(lower[i]), 4),
+                        confidence_upper=round(float(upper[i]), 4),
+                        currency=_get_currency(region),
+                    )
+                )
 
             logger.info("ml_inference_success", region=region, predictions=len(predictions))
 
             # Store inference timestamp in Redis for model-info endpoint
             try:
                 from config.database import db_manager
+
                 redis = await db_manager.get_redis_client()
                 if redis:
                     await redis.set("model:last_updated", datetime.now(timezone.utc).isoformat())
@@ -344,6 +371,7 @@ async def generate_price_forecast(
             # Record forecast observation (fire-and-forget)
             try:
                 from services.observation_service import ObservationService
+
                 obs = ObservationService(session)
                 forecast_id = str(uuid4())
                 pred_dicts = [
@@ -378,12 +406,13 @@ async def generate_price_forecast(
 # API ENDPOINTS
 # ============================================================================
 
+
 @router.post("/predict/price", response_model=PriceForecastResponse, tags=["Predictions"])
 async def predict_prices(
     request: PriceForecastRequest,
     current_user: SessionData = Depends(get_current_user),
-    redis_client = Depends(get_redis),
-    session: AsyncSession = Depends(get_timescale_session)
+    redis_client=Depends(get_redis),
+    session: AsyncSession = Depends(get_timescale_session),
 ):
     """
     Generate electricity price forecast
@@ -407,9 +436,7 @@ async def predict_prices(
         # Check cache first (skip if redis not available)
         if redis_client:
             cached_forecast = await load_forecast_from_cache(
-                redis_client,
-                request.region.value,
-                request.hours_ahead
+                redis_client, request.region.value, request.hours_ahead
             )
 
             if cached_forecast:
@@ -418,9 +445,7 @@ async def predict_prices(
 
         # Generate forecast
         predictions = await generate_price_forecast(
-            request.region.value,
-            request.hours_ahead,
-            session
+            request.region.value, request.hours_ahead, session
         )
 
         # Get model metadata (skip if redis not available)
@@ -435,7 +460,7 @@ async def predict_prices(
             forecast_time=datetime.now(timezone.utc),
             model_version=model_version,
             predictions=predictions,
-            accuracy_mape=accuracy_mape
+            accuracy_mape=accuracy_mape,
         )
 
         # Cache the forecast (skip if redis not available)
@@ -445,7 +470,7 @@ async def predict_prices(
                 request.region.value,
                 request.hours_ahead,
                 response.model_dump(),
-                ttl_seconds=3600  # 1 hour
+                ttl_seconds=3600,  # 1 hour
             )
 
         logger.info("forecast_generated", num_predictions=len(predictions))
@@ -455,7 +480,7 @@ async def predict_prices(
         logger.error("forecast_generation_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate forecast: {str(e)}"
+            detail=f"Failed to generate forecast: {str(e)}",
         )
 
 
@@ -463,8 +488,8 @@ async def predict_prices(
 async def find_optimal_times(
     request: OptimalTimesRequest,
     current_user: SessionData = Depends(get_current_user),
-    redis_client = Depends(get_redis),
-    session: AsyncSession = Depends(get_timescale_session)
+    redis_client=Depends(get_redis),
+    session: AsyncSession = Depends(get_timescale_session),
 ):
     """
     Find optimal time slots for running appliances
@@ -495,33 +520,34 @@ async def find_optimal_times(
             earliest = request.earliest_start or datetime.now(timezone.utc)
             latest = request.latest_end or (datetime.now(timezone.utc) + timedelta(days=1))
 
-            predictions = [
-                p for p in predictions
-                if earliest <= p.timestamp <= latest
-            ]
+            predictions = [p for p in predictions if earliest <= p.timestamp <= latest]
 
         # Find optimal slots using sliding window
         slots = []
         duration_slots = int(request.duration_hours * 4)  # 15-min intervals
 
         for i in range(len(predictions) - duration_slots + 1):
-            window = predictions[i:i + duration_slots]
+            window = predictions[i : i + duration_slots]
 
             avg_price = np.mean([p.predicted_price for p in window])
-            total_cost = sum(p.predicted_price for p in window) * request.duration_hours / len(window)
+            total_cost = (
+                sum(p.predicted_price for p in window) * request.duration_hours / len(window)
+            )
 
-            slots.append(OptimalTimeSlot(
-                start_time=window[0].timestamp,
-                end_time=window[-1].timestamp,
-                duration_hours=request.duration_hours,
-                average_price=round(avg_price, 4),
-                total_cost=round(total_cost, 4),
-                rank=0  # Will be set after sorting
-            ))
+            slots.append(
+                OptimalTimeSlot(
+                    start_time=window[0].timestamp,
+                    end_time=window[-1].timestamp,
+                    duration_hours=request.duration_hours,
+                    average_price=round(avg_price, 4),
+                    total_cost=round(total_cost, 4),
+                    rank=0,  # Will be set after sorting
+                )
+            )
 
         # Sort by average price and take top N
         slots.sort(key=lambda x: x.average_price)
-        top_slots = slots[:request.num_slots]
+        top_slots = slots[: request.num_slots]
 
         # Assign ranks
         for idx, slot in enumerate(top_slots):
@@ -536,14 +562,14 @@ async def find_optimal_times(
             region=request.region.value,
             requested_duration_hours=request.duration_hours,
             optimal_slots=top_slots,
-            potential_savings_percent=round(savings_percent, 2)
+            potential_savings_percent=round(savings_percent, 2),
         )
 
     except Exception as e:
         logger.error("optimal_times_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to find optimal times: {str(e)}"
+            detail=f"Failed to find optimal times: {str(e)}",
         )
 
 
@@ -551,8 +577,8 @@ async def find_optimal_times(
 async def estimate_savings(
     request: SavingsEstimateRequest,
     current_user: SessionData = Depends(get_current_user),
-    redis_client = Depends(get_redis),
-    session: AsyncSession = Depends(get_timescale_session)
+    redis_client=Depends(get_redis),
+    session: AsyncSession = Depends(get_timescale_session),
 ):
     """
     Estimate cost savings from appliance optimization
@@ -578,7 +604,9 @@ async def estimate_savings(
     }
     ```
     """
-    logger.info("savings_estimate_request", region=request.region, num_appliances=len(request.appliances))
+    logger.info(
+        "savings_estimate_request", region=request.region, num_appliances=len(request.appliances)
+    )
 
     try:
         # Get 24-hour forecast
@@ -587,8 +615,7 @@ async def estimate_savings(
         # Calculate unoptimized cost (run immediately)
         current_price = predictions[0].predicted_price
         unoptimized_cost = sum(
-            a.power_kw * a.duration_hours * current_price
-            for a in request.appliances
+            a.power_kw * a.duration_hours * current_price for a in request.appliances
         )
 
         # Calculate optimized cost and schedule
@@ -603,11 +630,11 @@ async def estimate_savings(
                     duration_hours=appliance.duration_hours,
                     earliest_start=appliance.earliest_start,
                     latest_end=appliance.latest_end,
-                    num_slots=1
+                    num_slots=1,
                 ),
                 current_user,
                 redis_client,
-                session
+                session,
             )
 
             best_slot = optimal_result.optimal_slots[0]
@@ -618,7 +645,7 @@ async def estimate_savings(
                 "start_time": best_slot.start_time.isoformat(),
                 "end_time": best_slot.end_time.isoformat(),
                 "cost": round(appliance_cost, 4),
-                "average_price": best_slot.average_price
+                "average_price": best_slot.average_price,
             }
 
         savings_amount = unoptimized_cost - optimized_cost
@@ -631,21 +658,21 @@ async def estimate_savings(
             savings_amount=round(savings_amount, 4),
             savings_percent=round(savings_percent, 2),
             currency=_get_currency(request.region.value),
-            optimized_schedule=optimized_schedule
+            optimized_schedule=optimized_schedule,
         )
 
     except Exception as e:
         logger.error("savings_estimate_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to estimate savings: {str(e)}"
+            detail=f"Failed to estimate savings: {str(e)}",
         )
 
 
 @router.get("/predict/model-info", tags=["Predictions"])
 async def get_model_info(
     current_user: SessionData = Depends(get_current_user),
-    redis_client = Depends(get_redis),
+    redis_client=Depends(get_redis),
 ):
     """
     Get information about the deployed forecasting model
