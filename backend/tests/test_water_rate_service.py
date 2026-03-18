@@ -2,16 +2,14 @@
 Tests for WaterRateService — rates, tier calculator, benchmarking, tips, upsert.
 """
 
-import pytest
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
-from services.water_rate_service import (
-    WaterRateService,
-    AVG_MONTHLY_GALLONS,
-    CONSERVATION_TIPS,
-)
+import pytest
+
+from services.water_rate_service import (AVG_MONTHLY_GALLONS,
+                                         CONSERVATION_TIPS, WaterRateService)
 
 
 def _mock_db_rows(rows):
@@ -79,6 +77,7 @@ def service(mock_db):
 # get_rates
 # ------------------------------------------------------------------
 
+
 class TestGetRates:
     @pytest.mark.asyncio
     async def test_returns_all_rates(self, service, mock_db):
@@ -109,6 +108,7 @@ class TestGetRates:
 # get_rate_by_municipality
 # ------------------------------------------------------------------
 
+
 class TestGetRateByMunicipality:
     @pytest.mark.asyncio
     async def test_finds_municipality(self, service, mock_db):
@@ -134,6 +134,7 @@ class TestGetRateByMunicipality:
 # ------------------------------------------------------------------
 # calculate_monthly_cost (tier calculator)
 # ------------------------------------------------------------------
+
 
 class TestCalculateMonthlyCost:
     def test_basic_tiered_calculation(self, service):
@@ -229,6 +230,7 @@ class TestCalculateMonthlyCost:
 # get_benchmark
 # ------------------------------------------------------------------
 
+
 class TestGetBenchmark:
     @pytest.mark.asyncio
     async def test_returns_benchmark_with_rates(self, service, mock_db):
@@ -258,6 +260,7 @@ class TestGetBenchmark:
 # get_conservation_tips
 # ------------------------------------------------------------------
 
+
 class TestConservationTips:
     def test_returns_tips(self):
         tips = WaterRateService.get_conservation_tips()
@@ -277,19 +280,22 @@ class TestConservationTips:
 # upsert_rate
 # ------------------------------------------------------------------
 
+
 class TestUpsertRate:
     @pytest.mark.asyncio
     async def test_upserts_rate(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_fetchone(("uuid-new",))
 
-        rate_id = await service.upsert_rate({
-            "municipality": "Austin",
-            "state": "TX",
-            "rate_tiers": '[{"limit_gallons": 3000, "rate_per_gallon": 0.005}]',
-            "base_charge": 12.00,
-            "effective_date": "2026-01-01",
-            "source_url": "https://austintexas.gov/water",
-        })
+        rate_id = await service.upsert_rate(
+            {
+                "municipality": "Austin",
+                "state": "TX",
+                "rate_tiers": '[{"limit_gallons": 3000, "rate_per_gallon": 0.005}]',
+                "base_charge": 12.00,
+                "effective_date": "2026-01-01",
+                "source_url": "https://austintexas.gov/water",
+            }
+        )
         assert rate_id == "uuid-new"
         mock_db.commit.assert_called_once()
 
@@ -297,6 +303,7 @@ class TestUpsertRate:
 # ------------------------------------------------------------------
 # _format_rate
 # ------------------------------------------------------------------
+
 
 class TestFormatRate:
     def test_formats_row_correctly(self):

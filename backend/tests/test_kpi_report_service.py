@@ -15,7 +15,6 @@ import pytest
 
 from services.kpi_report_service import KPIReportService
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -76,24 +75,32 @@ class TestAggregateMetrics:
         The CTE query returns all 5 scalar metrics in one row,
         followed by 2 GROUP BY queries for connections and subscriptions.
         """
-        mock_db.execute = AsyncMock(side_effect=[
-            _cte_row_result({                    # CTE scalars (1 query)
-                "active_users_7d": 42,
-                "total_users": 100,
-                "prices_tracked": 5000,
-                "alerts_sent_today": 15,
-                "weather_freshness": 6.5,
-            }),
-            _rows_result([                       # connections GROUP BY
-                {"status": "active", "cnt": 10},
-                {"status": "error", "cnt": 2},
-            ]),
-            _rows_result([                       # subscriptions GROUP BY
-                {"tier": "free", "cnt": 80},
-                {"tier": "pro", "cnt": 15},
-                {"tier": "business", "cnt": 5},
-            ]),
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _cte_row_result(
+                    {  # CTE scalars (1 query)
+                        "active_users_7d": 42,
+                        "total_users": 100,
+                        "prices_tracked": 5000,
+                        "alerts_sent_today": 15,
+                        "weather_freshness": 6.5,
+                    }
+                ),
+                _rows_result(
+                    [  # connections GROUP BY
+                        {"status": "active", "cnt": 10},
+                        {"status": "error", "cnt": 2},
+                    ]
+                ),
+                _rows_result(
+                    [  # subscriptions GROUP BY
+                        {"tier": "free", "cnt": 80},
+                        {"tier": "pro", "cnt": 15},
+                        {"tier": "business", "cnt": 5},
+                    ]
+                ),
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()
@@ -119,17 +126,21 @@ class TestEmptyTables:
     @pytest.mark.asyncio
     async def test_returns_zeros(self, mock_db):
         """All zeros when tables are empty."""
-        mock_db.execute = AsyncMock(side_effect=[
-            _cte_row_result({
-                "active_users_7d": 0,
-                "total_users": 0,
-                "prices_tracked": 0,
-                "alerts_sent_today": 0,
-                "weather_freshness": None,
-            }),
-            _rows_result([]),         # connections
-            _rows_result([]),         # subscriptions
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _cte_row_result(
+                    {
+                        "active_users_7d": 0,
+                        "total_users": 0,
+                        "prices_tracked": 0,
+                        "alerts_sent_today": 0,
+                        "weather_freshness": None,
+                    }
+                ),
+                _rows_result([]),  # connections
+                _rows_result([]),  # subscriptions
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()
@@ -154,20 +165,26 @@ class TestSubscriptionBreakdown:
     @pytest.mark.asyncio
     async def test_groups_correctly(self, mock_db):
         """Subscription breakdown should group by tier."""
-        mock_db.execute = AsyncMock(side_effect=[
-            _cte_row_result({
-                "active_users_7d": 0,
-                "total_users": 0,
-                "prices_tracked": 0,
-                "alerts_sent_today": 0,
-                "weather_freshness": None,
-            }),
-            _rows_result([]),         # connections
-            _rows_result([            # subscriptions
-                {"tier": "free", "cnt": 50},
-                {"tier": "pro", "cnt": 25},
-            ]),
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _cte_row_result(
+                    {
+                        "active_users_7d": 0,
+                        "total_users": 0,
+                        "prices_tracked": 0,
+                        "alerts_sent_today": 0,
+                        "weather_freshness": None,
+                    }
+                ),
+                _rows_result([]),  # connections
+                _rows_result(
+                    [  # subscriptions
+                        {"tier": "free", "cnt": 50},
+                        {"tier": "pro", "cnt": 25},
+                    ]
+                ),
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()
@@ -210,17 +227,21 @@ class TestWeatherFreshness:
     @pytest.mark.asyncio
     async def test_returns_none_when_no_data(self, mock_db):
         """Should return None when no price data exists."""
-        mock_db.execute = AsyncMock(side_effect=[
-            _cte_row_result({
-                "active_users_7d": 0,
-                "total_users": 0,
-                "prices_tracked": 0,
-                "alerts_sent_today": 0,
-                "weather_freshness": None,
-            }),
-            _rows_result([]),         # connections
-            _rows_result([]),         # subscriptions
-        ])
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _cte_row_result(
+                    {
+                        "active_users_7d": 0,
+                        "total_users": 0,
+                        "prices_tracked": 0,
+                        "alerts_sent_today": 0,
+                        "weather_freshness": None,
+                    }
+                ),
+                _rows_result([]),  # connections
+                _rows_result([]),  # subscriptions
+            ]
+        )
 
         service = KPIReportService(mock_db)
         metrics = await service.aggregate_metrics()

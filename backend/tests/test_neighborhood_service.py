@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.neighborhood_service import NeighborhoodService, MIN_USERS_FOR_COMPARISON
-
+from services.neighborhood_service import (MIN_USERS_FOR_COMPARISON,
+                                           NeighborhoodService)
 
 # =============================================================================
 # Fixtures

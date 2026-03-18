@@ -5,13 +5,13 @@ Verifies detection by zip code and municipality, rate comparison,
 opt-out info retrieval, program listing, and state checks.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from services.cca_service import CCAService
-from models.region import CCA_STATES
+import pytest
 
+from models.region import CCA_STATES
+from services.cca_service import CCAService
 
 CCA_ROW = {
     "id": uuid4(),
@@ -71,7 +71,9 @@ class TestDetectCCA:
 
         service = CCAService(mock_db)
         result = await service.detect_cca(
-            zip_code="00000", state="CA", municipality="San Jose",
+            zip_code="00000",
+            state="CA",
+            municipality="San Jose",
         )
 
         assert result is not None
@@ -103,7 +105,8 @@ class TestCompareCCARate:
         mock_db = _mock_db_with_row(CCA_ROW)
         service = CCAService(mock_db)
         result = await service.compare_cca_rate(
-            cca_id=str(CCA_ROW["id"]), default_rate=0.20,
+            cca_id=str(CCA_ROW["id"]),
+            default_rate=0.20,
         )
 
         assert result["is_cheaper"] is True
@@ -117,7 +120,8 @@ class TestCompareCCARate:
         mock_db = _mock_db_empty()
         service = CCAService(mock_db)
         result = await service.compare_cca_rate(
-            cca_id=str(uuid4()), default_rate=0.20,
+            cca_id=str(uuid4()),
+            default_rate=0.20,
         )
 
         assert "error" in result
@@ -128,7 +132,8 @@ class TestCompareCCARate:
         mock_db = _mock_db_with_row(expensive_row)
         service = CCAService(mock_db)
         result = await service.compare_cca_rate(
-            cca_id=str(CCA_ROW["id"]), default_rate=0.20,
+            cca_id=str(CCA_ROW["id"]),
+            default_rate=0.20,
         )
 
         assert result["is_cheaper"] is False

@@ -56,11 +56,8 @@ def _install_recording_provider():
     from opentelemetry import trace
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import (
-        SimpleSpanProcessor,
-        SpanExporter,
-        SpanExportResult,
-    )
+    from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                SpanExporter, SpanExportResult)
 
     class _InMemoryExporter(SpanExporter):
         def __init__(self):
@@ -121,8 +118,9 @@ class TestTracedAsyncContextManager:
         """On exception, traced() records the exception and sets ERROR status."""
         exporter = _install_recording_provider()
 
-        from lib.tracing import traced
         from opentelemetry.trace import StatusCode
+
+        from lib.tracing import traced
 
         with pytest.raises(ValueError, match="boom"):
             async with traced("failing.op"):
@@ -151,8 +149,9 @@ class TestTracedAsyncContextManager:
         """On success, span status should be OK (or UNSET)."""
         exporter = _install_recording_provider()
 
-        from lib.tracing import traced
         from opentelemetry.trace import StatusCode
+
+        from lib.tracing import traced
 
         async with traced("success.op"):
             pass
@@ -197,8 +196,9 @@ class TestTracedSyncContextManager:
         """Exception recording works in sync mode too."""
         exporter = _install_recording_provider()
 
-        from lib.tracing import traced
         from opentelemetry.trace import StatusCode
+
+        from lib.tracing import traced
 
         with pytest.raises(TypeError, match="bad type"):
             with traced("sync.fail"):

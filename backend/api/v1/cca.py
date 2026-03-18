@@ -36,7 +36,9 @@ async def detect_cca(
 
     service = CCAService(db)
     cca = await service.detect_cca(
-        zip_code=zip_code, state=state, municipality=municipality,
+        zip_code=zip_code,
+        state=state,
+        municipality=municipality,
     )
 
     return {

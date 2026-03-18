@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
-from services.agent_service import AgentService, AgentMessage, MAX_PROMPT_LENGTH
-
+from services.agent_service import (MAX_PROMPT_LENGTH, AgentMessage,
+                                    AgentService)
 
 # =============================================================================
 # Fixtures
@@ -140,7 +140,11 @@ async def test_query_with_user_context(agent_service, mock_db, user_context):
         call_args = mock_client.models.generate_content.call_args
         config = call_args.kwargs.get("config", {})
         system_instruction = config.get("system_instruction", "")
-        assert "us_ct" in system_instruction or "Connecticut" in system_instruction or "Eversource" in system_instruction
+        assert (
+            "us_ct" in system_instruction
+            or "Connecticut" in system_instruction
+            or "Eversource" in system_instruction
+        )
         # User prompt should be passed separately as contents
         contents = call_args.kwargs.get("contents") or call_args[1].get("contents", "")
         assert contents == "How can I save?"
@@ -344,12 +348,14 @@ async def test_get_job_result_completed(agent_service):
     owner_id = str(uuid.uuid4())
     with patch("config.database.db_manager") as mock_dbm:
         mock_redis = AsyncMock()
-        job_data = json.dumps({
-            "status": "completed",
-            "user_id": owner_id,
-            "result": "Your report is ready.",
-            "model_used": "gemini-3-flash-preview",
-        })
+        job_data = json.dumps(
+            {
+                "status": "completed",
+                "user_id": owner_id,
+                "result": "Your report is ready.",
+                "model_used": "gemini-3-flash-preview",
+            }
+        )
         mock_redis.get = AsyncMock(return_value=job_data)
         mock_dbm.get_redis_client = AsyncMock(return_value=mock_redis)
 
@@ -365,12 +371,14 @@ async def test_get_job_result_idor_blocked(agent_service):
     attacker_id = str(uuid.uuid4())
     with patch("config.database.db_manager") as mock_dbm:
         mock_redis = AsyncMock()
-        job_data = json.dumps({
-            "status": "completed",
-            "user_id": owner_id,
-            "result": "Sensitive data.",
-            "model_used": "gemini-3-flash-preview",
-        })
+        job_data = json.dumps(
+            {
+                "status": "completed",
+                "user_id": owner_id,
+                "result": "Sensitive data.",
+                "model_used": "gemini-3-flash-preview",
+            }
+        )
         mock_redis.get = AsyncMock(return_value=job_data)
         mock_dbm.get_redis_client = AsyncMock(return_value=mock_redis)
 

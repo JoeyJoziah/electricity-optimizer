@@ -6,11 +6,10 @@ Implements the Repository pattern for data access abstraction.
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional, List, Any
 from datetime import datetime
+from typing import Any, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel
-
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -26,16 +25,19 @@ class RepositoryError(Exception):
 
 class NotFoundError(RepositoryError):
     """Raised when an entity is not found"""
+
     pass
 
 
 class DuplicateError(RepositoryError):
     """Raised when a duplicate entity is detected"""
+
     pass
 
 
 class ValidationError(RepositoryError):
     """Raised when validation fails"""
+
     pass
 
 
@@ -101,12 +103,7 @@ class BaseRepository(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[T]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> List[T]:
         """
         List entities with pagination and optional filtering.
 
@@ -132,5 +129,3 @@ class BaseRepository(ABC, Generic[T]):
             Number of matching entities
         """
         pass
-
-

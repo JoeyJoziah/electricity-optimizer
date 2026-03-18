@@ -11,12 +11,12 @@ Coverage:
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -83,7 +83,8 @@ def _session():
 
 @pytest.fixture(autouse=True)
 def _clean_overrides():
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
+
     _app_rate_limiter.reset()
     yield
     for dep in list(app.dependency_overrides.keys()):
@@ -93,6 +94,7 @@ def _clean_overrides():
 
 def _install(tier: str):
     from main import app
+
     session = _session()
     db = _make_db(tier)
     app.dependency_overrides[get_current_user] = lambda: session
@@ -102,6 +104,7 @@ def _install(tier: str):
 
 def _client():
     from main import app
+
     return TestClient(app, raise_server_exceptions=False)
 
 

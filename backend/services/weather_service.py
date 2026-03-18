@@ -5,10 +5,10 @@ Free tier: 1,000 calls/day. Commercial use OK.
 """
 
 import asyncio
+from typing import Optional
 
 import httpx
 import structlog
-from typing import Optional
 
 from config.settings import get_settings
 
@@ -77,9 +77,7 @@ class WeatherService:
         self._settings = settings or get_settings()
         self._api_key = self._settings.openweathermap_api_key
 
-    async def get_current_weather(
-        self, lat: float, lon: float
-    ) -> Optional[dict]:
+    async def get_current_weather(self, lat: float, lon: float) -> Optional[dict]:
         """Fetch current weather. 1 API call.
 
         Note: OpenWeatherMap API v2.5 only supports API key authentication
@@ -113,9 +111,7 @@ class WeatherService:
                 "description": data["weather"][0]["description"],
             }
 
-    async def get_forecast_5day(
-        self, lat: float, lon: float
-    ) -> Optional[list]:
+    async def get_forecast_5day(self, lat: float, lon: float) -> Optional[list]:
         """Fetch 5-day/3-hour forecast. 1 API call.
 
         See get_current_weather docstring for OWM appid query-param rationale.
@@ -146,9 +142,7 @@ class WeatherService:
                 for entry in data["list"]
             ]
 
-    async def fetch_weather_for_regions(
-        self, regions: list[str]
-    ) -> dict[str, dict]:
+    async def fetch_weather_for_regions(self, regions: list[str]) -> dict[str, dict]:
         """Fetch current weather for multiple US state regions.
 
         Uses asyncio.gather with a Semaphore(10) to parallelize calls while
@@ -168,9 +162,7 @@ class WeatherService:
                     if weather:
                         results[region] = weather
                 except Exception as e:
-                    logger.warning(
-                        "weather_fetch_failed", region=region, error=str(e)
-                    )
+                    logger.warning("weather_fetch_failed", region=region, error=str(e))
 
         await asyncio.gather(*[_fetch_one(r) for r in regions])
         return results

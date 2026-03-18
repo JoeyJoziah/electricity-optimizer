@@ -9,11 +9,11 @@ Tests for:
 RED phase: These tests should FAIL initially until repositories are implemented.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # =============================================================================
 # PRICE REPOSITORY TESTS
@@ -46,8 +46,8 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_get_current_prices_returns_list(self, mock_db_session, mock_redis):
         """Test fetching current prices returns a list"""
-        from repositories.price_repository import PriceRepository
         from models.price import Price, PriceRegion
+        from repositories.price_repository import PriceRepository
 
         # Setup mock to return price data as dict rows (raw SQL pattern)
         mock_result = MagicMock()
@@ -77,8 +77,8 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_get_current_prices_filters_by_region(self, mock_db_session, mock_redis):
         """Test current prices are filtered by region"""
-        from repositories.price_repository import PriceRepository
         from models.price import PriceRegion
+        from repositories.price_repository import PriceRepository
 
         mock_result = MagicMock()
         mock_result.mappings.return_value.all.return_value = []
@@ -133,15 +133,15 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_create_price(self, mock_db_session, mock_redis):
         """Test creating a new price record"""
-        from repositories.price_repository import PriceRepository
         from models.price import Price, PriceRegion
+        from repositories.price_repository import PriceRepository
 
         price_data = Price(
             region=PriceRegion.US_CT,
             supplier="Test Supplier",
             price_per_kwh=Decimal("0.30"),
             timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            currency="USD",
         )
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -153,8 +153,8 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_get_historical_prices(self, mock_db_session, mock_redis):
         """Test fetching historical prices within a date range"""
-        from repositories.price_repository import PriceRepository
         from models.price import PriceRegion
+        from repositories.price_repository import PriceRepository
 
         mock_result = MagicMock()
         mock_result.mappings.return_value.all.return_value = []
@@ -166,9 +166,7 @@ class TestPriceRepository:
         end = datetime.now(timezone.utc)
 
         prices = await repo.get_historical_prices(
-            region=PriceRegion.UK,
-            start_date=start,
-            end_date=end
+            region=PriceRegion.UK, start_date=start, end_date=end
         )
 
         assert isinstance(prices, list)
@@ -177,8 +175,8 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_get_latest_price_by_supplier(self, mock_db_session, mock_redis):
         """Test fetching latest price for a specific supplier"""
-        from repositories.price_repository import PriceRepository
         from models.price import PriceRegion
+        from repositories.price_repository import PriceRepository
 
         mock_result = MagicMock()
         mock_result.mappings.return_value.first.return_value = {
@@ -198,8 +196,7 @@ class TestPriceRepository:
 
         repo = PriceRepository(mock_db_session, mock_redis)
         price = await repo.get_latest_by_supplier(
-            region=PriceRegion.UK,
-            supplier="Eversource Energy"
+            region=PriceRegion.UK, supplier="Eversource Energy"
         )
 
         assert price is not None
@@ -207,8 +204,8 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_bulk_create_prices(self, mock_db_session, mock_redis):
         """Test bulk creating multiple price records"""
-        from repositories.price_repository import PriceRepository
         from models.price import Price, PriceRegion
+        from repositories.price_repository import PriceRepository
 
         prices = [
             Price(
@@ -216,15 +213,15 @@ class TestPriceRepository:
                 supplier="Supplier A",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=datetime.now(timezone.utc),
-                currency="USD"
+                currency="USD",
             ),
             Price(
                 region=PriceRegion.US_CT,
                 supplier="Supplier B",
                 price_per_kwh=Decimal("0.27"),
                 timestamp=datetime.now(timezone.utc),
-                currency="USD"
-            )
+                currency="USD",
+            ),
         ]
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -236,9 +233,9 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_repository_handles_db_error(self, mock_db_session, mock_redis):
         """Test repository handles database errors gracefully"""
-        from repositories.price_repository import PriceRepository
         from models.price import PriceRegion
         from repositories.base import RepositoryError
+        from repositories.price_repository import PriceRepository
 
         mock_db_session.execute.side_effect = Exception("DB Connection Error")
 
@@ -250,19 +247,24 @@ class TestPriceRepository:
     @pytest.mark.asyncio
     async def test_cache_hit_skips_db(self, mock_db_session, mock_redis):
         """Test that cache hit skips database query"""
-        from repositories.price_repository import PriceRepository
-        from models.price import PriceRegion
         import json
 
+        from models.price import PriceRegion
+        from repositories.price_repository import PriceRepository
+
         # Setup cache to return data
-        cached_data = json.dumps([{
-            "id": "cached_price",
-            "region": "us_ct",
-            "supplier": "Cached Supplier",
-            "price_per_kwh": "0.20",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "currency": "USD"
-        }])
+        cached_data = json.dumps(
+            [
+                {
+                    "id": "cached_price",
+                    "region": "us_ct",
+                    "supplier": "Cached Supplier",
+                    "price_per_kwh": "0.20",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "currency": "USD",
+                }
+            ]
+        )
         mock_redis.get.return_value = cached_data
 
         repo = PriceRepository(mock_db_session, mock_redis)
@@ -292,6 +294,7 @@ class TestUserRepository:
     def _make_user_row(self, **overrides):
         """Build a mock row mapping that mimics a raw SQL SELECT result."""
         from datetime import datetime, timezone
+
         defaults = {
             "id": "user_123",
             "email": "test@example.com",
@@ -358,14 +361,10 @@ class TestUserRepository:
     @pytest.mark.asyncio
     async def test_create_user(self, mock_db_session):
         """Test creating a new user"""
-        from repositories.user_repository import UserRepository
         from models.user import User
+        from repositories.user_repository import UserRepository
 
-        user_data = User(
-            email="new@example.com",
-            name="New User",
-            region="us_ct"
-        )
+        user_data = User(email="new@example.com", name="New User", region="us_ct")
 
         row = self._make_user_row(email="new@example.com", name="New User", region="us_ct")
         mock_db_session.execute.return_value = self._mock_result_with_row(row)
@@ -379,16 +378,13 @@ class TestUserRepository:
     @pytest.mark.asyncio
     async def test_update_user_preferences(self, mock_db_session):
         """Test updating user preferences"""
-        from repositories.user_repository import UserRepository
         from models.user import UserPreferences
+        from repositories.user_repository import UserRepository
 
         row = self._make_user_row(preferences={"notification_enabled": True})
         mock_db_session.execute.return_value = self._mock_result_with_row(row)
 
-        prefs = UserPreferences(
-            notification_enabled=True,
-            auto_switch_enabled=True
-        )
+        prefs = UserPreferences(notification_enabled=True, auto_switch_enabled=True)
 
         repo = UserRepository(mock_db_session)
         updated = await repo.update_preferences("user_123", prefs)
