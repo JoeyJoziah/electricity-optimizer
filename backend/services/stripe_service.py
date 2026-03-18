@@ -5,10 +5,12 @@ Handles subscription lifecycle, checkout sessions, webhooks, and customer portal
 """
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any
-import structlog
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Any
+
 import stripe
+import structlog
 
 from config.settings import settings
 from lib.tracing import traced
@@ -47,7 +49,7 @@ class StripeService:
         if not self._configured:
             raise ValueError("Stripe is not configured. Set STRIPE_SECRET_KEY.")
 
-    def _get_price_id_for_tier(self, tier: str) -> Optional[str]:
+    def _get_price_id_for_tier(self, tier: str) -> str | None:
         """
         Get Stripe Price ID for a subscription tier.
 
@@ -67,12 +69,12 @@ class StripeService:
         self,
         user_id: str,
         email: str,
-        tier: Optional[str] = None,
+        tier: str | None = None,
         success_url: str = "",
         cancel_url: str = "",
-        customer_id: Optional[str] = None,
-        plan: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        customer_id: str | None = None,
+        plan: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create a Stripe Checkout session for subscription.
 
@@ -169,7 +171,7 @@ class StripeService:
         self,
         customer_id: str,
         return_url: str,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Create a Stripe Customer Portal session for subscription management.
 
@@ -212,7 +214,7 @@ class StripeService:
     async def get_subscription_status(
         self,
         customer_id: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get current subscription status for a customer.
 
@@ -254,7 +256,7 @@ class StripeService:
                 "tier": tier,
                 "status": subscription.status,
                 "current_period_end": datetime.fromtimestamp(
-                    subscription.current_period_end, tz=timezone.utc
+                    subscription.current_period_end, tz=UTC
                 ),
                 "cancel_at_period_end": subscription.cancel_at_period_end,
                 "subscription_id": subscription.id,
@@ -272,7 +274,7 @@ class StripeService:
         self,
         subscription_id: str,
         cancel_immediately: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancel a subscription.
 
@@ -291,9 +293,7 @@ class StripeService:
 
         try:
             if cancel_immediately:
-                subscription = await asyncio.to_thread(
-                    stripe.Subscription.cancel, subscription_id
-                )
+                subscription = await asyncio.to_thread(stripe.Subscription.cancel, subscription_id)
                 logger.info(
                     "subscription_canceled_immediately",
                     subscription_id=subscription_id,
@@ -356,8 +356,8 @@ class StripeService:
 
     async def handle_webhook_event(
         self,
-        event: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        event: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Handle a Stripe webhook event.
 
@@ -374,7 +374,9 @@ class StripeService:
                 "customer_id": str,
             }
         """
-        async with traced("stripe.webhook", attributes={"stripe.event_type": event.get("type", "unknown")}):
+        async with traced(
+            "stripe.webhook", attributes={"stripe.event_type": event.get("type", "unknown")}
+        ):
             event_type = event["type"]
             data = event["data"]["object"]
 
@@ -395,13 +397,15 @@ class StripeService:
                 tier = session.get("metadata", {}).get("tier")
                 customer_id = session.get("customer")
 
-                result.update({
-                    "handled": True,
-                    "action": "activate_subscription",
-                    "user_id": user_id,
-                    "tier": tier,
-                    "customer_id": customer_id,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "activate_subscription",
+                        "user_id": user_id,
+                        "tier": tier,
+                        "customer_id": customer_id,
+                    }
+                )
 
                 logger.info(
                     "checkout_completed",
@@ -423,14 +427,16 @@ class StripeService:
                 # during grace periods (Stripe retries before hard-canceling).
                 _downgrade_statuses = {"canceled", "unpaid"}
                 effective_tier = "free" if status in _downgrade_statuses else (tier or "free")
-                result.update({
-                    "handled": True,
-                    "action": "update_subscription",
-                    "user_id": user_id,
-                    "tier": effective_tier,
-                    "customer_id": customer_id,
-                    "status": status,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "update_subscription",
+                        "user_id": user_id,
+                        "tier": effective_tier,
+                        "customer_id": customer_id,
+                        "status": status,
+                    }
+                )
 
                 logger.info(
                     "subscription_updated",
@@ -446,13 +452,15 @@ class StripeService:
                 user_id = subscription.get("metadata", {}).get("user_id")
                 customer_id = subscription.get("customer")
 
-                result.update({
-                    "handled": True,
-                    "action": "deactivate_subscription",
-                    "user_id": user_id,
-                    "tier": "free",
-                    "customer_id": customer_id,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "deactivate_subscription",
+                        "user_id": user_id,
+                        "tier": "free",
+                        "customer_id": customer_id,
+                    }
+                )
 
                 logger.info(
                     "subscription_deleted",
@@ -469,19 +477,21 @@ class StripeService:
                 currency = invoice.get("currency", "usd").upper()
                 invoice_id = invoice.get("id")
 
-                # Convert amount from cents to dollars
+                # Convert amount from cents to dollars using Decimal for precision
                 if amount_due and isinstance(amount_due, (int, float)):
-                    amount_due = amount_due / 100.0
+                    amount_due = Decimal(str(amount_due)) / Decimal("100")
 
-                result.update({
-                    "handled": True,
-                    "action": "payment_failed",
-                    "customer_id": customer_id,
-                    "subscription_id": subscription_id,
-                    "amount_due": amount_due,
-                    "currency": currency,
-                    "invoice_id": invoice_id,
-                })
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "payment_failed",
+                        "customer_id": customer_id,
+                        "subscription_id": subscription_id,
+                        "amount_due": amount_due,
+                        "currency": currency,
+                        "invoice_id": invoice_id,
+                    }
+                )
 
                 logger.warning(
                     "payment_failed",
@@ -497,22 +507,28 @@ class StripeService:
             return result
 
 
-
 async def apply_webhook_action(
-    result: Dict[str, Any],
+    result: dict[str, Any],
     user_repo: Any,
     db: Any = None,
 ) -> bool:
     """
     Apply a webhook action to the user's subscription in the database.
 
+    After any subscription tier change (activate, update, deactivate), the
+    in-memory and Redis tier caches are invalidated immediately so that the
+    next request sees the new tier without waiting for the 30 s TTL to expire.
+
     Args:
         result: Dict returned by StripeService.handle_webhook_event.
         user_repo: UserRepository instance for DB access.
+        db: AsyncSession — required for payment_failed dunning flow.
 
     Returns:
         True if a DB update was applied, False otherwise.
     """
+    from api.dependencies import invalidate_tier_cache
+
     if not result.get("handled"):
         return False
 
@@ -547,12 +563,18 @@ async def apply_webhook_action(
         user.subscription_tier = tier or "pro"
         user.stripe_customer_id = customer_id
         await user_repo.update(user_id, user)
+        await invalidate_tier_cache(user_id)
+        logger.info("tier_cache_invalidated", user_id=user_id, action=action)
     elif action == "update_subscription":
         user.subscription_tier = tier or user.subscription_tier
         await user_repo.update(user_id, user)
+        await invalidate_tier_cache(user_id)
+        logger.info("tier_cache_invalidated", user_id=user_id, action=action)
     elif action == "deactivate_subscription":
         user.subscription_tier = "free"
         await user_repo.update(user_id, user)
+        await invalidate_tier_cache(user_id)
+        logger.info("tier_cache_invalidated", user_id=user_id, action=action)
     elif action == "payment_failed":
         if db is not None:
             from services.dunning_service import DunningService

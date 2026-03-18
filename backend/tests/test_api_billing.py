@@ -9,14 +9,13 @@ Tests cover:
 - Unauthenticated access (401)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 TEST_USER = SessionData(user_id="user-billing-1", email="billing@test.com")
 
@@ -104,11 +103,10 @@ class TestCheckoutSession:
         """Valid checkout request should return session_id and checkout_url."""
         mock_user = _make_mock_user(stripe_customer_id="cus_existing123")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -138,11 +136,10 @@ class TestCheckoutSession:
         """Checkout with 'business' tier should also succeed."""
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -171,11 +168,10 @@ class TestCheckoutSession:
         """Localhost redirect URLs should be accepted for development."""
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -298,11 +294,10 @@ class TestCheckoutSession:
         """ValueError from StripeService should return 400."""
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -321,7 +316,10 @@ class TestCheckoutSession:
             )
 
         assert response.status_code == 400
-        assert "not configured" in response.json()["detail"].lower()
+        detail = response.json()["detail"]
+        # Generic error message — must NOT leak "Price ID" or internal config details
+        assert "Price ID" not in detail
+        assert "checkout" in detail.lower() or "input" in detail.lower()
 
 
 # =============================================================================
@@ -336,11 +334,10 @@ class TestPortalSession:
         """Valid portal request for a user with stripe_customer_id should succeed."""
         mock_user = _make_mock_user(stripe_customer_id="cus_portal789")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -362,11 +359,10 @@ class TestPortalSession:
         """User without stripe_customer_id should get 400."""
         mock_user = _make_mock_user(stripe_customer_id=None)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -382,11 +378,10 @@ class TestPortalSession:
 
     def test_portal_user_not_found(self, auth_client):
         """When user does not exist in DB, customer_id is None -> 400."""
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(user=None)
 
             stripe_instance = MockStripe.return_value
@@ -436,11 +431,10 @@ class TestSubscriptionStatus:
         """User without stripe_customer_id should be reported as free tier."""
         mock_user = _make_mock_user(stripe_customer_id=None)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -458,11 +452,10 @@ class TestSubscriptionStatus:
 
     def test_subscription_free_tier_user_not_found(self, auth_client):
         """User not found in DB should also be reported as free tier."""
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(user=None)
 
             stripe_instance = MockStripe.return_value
@@ -476,13 +469,12 @@ class TestSubscriptionStatus:
     def test_subscription_active_pro(self, auth_client):
         """Active pro subscription should return correct status."""
         mock_user = _make_mock_user(stripe_customer_id="cus_sub123")
-        period_end = datetime(2026, 3, 15, 0, 0, 0, tzinfo=timezone.utc)
+        period_end = datetime(2026, 3, 15, 0, 0, 0, tzinfo=UTC)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -509,13 +501,12 @@ class TestSubscriptionStatus:
     def test_subscription_trialing_is_active(self, auth_client):
         """Trialing subscription should report has_active_subscription=True."""
         mock_user = _make_mock_user(stripe_customer_id="cus_trial")
-        period_end = datetime(2026, 4, 1, 0, 0, 0, tzinfo=timezone.utc)
+        period_end = datetime(2026, 4, 1, 0, 0, 0, tzinfo=UTC)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -539,13 +530,12 @@ class TestSubscriptionStatus:
     def test_subscription_past_due_not_active(self, auth_client):
         """Past-due subscription should have has_active_subscription=False."""
         mock_user = _make_mock_user(stripe_customer_id="cus_pastdue")
-        period_end = datetime(2026, 2, 20, 0, 0, 0, tzinfo=timezone.utc)
+        period_end = datetime(2026, 2, 20, 0, 0, 0, tzinfo=UTC)
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -569,11 +559,10 @@ class TestSubscriptionStatus:
         """Customer exists but no subscription returns free tier."""
         mock_user = _make_mock_user(stripe_customer_id="cus_nosub")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             MockRepo.return_value = _make_mock_user_repo(mock_user)
 
             stripe_instance = MockStripe.return_value
@@ -621,11 +610,10 @@ class TestWebhook:
         }
         mock_user = _make_mock_user(stripe_customer_id="cus_wh_123")
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             repo_instance = _make_mock_user_repo(mock_user)
             MockRepo.return_value = repo_instance
 
@@ -746,11 +734,10 @@ class TestWebhook:
         }
         mock_user = _make_mock_user()
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             repo_instance = _make_mock_user_repo(mock_user)
             MockRepo.return_value = repo_instance
 
@@ -769,7 +756,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -805,7 +792,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -839,7 +826,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -862,12 +849,13 @@ class TestWebhook:
             },
         }
 
-        with patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe, patch(
-            "api.v1.billing.apply_webhook_action",
-            new_callable=AsyncMock,
-            side_effect=Exception("unexpected DB error"),
+        with (
+            patch("api.v1.billing.StripeService") as MockStripe,
+            patch(
+                "api.v1.billing.apply_webhook_action",
+                new_callable=AsyncMock,
+                side_effect=Exception("unexpected DB error"),
+            ),
         ):
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
@@ -884,7 +872,7 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
@@ -906,11 +894,10 @@ class TestWebhook:
         mock_user = _make_mock_user(stripe_customer_id="cus_del")
         mock_user.subscription_tier = "pro"
 
-        with patch(
-            "api.v1.billing.UserRepository"
-        ) as MockRepo, patch(
-            "api.v1.billing.StripeService"
-        ) as MockStripe:
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
             repo_instance = _make_mock_user_repo(mock_user)
             MockRepo.return_value = repo_instance
 
@@ -929,13 +916,146 @@ class TestWebhook:
 
             response = auth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig_valid"},
             )
 
         assert response.status_code == 200
         assert mock_user.subscription_tier == "free"
         repo_instance.update.assert_awaited_once()
+
+
+# =============================================================================
+# Webhook Idempotency
+# =============================================================================
+
+
+class TestWebhookIdempotency:
+    """Tests for the stripe_processed_events duplicate-delivery guard."""
+
+    def test_webhook_duplicate_delivery_skips_processing(self, auth_client, mock_db):
+        """Second delivery of the same event_id must return 200 without re-processing."""
+        mock_event = {
+            "id": "evt_dup_abc",
+            "type": "checkout.session.completed",
+            "data": {"object": {"metadata": {}, "customer": "cus_dup"}},
+        }
+
+        # Simulate INSERT ... ON CONFLICT DO NOTHING returning 0 rows
+        insert_result = MagicMock()
+        insert_result.rowcount = 0
+        mock_db.execute = AsyncMock(return_value=insert_result)
+        mock_db.commit = AsyncMock()
+
+        with patch("api.v1.billing.StripeService") as MockStripe:
+            stripe_instance = MockStripe.return_value
+            stripe_instance.is_configured = True
+            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            # handle_webhook_event should NOT be called for a duplicate
+            stripe_instance.handle_webhook_event = AsyncMock()
+
+            response = auth_client.post(
+                f"{BASE_URL}/webhook",
+                content=b"{}",
+                headers={"stripe-signature": "t=123,v1=sig_valid"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["received"] is True
+        assert data["event_id"] == "evt_dup_abc"
+        # The event must NOT have been re-processed
+        stripe_instance.handle_webhook_event.assert_not_awaited()
+
+    def test_webhook_first_delivery_inserts_and_processes(self, auth_client, mock_db):
+        """First delivery (rowcount=1) must proceed through full processing."""
+        mock_event = {
+            "id": "evt_first_xyz",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "metadata": {"user_id": "user-billing-1", "tier": "pro"},
+                    "customer": "cus_first",
+                }
+            },
+        }
+        mock_user = _make_mock_user(stripe_customer_id="cus_first")
+
+        # Simulate successful INSERT returning rowcount=1
+        insert_result = MagicMock()
+        insert_result.rowcount = 1
+        mock_db.execute = AsyncMock(return_value=insert_result)
+        mock_db.commit = AsyncMock()
+
+        with (
+            patch("api.v1.billing.UserRepository") as MockRepo,
+            patch("api.v1.billing.StripeService") as MockStripe,
+        ):
+            MockRepo.return_value = _make_mock_user_repo(mock_user)
+
+            stripe_instance = MockStripe.return_value
+            stripe_instance.is_configured = True
+            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.handle_webhook_event = AsyncMock(
+                return_value={
+                    "handled": True,
+                    "action": "activate_subscription",
+                    "user_id": "user-billing-1",
+                    "tier": "pro",
+                    "customer_id": "cus_first",
+                }
+            )
+
+            response = auth_client.post(
+                f"{BASE_URL}/webhook",
+                content=b"{}",
+                headers={"stripe-signature": "t=123,v1=sig_valid"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["received"] is True
+        assert data["event_id"] == "evt_first_xyz"
+        # Full processing must have occurred
+        stripe_instance.handle_webhook_event.assert_awaited_once()
+
+    def test_webhook_idempotency_db_failure_falls_through(self, auth_client, mock_db):
+        """If the idempotency INSERT fails (e.g. table missing), processing continues."""
+        mock_event = {
+            "id": "evt_db_fail_001",
+            "type": "checkout.session.completed",
+            "data": {"object": {"metadata": {}, "customer": "cus_dbfail"}},
+        }
+
+        # Simulate idempotency table being unavailable
+        mock_db.execute = AsyncMock(side_effect=Exception("relation does not exist"))
+        mock_db.commit = AsyncMock()
+
+        with patch("api.v1.billing.StripeService") as MockStripe:
+            stripe_instance = MockStripe.return_value
+            stripe_instance.is_configured = True
+            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.handle_webhook_event = AsyncMock(
+                return_value={
+                    "handled": False,
+                    "action": None,
+                    "user_id": None,
+                    "tier": None,
+                    "customer_id": None,
+                }
+            )
+
+            response = auth_client.post(
+                f"{BASE_URL}/webhook",
+                content=b"{}",
+                headers={"stripe-signature": "t=123,v1=sig_valid"},
+            )
+
+        # Must still return 200 — fall-through behaviour
+        assert response.status_code == 200
+        assert response.json()["received"] is True
+        # Processing continued despite idempotency check failure
+        stripe_instance.handle_webhook_event.assert_awaited_once()
 
 
 # =============================================================================
@@ -995,7 +1115,7 @@ class TestUnauthenticatedAccess:
 
             response = unauth_client.post(
                 f"{BASE_URL}/webhook",
-                content=b'{}',
+                content=b"{}",
                 headers={"stripe-signature": "t=123,v1=sig"},
             )
 

@@ -2,14 +2,14 @@
 Community Service — CRUD for community posts, votes, reports, and moderation.
 
 Fail-closed moderation: posts start as is_pending_moderation=true.
-AI classifies via Groq (primary) with Gemini fallback; 30s timeout auto-clears.
+AI classifies via Groq (primary) with Gemini fallback; 30s timeout leaves
+post in pending state (visible only after an explicit moderation pass).
 Vote and report counts are derived via COUNT(*), not stored columns.
 XSS sanitization via nh3 (Rust-based).
 """
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 import nh3
 import structlog
@@ -24,8 +24,8 @@ REPORT_HIDE_THRESHOLD = 5
 # Max posts per user per hour
 POSTS_PER_HOUR_LIMIT = 10
 
-# Moderation timeout (seconds)
-MODERATION_TIMEOUT_SECONDS = 5
+# Moderation timeout (seconds) — 30s to give AI providers adequate response time
+MODERATION_TIMEOUT_SECONDS = 30
 
 
 class CommunityService:
@@ -39,9 +39,9 @@ class CommunityService:
         self,
         db: AsyncSession,
         user_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         agent_service: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a community post with XSS sanitization and fail-closed moderation.
 
@@ -94,21 +94,22 @@ class CommunityService:
         post = dict(result.mappings().fetchone())
         await db.commit()
 
-        # 4. Fire moderation with timeout (fail-closed: post is pending until classified)
+        # 4. Fire moderation with timeout (fail-closed: post remains pending on timeout)
         post_id = post["id"]
         try:
             await asyncio.wait_for(
                 self._run_moderation(db, post_id, clean_title, clean_body, agent_service),
                 timeout=MODERATION_TIMEOUT_SECONDS,
             )
-        except (asyncio.TimeoutError, Exception) as exc:
+        except (TimeoutError, Exception) as exc:
+            # Fail-closed: leave is_pending_moderation=true so the post stays
+            # invisible until a subsequent moderation pass explicitly clears it.
+            # Do NOT call _clear_pending_moderation here — that would be fail-open.
             logger.warning(
                 "moderation_timeout_or_failure",
                 post_id=str(post_id),
                 error=str(exc),
             )
-            # Timeout: auto-clear pending moderation so post becomes visible
-            await self._clear_pending_moderation(db, post_id)
 
         return post
 
@@ -192,7 +193,7 @@ class CommunityService:
         utility_type: str,
         page: int = 1,
         per_page: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Return paginated posts, excluding hidden and pending moderation.
         Uses COUNT(*) OVER() window function to get total in a single query.
@@ -258,7 +259,7 @@ class CommunityService:
         db: AsyncSession,
         user_id: str,
         post_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Atomically toggle a vote and return voted state + count in a single query.
 
@@ -293,9 +294,7 @@ class CommunityService:
                 COALESCE((SELECT action FROM result), 'noop') AS action,
                 (SELECT COUNT(*) FROM community_votes WHERE post_id = :post_id) AS upvote_count
         """)
-        result = await db.execute(
-            toggle_sql, {"user_id": user_id, "post_id": post_id}
-        )
+        result = await db.execute(toggle_sql, {"user_id": user_id, "post_id": post_id})
         row = result.mappings().fetchone()
         await db.commit()
 
@@ -323,7 +322,7 @@ class CommunityService:
         db: AsyncSession,
         user_id: str,
         post_id: str,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> None:
         """
         Report a post. Idempotent via INSERT ON CONFLICT DO NOTHING.
@@ -451,25 +450,30 @@ class CommunityService:
         if not posts:
             return 0
 
-        # Parallel AI classification with concurrency limit
+        # Parallel AI classification with concurrency limit.
+        # Each coroutine returns the post ID if flagged, or None otherwise.
+        # Collecting results via asyncio.gather return values avoids the race
+        # condition of concurrent appends to a shared mutable list.
         sem = asyncio.Semaphore(5)
-        flagged_ids: list[str] = []
 
-        async def classify_post(post) -> None:
+        async def classify_post(post) -> str | None:
+            """Return post ID if flagged, None otherwise."""
             async with sem:
                 content = f"{post['title']}\n\n{post['body']}"
                 try:
                     classification = await agent_service.classify_content(content)
                     if classification == "flagged":
-                        flagged_ids.append(str(post["id"]))
+                        return str(post["id"])
                 except Exception as exc:
                     logger.warning(
                         "retroactive_moderation_failed",
                         post_id=str(post["id"]),
                         error=str(exc),
                     )
+                return None
 
-        await asyncio.gather(*(classify_post(p) for p in posts))
+        results = await asyncio.gather(*(classify_post(p) for p in posts))
+        flagged_ids = [post_id for post_id in results if post_id is not None]
 
         # Batch update all flagged posts in a single query
         if flagged_ids:
@@ -494,9 +498,9 @@ class CommunityService:
         db: AsyncSession,
         user_id: str,
         post_id: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         agent_service: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Allow the author to edit a flagged post and resubmit for moderation.
         Only the original author can edit. Re-sanitizes and re-triggers moderation.
@@ -533,15 +537,16 @@ class CommunityService:
         updated = dict(update_result.mappings().fetchone())
         await db.commit()
 
-        # Re-trigger moderation
+        # Re-trigger moderation — fail-closed: post stays pending on timeout/error
         try:
             await asyncio.wait_for(
                 self._run_moderation(db, post_id, clean_title, clean_body, agent_service),
                 timeout=MODERATION_TIMEOUT_SECONDS,
             )
-        except (asyncio.TimeoutError, Exception) as exc:
+        except (TimeoutError, Exception) as exc:
+            # Fail-closed: leave is_pending_moderation=true so the resubmitted post
+            # stays invisible until an explicit moderation pass clears it.
             logger.warning("resubmit_moderation_failed", post_id=str(post_id), error=str(exc))
-            await self._clear_pending_moderation(db, post_id)
 
         return updated
 
@@ -553,7 +558,7 @@ class CommunityService:
         self,
         db: AsyncSession,
         region: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Aggregate community stats for social proof with attribution.
         Returns total_users, earliest_post date, and top-voted tip.

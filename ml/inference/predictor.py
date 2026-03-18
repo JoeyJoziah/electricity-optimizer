@@ -3,6 +3,28 @@ Price Predictor Module
 
 Provides inference capabilities for trained price forecasting models.
 Handles model loading, feature preprocessing, and prediction generation.
+
+Confidence Interval Approach
+------------------------------
+Intervals are produced via *split conformal prediction* (Papadopoulos 2002)
+when calibration residuals are available, falling back to a Gaussian
+approximation otherwise.
+
+Split conformal prediction is distribution-free and provides marginal coverage
+guarantees: if residuals are exchangeable, the empirical coverage across many
+test points equals the requested level asymptotically.
+
+Steps (performed once after training, stored alongside the model):
+  1. On a held-out calibration set, compute per-horizon residuals
+     r_h = |y_true_h - y_hat_h| for h in {0, …, horizon-1}.
+  2. For each horizon step h, store q_lo_h and q_hi_h as the
+     alpha/2 and (1-alpha/2) quantiles of the signed residuals
+     (y_true_h - y_hat_h) so that asymmetric intervals can be produced.
+  3. At inference time, CI = [point + q_lo_h, point + q_hi_h].
+
+When no calibration residuals are available the module falls back to the
+±z*σ approach with σ = DEFAULT_UNCERTAINTY_FRACTION * |point|, but this
+fallback is clearly documented as approximate and emits a WARNING log.
 """
 
 from __future__ import annotations
@@ -11,7 +33,7 @@ import hashlib
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -24,7 +46,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Standard normal z-scores for common confidence levels (two-tailed).
-# Used to construct symmetric confidence intervals: point ± z * std.
 Z_SCORES: Dict[float, float] = {
     0.80: 1.282,
     0.85: 1.440,
@@ -33,9 +54,9 @@ Z_SCORES: Dict[float, float] = {
     0.99: 2.576,
 }
 
-# Fractional uncertainty applied to point predictions when the model does not
-# output explicit confidence bounds (e.g. tree models, 2-D CNN-LSTM output).
-# A value of 0.1 means "assume 10 % of the prediction magnitude as 1-sigma std".
+# Fractional uncertainty used ONLY as a last-resort fallback when no
+# calibration residuals are stored.  This is clearly approximate and
+# should be replaced by calling calibrate() after training.
 DEFAULT_UNCERTAINTY_FRACTION: float = 0.1
 
 # Default train fraction when splitting training data internally.
@@ -48,6 +69,10 @@ class PricePredictor:
 
     Supports CNN-LSTM, XGBoost, and LightGBM models.
 
+    Confidence intervals are generated via split conformal prediction when
+    calibration residuals are available (call ``calibrate()`` after training),
+    or fall back to an approximate Gaussian interval otherwise.
+
     Args:
         model_path: Path to saved model directory
         model_type: Type of model ('cnn_lstm', 'xgboost', 'lightgbm')
@@ -55,6 +80,7 @@ class PricePredictor:
 
     Example:
         predictor = PricePredictor("/path/to/model")
+        predictor.calibrate(cal_features_df, cal_actuals, horizon=24)
         forecast = predictor.predict(features_df, horizon=24)
     """
 
@@ -69,6 +95,12 @@ class PricePredictor:
         self.scaler = None
         self.config = None
         self.model_version = None
+
+        # Conformal prediction quantiles, shape (2, horizon):
+        #   [0, :] = lower quantile offsets (q_lo per horizon step, <= 0)
+        #   [1, :] = upper quantile offsets (q_hi per horizon step, >= 0)
+        # None means calibrate() has not been called yet.
+        self._conformal_quantiles: Optional[np.ndarray] = None
 
         self._load_model()
         self._load_metadata()
@@ -125,7 +157,6 @@ class PricePredictor:
 
         if self.model_type == "cnn_lstm":
             import torch
-            from ml.models.cnn_lstm import CNNLSTMModel
 
             # Load model architecture config
             config_path = os.path.join(self.model_path, "config.yaml")
@@ -133,15 +164,18 @@ class PricePredictor:
                 with open(config_path) as f:
                     self.config = yaml.safe_load(f)
 
-            # Verify hash before unsafe deserialization.
-            # NOTE: weights_only=False is required for full nn.Module; we
-            # mitigate with hash verification + trusted-source policy.
-            # TODO: Migrate to state-dict format so weights_only=True works.
+            # Verify hash before deserialization to ensure model file integrity.
+            # weights_only=True restricts unpickling to safe tensor/storage
+            # primitives only, preventing arbitrary code execution from
+            # malicious .pt files (CVE class: unsafe pickle deserialization).
+            # If the model was saved as a full nn.Module (legacy pickle format)
+            # rather than a state-dict, torch will raise a RuntimeError here —
+            # that is intentional fail-closed behaviour; re-save with
+            # torch.save(model.state_dict(), path) + model.load_state_dict().
+            # See also: safetensors library as a drop-in alternative.
             model_file = os.path.join(self.model_path, "model.pt")
             self._verify_hash(model_file, hashes)
-            self.model = torch.load(  # noqa: S614
-                model_file, map_location="cpu", weights_only=False
-            )
+            self.model = torch.load(model_file, map_location="cpu", weights_only=True)
             self.model.eval()
 
         elif self.model_type == "xgboost":
@@ -162,9 +196,10 @@ class PricePredictor:
         if os.path.exists(scaler_path):
             self._verify_hash(scaler_path, hashes)
             import joblib
+
             self.scaler = joblib.load(scaler_path)
 
-        logger.info(f"Model loaded successfully")
+        logger.info("Model loaded successfully")
 
     def _load_metadata(self):
         """Load model metadata including training date for freshness checks."""
@@ -203,10 +238,7 @@ class PricePredictor:
                 raise ValueError("Input features contain infinite values")
 
         # Remove target columns if present
-        feature_cols = [
-            c for c in numeric_cols
-            if c not in ["target", "price_target"]
-        ]
+        feature_cols = [c for c in numeric_cols if c not in ["target", "price_target"]]
 
         # Get features
         features = df[feature_cols].values
@@ -231,25 +263,282 @@ class PricePredictor:
 
         return features
 
+    # -------------------------------------------------------------------------
+    # Conformal calibration
+    # -------------------------------------------------------------------------
+
+    def calibrate(
+        self,
+        cal_features: Union[pd.DataFrame, np.ndarray],
+        cal_actuals: np.ndarray,
+        horizon: int = 24,
+        coverage: float = 0.80,
+    ) -> "PricePredictor":
+        """Calibrate the predictor using split conformal prediction.
+
+        Call this ONCE on a held-out calibration set after training (before
+        the model is used in production).  The calibration set must NOT overlap
+        with the training data.
+
+        The method computes per-horizon signed residuals
+        r_{i,h} = y_{i,h} - ŷ_{i,h}  for every calibration sample i and
+        horizon step h, then stores the alpha/2 and (1-alpha/2) quantiles
+        as lower/upper offsets.  At inference time the intervals become:
+
+            lower_h = point_h + q_lo_h
+            upper_h = point_h + q_hi_h
+
+        This gives marginal coverage ≈ ``coverage`` over exchangeable test data
+        without any parametric distributional assumption.
+
+        Args:
+            cal_features: Calibration features (DataFrame or 2-D/3-D ndarray).
+                          Each row (or batch element) is one calibration window.
+            cal_actuals:  Ground-truth targets, shape (n_cal, horizon).
+            horizon:      Number of forecast steps.
+            coverage:     Desired marginal coverage, e.g. 0.80 → 80 % CI.
+                          This maps to alpha = 1 - coverage.
+
+        Returns:
+            self (for chaining)
+        """
+        alpha = 1.0 - coverage
+        lo_q = alpha / 2.0  # e.g. 0.10 for 80 % coverage
+        hi_q = 1.0 - alpha / 2.0  # e.g. 0.90 for 80 % coverage
+
+        # Collect point predictions for all calibration samples.
+        # We need raw point predictions without applying existing conformal
+        # offsets, so we temporarily clear them.
+        saved_quantiles = self._conformal_quantiles
+        self._conformal_quantiles = None
+        try:
+            if isinstance(cal_features, pd.DataFrame):
+                # Predict each window individually when a DataFrame is passed.
+                n_cal = len(cal_features)
+                point_preds = np.zeros((n_cal, horizon))
+                for i in range(n_cal):
+                    row_df = cal_features.iloc[[i]]
+                    result = self._predict_point_only(row_df, horizon=horizon)
+                    point_preds[i] = result
+            else:
+                # ndarray: each row / slice is one sample.
+                cal_arr = np.asarray(cal_features)
+                if cal_arr.ndim == 2:
+                    # (n_cal, n_features) — wrap each row
+                    n_cal = cal_arr.shape[0]
+                    point_preds = np.zeros((n_cal, horizon))
+                    for i in range(n_cal):
+                        row = cal_arr[[i]]
+                        result = self._predict_point_only_array(row, horizon=horizon)
+                        point_preds[i] = result
+                elif cal_arr.ndim == 3:
+                    # (n_cal, sequence_length, n_features)
+                    n_cal = cal_arr.shape[0]
+                    point_preds = np.zeros((n_cal, horizon))
+                    for i in range(n_cal):
+                        seq = cal_arr[[i]]  # shape (1, seq_len, n_features)
+                        result = self._predict_point_only_array(seq, horizon=horizon)
+                        point_preds[i] = result
+                else:
+                    raise ValueError(
+                        f"cal_features must be 2-D or 3-D ndarray, got {cal_arr.ndim}-D"
+                    )
+        finally:
+            self._conformal_quantiles = saved_quantiles
+
+        # Signed residuals: shape (n_cal, horizon)
+        actuals = np.asarray(cal_actuals)
+        if actuals.shape != point_preds.shape:
+            raise ValueError(
+                f"cal_actuals shape {actuals.shape} does not match "
+                f"predictions shape {point_preds.shape}"
+            )
+        residuals = actuals - point_preds  # positive → model under-predicted
+
+        # Per-horizon quantiles, shape (horizon,)
+        q_lo = np.quantile(residuals, lo_q, axis=0)  # negative → lower offset
+        q_hi = np.quantile(residuals, hi_q, axis=0)  # positive → upper offset
+
+        # Store as (2, horizon): row 0 = lower offsets, row 1 = upper offsets
+        self._conformal_quantiles = np.stack([q_lo, q_hi], axis=0)
+
+        logger.info(
+            "conformal_calibrated: n_cal=%d coverage=%.0f%% "
+            "mean_q_lo=%.4f mean_q_hi=%.4f",
+            n_cal,
+            coverage * 100,
+            float(q_lo.mean()),
+            float(q_hi.mean()),
+        )
+        return self
+
+    def _conformal_intervals(
+        self,
+        point: np.ndarray,
+        horizon: int,
+        confidence_level: float,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Return (lower, upper) using conformal quantiles when available.
+
+        If conformal quantiles are not yet calibrated, falls back to the
+        approximate Gaussian method with a clear WARNING log so operators
+        know the intervals are not statistically grounded.
+
+        Args:
+            point:            Point predictions, shape (horizon,).
+            horizon:          Number of forecast steps.
+            confidence_level: Requested coverage (0-1).  Used only by the
+                              fallback path; conformal uses the pre-computed
+                              quantiles from calibrate().
+
+        Returns:
+            lower, upper — both shape (horizon,)
+        """
+        if self._conformal_quantiles is not None:
+            # Trim / repeat quantiles if horizon changed after calibration.
+            cal_horizon = self._conformal_quantiles.shape[1]
+            if cal_horizon >= horizon:
+                q_lo = self._conformal_quantiles[0, :horizon]
+                q_hi = self._conformal_quantiles[1, :horizon]
+            else:
+                # Extend by repeating the last step's quantiles.
+                pad = horizon - cal_horizon
+                q_lo = np.concatenate(
+                    [
+                        self._conformal_quantiles[0],
+                        np.full(pad, self._conformal_quantiles[0, -1]),
+                    ]
+                )
+                q_hi = np.concatenate(
+                    [
+                        self._conformal_quantiles[1],
+                        np.full(pad, self._conformal_quantiles[1, -1]),
+                    ]
+                )
+            return point + q_lo, point + q_hi
+
+        # ── Fallback: approximate Gaussian (NOT statistically grounded) ──────
+        logger.warning(
+            "conformal_not_calibrated: using approximate ±%.0f%% magnitude "
+            "uncertainty. Call calibrate() on a held-out set for valid CIs.",
+            DEFAULT_UNCERTAINTY_FRACTION * 100,
+        )
+        std = np.abs(point) * DEFAULT_UNCERTAINTY_FRACTION
+        z = Z_SCORES.get(confidence_level, 1.960)
+        return point - z * std, point + z * std
+
+    # -------------------------------------------------------------------------
+    # Internal point-prediction helpers (no CI computation, no logging noise)
+    # -------------------------------------------------------------------------
+
+    def _predict_point_only(
+        self,
+        df: pd.DataFrame,
+        horizon: int = 24,
+    ) -> np.ndarray:
+        """Return raw point predictions (no CI) for a DataFrame input."""
+        features = self._preprocess_features(df)
+        return self._predict_point_only_array(features, horizon=horizon)
+
+    def _predict_point_only_array(
+        self,
+        features: np.ndarray,
+        horizon: int = 24,
+    ) -> np.ndarray:
+        """Return raw point predictions (no CI) for a pre-processed array.
+
+        Tree models: single forward pass using all features as a flat 2-D
+        array.  The MIMO (direct multi-output) approach predicts all horizon
+        steps simultaneously from the same feature snapshot — no recursive
+        feeding of predictions back as inputs, so errors do not compound.
+
+        CNN-LSTM: standard forward pass, take the first column of the output
+        if the model emits (batch, horizon, 3) or use the full output if
+        (batch, horizon).
+        """
+        if self.model_type == "cnn_lstm":
+            import torch
+
+            with torch.no_grad():
+                x = torch.FloatTensor(features)
+                output = self.model(x)
+                if output.dim() == 3:
+                    # (batch, horizon, 3) → point is column 0
+                    point = output.numpy()[0, :, 0]
+                else:
+                    # (batch, horizon)
+                    point = output.numpy()[0]
+            return point[:horizon]
+
+        elif self.model_type in ["xgboost", "lightgbm"]:
+            # MIMO: use the current feature snapshot to predict all horizon
+            # steps at once.  The tree model is expected to have been trained
+            # with MultiOutputRegressor (one estimator per step) so a single
+            # predict() call returns shape (n_samples, horizon).
+            #
+            # If the stored model returns a 1-D array (single-step model),
+            # we fall back to repeating the prediction — still no error
+            # compounding, just lower accuracy for distant steps.
+            feat_2d = features.reshape(1, -1) if features.ndim != 2 else features
+            if feat_2d.shape[0] == 0:
+                return np.zeros(horizon)
+
+            raw = self.model.predict(feat_2d)
+            raw = np.asarray(raw)
+
+            if raw.ndim == 2:
+                # MultiOutputRegressor: shape (n_samples, n_outputs)
+                point = raw[0]
+            else:
+                # Single-output model: broadcast to all horizon steps
+                point = np.full(horizon, float(raw[0]))
+
+            return (
+                point[:horizon]
+                if len(point) >= horizon
+                else np.concatenate([point, np.full(horizon - len(point), point[-1])])
+            )
+
+        else:
+            raise ValueError(f"Unknown model_type: {self.model_type}")
+
+    # -------------------------------------------------------------------------
+    # Public predict API
+    # -------------------------------------------------------------------------
+
     def predict(
         self,
         df: pd.DataFrame,
         horizon: int = 24,
         confidence_level: float = 0.9,
     ) -> Dict[str, np.ndarray]:
-        """
-        Generate price forecasts.
+        """Generate price forecasts with statistically grounded intervals.
+
+        Multi-step strategy
+        -------------------
+        Tree models (XGBoost / LightGBM) use a **direct multi-output (MIMO)**
+        approach: a single model call with the current feature snapshot
+        produces all horizon steps simultaneously.  This avoids the recursive
+        strategy where prediction errors compound at each step.
+
+        CNN-LSTM models produce all horizon steps in one forward pass by
+        design.
+
+        Confidence intervals
+        --------------------
+        Intervals are built by ``_conformal_intervals()``:
+        - If ``calibrate()`` was called, split conformal prediction quantiles
+          are used — distribution-free, empirically grounded.
+        - Otherwise a Gaussian approximation (±z*σ, σ = 10 % of |point|) is
+          used with a WARNING so operators know it is approximate.
 
         Args:
-            df: DataFrame with feature columns
-            horizon: Number of hours to forecast
-            confidence_level: Confidence level for intervals (0-1)
+            df:               DataFrame with feature columns.
+            horizon:          Number of hours to forecast.
+            confidence_level: Desired CI coverage (used by fallback path).
 
         Returns:
-            Dictionary with:
-                - point: Point forecasts (horizon,)
-                - lower: Lower bounds (horizon,)
-                - upper: Upper bounds (horizon,)
+            Dict with keys "point", "lower", "upper" — each shape (horizon,).
         """
         # Model freshness check: warn if model is older than 30 days
         max_age_days = 30
@@ -258,7 +547,9 @@ class PricePredictor:
             if age_days > max_age_days:
                 logger.warning(
                     "model_stale: version=%s age=%dd max=%dd",
-                    self.model_version, age_days, max_age_days,
+                    self.model_version,
+                    age_days,
+                    max_age_days,
                 )
 
         # Input range validation: flag out-of-distribution values
@@ -267,68 +558,63 @@ class PricePredictor:
             if col in df.columns:
                 col_min, col_max = bounds.get("min"), bounds.get("max")
                 if col_min is not None and df[col].min() < col_min:
-                    logger.warning("input_below_range: %s=%.4f (min=%.4f)", col, float(df[col].min()), col_min)
+                    logger.warning(
+                        "input_below_range: %s=%.4f (min=%.4f)",
+                        col,
+                        float(df[col].min()),
+                        col_min,
+                    )
                 if col_max is not None and df[col].max() > col_max:
-                    logger.warning("input_above_range: %s=%.4f (max=%.4f)", col, float(df[col].max()), col_max)
+                    logger.warning(
+                        "input_above_range: %s=%.4f (max=%.4f)",
+                        col,
+                        float(df[col].max()),
+                        col_max,
+                    )
 
-        # Preprocess features
+        # ── Point predictions ────────────────────────────────────────────────
         features = self._preprocess_features(df)
 
-        # Generate predictions
         if self.model_type == "cnn_lstm":
             import torch
 
             with torch.no_grad():
                 x = torch.FloatTensor(features)
                 output = self.model(x)
-
-                # Model outputs (point, lower, upper) for each horizon
                 if output.dim() == 3:
+                    # (batch, horizon, 3): column 0 = point, 1 = lo, 2 = hi
                     predictions = output.numpy()[0]  # (horizon, 3)
-                    point = predictions[:, 0]
-                    lower = predictions[:, 1]
-                    upper = predictions[:, 2]
+                    point = predictions[:horizon, 0]
+                    # If model natively outputs intervals, prefer them but
+                    # still allow conformal override when calibrated.
+                    model_lower = predictions[:horizon, 1]
+                    model_upper = predictions[:horizon, 2]
+                    # Use native model intervals only if conformal is absent
+                    if self._conformal_quantiles is None:
+                        lower, upper = model_lower, model_upper
+                    else:
+                        lower, upper = self._conformal_intervals(
+                            point, horizon, confidence_level
+                        )
                 else:
-                    # Single output — estimate uncertainty from prediction magnitude
-                    point = output.numpy()[0]
-                    std = np.abs(point) * DEFAULT_UNCERTAINTY_FRACTION
-                    z = Z_SCORES.get(confidence_level, 1.960)
-                    lower = point - z * std
-                    upper = point + z * std
+                    # 2-D output: (batch, horizon)
+                    point = output.numpy()[0, :horizon]
+                    lower, upper = self._conformal_intervals(
+                        point, horizon, confidence_level
+                    )
 
         elif self.model_type in ["xgboost", "lightgbm"]:
-            # Tree models predict one step at a time
-            # For multi-step, use recursive or direct approach
-            point = []
-            current_features = features[-1:] if len(features.shape) == 2 else features
+            # MIMO: predict all steps from one feature snapshot
+            point = self._predict_point_only_array(features, horizon=horizon)
+            lower, upper = self._conformal_intervals(point, horizon, confidence_level)
 
-            for h in range(horizon):
-                if self.model_type == "xgboost":
-                    pred = self.model.predict(current_features)[0]
-                else:
-                    pred = self.model.predict(current_features)[0]
+        else:
+            raise ValueError(f"Unknown model_type: {self.model_type}")
 
-                point.append(pred)
-
-                # Shift lag features: roll existing lags right, insert
-                # latest prediction at position 0 (convention: col 0 = lag_1)
-                if len(current_features.shape) == 2:
-                    current_features = current_features.copy()
-                    current_features[0, 1:] = current_features[0, :-1]
-                    current_features[0, 0] = pred
-
-            point = np.array(point)
-
-            # Estimate uncertainty from prediction magnitude
-            std = np.abs(point) * DEFAULT_UNCERTAINTY_FRACTION
-            z = Z_SCORES.get(confidence_level, 1.960)
-            lower = point - z * std
-            upper = point + z * std
-
-        # Ensure horizon length
-        point = point[:horizon]
-        lower = lower[:horizon]
-        upper = upper[:horizon]
+        # Ensure exact horizon length
+        point = np.asarray(point[:horizon])
+        lower = np.asarray(lower[:horizon])
+        upper = np.asarray(upper[:horizon])
 
         return {
             "point": point,

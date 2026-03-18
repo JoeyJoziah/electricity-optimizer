@@ -4,15 +4,16 @@ Billing API Endpoints
 Stripe integration for subscription management.
 """
 
-from typing import Optional
 from urllib.parse import urlparse
+
+import stripe
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, HttpUrl, field_validator
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
-import stripe
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from config.settings import settings
 from repositories.user_repository import UserRepository
 from services.stripe_service import StripeService, apply_webhook_action
@@ -40,10 +41,7 @@ class CheckoutSessionRequest(BaseModel):
         allowed = settings.allowed_redirect_domains
         parsed = urlparse(str(v))
         hostname = parsed.hostname or ""
-        if not any(
-            hostname == d or hostname.endswith(f".{d}")
-            for d in allowed
-        ):
+        if not any(hostname == d or hostname.endswith(f".{d}") for d in allowed):
             raise ValueError(
                 f"Redirect URL domain '{hostname}' is not allowed. "
                 f"Must be one of: {', '.join(allowed)}"
@@ -69,10 +67,7 @@ class PortalSessionRequest(BaseModel):
         allowed = settings.allowed_redirect_domains
         parsed = urlparse(str(v))
         hostname = parsed.hostname or ""
-        if not any(
-            hostname == d or hostname.endswith(f".{d}")
-            for d in allowed
-        ):
+        if not any(hostname == d or hostname.endswith(f".{d}") for d in allowed):
             raise ValueError(
                 f"Redirect URL domain '{hostname}' is not allowed. "
                 f"Must be one of: {', '.join(allowed)}"
@@ -92,8 +87,8 @@ class SubscriptionStatusResponse(BaseModel):
     tier: str
     status: str
     has_active_subscription: bool
-    current_period_end: Optional[str] = None
-    cancel_at_period_end: Optional[bool] = None
+    current_period_end: str | None = None
+    cancel_at_period_end: bool | None = None
 
 
 class WebhookEventResponse(BaseModel):
@@ -167,7 +162,7 @@ async def create_checkout_session(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid checkout request. Please check your input and try again.",
         )
     except stripe.StripeError as e:
         logger.error(
@@ -372,7 +367,7 @@ async def handle_stripe_webhook(
         logger.warning("webhook_signature_invalid", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid webhook signature.",
         )
 
     # From here we always return 200 to Stripe.  If we returned 5xx, Stripe
@@ -380,6 +375,46 @@ async def handle_stripe_webhook(
     # error with a full traceback so it shows up in alerting, then acknowledge
     # receipt so the delivery is marked as succeeded on Stripe's side.
     event_id: str = event["id"]
+    event_type: str = event.get("type", "unknown")
+
+    # ------------------------------------------------------------------
+    # Idempotency guard — Stripe delivers webhooks at least once, so the
+    # same event_id can arrive multiple times.  Attempt to record this
+    # event_id as processed.  ON CONFLICT DO NOTHING means rowcount == 0
+    # when the row already exists, indicating a duplicate delivery.
+    # ------------------------------------------------------------------
+    try:
+        insert_result = await db.execute(
+            text(
+                "INSERT INTO stripe_processed_events (event_id, event_type) "
+                "VALUES (:event_id, :event_type) "
+                "ON CONFLICT (event_id) DO NOTHING"
+            ),
+            {"event_id": event_id, "event_type": event_type},
+        )
+        await db.commit()
+
+        if insert_result.rowcount == 0:
+            # Duplicate delivery — already processed successfully.
+            logger.info(
+                "webhook_duplicate_skipped",
+                event_id=event_id,
+                event_type=event_type,
+            )
+            return WebhookEventResponse(received=True, event_id=event_id)
+
+    except Exception as e:
+        # If the idempotency table is unavailable (e.g. migration not yet
+        # applied) fall through and process the event normally rather than
+        # dropping it.  The duplicate-processing risk is lower than the
+        # risk of silently dropping real events.
+        logger.warning(
+            "webhook_idempotency_check_failed",
+            event_id=event_id,
+            event_type=event_type,
+            error=str(e),
+        )
+
     try:
         # Process the event
         result = await stripe_service.handle_webhook_event(event)

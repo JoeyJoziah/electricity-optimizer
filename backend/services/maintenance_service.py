@@ -13,7 +13,7 @@ on a scheduled basis (e.g., nightly or weekly cron).
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import text
@@ -28,7 +28,7 @@ class MaintenanceService:
 
     async def cleanup_activity_logs(self, retention_days: int = 365):
         """Delete activity logs older than retention period."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         result = await self._db.execute(
             text("DELETE FROM activity_logs WHERE created_at < :cutoff"),
             {"cutoff": cutoff},
@@ -62,7 +62,7 @@ class MaintenanceService:
 
     async def cleanup_expired_uploads(self, retention_days: int = 730):
         """Delete bill upload records and files older than retention period."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
 
         # Get file paths before deleting records
         result = await self._db.execute(
@@ -78,10 +78,7 @@ class MaintenanceService:
         upload_ids = [str(r[0]) for r in old_uploads]
         if upload_ids:
             await self._db.execute(
-                text(
-                    "DELETE FROM connection_extracted_rates"
-                    " WHERE bill_upload_id = ANY(:ids)"
-                ),
+                text("DELETE FROM connection_extracted_rates WHERE bill_upload_id = ANY(:ids)"),
                 {"ids": upload_ids},
             )
 
@@ -107,7 +104,7 @@ class MaintenanceService:
 
     async def cleanup_weather_cache(self, retention_days: int = 30):
         """Delete weather cache entries older than retention period."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         result = await self._db.execute(
             text("DELETE FROM weather_cache WHERE fetched_at < :cutoff"),
             {"cutoff": cutoff},
@@ -119,7 +116,7 @@ class MaintenanceService:
 
     async def cleanup_scraped_rates(self, retention_days: int = 90):
         """Delete scraped rate entries older than retention period."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         result = await self._db.execute(
             text("DELETE FROM scraped_rates WHERE fetched_at < :cutoff"),
             {"cutoff": cutoff},
@@ -131,7 +128,7 @@ class MaintenanceService:
 
     async def cleanup_market_intelligence(self, retention_days: int = 180):
         """Delete market intelligence entries older than retention period."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         result = await self._db.execute(
             text("DELETE FROM market_intelligence WHERE fetched_at < :cutoff"),
             {"cutoff": cutoff},
@@ -140,3 +137,24 @@ class MaintenanceService:
         count = result.rowcount
         logger.info("market_intelligence_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}
+
+    async def cleanup_stripe_processed_events(self, retention_hours: int = 72):
+        """Delete Stripe webhook idempotency records older than retention window.
+
+        Stripe retries webhooks for up to 72 hours.  Records older than that
+        window will never be replayed, so they can be safely pruned to keep
+        the table small.
+        """
+        cutoff = datetime.now(UTC) - timedelta(hours=retention_hours)
+        result = await self._db.execute(
+            text("DELETE FROM stripe_processed_events WHERE processed_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        await self._db.commit()
+        count = result.rowcount
+        logger.info(
+            "stripe_processed_events_cleaned",
+            deleted=count,
+            retention_hours=retention_hours,
+        )
+        return {"deleted": count, "retention_hours": retention_hours}

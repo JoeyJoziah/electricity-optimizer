@@ -301,16 +301,12 @@ jobs:
         run: |
           pip install bandit
           cd backend
-          bandit -r . -f json -o ../bandit-report.json -ll --severity-level high || {
-            echo "::warning::Bandit found high-severity issues"
-          }
+          bandit -r . -f json -o ../bandit-report.json -lll
 
       - name: Run Bandit on ML
         run: |
           cd ml
-          bandit -r . -f json -o ../bandit-report-ml.json -ll --severity-level high || {
-            echo "::warning::Bandit found high-severity ML issues"
-          }
+          bandit -r . -f json -o ../bandit-report-ml.json -lll
 
       - name: Run npm audit (high + critical)
         run: |

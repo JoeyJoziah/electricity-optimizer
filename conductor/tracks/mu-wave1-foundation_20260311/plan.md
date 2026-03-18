@@ -55,7 +55,7 @@ specific utility types and providers.
 
 ### Tasks
 
-- [ ] Task 1.1: Create migration `038_utility_accounts.sql`
+- [x] Task 1.1: Create migration `038_utility_accounts.sql`
   - Table: `utility_accounts`
     - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
     - `user_id UUID NOT NULL` (logical FK to users/neon_auth)
@@ -71,14 +71,14 @@ specific utility types and providers.
   - Constraint: `UNIQUE(user_id, utility_type, provider_name)` (prevent duplicates)
   - GRANT to `neondb_owner`
 
-- [ ] Task 1.2: Create Pydantic model `models/utility_account.py`
+- [x] Task 1.2: Create Pydantic model `models/utility_account.py`
   - `UtilityAccount(BaseModel)` — full model matching DB columns
   - `UtilityAccountCreate(BaseModel)` — request body (user_id auto-injected)
   - `UtilityAccountUpdate(BaseModel)` — partial update (all optional)
   - `UtilityAccountResponse(BaseModel)` — response (excludes encrypted fields)
   - Follow `models/price.py` patterns: `ConfigDict(from_attributes=True)`, UUID default factory
 
-- [ ] Task 1.3: Create `repositories/utility_account_repository.py`
+- [x] Task 1.3: Create `repositories/utility_account_repository.py`
   - Extend `BaseRepository[UtilityAccount]`
   - `__init__(self, db_session: AsyncSession)`
   - `get_by_id(id)` — single account
@@ -91,11 +91,11 @@ specific utility types and providers.
   - `get_by_user_and_type(user_id, utility_type)` — filtered by utility type
   - Raw SQL with `text()` (matches PriceRepository pattern)
 
-- [ ] Task 1.4: Register repository in `repositories/__init__.py`
+- [x] Task 1.4: Register repository in `repositories/__init__.py`
   - Import `UtilityAccountRepository`
   - Add to `__all__`
 
-- [ ] Task 1.5: Create API router `api/v1/utility_accounts.py`
+- [x] Task 1.5: Create API router `api/v1/utility_accounts.py`
   - `GET /utility-accounts` — list current user's accounts (auth required)
   - `POST /utility-accounts` — create account (auth required, inject user_id from session)
   - `PUT /utility-accounts/{id}` — update account (auth required, ownership check)
@@ -104,21 +104,21 @@ specific utility types and providers.
   - Use `Depends(get_current_user)` and `Depends(get_timescale_session)`
   - Follow `api/v1/user.py` router pattern
 
-- [ ] Task 1.6: Register router in `main.py`
+- [x] Task 1.6: Register router in `main.py`
   - Mount at `/api/v1/utility-accounts`
 
-- [ ] Task 1.7: Write tests `tests/test_utility_accounts.py`
+- [x] Task 1.7: Write tests `tests/test_utility_accounts.py`
   - Repository tests: CRUD, get_by_user, get_by_user_and_type, uniqueness constraint
   - API endpoint tests: auth required, create/read/update/delete, ownership enforcement
   - Model tests: validation, defaults, serialization
   - Target: 15-20 tests
 
 ### Verification
-- [ ] Migration 038 applies cleanly
-- [ ] All CRUD operations work through API
-- [ ] Ownership enforcement prevents cross-user access
-- [ ] All existing tests still pass
-- [ ] New tests pass
+- [x] Migration 038 applies cleanly
+- [x] All CRUD operations work through API
+- [x] Ownership enforcement prevents cross-user access
+- [x] All existing tests still pass
+- [x] New tests pass
 
 ---
 
@@ -132,7 +132,7 @@ referee gets extended trial. All tiers eligible. No Stripe integration yet
 
 ### Tasks
 
-- [ ] Task 2.1: Create migration `039_referrals.sql`
+- [x] Task 2.1: Create migration `039_referrals.sql`
   - Table: `referrals`
     - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
     - `referrer_id UUID NOT NULL` (user who shares)
@@ -145,7 +145,7 @@ referee gets extended trial. All tiers eligible. No Stripe integration yet
   - Indexes: `(referral_code)`, `(referrer_id)`, `(referee_id)`
   - GRANT to `neondb_owner`
 
-- [ ] Task 2.2: Create `services/referral_service.py`
+- [x] Task 2.2: Create `services/referral_service.py`
   - `ReferralService(db: AsyncSession)`
   - `generate_code(user_id)` — 8-char alphanumeric, retry on collision, store with referrer_id
   - `get_or_create_code(user_id)` — return existing or generate new
@@ -155,13 +155,13 @@ referee gets extended trial. All tiers eligible. No Stripe integration yet
   - `get_referral_by_code(code)` — lookup for validation
   - Raw SQL with `text()`, same pattern as MaintenanceService
 
-- [ ] Task 2.3: Create `api/v1/referrals.py`
+- [x] Task 2.3: Create `api/v1/referrals.py`
   - `GET /referrals/code` — get or generate user's referral code (auth required)
   - `POST /referrals/apply` — apply referral code (auth required, body: {code: str})
   - `GET /referrals/stats` — referral dashboard data (auth required)
   - Register in `main.py` at `/api/v1/referrals`
 
-- [ ] Task 2.4: Write tests `tests/test_referral_service.py`
+- [x] Task 2.4: Write tests `tests/test_referral_service.py`
   - Code generation: uniqueness, format (8 chars alphanumeric)
   - Apply flow: valid code, already-used code, self-referral blocked, nonexistent code
   - Complete flow: status transition, reward_applied flag, completed_at set
@@ -170,11 +170,11 @@ referee gets extended trial. All tiers eligible. No Stripe integration yet
   - Target: 15-20 tests
 
 ### Verification
-- [ ] Migration 039 applies cleanly
-- [ ] Referral codes generate as 8-char alphanumeric
-- [ ] Apply -> complete flow works
-- [ ] Self-referral blocked
-- [ ] All tests pass
+- [x] Migration 039 applies cleanly
+- [x] Referral codes generate as 8-char alphanumeric
+- [x] Apply -> complete flow works
+- [x] Self-referral blocked
+- [x] All tests pass
 
 ---
 
@@ -188,42 +188,42 @@ Next.js 16 uses App Router — no `_app.tsx`.
 
 ### Tasks
 
-- [ ] Task 3.1: Add web manifest
+- [x] Task 3.1: Add web manifest
   - Create `frontend/public/manifest.json` with:
     - `name: "RateShift"`, `short_name: "RateShift"`, `display: "standalone"`
     - `theme_color`, `background_color` matching brand
     - Icon refs (192x192, 512x512) — use existing or create placeholder PNGs
   - Add manifest link in root layout `<head>` via Next.js metadata API
 
-- [ ] Task 3.2: Create service worker `frontend/public/sw.js`
+- [x] Task 3.2: Create service worker `frontend/public/sw.js`
   - Cache static assets on install (App Shell pattern)
   - Network-first strategy for `/api/v1/prices/*` — fall back to cached stale data
   - Cache-first for static assets (JS/CSS/images)
   - Version-based cache busting on update
   - Register in root layout via `useEffect` in a client component
 
-- [ ] Task 3.3: Create install prompt component
+- [x] Task 3.3: Create install prompt component
   - `frontend/src/components/InstallPrompt.tsx`
   - Listen for `beforeinstallprompt` event
   - Show dismissible banner after 2nd visit (localStorage counter)
   - Track install acceptance/dismissal
 
-- [ ] Task 3.4: OneSignal web push setup
+- [x] Task 3.4: OneSignal web push setup
   - Add OneSignal web SDK init to root layout (already have OneSignal for mobile)
   - Permission prompt on settings page (not intrusive — button, not auto-popup)
   - Wire `userId` binding post-login (matches existing mobile pattern)
 
-- [ ] Task 3.5: Write PWA tests
+- [x] Task 3.5: Write PWA tests
   - Manifest: valid JSON, required fields present
   - Service worker: registration logic test
   - InstallPrompt: render, dismiss, visit counter
 
 ### Verification
-- [ ] `manifest.json` valid and linked in HTML head
-- [ ] Service worker registers successfully
-- [ ] Install prompt shows on 2nd visit (mobile Chrome)
-- [ ] OneSignal web push permission requestable
-- [ ] All tests pass
+- [x] `manifest.json` valid and linked in HTML head
+- [x] Service worker registers successfully
+- [x] Install prompt shows on 2nd visit (mobile Chrome)
+- [x] OneSignal web push permission requestable
+- [x] All tests pass
 
 ---
 
@@ -231,17 +231,17 @@ Next.js 16 uses App Router — no `_app.tsx`.
 
 ### Tasks
 
-- [ ] Task 4.1: Run full backend test suite — zero regressions
-- [ ] Task 4.2: Run full frontend test suite — zero regressions
-- [ ] Task 4.3: Update conductor track status
-- [ ] Task 4.4: Update DSP graph with new entities (utility_account model, referral service, etc.)
+- [x] Task 4.1: Run full backend test suite — zero regressions
+- [x] Task 4.2: Run full frontend test suite — zero regressions
+- [x] Task 4.3: Update conductor track status
+- [x] Task 4.4: Update DSP graph with new entities (utility_account model, referral service, etc.)
 
 ### Verification
-- [ ] All backend tests pass (2,032+ existing + ~35 new)
-- [ ] All frontend tests pass (1,475+ existing + ~5 new)
-- [ ] Migrations 038-039 ready for deployment
-- [ ] Existing electricity functionality unaffected
-- [ ] Wave 2 unblocked
+- [x] All backend tests pass (2,032+ existing + ~35 new)
+- [x] All frontend tests pass (1,475+ existing + ~5 new)
+- [x] Migrations 038-039 ready for deployment
+- [x] Existing electricity functionality unaffected
+- [x] Wave 2 unblocked
 
 ---
 

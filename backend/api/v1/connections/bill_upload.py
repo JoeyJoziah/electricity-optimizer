@@ -20,16 +20,15 @@ Patching note:
 """
 
 import asyncio
-import sys
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
+from api.dependencies import SessionData, get_db_session
+from api.v1.connections.common import require_paid_tier
 from models.connections import (
     BillUploadListResponse,
     BillUploadResponse,
@@ -37,12 +36,11 @@ from models.connections import (
     CreateUploadConnectionRequest,
 )
 from services.bill_parser import (
-    BillParserService,
     MAX_FILE_SIZE_BYTES,
+    BillParserService,
     build_storage_key,
     validate_upload_file,
 )
-from api.v1.connections.common import require_paid_tier
 
 logger = structlog.get_logger(__name__)
 
@@ -214,9 +212,10 @@ async def upload_bill_file(
     try:
         file_type = validate_upload_file(filename, content_type, data)
     except ValueError as exc:
+        log.warning("bill_upload_validation_failed", error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=str(exc),
+            detail="Unsupported file type. Please upload a PDF, PNG, or JPEG file.",
         ) from exc
 
     # Generate IDs and storage path
@@ -412,6 +411,7 @@ async def reparse_bill_upload(
     # Resolve _run_background_parse through the package namespace so test patches
     # on ``api.v1.connections._run_background_parse`` are observed at call time.
     import api.v1.connections as _pkg
+
     background_parse_fn = _pkg._run_background_parse
 
     # Verify connection ownership

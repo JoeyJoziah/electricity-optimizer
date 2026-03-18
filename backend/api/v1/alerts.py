@@ -16,15 +16,14 @@ PUT    /alerts/{alert_id}   — update an alert config
 import re
 import uuid
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from services.alert_service import AlertService
 
 logger = structlog.get_logger(__name__)
@@ -45,10 +44,10 @@ class CreateAlertRequest(BaseModel):
 
     region: str = Field(description="Region code (e.g. 'us_ct')")
     currency: str = Field(default="USD", max_length=10, description="ISO 4217 currency code")
-    price_below: Optional[float] = Field(
+    price_below: float | None = Field(
         default=None, gt=0, description="Alert when price drops to/below this value ($/kWh)"
     )
-    price_above: Optional[float] = Field(
+    price_above: float | None = Field(
         default=None, gt=0, description="Alert when price rises to/above this value ($/kWh)"
     )
     notify_optimal_windows: bool = Field(
@@ -79,12 +78,12 @@ class CreateAlertRequest(BaseModel):
 class UpdateAlertRequest(BaseModel):
     """Body for PUT /alerts/{alert_id}.  All fields optional."""
 
-    region: Optional[str] = None
-    currency: Optional[str] = Field(default=None, max_length=10)
-    price_below: Optional[float] = Field(default=None, gt=0)
-    price_above: Optional[float] = Field(default=None, gt=0)
-    notify_optimal_windows: Optional[bool] = None
-    is_active: Optional[bool] = None
+    region: str | None = None
+    currency: str | None = Field(default=None, max_length=10)
+    price_below: float | None = Field(default=None, gt=0)
+    price_above: float | None = Field(default=None, gt=0)
+    notify_optimal_windows: bool | None = None
+    is_active: bool | None = None
 
 
 # =============================================================================
@@ -109,7 +108,7 @@ def _get_alert_service() -> AlertService:
 async def get_alerts(
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Return all price alert configurations for the authenticated user,
     ordered by creation date (newest first).
@@ -134,7 +133,7 @@ async def create_alert(
     body: CreateAlertRequest,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a new price alert configuration for the authenticated user.
 
@@ -159,14 +158,16 @@ async def create_alert(
             notify_optimal_windows=body.notify_optimal_windows,
         )
     except PermissionError as exc:
+        logger.warning("alert_create_forbidden", user_id=current_user.user_id, error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc),
+            detail="Alert limit reached for your subscription tier.",
         ) from exc
     except ValueError as exc:
+        logger.warning("alert_create_invalid", user_id=current_user.user_id, error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
+            detail="Invalid alert configuration. Check thresholds and region.",
         ) from exc
 
     logger.info("alert_endpoint_created", user_id=current_user.user_id)
@@ -183,7 +184,7 @@ async def get_alert_history(
     page_size: int = Query(default=20, ge=1, le=100, description="Records per page (max 100)"),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Return a paginated list of alert trigger events for the authenticated user,
     ordered by trigger time (newest first).
@@ -212,7 +213,7 @@ async def delete_alert(
     alert_id: uuid.UUID = Path(..., description="UUID of the alert config to delete"),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete the price alert configuration with the given ID.  The alert must
     belong to the authenticated user; otherwise 404 is returned.
@@ -246,7 +247,7 @@ async def update_alert(
     body: UpdateAlertRequest = ...,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Update fields on an existing price alert configuration.  Only fields
     present in the request body are modified; unknown fields are ignored.

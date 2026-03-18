@@ -14,18 +14,16 @@ Enhanced for CNN-LSTM model with attention mechanism.
 
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional, Union
+from typing import List, Tuple, Optional
 from dataclasses import dataclass, field
 import logging
-from abc import ABC, abstractmethod
 import holidays
 
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import StandardScaler
 
 try:
     from statsmodels.tsa.seasonal import seasonal_decompose
+
     HAS_STATSMODELS = True
 except ImportError:
     HAS_STATSMODELS = False
@@ -39,7 +37,7 @@ class FeatureConfig:
 
     # Sequence parameters
     sequence_length: int = 168  # 7 days of hourly data
-    forecast_horizon: int = 24   # 24-hour ahead forecast
+    forecast_horizon: int = 24  # 24-hour ahead forecast
 
     # Lag features
     price_lags: List[int] = field(default_factory=lambda: [1, 2, 3, 6, 12, 24, 48, 168])
@@ -52,7 +50,7 @@ class FeatureConfig:
     scaling_method: str = "standard"  # standard, minmax, robust
 
     # Holiday calendar
-    country_code: str = "DE"  # Germany as default for European electricity
+    country_code: str = "US"  # United States as default
 
     # Feature groups to include
     include_temporal: bool = True
@@ -78,17 +76,18 @@ class ElectricityPriceFeatureEngine:
     # Map legacy / informal country codes to ISO 3166-1 alpha-2 codes accepted
     # by the holidays library.  Older versions of holidays (< 0.40) did not
     # accept 'UK'; the canonical code is 'GB' (Great Britain).
+    # 'USA' is normalised to 'US' for consistency.
     _COUNTRY_CODE_ALIASES: dict = {
         "UK": "GB",
         "GREAT BRITAIN": "GB",
         "ENGLAND": "GB",
+        "USA": "US",
+        "UNITED STATES": "US",
+        "UNITED STATES OF AMERICA": "US",
     }
 
     def __init__(
-        self,
-        country: str = "GB",
-        lookback_hours: int = 168,
-        forecast_hours: int = 24
+        self, country: str = "US", lookback_hours: int = 168, forecast_hours: int = 24
     ):
         # Normalise to an accepted ISO code
         normalised = self._COUNTRY_CODE_ALIASES.get(country.upper(), country)
@@ -101,7 +100,8 @@ class ElectricityPriceFeatureEngine:
             # Fallback: empty calendar so holiday detection is gracefully absent
             logger.warning(
                 "Could not load holiday calendar for country '%s'. "
-                "is_holiday will always be 0.", normalised
+                "is_holiday will always be 0.",
+                normalised,
             )
             self.holiday_calendar = {}
         self.scaler = None
@@ -113,39 +113,38 @@ class ElectricityPriceFeatureEngine:
         df = df.copy()
 
         # Basic time features
-        df['hour'] = df.index.hour
-        df['day_of_week'] = df.index.dayofweek
-        df['day_of_month'] = df.index.day
-        df['month'] = df.index.month
-        df['quarter'] = df.index.quarter
-        df['week_of_year'] = df.index.isocalendar().week
+        df["hour"] = df.index.hour
+        df["day_of_week"] = df.index.dayofweek
+        df["day_of_month"] = df.index.day
+        df["month"] = df.index.month
+        df["quarter"] = df.index.quarter
+        df["week_of_year"] = df.index.isocalendar().week
 
         # Binary indicators
-        df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
-        df['is_holiday'] = df.index.to_series().apply(
-            lambda x: x.date() in self.holiday_calendar
-        ).astype(int)
+        df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+        df["is_holiday"] = (
+            df.index.to_series()
+            .apply(lambda x: x.date() in self.holiday_calendar)
+            .astype(int)
+        )
 
         # Cyclical encoding (sin/cos transform for hour and day_of_week)
-        df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
-        df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
-        df['dow_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
-        df['dow_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
-        df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
-        df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
+        df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
+        df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
+        df["dow_sin"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
+        df["dow_cos"] = np.cos(2 * np.pi * df["day_of_week"] / 7)
+        df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+        df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
 
         # Peak hour indicators
-        df['is_morning_peak'] = ((df['hour'] >= 7) & (df['hour'] <= 9)).astype(int)
-        df['is_evening_peak'] = ((df['hour'] >= 17) & (df['hour'] <= 21)).astype(int)
-        df['is_night'] = ((df['hour'] >= 23) | (df['hour'] <= 5)).astype(int)
+        df["is_morning_peak"] = ((df["hour"] >= 7) & (df["hour"] <= 9)).astype(int)
+        df["is_evening_peak"] = ((df["hour"] >= 17) & (df["hour"] <= 21)).astype(int)
+        df["is_night"] = ((df["hour"] >= 23) | (df["hour"] <= 5)).astype(int)
 
         return df
 
     def create_lag_features(
-        self,
-        df: pd.DataFrame,
-        target_col: str = 'price',
-        lags: List[int] = None
+        self, df: pd.DataFrame, target_col: str = "price", lags: List[int] = None
     ) -> pd.DataFrame:
         """Create lagged price features"""
         df = df.copy()
@@ -154,15 +153,12 @@ class ElectricityPriceFeatureEngine:
             lags = [1, 2, 3, 24, 48, 168]
 
         for lag in lags:
-            df[f'{target_col}_lag_{lag}h'] = df[target_col].shift(lag)
+            df[f"{target_col}_lag_{lag}h"] = df[target_col].shift(lag)
 
         return df
 
     def create_rolling_features(
-        self,
-        df: pd.DataFrame,
-        target_col: str = 'price',
-        windows: List[int] = None
+        self, df: pd.DataFrame, target_col: str = "price", windows: List[int] = None
     ) -> pd.DataFrame:
         """Create rolling statistics features"""
         df = df.copy()
@@ -172,84 +168,73 @@ class ElectricityPriceFeatureEngine:
 
         for window in windows:
             # Rolling mean
-            df[f'{target_col}_rolling_mean_{window}h'] = (
+            df[f"{target_col}_rolling_mean_{window}h"] = (
                 df[target_col].rolling(window=window, min_periods=1).mean()
             )
 
             # Rolling std (volatility)
-            df[f'{target_col}_rolling_std_{window}h'] = (
+            df[f"{target_col}_rolling_std_{window}h"] = (
                 df[target_col].rolling(window=window, min_periods=1).std()
             )
 
             # Rolling min/max
-            df[f'{target_col}_rolling_min_{window}h'] = (
+            df[f"{target_col}_rolling_min_{window}h"] = (
                 df[target_col].rolling(window=window, min_periods=1).min()
             )
-            df[f'{target_col}_rolling_max_{window}h'] = (
+            df[f"{target_col}_rolling_max_{window}h"] = (
                 df[target_col].rolling(window=window, min_periods=1).max()
             )
 
             # Rolling range
-            df[f'{target_col}_rolling_range_{window}h'] = (
-                df[f'{target_col}_rolling_max_{window}h'] -
-                df[f'{target_col}_rolling_min_{window}h']
+            df[f"{target_col}_rolling_range_{window}h"] = (
+                df[f"{target_col}_rolling_max_{window}h"]
+                - df[f"{target_col}_rolling_min_{window}h"]
             )
 
         return df
 
     def create_price_dynamics_features(
-        self,
-        df: pd.DataFrame,
-        target_col: str = 'price'
+        self, df: pd.DataFrame, target_col: str = "price"
     ) -> pd.DataFrame:
         """Create price change and momentum features"""
         df = df.copy()
 
         # Price changes
-        df[f'{target_col}_change_1h'] = df[target_col].diff(1)
-        df[f'{target_col}_change_3h'] = df[target_col].diff(3)
-        df[f'{target_col}_change_24h'] = df[target_col].diff(24)
+        df[f"{target_col}_change_1h"] = df[target_col].diff(1)
+        df[f"{target_col}_change_3h"] = df[target_col].diff(3)
+        df[f"{target_col}_change_24h"] = df[target_col].diff(24)
 
         # Percentage changes
-        df[f'{target_col}_pct_change_1h'] = df[target_col].pct_change(1)
-        df[f'{target_col}_pct_change_24h'] = df[target_col].pct_change(24)
+        df[f"{target_col}_pct_change_1h"] = df[target_col].pct_change(1)
+        df[f"{target_col}_pct_change_24h"] = df[target_col].pct_change(24)
 
         # Momentum indicators
-        df[f'{target_col}_momentum_3h'] = (
-            df[target_col] - df[target_col].shift(3)
-        )
-        df[f'{target_col}_momentum_24h'] = (
-            df[target_col] - df[target_col].shift(24)
-        )
+        df[f"{target_col}_momentum_3h"] = df[target_col] - df[target_col].shift(3)
+        df[f"{target_col}_momentum_24h"] = df[target_col] - df[target_col].shift(24)
 
         # Volatility (rolling std of returns)
-        df[f'{target_col}_volatility_24h'] = (
-            df[f'{target_col}_pct_change_1h'].rolling(window=24, min_periods=1).std()
+        df[f"{target_col}_volatility_24h"] = (
+            df[f"{target_col}_pct_change_1h"].rolling(window=24, min_periods=1).std()
         )
 
         # Distance from mean (check if column exists first)
-        mean_col = f'{target_col}_rolling_mean_24h'
+        mean_col = f"{target_col}_rolling_mean_24h"
         if mean_col in df.columns:
-            df[f'{target_col}_dist_from_mean_24h'] = (
-                df[target_col] - df[mean_col]
-            )
+            df[f"{target_col}_dist_from_mean_24h"] = df[target_col] - df[mean_col]
 
         return df
 
     def create_seasonal_decomposition_features(
-        self,
-        df: pd.DataFrame,
-        target_col: str = 'price',
-        period: int = 24
+        self, df: pd.DataFrame, target_col: str = "price", period: int = 24
     ) -> pd.DataFrame:
         """Create seasonal decomposition features using statsmodels"""
         df = df.copy()
 
         if not HAS_STATSMODELS:
             logger.warning("statsmodels not available, skipping seasonal decomposition")
-            df['seasonal_component'] = 0
-            df['trend_component'] = df[target_col]
-            df['residual_component'] = 0
+            df["seasonal_component"] = 0
+            df["trend_component"] = df[target_col]
+            df["residual_component"] = 0
             return df
 
         try:
@@ -257,32 +242,27 @@ class ElectricityPriceFeatureEngine:
 
             if len(series) >= period * 2:
                 decomposition = seasonal_decompose(
-                    series,
-                    model='additive',
-                    period=period,
-                    extrapolate_trend='freq'
+                    series, model="additive", period=period, extrapolate_trend="freq"
                 )
 
-                df['seasonal_component'] = decomposition.seasonal
-                df['trend_component'] = decomposition.trend
-                df['residual_component'] = decomposition.resid
+                df["seasonal_component"] = decomposition.seasonal
+                df["trend_component"] = decomposition.trend
+                df["residual_component"] = decomposition.resid
             else:
-                df['seasonal_component'] = 0
-                df['trend_component'] = df[target_col]
-                df['residual_component'] = 0
+                df["seasonal_component"] = 0
+                df["trend_component"] = df[target_col]
+                df["residual_component"] = 0
 
         except Exception as e:
             logger.warning(f"Seasonal decomposition failed: {e}")
-            df['seasonal_component'] = 0
-            df['trend_component'] = df[target_col]
-            df['residual_component'] = 0
+            df["seasonal_component"] = 0
+            df["trend_component"] = df[target_col]
+            df["residual_component"] = 0
 
         return df
 
     def create_weather_features(
-        self,
-        df: pd.DataFrame,
-        weather_data: Optional[pd.DataFrame] = None
+        self, df: pd.DataFrame, weather_data: Optional[pd.DataFrame] = None
     ) -> pd.DataFrame:
         """
         Integrate weather features if available
@@ -297,62 +277,63 @@ class ElectricityPriceFeatureEngine:
 
         if weather_data is not None:
             # Merge weather data
-            df = df.join(weather_data, how='left')
+            df = df.join(weather_data, how="left")
 
             # Fill missing weather with forward fill then backward fill
-            weather_cols = ['temperature', 'wind_speed', 'solar_radiation', 'cloud_cover']
+            weather_cols = [
+                "temperature",
+                "wind_speed",
+                "solar_radiation",
+                "cloud_cover",
+            ]
             for col in weather_cols:
                 if col in df.columns:
                     df[col] = df[col].ffill().bfill()
 
             # Derived weather features
-            if 'temperature' in df.columns:
+            if "temperature" in df.columns:
                 # Heating/cooling degree days
-                df['heating_degree'] = np.maximum(18 - df['temperature'], 0)
-                df['cooling_degree'] = np.maximum(df['temperature'] - 24, 0)
-                df['temp_change_1h'] = df['temperature'].diff(1)
-                df['temp_change_24h'] = df['temperature'].diff(24)
+                df["heating_degree"] = np.maximum(18 - df["temperature"], 0)
+                df["cooling_degree"] = np.maximum(df["temperature"] - 24, 0)
+                df["temp_change_1h"] = df["temperature"].diff(1)
+                df["temp_change_24h"] = df["temperature"].diff(24)
 
-            if 'wind_speed' in df.columns and 'solar_radiation' in df.columns:
+            if "wind_speed" in df.columns and "solar_radiation" in df.columns:
                 # Renewable generation potential
-                df['renewable_potential'] = (
-                    df['wind_speed'] * 0.5 + df['solar_radiation'] * 0.001
+                df["renewable_potential"] = (
+                    df["wind_speed"] * 0.5 + df["solar_radiation"] * 0.001
                 )
                 # Wind power approximation (cubic relationship)
-                df['wind_power_potential'] = np.clip(df['wind_speed'] ** 3, 0, 15000)
+                df["wind_power_potential"] = np.clip(df["wind_speed"] ** 3, 0, 15000)
 
         return df
 
     def create_generation_mix_features(
-        self,
-        df: pd.DataFrame,
-        generation_data: Optional[pd.DataFrame] = None
+        self, df: pd.DataFrame, generation_data: Optional[pd.DataFrame] = None
     ) -> pd.DataFrame:
         """Create generation mix features"""
         df = df.copy()
 
         if generation_data is not None:
-            df = df.join(generation_data, how='left')
+            df = df.join(generation_data, how="left")
 
             # Calculate percentages if raw values provided
-            gen_columns = ['renewable_gen', 'fossil_gen', 'nuclear_gen']
+            gen_columns = ["renewable_gen", "fossil_gen", "nuclear_gen"]
             available_gen = [c for c in gen_columns if c in df.columns]
 
             if len(available_gen) > 0:
                 total_gen = df[available_gen].sum(axis=1)
 
                 for col in available_gen:
-                    pct_col = col.replace('_gen', '_percentage')
+                    pct_col = col.replace("_gen", "_percentage")
                     df[pct_col] = df[col] / total_gen.replace(0, np.nan)
 
             # Create generation stability features
-            if 'renewable_percentage' in df.columns:
-                df['renewable_volatility'] = df['renewable_percentage'].rolling(
-                    window=24, min_periods=1
-                ).std()
-                df['is_high_renewable'] = (
-                    df['renewable_percentage'] > 0.5
-                ).astype(int)
+            if "renewable_percentage" in df.columns:
+                df["renewable_volatility"] = (
+                    df["renewable_percentage"].rolling(window=24, min_periods=1).std()
+                )
+                df["is_high_renewable"] = (df["renewable_percentage"] > 0.5).astype(int)
 
         return df
 
@@ -364,20 +345,28 @@ class ElectricityPriceFeatureEngine:
         df = df.copy()
 
         # Time-based demand proxies
-        df['demand_proxy_hour'] = df['hour'].apply(lambda x:
-            1.0 if x in [7, 8, 9, 18, 19, 20] else  # Peak hours
-            0.5 if x in range(10, 17) else          # Mid-day
-            0.3                                      # Night
+        df["demand_proxy_hour"] = df["hour"].apply(
+            lambda x: (
+                1.0
+                if x in [7, 8, 9, 18, 19, 20]
+                # Peak hours
+                else 0.5
+                if x in range(10, 17)
+                # Mid-day
+                else 0.3
+            )  # Night
         )
 
         # Weekend adjustment (lower demand)
-        df['demand_proxy_adjusted'] = df['demand_proxy_hour'] * (
-            np.where(df['is_weekend'] == 1, 0.7, 1.0)
+        df["demand_proxy_adjusted"] = df["demand_proxy_hour"] * (
+            np.where(df["is_weekend"] == 1, 0.7, 1.0)
         )
 
         return df
 
-    def fit(self, df: pd.DataFrame, target_col: str = 'price') -> 'ElectricityPriceFeatureEngine':
+    def fit(
+        self, df: pd.DataFrame, target_col: str = "price"
+    ) -> "ElectricityPriceFeatureEngine":
         """Fit the scaler on training data"""
         # Transform data to get all features
         df_transformed = self.transform(df, target_col=target_col, fit_scaler=False)
@@ -395,11 +384,11 @@ class ElectricityPriceFeatureEngine:
     def transform(
         self,
         df: pd.DataFrame,
-        target_col: str = 'price',
+        target_col: str = "price",
         weather_data: Optional[pd.DataFrame] = None,
         generation_data: Optional[pd.DataFrame] = None,
         fit_scaler: bool = False,
-        include_seasonal: bool = True
+        include_seasonal: bool = True,
     ) -> pd.DataFrame:
         """
         Complete feature engineering pipeline
@@ -448,8 +437,8 @@ class ElectricityPriceFeatureEngine:
     def create_sequences(
         self,
         df: pd.DataFrame,
-        target_col: str = 'price',
-        feature_cols: Optional[List[str]] = None
+        target_col: str = "price",
+        feature_cols: Optional[List[str]] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Create sequences for time series prediction
@@ -466,13 +455,17 @@ class ElectricityPriceFeatureEngine:
 
         for i in range(len(df) - self.lookback_hours - self.forecast_hours + 1):
             # Input sequence
-            X.append(df[feature_cols].iloc[i:i + self.lookback_hours].values)
+            X.append(df[feature_cols].iloc[i : i + self.lookback_hours].values)
 
             # Target sequence (next 24 hours of prices)
             y.append(
-                df[target_col].iloc[
-                    i + self.lookback_hours:i + self.lookback_hours + self.forecast_hours
-                ].values
+                df[target_col]
+                .iloc[
+                    i + self.lookback_hours : i
+                    + self.lookback_hours
+                    + self.forecast_hours
+                ]
+                .values
             )
 
         return np.array(X), np.array(y)
@@ -480,27 +473,42 @@ class ElectricityPriceFeatureEngine:
     def get_feature_importance_names(self) -> List[str]:
         """Return list of all feature names created"""
         feature_groups = {
-            'temporal': [
-                'hour', 'day_of_week', 'month', 'is_weekend', 'is_holiday',
-                'hour_sin', 'hour_cos', 'dow_sin', 'dow_cos',
-                'is_morning_peak', 'is_evening_peak', 'is_night'
+            "temporal": [
+                "hour",
+                "day_of_week",
+                "month",
+                "is_weekend",
+                "is_holiday",
+                "hour_sin",
+                "hour_cos",
+                "dow_sin",
+                "dow_cos",
+                "is_morning_peak",
+                "is_evening_peak",
+                "is_night",
             ],
-            'lags': [
-                'price_lag_1h', 'price_lag_2h', 'price_lag_3h',
-                'price_lag_24h', 'price_lag_48h', 'price_lag_168h'
+            "lags": [
+                "price_lag_1h",
+                "price_lag_2h",
+                "price_lag_3h",
+                "price_lag_24h",
+                "price_lag_48h",
+                "price_lag_168h",
             ],
-            'rolling': [
-                'price_rolling_mean_24h', 'price_rolling_std_24h',
-                'price_rolling_min_24h', 'price_rolling_max_24h'
+            "rolling": [
+                "price_rolling_mean_24h",
+                "price_rolling_std_24h",
+                "price_rolling_min_24h",
+                "price_rolling_max_24h",
             ],
-            'dynamics': [
-                'price_change_1h', 'price_change_24h',
-                'price_pct_change_1h', 'price_momentum_24h',
-                'price_volatility_24h'
+            "dynamics": [
+                "price_change_1h",
+                "price_change_24h",
+                "price_pct_change_1h",
+                "price_momentum_24h",
+                "price_volatility_24h",
             ],
-            'seasonal': [
-                'seasonal_component', 'trend_component', 'residual_component'
-            ]
+            "seasonal": ["seasonal_component", "trend_component", "residual_component"],
         }
 
         all_features = []
@@ -512,9 +520,9 @@ class ElectricityPriceFeatureEngine:
 
 def create_dummy_data(
     n_hours: int = 8760,  # 1 year of hourly data
-    start_date: str = '2024-01-01',
+    start_date: str = "2024-01-01",
     include_weather: bool = True,
-    include_generation: bool = True
+    include_generation: bool = True,
 ) -> pd.DataFrame:
     """
     Create dummy electricity price data for testing.
@@ -531,11 +539,7 @@ def create_dummy_data(
     np.random.seed(42)
 
     # Create datetime index
-    dates = pd.date_range(
-        start=start_date,
-        periods=n_hours,
-        freq='H'
-    )
+    dates = pd.date_range(start=start_date, periods=n_hours, freq="H")
 
     # Base price with daily and weekly seasonality
     hours = np.arange(n_hours)
@@ -561,28 +565,47 @@ def create_dummy_data(
 
     # Create DataFrame
     data = {
-        'price': price,
-        'spot_price': price,
-        'day_ahead_price': price + np.random.normal(0, 2, n_hours),
+        "price": price,
+        "spot_price": price,
+        "day_ahead_price": price + np.random.normal(0, 2, n_hours),
     }
 
     if include_weather:
-        data.update({
-            'temperature': 10 + 10 * np.sin(2 * np.pi * hours / 8760) + np.random.normal(0, 3, n_hours),
-            'wind_speed': np.abs(5 + np.random.normal(0, 3, n_hours)),
-            'solar_radiation': np.maximum(0, 300 * np.sin(np.pi * (hours % 24) / 24) * (1 - 0.3 * np.random.random(n_hours))),
-            'cloud_cover': np.clip(np.random.normal(50, 20, n_hours), 0, 100),
-        })
+        data.update(
+            {
+                "temperature": 10
+                + 10 * np.sin(2 * np.pi * hours / 8760)
+                + np.random.normal(0, 3, n_hours),
+                "wind_speed": np.abs(5 + np.random.normal(0, 3, n_hours)),
+                "solar_radiation": np.maximum(
+                    0,
+                    300
+                    * np.sin(np.pi * (hours % 24) / 24)
+                    * (1 - 0.3 * np.random.random(n_hours)),
+                ),
+                "cloud_cover": np.clip(np.random.normal(50, 20, n_hours), 0, 100),
+            }
+        )
 
     if include_generation:
-        renewable_pct = np.clip(0.3 + 0.2 * np.sin(2 * np.pi * hours / 8760) + np.random.normal(0, 0.1, n_hours), 0, 1)
+        renewable_pct = np.clip(
+            0.3
+            + 0.2 * np.sin(2 * np.pi * hours / 8760)
+            + np.random.normal(0, 0.1, n_hours),
+            0,
+            1,
+        )
         nuclear_pct = 0.2 + np.random.normal(0, 0.02, n_hours)
-        data.update({
-            'load_forecast': 50000 + 10000 * np.sin(2 * np.pi * (hours % 24 - 6) / 24) + np.random.normal(0, 2000, n_hours),
-            'renewable_percentage': renewable_pct,
-            'fossil_percentage': np.clip(1 - renewable_pct - nuclear_pct, 0, 1),
-            'nuclear_percentage': nuclear_pct
-        })
+        data.update(
+            {
+                "load_forecast": 50000
+                + 10000 * np.sin(2 * np.pi * (hours % 24 - 6) / 24)
+                + np.random.normal(0, 2000, n_hours),
+                "renewable_percentage": renewable_pct,
+                "fossil_percentage": np.clip(1 - renewable_pct - nuclear_pct, 0, 1),
+                "nuclear_percentage": nuclear_pct,
+            }
+        )
 
     df = pd.DataFrame(data, index=dates)
     return df
@@ -591,18 +614,18 @@ def create_dummy_data(
 def example_usage():
     """Example of using the feature engineering pipeline"""
     # Create sample data
-    dates = pd.date_range('2024-01-01', periods=24*30, freq='H')
-    prices = 0.20 + 0.05 * np.sin(np.arange(len(dates)) * 2 * np.pi / 24) + np.random.normal(0, 0.02, len(dates))
+    dates = pd.date_range("2024-01-01", periods=24 * 30, freq="H")
+    prices = (
+        0.20
+        + 0.05 * np.sin(np.arange(len(dates)) * 2 * np.pi / 24)
+        + np.random.normal(0, 0.02, len(dates))
+    )
 
-    df = pd.DataFrame({
-        'price': prices
-    }, index=dates)
+    df = pd.DataFrame({"price": prices}, index=dates)
 
     # Initialize feature engine
     feature_engine = ElectricityPriceFeatureEngine(
-        country='GB',
-        lookback_hours=168,
-        forecast_hours=24
+        country="US", lookback_hours=168, forecast_hours=24
     )
 
     # Fit and transform data
@@ -619,5 +642,5 @@ def example_usage():
     print(f"y shape: {y.shape}")  # (samples, 24)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     example_usage()

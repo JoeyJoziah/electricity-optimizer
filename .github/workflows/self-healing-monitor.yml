@@ -49,6 +49,7 @@ jobs:
           - { file: "scrape-portals.yml", name: "Scrape Utility Portals", severity: "warning" }
           - { file: "fetch-heating-oil.yml", name: "Fetch Petroleum Prices", severity: "warning" }
           - { file: "daily-data-pipeline.yml", name: "Daily Data Pipeline", severity: "warning" }
+          - { file: "db-backup.yml", name: "Database Backup", severity: "critical" }
 
     steps:
       - name: Count recent failures
@@ -189,6 +190,7 @@ jobs:
               *"Scrape Utility Portal"*|*"Portal"*) WORKFLOW_FILE="scrape-portals.yml" ;;
               *"Petroleum"*|*"Heating Oil"*) WORKFLOW_FILE="fetch-heating-oil.yml" ;;
               *"Daily Data Pipeline"*) WORKFLOW_FILE="daily-data-pipeline.yml" ;;
+              *"Database Backup"*) WORKFLOW_FILE="db-backup.yml" ;;
               *) echo "Unknown workflow in issue #$ISSUE_NUM: $ISSUE_TITLE"; continue ;;
             esac
 

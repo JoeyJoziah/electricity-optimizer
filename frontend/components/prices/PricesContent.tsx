@@ -1,25 +1,32 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { Header } from '@/components/layout/Header'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton, ChartSkeleton } from '@/components/ui/skeleton'
-import dynamic from 'next/dynamic'
+import React from "react";
+import { Header } from "@/components/layout/Header";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton, ChartSkeleton } from "@/components/ui/skeleton";
+import dynamic from "next/dynamic";
 
 const PriceLineChart = dynamic(
-  () => import('@/components/charts/PriceLineChart').then((m) => m.PriceLineChart),
-  { ssr: false, loading: () => <ChartSkeleton /> }
-)
+  () =>
+    import("@/components/charts/PriceLineChart").then((m) => m.PriceLineChart),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 const ForecastChart = dynamic(
-  () => import('@/components/charts/ForecastChart').then((m) => m.ForecastChart),
-  { ssr: false, loading: () => <ChartSkeleton /> }
-)
-import { useCurrentPrices, usePriceHistory, usePriceForecast, useOptimalPeriods } from '@/lib/hooks/usePrices'
-import { useSettingsStore } from '@/lib/store/settings'
-import { formatCurrency, formatTime } from '@/lib/utils/format'
-import { cn } from '@/lib/utils/cn'
+  () =>
+    import("@/components/charts/ForecastChart").then((m) => m.ForecastChart),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
+import {
+  useCurrentPrices,
+  usePriceHistory,
+  usePriceForecast,
+  useOptimalPeriods,
+} from "@/lib/hooks/usePrices";
+import { useSettingsStore } from "@/lib/store/settings";
+import { formatCurrency, formatTime } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
 import {
   TrendingDown,
   TrendingUp,
@@ -28,118 +35,154 @@ import {
   Calendar,
   Bell,
   AlertCircle,
-} from 'lucide-react'
-import type { TimeRange } from '@/types'
-import type { ApiPrice, ApiPriceResponse, ApiPriceForecastModel } from '@/types/generated/api'
+} from "lucide-react";
+import type { TimeRange } from "@/types";
+import type {
+  ApiPrice,
+  ApiPriceResponse,
+  ApiPriceForecastModel,
+} from "@/types/generated/api";
+
+// Map time range labels to hours for API calls
+const TIME_RANGE_HOURS: Record<TimeRange, number> = {
+  "6h": 6,
+  "12h": 12,
+  "24h": 24,
+  "48h": 48,
+  "7d": 168,
+};
 
 export default function PricesContent() {
-  const [timeRange, setTimeRange] = React.useState<TimeRange>('24h')
-  const region = useSettingsStore((s) => s.region)
-  const priceAlerts = useSettingsStore((s) => s.priceAlerts)
-  const addPriceAlert = useSettingsStore((s) => s.addPriceAlert)
-  const removePriceAlert = useSettingsStore((s) => s.removePriceAlert)
+  const [timeRange, setTimeRange] = React.useState<TimeRange>("24h");
+  const region = useSettingsStore((s) => s.region);
+  const priceAlerts = useSettingsStore((s) => s.priceAlerts);
+  const addPriceAlert = useSettingsStore((s) => s.addPriceAlert);
+  const removePriceAlert = useSettingsStore((s) => s.removePriceAlert);
 
-  const handleToggleAlert = (type: 'below' | 'above', threshold: number) => {
-    const existing = priceAlerts.find((a) => a.type === type && a.threshold === threshold)
+  const handleToggleAlert = (type: "below" | "above", threshold: number) => {
+    const existing = priceAlerts.find(
+      (a) => a.type === type && a.threshold === threshold,
+    );
     if (existing) {
-      removePriceAlert(existing.id)
+      removePriceAlert(existing.id);
     } else {
-      addPriceAlert({ id: Date.now().toString(), type, threshold, enabled: true })
+      addPriceAlert({
+        id: crypto.randomUUID(),
+        type,
+        threshold,
+        enabled: true,
+      });
     }
-  }
+  };
 
-  const hasAlert = (type: 'below' | 'above', threshold: number) =>
-    priceAlerts.some((a) => a.type === type && a.threshold === threshold && a.enabled)
+  const hasAlert = (type: "below" | "above", threshold: number) =>
+    priceAlerts.some(
+      (a) => a.type === type && a.threshold === threshold && a.enabled,
+    );
 
   // Fetch data
-  const { data: pricesData, isLoading: pricesLoading } = useCurrentPrices(region)
+  const { data: pricesData, isLoading: pricesLoading } =
+    useCurrentPrices(region);
   const { data: historyData, isLoading: historyLoading } = usePriceHistory(
     region,
-    parseInt(timeRange) || 24
-  )
+    TIME_RANGE_HOURS[timeRange],
+  );
   const { data: forecastData, isLoading: forecastLoading } = usePriceForecast(
     region,
-    48
-  )
-  const { data: optimalData } = useOptimalPeriods(region, 24)
+    48,
+  );
+  const { data: optimalData } = useOptimalPeriods(region, 24);
 
   // Process chart data — historyData.prices are ApiPrice (price_per_kwh is DecimalStr)
   const chartData = React.useMemo(() => {
-    if (!historyData?.prices) return []
+    if (!historyData?.prices) return [];
 
-    const history: { time: string; price: number | null; forecast: number | null; isOptimal: boolean }[] =
-      historyData.prices.map((p: ApiPrice) => {
-        const price = p.price_per_kwh != null ? parseFloat(p.price_per_kwh) : null
-        return {
-          time: p.timestamp,
-          price,
-          forecast: null as number | null,
-          isOptimal: price !== null && price < 0.22,
-        }
-      })
+    const history: {
+      time: string;
+      price: number | null;
+      forecast: number | null;
+      isOptimal: boolean;
+    }[] = historyData.prices.map((p: ApiPrice) => {
+      const price =
+        p.price_per_kwh != null ? parseFloat(p.price_per_kwh) : null;
+      return {
+        time: p.timestamp,
+        price,
+        forecast: null as number | null,
+        isOptimal: price !== null && price < 0.22,
+      };
+    });
 
     // Add forecast data — forecastData.forecast is ApiPriceForecastModel
     if (forecastData?.forecast) {
-      const forecastModel = forecastData.forecast as ApiPriceForecastModel
-      const forecastPrices: ApiPrice[] = forecastModel.prices || []
+      const forecastModel = forecastData.forecast as ApiPriceForecastModel;
+      const forecastPrices: ApiPrice[] = forecastModel.prices || [];
       forecastPrices.forEach((p: ApiPrice, i: number) => {
-        const price = parseFloat(p.price_per_kwh)
+        const price = parseFloat(p.price_per_kwh);
         // Use the price's own timestamp if available, otherwise project from now
         const forecastTime = p.timestamp
           ? p.timestamp
-          : new Date(Date.now() + (i + 1) * 60 * 60 * 1000).toISOString()
+          : new Date(Date.now() + (i + 1) * 60 * 60 * 1000).toISOString();
         history.push({
           time: forecastTime,
           price: null,
           forecast: price,
-          isOptimal: price < 0.20,
-        })
-      })
+          isOptimal: price < 0.2,
+        });
+      });
     }
 
-    return history
-  }, [historyData, forecastData])
+    return history;
+  }, [historyData, forecastData]);
 
   // Map current price from backend fields — pricesData.prices are ApiPriceResponse
-  const rawPrice = pricesData?.prices?.[0] as ApiPriceResponse | undefined
-  const currentPrice = rawPrice ? {
-    price: parseFloat(rawPrice.current_price),
-    // Backend ApiPriceResponse does not include a trend field.
-    // Derive a basic trend from price_change_24h when available.
-    trend: (rawPrice.price_change_24h != null
-      ? (parseFloat(rawPrice.price_change_24h) > 0.005
-        ? 'increasing'
-        : parseFloat(rawPrice.price_change_24h) < -0.005
-          ? 'decreasing'
-          : 'stable')
-      : 'stable') as 'increasing' | 'decreasing' | 'stable',
-    changePercent: rawPrice.price_change_24h != null ? parseFloat(rawPrice.price_change_24h) : null,
-    region: rawPrice.region,
-  } : null
-  const trend: 'increasing' | 'decreasing' | 'stable' = currentPrice?.trend ?? 'stable'
+  const rawPrice = pricesData?.prices?.[0] as ApiPriceResponse | undefined;
+  const currentPrice = rawPrice
+    ? {
+        price: parseFloat(rawPrice.current_price),
+        // Backend ApiPriceResponse does not include a trend field.
+        // Derive a basic trend from price_change_24h when available.
+        trend: (rawPrice.price_change_24h != null
+          ? parseFloat(rawPrice.price_change_24h) > 0.005
+            ? "increasing"
+            : parseFloat(rawPrice.price_change_24h) < -0.005
+              ? "decreasing"
+              : "stable"
+          : "stable") as "increasing" | "decreasing" | "stable",
+        changePercent:
+          rawPrice.price_change_24h != null
+            ? parseFloat(rawPrice.price_change_24h)
+            : null,
+        region: rawPrice.region,
+      }
+    : null;
+  const trend: "increasing" | "decreasing" | "stable" =
+    currentPrice?.trend ?? "stable";
   const TrendIcon =
-    trend === 'increasing'
+    trend === "increasing"
       ? TrendingUp
-      : trend === 'decreasing'
+      : trend === "decreasing"
         ? TrendingDown
-        : Minus
+        : Minus;
 
   // Calculate price statistics — price_per_kwh is a Decimal string
   const stats = React.useMemo(() => {
-    if (!historyData?.prices) return null
+    if (!historyData?.prices) return null;
 
     const prices = historyData.prices
-      .map((p: ApiPrice) => (p.price_per_kwh != null ? parseFloat(p.price_per_kwh) : null))
-      .filter((p: number | null): p is number => p !== null && !isNaN(p))
+      .map((p: ApiPrice) =>
+        p.price_per_kwh != null ? parseFloat(p.price_per_kwh) : null,
+      )
+      .filter((p: number | null): p is number => p !== null && !isNaN(p));
 
-    if (prices.length === 0) return null
+    if (prices.length === 0) return null;
 
     return {
       min: Math.min(...prices),
       max: Math.max(...prices),
       avg: prices.reduce((a: number, b: number) => a + b, 0) / prices.length,
-    }
-  }, [historyData])
+    };
+  }, [historyData]);
 
   return (
     <div className="flex flex-col">
@@ -158,25 +201,25 @@ export default function PricesContent() {
                 <>
                   <div className="mt-2 flex items-baseline gap-2">
                     <p className="text-3xl font-bold text-gray-900">
-                      {currentPrice ? formatCurrency(currentPrice.price) : '--'}
+                      {currentPrice ? formatCurrency(currentPrice.price) : "--"}
                     </p>
                     <span className="text-gray-500">/kWh</span>
                   </div>
                   <div
                     className={cn(
-                      'mt-2 flex items-center gap-1 text-sm',
-                      trend === 'increasing'
-                        ? 'text-danger-600'
-                        : trend === 'decreasing'
-                          ? 'text-success-600'
-                          : 'text-gray-500'
+                      "mt-2 flex items-center gap-1 text-sm",
+                      trend === "increasing"
+                        ? "text-danger-600"
+                        : trend === "decreasing"
+                          ? "text-success-600"
+                          : "text-gray-500",
                     )}
                   >
                     <TrendIcon className="h-4 w-4" />
                     <span>
                       {currentPrice?.changePercent
-                        ? `${currentPrice.changePercent > 0 ? '+' : ''}${currentPrice.changePercent.toFixed(1)}%`
-                        : 'Stable'}
+                        ? `${currentPrice.changePercent > 0 ? "+" : ""}${currentPrice.changePercent.toFixed(1)}%`
+                        : "Stable"}
                     </span>
                     <span className="text-gray-400">vs last hour</span>
                   </div>
@@ -188,13 +231,15 @@ export default function PricesContent() {
           {/* Today's Low */}
           <Card>
             <CardContent className="p-4">
-              <p className="text-sm font-medium text-gray-500">Today&apos;s Low</p>
+              <p className="text-sm font-medium text-gray-500">
+                Today&apos;s Low
+              </p>
               {pricesLoading ? (
                 <Skeleton variant="text" className="mt-2 h-8 w-24" />
               ) : (
                 <>
                   <p className="mt-2 text-3xl font-bold text-success-600">
-                    {stats ? formatCurrency(stats.min) : '--'}
+                    {stats ? formatCurrency(stats.min) : "--"}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">/kWh</p>
                 </>
@@ -205,13 +250,15 @@ export default function PricesContent() {
           {/* Today's High */}
           <Card>
             <CardContent className="p-4">
-              <p className="text-sm font-medium text-gray-500">Today&apos;s High</p>
+              <p className="text-sm font-medium text-gray-500">
+                Today&apos;s High
+              </p>
               {pricesLoading ? (
                 <Skeleton variant="text" className="mt-2 h-8 w-24" />
               ) : (
                 <>
                   <p className="mt-2 text-3xl font-bold text-danger-600">
-                    {stats ? formatCurrency(stats.max) : '--'}
+                    {stats ? formatCurrency(stats.max) : "--"}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">/kWh</p>
                 </>
@@ -228,7 +275,7 @@ export default function PricesContent() {
               ) : (
                 <>
                   <p className="mt-2 text-3xl font-bold text-gray-900">
-                    {stats ? formatCurrency(stats.avg) : '--'}
+                    {stats ? formatCurrency(stats.avg) : "--"}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">/kWh</p>
                 </>
@@ -324,11 +371,11 @@ export default function PricesContent() {
                     </div>
                   </div>
                   <Button
-                    variant={hasAlert('below', 0.20) ? 'primary' : 'outline'}
+                    variant={hasAlert("below", 0.2) ? "primary" : "outline"}
                     size="sm"
-                    onClick={() => handleToggleAlert('below', 0.20)}
+                    onClick={() => handleToggleAlert("below", 0.2)}
                   >
-                    {hasAlert('below', 0.20) ? 'Active' : 'Set Alert'}
+                    {hasAlert("below", 0.2) ? "Active" : "Set Alert"}
                   </Button>
                 </div>
 
@@ -345,11 +392,11 @@ export default function PricesContent() {
                     </div>
                   </div>
                   <Button
-                    variant={hasAlert('above', 0.30) ? 'primary' : 'outline'}
+                    variant={hasAlert("above", 0.3) ? "primary" : "outline"}
                     size="sm"
-                    onClick={() => handleToggleAlert('above', 0.30)}
+                    onClick={() => handleToggleAlert("above", 0.3)}
                   >
-                    {hasAlert('above', 0.30) ? 'Active' : 'Set Alert'}
+                    {hasAlert("above", 0.3) ? "Active" : "Set Alert"}
                   </Button>
                 </div>
 
@@ -388,5 +435,5 @@ export default function PricesContent() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

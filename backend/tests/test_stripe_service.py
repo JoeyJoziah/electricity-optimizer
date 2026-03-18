@@ -4,23 +4,27 @@ Tests for Stripe Service
 Tests subscription management with mocked Stripe calls.
 """
 
-from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, AsyncMock
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 import stripe
 
-from services.stripe_service import StripeService, apply_webhook_action
 from config.settings import settings
+from services.stripe_service import StripeService, apply_webhook_action
 
 
 @pytest.fixture
 def mock_stripe_configured():
     """Mock Stripe configuration."""
-    with patch.object(settings, "stripe_secret_key", "sk_test_mock"):
-        with patch.object(settings, "stripe_webhook_secret", "whsec_test_mock"):
-            with patch.object(settings, "stripe_price_pro", "price_pro_test"):
-                with patch.object(settings, "stripe_price_business", "price_business_test"):
-                    yield
+    with (
+        patch.object(settings, "stripe_secret_key", "sk_test_mock"),
+        patch.object(settings, "stripe_webhook_secret", "whsec_test_mock"),
+        patch.object(settings, "stripe_price_pro", "price_pro_test"),
+        patch.object(settings, "stripe_price_business", "price_business_test"),
+    ):
+        yield
 
 
 @pytest.fixture
@@ -54,7 +58,7 @@ def mock_subscription():
     return Mock(
         id="sub_test_abc",
         status="active",
-        current_period_end=int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp()),
+        current_period_end=int((datetime.now(UTC) + timedelta(days=30)).timestamp()),
         cancel_at_period_end=False,
         metadata={"user_id": "user_123", "tier": "pro"},
         canceled_at=None,
@@ -146,32 +150,36 @@ async def test_create_checkout_session_invalid_tier(stripe_service):
 @pytest.mark.asyncio
 async def test_create_checkout_session_missing_price_id(stripe_service):
     """Test checkout session with missing price ID raises error."""
-    with patch.object(settings, "stripe_price_pro", None):
-        with pytest.raises(ValueError, match="Price ID for tier 'pro' not configured"):
-            await stripe_service.create_checkout_session(
-                user_id="user_123",
-                email="user@example.com",
-                tier="pro",
-                success_url="https://example.com/success",
-                cancel_url="https://example.com/cancel",
-            )
+    with (
+        patch.object(settings, "stripe_price_pro", None),
+        pytest.raises(ValueError, match="Price ID for tier 'pro' not configured"),
+    ):
+        await stripe_service.create_checkout_session(
+            user_id="user_123",
+            email="user@example.com",
+            tier="pro",
+            success_url="https://example.com/success",
+            cancel_url="https://example.com/cancel",
+        )
 
 
 @pytest.mark.asyncio
 async def test_create_checkout_session_stripe_error(stripe_service):
     """Test checkout session handles Stripe API errors."""
-    with patch(
-        "stripe.checkout.Session.create",
-        side_effect=stripe.StripeError("API error"),
+    with (
+        patch(
+            "stripe.checkout.Session.create",
+            side_effect=stripe.StripeError("API error"),
+        ),
+        pytest.raises(stripe.StripeError),
     ):
-        with pytest.raises(stripe.StripeError):
-            await stripe_service.create_checkout_session(
-                user_id="user_123",
-                email="user@example.com",
-                tier="pro",
-                success_url="https://example.com/success",
-                cancel_url="https://example.com/cancel",
-            )
+        await stripe_service.create_checkout_session(
+            user_id="user_123",
+            email="user@example.com",
+            tier="pro",
+            success_url="https://example.com/success",
+            cancel_url="https://example.com/cancel",
+        )
 
 
 @pytest.mark.asyncio
@@ -209,15 +217,17 @@ async def test_create_portal_session_success(stripe_service, mock_portal_session
 @pytest.mark.asyncio
 async def test_create_portal_session_stripe_error(stripe_service):
     """Test portal session handles Stripe API errors."""
-    with patch(
-        "stripe.billing_portal.Session.create",
-        side_effect=stripe.StripeError("API error"),
+    with (
+        patch(
+            "stripe.billing_portal.Session.create",
+            side_effect=stripe.StripeError("API error"),
+        ),
+        pytest.raises(stripe.StripeError),
     ):
-        with pytest.raises(stripe.StripeError):
-            await stripe_service.create_customer_portal_session(
-                customer_id="cus_test_456",
-                return_url="https://example.com/account",
-            )
+        await stripe_service.create_customer_portal_session(
+            customer_id="cus_test_456",
+            return_url="https://example.com/account",
+        )
 
 
 # =============================================================================
@@ -249,12 +259,14 @@ async def test_get_subscription_status_no_subscription(stripe_service):
 @pytest.mark.asyncio
 async def test_get_subscription_status_stripe_error(stripe_service):
     """Test subscription status handles Stripe API errors."""
-    with patch(
-        "stripe.Subscription.list",
-        side_effect=stripe.StripeError("API error"),
+    with (
+        patch(
+            "stripe.Subscription.list",
+            side_effect=stripe.StripeError("API error"),
+        ),
+        pytest.raises(stripe.StripeError),
     ):
-        with pytest.raises(stripe.StripeError):
-            await stripe_service.get_subscription_status("cus_test_456")
+        await stripe_service.get_subscription_status("cus_test_456")
 
 
 # =============================================================================
@@ -312,15 +324,17 @@ def test_verify_webhook_signature_success(stripe_service):
 
 def test_verify_webhook_signature_invalid(stripe_service):
     """Test webhook signature verification with invalid signature."""
-    with patch(
-        "stripe.Webhook.construct_event",
-        side_effect=stripe.SignatureVerificationError("Invalid signature", "sig"),
+    with (
+        patch(
+            "stripe.Webhook.construct_event",
+            side_effect=stripe.SignatureVerificationError("Invalid signature", "sig"),
+        ),
+        pytest.raises(ValueError, match="Invalid webhook signature"),
     ):
-        with pytest.raises(ValueError, match="Invalid webhook signature"):
-            stripe_service.verify_webhook_signature(
-                payload=b"test_payload",
-                signature="invalid_signature",
-            )
+        stripe_service.verify_webhook_signature(
+            payload=b"test_payload",
+            signature="invalid_signature",
+        )
 
 
 def test_verify_webhook_signature_no_secret():
@@ -438,9 +452,7 @@ async def test_handle_webhook_unhandled_event(stripe_service):
     event = {
         "id": "evt_test_xyz",
         "type": "unknown.event.type",
-        "data": {
-            "object": {}
-        },
+        "data": {"object": {}},
     }
 
     result = await stripe_service.handle_webhook_event(event)
@@ -601,3 +613,182 @@ async def test_apply_webhook_action_user_not_found():
     applied = await apply_webhook_action(result, user_repo)
 
     assert applied is False
+
+
+# =============================================================================
+# Task 1.4: Tier cache invalidation tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_activate_invalidates_tier_cache():
+    """activate_subscription: tier cache is invalidated after DB update."""
+    user = _make_user()
+    user.subscription_tier = "free"
+    user_repo = AsyncMock()
+    user_repo.get_by_id = AsyncMock(return_value=user)
+    user_repo.update = AsyncMock(return_value=user)
+
+    result = {
+        "handled": True,
+        "action": "activate_subscription",
+        "user_id": "user_123",
+        "tier": "pro",
+        "customer_id": "cus_test_456",
+    }
+
+    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+        applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is True
+    mock_invalidate.assert_awaited_once_with("user_123")
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_update_invalidates_tier_cache():
+    """update_subscription: tier cache is invalidated after DB update."""
+    user = _make_user()
+    user_repo = AsyncMock()
+    user_repo.get_by_id = AsyncMock(return_value=user)
+    user_repo.update = AsyncMock(return_value=user)
+
+    result = {
+        "handled": True,
+        "action": "update_subscription",
+        "user_id": "user_123",
+        "tier": "business",
+        "customer_id": "cus_test_456",
+        "status": "active",
+    }
+
+    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+        applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is True
+    mock_invalidate.assert_awaited_once_with("user_123")
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_deactivate_invalidates_tier_cache():
+    """deactivate_subscription: tier cache is invalidated and user downgraded to free."""
+    user = _make_user()
+    user_repo = AsyncMock()
+    user_repo.get_by_id = AsyncMock(return_value=user)
+    user_repo.update = AsyncMock(return_value=user)
+
+    result = {
+        "handled": True,
+        "action": "deactivate_subscription",
+        "user_id": "user_123",
+        "tier": "free",
+        "customer_id": "cus_test_456",
+    }
+
+    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+        applied = await apply_webhook_action(result, user_repo)
+
+    assert applied is True
+    assert user.subscription_tier == "free"
+    mock_invalidate.assert_awaited_once_with("user_123")
+
+
+@pytest.mark.asyncio
+async def test_apply_webhook_action_payment_failed_does_not_invalidate_cache():
+    """payment_failed: tier cache is NOT invalidated (no tier change occurs)."""
+    user = _make_user()
+    user_repo = AsyncMock()
+    user_repo.get_by_id = AsyncMock(return_value=user)
+    user_repo.get_by_stripe_customer_id = AsyncMock(return_value=user)
+
+    result = {
+        "handled": True,
+        "action": "payment_failed",
+        "user_id": "user_123",
+        "customer_id": "cus_test_456",
+        "invoice_id": "inv_test_001",
+        "amount_due": Decimal("9.99"),
+        "currency": "USD",
+    }
+
+    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+        # No db supplied — triggers the warning path, no dunning called
+        applied = await apply_webhook_action(result, user_repo, db=None)
+
+    assert applied is True
+    mock_invalidate.assert_not_awaited()
+
+
+# =============================================================================
+# Task 1.5: Decimal currency conversion tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_handle_webhook_payment_failed_amount_is_decimal(stripe_service):
+    """invoice.payment_failed: amount_due converted from cents to Decimal dollars."""
+    event = {
+        "id": "evt_test_decimal",
+        "type": "invoice.payment_failed",
+        "data": {
+            "object": {
+                "customer": "cus_test_456",
+                "subscription": "sub_test_123",
+                "amount_due": 499,
+                "currency": "usd",
+                "id": "inv_test_001",
+            }
+        },
+    }
+
+    result = await stripe_service.handle_webhook_event(event)
+
+    assert result["handled"] is True
+    # 499 cents → $4.99, must be Decimal not float
+    assert isinstance(result["amount_due"], Decimal)
+    assert result["amount_due"] == Decimal("4.99")
+
+
+@pytest.mark.asyncio
+async def test_handle_webhook_payment_failed_large_amount_no_float_error(stripe_service):
+    """Large cent amounts (e.g. $14.99) convert exactly with Decimal."""
+    event = {
+        "id": "evt_test_large",
+        "type": "invoice.payment_failed",
+        "data": {
+            "object": {
+                "customer": "cus_test_456",
+                "subscription": "sub_test_123",
+                "amount_due": 1499,
+                "currency": "usd",
+                "id": "inv_test_002",
+            }
+        },
+    }
+
+    result = await stripe_service.handle_webhook_event(event)
+
+    assert result["amount_due"] == Decimal("14.99")
+    assert isinstance(result["amount_due"], Decimal)
+
+
+@pytest.mark.asyncio
+async def test_handle_webhook_payment_failed_zero_amount(stripe_service):
+    """Zero amount_due is left as 0 (falsy guard prevents conversion)."""
+    event = {
+        "id": "evt_test_zero",
+        "type": "invoice.payment_failed",
+        "data": {
+            "object": {
+                "customer": "cus_test_456",
+                "subscription": "sub_test_123",
+                "amount_due": 0,
+                "currency": "usd",
+                "id": "inv_test_003",
+            }
+        },
+    }
+
+    result = await stripe_service.handle_webhook_event(event)
+
+    # amount_due=0 is falsy; conversion is skipped, raw int 0 returned
+    assert result["amount_due"] == 0

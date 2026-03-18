@@ -11,13 +11,13 @@ All endpoints use the PriceService / AnalyticsService dependency; those are
 replaced with lightweight async mocks so no real DB or Redis is required.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Mock service helpers
@@ -35,12 +35,10 @@ class _MockPriceService:
             "count": days * 24,
         }
 
-    async def get_optimal_usage_windows(
-        self, region, duration_hours, within_hours, supplier=None
-    ):
-        from datetime import datetime, timezone, timedelta
+    async def get_optimal_usage_windows(self, region, duration_hours, within_hours, supplier=None):
+        from datetime import datetime, timedelta
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return [
             {
                 "start": (now + timedelta(hours=2)).isoformat(),
@@ -90,16 +88,22 @@ def analytics_client():
     - No-op DB session (via get_db_session override)
     - Mocked PriceService and AnalyticsService injected at the dependency level
     """
+    from api.dependencies import get_analytics_service, get_price_service
     from main import app
-    from api.dependencies import get_price_service, get_analytics_service
 
     test_user = SessionData(user_id="user-analytics-1", email="analytics@test.com")
 
     mock_price_svc = _MockPriceService()
     mock_analytics_svc = _MockAnalyticsService()
 
+    # Mock DB that returns "pro" tier for require_tier("pro")
+    mock_db = AsyncMock()
+    tier_result = MagicMock()
+    tier_result.scalar_one_or_none.return_value = "pro"
+    mock_db.execute = AsyncMock(return_value=tier_result)
+
     app.dependency_overrides[get_current_user] = lambda: test_user
-    app.dependency_overrides[get_db_session] = lambda: MagicMock()
+    app.dependency_overrides[get_db_session] = lambda: mock_db
     app.dependency_overrides[get_price_service] = lambda: mock_price_svc
     app.dependency_overrides[get_analytics_service] = lambda: mock_analytics_svc
 
@@ -122,9 +126,7 @@ class TestPriceStatistics:
 
     def test_statistics_returns_200(self, analytics_client):
         """Valid region returns 200 with expected statistics fields."""
-        response = analytics_client.get(
-            "/api/v1/prices/statistics", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/statistics", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert data["region"] == "us_ct"
@@ -136,9 +138,7 @@ class TestPriceStatistics:
 
     def test_statistics_default_days(self, analytics_client):
         """Omitting days param should default to 7 days (count = 168)."""
-        response = analytics_client.get(
-            "/api/v1/prices/statistics", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/statistics", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert data["period_days"] == 7
@@ -182,9 +182,7 @@ class TestPriceStatistics:
 
     def test_statistics_source_field_present(self, analytics_client):
         """Response should include a source field (live or fallback)."""
-        response = analytics_client.get(
-            "/api/v1/prices/statistics", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/statistics", params={"region": "us_ct"})
         assert response.status_code == 200
         assert "source" in response.json()
 
@@ -247,9 +245,7 @@ class TestOptimalWindows:
         response = analytics_client.get("/api/v1/prices/optimal-windows")
         assert response.status_code == 422
 
-    def test_optimal_windows_duration_below_minimum_returns_422(
-        self, analytics_client
-    ):
+    def test_optimal_windows_duration_below_minimum_returns_422(self, analytics_client):
         """duration_hours < 1 should fail ge=1 validation."""
         response = analytics_client.get(
             "/api/v1/prices/optimal-windows",
@@ -257,9 +253,7 @@ class TestOptimalWindows:
         )
         assert response.status_code == 422
 
-    def test_optimal_windows_duration_above_maximum_returns_422(
-        self, analytics_client
-    ):
+    def test_optimal_windows_duration_above_maximum_returns_422(self, analytics_client):
         """duration_hours > 12 should fail le=12 validation."""
         response = analytics_client.get(
             "/api/v1/prices/optimal-windows",
@@ -286,18 +280,14 @@ class TestPriceTrends:
 
     def test_trends_returns_200(self, analytics_client):
         """Valid request should return 200 with trend data."""
-        response = analytics_client.get(
-            "/api/v1/prices/trends", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/trends", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert data["region"] == "us_ct"
 
     def test_trends_contains_direction(self, analytics_client):
         """Response should include a trend direction."""
-        response = analytics_client.get(
-            "/api/v1/prices/trends", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/trends", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert "direction" in data
@@ -305,9 +295,7 @@ class TestPriceTrends:
 
     def test_trends_contains_change_percent(self, analytics_client):
         """Response should include a numeric change_percent field."""
-        response = analytics_client.get(
-            "/api/v1/prices/trends", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/trends", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert "change_percent" in data
@@ -343,17 +331,13 @@ class TestPriceTrends:
 
     def test_trends_generated_at_present(self, analytics_client):
         """Response should include a generated_at timestamp."""
-        response = analytics_client.get(
-            "/api/v1/prices/trends", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/trends", params={"region": "us_ct"})
         assert response.status_code == 200
         assert "generated_at" in response.json()
 
     def test_trends_source_field_present(self, analytics_client):
         """Response should include a source field."""
-        response = analytics_client.get(
-            "/api/v1/prices/trends", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/trends", params={"region": "us_ct"})
         assert response.status_code == 200
         assert "source" in response.json()
 
@@ -368,18 +352,14 @@ class TestPeakHours:
 
     def test_peak_hours_returns_200(self, analytics_client):
         """Valid request should return 200 with peak-hour analysis."""
-        response = analytics_client.get(
-            "/api/v1/prices/peak-hours", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/peak-hours", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert data["region"] == "us_ct"
 
     def test_peak_hours_contains_expected_keys(self, analytics_client):
         """Response should include peak_hours, off_peak_hours and price averages."""
-        response = analytics_client.get(
-            "/api/v1/prices/peak-hours", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/peak-hours", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert "peak_hours" in data
@@ -389,9 +369,7 @@ class TestPeakHours:
 
     def test_peak_hours_lists_are_lists(self, analytics_client):
         """peak_hours and off_peak_hours should be lists of integers."""
-        response = analytics_client.get(
-            "/api/v1/prices/peak-hours", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/peak-hours", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data["peak_hours"], list)
@@ -434,17 +412,13 @@ class TestPeakHours:
 
     def test_peak_hours_generated_at_present(self, analytics_client):
         """Response should include a generated_at timestamp."""
-        response = analytics_client.get(
-            "/api/v1/prices/peak-hours", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/peak-hours", params={"region": "us_ct"})
         assert response.status_code == 200
         assert "generated_at" in response.json()
 
     def test_peak_off_peak_hours_cover_full_day(self, analytics_client):
         """Combined peak and off-peak hours should cover all 24 hours."""
-        response = analytics_client.get(
-            "/api/v1/prices/peak-hours", params={"region": "us_ct"}
-        )
+        response = analytics_client.get("/api/v1/prices/peak-hours", params={"region": "us_ct"})
         assert response.status_code == 200
         data = response.json()
         all_hours = set(data["peak_hours"]) | set(data["off_peak_hours"])
@@ -553,3 +527,47 @@ class TestOptimalWindowsPagination:
         # Mock returns 2 windows; total must be 2 regardless of page_size
         assert data["total"] == 2
         assert len(data["windows"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Auth enforcement — unauthenticated requests must be rejected
+# ---------------------------------------------------------------------------
+
+
+class TestPriceAnalyticsAuthRequired:
+    """All price analytics endpoints require pro-tier authentication."""
+
+    @pytest.fixture
+    def unauth_client(self):
+        """TestClient with no auth overrides — requests are unauthenticated."""
+        from main import _app_rate_limiter, app
+
+        _app_rate_limiter.reset()
+        # Do NOT override get_current_user — let the real auth dependency run
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_db_session, None)
+
+        client = TestClient(app, raise_server_exceptions=False)
+        yield client
+
+        _app_rate_limiter.reset()
+
+    def test_statistics_requires_auth(self, unauth_client):
+        """GET /api/v1/prices/statistics without auth should return 401."""
+        response = unauth_client.get("/api/v1/prices/statistics", params={"region": "us_ct"})
+        assert response.status_code == 401
+
+    def test_optimal_windows_requires_auth(self, unauth_client):
+        """GET /api/v1/prices/optimal-windows without auth should return 401."""
+        response = unauth_client.get("/api/v1/prices/optimal-windows", params={"region": "us_ct"})
+        assert response.status_code == 401
+
+    def test_trends_requires_auth(self, unauth_client):
+        """GET /api/v1/prices/trends without auth should return 401."""
+        response = unauth_client.get("/api/v1/prices/trends", params={"region": "us_ct"})
+        assert response.status_code == 401
+
+    def test_peak_hours_requires_auth(self, unauth_client):
+        """GET /api/v1/prices/peak-hours without auth should return 401."""
+        response = unauth_client.get("/api/v1/prices/peak-hours", params={"region": "us_ct"})
+        assert response.status_code == 401

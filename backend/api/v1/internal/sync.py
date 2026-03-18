@@ -67,11 +67,14 @@ async def sync_neon_users(db: AsyncSession = Depends(get_db_session)):
                    OR (EXCLUDED.name <> '' AND public.users.name <> EXCLUDED.name)
                 RETURNING id, (xmax = 0) AS is_insert
             """)
-            result = await db.execute(upsert, {
-                "id": neon_id,
-                "email": email.lower(),
-                "name": name,
-            })
+            result = await db.execute(
+                upsert,
+                {
+                    "id": neon_id,
+                    "email": email.lower(),
+                    "name": name,
+                },
+            )
             row_result = result.first()
             if row_result is not None:
                 if row_result.is_insert:
@@ -126,6 +129,4 @@ async def sync_connections(db: AsyncSession = Depends(get_db_session)):
         }
     except Exception as exc:
         logger.error("sync_connections_failed", error=str(exc))
-        raise HTTPException(
-            status_code=500, detail=f"Connection sync failed: {str(exc)}"
-        )
+        raise HTTPException(status_code=500, detail="Connection sync failed. See server logs.")

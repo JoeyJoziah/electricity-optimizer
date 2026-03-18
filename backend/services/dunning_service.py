@@ -14,8 +14,9 @@ Notification routing:
     the service falls back to direct EmailService delivery.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 import structlog
@@ -50,7 +51,7 @@ class DunningService:
     def __init__(
         self,
         db: AsyncSession,
-        email_service: Optional[EmailService] = None,
+        email_service: EmailService | None = None,
         dispatcher: Optional["NotificationDispatcher"] = None,
     ):
         self._db = db
@@ -62,9 +63,9 @@ class DunningService:
         user_id: str,
         stripe_invoice_id: str,
         stripe_customer_id: str,
-        amount_owed: Optional[float] = None,
+        amount_owed: Decimal | float | None = None,
         currency: str = "USD",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Insert a payment_retry_history row and return it."""
         retry_count = await self.get_retry_count(stripe_invoice_id)
         new_count = retry_count + 1
@@ -124,7 +125,7 @@ class DunningService:
         Return True if no dunning email was sent for this invoice
         within the cooldown window (24 hours).
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=DUNNING_COOLDOWN_HOURS)
+        cutoff = datetime.now(UTC) - timedelta(hours=DUNNING_COOLDOWN_HOURS)
         result = await self._db.execute(
             text("""
                 SELECT email_sent_at
@@ -149,9 +150,9 @@ class DunningService:
         user_email: str,
         user_name: str,
         retry_count: int,
-        amount: Optional[float] = None,
+        amount: Decimal | float | None = None,
         currency: str = "USD",
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> bool:
         """
         Send a dunning notification — soft (<3 retries) or final (>=3).
@@ -209,7 +210,9 @@ class DunningService:
                         body=(
                             f"Payment of {currency} {amount:.2f} could not be processed. "
                             "Please update your payment method."
-                        ) if amount else subject,
+                        )
+                        if amount
+                        else subject,
                         channels=[
                             NotificationChannel.EMAIL,
                             NotificationChannel.PUSH,
@@ -275,7 +278,7 @@ class DunningService:
         user_id: str,
         retry_count: int,
         user_repo: Any,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Downgrade user to free tier after 3+ failures.
 
@@ -306,12 +309,12 @@ class DunningService:
         user_id: str,
         stripe_invoice_id: str,
         stripe_customer_id: str,
-        amount_owed: Optional[float],
+        amount_owed: Decimal | float | None,
         currency: str,
         user_email: str,
         user_name: str,
         user_repo: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Orchestrator: record failure → check cooldown → send email → escalate.
 
@@ -396,7 +399,7 @@ class DunningService:
         Return users whose most recent payment failure is older than
         grace_period_days and who are still on a paid tier.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(days=grace_period_days)
+        cutoff = datetime.now(UTC) - timedelta(days=grace_period_days)
         result = await self._db.execute(
             text("""
                 SELECT DISTINCT ON (prh.user_id)

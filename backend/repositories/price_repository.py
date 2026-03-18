@@ -7,17 +7,18 @@ Uses raw SQL (text()) since Price is a Pydantic model, not a SQLAlchemy ORM mode
 """
 
 import asyncio
+import builtins
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional, List, Any
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.price import Price, PriceRegion
 from models.utility import UtilityType
+from repositories.base import BaseRepository, RepositoryError
 
 # Columns that exist in the electricity_prices table
 _PRICE_COLUMNS = (
@@ -37,8 +38,10 @@ def _row_to_price(row: dict) -> Price:
         timestamp=row["timestamp"],
         is_peak=row.get("is_peak"),
         source_api=row.get("source_api"),
-        created_at=row.get("created_at", datetime.now(timezone.utc)),
-        carbon_intensity=float(row["carbon_intensity"]) if row.get("carbon_intensity") is not None else None,
+        created_at=row.get("created_at", datetime.now(UTC)),
+        carbon_intensity=float(row["carbon_intensity"])
+        if row.get("carbon_intensity") is not None
+        else None,
         utility_type=row.get("utility_type", "electricity"),
     )
 
@@ -68,7 +71,7 @@ class PriceRepository(BaseRepository[Price]):
         """Generate cache key"""
         return f"price:{':'.join(str(a) for a in args)}"
 
-    async def _get_from_cache(self, key: str) -> Optional[Any]:
+    async def _get_from_cache(self, key: str) -> Any | None:
         """Get value from cache"""
         if self._cache:
             try:
@@ -80,28 +83,36 @@ class PriceRepository(BaseRepository[Price]):
         return None
 
     async def _acquire_cache_lock(self, key: str, ttl_ms: int = 5000) -> bool:
-        """Try to acquire a compute lock for a cache key (prevents stampede)."""
+        """Try to acquire a compute lock for a cache key (prevents stampede).
+
+        Returns True when the lock is successfully acquired (caller should
+        proceed with the expensive computation).  Returns False when the lock
+        is already held by another request OR when Redis is unavailable.
+
+        Fail-closed on Redis error: returning False (lock appears held) prevents
+        all concurrent waiters from stampeding the database when Redis is down.
+        """
         if not self._cache:
             return True
         try:
             return bool(await self._cache.set(f"{key}:lock", "1", px=ttl_ms, nx=True))
         except Exception:
-            return True  # On error, allow the computation
+            # Fail-closed: treat Redis failure as "lock already held" so that
+            # no caller proceeds to hammer the database during a Redis outage.
+            return False
 
-    async def _set_in_cache(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    async def _set_in_cache(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Set value in cache and release compute lock."""
         if self._cache:
             try:
                 await self._cache.set(
-                    key,
-                    json.dumps(value, default=str),
-                    ex=ttl or self._cache_ttl
+                    key, json.dumps(value, default=str), ex=ttl or self._cache_ttl
                 )
                 await self._cache.delete(f"{key}:lock")
             except Exception:
                 pass
 
-    async def get_by_id(self, id: str) -> Optional[Price]:
+    async def get_by_id(self, id: str) -> Price | None:
         """
         Get a price record by ID.
 
@@ -157,7 +168,9 @@ class PriceRepository(BaseRepository[Price]):
                 """),
                 {
                     "id": entity.id,
-                    "region": entity.region if isinstance(entity.region, str) else entity.region.value,
+                    "region": entity.region
+                    if isinstance(entity.region, str)
+                    else entity.region.value,
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -166,7 +179,9 @@ class PriceRepository(BaseRepository[Price]):
                     "source_api": entity.source_api,
                     "created_at": entity.created_at,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
+                    "utility_type": entity.utility_type
+                    if isinstance(entity.utility_type, str)
+                    else entity.utility_type.value,
                 },
             )
             await self._db.commit()
@@ -176,7 +191,7 @@ class PriceRepository(BaseRepository[Price]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to create price: {str(e)}", e)
 
-    async def update(self, id: str, entity: Price) -> Optional[Price]:
+    async def update(self, id: str, entity: Price) -> Price | None:
         """
         Update an existing price record.
 
@@ -204,7 +219,9 @@ class PriceRepository(BaseRepository[Price]):
                 """),
                 {
                     "id": id,
-                    "region": entity.region if isinstance(entity.region, str) else entity.region.value,
+                    "region": entity.region
+                    if isinstance(entity.region, str)
+                    else entity.region.value,
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -212,7 +229,9 @@ class PriceRepository(BaseRepository[Price]):
                     "is_peak": entity.is_peak,
                     "source_api": entity.source_api,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value,
+                    "utility_type": entity.utility_type
+                    if isinstance(entity.utility_type, str)
+                    else entity.utility_type.value,
                 },
             )
             await self._db.commit()
@@ -257,12 +276,7 @@ class PriceRepository(BaseRepository[Price]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete price: {str(e)}", e)
 
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[Price]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> list[Price]:
         """
         List prices with pagination.
 
@@ -282,7 +296,11 @@ class PriceRepository(BaseRepository[Price]):
 
             if "region" in filters:
                 sql += " AND region = :region"
-                params["region"] = filters["region"].value if hasattr(filters["region"], "value") else filters["region"]
+                params["region"] = (
+                    filters["region"].value
+                    if hasattr(filters["region"], "value")
+                    else filters["region"]
+                )
             if "supplier" in filters:
                 sql += " AND supplier = :supplier"
                 params["supplier"] = filters["supplier"]
@@ -300,9 +318,9 @@ class PriceRepository(BaseRepository[Price]):
 
     async def list_latest_by_regions(
         self,
-        regions: List[str],
+        regions: builtins.list[str],
         limit_per_region: int = 20,
-    ) -> List[Price]:
+    ) -> builtins.list[Price]:
         """Fetch the latest prices for multiple regions in a single query.
 
         Uses a lateral join to get up to `limit_per_region` most-recent rows
@@ -312,7 +330,9 @@ class PriceRepository(BaseRepository[Price]):
             return []
         try:
             # Build region value list for IN clause
-            region_params = {f"r{i}": (r.value if hasattr(r, "value") else r) for i, r in enumerate(regions)}
+            region_params = {
+                f"r{i}": (r.value if hasattr(r, "value") else r) for i, r in enumerate(regions)
+            }
             placeholders = ", ".join(f":{k}" for k in region_params)
 
             sql = f"""
@@ -348,7 +368,11 @@ class PriceRepository(BaseRepository[Price]):
 
             if "region" in filters:
                 sql += " AND region = :region"
-                params["region"] = filters["region"].value if hasattr(filters["region"], "value") else filters["region"]
+                params["region"] = (
+                    filters["region"].value
+                    if hasattr(filters["region"], "value")
+                    else filters["region"]
+                )
             if "supplier" in filters:
                 sql += " AND supplier = :supplier"
                 params["supplier"] = filters["supplier"]
@@ -368,7 +392,7 @@ class PriceRepository(BaseRepository[Price]):
         region: PriceRegion,
         limit: int = 10,
         utility_type: UtilityType = UtilityType.ELECTRICITY,
-    ) -> List[Price]:
+    ) -> builtins.list[Price]:
         """
         Get current prices for a region and utility type.
 
@@ -416,7 +440,7 @@ class PriceRepository(BaseRepository[Price]):
                 await self._set_in_cache(
                     cache_key,
                     [p.model_dump() for p in prices],
-                    ttl=60  # 1 minute TTL for current prices
+                    ttl=60,  # 1 minute TTL for current prices
                 )
 
             return prices
@@ -424,11 +448,7 @@ class PriceRepository(BaseRepository[Price]):
         except Exception as e:
             raise RepositoryError(f"Failed to get current prices: {str(e)}", e)
 
-    async def get_latest_by_supplier(
-        self,
-        region: PriceRegion,
-        supplier: str
-    ) -> Optional[Price]:
+    async def get_latest_by_supplier(self, region: PriceRegion, supplier: str) -> Price | None:
         """
         Get the latest price for a specific supplier.
 
@@ -474,10 +494,10 @@ class PriceRepository(BaseRepository[Price]):
         region: PriceRegion,
         start_date: datetime,
         end_date: datetime,
-        supplier: Optional[str] = None,
+        supplier: str | None = None,
         utility_type: UtilityType = UtilityType.ELECTRICITY,
         limit: int = 5000,
-    ) -> List[Price]:
+    ) -> builtins.list[Price]:
         """
         Get historical prices for a date range.
 
@@ -532,9 +552,9 @@ class PriceRepository(BaseRepository[Price]):
         end_date: datetime,
         page: int = 1,
         page_size: int = 24,
-        supplier: Optional[str] = None,
+        supplier: str | None = None,
         utility_type: UtilityType = UtilityType.ELECTRICITY,
-    ) -> tuple[List[Price], int]:
+    ) -> tuple[builtins.list[Price], int]:
         """
         Get historical prices for a date range with offset pagination.
 
@@ -609,7 +629,7 @@ class PriceRepository(BaseRepository[Price]):
         except Exception as e:
             raise RepositoryError(f"Failed to get paginated historical prices: {str(e)}", e)
 
-    async def bulk_create(self, prices: List[Price]) -> int:
+    async def bulk_create(self, prices: builtins.list[Price]) -> int:
         """
         Bulk create multiple price records using multi-row INSERT.
 
@@ -639,7 +659,9 @@ class PriceRepository(BaseRepository[Price]):
                         f":created_at{i}, :carbon_intensity{i}, :utility_type{i})"
                     )
                     params[f"id{i}"] = entity.id
-                    params[f"region{i}"] = entity.region if isinstance(entity.region, str) else entity.region.value
+                    params[f"region{i}"] = (
+                        entity.region if isinstance(entity.region, str) else entity.region.value
+                    )
                     params[f"supplier{i}"] = entity.supplier
                     params[f"price_per_kwh{i}"] = entity.price_per_kwh
                     params[f"currency{i}"] = entity.currency
@@ -649,7 +671,9 @@ class PriceRepository(BaseRepository[Price]):
                     params[f"created_at{i}"] = entity.created_at
                     params[f"carbon_intensity{i}"] = entity.carbon_intensity
                     params[f"utility_type{i}"] = (
-                        entity.utility_type if isinstance(entity.utility_type, str) else entity.utility_type.value
+                        entity.utility_type
+                        if isinstance(entity.utility_type, str)
+                        else entity.utility_type.value
                     )
 
                 await self._db.execute(
@@ -688,7 +712,7 @@ class PriceRepository(BaseRepository[Price]):
         try:
             region_val = region.value if hasattr(region, "value") else region
             ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
-            start_date = datetime.now(timezone.utc) - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             result = await self._db.execute(
                 text("""
@@ -709,7 +733,9 @@ class PriceRepository(BaseRepository[Price]):
             return {
                 "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
                 "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
-                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")) if row["avg_price"] else None,
+                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
+                if row["avg_price"]
+                else None,
                 "count": row["count"],
                 "period_days": days,
                 "utility_type": ut_val,
@@ -741,7 +767,7 @@ class PriceRepository(BaseRepository[Price]):
         try:
             region_val = region.value if hasattr(region, "value") else region
             ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
-            start_date = datetime.now(timezone.utc) - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             result = await self._db.execute(
                 text("""
@@ -763,8 +789,12 @@ class PriceRepository(BaseRepository[Price]):
             return {
                 "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
                 "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
-                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")) if row["avg_price"] else None,
-                "stddev_price": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001")) if row["stddev_price"] else None,
+                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
+                if row["avg_price"]
+                else None,
+                "stddev_price": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
+                if row["stddev_price"]
+                else None,
                 "count": row["count"],
                 "period_days": days,
                 "utility_type": ut_val,
@@ -832,8 +862,12 @@ class PriceRepository(BaseRepository[Price]):
                 return {"first_third_avg": None, "last_third_avg": None, "total_count": 0}
 
             return {
-                "first_third_avg": Decimal(str(row["first_third_avg"])) if row["first_third_avg"] else None,
-                "last_third_avg": Decimal(str(row["last_third_avg"])) if row["last_third_avg"] else None,
+                "first_third_avg": Decimal(str(row["first_third_avg"]))
+                if row["first_third_avg"]
+                else None,
+                "last_third_avg": Decimal(str(row["last_third_avg"]))
+                if row["last_third_avg"]
+                else None,
                 "total_count": row["total_count"],
             }
 
@@ -845,7 +879,7 @@ class PriceRepository(BaseRepository[Price]):
         region: PriceRegion,
         start_date: datetime,
         end_date: datetime,
-    ) -> List[dict]:
+    ) -> builtins.list[dict]:
         """
         Get average prices grouped by hour of day using SQL aggregation.
 
@@ -896,7 +930,7 @@ class PriceRepository(BaseRepository[Price]):
         region: PriceRegion,
         start_date: datetime,
         end_date: datetime,
-    ) -> List[dict]:
+    ) -> builtins.list[dict]:
         """
         Get price statistics grouped by supplier using SQL aggregation.
 
@@ -939,7 +973,9 @@ class PriceRepository(BaseRepository[Price]):
                     "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")),
                     "min_price": Decimal(str(row["min_price"])).quantize(Decimal("0.0001")),
                     "max_price": Decimal(str(row["max_price"])).quantize(Decimal("0.0001")),
-                    "volatility": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001")) if row["stddev_price"] else Decimal("0"),
+                    "volatility": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
+                    if row["stddev_price"]
+                    else Decimal("0"),
                     "count": row["count"],
                 }
                 for row in rows

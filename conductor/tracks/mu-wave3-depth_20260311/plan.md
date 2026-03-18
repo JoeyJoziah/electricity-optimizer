@@ -273,10 +273,10 @@ Deepen platform coverage: CCA transparency, heating oil tracking, proactive rate
   - 045: affiliate_clicks table (Affiliate Revenue) — DEPLOYED (FK corrected to public.users)
   - **Result**: 39 public tables (was 33, +6 new). All indexes and grants applied.
 
-- [ ] Task 7.3: Verify data pipelines running on schedule
-  - `fetch-heating-oil.yml`: Weekly Monday 2pm UTC
-  - `detect-rate-changes.yml`: Daily 6:30am UTC
-  - **Status**: Workflows created, will verify after first scheduled run
+- [x] Task 7.3: Verify data pipelines running on schedule
+  - `fetch-heating-oil.yml`: Weekly Monday 2pm UTC — has run (last run 2026-03-16)
+  - `detect-rate-changes.yml`: Daily 6:30am UTC — consolidated into `daily-data-pipeline.yml` (2026-03-16 cost optimization)
+  - **Status**: Both pipelines operational (detect-rate-changes moved to daily pipeline)
 
 - [x] Task 7.4: Verify affiliate tracking functional
   - AffiliateService: URL generation, click recording, conversion tracking, revenue reporting
@@ -284,8 +284,8 @@ Deepen platform coverage: CCA transparency, heating oil tracking, proactive rate
   - FTCDisclosure: inline + banner variants, accessible
   - 15 tests passing (10 backend + 5 frontend)
 
-- [ ] Task 7.5: Update CONTINUITY.md and DSP graph
-  - **Status**: Deferred to post-deployment commit
+- [x] Task 7.5: Update CONTINUITY.md and DSP graph
+  - **Status**: DSP graph rebuilt multiple times since (latest: 474 entities, 940+ imports). Documentation updated across full sweep (2026-03-16)
 
 ### Verification
 - [x] All tests pass (4,101 total: 2,306 backend + 1,718 frontend + 77 CF Worker)

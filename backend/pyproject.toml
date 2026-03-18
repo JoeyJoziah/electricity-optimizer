@@ -38,13 +38,22 @@ select = [
 ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
+    "B904",   # raise-without-from-inside-except (widespread, separate fix track)
     "B905",   # zip without strict parameter
     "C901",   # too complex
+    "E402",   # module-import-not-at-top (compliance.py pattern)
+    "SIM102", # collapsible-if (style preference)
+    "SIM103", # needless-bool (style preference)
+    "SIM105", # suppressible-exception (contextlib.suppress preference)
+    "SIM108", # use-ternary-operator (readability preference)
+    "ARG001", # unused-function-argument (FastAPI Depends pattern)
+    "UP045",  # use X | None (Optional[] still valid and more readable)
+    "F821",   # undefined-name (forward refs in type hints)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"tests/*" = ["ARG001", "S101"]
+"tests/*" = ["ARG001", "ARG002", "ARG005", "S101"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["backend", "config", "models", "repositories", "services", "api", "routers"]

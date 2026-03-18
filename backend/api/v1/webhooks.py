@@ -8,10 +8,9 @@ verification. Logs events and can trigger downstream actions (e.g., Notion sync)
 import hashlib
 import hmac
 
-from fastapi import APIRouter, Request, HTTPException
-from pydantic import BaseModel
-
 import structlog
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from config.settings import settings
 
@@ -22,6 +21,7 @@ router = APIRouter(tags=["Webhooks"])
 
 class WebhookResponse(BaseModel):
     """Response for webhook processing."""
+
     received: bool
     event: str
 
@@ -87,7 +87,7 @@ async def handle_github_webhook(request: Request):
         verify_github_signature(payload, signature, secret)
     except ValueError as e:
         logger.warning("github_webhook_signature_invalid", error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid webhook signature.")
 
     event_type = request.headers.get("X-GitHub-Event", "unknown")
     delivery_id = request.headers.get("X-GitHub-Delivery", "")

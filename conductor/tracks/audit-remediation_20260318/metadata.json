@@ -1,0 +1,24 @@
+{
+  "id": "audit-remediation_20260318",
+  "title": "Codebase Audit Remediation 2026-03-18",
+  "type": "chore",
+  "status": "complete",
+  "created": "2026-03-18T00:00:00Z",
+  "updated": "2026-03-18T00:00:00Z",
+  "phases": {
+    "total": 5,
+    "completed": 5
+  },
+  "tasks": {
+    "total": 39,
+    "completed": 39
+  },
+  "source": ".audit-2026-03-18/REMEDIATION-PLAN.md",
+  "findings": {
+    "P0": 51,
+    "P1": 143,
+    "P2": 195,
+    "P3": 179,
+    "total": 568
+  }
+}

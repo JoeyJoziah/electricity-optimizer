@@ -1,0 +1,19 @@
+# Ruff configuration for RateShift
+# ruff 0.15+ enables B904, SIM, ARG by default; these are pre-existing
+# across the codebase and should be addressed in a dedicated lint track.
+
+[lint]
+ignore = [
+    "B904",    # raise-without-from-inside-except (widespread, needs dedicated fix)
+    "E402",    # module-import-not-at-top (compliance.py pattern)
+    "SIM102",  # collapsible-if
+    "SIM103",  # needless-bool
+    "SIM105",  # suppressible-exception (contextlib.suppress preference)
+    "ARG001",  # unused-function-argument (FastAPI Depends pattern)
+    "ARG002",  # unused-method-argument (test fixtures)
+]
+
+[lint.per-file-ignores]
+"backend/tests/*" = ["ARG001", "ARG002"]
+"ml/tests/*" = ["ARG001", "ARG002"]
+"tests/*" = ["ARG001", "ARG002"]

@@ -9,24 +9,24 @@
  * evaluates module-level code at build time when env vars aren't present).
  */
 
-import { betterAuth } from "better-auth"
-import { magicLink } from "better-auth/plugins/magic-link"
-import { Pool } from "@neondatabase/serverless"
-import { APP_URL } from "@/lib/config/env"
-import { sendEmail } from "@/lib/email/send"
+import { betterAuth } from "better-auth";
+import { magicLink } from "better-auth/plugins/magic-link";
+import { Pool } from "@neondatabase/serverless";
+import { APP_URL } from "@/lib/config/env";
+import { sendEmail } from "@/lib/email/send";
 
 function buildConnectionString(): string {
-  const baseUrl = process.env.DATABASE_URL || ""
+  const baseUrl = process.env.DATABASE_URL || "";
   if (!baseUrl) {
-    console.error("[Auth] DATABASE_URL is empty at initialization time")
+    console.error("[Auth] DATABASE_URL is empty at initialization time");
   }
   return baseUrl.includes("options=")
     ? baseUrl
-    : `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}options=-csearch_path%3Dneon_auth,public`
+    : `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}options=-csearch_path%3Dneon_auth,public`;
 }
 
 function createAuth() {
-  const connectionString = buildConnectionString()
+  const connectionString = buildConnectionString();
 
   return betterAuth({
     database: new Pool({ connectionString, max: 2 }),
@@ -44,7 +44,7 @@ function createAuth() {
           to: user.email,
           subject: "Reset your password — RateShift",
           html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Click the link below to reset your password:</p><p><a href="${url}">Reset password</a></p><p>If you didn&apos;t request this, you can safely ignore this email.</p>`,
-        })
+        });
       },
     },
 
@@ -54,12 +54,14 @@ function createAuth() {
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        console.log(`[Auth] sendVerificationEmail called for user=${user.email}`)
+        console.log(
+          `[Auth] sendVerificationEmail called for user=${user.email}`,
+        );
         await sendEmail({
           to: user.email,
           subject: "Verify your email — RateShift",
           html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Welcome to RateShift! Please verify your email by clicking the link below:</p><p><a href="${url}">Verify email</a></p><p>This link will expire in 24 hours.</p>`,
-        })
+        });
       },
     },
 
@@ -71,7 +73,7 @@ function createAuth() {
             to: email,
             subject: "Your sign-in link — RateShift",
             html: `<p>Click the link below to sign in to RateShift:</p><p><a href="${url}">Sign in</a></p><p>This link expires in 5 minutes. If you didn&apos;t request this, you can safely ignore this email.</p>`,
-          })
+          });
         },
         expiresIn: 300, // 5 minutes
       }),
@@ -122,6 +124,18 @@ function createAuth() {
       database: {
         generateId: "uuid",
       },
+      // Explicit CSRF-safe cookie attributes.
+      // SameSite=lax blocks cross-site POST/PUT/DELETE requests (CSRF) while
+      // still allowing navigations from external links (e.g. magic-link emails).
+      // secure=true is enforced in production so the cookie is only sent over
+      // HTTPS. Both attributes are set explicitly rather than relying on
+      // Better Auth's defaults so they survive future library upgrades.
+      cookieOptions: {
+        sameSite: "lax" as const,
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        path: "/",
+      },
     },
 
     // Re-throw API errors so our wrapper catches them with full detail
@@ -134,18 +148,18 @@ function createAuth() {
     logger: {
       level: "warn" as const,
     },
-  })
+  });
 }
 
 // Lazy singleton — created on first access, when runtime env vars are available
-let _auth: ReturnType<typeof createAuth> | null = null
+let _auth: ReturnType<typeof createAuth> | null = null;
 
 export function getAuth() {
   if (!_auth) {
-    _auth = createAuth()
+    _auth = createAuth();
   }
-  return _auth
+  return _auth;
 }
 
 // Type helper — extract Session type from Better Auth
-export type Session = ReturnType<typeof createAuth>["$Infer"]["Session"]
+export type Session = ReturnType<typeof createAuth>["$Infer"]["Session"];

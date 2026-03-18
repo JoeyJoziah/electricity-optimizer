@@ -8,22 +8,22 @@ and validated here for backend API access.
 Session tokens arrive via:
 1. Cookie: 'better-auth.session_token' (primary — set by Better Auth)
 2. Header: 'Authorization: Bearer <session_token>' (API clients)
+
+Session cache entries in Redis are encrypted with AES-256-GCM using the
+FIELD_ENCRYPTION_KEY to protect user data at rest.
 """
 
 import hashlib
 import json
-from typing import Optional
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-
 import structlog
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.database import get_timescale_session, db_manager
-
+from config.database import db_manager, get_timescale_session
 
 logger = structlog.get_logger()
 
@@ -41,11 +41,12 @@ SESSION_COOKIE_NAME_SECURE = "__Secure-better-auth.session_token"
 @dataclass
 class SessionData:
     """Authenticated user session data from neon_auth schema."""
+
     user_id: str
     email: str
     name: str = ""
     email_verified: bool = False
-    role: Optional[str] = None
+    role: str | None = None
 
 
 # Zenith audit H-15-01: reduced from 300s to 60s to limit stale-session window
@@ -54,11 +55,55 @@ class SessionData:
 _SESSION_CACHE_TTL = 60  # seconds
 
 
+def _encrypt_session_cache(plaintext: str) -> bytes:
+    """
+    Encrypt session cache data with AES-256-GCM before storing in Redis.
+
+    Uses the same FIELD_ENCRYPTION_KEY as field-level encryption. Falls back
+    to plaintext JSON if the encryption key is not configured (dev mode).
+    """
+    try:
+        from utils.encryption import encrypt_field
+
+        return encrypt_field(plaintext)
+    except RuntimeError:
+        # FIELD_ENCRYPTION_KEY not configured — fall back to unencrypted
+        # so development environments without the key still work.
+        return plaintext.encode("utf-8")
+
+
+def _decrypt_session_cache(data) -> str:
+    """
+    Decrypt session cache data retrieved from Redis.
+
+    Handles both encrypted (AES-256-GCM) and legacy unencrypted (plain JSON)
+    cache entries for seamless migration.
+    """
+    if isinstance(data, str):
+        raw = data.encode("utf-8")
+    else:
+        raw = bytes(data)
+
+    # Try decryption first. AES-256-GCM ciphertext is always binary and will
+    # never start with '{', so a quick check distinguishes encrypted from
+    # legacy plaintext entries.
+    if raw and raw[0:1] != b"{":
+        try:
+            from utils.encryption import decrypt_field
+
+            return decrypt_field(raw)
+        except Exception:
+            pass  # Fall through to plaintext handling
+
+    # Legacy unencrypted entry or decryption failed — treat as plain JSON
+    return raw.decode("utf-8")
+
+
 async def _get_session_from_token(
     session_token: str,
     db: AsyncSession,
     redis=None,
-) -> Optional[SessionData]:
+) -> SessionData | None:
     """
     Query neon_auth.session + neon_auth.user for the given session token.
 
@@ -68,15 +113,15 @@ async def _get_session_from_token(
     """
     cache_key = f"session:{hashlib.sha256(session_token.encode()).hexdigest()[:32]}"
 
-    # Try Redis cache first
+    # Try Redis cache first (encrypted with AES-256-GCM)
     if redis is not None:
         try:
             cached = await redis.get(cache_key)
             if cached:
-                data = json.loads(cached)
+                data = json.loads(_decrypt_session_cache(cached))
                 return SessionData(**data)
         except Exception:
-            pass  # Cache miss or error — fall through to DB
+            pass  # Cache miss, decryption error, or connection error — fall through to DB
 
     query = text("""
         SELECT
@@ -107,19 +152,22 @@ async def _get_session_from_token(
         role=row.role,
     )
 
-    # Cache in Redis for subsequent requests
+    # Cache in Redis for subsequent requests (encrypted with AES-256-GCM)
     if redis is not None:
         try:
-            await redis.setex(
-                cache_key,
-                _SESSION_CACHE_TTL,
-                json.dumps({
+            plaintext = json.dumps(
+                {
                     "user_id": session_data.user_id,
                     "email": session_data.email,
                     "name": session_data.name,
                     "email_verified": session_data.email_verified,
                     "role": session_data.role,
-                }),
+                }
+            )
+            await redis.setex(
+                cache_key,
+                _SESSION_CACHE_TTL,
+                _encrypt_session_cache(plaintext),
             )
         except Exception:
             pass  # Non-fatal — next request will just re-query
@@ -146,7 +194,7 @@ async def invalidate_session_cache(session_token: str, redis=None) -> bool:
 
 async def get_current_user(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_timescale_session),
 ) -> SessionData:
     """
@@ -169,15 +217,14 @@ async def get_current_user(
     )
 
     # Extract session token from header or cookie
-    session_token: Optional[str] = None
+    session_token: str | None = None
 
     if credentials and credentials.credentials:
         session_token = credentials.credentials
     else:
         # Check both cookie names: plain (HTTP/dev) and __Secure- prefixed (HTTPS/prod)
-        session_token = (
-            request.cookies.get(SESSION_COOKIE_NAME)
-            or request.cookies.get(SESSION_COOKIE_NAME_SECURE)
+        session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.cookies.get(
+            SESSION_COOKIE_NAME_SECURE
         )
 
     if not session_token:
@@ -210,9 +257,9 @@ async def get_current_user(
 
 async def get_current_user_optional(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_timescale_session),
-) -> Optional[SessionData]:
+) -> SessionData | None:
     """
     Get current user if authenticated, None otherwise.
 
@@ -265,7 +312,9 @@ async def ensure_user_profile(
         WHERE public.users.email <> EXCLUDED.email
            OR (EXCLUDED.name <> '' AND public.users.name <> EXCLUDED.name)
     """)
-    result = await db.execute(insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""})
+    result = await db.execute(
+        insert, {"id": neon_user_id, "email": email.lower(), "name": name or ""}
+    )
     await db.commit()
     created = result.rowcount > 0
     if created:

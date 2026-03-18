@@ -19,15 +19,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import asyncio
-import collections
 import json
-from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-
 
 # =============================================================================
 # HELPERS
@@ -121,8 +118,8 @@ class TestSSEMaxConnections:
     @pytest.fixture
     def app_client(self):
         """TestClient with auth and price_service dependencies overridden."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
+        from main import app
 
         token = _make_token_data("user-maxconn")
         mock_svc = AsyncMock()
@@ -158,9 +155,7 @@ class TestSSEMaxConnections:
 
         # get_redis is imported locally inside _sse_incr via config.database
         with patch("config.database.get_redis", new=_no_redis):
-            response = app_client.get(
-                "/api/v1/prices/stream?region=us_ct&interval=10"
-            )
+            response = app_client.get("/api/v1/prices/stream?region=us_ct&interval=10")
 
         assert response.status_code == 429
 
@@ -178,20 +173,27 @@ class TestSSEEventGenerator:
 
     @pytest.mark.asyncio
     async def test_sse_heartbeat_sent(self):
-        """Generator yields a '': heartbeat\\n\\n' comment during sleep interval."""
+        """Generator yields a ': heartbeat\\n\\n' comment during sleep interval.
+
+        With heartbeat_interval=15 and interval_seconds=30 the inner sleep
+        loop fires twice (15s + 15s). The heartbeat threshold is reached on
+        the first chunk (elapsed 15 >= 15), so the heartbeat is emitted
+        before the data event for the next cycle.
+        """
         from api.v1.prices_sse import _price_event_generator
         from models.price import PriceRegion
 
         mock_svc = AsyncMock()
         mock_svc.get_current_prices = AsyncMock(return_value=[_make_price_obj()])
 
-        # Disconnect after first sleep chunk
+        # Allow two sleep chunks (both 15s with heartbeat_interval=15) then
+        # cancel so we can inspect without waiting for a full second cycle.
         call_count = 0
 
         async def fake_sleep(t):
             nonlocal call_count
             call_count += 1
-            if call_count >= 2:
+            if call_count >= 3:
                 raise asyncio.CancelledError()
 
         events = []
@@ -207,8 +209,59 @@ class TestSSEEventGenerator:
             except asyncio.CancelledError:
                 pass
 
-        # The first event should be the data event
+        # First event is the data event; subsequent events include heartbeat comments
         assert any(e.startswith("data:") for e in events)
+        assert any(e == ": heartbeat\n\n" for e in events), (
+            "Heartbeat comment was never yielded — heartbeat_interval may be "
+            "greater than interval_seconds, causing the threshold to never be reached"
+        )
+
+    @pytest.mark.asyncio
+    async def test_sse_heartbeat_interval_less_than_data_interval(self):
+        """heartbeat_interval must be less than interval_seconds.
+
+        If heartbeat_interval >= interval_seconds the inner sleep loop
+        executes only one chunk equal to interval_seconds, elapsed never
+        reaches the threshold, and no heartbeat is ever sent.  This
+        regression test locks in the required ordering.
+        """
+        from api.v1.prices_sse import _price_event_generator
+        from models.price import PriceRegion
+
+        mock_svc = AsyncMock()
+        mock_svc.get_current_prices = AsyncMock(return_value=[_make_price_obj()])
+
+        # Run one full data cycle by sleeping without cancellation, then
+        # cancel on the third sleep so we observe at least one heartbeat window.
+        sleep_durations: list[float] = []
+
+        async def recording_sleep(t):
+            sleep_durations.append(t)
+            if len(sleep_durations) >= 3:
+                raise asyncio.CancelledError()
+
+        events = []
+        with patch("asyncio.sleep", side_effect=recording_sleep):
+            try:
+                async for event in _price_event_generator(
+                    PriceRegion.US_CT,
+                    mock_svc,
+                    interval_seconds=30,
+                    request=None,
+                ):
+                    events.append(event)
+            except asyncio.CancelledError:
+                pass
+
+        # Every recorded sleep chunk must equal heartbeat_interval (15),
+        # never the full interval_seconds (30), confirming the loop splits
+        # correctly and heartbeats are reachable.
+        heartbeat_interval = 15
+        for dur in sleep_durations:
+            assert dur <= heartbeat_interval, (
+                f"Sleep chunk {dur}s exceeds heartbeat_interval {heartbeat_interval}s — "
+                "heartbeat_interval is not less than interval_seconds"
+            )
 
     @pytest.mark.asyncio
     async def test_sse_data_event_format(self):
@@ -239,7 +292,7 @@ class TestSSEEventGenerator:
         first = events[0]
         assert first.startswith("data: ")
         assert first.endswith("\n\n")
-        payload = json.loads(first[len("data: "): -2])
+        payload = json.loads(first[len("data: ") : -2])
         assert payload["region"] == "us_ct"
         assert payload["supplier"] == "United Illuminating"
         assert "price_per_kwh" in payload
@@ -268,23 +321,23 @@ class TestSSEEventGenerator:
                 return_value=[mock_fallback_price],
                 create=True,
             ),
-        ):
             # _generate_mock_prices is imported lazily inside the generator;
             # patch it at the source module.
-            with patch(
+            patch(
                 "api.v1.prices._generate_mock_prices",
                 return_value=[mock_fallback_price],
-            ):
-                try:
-                    async for event in _price_event_generator(
-                        PriceRegion.US_CT, mock_svc, interval_seconds=30
-                    ):
-                        events.append(event)
-                except asyncio.CancelledError:
-                    pass
+            ),
+        ):
+            try:
+                async for event in _price_event_generator(
+                    PriceRegion.US_CT, mock_svc, interval_seconds=30
+                ):
+                    events.append(event)
+            except asyncio.CancelledError:
+                pass
 
         assert len(events) >= 1
-        payload = json.loads(events[0][len("data: "): -2])
+        payload = json.loads(events[0][len("data: ") : -2])
         assert payload["source"] == "fallback"
 
     @pytest.mark.asyncio
@@ -294,9 +347,7 @@ class TestSSEEventGenerator:
         from models.price import PriceRegion
 
         mock_svc = AsyncMock()
-        mock_svc.get_current_prices = AsyncMock(
-            side_effect=RuntimeError("DB connection lost")
-        )
+        mock_svc.get_current_prices = AsyncMock(side_effect=RuntimeError("DB connection lost"))
 
         fallback_price = _make_price_obj("Mock Supplier", 0.27)
 
@@ -305,22 +356,24 @@ class TestSSEEventGenerator:
         async def _stop_after_data(t):
             raise asyncio.CancelledError()
 
-        with patch("asyncio.sleep", side_effect=_stop_after_data):
-            with patch(
+        with (
+            patch("asyncio.sleep", side_effect=_stop_after_data),
+            patch(
                 "api.v1.prices._generate_mock_prices",
                 return_value=[fallback_price],
-            ):
-                try:
-                    async for event in _price_event_generator(
-                        PriceRegion.US_CT, mock_svc, interval_seconds=30
-                    ):
-                        events.append(event)
-                except asyncio.CancelledError:
-                    pass
+            ),
+        ):
+            try:
+                async for event in _price_event_generator(
+                    PriceRegion.US_CT, mock_svc, interval_seconds=30
+                ):
+                    events.append(event)
+            except asyncio.CancelledError:
+                pass
 
         # Should have yielded a fallback event rather than crashing
         assert len(events) >= 1
-        payload = json.loads(events[0][len("data: "): -2])
+        payload = json.loads(events[0][len("data: ") : -2])
         assert payload["source"] == "fallback"
 
     @pytest.mark.asyncio
@@ -373,9 +426,9 @@ class TestSSEEndpoint:
         disconnecting immediately.  The inner async generator breaks as soon
         as it detects the disconnection, so the test does not hang.
         """
-        from main import app
         from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
         from api.v1 import prices_sse
+        from main import app
 
         token = _make_token_data("user-headers")
         mock_svc = AsyncMock()
@@ -408,29 +461,29 @@ class TestSSEEndpoint:
                 raise asyncio.CancelledError()
 
         try:
-            with (
+            with (  # noqa: SIM117
                 patch("config.database.get_redis", new=_no_redis),
                 patch("asyncio.sleep", side_effect=_fast_sleep),
-            ):
                 # TestClient.stream enters the response context; we read just
                 # the first line so the headers are available, then exit.
-                with TestClient(app, raise_server_exceptions=False) as client:
-                    with client.stream(
-                        "GET",
-                        "/api/v1/prices/stream?region=us_ct&interval=10",
-                    ) as response:
-                        # Headers are available immediately after the 200 is sent.
-                        assert response.status_code == 200
-                        content_type = response.headers.get("content-type", "")
-                        assert "text/event-stream" in content_type
-                        # The streaming response sets Cache-Control: no-cache;
-                        # middleware may append additional directives, so we
-                        # check for containment rather than exact equality.
-                        cache_control = response.headers.get("cache-control", "")
-                        assert "no-cache" in cache_control
-                        assert response.headers.get("x-accel-buffering") == "no"
-                        # Read one byte to trigger body consumption then exit.
-                        response.read()
+                TestClient(app, raise_server_exceptions=False) as client,
+            ):
+                with client.stream(
+                    "GET",
+                    "/api/v1/prices/stream?region=us_ct&interval=10",
+                ) as response:
+                    # Headers are available immediately after the 200 is sent.
+                    assert response.status_code == 200
+                    content_type = response.headers.get("content-type", "")
+                    assert "text/event-stream" in content_type
+                    # The streaming response sets Cache-Control: no-cache;
+                    # middleware may append additional directives, so we
+                    # check for containment rather than exact equality.
+                    cache_control = response.headers.get("cache-control", "")
+                    assert "no-cache" in cache_control
+                    assert response.headers.get("x-accel-buffering") == "no"
+                    # Read one byte to trigger body consumption then exit.
+                    response.read()
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(get_db_session, None)

@@ -1,7 +1,7 @@
 # Multi-stage build for FastAPI backend
 # Optimized for production with minimal image size
 
-FROM python:3.12-slim as base
+FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b as base
 
 # Set working directory
 WORKDIR /app
@@ -48,7 +48,7 @@ COPY . .
 RUN python -m compileall -b .
 
 # Production stage
-FROM python:3.12-slim as production
+FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b as production
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -87,4 +87,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run with production settings (multiple workers, no access log)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--no-access-log"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--no-access-log"]

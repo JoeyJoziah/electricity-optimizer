@@ -1,17 +1,25 @@
 """
-Database and API Stress Testing Suite
+Database and API Stress Testing Suite for RateShift
 
 Performs targeted stress tests on:
 - Database concurrent query handling
 - API endpoint response under load
 - Redis cache performance
 - ML inference throughput
+
+Region values must match the Region enum in backend/models/region.py.
+US states use 'us_XX' format (e.g. 'us_ct', 'us_ca', 'us_tx').
+International regions use ISO-style codes (e.g. 'uk', 'de', 'fr').
+
+Skip guard: the script exits with a non-zero status and a helpful message
+if the target server does not respond to /health within the timeout.
 """
 
 import asyncio
 import aiohttp
 import time
 import statistics
+import sys
 from dataclasses import dataclass
 from typing import List, Dict, Any
 import json
@@ -30,7 +38,11 @@ class StressTestResult:
 
     @property
     def success_rate(self) -> float:
-        return self.successful_requests / self.total_requests * 100 if self.total_requests > 0 else 0
+        return (
+            self.successful_requests / self.total_requests * 100
+            if self.total_requests > 0
+            else 0
+        )
 
     @property
     def avg_latency(self) -> float:
@@ -58,35 +70,39 @@ class StressTestResult:
 
     @property
     def requests_per_second(self) -> float:
-        return self.total_requests / self.duration_seconds if self.duration_seconds > 0 else 0
+        return (
+            self.total_requests / self.duration_seconds
+            if self.duration_seconds > 0
+            else 0
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'total_requests': self.total_requests,
-            'successful_requests': self.successful_requests,
-            'failed_requests': self.failed_requests,
-            'success_rate': f"{self.success_rate:.2f}%",
-            'avg_latency_ms': f"{self.avg_latency * 1000:.2f}",
-            'p50_latency_ms': f"{self.p50_latency * 1000:.2f}",
-            'p95_latency_ms': f"{self.p95_latency * 1000:.2f}",
-            'p99_latency_ms': f"{self.p99_latency * 1000:.2f}",
-            'requests_per_second': f"{self.requests_per_second:.2f}",
-            'duration_seconds': f"{self.duration_seconds:.2f}",
-            'error_count': len(self.errors),
+            "total_requests": self.total_requests,
+            "successful_requests": self.successful_requests,
+            "failed_requests": self.failed_requests,
+            "success_rate": f"{self.success_rate:.2f}%",
+            "avg_latency_ms": f"{self.avg_latency * 1000:.2f}",
+            "p50_latency_ms": f"{self.p50_latency * 1000:.2f}",
+            "p95_latency_ms": f"{self.p95_latency * 1000:.2f}",
+            "p99_latency_ms": f"{self.p99_latency * 1000:.2f}",
+            "requests_per_second": f"{self.requests_per_second:.2f}",
+            "duration_seconds": f"{self.duration_seconds:.2f}",
+            "error_count": len(self.errors),
         }
 
 
 async def make_request(
     session: aiohttp.ClientSession,
     url: str,
-    method: str = 'GET',
+    method: str = "GET",
     data: Dict = None,
     headers: Dict = None,
 ) -> tuple:
     """Make an async HTTP request and return (status, latency)."""
     start = time.time()
     try:
-        if method == 'GET':
+        if method == "GET":
             async with session.get(url, headers=headers) as response:
                 await response.text()
                 latency = time.time() - start
@@ -104,7 +120,7 @@ async def make_request(
 async def stress_test_endpoint(
     url: str,
     concurrent_requests: int = 1000,
-    method: str = 'GET',
+    method: str = "GET",
     data: Dict = None,
     headers: Dict = None,
     timeout: int = 30,
@@ -126,7 +142,9 @@ async def stress_test_endpoint(
     connector = aiohttp.TCPConnector(limit=concurrent_requests)
     timeout_obj = aiohttp.ClientTimeout(total=timeout)
 
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout_obj) as session:
+    async with aiohttp.ClientSession(
+        connector=connector, timeout=timeout_obj
+    ) as session:
         start_time = time.time()
 
         tasks = [
@@ -169,8 +187,41 @@ async def stress_test_endpoint(
     )
 
 
+async def check_server_reachable(base_url: str, timeout: int = 10) -> bool:
+    """
+    Return True if the server responds to /health within the timeout.
+
+    Exits the process with a descriptive error if the server is not reachable
+    (skip guard for automated runs).
+    """
+    health_url = f"{base_url}/health"
+    connector = aiohttp.TCPConnector(limit=1)
+    timeout_obj = aiohttp.ClientTimeout(total=timeout)
+
+    try:
+        async with aiohttp.ClientSession(
+            connector=connector, timeout=timeout_obj
+        ) as session:
+            async with session.get(health_url) as response:
+                if response.status in (200, 204):
+                    return True
+                print(
+                    f"ERROR: Server at {health_url} returned HTTP {response.status}. "
+                    f"Is the backend running?",
+                    file=sys.stderr,
+                )
+                return False
+    except Exception as exc:
+        print(
+            f"ERROR: Cannot reach {health_url}: {exc}\n"
+            f"Start the backend with:  uvicorn main:app --host 0.0.0.0 --port 8000",
+            file=sys.stderr,
+        )
+        return False
+
+
 async def stress_test_database(
-    base_url: str = 'http://localhost:8000',
+    base_url: str = "http://localhost:8000",
     concurrent_requests: int = 1000,
 ) -> Dict[str, StressTestResult]:
     """
@@ -180,44 +231,48 @@ async def stress_test_database(
     - Current prices (read from cache/db)
     - Price history (database query)
     - Forecast (ML + cache)
+    - Suppliers (database read)
+
+    Region values use the Region enum format from backend/models/region.py:
+    'us_ct' for Connecticut, 'uk' for United Kingdom, etc.
     """
     results = {}
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Database Stress Test - {concurrent_requests} concurrent requests")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
-    # Test 1: Current prices (should hit cache)
+    # Test 1: Current prices — use a valid US region (Connecticut)
     print("Testing: Current prices endpoint...")
-    results['current_prices'] = await stress_test_endpoint(
-        f'{base_url}/api/v1/prices/current?region=UK',
+    results["current_prices"] = await stress_test_endpoint(
+        f"{base_url}/api/v1/prices/current?region=us_ct",
         concurrent_requests=concurrent_requests,
     )
     print(f"  Success rate: {results['current_prices'].success_rate:.2f}%")
     print(f"  p95 latency: {results['current_prices'].p95_latency * 1000:.2f}ms")
 
-    # Test 2: Price history (database query)
+    # Test 2: Price history (database query) — valid US region
     print("\nTesting: Price history endpoint...")
-    results['price_history'] = await stress_test_endpoint(
-        f'{base_url}/api/v1/prices/history?region=UK&days=7',
+    results["price_history"] = await stress_test_endpoint(
+        f"{base_url}/api/v1/prices/history?region=us_ct&days=7",
         concurrent_requests=concurrent_requests,
     )
     print(f"  Success rate: {results['price_history'].success_rate:.2f}%")
     print(f"  p95 latency: {results['price_history'].p95_latency * 1000:.2f}ms")
 
-    # Test 3: Forecast (ML inference)
+    # Test 3: Forecast (ML inference) — valid US region
     print("\nTesting: Forecast endpoint...")
-    results['forecast'] = await stress_test_endpoint(
-        f'{base_url}/api/v1/prices/forecast?region=UK&hours=24',
+    results["forecast"] = await stress_test_endpoint(
+        f"{base_url}/api/v1/prices/forecast?region=us_ct&hours=24",
         concurrent_requests=concurrent_requests,
     )
     print(f"  Success rate: {results['forecast'].success_rate:.2f}%")
     print(f"  p95 latency: {results['forecast'].p95_latency * 1000:.2f}ms")
 
-    # Test 4: Suppliers (database read)
+    # Test 4: Suppliers (database read) — valid US region
     print("\nTesting: Suppliers endpoint...")
-    results['suppliers'] = await stress_test_endpoint(
-        f'{base_url}/api/v1/suppliers?region=UK',
+    results["suppliers"] = await stress_test_endpoint(
+        f"{base_url}/api/v1/suppliers?region=us_ct",
         concurrent_requests=concurrent_requests,
     )
     print(f"  Success rate: {results['suppliers'].success_rate:.2f}%")
@@ -227,7 +282,7 @@ async def stress_test_database(
 
 
 async def stress_test_ml_inference(
-    base_url: str = 'http://localhost:8000',
+    base_url: str = "http://localhost:8000",
     concurrent_requests: int = 100,
 ) -> StressTestResult:
     """
@@ -235,40 +290,40 @@ async def stress_test_ml_inference(
 
     ML inference is more resource-intensive, so we use fewer concurrent requests.
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"ML Inference Stress Test - {concurrent_requests} concurrent requests")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     data = {
-        'appliances': [
+        "appliances": [
             {
-                'id': 'dishwasher',
-                'power_kw': 1.5,
-                'duration_hours': 2,
-                'earliest_start': 18,
-                'latest_end': 30,
-                'flexible': True,
+                "id": "dishwasher",
+                "power_kw": 1.5,
+                "duration_hours": 2,
+                "earliest_start": 18,
+                "latest_end": 30,
+                "flexible": True,
             },
             {
-                'id': 'washing_machine',
-                'power_kw': 2.0,
-                'duration_hours': 2,
-                'earliest_start': 20,
-                'latest_end': 32,
-                'flexible': True,
+                "id": "washing_machine",
+                "power_kw": 2.0,
+                "duration_hours": 2,
+                "earliest_start": 20,
+                "latest_end": 32,
+                "flexible": True,
             },
         ]
     }
 
     result = await stress_test_endpoint(
-        f'{base_url}/api/v1/optimization/schedule',
+        f"{base_url}/api/v1/optimization/schedule",
         concurrent_requests=concurrent_requests,
-        method='POST',
+        method="POST",
         data=data,
         timeout=60,  # ML inference may take longer
     )
 
-    print(f"ML Optimization Results:")
+    print("ML Optimization Results:")
     print(f"  Success rate: {result.success_rate:.2f}%")
     print(f"  Average latency: {result.avg_latency * 1000:.2f}ms")
     print(f"  p95 latency: {result.p95_latency * 1000:.2f}ms")
@@ -289,32 +344,32 @@ def _get_pass_criteria(scenario: str) -> Dict[str, Any]:
 
     Analysis reference: .project-intelligence/reports/load-test-analysis.md
     """
-    if scenario == '2000':
+    if scenario == "2000":
         return {
             # Relaxed DB criteria: pool exhaustion will cause some failures.
             # Success-rate target drops to 95% (5% pool-queue timeouts expected
             # until pool_size and Neon tier are upgraded per recommendations).
-            'db_success_rate': 95.0,
-            'db_p95_seconds': 1.0,   # Queue-wait adds ~500 ms vs 1000-user baseline
+            "db_success_rate": 95.0,
+            "db_p95_seconds": 1.0,  # Queue-wait adds ~500 ms vs 1000-user baseline
             # ML inference is more CPU-sensitive at 2x scale; event-loop
             # contention from 200 simultaneous asyncio tasks degrades p95.
-            'ml_success_rate': 90.0,
-            'ml_p95_seconds': 3.0,
+            "ml_success_rate": 90.0,
+            "ml_p95_seconds": 3.0,
         }
     # Default: 1000-user baseline thresholds
     return {
-        'db_success_rate': 99.0,
-        'db_p95_seconds': 0.5,
-        'ml_success_rate': 95.0,
-        'ml_p95_seconds': 2.0,
+        "db_success_rate": 99.0,
+        "db_p95_seconds": 0.5,
+        "ml_success_rate": 95.0,
+        "ml_p95_seconds": 2.0,
     }
 
 
 async def run_full_stress_test(
-    base_url: str = 'http://localhost:8000',
+    base_url: str = "http://localhost:8000",
     db_concurrent: int = 1000,
     ml_concurrent: int = 100,
-    scenario: str = '1000',
+    scenario: str = "1000",
 ) -> Dict[str, Any]:
     """
     Run complete stress test suite.
@@ -339,6 +394,11 @@ async def run_full_stress_test(
             --ml-concurrent 200 \\
             --scenario 2000
     """
+    # Skip guard: abort early if the server is not reachable
+    if not await check_server_reachable(base_url):
+        print(f"\nSKIPPED: Server not reachable at {base_url}", file=sys.stderr)
+        sys.exit(1)
+
     criteria = _get_pass_criteria(scenario)
 
     print("\n" + "=" * 70)
@@ -350,88 +410,104 @@ async def run_full_stress_test(
 
     # Database stress tests
     db_results = await stress_test_database(base_url, db_concurrent)
-    all_results['database'] = {k: v.to_dict() for k, v in db_results.items()}
+    all_results["database"] = {k: v.to_dict() for k, v in db_results.items()}
 
     # ML inference stress test
     ml_result = await stress_test_ml_inference(base_url, ml_concurrent)
-    all_results['ml_inference'] = ml_result.to_dict()
+    all_results["ml_inference"] = ml_result.to_dict()
 
     # Print summary
     print("\n" + "=" * 70)
     print("STRESS TEST SUMMARY")
     print("=" * 70)
 
-    db_success_target = criteria['db_success_rate']
-    db_p95_target = criteria['db_p95_seconds']
-    ml_success_target = criteria['ml_success_rate']
-    ml_p95_target = criteria['ml_p95_seconds']
+    db_success_target = criteria["db_success_rate"]
+    db_p95_target = criteria["db_p95_seconds"]
+    ml_success_target = criteria["ml_success_rate"]
+    ml_p95_target = criteria["ml_p95_seconds"]
 
     # Check pass/fail criteria
     passed = True
     for name, result in db_results.items():
         status = (
             "PASS"
-            if result.success_rate >= db_success_target and result.p95_latency < db_p95_target
+            if result.success_rate >= db_success_target
+            and result.p95_latency < db_p95_target
             else "FAIL"
         )
         if status == "FAIL":
             passed = False
         print(f"\n{name}:")
         print(f"  Status: {status}")
-        print(f"  Success Rate: {result.success_rate:.2f}% (target: >{db_success_target}%)")
-        print(f"  p95 Latency: {result.p95_latency * 1000:.2f}ms (target: <{db_p95_target * 1000:.0f}ms)")
+        print(
+            f"  Success Rate: {result.success_rate:.2f}% (target: >{db_success_target}%)"
+        )
+        print(
+            f"  p95 Latency: {result.p95_latency * 1000:.2f}ms (target: <{db_p95_target * 1000:.0f}ms)"
+        )
 
     ml_status = (
         "PASS"
-        if ml_result.success_rate >= ml_success_target and ml_result.p95_latency < ml_p95_target
+        if ml_result.success_rate >= ml_success_target
+        and ml_result.p95_latency < ml_p95_target
         else "FAIL"
     )
     if ml_status == "FAIL":
         passed = False
 
-    print(f"\nML Inference:")
+    print("\nML Inference:")
     print(f"  Status: {ml_status}")
-    print(f"  Success Rate: {ml_result.success_rate:.2f}% (target: >{ml_success_target}%)")
-    print(f"  p95 Latency: {ml_result.p95_latency * 1000:.2f}ms (target: <{ml_p95_target * 1000:.0f}ms)")
+    print(
+        f"  Success Rate: {ml_result.success_rate:.2f}% (target: >{ml_success_target}%)"
+    )
+    print(
+        f"  p95 Latency: {ml_result.p95_latency * 1000:.2f}ms (target: <{ml_p95_target * 1000:.0f}ms)"
+    )
 
     print("\n" + "=" * 70)
     print(f"OVERALL RESULT: {'PASS' if passed else 'FAIL'}")
     print("=" * 70)
 
-    all_results['scenario'] = scenario
-    all_results['overall_passed'] = passed
+    all_results["scenario"] = scenario
+    all_results["overall_passed"] = passed
     return all_results
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Run stress tests')
-    parser.add_argument('--host', default='http://localhost:8000', help='Target host')
-    parser.add_argument('--db-concurrent', type=int, default=1000, help='DB test concurrent requests')
-    parser.add_argument('--ml-concurrent', type=int, default=100, help='ML test concurrent requests')
+    parser = argparse.ArgumentParser(description="Run stress tests")
+    parser.add_argument("--host", default="http://localhost:8000", help="Target host")
     parser.add_argument(
-        '--scenario',
-        default='1000',
-        choices=['1000', '2000'],
+        "--db-concurrent", type=int, default=1000, help="DB test concurrent requests"
+    )
+    parser.add_argument(
+        "--ml-concurrent", type=int, default=100, help="ML test concurrent requests"
+    )
+    parser.add_argument(
+        "--scenario",
+        default="1000",
+        choices=["1000", "2000"],
         help=(
             "Pass/fail threshold profile. '2000' uses relaxed thresholds "
             "calibrated for 2x capacity test (95%% success, p95<1000ms for DB). "
             "See .project-intelligence/reports/load-test-analysis.md."
         ),
     )
-    parser.add_argument('--output', default=None, help='Output JSON file')
+    parser.add_argument("--output", default=None, help="Output JSON file")
 
     args = parser.parse_args()
 
-    results = asyncio.run(run_full_stress_test(
-        base_url=args.host,
-        db_concurrent=args.db_concurrent,
-        ml_concurrent=args.ml_concurrent,
-        scenario=args.scenario,
-    ))
+    results = asyncio.run(
+        run_full_stress_test(
+            base_url=args.host,
+            db_concurrent=args.db_concurrent,
+            ml_concurrent=args.ml_concurrent,
+            scenario=args.scenario,
+        )
+    )
 
     if args.output:
-        with open(args.output, 'w') as f:
+        with open(args.output, "w") as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to: {args.output}")

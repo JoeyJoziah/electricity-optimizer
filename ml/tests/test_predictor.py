@@ -23,10 +23,7 @@ All tests that depend on optional libraries (torch, xgboost, lightgbm) are
 guarded with skipif markers so the test suite remains green in minimal envs.
 """
 
-import os
-import tempfile
-from typing import Dict
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -55,7 +52,9 @@ HAS_LIGHTGBM = _check_module("lightgbm")
 # =============================================================================
 
 
-def _make_features_df(n_rows: int = 200, n_features: int = 5, seed: int = 42) -> pd.DataFrame:
+def _make_features_df(
+    n_rows: int = 200, n_features: int = 5, seed: int = 42
+) -> pd.DataFrame:
     """Create a synthetic feature DataFrame."""
     rng = np.random.RandomState(seed)
     data = {f"feat_{i}": rng.randn(n_rows) for i in range(n_features)}
@@ -66,6 +65,7 @@ def _make_features_df(n_rows: int = 200, n_features: int = 5, seed: int = 42) ->
 def _stub_predictor(model_type="xgboost", model=None, scaler=None, model_path="/fake"):
     """Build a PricePredictor instance without touching the filesystem."""
     from ml.inference.predictor import PricePredictor
+
     p = PricePredictor.__new__(PricePredictor)
     p.model_path = model_path
     p.model_type = model_type
@@ -73,6 +73,12 @@ def _stub_predictor(model_type="xgboost", model=None, scaler=None, model_path="/
     p.scaler = scaler
     p.config = None
     p.model_version = "test-1.0"
+    # Attributes set by _load_metadata() — required by predict() and
+    # _conformal_intervals().  Default to None / empty so tests that bypass
+    # __init__ do not hit AttributeError.
+    p._conformal_quantiles = None  # enables Gaussian fallback CI path
+    p._trained_at = None  # skip model-freshness warning
+    p._input_ranges = {}  # skip OOD range checks
     return p
 
 
@@ -163,40 +169,48 @@ class TestLoadMetadata:
 
 class TestPreprocessFeatures:
     def test_selects_only_numeric_columns(self):
-        df = pd.DataFrame({
-            "feat_a": [1.0, 2.0, 3.0],
-            "category": ["x", "y", "z"],
-            "feat_b": [4.0, 5.0, 6.0],
-        })
+        df = pd.DataFrame(
+            {
+                "feat_a": [1.0, 2.0, 3.0],
+                "category": ["x", "y", "z"],
+                "feat_b": [4.0, 5.0, 6.0],
+            }
+        )
         p = _stub_predictor("xgboost")
         result = p._preprocess_features(df)
         assert result.shape == (3, 2)
 
     def test_excludes_target_column(self):
-        df = pd.DataFrame({
-            "feat_a": [1.0, 2.0],
-            "target": [10.0, 20.0],
-        })
+        df = pd.DataFrame(
+            {
+                "feat_a": [1.0, 2.0],
+                "target": [10.0, 20.0],
+            }
+        )
         p = _stub_predictor("xgboost")
         result = p._preprocess_features(df)
         assert result.shape == (2, 1)
 
     def test_excludes_price_target_column(self):
-        df = pd.DataFrame({
-            "feat_a": [1.0, 2.0],
-            "price_target": [10.0, 20.0],
-            "feat_b": [3.0, 4.0],
-        })
+        df = pd.DataFrame(
+            {
+                "feat_a": [1.0, 2.0],
+                "price_target": [10.0, 20.0],
+                "feat_b": [3.0, 4.0],
+            }
+        )
         p = _stub_predictor("xgboost")
         result = p._preprocess_features(df)
         assert result.shape == (2, 2)
 
     def test_both_target_columns_excluded(self):
-        df = pd.DataFrame({
-            "feat_a": [1.0],
-            "target": [10.0],
-            "price_target": [11.0],
-        })
+        df = pd.DataFrame(
+            {
+                "feat_a": [1.0],
+                "target": [10.0],
+                "price_target": [11.0],
+            }
+        )
         p = _stub_predictor("xgboost")
         result = p._preprocess_features(df)
         assert result.shape == (1, 1)
@@ -330,8 +344,7 @@ class TestPredictXGBoost:
         result = p.predict(df, horizon=1, confidence_level=0.9)
         expected_half_width = 1.645 * 0.1 * 100.0
         np.testing.assert_allclose(
-            result["upper"][0] - result["point"][0],
-            expected_half_width, rtol=1e-3
+            result["upper"][0] - result["point"][0], expected_half_width, rtol=1e-3
         )
 
     def test_confidence_95_uses_z_196(self):
@@ -343,8 +356,7 @@ class TestPredictXGBoost:
         result = p.predict(df, horizon=1, confidence_level=0.95)
         expected_half_width = 1.96 * 0.1 * 100.0
         np.testing.assert_allclose(
-            result["upper"][0] - result["point"][0],
-            expected_half_width, rtol=1e-3
+            result["upper"][0] - result["point"][0], expected_half_width, rtol=1e-3
         )
 
     def test_95_interval_wider_than_90_interval(self):
@@ -358,13 +370,16 @@ class TestPredictXGBoost:
         w95 = np.mean(r95["upper"] - r95["lower"])
         assert w95 > w90
 
-    def test_model_predict_called_horizon_times(self):
+    def test_model_predict_called_once_mimo(self):
+        """MIMO strategy: tree model predict() called exactly once per forecast,
+        regardless of horizon length.  A single call with the current feature
+        snapshot produces all horizon steps simultaneously."""
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([50.0])
         p = _stub_predictor("xgboost", model=mock_model)
         df = _make_features_df()
         p.predict(df, horizon=10)
-        assert mock_model.predict.call_count == 10
+        assert mock_model.predict.call_count == 1
 
     def test_arrays_are_numpy_arrays(self):
         p = self._xgboost_predictor()
@@ -404,13 +419,15 @@ class TestPredictLightGBM:
         result = p.predict(df, horizon=24)
         assert np.all(result["lower"] <= result["upper"])
 
-    def test_model_predict_called_horizon_times(self):
+    def test_model_predict_called_once_mimo(self):
+        """MIMO strategy: LightGBM predict() called exactly once per forecast,
+        regardless of horizon length."""
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([42.0])
         p = _stub_predictor("lightgbm", model=mock_model)
         df = _make_features_df()
         p.predict(df, horizon=5)
-        assert mock_model.predict.call_count == 5
+        assert mock_model.predict.call_count == 1
 
 
 # =============================================================================
@@ -422,6 +439,7 @@ class TestPredictCNNLSTM:
     @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
     def test_3d_output_splits_into_point_lower_upper(self):
         import torch
+
         horizon = 24
         raw = np.random.randn(1, horizon, 3).astype(np.float32)
         mock_output = torch.FloatTensor(raw)
@@ -440,10 +458,12 @@ class TestPredictCNNLSTM:
     def test_3d_output_uses_column_indices_correctly(self):
         """Column 0 → point, 1 → lower, 2 → upper."""
         import torch
+
         horizon = 3
-        raw_data = np.array([[[10.0, 8.0, 12.0],
-                               [20.0, 18.0, 22.0],
-                               [30.0, 28.0, 32.0]]], dtype=np.float32)
+        raw_data = np.array(
+            [[[10.0, 8.0, 12.0], [20.0, 18.0, 22.0], [30.0, 28.0, 32.0]]],
+            dtype=np.float32,
+        )
         mock_output = torch.FloatTensor(raw_data)
         mock_model = MagicMock()
         mock_model.return_value = mock_output
@@ -460,6 +480,7 @@ class TestPredictCNNLSTM:
     def test_2d_output_estimates_uncertainty_at_10_percent(self):
         """When model returns (1, horizon), width ≈ 2 * z * 0.1 * |point|."""
         import torch
+
         horizon = 24
         point_value = 50.0
         raw = np.full((1, horizon), point_value, dtype=np.float32)
@@ -473,14 +494,14 @@ class TestPredictCNNLSTM:
 
         expected_half_width = 1.645 * 0.1 * point_value
         np.testing.assert_allclose(
-            result["upper"][0] - result["point"][0],
-            expected_half_width, rtol=1e-3
+            result["upper"][0] - result["point"][0], expected_half_width, rtol=1e-3
         )
 
     @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
     def test_model_called_in_no_grad_context(self):
         """Model.forward should be called (torch.no_grad wraps it)."""
         import torch
+
         horizon = 24
         raw = np.random.randn(1, horizon, 3).astype(np.float32)
         mock_output = torch.FloatTensor(raw)
@@ -497,6 +518,7 @@ class TestPredictCNNLSTM:
     def test_output_truncated_to_horizon(self):
         """Output slice should be exactly horizon long even if model returns more."""
         import torch
+
         horizon = 12
         raw = np.random.randn(1, 24, 3).astype(np.float32)
         mock_output = torch.FloatTensor(raw)
@@ -523,8 +545,11 @@ class TestPricePredictorInit:
         mock_xgb_model = MagicMock()
         mock_xgb_class = MagicMock(return_value=mock_xgb_model)
 
-        with patch.dict("sys.modules", {"xgboost": MagicMock(XGBRegressor=mock_xgb_class)}):
+        with patch.dict(
+            "sys.modules", {"xgboost": MagicMock(XGBRegressor=mock_xgb_class)}
+        ):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor(str(tmp_path), model_type="xgboost")
 
         assert p.model_type == "xgboost"
@@ -543,6 +568,7 @@ class TestPricePredictorInit:
 
         with patch.dict("sys.modules", {"lightgbm": mock_lgb}):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor(str(tmp_path), model_type="lightgbm")
 
         assert p.model is mock_booster
@@ -559,6 +585,7 @@ class TestPricePredictorInit:
 
         with patch.dict("sys.modules", {"xgboost": mock_xgb, "joblib": mock_joblib}):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor(str(tmp_path), model_type="xgboost")
 
         assert p.scaler is mock_scaler
@@ -571,6 +598,7 @@ class TestPricePredictorInit:
 
         with patch.dict("sys.modules", {"xgboost": mock_xgb}):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor(str(tmp_path), model_type="xgboost")
 
         assert p.model_version == "unknown"
@@ -582,6 +610,7 @@ class TestPricePredictorInit:
 
         with patch.dict("sys.modules", {"xgboost": mock_xgb}):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor(str(tmp_path))  # No explicit model_type
 
         assert p.model_type == "xgboost"
@@ -592,6 +621,7 @@ class TestPricePredictorInit:
 
         with patch.dict("sys.modules", {"xgboost": mock_xgb}):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor(str(tmp_path), model_type="xgboost")
 
         assert p.model_path == str(tmp_path)
@@ -625,10 +655,12 @@ class TestEdgeCases:
         assert result["point"].shape == (1,)
 
     def test_preprocess_integer_dtype_columns_selected(self):
-        df = pd.DataFrame({
-            "int_feat": pd.array([1, 2, 3], dtype="int64"),
-            "float_feat": [1.0, 2.0, 3.0],
-        })
+        df = pd.DataFrame(
+            {
+                "int_feat": pd.array([1, 2, 3], dtype="int64"),
+                "float_feat": [1.0, 2.0, 3.0],
+            }
+        )
         p = _stub_predictor("xgboost")
         result = p._preprocess_features(df)
         # Both int and float are numeric → 2 columns
@@ -666,10 +698,12 @@ class TestEdgeCases:
         assert p.model_version == "1.2.3"
 
     def test_features_df_with_all_target_columns_returns_empty_array(self):
-        df = pd.DataFrame({
-            "target": [1.0, 2.0],
-            "price_target": [3.0, 4.0],
-        })
+        df = pd.DataFrame(
+            {
+                "target": [1.0, 2.0],
+                "price_target": [3.0, 4.0],
+            }
+        )
         p = _stub_predictor("xgboost")
         result = p._preprocess_features(df)
         assert result.shape == (2, 0)

@@ -5,8 +5,7 @@ Covers: /maintenance/cleanup, /health-data, /kpi-report,
         /flags, /flags/{name}
 """
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,11 +26,9 @@ router = APIRouter()
 
 
 class FlagUpdateBody(BaseModel):
-    enabled: Optional[bool] = Field(None, description="Enable or disable the flag")
-    tier_required: Optional[str] = Field(None, description="Minimum subscription tier required")
-    percentage: Optional[int] = Field(
-        None, ge=0, le=100, description="Rollout percentage (0-100)"
-    )
+    enabled: bool | None = Field(None, description="Enable or disable the flag")
+    tier_required: str | None = Field(None, description="Minimum subscription tier required")
+    percentage: int | None = Field(None, ge=0, le=100, description="Rollout percentage (0-100)")
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +83,8 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
     (plus associated extracted rates and files) older than 730 days,
     electricity prices older than 365 days, forecast observations
     older than 90 days, weather cache older than 30 days, scraped
-    rates older than 90 days, and market intelligence older than 180 days.
+    rates older than 90 days, market intelligence older than 180 days,
+    and Stripe webhook idempotency records older than 72 hours.
 
     Requires a valid X-API-Key header (enforced by the router-level dependency).
     """
@@ -104,12 +102,13 @@ async def run_maintenance(db: AsyncSession = Depends(get_db_session)):
         ("weather_cache", svc.cleanup_weather_cache),
         ("scraped_rates", svc.cleanup_scraped_rates),
         ("market_intelligence", svc.cleanup_market_intelligence),
+        ("stripe_processed_events", svc.cleanup_stripe_processed_events),
     ]:
         try:
             results[task_name] = await task_fn()
         except Exception as e:
             logger.warning("maintenance_task_failed", task=task_name, error=str(e))
-            results[task_name] = {"error": str(e)}
+            results[task_name] = {"error": "Task failed. See server logs."}
             errors.append(task_name)
 
     results["status"] = "partial" if errors else "ok"
@@ -146,22 +145,19 @@ async def data_health_check(
     _HEALTH_TABLES = frozenset(t[0] for t in tables)
     _HEALTH_COLS = frozenset(t[1] for t in tables)
     for table_name, ts_col in tables:
-        assert table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS, \
+        assert table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS, (
             f"Unexpected health check identifier: {table_name}.{ts_col}"
+        )
 
     health = {}
     for table_name, ts_col in tables:
         try:
-            count_result = await db.execute(
-                text(f"SELECT COUNT(*) FROM {table_name}")
-            )
+            count_result = await db.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
             count = count_result.scalar() or 0
 
             last_write = None
             if count > 0:
-                ts_result = await db.execute(
-                    text(f"SELECT MAX({ts_col}) FROM {table_name}")
-                )
+                ts_result = await db.execute(text(f"SELECT MAX({ts_col}) FROM {table_name}"))
                 last_write_val = ts_result.scalar()
                 if last_write_val:
                     last_write = str(last_write_val)
@@ -170,18 +166,19 @@ async def data_health_check(
                 "count": count,
                 "last_write": last_write,
             }
-        except Exception as e:
+        except Exception:
             health[table_name] = {"count": -1, "error": "query failed"}
 
     # Flag critical tables that should not be empty
     critical_empty = [
-        t for t in ["electricity_prices", "supplier_registry", "weather_cache"]
+        t
+        for t in ["electricity_prices", "supplier_registry", "weather_cache"]
         if health.get(t, {}).get("count", 0) == 0
     ]
 
     return {
         "status": "warning" if critical_empty else "ok",
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "critical_empty": critical_empty,
         "tables": health,
     }
@@ -206,7 +203,7 @@ async def generate_kpi_report(
 
     try:
         metrics = await service.aggregate_metrics()
-        generated_at = datetime.now(timezone.utc).isoformat()
+        generated_at = datetime.now(UTC).isoformat()
 
         return {
             "status": "ok",
@@ -216,4 +213,4 @@ async def generate_kpi_report(
 
     except Exception as exc:
         logger.error("kpi_report_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail=f"KPI report failed: {str(exc)}")
+        raise HTTPException(status_code=500, detail="KPI report failed. See server logs.")

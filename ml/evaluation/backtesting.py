@@ -16,16 +16,17 @@ Features:
 import os
 import json
 import logging
-from typing import Dict, List, Optional, Tuple, Union, Callable
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from datetime import datetime
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
 try:
     import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
+    import matplotlib.dates as mdates  # noqa: F401
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
@@ -39,16 +40,16 @@ class BacktestConfig:
 
     # Window configuration
     window_type: str = "expanding"  # expanding or rolling
-    min_train_size: int = 8760       # 1 year minimum training data
-    test_size: int = 720             # 30 days test period
-    step_size: int = 168             # Re-evaluate weekly
+    min_train_size: int = 8760  # 1 year minimum training data
+    test_size: int = 720  # 30 days test period
+    step_size: int = 168  # Re-evaluate weekly
 
     # Model parameters
     sequence_length: int = 168
     forecast_horizon: int = 24
 
     # Evaluation settings
-    retrain_frequency: int = 168     # Retrain weekly (in hours)
+    retrain_frequency: int = 168  # Retrain weekly (in hours)
     use_cached_predictions: bool = False
 
     # Performance targets
@@ -128,11 +129,7 @@ class MetricsCalculator:
         return np.mean(actual_direction == pred_direction)
 
     @staticmethod
-    def coverage(
-        y_true: np.ndarray,
-        lower: np.ndarray,
-        upper: np.ndarray
-    ) -> float:
+    def coverage(y_true: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> float:
         """Percentage of actual values within confidence interval."""
         in_interval = (y_true >= lower) & (y_true <= upper)
         return np.mean(in_interval)
@@ -147,20 +144,22 @@ class MetricsCalculator:
         y_true: np.ndarray,
         y_pred: np.ndarray,
         lower: Optional[np.ndarray] = None,
-        upper: Optional[np.ndarray] = None
+        upper: Optional[np.ndarray] = None,
     ) -> Dict[str, float]:
         """Compute all metrics."""
         metrics = {
-            'mape': MetricsCalculator.mape(y_true, y_pred),
-            'rmse': MetricsCalculator.rmse(y_true, y_pred),
-            'mae': MetricsCalculator.mae(y_true, y_pred),
-            'r2': MetricsCalculator.r2_score(y_true, y_pred),
-            'direction_accuracy': MetricsCalculator.direction_accuracy(y_true, y_pred)
+            "mape": MetricsCalculator.mape(y_true, y_pred),
+            "rmse": MetricsCalculator.rmse(y_true, y_pred),
+            "mae": MetricsCalculator.mae(y_true, y_pred),
+            "r2": MetricsCalculator.r2_score(y_true, y_pred),
+            "direction_accuracy": MetricsCalculator.direction_accuracy(y_true, y_pred),
         }
 
         if lower is not None and upper is not None:
-            metrics['coverage'] = MetricsCalculator.coverage(y_true, lower, upper)
-            metrics['mean_interval_width'] = MetricsCalculator.mean_interval_width(lower, upper)
+            metrics["coverage"] = MetricsCalculator.coverage(y_true, lower, upper)
+            metrics["mean_interval_width"] = MetricsCalculator.mean_interval_width(
+                lower, upper
+            )
 
         return metrics
 
@@ -180,7 +179,7 @@ class ModelBacktester:
         self,
         model,  # ElectricityPriceForecaster or EnsembleForecaster
         feature_engine,  # ElectricityPriceFeatureEngine
-        config: BacktestConfig = None
+        config: BacktestConfig = None,
     ):
         """
         Initialize backtester.
@@ -197,11 +196,7 @@ class ModelBacktester:
 
         os.makedirs(self.config.output_dir, exist_ok=True)
 
-    def run(
-        self,
-        df: pd.DataFrame,
-        target_col: str = 'price'
-    ) -> Dict:
+    def run(self, df: pd.DataFrame, target_col: str = "price") -> Dict:
         """
         Run walk-forward backtest.
 
@@ -245,8 +240,10 @@ class ModelBacktester:
 
         while current_position + self.config.test_size <= total_samples:
             period_count += 1
-            logger.info(f"Backtest period {period_count}: "
-                       f"position {current_position}/{total_samples}")
+            logger.info(
+                f"Backtest period {period_count}: "
+                f"position {current_position}/{total_samples}"
+            )
 
             # Determine training window
             if self.config.window_type == "expanding":
@@ -269,7 +266,7 @@ class ModelBacktester:
                     train_data, feature_cols, target_col
                 )
 
-                if hasattr(self.model, 'fit') and len(X_train) > 0:
+                if hasattr(self.model, "fit") and len(X_train) > 0:
                     try:
                         self.model.fit(X_train, y_train, verbose=0)
                     except Exception as e:
@@ -278,9 +275,7 @@ class ModelBacktester:
                 hours_since_retrain = 0
 
             # Create test sequences
-            X_test, y_test = self._create_sequences(
-                test_data, feature_cols, target_col
-            )
+            X_test, y_test = self._create_sequences(test_data, feature_cols, target_col)
 
             if len(X_test) == 0:
                 logger.warning(f"No test samples for period {period_count}")
@@ -290,9 +285,11 @@ class ModelBacktester:
 
             # Generate predictions
             try:
-                if hasattr(self.model, 'predict_with_confidence'):
-                    predictions, lower, upper = self.model.predict_with_confidence(X_test)
-                elif hasattr(self.model, 'predict'):
+                if hasattr(self.model, "predict_with_confidence"):
+                    predictions, lower, upper = self.model.predict_with_confidence(
+                        X_test
+                    )
+                elif hasattr(self.model, "predict"):
                     result = self.model.predict(X_test, return_confidence=True)
                     if isinstance(result, tuple) and len(result) == 3:
                         predictions, lower, upper = result
@@ -313,12 +310,16 @@ class ModelBacktester:
             all_actuals.append(y_test)
             all_lowers.append(lower)
             all_uppers.append(upper)
-            all_dates.extend(test_data.index[:len(predictions)].tolist())
+            all_dates.extend(test_data.index[: len(predictions)].tolist())
 
             # Compute period metrics
             period_result = self._compute_period_metrics(
-                y_test, predictions, lower, upper,
-                test_data.index[0], test_data.index[-1]
+                y_test,
+                predictions,
+                lower,
+                upper,
+                test_data.index[0],
+                test_data.index[-1],
             )
             self.results.append(period_result)
 
@@ -357,10 +358,7 @@ class ModelBacktester:
         return summary
 
     def _create_sequences(
-        self,
-        df: pd.DataFrame,
-        feature_cols: List[str],
-        target_col: str
+        self, df: pd.DataFrame, feature_cols: List[str], target_col: str
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Create sequences for model input."""
         seq_len = self.config.sequence_length
@@ -369,8 +367,8 @@ class ModelBacktester:
         X, y = [], []
 
         for i in range(len(df) - seq_len - horizon + 1):
-            X.append(df[feature_cols].iloc[i:i + seq_len].values)
-            y.append(df[target_col].iloc[i + seq_len:i + seq_len + horizon].values)
+            X.append(df[feature_cols].iloc[i : i + seq_len].values)
+            y.append(df[target_col].iloc[i + seq_len : i + seq_len + horizon].values)
 
         if len(X) == 0:
             return np.array([]), np.array([])
@@ -384,7 +382,7 @@ class ModelBacktester:
         lower: np.ndarray,
         upper: np.ndarray,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
     ) -> BacktestResult:
         """Compute metrics for a single backtest period."""
         metrics = MetricsCalculator.compute_all(y_true, y_pred, lower, upper)
@@ -393,23 +391,21 @@ class ModelBacktester:
         mape_by_hour = {}
         for hour in range(self.config.forecast_horizon):
             if hour < y_true.shape[1]:
-                hour_mape = MetricsCalculator.mape(
-                    y_true[:, hour], y_pred[:, hour]
-                )
+                hour_mape = MetricsCalculator.mape(y_true[:, hour], y_pred[:, hour])
                 mape_by_hour[hour] = hour_mape
 
         return BacktestResult(
             start_date=start_date,
             end_date=end_date,
             n_samples=len(y_true),
-            mape=metrics['mape'],
-            rmse=metrics['rmse'],
-            mae=metrics['mae'],
-            r2=metrics['r2'],
-            direction_accuracy=metrics['direction_accuracy'],
-            coverage=metrics.get('coverage', 0.0),
-            mean_interval_width=metrics.get('mean_interval_width', 0.0),
-            mape_by_hour=mape_by_hour
+            mape=metrics["mape"],
+            rmse=metrics["rmse"],
+            mae=metrics["mae"],
+            r2=metrics["r2"],
+            direction_accuracy=metrics["direction_accuracy"],
+            coverage=metrics.get("coverage", 0.0),
+            mean_interval_width=metrics.get("mean_interval_width", 0.0),
+            mape_by_hour=mape_by_hour,
         )
 
     def _generate_summary(
@@ -418,11 +414,11 @@ class ModelBacktester:
         all_predictions: np.ndarray,
         all_lowers: np.ndarray,
         all_uppers: np.ndarray,
-        all_dates: List
+        all_dates: List,
     ) -> Dict:
         """Generate summary statistics from all backtest periods."""
         if len(all_actuals) == 0:
-            return {'status': 'no_results'}
+            return {"status": "no_results"}
 
         # Overall metrics
         overall_metrics = MetricsCalculator.compute_all(
@@ -442,27 +438,28 @@ class ModelBacktester:
                 )
 
         summary = {
-            'overall': overall_metrics,
-            'period_statistics': {
-                'n_periods': len(self.results),
-                'mape_mean': np.mean(period_mapes),
-                'mape_std': np.std(period_mapes),
-                'mape_min': np.min(period_mapes),
-                'mape_max': np.max(period_mapes),
-                'rmse_mean': np.mean(period_rmses),
-                'rmse_std': np.std(period_rmses)
+            "overall": overall_metrics,
+            "period_statistics": {
+                "n_periods": len(self.results),
+                "mape_mean": np.mean(period_mapes),
+                "mape_std": np.std(period_mapes),
+                "mape_min": np.min(period_mapes),
+                "mape_max": np.max(period_mapes),
+                "rmse_mean": np.mean(period_rmses),
+                "rmse_std": np.std(period_rmses),
             },
-            'hourly_mape': hourly_mape,
-            'target_achievement': {
-                'mape_target': self.config.target_mape,
-                'mape_achieved': overall_metrics['mape'] <= self.config.target_mape,
-                'coverage_target': self.config.target_coverage,
-                'coverage_achieved': overall_metrics.get('coverage', 0) >= self.config.target_coverage
+            "hourly_mape": hourly_mape,
+            "target_achievement": {
+                "mape_target": self.config.target_mape,
+                "mape_achieved": overall_metrics["mape"] <= self.config.target_mape,
+                "coverage_target": self.config.target_coverage,
+                "coverage_achieved": overall_metrics.get("coverage", 0)
+                >= self.config.target_coverage,
             },
-            'date_range': {
-                'start': str(min(all_dates)) if all_dates else None,
-                'end': str(max(all_dates)) if all_dates else None
-            }
+            "date_range": {
+                "start": str(min(all_dates)) if all_dates else None,
+                "end": str(max(all_dates)) if all_dates else None,
+            },
         }
 
         # Log summary
@@ -473,51 +470,42 @@ class ModelBacktester:
         logger.info(f"Overall RMSE: {overall_metrics['rmse']:.4f}")
         logger.info(f"Overall MAE: {overall_metrics['mae']:.4f}")
         logger.info(f"Direction Accuracy: {overall_metrics['direction_accuracy']:.2%}")
-        if 'coverage' in overall_metrics:
+        if "coverage" in overall_metrics:
             logger.info(f"Coverage: {overall_metrics['coverage']:.2%}")
-        logger.info(f"Target MAPE ({self.config.target_mape}%): "
-                   f"{'ACHIEVED' if summary['target_achievement']['mape_achieved'] else 'NOT ACHIEVED'}")
+        logger.info(
+            f"Target MAPE ({self.config.target_mape}%): "
+            f"{'ACHIEVED' if summary['target_achievement']['mape_achieved'] else 'NOT ACHIEVED'}"
+        )
         logger.info("=" * 50)
 
         return summary
 
     def _save_results(
-        self,
-        summary: Dict,
-        predictions: np.ndarray,
-        actuals: np.ndarray,
-        dates: List
+        self, summary: Dict, predictions: np.ndarray, actuals: np.ndarray, dates: List
     ):
         """Save backtest results to files."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Save summary
         summary_path = os.path.join(
-            self.config.output_dir,
-            f"backtest_summary_{timestamp}.json"
+            self.config.output_dir, f"backtest_summary_{timestamp}.json"
         )
-        with open(summary_path, 'w') as f:
+        with open(summary_path, "w") as f:
             json.dump(summary, f, indent=2, default=str)
 
         # Save predictions
         if len(predictions) > 0:
             pred_path = os.path.join(
-                self.config.output_dir,
-                f"backtest_predictions_{timestamp}.npz"
+                self.config.output_dir, f"backtest_predictions_{timestamp}.npz"
             )
-            np.savez(
-                pred_path,
-                predictions=predictions,
-                actuals=actuals
-            )
+            np.savez(pred_path, predictions=predictions, actuals=actuals)
 
         # Save period results
         period_results = [asdict(r) for r in self.results]
         period_path = os.path.join(
-            self.config.output_dir,
-            f"backtest_periods_{timestamp}.json"
+            self.config.output_dir, f"backtest_periods_{timestamp}.json"
         )
-        with open(period_path, 'w') as f:
+        with open(period_path, "w") as f:
             json.dump(period_results, f, indent=2, default=str)
 
         logger.info(f"Results saved to {self.config.output_dir}")
@@ -527,7 +515,7 @@ class ModelBacktester:
         actuals: np.ndarray,
         predictions: np.ndarray,
         lowers: np.ndarray,
-        uppers: np.ndarray
+        uppers: np.ndarray,
     ):
         """Generate visualization plots."""
         if not HAS_MATPLOTLIB:
@@ -538,28 +526,22 @@ class ModelBacktester:
 
         # 1. Forecast vs Actual scatter plot
         fig, ax = plt.subplots(figsize=(10, 8))
-        ax.scatter(
-            actuals.flatten(),
-            predictions.flatten(),
-            alpha=0.3,
-            s=1
-        )
+        ax.scatter(actuals.flatten(), predictions.flatten(), alpha=0.3, s=1)
         ax.plot(
             [actuals.min(), actuals.max()],
             [actuals.min(), actuals.max()],
-            'r--',
-            label='Perfect forecast'
+            "r--",
+            label="Perfect forecast",
         )
-        ax.set_xlabel('Actual Price')
-        ax.set_ylabel('Predicted Price')
-        ax.set_title('Forecast vs Actual')
+        ax.set_xlabel("Actual Price")
+        ax.set_ylabel("Predicted Price")
+        ax.set_title("Forecast vs Actual")
         ax.legend()
 
         plot_path = os.path.join(
-            self.config.output_dir,
-            f"backtest_scatter_{timestamp}.png"
+            self.config.output_dir, f"backtest_scatter_{timestamp}.png"
         )
-        plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+        plt.savefig(plot_path, dpi=150, bbox_inches="tight")
         plt.close()
 
         # 2. MAPE by forecast hour
@@ -577,18 +559,21 @@ class ModelBacktester:
 
             fig, ax = plt.subplots(figsize=(12, 6))
             ax.bar(hours, mape_means, yerr=mape_stds, capsize=3, alpha=0.7)
-            ax.axhline(y=self.config.target_mape, color='r', linestyle='--',
-                      label=f'Target MAPE ({self.config.target_mape}%)')
-            ax.set_xlabel('Forecast Hour')
-            ax.set_ylabel('MAPE (%)')
-            ax.set_title('MAPE by Forecast Horizon')
+            ax.axhline(
+                y=self.config.target_mape,
+                color="r",
+                linestyle="--",
+                label=f"Target MAPE ({self.config.target_mape}%)",
+            )
+            ax.set_xlabel("Forecast Hour")
+            ax.set_ylabel("MAPE (%)")
+            ax.set_title("MAPE by Forecast Horizon")
             ax.legend()
 
             plot_path = os.path.join(
-                self.config.output_dir,
-                f"backtest_hourly_mape_{timestamp}.png"
+                self.config.output_dir, f"backtest_hourly_mape_{timestamp}.png"
             )
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            plt.savefig(plot_path, dpi=150, bbox_inches="tight")
             plt.close()
 
         # 3. Period-level MAPE distribution
@@ -596,31 +581,35 @@ class ModelBacktester:
             period_mapes = [r.mape for r in self.results]
 
             fig, ax = plt.subplots(figsize=(10, 6))
-            ax.hist(period_mapes, bins=30, edgecolor='black', alpha=0.7)
-            ax.axvline(x=self.config.target_mape, color='r', linestyle='--',
-                      label=f'Target MAPE ({self.config.target_mape}%)')
-            ax.axvline(x=np.mean(period_mapes), color='g', linestyle='-',
-                      label=f'Mean MAPE ({np.mean(period_mapes):.2f}%)')
-            ax.set_xlabel('MAPE (%)')
-            ax.set_ylabel('Frequency')
-            ax.set_title('Distribution of Period MAPEs')
+            ax.hist(period_mapes, bins=30, edgecolor="black", alpha=0.7)
+            ax.axvline(
+                x=self.config.target_mape,
+                color="r",
+                linestyle="--",
+                label=f"Target MAPE ({self.config.target_mape}%)",
+            )
+            ax.axvline(
+                x=np.mean(period_mapes),
+                color="g",
+                linestyle="-",
+                label=f"Mean MAPE ({np.mean(period_mapes):.2f}%)",
+            )
+            ax.set_xlabel("MAPE (%)")
+            ax.set_ylabel("Frequency")
+            ax.set_title("Distribution of Period MAPEs")
             ax.legend()
 
             plot_path = os.path.join(
-                self.config.output_dir,
-                f"backtest_mape_dist_{timestamp}.png"
+                self.config.output_dir, f"backtest_mape_dist_{timestamp}.png"
             )
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            plt.savefig(plot_path, dpi=150, bbox_inches="tight")
             plt.close()
 
         logger.info(f"Plots saved to {self.config.output_dir}")
 
 
 def run_backtest(
-    model,
-    feature_engine,
-    df: pd.DataFrame,
-    config: BacktestConfig = None
+    model, feature_engine, df: pd.DataFrame, config: BacktestConfig = None
 ) -> Dict:
     """
     Convenience function to run backtest.
@@ -644,10 +633,11 @@ def test_backtesting():
 
     # Import feature engineering
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from data.feature_engineering import (
         ElectricityPriceFeatureEngine,
-        create_dummy_data
+        create_dummy_data,
     )
 
     # Create dummy data
@@ -657,9 +647,7 @@ def test_backtesting():
 
     # Create feature engine
     feature_engine = ElectricityPriceFeatureEngine(
-        country='GB',
-        lookback_hours=168,
-        forecast_hours=24
+        country="US", lookback_hours=168, forecast_hours=24
     )
 
     # Create a simple mock model for testing
@@ -682,7 +670,7 @@ def test_backtesting():
         step_size=50,
         retrain_frequency=500,  # Don't retrain in test
         generate_plots=False,
-        output_dir='/tmp/backtest_test'
+        output_dir="/tmp/backtest_test",
     )
 
     # Run backtest
@@ -690,7 +678,7 @@ def test_backtesting():
     backtester = ModelBacktester(model, feature_engine, config)
     summary = backtester.run(df)
 
-    print(f"\nBacktest Summary:")
+    print("\nBacktest Summary:")
     print(f"  Periods: {summary['period_statistics']['n_periods']}")
     print(f"  Overall MAPE: {summary['overall']['mape']:.2f}%")
     print(f"  MAPE Target Achieved: {summary['target_achievement']['mape_achieved']}")

@@ -5,11 +5,12 @@ Business logic for price analytics and aggregation.
 """
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Dict, Any, List, Optional
-from repositories.price_repository import PriceRepository
+from typing import Any
+
 from models.price import PriceRegion
+from repositories.price_repository import PriceRepository
 
 
 class AnalyticsService:
@@ -31,7 +32,7 @@ class AnalyticsService:
         self._repo = price_repo
         self._cache = cache
 
-    async def _get_cached(self, key: str) -> Optional[Dict]:
+    async def _get_cached(self, key: str) -> dict | None:
         """Get value from Redis cache."""
         if self._cache:
             try:
@@ -43,15 +44,25 @@ class AnalyticsService:
         return None
 
     async def _acquire_cache_lock(self, key: str, ttl_ms: int = 5000) -> bool:
-        """Try to acquire a compute lock for a cache key (prevents stampede)."""
+        """Try to acquire a compute lock for a cache key (prevents stampede).
+
+        Returns True when the lock is successfully acquired (caller should
+        proceed with the expensive computation).  Returns False when the lock
+        is already held by another request OR when Redis is unavailable.
+
+        Fail-closed on Redis error: returning False (lock appears held) prevents
+        all concurrent waiters from stampeding the database when Redis is down.
+        """
         if not self._cache:
             return True
         try:
             return bool(await self._cache.set(f"{key}:lock", "1", px=ttl_ms, nx=True))
         except Exception:
-            return True
+            # Fail-closed: treat Redis failure as "lock already held" so that
+            # no caller proceeds to hammer the database during a Redis outage.
+            return False
 
-    async def _set_cached(self, key: str, value: Dict, ttl: int) -> None:
+    async def _set_cached(self, key: str, value: dict, ttl: int) -> None:
         """Set value in Redis cache with TTL."""
         if self._cache:
             try:
@@ -64,11 +75,7 @@ class AnalyticsService:
             except Exception:
                 pass
 
-    async def calculate_average_price(
-        self,
-        region: PriceRegion,
-        days: int = 7
-    ) -> Decimal:
+    async def calculate_average_price(self, region: PriceRegion, days: int = 7) -> Decimal:
         """
         Calculate average price for a region over a period.
 
@@ -87,11 +94,7 @@ class AnalyticsService:
         )
         return stats["avg_price"] if stats["avg_price"] is not None else Decimal("0")
 
-    async def calculate_volatility(
-        self,
-        region: PriceRegion,
-        days: int = 7
-    ) -> Decimal:
+    async def calculate_volatility(self, region: PriceRegion, days: int = 7) -> Decimal:
         """
         Calculate price volatility (standard deviation) for a region.
 
@@ -112,11 +115,7 @@ class AnalyticsService:
             return Decimal("0")
         return stats["stddev_price"]
 
-    async def get_price_trend(
-        self,
-        region: PriceRegion,
-        days: int = 7
-    ) -> Dict[str, Any]:
+    async def get_price_trend(self, region: PriceRegion, days: int = 7) -> dict[str, Any]:
         """
         Analyze price trend over a period.
 
@@ -130,7 +129,7 @@ class AnalyticsService:
         cache_key = f"analytics:price_trend:{region.value}:{days}"
         cached = await self._get_cached(cache_key)
         if cached:
-            for k in ('change_percent', 'start_price', 'end_price'):
+            for k in ("change_percent", "start_price", "end_price"):
                 if k in cached:
                     cached[k] = Decimal(cached[k])
             return cached
@@ -140,12 +139,12 @@ class AnalyticsService:
             # Redis NX lock already prevents double computation)
             cached = await self._get_cached(cache_key)
             if cached:
-                for k in ('change_percent', 'start_price', 'end_price'):
+                for k in ("change_percent", "start_price", "end_price"):
                     if k in cached:
                         cached[k] = Decimal(cached[k])
                 return cached
 
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
         start = end - timedelta(days=days)
 
         # Use SQL aggregation instead of fetching thousands of rows into Python
@@ -157,11 +156,11 @@ class AnalyticsService:
 
         if agg["total_count"] < 2 or agg["first_third_avg"] is None:
             return {
-                'direction': 'stable',
-                'change_percent': Decimal("0"),
-                'start_price': Decimal("0"),
-                'end_price': Decimal("0"),
-                'data_points': 0
+                "direction": "stable",
+                "change_percent": Decimal("0"),
+                "start_price": Decimal("0"),
+                "end_price": Decimal("0"),
+                "data_points": 0,
             }
 
         first_third_avg = agg["first_third_avg"]
@@ -182,21 +181,17 @@ class AnalyticsService:
             direction = "stable"
 
         result = {
-            'direction': direction,
-            'change_percent': change_percent.quantize(Decimal("0.01")),
-            'start_price': first_third_avg.quantize(Decimal("0.0001")),
-            'end_price': last_third_avg.quantize(Decimal("0.0001")),
-            'data_points': agg["total_count"]
+            "direction": direction,
+            "change_percent": change_percent.quantize(Decimal("0.01")),
+            "start_price": first_third_avg.quantize(Decimal("0.0001")),
+            "end_price": last_third_avg.quantize(Decimal("0.0001")),
+            "data_points": agg["total_count"],
         }
 
         await self._set_cached(cache_key, result, ttl=900)  # 15 min
         return result
 
-    async def get_peak_hours_analysis(
-        self,
-        region: PriceRegion,
-        days: int = 7
-    ) -> Dict[str, Any]:
+    async def get_peak_hours_analysis(self, region: PriceRegion, days: int = 7) -> dict[str, Any]:
         """
         Analyze peak and off-peak hours based on pricing.
 
@@ -214,9 +209,11 @@ class AnalyticsService:
         cached = await self._get_cached(cache_key)
         if cached:
             # Restore Decimal types from cached strings
-            cached['average_by_hour'] = {int(k): Decimal(v) for k, v in cached['average_by_hour'].items()}
-            cached['overall_average'] = Decimal(cached['overall_average'])
-            cached['peak_premium_percent'] = Decimal(cached['peak_premium_percent'])
+            cached["average_by_hour"] = {
+                int(k): Decimal(v) for k, v in cached["average_by_hour"].items()
+            }
+            cached["overall_average"] = Decimal(cached["overall_average"])
+            cached["peak_premium_percent"] = Decimal(cached["peak_premium_percent"])
             return cached
 
         if not await self._acquire_cache_lock(cache_key):
@@ -224,12 +221,14 @@ class AnalyticsService:
             # Redis NX lock already prevents double computation)
             cached = await self._get_cached(cache_key)
             if cached:
-                cached['average_by_hour'] = {int(k): Decimal(v) for k, v in cached['average_by_hour'].items()}
-                cached['overall_average'] = Decimal(cached['overall_average'])
-                cached['peak_premium_percent'] = Decimal(cached['peak_premium_percent'])
+                cached["average_by_hour"] = {
+                    int(k): Decimal(v) for k, v in cached["average_by_hour"].items()
+                }
+                cached["overall_average"] = Decimal(cached["overall_average"])
+                cached["peak_premium_percent"] = Decimal(cached["peak_premium_percent"])
                 return cached
 
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
         start = end - timedelta(days=days)
 
         hourly_rows = await self._repo.get_hourly_price_averages(
@@ -239,14 +238,10 @@ class AnalyticsService:
         )
 
         if not hourly_rows:
-            return {
-                'peak_hours': [],
-                'off_peak_hours': [],
-                'average_by_hour': {}
-            }
+            return {"peak_hours": [], "off_peak_hours": [], "average_by_hour": {}}
 
         # Build hourly avg map (fill missing hours with 0)
-        hourly_avg: Dict[int, Decimal] = {h: Decimal("0") for h in range(24)}
+        hourly_avg: dict[int, Decimal] = {h: Decimal("0") for h in range(24)}
         total_weighted = Decimal("0")
         total_count = 0
         for row in hourly_rows:
@@ -254,7 +249,11 @@ class AnalyticsService:
             total_weighted += row["avg_price"] * row["count"]
             total_count += row["count"]
 
-        overall_avg = (total_weighted / total_count).quantize(Decimal("0.0001")) if total_count else Decimal("0")
+        overall_avg = (
+            (total_weighted / total_count).quantize(Decimal("0.0001"))
+            if total_count
+            else Decimal("0")
+        )
 
         # Identify peak and off-peak hours
         peak_hours = []
@@ -270,23 +269,21 @@ class AnalyticsService:
         max_avg = max(non_zero_avgs) if non_zero_avgs else Decimal("0")
 
         result = {
-            'peak_hours': sorted(peak_hours),
-            'off_peak_hours': sorted(off_peak_hours),
-            'average_by_hour': hourly_avg,
-            'overall_average': overall_avg,
-            'peak_premium_percent': (
-                (max_avg / overall_avg - 1) * 100
-            ).quantize(Decimal("0.1")) if overall_avg > 0 else Decimal("0")
+            "peak_hours": sorted(peak_hours),
+            "off_peak_hours": sorted(off_peak_hours),
+            "average_by_hour": hourly_avg,
+            "overall_average": overall_avg,
+            "peak_premium_percent": ((max_avg / overall_avg - 1) * 100).quantize(Decimal("0.1"))
+            if overall_avg > 0
+            else Decimal("0"),
         }
 
         await self._set_cached(cache_key, result, ttl=900)  # 15 min
         return result
 
     async def get_supplier_comparison_analytics(
-        self,
-        region: PriceRegion,
-        days: int = 30
-    ) -> Dict[str, Any]:
+        self, region: PriceRegion, days: int = 30
+    ) -> dict[str, Any]:
         """
         Get detailed supplier comparison analytics.
 
@@ -304,8 +301,8 @@ class AnalyticsService:
         cached = await self._get_cached(cache_key)
         if cached:
             # Restore Decimal types from cached strings
-            for s in cached.get('suppliers', []):
-                for k in ('average_price', 'min_price', 'max_price', 'volatility'):
+            for s in cached.get("suppliers", []):
+                for k in ("average_price", "min_price", "max_price", "volatility"):
                     if k in s:
                         s[k] = Decimal(s[k])
             return cached
@@ -315,13 +312,13 @@ class AnalyticsService:
             # Redis NX lock already prevents double computation)
             cached = await self._get_cached(cache_key)
             if cached:
-                for s in cached.get('suppliers', []):
-                    for k in ('average_price', 'min_price', 'max_price', 'volatility'):
+                for s in cached.get("suppliers", []):
+                    for k in ("average_price", "min_price", "max_price", "volatility"):
                         if k in s:
                             s[k] = Decimal(s[k])
                 return cached
 
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
         start = end - timedelta(days=days)
 
         supplier_rows = await self._repo.get_supplier_price_stats(
@@ -331,26 +328,28 @@ class AnalyticsService:
         )
 
         if not supplier_rows:
-            return {'suppliers': []}
+            return {"suppliers": []}
 
         supplier_stats = [
             {
-                'supplier': row['supplier'],
-                'average_price': row['avg_price'],
-                'min_price': row['min_price'],
-                'max_price': row['max_price'],
-                'volatility': row['volatility'],
-                'data_points': row['count'],
+                "supplier": row["supplier"],
+                "average_price": row["avg_price"],
+                "min_price": row["min_price"],
+                "max_price": row["max_price"],
+                "volatility": row["volatility"],
+                "data_points": row["count"],
             }
             for row in supplier_rows
         ]
 
         result = {
-            'region': region.value,
-            'period_days': days,
-            'suppliers': supplier_stats,
-            'cheapest_supplier': supplier_stats[0]['supplier'] if supplier_stats else None,
-            'most_stable': min(supplier_stats, key=lambda s: s['volatility'])['supplier'] if supplier_stats else None
+            "region": region.value,
+            "period_days": days,
+            "suppliers": supplier_stats,
+            "cheapest_supplier": supplier_stats[0]["supplier"] if supplier_stats else None,
+            "most_stable": min(supplier_stats, key=lambda s: s["volatility"])["supplier"]
+            if supplier_stats
+            else None,
         }
 
         await self._set_cached(cache_key, result, ttl=3600)  # 1 hour

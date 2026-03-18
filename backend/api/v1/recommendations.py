@@ -6,12 +6,11 @@ Provides endpoints for supplier switching and energy usage optimization.
 
 import dataclasses
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
-from typing import Optional
 
-from api.dependencies import get_current_user, get_recommendation_service, require_tier, SessionData
+from api.dependencies import SessionData, get_recommendation_service, require_tier
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
@@ -35,13 +34,13 @@ async def get_switching_recommendation(
         return {
             "user_id": current_user.user_id,
             "recommendation": None,
-            "message": "No switching recommendations available at this time"
+            "message": "No switching recommendations available at this time",
         }
 
     return {
         "user_id": current_user.user_id,
         "recommendation": dataclasses.asdict(result),
-        "message": None
+        "message": None,
     }
 
 
@@ -55,7 +54,7 @@ async def get_usage_recommendation(
     """Get usage timing recommendation for an appliance"""
     try:
         result = await service.get_usage_recommendation(
-            current_user.user_id, appliance, int(duration_hours)
+            current_user.user_id, appliance, round(duration_hours)
         )
     except Exception:
         logger.exception("usage_recommendation_error")
@@ -67,7 +66,7 @@ async def get_usage_recommendation(
             "appliance": appliance,
             "duration_hours": duration_hours,
             "optimal_start_time": None,
-            "message": "No usage recommendations available at this time"
+            "message": "No usage recommendations available at this time",
         }
 
     return {
@@ -75,7 +74,7 @@ async def get_usage_recommendation(
         "appliance": appliance,
         "duration_hours": duration_hours,
         **result,
-        "message": None
+        "message": None,
     }
 
 
@@ -94,10 +93,10 @@ async def get_daily_recommendations(
     if result is None:
         return {
             "user_id": current_user.user_id,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "switching_recommendation": None,
             "usage_recommendations": [],
-            "message": "No recommendations available at this time"
+            "message": "No recommendations available at this time",
         }
 
     return result

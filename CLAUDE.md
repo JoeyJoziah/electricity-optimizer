@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-17 (Audit remediation 59/59 COMPLETE — CF Worker 3 cron triggers. Backend 2,686 tests, Frontend 2,039 tests (154 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 611 = ~7,031 total. 53 migrations (053: notification_dedup_index). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 32 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. GHA estimated ~1,283 min/mo.)
+> Last validated: 2026-03-18 (Audit remediation 59/59 COMPLETE — CF Worker 3 cron triggers. Backend 2,686 tests, Frontend 2,039 tests (154 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 611 = ~7,031 total. 53 migrations (053: notification_dedup_index). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. GHA estimated ~1,843 min/mo.)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -128,7 +128,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
 8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
 9. **Internal endpoints**: All `/api/v1/internal/*` routes require `X-API-Key` header and are excluded from RequestTimeoutMiddleware (30s). GHA workflows use `INTERNAL_API_KEY` repo secret
-10. **Self-healing CI/CD**: 32 GHA workflows total (31 cron/CI + 1 manual-only). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
+10. **Self-healing CI/CD**: 33 GHA workflows total (32 cron/CI + 1 manual-only). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
 11. **Community**: `/community` page with posts, voting, reporting. AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. nh3 XSS sanitization. Report threshold: 5 unique reporters auto-hides. Rate limit: 10 posts/hour. Community backend: `community_service.py`, `savings_aggregator.py`, `neighborhood_service.py`. Migration 049: 3 tables (community_posts, community_votes, community_reports). Migration 050: optimized partial indexes. Migration 051: GDPR CASCADE fixes for community + notifications FKs
 12. **Tier cache**: 30s TTL (in-memory + Redis). Stripe webhook events update DB directly; cache self-heals within 30s. `require_tier()` gates 7+ endpoints
 13. **Rate limiter Lua script**: Redis `:seq` counter keys now have TTL matching the main key (previously leaked without expiry)
@@ -179,7 +179,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
   - `detect-rate-changes.yml`: Via `daily-data-pipeline.yml` (was standalone 6:30am cron)
   - `price-sync.yml` (Sprint 0-2): Moved to CF Worker Cron Trigger (every 6h) — saves ~240 min/mo
   - `observe-forecasts.yml` (Sprint 0-2): Moved to CF Worker Cron Trigger (30min after price-sync) — saves ~240 min/mo
-  - Total estimated GHA savings: ~4,470 min/mo (from baseline). Current usage: ~1,283 min/mo (down from ~2,700 pre-optimization). Full analysis: `docs/COST_ANALYSIS.md`
+  - Total estimated GHA savings: ~4,470 min/mo (from baseline). Current usage: ~1,843 min/mo (+80 for db-backup, down from ~2,700 pre-optimization). Full analysis: `docs/COST_ANALYSIS.md`
 - **Security Scanning** (Wave 5, 2026-03-12):
   - `owasp-zap.yml`: Weekly Sunday 4am UTC — OWASP ZAP baseline scan against Render backend (not CF Worker)
   - `pip-audit` in `_backend-tests.yml`: Fails on known Python dependency vulnerabilities

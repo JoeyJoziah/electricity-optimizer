@@ -18,7 +18,6 @@ Usage:
     python test_forecaster.py --full   # Full training test
 """
 
-import os
 import sys
 import argparse
 import time
@@ -31,8 +30,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -45,7 +43,7 @@ def test_feature_engineering():
 
     from ml.data.feature_engineering import (
         ElectricityPriceFeatureEngine,
-        create_dummy_data
+        create_dummy_data,
     )
 
     # Create dummy data
@@ -58,9 +56,7 @@ def test_feature_engineering():
     # Initialize feature engine
     print("\n1.2 Initializing feature engine...")
     feature_engine = ElectricityPriceFeatureEngine(
-        country='GB',
-        lookback_hours=168,
-        forecast_hours=24
+        country="US", lookback_hours=168, forecast_hours=24
     )
 
     # Fit and transform
@@ -97,22 +93,20 @@ def test_cnn_lstm_model(X, y, epochs=5):
 
     try:
         import tensorflow as tf
+
         print(f"    TensorFlow version: {tf.__version__}")
     except ImportError:
         print("    [SKIPPED] TensorFlow not installed")
         return None
 
-    from ml.models.price_forecaster import (
-        ElectricityPriceForecaster,
-        ModelConfig
-    )
+    from ml.models.price_forecaster import ElectricityPriceForecaster, ModelConfig
 
     # Split data
     train_size = int(0.8 * len(X))
     X_train, X_test = X[:train_size], X[train_size:]
     y_train, y_test = y[:train_size], y[train_size:]
 
-    print(f"\n2.1 Data split:")
+    print("\n2.1 Data split:")
     print(f"    Train: {len(X_train)}, Test: {len(X_test)}")
 
     # Create model
@@ -125,7 +119,7 @@ def test_cnn_lstm_model(X, y, epochs=5):
         lstm_units=[64, 32],
         dense_units=[32, 16],
         epochs=epochs,
-        batch_size=32
+        batch_size=32,
     )
 
     model = ElectricityPriceForecaster(config=config)
@@ -134,11 +128,12 @@ def test_cnn_lstm_model(X, y, epochs=5):
     # Train
     print(f"\n2.3 Training model for {epochs} epochs...")
     start_time = time.time()
-    history = model.fit(
-        X_train, y_train,
-        checkpoint_dir='/tmp/ml_test/checkpoints',
-        log_dir='/tmp/ml_test/logs',
-        verbose=0
+    _history = model.fit(
+        X_train,
+        y_train,
+        checkpoint_dir="/tmp/ml_test/checkpoints",
+        log_dir="/tmp/ml_test/logs",
+        verbose=0,
     )
     train_time = time.time() - start_time
     print(f"    Training time: {train_time:.2f}s")
@@ -162,14 +157,16 @@ def test_cnn_lstm_model(X, y, epochs=5):
 
     # Save and load
     print("\n2.6 Testing save/load...")
-    model.save('/tmp/ml_test/cnn_lstm')
+    model.save("/tmp/ml_test/cnn_lstm")
 
-    loaded_model = ElectricityPriceForecaster(model_path='/tmp/ml_test/cnn_lstm')
+    loaded_model = ElectricityPriceForecaster(model_path="/tmp/ml_test/cnn_lstm")
     loaded_metrics = loaded_model.evaluate(X_test, y_test)
     print(f"    Loaded model MAPE: {loaded_metrics['mape']:.2f}%")
 
     # Verify metrics match
-    assert abs(metrics['mape'] - loaded_metrics['mape']) < 0.01, "Metrics mismatch after load"
+    assert abs(metrics["mape"] - loaded_metrics["mape"]) < 0.01, (
+        "Metrics mismatch after load"
+    )
 
     print("\n    [PASSED] CNN-LSTM Model Test")
     return model
@@ -189,14 +186,14 @@ def test_gradient_boosting(X, y):
     # Test XGBoost
     try:
         import xgboost
-        print(f"\n3.1 Testing XGBoost...")
+
+        print("\n3.1 Testing XGBoost...")
         print(f"    XGBoost version: {xgboost.__version__}")
 
         from ml.models.ensemble import XGBoostForecaster, XGBoostConfig
 
         xgb_model = XGBoostForecaster(
-            config=XGBoostConfig(n_estimators=50),
-            forecast_horizon=y.shape[1]
+            config=XGBoostConfig(n_estimators=50), forecast_horizon=y.shape[1]
         )
 
         start_time = time.time()
@@ -216,14 +213,14 @@ def test_gradient_boosting(X, y):
     # Test LightGBM
     try:
         import lightgbm
-        print(f"\n3.2 Testing LightGBM...")
+
+        print("\n3.2 Testing LightGBM...")
         print(f"    LightGBM version: {lightgbm.__version__}")
 
         from ml.models.ensemble import LightGBMForecaster, LightGBMConfig
 
         lgb_model = LightGBMForecaster(
-            config=LightGBMConfig(n_estimators=50),
-            forecast_horizon=y.shape[1]
+            config=LightGBMConfig(n_estimators=50), forecast_horizon=y.shape[1]
         )
 
         start_time = time.time()
@@ -248,7 +245,7 @@ def test_ensemble(X, y, cnn_lstm_model=None, epochs=5):
     print("=" * 60)
 
     try:
-        import tensorflow as tf
+        import tensorflow as tf  # noqa: F401
     except ImportError:
         print("    [SKIPPED] TensorFlow not installed")
         return
@@ -264,8 +261,9 @@ def test_ensemble(X, y, cnn_lstm_model=None, epochs=5):
     print("\n4.1 Creating ensemble model...")
 
     try:
-        import xgboost
-        import lightgbm
+        import xgboost  # noqa: F401
+        import lightgbm  # noqa: F401
+
         has_gbm = True
     except ImportError:
         has_gbm = False
@@ -275,7 +273,7 @@ def test_ensemble(X, y, cnn_lstm_model=None, epochs=5):
             cnn_lstm_weight=0.5,
             xgboost_weight=0.25,
             lightgbm_weight=0.25,
-            forecast_horizon=y.shape[1]
+            forecast_horizon=y.shape[1],
         )
         ensemble = EnsembleForecaster(config=config, cnn_lstm_model=cnn_lstm_model)
     elif has_gbm:
@@ -283,7 +281,7 @@ def test_ensemble(X, y, cnn_lstm_model=None, epochs=5):
             cnn_lstm_weight=0.0,
             xgboost_weight=0.5,
             lightgbm_weight=0.5,
-            forecast_horizon=y.shape[1]
+            forecast_horizon=y.shape[1],
         )
         ensemble = EnsembleForecaster(config=config)
     else:
@@ -294,10 +292,11 @@ def test_ensemble(X, y, cnn_lstm_model=None, epochs=5):
     print("\n4.2 Training ensemble...")
     start_time = time.time()
     ensemble.fit(
-        X_train, y_train,
+        X_train,
+        y_train,
         X_val=X_test[:100],
         y_val=y_test[:100],
-        fit_cnn_lstm=(cnn_lstm_model is None)
+        fit_cnn_lstm=(cnn_lstm_model is None),
     )
     train_time = time.time() - start_time
     print(f"    Training time: {train_time:.2f}s")
@@ -308,7 +307,7 @@ def test_ensemble(X, y, cnn_lstm_model=None, epochs=5):
 
     print(f"    Ensemble MAPE: {results['ensemble']['mape']:.2f}%")
     for model_name, metrics in results.items():
-        if model_name != 'ensemble':
+        if model_name != "ensemble":
             print(f"    {model_name} MAPE: {metrics['mape']:.2f}%")
 
     # Predict with confidence
@@ -327,16 +326,13 @@ def test_backtesting(feature_engine, epochs=2):
     print("=" * 60)
 
     try:
-        import tensorflow as tf
+        import tensorflow as tf  # noqa: F401
     except ImportError:
         print("    [SKIPPED] TensorFlow not installed")
         return
 
     from ml.data.feature_engineering import create_dummy_data
-    from ml.evaluation.backtesting import (
-        ModelBacktester,
-        BacktestConfig
-    )
+    from ml.evaluation.backtesting import ModelBacktester, BacktestConfig
 
     # Create mock model for testing
     class MockModel:
@@ -361,7 +357,7 @@ def test_backtesting(feature_engine, epochs=2):
         retrain_frequency=1000,  # Don't retrain in test
         generate_plots=False,
         save_predictions=True,
-        output_dir='/tmp/ml_test/backtest'
+        output_dir="/tmp/ml_test/backtest",
     )
 
     # Run backtest
@@ -410,9 +406,13 @@ def run_all_tests(quick=True):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Test ML forecasting models')
-    parser.add_argument('--quick', action='store_true', help='Quick test with minimal epochs')
-    parser.add_argument('--full', action='store_true', help='Full test with more epochs')
+    parser = argparse.ArgumentParser(description="Test ML forecasting models")
+    parser.add_argument(
+        "--quick", action="store_true", help="Quick test with minimal epochs"
+    )
+    parser.add_argument(
+        "--full", action="store_true", help="Full test with more epochs"
+    )
     args = parser.parse_args()
 
     quick = not args.full

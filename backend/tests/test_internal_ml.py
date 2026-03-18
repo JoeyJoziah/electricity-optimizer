@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -133,7 +132,7 @@ class TestObserveForecasts:
 
     @patch("services.observation_service.ObservationService")
     def test_observe_service_error(self, mock_obs_cls, auth_client):
-        """Service exception should return 500 with error detail."""
+        """Service exception should return 500 with generic message (no leak)."""
         mock_obs = MagicMock()
         mock_obs.observe_actuals_batch = AsyncMock(
             side_effect=RuntimeError("Database connection lost")
@@ -144,7 +143,8 @@ class TestObserveForecasts:
 
         assert response.status_code == 500
         assert "Observation failed" in response.json()["detail"]
-        assert "Database connection lost" in response.json()["detail"]
+        # Internal error details must NOT be leaked to clients
+        assert "Database connection lost" not in response.json()["detail"]
 
     def test_observe_requires_api_key(self, unauth_client):
         """Request without X-API-Key header should be rejected."""
@@ -195,10 +195,14 @@ class TestLearnCycle:
     @patch("services.learning_service.LearningService")
     @patch("services.hnsw_vector_store.HNSWVectorStore")
     @patch("services.observation_service.ObservationService")
-    def test_learn_custom_regions_and_days(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
+    def test_learn_custom_regions_and_days(
+        self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client
+    ):
         """Learn with custom regions and days should pass them through."""
         mock_learner = MagicMock()
-        mock_learner.run_full_cycle = AsyncMock(return_value={"regions_processed": ["US_CT", "US_TX"]})
+        mock_learner.run_full_cycle = AsyncMock(
+            return_value={"regions_processed": ["US_CT", "US_TX"]}
+        )
         mock_learner_cls.return_value = mock_learner
 
         response = auth_client.post(
@@ -219,18 +223,17 @@ class TestLearnCycle:
     @patch("services.hnsw_vector_store.HNSWVectorStore")
     @patch("services.observation_service.ObservationService")
     def test_learn_service_error(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
-        """Service exception during learning should return 500."""
+        """Service exception during learning should return 500 with generic message."""
         mock_learner = MagicMock()
-        mock_learner.run_full_cycle = AsyncMock(
-            side_effect=RuntimeError("Redis unavailable")
-        )
+        mock_learner.run_full_cycle = AsyncMock(side_effect=RuntimeError("Redis unavailable"))
         mock_learner_cls.return_value = mock_learner
 
         response = auth_client.post(f"{BASE_URL}/learn")
 
         assert response.status_code == 500
         assert "Learning cycle failed" in response.json()["detail"]
-        assert "Redis unavailable" in response.json()["detail"]
+        # Internal error details must NOT be leaked to clients
+        assert "Redis unavailable" not in response.json()["detail"]
 
     def test_learn_requires_api_key(self, unauth_client):
         """Request without X-API-Key header should be rejected."""
@@ -267,15 +270,16 @@ class TestObservationStats:
     def test_stats_happy_path(self, mock_obs_cls, auth_client):
         """Stats with defaults should return accuracy and hourly_bias."""
         mock_obs = MagicMock()
-        mock_obs.get_forecast_accuracy = AsyncMock(return_value={
-            "mape": 0.08,
-            "rmse": 0.012,
-            "sample_size": 168,
-        })
-        mock_obs.get_hourly_bias = AsyncMock(return_value={
-            str(h): round(0.002 * (h - 12), 4)
-            for h in range(24)
-        })
+        mock_obs.get_forecast_accuracy = AsyncMock(
+            return_value={
+                "mape": 0.08,
+                "rmse": 0.012,
+                "sample_size": 168,
+            }
+        )
+        mock_obs.get_hourly_bias = AsyncMock(
+            return_value={str(h): round(0.002 * (h - 12), 4) for h in range(24)}
+        )
         mock_obs_cls.return_value = mock_obs
 
         response = auth_client.get(f"{BASE_URL}/observation-stats")
@@ -312,17 +316,17 @@ class TestObservationStats:
 
     @patch("services.observation_service.ObservationService")
     def test_stats_service_error(self, mock_obs_cls, auth_client):
-        """Service exception during stats should return 500."""
+        """Service exception during stats should return 500 with generic message."""
         mock_obs = MagicMock()
-        mock_obs.get_forecast_accuracy = AsyncMock(
-            side_effect=RuntimeError("Query timeout")
-        )
+        mock_obs.get_forecast_accuracy = AsyncMock(side_effect=RuntimeError("Query timeout"))
         mock_obs_cls.return_value = mock_obs
 
         response = auth_client.get(f"{BASE_URL}/observation-stats")
 
         assert response.status_code == 500
-        assert "Query timeout" in response.json()["detail"]
+        # Internal error details must NOT be leaked to clients
+        assert "Query timeout" not in response.json()["detail"]
+        assert "server logs" in response.json()["detail"].lower()
 
     def test_stats_requires_api_key(self, unauth_client):
         """Request without X-API-Key header should be rejected."""

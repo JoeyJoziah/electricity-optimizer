@@ -1,0 +1,362 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Weekly Sunday at 2am UTC — before data-retention (4am) and scrape-portals (5am)
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+env:
+  # Neon project — cold-rice-23455092 ("energyoptimize")
+  NEON_PROJECT_ID: cold-rice-23455092
+  # How many backup files to keep in R2 before rotating old ones out
+  BACKUP_RETENTION_COUNT: "30"
+
+jobs:
+  # ===========================================================================
+  # Dump the Neon database and upload the compressed artifact to Cloudflare R2
+  # ===========================================================================
+  backup:
+    name: Dump and Upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    outputs:
+      backup-filename: ${{ steps.dump.outputs.backup-filename }}
+      backup-size: ${{ steps.dump.outputs.backup-size }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      # -----------------------------------------------------------------------
+      # Install pg_dump (Postgres 16 client tools)
+      # Ubuntu 24.04 (ubuntu-latest) ships pg_dump 16 via apt.
+      # -----------------------------------------------------------------------
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          pg_dump --version
+
+      # -----------------------------------------------------------------------
+      # Configure the AWS CLI to talk to Cloudflare R2 (S3-compatible API).
+      # We write a named profile ("r2") so credentials never touch env vars
+      # that might be logged by other steps.
+      # -----------------------------------------------------------------------
+      - name: Configure AWS CLI for Cloudflare R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          aws configure set aws_access_key_id     "${R2_ACCESS_KEY_ID}"     --profile r2
+          aws configure set aws_secret_access_key "${R2_SECRET_ACCESS_KEY}" --profile r2
+          aws configure set region                auto                      --profile r2
+          echo "R2 profile configured"
+
+      # -----------------------------------------------------------------------
+      # Create the compressed pg_dump file.
+      # --format=custom   — binary custom format (supports selective restores)
+      # --compress=9      — maximum zlib compression
+      # --no-password     — connection string carries credentials; never prompt
+      # -----------------------------------------------------------------------
+      - name: Dump Neon database
+        id: dump
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: |
+          TIMESTAMP=$(date -u '+%Y%m%d-%H%M%S')
+          FILENAME="rateshift-backup-${TIMESTAMP}.dump"
+          FILEPATH="/tmp/${FILENAME}"
+
+          echo "Starting pg_dump -> ${FILENAME}"
+          pg_dump \
+            --format=custom \
+            --compress=9 \
+            --no-password \
+            --verbose \
+            "${NEON_CONNECTION_STRING}" \
+            --file "${FILEPATH}"
+
+          # Emit outputs for downstream jobs
+          SIZE=$(du -sh "${FILEPATH}" | cut -f1)
+          echo "backup-filename=${FILENAME}" >> "$GITHUB_OUTPUT"
+          echo "backup-size=${SIZE}"         >> "$GITHUB_OUTPUT"
+          echo "Dump complete: ${FILENAME} (${SIZE})"
+
+      # -----------------------------------------------------------------------
+      # Upload to R2 using the aws s3 cp command with a custom endpoint URL.
+      # R2 endpoint format: https://<account-id>.r2.cloudflarestorage.com
+      # The R2_ENDPOINT secret should be the full HTTPS URL.
+      # -----------------------------------------------------------------------
+      - name: Upload backup to Cloudflare R2
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          BACKUP_FILENAME: ${{ steps.dump.outputs.backup-filename }}
+        run: |
+          FILEPATH="/tmp/${BACKUP_FILENAME}"
+          S3_KEY="backups/${BACKUP_FILENAME}"
+
+          echo "Uploading ${BACKUP_FILENAME} to R2 bucket ${R2_BUCKET_NAME}..."
+          aws s3 cp "${FILEPATH}" "s3://${R2_BUCKET_NAME}/${S3_KEY}" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --profile r2 \
+            --no-progress
+
+          echo "Upload complete: s3://${R2_BUCKET_NAME}/${S3_KEY}"
+
+      # -----------------------------------------------------------------------
+      # Clean up old backups: list all objects under backups/, sort by Key
+      # (timestamp is embedded in the filename so lexicographic sort == chrono),
+      # and delete anything beyond the newest BACKUP_RETENTION_COUNT files.
+      # -----------------------------------------------------------------------
+      - name: Rotate old backups (keep latest 30)
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          echo "Listing existing backups in R2..."
+          ALL_KEYS=$(aws s3api list-objects-v2 \
+            --bucket "${R2_BUCKET_NAME}" \
+            --prefix "backups/rateshift-backup-" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --profile r2 \
+            --query 'Contents[].Key' \
+            --output text 2>/dev/null | tr '\t' '\n' | sort)
+
+          TOTAL=$(echo "${ALL_KEYS}" | grep -c '.' || true)
+          echo "Total backups found: ${TOTAL}"
+
+          if [ "${TOTAL}" -le "${BACKUP_RETENTION_COUNT}" ]; then
+            echo "Within retention limit (${TOTAL} <= ${BACKUP_RETENTION_COUNT}). Nothing to delete."
+            exit 0
+          fi
+
+          # Keys are sorted oldest-first; delete everything except the newest N
+          DELETE_COUNT=$(( TOTAL - BACKUP_RETENTION_COUNT ))
+          TO_DELETE=$(echo "${ALL_KEYS}" | head -n "${DELETE_COUNT}")
+
+          echo "Deleting ${DELETE_COUNT} old backup(s)..."
+          echo "${TO_DELETE}" | while IFS= read -r KEY; do
+            [ -z "${KEY}" ] && continue
+            echo "  Deleting: ${KEY}"
+            aws s3 rm "s3://${R2_BUCKET_NAME}/${KEY}" \
+              --endpoint-url "${R2_ENDPOINT}" \
+              --profile r2
+          done
+
+          echo "Rotation complete. Retained ${BACKUP_RETENTION_COUNT} newest backup(s)."
+
+      # -----------------------------------------------------------------------
+      # Remove the local dump file so it does not linger in the runner's /tmp
+      # for the (optional) verify job that follows.
+      # -----------------------------------------------------------------------
+      - name: Remove local dump file
+        if: always()
+        run: rm -f "/tmp/${{ steps.dump.outputs.backup-filename }}" || true
+
+      - name: Notify on backup failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Database Backup — Dump & Upload"
+          severity: critical
+
+  # ===========================================================================
+  # Verification: download the backup just created, spin up a Neon branch,
+  # restore into it, then delete the branch.
+  #
+  # This job is "continue-on-error: true" — a verification failure surfaces
+  # as a warning in Slack rather than blocking the workflow, and the primary
+  # backup artifact is not affected.
+  # ===========================================================================
+  verify:
+    name: Verify Backup Integrity
+    runs-on: ubuntu-latest
+    needs: [backup]
+    timeout-minutes: 20
+    # Allow the verification job to fail without marking the whole workflow red.
+    # A Slack warning is fired below regardless.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+
+      - name: Configure AWS CLI for Cloudflare R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          aws configure set aws_access_key_id     "${R2_ACCESS_KEY_ID}"     --profile r2
+          aws configure set aws_secret_access_key "${R2_SECRET_ACCESS_KEY}" --profile r2
+          aws configure set region                auto                      --profile r2
+
+      # -----------------------------------------------------------------------
+      # Download the backup that was just uploaded.
+      # -----------------------------------------------------------------------
+      - name: Download backup from R2
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          BACKUP_FILENAME: ${{ needs.backup.outputs.backup-filename }}
+        run: |
+          S3_KEY="backups/${BACKUP_FILENAME}"
+          echo "Downloading ${S3_KEY} from R2..."
+          aws s3 cp "s3://${R2_BUCKET_NAME}/${S3_KEY}" "/tmp/${BACKUP_FILENAME}" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --profile r2 \
+            --no-progress
+          echo "Download complete ($(du -sh "/tmp/${BACKUP_FILENAME}" | cut -f1))"
+
+      # -----------------------------------------------------------------------
+      # Validate the dump file is a valid pg_dump custom-format archive.
+      # pg_restore --list reads the table of contents without touching a database.
+      # An exit code of 0 means the file is structurally sound.
+      # -----------------------------------------------------------------------
+      - name: Validate dump format (pg_restore --list)
+        env:
+          BACKUP_FILENAME: ${{ needs.backup.outputs.backup-filename }}
+        run: |
+          echo "Validating dump file integrity..."
+          pg_restore --list "/tmp/${BACKUP_FILENAME}" | head -20
+          echo "Dump file is a valid pg_dump custom-format archive."
+
+      # -----------------------------------------------------------------------
+      # Create an ephemeral Neon branch, restore the dump into it, then
+      # delete it.  Uses the Neon REST API directly; does not require the
+      # Neon CLI to be installed.
+      #
+      # Required secret: NEON_API_KEY (Neon personal API token)
+      # -----------------------------------------------------------------------
+      - name: Create ephemeral Neon branch
+        id: neon-branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          BRANCH_NAME="verify-backup-$(date -u '+%Y%m%d%H%M%S')"
+          echo "Creating ephemeral Neon branch: ${BRANCH_NAME}"
+
+          RESPONSE=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            -H "Content-Type: application/json" \
+            "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches" \
+            -d "{\"branch\": {\"name\": \"${BRANCH_NAME}\"}, \"endpoints\": [{\"type\": \"read_write\"}]}")
+
+          BRANCH_ID=$(echo "${RESPONSE}" | jq -r '.branch.id')
+          ENDPOINT_ID=$(echo "${RESPONSE}" | jq -r '.endpoints[0].id')
+
+          if [ -z "${BRANCH_ID}" ] || [ "${BRANCH_ID}" = "null" ]; then
+            echo "::error::Failed to create Neon branch. Response: ${RESPONSE}"
+            exit 1
+          fi
+
+          echo "branch-id=${BRANCH_ID}"     >> "$GITHUB_OUTPUT"
+          echo "endpoint-id=${ENDPOINT_ID}" >> "$GITHUB_OUTPUT"
+          echo "branch-name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Branch created: ${BRANCH_ID} (endpoint: ${ENDPOINT_ID})"
+
+          # Allow a few seconds for the endpoint to provision
+          sleep 10
+
+      - name: Build branch connection string
+        id: branch-conn
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          ENDPOINT_ID: ${{ steps.neon-branch.outputs.endpoint-id }}
+        run: |
+          # Fetch the endpoint host from the Neon API
+          ENDPOINT_INFO=$(curl -fsS \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/endpoints/${ENDPOINT_ID}")
+
+          HOST=$(echo "${ENDPOINT_INFO}" | jq -r '.endpoint.host')
+
+          if [ -z "${HOST}" ] || [ "${HOST}" = "null" ]; then
+            echo "::error::Could not retrieve endpoint host. Response: ${ENDPOINT_INFO}"
+            exit 1
+          fi
+
+          # Extract user + dbname from the primary connection string (no password here)
+          # The verify restore uses the same neondb_owner credentials as the source.
+          DB_USER=$(echo "${{ secrets.NEON_CONNECTION_STRING }}" | grep -oP '(?<=://)[^:]+')
+          DB_PASS=$(echo "${{ secrets.NEON_CONNECTION_STRING }}" | grep -oP '(?<=:)[^@]+(?=@)')
+          DB_NAME=$(echo "${{ secrets.NEON_CONNECTION_STRING }}" | grep -oP '[^/]+$' | cut -d'?' -f1)
+
+          BRANCH_DSN="postgresql://${DB_USER}:${DB_PASS}@${HOST}/${DB_NAME}?sslmode=require"
+          # Mask the password in logs
+          echo "::add-mask::${DB_PASS}"
+          echo "branch-dsn=${BRANCH_DSN}" >> "$GITHUB_OUTPUT"
+          echo "Branch connection string built (host: ${HOST})"
+
+      - name: Restore backup into ephemeral branch
+        env:
+          BRANCH_DSN: ${{ steps.branch-conn.outputs.branch-dsn }}
+          BACKUP_FILENAME: ${{ needs.backup.outputs.backup-filename }}
+        run: |
+          echo "Restoring dump into ephemeral branch..."
+          pg_restore \
+            --no-owner \
+            --no-privileges \
+            --exit-on-error \
+            --dbname "${BRANCH_DSN}" \
+            "/tmp/${BACKUP_FILENAME}"
+          echo "Restore completed successfully."
+
+      - name: Smoke-test restored data
+        env:
+          BRANCH_DSN: ${{ steps.branch-conn.outputs.branch-dsn }}
+        run: |
+          echo "Running table-count smoke test on restored branch..."
+          TABLE_COUNT=$(psql "${BRANCH_DSN}" -t -c \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
+          echo "Public tables found in restored branch: ${TABLE_COUNT}"
+          # Expect at least 44 public tables (per CLAUDE.md architecture)
+          if [ "${TABLE_COUNT}" -lt 44 ]; then
+            echo "::error::Unexpected table count: ${TABLE_COUNT} (expected >= 44)"
+            exit 1
+          fi
+          echo "Smoke test passed."
+
+      # -----------------------------------------------------------------------
+      # Always delete the ephemeral branch, even if earlier steps failed.
+      # -----------------------------------------------------------------------
+      - name: Delete ephemeral Neon branch
+        if: always() && steps.neon-branch.outputs.branch-id != ''
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          BRANCH_ID: ${{ steps.neon-branch.outputs.branch-id }}
+        run: |
+          echo "Deleting ephemeral branch ${BRANCH_ID}..."
+          curl -fsS -X DELETE \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${BRANCH_ID}" \
+            | jq '.branch.id'
+          echo "Branch deleted."
+
+      - name: Remove local dump file
+        if: always()
+        run: rm -f "/tmp/${{ needs.backup.outputs.backup-filename }}" || true
+
+      - name: Notify on verification failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Database Backup — Verify Integrity"
+          severity: warning

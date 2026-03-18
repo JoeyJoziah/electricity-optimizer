@@ -21,9 +21,9 @@ Fix the two issues that block CI pipelines.
 
 ### Verification
 
-- [ ] `pip install -r backend/requirements-dev.txt` succeeds
-- [ ] `POST /internal/fetch-weather` returns 200
-- [ ] Both GHA workflows pass on next run
+- [x] `pip install -r backend/requirements-dev.txt` succeeds
+- [x] `POST /internal/fetch-weather` returns 200
+- [x] Both GHA workflows pass on next run
 
 ## Phase 2: Security & Infrastructure (P1)
 
@@ -38,9 +38,9 @@ Address secret leak findings and missing GitHub infrastructure.
 
 ### Verification
 
-- [ ] No real secrets exposed (or rotated if found)
-- [ ] `gh label list` shows both `self-healing` and `automated` labels
-- [ ] Self-healing monitor can create issues with correct labels
+- [x] No real secrets exposed (or rotated if found)
+- [x] `gh label list` shows both `self-healing` and `automated` labels
+- [x] Self-healing monitor can create issues with correct labels
 
 ## Phase 3: Frontend Configuration (P2)
 
@@ -54,9 +54,9 @@ Fix CSP and security header issues on the Vercel deployment.
 
 ### Verification
 
-- [ ] Clarity analytics loads without CSP errors (check browser console)
-- [ ] `curl -I https://rateshift.app` shows security headers
-- [ ] All cron workflows have recent successful runs
+- [x] Clarity analytics loads without CSP errors (check browser console)
+- [x] `curl -I https://rateshift.app` shows security headers
+- [x] All cron workflows have recent successful runs
 
 ## Phase 4: Final Verification
 
@@ -71,10 +71,10 @@ End-to-end validation that all fixes work together.
 
 ### Verification
 
-- [ ] All acceptance criteria from spec.md met
-- [ ] Tests passing
-- [ ] Documentation updated
-- [ ] Ready for review
+- [x] All acceptance criteria from spec.md met
+- [x] Tests passing
+- [x] Documentation updated
+- [x] Ready for review
 
 ---
 

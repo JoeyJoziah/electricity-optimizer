@@ -4,15 +4,13 @@ Referrals API Router
 Endpoints for referral code management and user growth.
 """
 
-from pydantic import BaseModel, Field
-
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-from services.referral_service import ReferralService, ReferralError
-
-import structlog
+from api.dependencies import SessionData, get_current_user, get_db_session
+from services.referral_service import ReferralError, ReferralService
 
 logger = structlog.get_logger()
 
@@ -46,7 +44,11 @@ async def apply_referral(
         result = await svc.apply_referral(current_user.user_id, body.code)
         return {"status": "applied", "referral_code": result["referral_code"]}
     except ReferralError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        logger.warning("referral_apply_failed", user_id=current_user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired referral code.",
+        )
 
 
 @router.get("/referrals/stats")

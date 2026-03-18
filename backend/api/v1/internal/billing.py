@@ -4,6 +4,8 @@ Internal billing endpoints.
 Covers: /dunning-cycle
 """
 
+from decimal import Decimal
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,12 +27,12 @@ async def run_dunning_cycle(
 
     Protected by the router-level X-API-Key dependency.
     """
+    from repositories.user_repository import UserRepository
     from services.dunning_service import DunningService
+    from services.email_service import EmailService
     from services.notification_dispatcher import NotificationDispatcher
     from services.notification_service import NotificationService
     from services.push_notification_service import PushNotificationService
-    from services.email_service import EmailService
-    from repositories.user_repository import UserRepository
 
     # Build a NotificationDispatcher so dunning notifications reach all channels.
     try:
@@ -70,7 +72,7 @@ async def run_dunning_cycle(
                 user_email=account["email"],
                 user_name=account.get("name", ""),
                 retry_count=max(retry_count, 3),
-                amount=float(account["amount_owed"]) if account.get("amount_owed") else None,
+                amount=Decimal(str(account["amount_owed"])) if account.get("amount_owed") else None,
                 currency=account.get("currency", "USD"),
                 user_id=user_id,
             )
@@ -98,4 +100,4 @@ async def run_dunning_cycle(
 
     except Exception as exc:
         logger.error("dunning_cycle_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail=f"Dunning cycle failed: {str(exc)}")
+        raise HTTPException(status_code=500, detail="Dunning cycle failed. See server logs.")

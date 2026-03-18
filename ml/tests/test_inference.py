@@ -8,9 +8,7 @@ Tests for:
 All heavy model loading is mocked to keep tests fast and isolated.
 """
 
-import os
-import tempfile
-from unittest.mock import MagicMock, mock_open, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -19,8 +17,10 @@ import yaml
 
 # Check for optional torch dependency (guard against MagicMock in sys.modules)
 import types as _types
+
 try:
     import torch as _torch  # noqa: F401
+
     HAS_TORCH = isinstance(_torch, _types.ModuleType)
 except ImportError:
     HAS_TORCH = False
@@ -30,7 +30,10 @@ except ImportError:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_features_df(n_rows: int = 200, n_features: int = 5, seed: int = 42) -> pd.DataFrame:
+
+def _make_features_df(
+    n_rows: int = 200, n_features: int = 5, seed: int = 42
+) -> pd.DataFrame:
     """Create a synthetic feature DataFrame with numeric columns."""
     rng = np.random.RandomState(seed)
     data = {f"feat_{i}": rng.randn(n_rows) for i in range(n_features)}
@@ -61,9 +64,12 @@ class TestPricePredictorModelTypeInference:
     def test_infer_cnn_lstm_from_model_pt(self, tmp_path):
         """model.pt should map to cnn_lstm."""
         (tmp_path / "model.pt").touch()
-        with patch("ml.inference.predictor.PricePredictor._load_model"), \
-             patch("ml.inference.predictor.PricePredictor._load_metadata"):
+        with (
+            patch("ml.inference.predictor.PricePredictor._load_model"),
+            patch("ml.inference.predictor.PricePredictor._load_metadata"),
+        ):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor.__new__(PricePredictor)
             p.model_path = str(tmp_path)
             assert p._infer_model_type() == "cnn_lstm"
@@ -71,9 +77,12 @@ class TestPricePredictorModelTypeInference:
     def test_infer_xgboost_from_model_json(self, tmp_path):
         """model.json should map to xgboost."""
         (tmp_path / "model.json").touch()
-        with patch("ml.inference.predictor.PricePredictor._load_model"), \
-             patch("ml.inference.predictor.PricePredictor._load_metadata"):
+        with (
+            patch("ml.inference.predictor.PricePredictor._load_model"),
+            patch("ml.inference.predictor.PricePredictor._load_metadata"),
+        ):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor.__new__(PricePredictor)
             p.model_path = str(tmp_path)
             assert p._infer_model_type() == "xgboost"
@@ -81,9 +90,12 @@ class TestPricePredictorModelTypeInference:
     def test_infer_lightgbm_from_model_txt(self, tmp_path):
         """model.txt should map to lightgbm."""
         (tmp_path / "model.txt").touch()
-        with patch("ml.inference.predictor.PricePredictor._load_model"), \
-             patch("ml.inference.predictor.PricePredictor._load_metadata"):
+        with (
+            patch("ml.inference.predictor.PricePredictor._load_model"),
+            patch("ml.inference.predictor.PricePredictor._load_metadata"),
+        ):
             from ml.inference.predictor import PricePredictor
+
             p = PricePredictor.__new__(PricePredictor)
             p.model_path = str(tmp_path)
             assert p._infer_model_type() == "lightgbm"
@@ -91,6 +103,7 @@ class TestPricePredictorModelTypeInference:
     def test_raises_when_no_model_file_found(self, tmp_path):
         """Should raise ValueError when directory has no recognised model."""
         from ml.inference.predictor import PricePredictor
+
         p = PricePredictor.__new__(PricePredictor)
         p.model_path = str(tmp_path)
         with pytest.raises(ValueError, match="Cannot infer model type"):
@@ -102,6 +115,7 @@ class TestPricePredictorLoadMetadata:
 
     def _make_predictor_stub(self):
         from ml.inference.predictor import PricePredictor
+
         p = PricePredictor.__new__(PricePredictor)
         p.model_path = "/fake"
         p.model_type = "xgboost"
@@ -109,6 +123,11 @@ class TestPricePredictorLoadMetadata:
         p.scaler = None
         p.config = None
         p.model_version = None
+        # Attributes set by _load_metadata() / __init__ — must be present so
+        # predict() and _conformal_intervals() don't raise AttributeError.
+        p._conformal_quantiles = None
+        p._trained_at = None
+        p._input_ranges = {}
         return p
 
     def test_loads_version_from_metadata_yaml(self, tmp_path):
@@ -132,6 +151,7 @@ class TestPricePredictorPreprocessFeatures:
 
     def _make_predictor_stub(self, model_type="xgboost", scaler=None):
         from ml.inference.predictor import PricePredictor
+
         p = PricePredictor.__new__(PricePredictor)
         p.model_path = "/fake"
         p.model_type = model_type
@@ -139,24 +159,33 @@ class TestPricePredictorPreprocessFeatures:
         p.scaler = scaler
         p.config = None
         p.model_version = None
+        # Attributes set by _load_metadata() / __init__ — must be present so
+        # predict() and _conformal_intervals() don't raise AttributeError.
+        p._conformal_quantiles = None
+        p._trained_at = None
+        p._input_ranges = {}
         return p
 
     def test_selects_only_numeric_columns(self):
-        df = pd.DataFrame({
-            "feat_a": [1.0, 2.0, 3.0],
-            "category": ["a", "b", "c"],
-            "feat_b": [4.0, 5.0, 6.0],
-        })
+        df = pd.DataFrame(
+            {
+                "feat_a": [1.0, 2.0, 3.0],
+                "category": ["a", "b", "c"],
+                "feat_b": [4.0, 5.0, 6.0],
+            }
+        )
         p = self._make_predictor_stub()
         features = p._preprocess_features(df)
         assert features.shape == (3, 2)
 
     def test_excludes_target_columns(self):
-        df = pd.DataFrame({
-            "feat_a": [1.0, 2.0],
-            "target": [10.0, 20.0],
-            "price_target": [11.0, 21.0],
-        })
+        df = pd.DataFrame(
+            {
+                "feat_a": [1.0, 2.0],
+                "target": [10.0, 20.0],
+                "price_target": [11.0, 21.0],
+            }
+        )
         p = self._make_predictor_stub()
         features = p._preprocess_features(df)
         assert features.shape == (2, 1)
@@ -207,6 +236,7 @@ class TestPricePredictorPredict:
 
     def _build_predictor(self, model_type, model_mock, scaler=None):
         from ml.inference.predictor import PricePredictor
+
         p = PricePredictor.__new__(PricePredictor)
         p.model_path = "/fake"
         p.model_type = model_type
@@ -214,6 +244,11 @@ class TestPricePredictorPredict:
         p.scaler = scaler
         p.config = None
         p.model_version = "test"
+        # Attributes set by _load_metadata() / __init__ — must be present so
+        # predict() and _conformal_intervals() don't raise AttributeError.
+        p._conformal_quantiles = None
+        p._trained_at = None
+        p._input_ranges = {}
         return p
 
     # -- XGBoost / LightGBM path -------------------------------------------
@@ -344,6 +379,7 @@ class TestEnsembleLoadWeights:
 
     def test_returns_defaults_when_no_metadata(self, tmp_path):
         from ml.inference.ensemble_predictor import EnsemblePredictor
+
         ep = EnsemblePredictor.__new__(EnsemblePredictor)
         ep.model_path = str(tmp_path)
         result = ep._load_weights()
@@ -359,6 +395,7 @@ class TestEnsembleLoadWeights:
         (tmp_path / "metadata.yaml").write_text(yaml.dump(meta))
 
         from ml.inference.ensemble_predictor import EnsemblePredictor
+
         ep = EnsemblePredictor.__new__(EnsemblePredictor)
         ep.model_path = str(tmp_path)
         result = ep._load_weights()
@@ -370,6 +407,7 @@ class TestEnsembleLoadModels:
 
     def test_raises_if_no_model_dirs_exist(self, tmp_path):
         from ml.inference.ensemble_predictor import EnsemblePredictor
+
         ep = EnsemblePredictor.__new__(EnsemblePredictor)
         ep.model_path = str(tmp_path)
         ep.weights = EnsemblePredictor.DEFAULT_WEIGHTS
@@ -384,7 +422,10 @@ class TestEnsembleLoadModels:
         from ml.inference.ensemble_predictor import EnsemblePredictor
 
         mock_predictor = MagicMock()
-        with patch("ml.inference.ensemble_predictor.PricePredictor", return_value=mock_predictor):
+        with patch(
+            "ml.inference.ensemble_predictor.PricePredictor",
+            return_value=mock_predictor,
+        ):
             ep = EnsemblePredictor.__new__(EnsemblePredictor)
             ep.model_path = str(tmp_path)
             ep.weights = EnsemblePredictor.DEFAULT_WEIGHTS
@@ -409,7 +450,9 @@ class TestEnsembleLoadModels:
                 raise RuntimeError("torch not installed")
             return MagicMock()
 
-        with patch("ml.inference.ensemble_predictor.PricePredictor", side_effect=side_effect):
+        with patch(
+            "ml.inference.ensemble_predictor.PricePredictor", side_effect=side_effect
+        ):
             ep = EnsemblePredictor.__new__(EnsemblePredictor)
             ep.model_path = str(tmp_path)
             ep.weights = EnsemblePredictor.DEFAULT_WEIGHTS
@@ -425,6 +468,7 @@ class TestEnsembleLoadMetadata:
     def test_loads_version_from_yaml(self, tmp_path):
         (tmp_path / "metadata.yaml").write_text(yaml.dump({"version": "1.0.0"}))
         from ml.inference.ensemble_predictor import EnsemblePredictor
+
         ep = EnsemblePredictor.__new__(EnsemblePredictor)
         ep.model_path = str(tmp_path)
         ep.version = None
@@ -433,6 +477,7 @@ class TestEnsembleLoadMetadata:
 
     def test_uses_date_fallback_when_no_file(self, tmp_path):
         from ml.inference.ensemble_predictor import EnsemblePredictor
+
         ep = EnsemblePredictor.__new__(EnsemblePredictor)
         ep.model_path = str(tmp_path)
         ep.version = None
@@ -818,8 +863,11 @@ class TestEnsembleEndToEnd:
         mock_pred = MagicMock()
         mock_pred.predict.return_value = _make_prediction(horizon=24, base=50)
 
-        with patch("ml.inference.ensemble_predictor.PricePredictor", return_value=mock_pred):
+        with patch(
+            "ml.inference.ensemble_predictor.PricePredictor", return_value=mock_pred
+        ):
             from ml.inference.ensemble_predictor import EnsemblePredictor
+
             ep = EnsemblePredictor(model_path=str(tmp_path))
 
             assert ep.version == "3.0.0"
@@ -842,8 +890,11 @@ class TestEnsembleEndToEnd:
         mock_pred.predict.return_value = _make_prediction(horizon=24)
 
         custom_weights = {"xgboost": {"weight": 0.9}}
-        with patch("ml.inference.ensemble_predictor.PricePredictor", return_value=mock_pred):
+        with patch(
+            "ml.inference.ensemble_predictor.PricePredictor", return_value=mock_pred
+        ):
             from ml.inference.ensemble_predictor import EnsemblePredictor
+
             ep = EnsemblePredictor(
                 model_path=str(tmp_path),
                 weights=custom_weights,
@@ -889,7 +940,9 @@ class TestEnsembleUncertaintyEstimation:
         weights = {"m1": {"weight": 0.5}, "m2": {"weight": 0.5}}
 
         ep_agree = _build_ensemble({"m1": agree_a, "m2": agree_b}, weights=weights)
-        ep_disagree = _build_ensemble({"m1": disagree_a, "m2": disagree_b}, weights=weights)
+        ep_disagree = _build_ensemble(
+            {"m1": disagree_a, "m2": disagree_b}, weights=weights
+        )
 
         df = _make_features_df()
         result_agree = ep_agree.predict(df, horizon=horizon)

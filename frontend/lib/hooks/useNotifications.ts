@@ -1,21 +1,21 @@
-'use client'
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getNotifications,
   getNotificationCount,
   markNotificationRead,
   markAllRead,
-} from '@/lib/api/notifications'
+} from "@/lib/api/notifications";
 
 // ---------------------------------------------------------------------------
 // Query keys
 // ---------------------------------------------------------------------------
 
 export const notificationKeys = {
-  all: ['notifications'] as const,
-  count: ['notifications', 'count'] as const,
-}
+  all: ["notifications"] as const,
+  count: ["notifications", "count"] as const,
+};
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -31,22 +31,33 @@ export function useNotifications() {
     queryKey: notificationKeys.all,
     queryFn: ({ signal }) => getNotifications(signal),
     staleTime: 30_000,
-  })
+  });
 }
 
 /**
- * Poll the unread notification count every 30 seconds.
+ * Poll the unread notification count every 120 seconds.
  * Used to keep the bell badge current without fetching the full list.
- * Polling pauses when the browser tab is hidden to conserve resources.
+ *
+ * Interval rationale:
+ * - 30s was unnecessarily aggressive for a badge counter — notifications
+ *   arrive infrequently and users tolerate a couple of minutes of lag.
+ * - 120s reduces API calls by 4x while remaining responsive enough for
+ *   in-session alerts.
+ * - refetchOnWindowFocus: true provides immediate refresh when the user
+ *   returns to the tab after being away, which is when fresh data matters
+ *   most (covers the "missed notification while tab was hidden" case).
+ * - refetchIntervalInBackground: false pauses polling while the tab is
+ *   hidden, so the effective poll rate is even lower in practice.
  */
 export function useNotificationCount() {
   return useQuery({
     queryKey: notificationKeys.count,
     queryFn: ({ signal }) => getNotificationCount(signal),
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
     refetchIntervalInBackground: false,
-    staleTime: 30_000,
-  })
+    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+  });
 }
 
 /**
@@ -54,15 +65,15 @@ export function useNotificationCount() {
  * On success, invalidates both the list and the count queries.
  */
 export function useMarkRead() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => markNotificationRead(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.all })
-      queryClient.invalidateQueries({ queryKey: notificationKeys.count })
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.count });
     },
-  })
+  });
 }
 
 /**
@@ -71,13 +82,13 @@ export function useMarkRead() {
  * On success, invalidates both the list and the count queries.
  */
 export function useMarkAllRead() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => markAllRead(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.all })
-      queryClient.invalidateQueries({ queryKey: notificationKeys.count })
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.count });
     },
-  })
+  });
 }

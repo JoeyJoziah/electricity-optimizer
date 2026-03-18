@@ -49,7 +49,8 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | `scrape-portals.yml` | Weekly Sun | 4 | 3 | 12 |
 | `owasp-zap.yml` | Weekly Sun | 4 | 5 | 20 |
 | `db-maintenance.yml` | Weekly Sun | 4 | 2 | 8 |
-| **Cron Subtotal** | | **406** | | **~858** |
+| `db-backup.yml` | Weekly Sun | 4 | 20 | 80 |
+| **Cron Subtotal** | | **410** | | **~938** |
 
 #### Event-Triggered Workflows (variable)
 
@@ -62,9 +63,9 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | Other CI/CD | various | 10 | 2 | 20 |
 | **Event Subtotal** | | **~165** | | **~905** |
 
-#### **Total Estimated: ~1,763 min/mo**
+#### **Total Estimated: ~1,843 min/mo**
 
-> Reduced by ~480 min/mo after Sprint 0-2 CF Worker cron migrations (price-sync + observe-forecasts moved from GHA to CF Worker). Now within free tier. Previous estimate: ~2,243 min/mo (March 16). Full history in [Optimization History](#optimization-history) below.
+> +80 min/mo added by `db-backup.yml` (weekly, ~20 min/run: dump + upload + verify with Neon branch). Reduced by ~480 min/mo after Sprint 0-2 CF Worker cron migrations (price-sync + observe-forecasts moved from GHA to CF Worker). Now within free tier. Previous estimate: ~1,763 min/mo (2026-03-17). Full history in [Optimization History](#optimization-history) below.
 
 ### Optimization History
 

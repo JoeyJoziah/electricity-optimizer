@@ -15,12 +15,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 
 # =============================================================================
 # HELPERS
@@ -31,7 +30,7 @@ def _make_price(price_per_kwh: float, hour: int = 0):
     """Create a minimal Price-like mock with price_per_kwh and timestamp."""
     p = MagicMock()
     p.price_per_kwh = Decimal(str(price_per_kwh))
-    p.timestamp = datetime(2026, 2, 24, hour, 0, tzinfo=timezone.utc)
+    p.timestamp = datetime(2026, 2, 24, hour, 0, tzinfo=UTC)
     return p
 
 
@@ -74,10 +73,17 @@ def mock_repo():
     repo.get_historical_prices = AsyncMock(return_value=[])
     repo.get_hourly_price_averages = AsyncMock(return_value=[])
     repo.get_supplier_price_stats = AsyncMock(return_value=[])
-    repo.get_price_statistics_with_stddev = AsyncMock(return_value={
-        "min_price": None, "max_price": None, "avg_price": None,
-        "stddev_price": None, "count": 0, "period_days": 7, "utility_type": "electricity",
-    })
+    repo.get_price_statistics_with_stddev = AsyncMock(
+        return_value={
+            "min_price": None,
+            "max_price": None,
+            "avg_price": None,
+            "stddev_price": None,
+            "count": 0,
+            "period_days": 7,
+            "utility_type": "electricity",
+        }
+    )
     return repo
 
 
@@ -123,9 +129,13 @@ class TestCalculateAveragePrice:
         from models.price import PriceRegion
 
         mock_repo.get_price_statistics_with_stddev.return_value = {
-            "min_price": Decimal("0.2000"), "max_price": Decimal("0.3000"),
-            "avg_price": Decimal("0.2500"), "stddev_price": Decimal("0.0500"),
-            "count": 3, "period_days": 7, "utility_type": "electricity",
+            "min_price": Decimal("0.2000"),
+            "max_price": Decimal("0.3000"),
+            "avg_price": Decimal("0.2500"),
+            "stddev_price": Decimal("0.0500"),
+            "count": 3,
+            "period_days": 7,
+            "utility_type": "electricity",
         }
 
         avg = await service.calculate_average_price(PriceRegion.US_CT, days=7)
@@ -138,8 +148,13 @@ class TestCalculateAveragePrice:
         from models.price import PriceRegion
 
         mock_repo.get_price_statistics_with_stddev.return_value = {
-            "min_price": None, "max_price": None, "avg_price": None,
-            "stddev_price": None, "count": 0, "period_days": 7, "utility_type": "electricity",
+            "min_price": None,
+            "max_price": None,
+            "avg_price": None,
+            "stddev_price": None,
+            "count": 0,
+            "period_days": 7,
+            "utility_type": "electricity",
         }
 
         avg = await service.calculate_average_price(PriceRegion.US_CT, days=7)
@@ -161,9 +176,13 @@ class TestCalculateVolatility:
         from models.price import PriceRegion
 
         mock_repo.get_price_statistics_with_stddev.return_value = {
-            "min_price": Decimal("0.2000"), "max_price": Decimal("0.3600"),
-            "avg_price": Decimal("0.2800"), "stddev_price": Decimal("0.0800"),
-            "count": 3, "period_days": 7, "utility_type": "electricity",
+            "min_price": Decimal("0.2000"),
+            "max_price": Decimal("0.3600"),
+            "avg_price": Decimal("0.2800"),
+            "stddev_price": Decimal("0.0800"),
+            "count": 3,
+            "period_days": 7,
+            "utility_type": "electricity",
         }
 
         vol = await service.calculate_volatility(PriceRegion.US_CT, days=7)
@@ -177,9 +196,13 @@ class TestCalculateVolatility:
         from models.price import PriceRegion
 
         mock_repo.get_price_statistics_with_stddev.return_value = {
-            "min_price": Decimal("0.2800"), "max_price": Decimal("0.2800"),
-            "avg_price": Decimal("0.2800"), "stddev_price": None,
-            "count": 1, "period_days": 7, "utility_type": "electricity",
+            "min_price": Decimal("0.2800"),
+            "max_price": Decimal("0.2800"),
+            "avg_price": Decimal("0.2800"),
+            "stddev_price": None,
+            "count": 1,
+            "period_days": 7,
+            "utility_type": "electricity",
         }
 
         vol = await service.calculate_volatility(PriceRegion.US_CT, days=7)
@@ -264,13 +287,15 @@ class TestGetPriceTrend:
         """Cache hit returns stored data without touching the repository."""
         from models.price import PriceRegion
 
-        cached_payload = json.dumps({
-            "direction": "increasing",
-            "change_percent": "7.50",
-            "start_price": "0.2000",
-            "end_price": "0.2150",
-            "data_points": 20,
-        })
+        cached_payload = json.dumps(
+            {
+                "direction": "increasing",
+                "change_percent": "7.50",
+                "start_price": "0.2000",
+                "end_price": "0.2150",
+                "data_points": 20,
+            }
+        )
         mock_cache.get.return_value = cached_payload
 
         result = await cached_service.get_price_trend(PriceRegion.US_CT, days=7)
@@ -294,14 +319,35 @@ class TestGetPeakHoursAnalysis:
         from models.price import PriceRegion
 
         # Hour 17 is the expensive peak; hour 3 is off-peak
-        rows = [_make_hourly_row(h, avg, count=10) for h, avg in [
-            (0, 0.20), (1, 0.20), (2, 0.20), (3, 0.15),  # off-peak at 3
-            (4, 0.20), (5, 0.20), (6, 0.20), (7, 0.20),
-            (8, 0.20), (9, 0.20), (10, 0.20), (11, 0.20),
-            (12, 0.20), (13, 0.20), (14, 0.20), (15, 0.20),
-            (16, 0.20), (17, 0.28), (18, 0.28),  # peaks at 17/18
-            (19, 0.20), (20, 0.20), (21, 0.20), (22, 0.20), (23, 0.20),
-        ]]
+        rows = [
+            _make_hourly_row(h, avg, count=10)
+            for h, avg in [
+                (0, 0.20),
+                (1, 0.20),
+                (2, 0.20),
+                (3, 0.15),  # off-peak at 3
+                (4, 0.20),
+                (5, 0.20),
+                (6, 0.20),
+                (7, 0.20),
+                (8, 0.20),
+                (9, 0.20),
+                (10, 0.20),
+                (11, 0.20),
+                (12, 0.20),
+                (13, 0.20),
+                (14, 0.20),
+                (15, 0.20),
+                (16, 0.20),
+                (17, 0.28),
+                (18, 0.28),  # peaks at 17/18
+                (19, 0.20),
+                (20, 0.20),
+                (21, 0.20),
+                (22, 0.20),
+                (23, 0.20),
+            ]
+        ]
         mock_repo.get_hourly_price_averages.return_value = rows
 
         result = await service.get_peak_hours_analysis(PriceRegion.US_CT, days=7)
@@ -345,9 +391,7 @@ class TestGetSupplierComparisonAnalytics:
         ]
         mock_repo.get_supplier_price_stats.return_value = rows
 
-        result = await service.get_supplier_comparison_analytics(
-            PriceRegion.US_CT, days=30
-        )
+        result = await service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
 
         assert "suppliers" in result
         assert len(result["suppliers"]) == 2
@@ -357,34 +401,98 @@ class TestGetSupplierComparisonAnalytics:
         assert result["most_stable"] == "United Illuminating"
 
     @pytest.mark.asyncio
-    async def test_get_supplier_comparison_cached(
-        self, cached_service, mock_repo, mock_cache
-    ):
+    async def test_get_supplier_comparison_cached(self, cached_service, mock_repo, mock_cache):
         """Cache hit returns stored payload without querying repository."""
         from models.price import PriceRegion
 
-        cached_payload = json.dumps({
-            "region": "us_ct",
-            "period_days": 30,
-            "suppliers": [
-                {
-                    "supplier": "Eversource",
-                    "average_price": "0.26",
-                    "min_price": "0.22",
-                    "max_price": "0.32",
-                    "volatility": "0.03",
-                    "data_points": 50,
-                }
-            ],
-            "cheapest_supplier": "Eversource",
-            "most_stable": "Eversource",
-        })
+        cached_payload = json.dumps(
+            {
+                "region": "us_ct",
+                "period_days": 30,
+                "suppliers": [
+                    {
+                        "supplier": "Eversource",
+                        "average_price": "0.26",
+                        "min_price": "0.22",
+                        "max_price": "0.32",
+                        "volatility": "0.03",
+                        "data_points": 50,
+                    }
+                ],
+                "cheapest_supplier": "Eversource",
+                "most_stable": "Eversource",
+            }
+        )
         mock_cache.get.return_value = cached_payload
 
-        result = await cached_service.get_supplier_comparison_analytics(
-            PriceRegion.US_CT, days=30
-        )
+        result = await cached_service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
 
         assert result["cheapest_supplier"] == "Eversource"
         assert result["suppliers"][0]["average_price"] == Decimal("0.26")
         mock_repo.get_supplier_price_stats.assert_not_awaited()
+
+
+# =============================================================================
+# TestAcquireCacheLock — thundering herd / fail-closed
+# =============================================================================
+
+
+class TestAcquireCacheLock:
+    """Tests for AnalyticsService._acquire_cache_lock.
+
+    The lock must be fail-closed: when Redis raises an exception, the method
+    must return False (lock appears held) so that concurrent callers do NOT
+    proceed to query the database simultaneously.  Returning True on error
+    (fail-open) would allow every waiting request to hammer the DB during a
+    Redis outage, causing a thundering herd.
+    """
+
+    @pytest.mark.asyncio
+    async def test_lock_acquired_when_redis_returns_truthy(self, mock_repo, mock_cache):
+        """SET NX returns truthy → lock acquired (True)."""
+        from services.analytics_service import AnalyticsService
+
+        mock_cache.set = AsyncMock(return_value=True)
+        svc = AnalyticsService(mock_repo, cache=mock_cache)
+
+        acquired = await svc._acquire_cache_lock("test:key")
+        assert acquired is True
+
+    @pytest.mark.asyncio
+    async def test_lock_not_acquired_when_redis_returns_falsy(self, mock_repo, mock_cache):
+        """SET NX returns falsy (lock already held) → returns False."""
+        from services.analytics_service import AnalyticsService
+
+        mock_cache.set = AsyncMock(return_value=None)
+        svc = AnalyticsService(mock_repo, cache=mock_cache)
+
+        acquired = await svc._acquire_cache_lock("test:key")
+        assert acquired is False
+
+    @pytest.mark.asyncio
+    async def test_lock_fail_closed_on_redis_exception(self, mock_repo, mock_cache):
+        """Redis error → returns False (fail-closed, NOT fail-open).
+
+        Returning True on error would let every concurrent request proceed
+        to the database (thundering herd).  Returning False prevents this
+        by making the lock appear held to all callers.
+        """
+        from services.analytics_service import AnalyticsService
+
+        mock_cache.set = AsyncMock(side_effect=ConnectionError("Redis down"))
+        svc = AnalyticsService(mock_repo, cache=mock_cache)
+
+        acquired = await svc._acquire_cache_lock("test:key")
+        assert acquired is False, (
+            "_acquire_cache_lock must return False (fail-closed) on Redis error "
+            "to prevent concurrent requests from stampeding the database."
+        )
+
+    @pytest.mark.asyncio
+    async def test_lock_returns_true_when_no_cache_configured(self, mock_repo):
+        """Without a cache the lock is trivially acquired (single process)."""
+        from services.analytics_service import AnalyticsService
+
+        svc = AnalyticsService(mock_repo, cache=None)
+        acquired = await svc._acquire_cache_lock("test:key")
+        assert acquired is True

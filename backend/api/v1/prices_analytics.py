@@ -5,20 +5,18 @@ Analytics and statistical endpoints for price data:
 - statistics, trends, peak hours, optimal usage windows
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from models.price import PriceRegion
-from services.price_service import PriceService
-from services.analytics_service import AnalyticsService
-from api.dependencies import get_price_service, get_analytics_service
+from api.dependencies import SessionData, get_analytics_service, get_price_service, require_tier
 from config.settings import get_settings
-
-import structlog
+from models.price import PriceRegion
+from services.analytics_service import AnalyticsService
+from services.price_service import PriceService
 
 logger = structlog.get_logger(__name__)
 settings = get_settings()
@@ -33,13 +31,14 @@ router = APIRouter(tags=["Price Analytics"])
 
 class PriceStatisticsResponse(BaseModel):
     """Response for price statistics"""
+
     region: str
     period_days: int
-    min_price: Optional[Decimal]
-    max_price: Optional[Decimal]
-    avg_price: Optional[Decimal]
+    min_price: Decimal | None
+    max_price: Decimal | None
+    avg_price: Decimal | None
     count: int
-    source: Optional[str] = None
+    source: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -53,12 +52,13 @@ class PriceStatisticsResponse(BaseModel):
     summary="Get price statistics",
     responses={
         200: {"description": "Statistics retrieved successfully"},
-    }
+    },
 )
 async def get_price_statistics(
     region: PriceRegion = Query(..., description="Price region"),
     days: int = Query(7, ge=1, le=365, description="Number of days to analyze"),
     price_service: PriceService = Depends(get_price_service),
+    _current_user: SessionData = Depends(require_tier("pro")),
 ):
     """
     Get price statistics for a region over a time period.
@@ -99,16 +99,17 @@ async def get_price_statistics(
     summary="Get optimal usage windows",
     responses={
         200: {"description": "Optimal windows retrieved successfully"},
-    }
+    },
 )
 async def get_optimal_usage_windows(
     region: PriceRegion = Query(..., description="Price region"),
     duration_hours: int = Query(2, ge=1, le=12, description="Required usage duration"),
     within_hours: int = Query(24, ge=1, le=48, description="Time window to search"),
-    supplier: Optional[str] = Query(None, description="Filter by supplier"),
+    supplier: str | None = Query(None, description="Filter by supplier"),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     price_service: PriceService = Depends(get_price_service),
+    _current_user: SessionData = Depends(require_tier("pro")),
 ):
     """
     Find optimal low-price windows for appliance usage.
@@ -120,11 +121,11 @@ async def get_optimal_usage_windows(
             region=region,
             duration_hours=duration_hours,
             within_hours=within_hours,
-            supplier=supplier
+            supplier=supplier,
         )
         total = len(windows)
         offset = (page - 1) * page_size
-        paginated_windows = windows[offset: offset + page_size]
+        paginated_windows = windows[offset : offset + page_size]
         return {
             "region": region.value,
             "duration_hours": duration_hours,
@@ -133,7 +134,7 @@ async def get_optimal_usage_windows(
             "total": total,
             "page": page,
             "page_size": page_size,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "source": "live",
         }
     except Exception as e:
@@ -143,14 +144,24 @@ async def get_optimal_usage_windows(
                 status_code=503,
                 detail="Price service temporarily unavailable",
             )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         all_windows = [
-            {"start": (now + timedelta(hours=2)).isoformat(), "end": (now + timedelta(hours=2 + duration_hours)).isoformat(), "avg_price": 0.16, "rank": 1},
-            {"start": (now + timedelta(hours=14)).isoformat(), "end": (now + timedelta(hours=14 + duration_hours)).isoformat(), "avg_price": 0.18, "rank": 2},
+            {
+                "start": (now + timedelta(hours=2)).isoformat(),
+                "end": (now + timedelta(hours=2 + duration_hours)).isoformat(),
+                "avg_price": 0.16,
+                "rank": 1,
+            },
+            {
+                "start": (now + timedelta(hours=14)).isoformat(),
+                "end": (now + timedelta(hours=14 + duration_hours)).isoformat(),
+                "avg_price": 0.18,
+                "rank": 2,
+            },
         ]
         total = len(all_windows)
         offset = (page - 1) * page_size
-        paginated_windows = all_windows[offset: offset + page_size]
+        paginated_windows = all_windows[offset : offset + page_size]
         return {
             "region": region.value,
             "duration_hours": duration_hours,
@@ -169,12 +180,13 @@ async def get_optimal_usage_windows(
     summary="Get price trends",
     responses={
         200: {"description": "Trends retrieved successfully"},
-    }
+    },
 )
 async def get_price_trends(
     region: PriceRegion = Query(..., description="Price region"),
     days: int = Query(7, ge=1, le=90, description="Number of days to analyze"),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
+    _current_user: SessionData = Depends(require_tier("pro")),
 ):
     """
     Get price trend analysis for a region.
@@ -187,7 +199,7 @@ async def get_price_trends(
             "region": region.value,
             "period_days": days,
             **trend,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "source": "live",
         }
     except Exception as e:
@@ -204,7 +216,7 @@ async def get_price_trends(
             "change_percent": -2.3,
             "current_avg": 0.21,
             "previous_avg": 0.215,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "source": "fallback",
         }
 
@@ -214,12 +226,13 @@ async def get_price_trends(
     summary="Get peak hours analysis",
     responses={
         200: {"description": "Peak hours analysis retrieved successfully"},
-    }
+    },
 )
 async def get_peak_hours_analysis(
     region: PriceRegion = Query(..., description="Price region"),
     days: int = Query(7, ge=1, le=30, description="Number of days to analyze"),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
+    _current_user: SessionData = Depends(require_tier("pro")),
 ):
     """
     Analyze peak and off-peak hours based on pricing.
@@ -232,7 +245,7 @@ async def get_peak_hours_analysis(
             "region": region.value,
             "period_days": days,
             **analysis,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "source": "live",
         }
     except Exception as e:
@@ -249,6 +262,6 @@ async def get_peak_hours_analysis(
             "off_peak_hours": list(range(0, 7)) + list(range(20, 24)),
             "peak_avg_price": 0.25,
             "off_peak_avg_price": 0.16,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "source": "fallback",
         }

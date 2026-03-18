@@ -5,8 +5,6 @@ Covers: /observe-forecasts, /learn, /observation-stats,
         /model-versions, /model-versions/compare
 """
 
-from typing import List, Optional
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -25,13 +23,11 @@ router = APIRouter()
 
 
 class ObserveRequest(BaseModel):
-    region: Optional[str] = Field(None, description="Region filter (optional)")
+    region: str | None = Field(None, description="Region filter (optional)")
 
 
 class LearnRequest(BaseModel):
-    regions: Optional[List[str]] = Field(
-        None, description="Regions to process (defaults to ['US'])"
-    )
+    regions: list[str] | None = Field(None, description="Regions to process (defaults to ['US'])")
     days: int = Field(default=7, ge=1, le=90, description="Lookback window in days")
 
 
@@ -72,7 +68,7 @@ async def observe_forecasts(
         }
     except Exception as e:
         logger.error("observe_forecasts_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Observation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Observation failed. See server logs.")
 
 
 @router.post("/learn", tags=["Internal"])
@@ -87,9 +83,9 @@ async def run_learning_cycle(
     Computes rolling accuracy, detects bias, updates ensemble weights in Redis,
     stores bias correction vectors, and prunes stale patterns.
     """
-    from services.observation_service import ObservationService
     from services.hnsw_vector_store import HNSWVectorStore
     from services.learning_service import LearningService
+    from services.observation_service import ObservationService
 
     obs = ObservationService(db)
     vs = HNSWVectorStore()
@@ -106,7 +102,7 @@ async def run_learning_cycle(
         }
     except Exception as e:
         logger.error("learning_cycle_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Learning cycle failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Learning cycle failed. See server logs.")
 
 
 @router.get("/observation-stats", tags=["Internal"])
@@ -133,7 +129,7 @@ async def get_observation_stats(
         }
     except Exception as e:
         logger.error("observation_stats_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="See server logs.")
 
 
 @router.get("/model-versions", tags=["Internal"])
@@ -186,7 +182,8 @@ async def compare_model_versions(
     try:
         result = await svc.compare_versions(body.version_a_id, body.version_b_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        logger.warning("model_version_compare_not_found", error=str(exc))
+        raise HTTPException(status_code=404, detail="Model version not found.")
 
     return {
         "model_name": body.model_name,

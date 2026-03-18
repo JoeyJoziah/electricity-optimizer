@@ -16,7 +16,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import verify_api_key, get_db_session
+from api.dependencies import get_db_session, verify_api_key
 
 BASE = "/api/v1/internal"
 
@@ -38,7 +38,7 @@ def _row_result(*cols) -> MagicMock:
     result = MagicMock()
     # Pydantic-free row: support indexing by position
     row = MagicMock()
-    for i, v in enumerate(cols):
+    for _i, _v in enumerate(cols):
         row.__getitem__ = MagicMock(side_effect=lambda k, _c=cols: _c[k])
     result.fetchone.return_value = row
     result.fetchall.return_value = []
@@ -74,7 +74,7 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _clean_overrides():
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -252,6 +252,7 @@ class TestFeatureFlagServiceIsEnabled:
     async def test_percentage_rollout_deterministic(self):
         """Same flag+user combo must always return the same decision."""
         import hashlib
+
         from services.feature_flag_service import FeatureFlagService
 
         user_id = "deterministic-user-id"
@@ -267,7 +268,8 @@ class TestFeatureFlagServiceIsEnabled:
 
         # Compute expected result
         hash_val = int(
-            hashlib.md5(f"{flag_name}:{user_id}".encode()).hexdigest()[:8], 16
+            hashlib.md5(f"{flag_name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
+            16,
         )
         expected = (hash_val % 100) < 50
 
@@ -418,9 +420,7 @@ class TestUpdateFeatureFlag:
     def test_update_percentage_succeeds(self, auth_client, mock_db):
         mock_db.execute.return_value = MagicMock()
 
-        resp = auth_client.put(
-            f"{BASE}/flags/bill_upload", json={"percentage": 50}
-        )
+        resp = auth_client.put(f"{BASE}/flags/bill_upload", json={"percentage": 50})
         assert resp.status_code == 200
         assert resp.json()["success"] is True
 
@@ -439,37 +439,27 @@ class TestUpdateFeatureFlag:
         assert resp.status_code == 404
 
     def test_requires_api_key(self, unauth_client):
-        resp = unauth_client.put(
-            f"{BASE}/flags/connections", json={"enabled": True}
-        )
+        resp = unauth_client.put(f"{BASE}/flags/connections", json={"enabled": True})
         assert resp.status_code == 401
 
     def test_percentage_boundary_zero(self, auth_client, mock_db):
         mock_db.execute.return_value = MagicMock()
 
-        resp = auth_client.put(
-            f"{BASE}/flags/optimization_schedule", json={"percentage": 0}
-        )
+        resp = auth_client.put(f"{BASE}/flags/optimization_schedule", json={"percentage": 0})
         assert resp.status_code == 200
 
     def test_percentage_boundary_hundred(self, auth_client, mock_db):
         mock_db.execute.return_value = MagicMock()
 
-        resp = auth_client.put(
-            f"{BASE}/flags/connections", json={"percentage": 100}
-        )
+        resp = auth_client.put(f"{BASE}/flags/connections", json={"percentage": 100})
         assert resp.status_code == 200
 
     def test_percentage_above_hundred_is_rejected(self, auth_client, mock_db):
         """percentage > 100 violates Pydantic constraint → 422."""
-        resp = auth_client.put(
-            f"{BASE}/flags/connections", json={"percentage": 101}
-        )
+        resp = auth_client.put(f"{BASE}/flags/connections", json={"percentage": 101})
         assert resp.status_code == 422
 
     def test_percentage_below_zero_is_rejected(self, auth_client, mock_db):
         """percentage < 0 violates Pydantic constraint → 422."""
-        resp = auth_client.put(
-            f"{BASE}/flags/connections", json={"percentage": -1}
-        )
+        resp = auth_client.put(f"{BASE}/flags/connections", json={"percentage": -1})
         assert resp.status_code == 422
