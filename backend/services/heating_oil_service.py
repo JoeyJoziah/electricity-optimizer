@@ -34,7 +34,8 @@ class HeatingOilService:
     # ------------------------------------------------------------------
 
     async def get_current_prices(
-        self, state: Optional[str] = None,
+        self,
+        state: Optional[str] = None,
     ) -> list[dict]:
         """Get latest heating oil prices, optionally filtered by state.
 
@@ -80,7 +81,9 @@ class HeatingOilService:
         ]
 
     async def get_price_history(
-        self, state: str, weeks: int = 12,
+        self,
+        state: str,
+        weeks: int = 12,
     ) -> list[dict]:
         """Get price history for a state over the last N weeks."""
         state = state.upper()
@@ -193,7 +196,9 @@ class HeatingOilService:
     # ------------------------------------------------------------------
 
     async def get_dealers(
-        self, state: str, limit: int = 20,
+        self,
+        state: str,
+        limit: int = 20,
     ) -> list[dict]:
         """Get heating oil dealers for a state."""
         state = state.upper()

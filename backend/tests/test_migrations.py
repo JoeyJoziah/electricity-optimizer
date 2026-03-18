@@ -14,6 +14,7 @@ Checks:
 
 import os
 import re
+
 import pytest
 
 MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "..", "migrations")
@@ -34,9 +35,7 @@ class TestMigrationFiles:
             if match:
                 numbers.append(match.group(1))
         duplicates = [n for n in numbers if numbers.count(n) > 1]
-        assert len(numbers) == len(set(numbers)), (
-            f"Duplicate migration numbers: {duplicates}"
-        )
+        assert len(numbers) == len(set(numbers)), f"Duplicate migration numbers: {duplicates}"
 
     def test_create_table_has_if_not_exists(self):
         """All CREATE TABLE statements should use IF NOT EXISTS."""
@@ -50,9 +49,7 @@ class TestMigrationFiles:
                 stripped = line.strip().upper()
                 if stripped.startswith("CREATE TABLE") and "IF NOT EXISTS" not in stripped:
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, (
-            "CREATE TABLE without IF NOT EXISTS:\n" + "\n".join(violations)
-        )
+        assert not violations, "CREATE TABLE without IF NOT EXISTS:\n" + "\n".join(violations)
 
     def test_create_index_has_guard(self):
         """All CREATE INDEX statements should use IF NOT EXISTS or CONCURRENTLY."""
@@ -70,10 +67,9 @@ class TestMigrationFiles:
                     and "CONCURRENTLY" not in stripped
                 ):
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, (
-            "CREATE INDEX without guard (IF NOT EXISTS or CONCURRENTLY):\n"
-            + "\n".join(violations)
-        )
+        assert (
+            not violations
+        ), "CREATE INDEX without guard (IF NOT EXISTS or CONCURRENTLY):\n" + "\n".join(violations)
 
     def test_alter_table_add_column_has_if_not_exists(self):
         """ALTER TABLE ADD COLUMN statements should use IF NOT EXISTS."""
@@ -90,9 +86,7 @@ class TestMigrationFiles:
                     continue
                 if "ADD COLUMN" in stripped and "IF NOT EXISTS" not in stripped:
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, (
-            "ADD COLUMN without IF NOT EXISTS:\n" + "\n".join(violations)
-        )
+        assert not violations, "ADD COLUMN without IF NOT EXISTS:\n" + "\n".join(violations)
 
     def test_no_drop_without_if_exists(self):
         """DROP statements should use IF EXISTS."""
@@ -109,9 +103,7 @@ class TestMigrationFiles:
                     continue
                 if stripped.startswith("DROP") and "IF EXISTS" not in stripped:
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, (
-            "DROP without IF EXISTS:\n" + "\n".join(violations)
-        )
+        assert not violations, "DROP without IF EXISTS:\n" + "\n".join(violations)
 
     def test_migration_files_are_present(self):
         """At least one migration file should exist."""
@@ -123,9 +115,7 @@ class TestMigrationFiles:
         files = get_migration_files()
         # At least one file should have a numeric prefix (init_neon.sql is exempt)
         prefixed = [f for f in files if re.match(r"^\d+", f)]
-        assert len(prefixed) > 0, (
-            "No migration files with numeric prefixes found"
-        )
+        assert len(prefixed) > 0, "No migration files with numeric prefixes found"
 
     def test_no_empty_migration_files(self):
         """Migration files should not be empty."""
@@ -163,9 +153,7 @@ class TestMigration017AdditionalIndexes:
             "idx_notifications_user_unread_created",
         }
         found = set(re.findall(r"IF NOT EXISTS\s+(idx_\w+)", content))
-        assert found == expected_indexes, (
-            f"Expected indexes {expected_indexes}, found {found}"
-        )
+        assert found == expected_indexes, f"Expected indexes {expected_indexes}, found {found}"
 
     def test_index_columns_reference_correct_tables(self):
         """Index ON clauses should reference the right tables and columns."""
@@ -184,9 +172,9 @@ class TestMigration017AdditionalIndexes:
         assert idx != -1, "Notifications index not found"
         # The WHERE clause should appear after the index definition
         after_idx = content[idx:]
-        assert "WHERE read_at IS NULL" in after_idx, (
-            "Partial index missing WHERE read_at IS NULL clause"
-        )
+        assert (
+            "WHERE read_at IS NULL" in after_idx
+        ), "Partial index missing WHERE read_at IS NULL clause"
 
 
 class TestMigration053NotificationDedupIndex:
@@ -215,9 +203,9 @@ class TestMigration053NotificationDedupIndex:
         # Find the ADD COLUMN line for alert_id
         for line in content.split("\n"):
             if "alert_id" in line and "ADD COLUMN" in line.upper():
-                assert "UUID" in line.upper(), (
-                    f"alert_id column should be UUID type, got: {line.strip()}"
-                )
+                assert (
+                    "UUID" in line.upper()
+                ), f"alert_id column should be UUID type, got: {line.strip()}"
                 break
 
     def test_fk_constraint_uses_set_null(self):
@@ -251,9 +239,7 @@ class TestMigration053NotificationDedupIndex:
         idx_start = content.find("idx_notifications_dedup_alert")
         assert idx_start != -1, "idx_notifications_dedup_alert not found"
         after_idx = content[idx_start:]
-        assert "dismissed" in after_idx, (
-            "Partial index should exclude dismissed notifications"
-        )
+        assert "dismissed" in after_idx, "Partial index should exclude dismissed notifications"
         assert "delivery_status" in after_idx
 
     def test_dedup_index_requires_alert_id_not_null(self):
@@ -283,9 +269,9 @@ class TestMigration019NationwideSuppliers:
     def test_uses_green_energy_not_provider(self):
         """Migration 019 should use 'green_energy' column, not 'green_energy_provider'."""
         content = _read_migration("019")
-        assert "green_energy_provider" not in content, (
-            "Migration 019 should use 'green_energy', not 'green_energy_provider'"
-        )
+        assert (
+            "green_energy_provider" not in content
+        ), "Migration 019 should use 'green_energy', not 'green_energy_provider'"
         assert "green_energy" in content
 
     def test_seeds_at_least_34_suppliers_across_13_states(self):
@@ -293,14 +279,10 @@ class TestMigration019NationwideSuppliers:
         content = _read_migration("019")
         # Count INSERT value rows by matching gen_random_uuid() calls
         supplier_count = content.count("gen_random_uuid()")
-        assert supplier_count >= 34, (
-            f"Expected >= 34 suppliers, found {supplier_count}"
-        )
+        assert supplier_count >= 34, f"Expected >= 34 suppliers, found {supplier_count}"
         # Extract all region values
         regions = set(re.findall(r"'(us_[a-z]{2})'", content))
-        assert len(regions) >= 13, (
-            f"Expected >= 13 state regions, found {len(regions)}: {regions}"
-        )
+        assert len(regions) >= 13, f"Expected >= 13 state regions, found {len(regions)}: {regions}"
 
     def test_all_region_values_are_valid_enum_members(self):
         """All region strings in migration 019 must be valid Region enum values."""
@@ -310,6 +292,4 @@ class TestMigration019NationwideSuppliers:
         region_values = set(re.findall(r"'(us_[a-z]{2})'", content))
         valid_values = {r.value for r in Region}
         invalid = region_values - valid_values
-        assert not invalid, (
-            f"Invalid region values in migration 019: {invalid}"
-        )
+        assert not invalid, f"Invalid region values in migration 019: {invalid}"

@@ -1,10 +1,11 @@
 """Tests for AffiliateService."""
 
-import pytest
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
-from services.affiliate_service import AffiliateService, AFFILIATE_PARTNERS
+import pytest
+
+from services.affiliate_service import AFFILIATE_PARTNERS, AffiliateService
 
 
 def _mock_db():
@@ -129,18 +130,22 @@ class TestGetRevenueSummary:
     async def test_returns_summary_by_utility(self):
         db = _mock_db()
         rows = [
-            _row({
-                "utility_type": "electricity",
-                "total_clicks": 100,
-                "conversions": 10,
-                "total_commission_cents": 5000,
-            }),
-            _row({
-                "utility_type": "natural_gas",
-                "total_clicks": 50,
-                "conversions": 3,
-                "total_commission_cents": 1500,
-            }),
+            _row(
+                {
+                    "utility_type": "electricity",
+                    "total_clicks": 100,
+                    "conversions": 10,
+                    "total_commission_cents": 5000,
+                }
+            ),
+            _row(
+                {
+                    "utility_type": "natural_gas",
+                    "total_clicks": 50,
+                    "conversions": 3,
+                    "total_commission_cents": 1500,
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows

@@ -44,8 +44,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
-from utils.encryption import encrypt_field, decrypt_field
 from lib.tracing import traced
+from utils.encryption import decrypt_field, encrypt_field
 
 logger = structlog.get_logger(__name__)
 
@@ -420,9 +420,7 @@ class ConnectionSyncService:
         placeholders = []
         params: dict = {}
         for i, rate_data in enumerate(rate_records):
-            placeholders.append(
-                f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})"
-            )
+            placeholders.append(f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})")
             params[f"id{i}"] = str(uuid4())
             params[f"cid{i}"] = connection_id
             params[f"rate{i}"] = rate_data["rate_per_kwh"]
@@ -440,9 +438,7 @@ class ConnectionSyncService:
             params,
         )
 
-    async def _insert_extracted_rate(
-        self, connection_id: str, rate_data: dict
-    ) -> None:
+    async def _insert_extracted_rate(self, connection_id: str, rate_data: dict) -> None:
         """Insert a single rate row into ``connection_extracted_rates``.
 
         Prefer ``_batch_insert_extracted_rates`` when inserting multiple rows.

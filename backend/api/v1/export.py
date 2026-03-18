@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
 from api.dependencies import get_db_session, require_tier
-from services.rate_export_service import RateExportService, EXPORT_CONFIGS
+from services.rate_export_service import EXPORT_CONFIGS, RateExportService
 
 router = APIRouter(prefix="/export")
 

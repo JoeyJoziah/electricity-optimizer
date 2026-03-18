@@ -26,7 +26,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 # Stable IDs for test rows
@@ -54,11 +53,11 @@ def _make_conn_row(
         username_b64 = base64.b64encode(b"\x00" * 40).decode("ascii")
 
     return (
-        connection_id,          # id
-        TEST_USER_ID,           # user_id
-        TEST_SUPPLIER_ID,       # supplier_id
-        username_b64,           # portal_username (encrypted+base64)
-        encrypted_b64,          # portal_password_encrypted
+        connection_id,  # id
+        TEST_USER_ID,  # user_id
+        TEST_SUPPLIER_ID,  # supplier_id
+        username_b64,  # portal_username (encrypted+base64)
+        encrypted_b64,  # portal_password_encrypted
         "https://duke-energy.com/sign-in",  # portal_login_url
     )
 
@@ -179,9 +178,9 @@ class TestScrapeAllPortals:
         #   3. UPDATE portal_scrape_status
         mock_db.execute = AsyncMock(
             side_effect=[
-                _fetchall_result([conn_row]),   # main SELECT
-                AsyncMock(),                    # INSERT rate
-                AsyncMock(),                    # UPDATE status
+                _fetchall_result([conn_row]),  # main SELECT
+                AsyncMock(),  # INSERT rate
+                AsyncMock(),  # UPDATE status
             ]
         )
 
@@ -218,7 +217,7 @@ class TestScrapeAllPortals:
         mock_db.execute = AsyncMock(
             side_effect=[
                 _fetchall_result([conn_row]),  # main SELECT
-                AsyncMock(),                   # UPDATE status (called even on error)
+                AsyncMock(),  # UPDATE status (called even on error)
             ]
         )
 
@@ -242,7 +241,7 @@ class TestScrapeAllPortals:
         mock_db.execute = AsyncMock(
             side_effect=[
                 _fetchall_result([conn_row]),  # main SELECT
-                AsyncMock(),                   # UPDATE status
+                AsyncMock(),  # UPDATE status
             ]
         )
 
@@ -282,9 +281,9 @@ class TestScrapeAllPortals:
         mock_db.execute = AsyncMock(
             side_effect=[
                 _fetchall_result([conn_row_ok, conn_row_bad]),  # main SELECT
-                AsyncMock(),   # INSERT rate (success conn)
-                AsyncMock(),   # UPDATE status (success conn)
-                AsyncMock(),   # UPDATE status (failed conn — decrypt error)
+                AsyncMock(),  # INSERT rate (success conn)
+                AsyncMock(),  # UPDATE status (success conn)
+                AsyncMock(),  # UPDATE status (failed conn — decrypt error)
             ]
         )
 

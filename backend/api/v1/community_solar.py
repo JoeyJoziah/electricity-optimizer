@@ -31,7 +31,7 @@ async def get_community_solar_programs(
         raise HTTPException(
             status_code=400,
             detail=f"Community solar programs not tracked for state '{state_upper}'. "
-                   f"Available states: {sorted(COMMUNITY_SOLAR_STATES)}",
+            f"Available states: {sorted(COMMUNITY_SOLAR_STATES)}",
         )
 
     if enrollment_status and enrollment_status not in ("open", "waitlist", "closed"):
@@ -106,8 +106,5 @@ async def get_community_solar_states(
 
     return {
         "total_states": len(counts),
-        "states": [
-            {"state": state, "program_count": count}
-            for state, count in counts.items()
-        ],
+        "states": [{"state": state, "program_count": count} for state, count in counts.items()],
     }

@@ -16,7 +16,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -84,10 +83,12 @@ class TestSyncConnections:
     def test_sync_happy_path(self, mock_svc_cls, auth_client, mock_db):
         """Syncing due connections should return totals."""
         mock_svc = MagicMock()
-        mock_svc.sync_all_due = AsyncMock(return_value=[
-            {"connection_id": "c1", "success": True, "records": 5},
-            {"connection_id": "c2", "success": True, "records": 3},
-        ])
+        mock_svc.sync_all_due = AsyncMock(
+            return_value=[
+                {"connection_id": "c1", "success": True, "records": 5},
+                {"connection_id": "c2", "success": True, "records": 3},
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/sync-connections")
@@ -105,10 +106,12 @@ class TestSyncConnections:
     def test_sync_partial_failure(self, mock_svc_cls, auth_client, mock_db):
         """When some syncs fail, counts should reflect the split."""
         mock_svc = MagicMock()
-        mock_svc.sync_all_due = AsyncMock(return_value=[
-            {"connection_id": "c1", "success": True, "records": 5},
-            {"connection_id": "c2", "success": False, "error": "API timeout"},
-        ])
+        mock_svc.sync_all_due = AsyncMock(
+            return_value=[
+                {"connection_id": "c1", "success": True, "records": 5},
+                {"connection_id": "c2", "success": False, "error": "API timeout"},
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/sync-connections")
@@ -138,9 +141,7 @@ class TestSyncConnections:
     def test_sync_service_error(self, mock_svc_cls, auth_client, mock_db):
         """Service exception should return 500."""
         mock_svc = MagicMock()
-        mock_svc.sync_all_due = AsyncMock(
-            side_effect=RuntimeError("UtilityAPI down")
-        )
+        mock_svc.sync_all_due = AsyncMock(side_effect=RuntimeError("UtilityAPI down"))
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/sync-connections")
@@ -196,10 +197,12 @@ class TestSyncUsers:
         neon_row = self._make_neon_row("uuid-new-1", "new@example.com", "New User")
 
         # 1. fetch neon_auth users
-        fetch_result = MagicMock(); fetch_result.fetchall.return_value = [neon_row]
+        fetch_result = MagicMock()
+        fetch_result.fetchall.return_value = [neon_row]
         # 2. upsert with RETURNING → .first() returns row with is_insert=True
         upsert_result = MagicMock()
-        returning_row = MagicMock(); returning_row.is_insert = True
+        returning_row = MagicMock()
+        returning_row.is_insert = True
         upsert_result.first.return_value = returning_row
 
         mock_db.execute = AsyncMock(side_effect=[fetch_result, upsert_result])
@@ -224,9 +227,11 @@ class TestSyncUsers:
         """
         neon_row = self._make_neon_row("uuid-stale-1", "changed@example.com", "Updated Name")
 
-        fetch_result = MagicMock(); fetch_result.fetchall.return_value = [neon_row]
+        fetch_result = MagicMock()
+        fetch_result.fetchall.return_value = [neon_row]
         upsert_result = MagicMock()
-        returning_row = MagicMock(); returning_row.is_insert = False
+        returning_row = MagicMock()
+        returning_row.is_insert = False
         upsert_result.first.return_value = returning_row
 
         mock_db.execute = AsyncMock(side_effect=[fetch_result, upsert_result])
@@ -246,7 +251,8 @@ class TestSyncUsers:
         """
         neon_row = self._make_neon_row("uuid-ok-1", "synced@example.com", "Synced User")
 
-        fetch_result = MagicMock(); fetch_result.fetchall.return_value = [neon_row]
+        fetch_result = MagicMock()
+        fetch_result.fetchall.return_value = [neon_row]
         upsert_result = MagicMock()
         upsert_result.first.return_value = None  # no row returned → skipped
 
@@ -269,11 +275,13 @@ class TestSyncUsers:
         row1 = self._make_neon_row("uuid-err-1", "bad@example.com", "Bad User")
         row2 = self._make_neon_row("uuid-ok-2", "good@example.com", "Good User")
 
-        fetch_result = MagicMock(); fetch_result.fetchall.return_value = [row1, row2]
+        fetch_result = MagicMock()
+        fetch_result.fetchall.return_value = [row1, row2]
 
         # row2: upsert succeeds with RETURNING → .first() returns is_insert=True
         upsert_ok_result = MagicMock()
-        returning_row = MagicMock(); returning_row.is_insert = True
+        returning_row = MagicMock()
+        returning_row.is_insert = True
         upsert_ok_result.first.return_value = returning_row
 
         call_count = 0

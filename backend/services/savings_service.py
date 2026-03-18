@@ -8,14 +8,13 @@ All queries use parameterised ``text()`` statements and the async SQLAlchemy
 session pattern established across this codebase.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import structlog
 
 logger = structlog.get_logger()
 

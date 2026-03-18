@@ -2,12 +2,14 @@
 Tests for PropaneService — prices, history, comparison, timing, store, static checks.
 """
 
-import pytest
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.propane_service import PropaneService, AVG_ANNUAL_GALLONS, AVG_MONTHLY_GALLONS
+import pytest
+
+from services.propane_service import (AVG_ANNUAL_GALLONS, AVG_MONTHLY_GALLONS,
+                                      PropaneService)
 
 
 def _mock_db_rows(rows):
@@ -36,27 +38,30 @@ def service(mock_db):
 # get_current_prices
 # ------------------------------------------------------------------
 
+
 class TestGetCurrentPrices:
     @pytest.mark.asyncio
     async def test_returns_all_states_when_no_filter(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([
-            {
-                "id": "uuid-1",
-                "state": "CT",
-                "price_per_gallon": Decimal("2.8500"),
-                "source": "eia",
-                "period_date": date(2026, 3, 3),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            },
-            {
-                "id": "uuid-2",
-                "state": "US",
-                "price_per_gallon": Decimal("2.6000"),
-                "source": "eia",
-                "period_date": date(2026, 3, 3),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            },
-        ])
+        mock_db.execute.return_value = _mock_db_rows(
+            [
+                {
+                    "id": "uuid-1",
+                    "state": "CT",
+                    "price_per_gallon": Decimal("2.8500"),
+                    "source": "eia",
+                    "period_date": date(2026, 3, 3),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                },
+                {
+                    "id": "uuid-2",
+                    "state": "US",
+                    "price_per_gallon": Decimal("2.6000"),
+                    "source": "eia",
+                    "period_date": date(2026, 3, 3),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                },
+            ]
+        )
 
         prices = await service.get_current_prices()
         assert len(prices) == 2
@@ -65,16 +70,18 @@ class TestGetCurrentPrices:
 
     @pytest.mark.asyncio
     async def test_filters_by_state(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([
-            {
-                "id": "uuid-1",
-                "state": "CT",
-                "price_per_gallon": Decimal("2.8500"),
-                "source": "eia",
-                "period_date": date(2026, 3, 3),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            },
-        ])
+        mock_db.execute.return_value = _mock_db_rows(
+            [
+                {
+                    "id": "uuid-1",
+                    "state": "CT",
+                    "price_per_gallon": Decimal("2.8500"),
+                    "source": "eia",
+                    "period_date": date(2026, 3, 3),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                },
+            ]
+        )
 
         prices = await service.get_current_prices("ct")
         assert len(prices) == 1
@@ -91,20 +98,23 @@ class TestGetCurrentPrices:
 # get_price_history
 # ------------------------------------------------------------------
 
+
 class TestGetPriceHistory:
     @pytest.mark.asyncio
     async def test_returns_history(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([
-            {
-                "id": f"uuid-{i}",
-                "state": "MA",
-                "price_per_gallon": Decimal(f"2.{80 + i}00"),
-                "source": "eia",
-                "period_date": date(2026, 3, 10 - i),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            }
-            for i in range(4)
-        ])
+        mock_db.execute.return_value = _mock_db_rows(
+            [
+                {
+                    "id": f"uuid-{i}",
+                    "state": "MA",
+                    "price_per_gallon": Decimal(f"2.{80 + i}00"),
+                    "source": "eia",
+                    "period_date": date(2026, 3, 10 - i),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                }
+                for i in range(4)
+            ]
+        )
 
         history = await service.get_price_history("ma", weeks=4)
         assert len(history) == 4
@@ -121,21 +131,24 @@ class TestGetPriceHistory:
 # get_price_comparison
 # ------------------------------------------------------------------
 
+
 class TestGetPriceComparison:
     @pytest.mark.asyncio
     async def test_comparison_cheaper_than_national(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([
-            {
-                "state": "CT",
-                "price_per_gallon": Decimal("2.5000"),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            },
-            {
-                "state": "US",
-                "price_per_gallon": Decimal("2.8000"),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            },
-        ])
+        mock_db.execute.return_value = _mock_db_rows(
+            [
+                {
+                    "state": "CT",
+                    "price_per_gallon": Decimal("2.5000"),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                },
+                {
+                    "state": "US",
+                    "price_per_gallon": Decimal("2.8000"),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                },
+            ]
+        )
 
         result = await service.get_price_comparison("CT")
         assert result is not None
@@ -147,18 +160,20 @@ class TestGetPriceComparison:
 
     @pytest.mark.asyncio
     async def test_comparison_more_expensive(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([
-            {
-                "state": "NH",
-                "price_per_gallon": Decimal("3.1000"),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            },
-            {
-                "state": "US",
-                "price_per_gallon": Decimal("2.8000"),
-                "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
-            },
-        ])
+        mock_db.execute.return_value = _mock_db_rows(
+            [
+                {
+                    "state": "NH",
+                    "price_per_gallon": Decimal("3.1000"),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                },
+                {
+                    "state": "US",
+                    "price_per_gallon": Decimal("2.8000"),
+                    "fetched_at": datetime(2026, 3, 10, tzinfo=timezone.utc),
+                },
+            ]
+        )
 
         result = await service.get_price_comparison("NH")
         assert result["difference_pct"] > 0  # More expensive
@@ -173,6 +188,7 @@ class TestGetPriceComparison:
 # ------------------------------------------------------------------
 # get_seasonal_advice
 # ------------------------------------------------------------------
+
 
 class TestGetSeasonalAdvice:
     @pytest.mark.asyncio
@@ -216,9 +232,11 @@ class TestGetSeasonalAdvice:
 
     @pytest.mark.asyncio
     async def test_insufficient_data(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([
-            {"price_per_gallon": Decimal("2.50"), "period_date": date(2026, 3, 3)},
-        ])
+        mock_db.execute.return_value = _mock_db_rows(
+            [
+                {"price_per_gallon": Decimal("2.50"), "period_date": date(2026, 3, 3)},
+            ]
+        )
 
         advice = await service.get_seasonal_advice("CT")
         assert "Not enough" in advice["advice"]
@@ -228,6 +246,7 @@ class TestGetSeasonalAdvice:
 # ------------------------------------------------------------------
 # store_prices
 # ------------------------------------------------------------------
+
 
 class TestStorePrices:
     @pytest.mark.asyncio
@@ -255,6 +274,7 @@ class TestStorePrices:
 # ------------------------------------------------------------------
 # Static methods
 # ------------------------------------------------------------------
+
 
 class TestStaticMethods:
     def test_is_propane_state_valid(self):

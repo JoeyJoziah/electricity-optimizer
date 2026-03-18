@@ -8,7 +8,7 @@ natural gas, heating oil, and propane.
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_db_session, require_tier
-from services.forecast_service import ForecastService, FORECASTABLE_UTILITIES
+from services.forecast_service import FORECASTABLE_UTILITIES, ForecastService
 
 router = APIRouter(prefix="/forecast")
 

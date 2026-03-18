@@ -57,11 +57,8 @@ def _install_recording_provider():
     from opentelemetry import trace
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import (
-        SimpleSpanProcessor,
-        SpanExporter,
-        SpanExportResult,
-    )
+    from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                SpanExporter, SpanExportResult)
 
     class _InMemoryExporter(SpanExporter):
         def __init__(self):
@@ -94,8 +91,10 @@ class TestAgentServiceTracing:
         """query_streaming() should create an 'agent.query' span."""
         exporter = _install_recording_provider()
 
-        with patch("services.agent_service.genai", MagicMock()), \
-             patch("services.agent_service.Groq", MagicMock()):
+        with (
+            patch("services.agent_service.genai", MagicMock()),
+            patch("services.agent_service.Groq", MagicMock()),
+        ):
             from services.agent_service import AgentService
 
             svc = AgentService()
@@ -106,13 +105,17 @@ class TestAgentServiceTracing:
 
             # Consume the generator
             try:
-                async for _ in svc.query_streaming("user1", "hello", {"region": "NY", "tier": "pro"}, mock_db):
+                async for _ in svc.query_streaming(
+                    "user1", "hello", {"region": "NY", "tier": "pro"}, mock_db
+                ):
                     pass
             except Exception:
                 pass
 
         agent_spans = [s for s in exporter.spans if s.name.startswith("agent.")]
-        assert len(agent_spans) >= 1, f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(agent_spans) >= 1
+        ), f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
         assert agent_spans[0].attributes.get("agent.provider") is not None or True
 
     @pytest.mark.asyncio
@@ -120,8 +123,10 @@ class TestAgentServiceTracing:
         """query_async() should create an 'agent.query_async' span."""
         exporter = _install_recording_provider()
 
-        with patch("services.agent_service.genai", MagicMock()), \
-             patch("services.agent_service.Groq", MagicMock()):
+        with (
+            patch("services.agent_service.genai", MagicMock()),
+            patch("services.agent_service.Groq", MagicMock()),
+        ):
             from services.agent_service import AgentService
 
             svc = AgentService()
@@ -136,7 +141,9 @@ class TestAgentServiceTracing:
                 pass
 
         agent_spans = [s for s in exporter.spans if s.name.startswith("agent.")]
-        assert len(agent_spans) >= 1, f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(agent_spans) >= 1
+        ), f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -159,10 +166,13 @@ class TestPriceServiceTracing:
         svc = PriceService(price_repo=mock_repo)
 
         from models.region import PriceRegion
+
         await svc.get_current_price(PriceRegion.NY, "ConEd")
 
         price_spans = [s for s in exporter.spans if s.name.startswith("price.")]
-        assert len(price_spans) >= 1, f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(price_spans) >= 1
+        ), f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
         span = price_spans[0]
         assert span.attributes.get("price.region") == "NY"
 
@@ -179,13 +189,16 @@ class TestPriceServiceTracing:
         svc = PriceService(price_repo=mock_repo)
 
         from models.region import PriceRegion
+
         try:
             await svc.get_price_forecast(PriceRegion.CA, hours=24)
         except Exception:
             pass  # May fail due to ML deps — we only care about span
 
         price_spans = [s for s in exporter.spans if s.name.startswith("price.")]
-        assert len(price_spans) >= 1, f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(price_spans) >= 1
+        ), f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +230,9 @@ class TestStripeServiceTracing:
                 pass
 
         stripe_spans = [s for s in exporter.spans if s.name.startswith("stripe.")]
-        assert len(stripe_spans) >= 1, f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(stripe_spans) >= 1
+        ), f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
 
     @pytest.mark.asyncio
     async def test_handle_webhook_creates_span(self):
@@ -236,7 +251,9 @@ class TestStripeServiceTracing:
                 pass
 
         stripe_spans = [s for s in exporter.spans if s.name.startswith("stripe.")]
-        assert len(stripe_spans) >= 1, f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(stripe_spans) >= 1
+        ), f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +278,9 @@ class TestAlertServiceTracing:
         await svc.send_alerts([])  # empty list is fine
 
         alert_spans = [s for s in exporter.spans if s.name.startswith("alert.")]
-        assert len(alert_spans) >= 1, f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(alert_spans) >= 1
+        ), f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
 
     @pytest.mark.asyncio
     async def test_create_alert_creates_span(self):
@@ -287,7 +306,9 @@ class TestAlertServiceTracing:
             pass
 
         alert_spans = [s for s in exporter.spans if s.name.startswith("alert.")]
-        assert len(alert_spans) >= 1, f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(alert_spans) >= 1
+        ), f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +338,9 @@ class TestPortalScraperServiceTracing:
             pass
 
         scraper_spans = [s for s in exporter.spans if s.name.startswith("scraper.")]
-        assert len(scraper_spans) >= 1, f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(scraper_spans) >= 1
+        ), f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"
         assert scraper_spans[0].attributes.get("scraper.utility") == "Duke Energy"
 
 
@@ -346,7 +369,9 @@ class TestConnectionSyncServiceTracing:
             pass
 
         sync_spans = [s for s in exporter.spans if s.name.startswith("sync.")]
-        assert len(sync_spans) >= 1, f"Expected sync.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(sync_spans) >= 1
+        ), f"Expected sync.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -373,4 +398,6 @@ class TestRateScraperServiceTracing:
             pass
 
         scraper_spans = [s for s in exporter.spans if s.name.startswith("scraper.")]
-        assert len(scraper_spans) >= 1, f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(scraper_spans) >= 1
+        ), f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"

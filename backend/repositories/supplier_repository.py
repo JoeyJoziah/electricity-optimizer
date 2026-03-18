@@ -25,7 +25,7 @@ Cache invalidation is explicit via clear_registry_cache().
 """
 
 import json
-from typing import Optional, Any
+from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession

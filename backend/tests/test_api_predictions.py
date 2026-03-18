@@ -8,19 +8,19 @@ Tests cover:
 - GET /predict/model-info - ML model info
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def predictions_client():
     """Create a TestClient with mocked database dependencies."""
-    from main import app
+    from api.dependencies import SessionData, get_current_user
     from config.database import get_redis, get_timescale_session
-    from api.dependencies import get_current_user, SessionData
+    from main import app
 
     mock_user = SessionData(user_id="test-user-id", email="test@example.com")
 
@@ -128,7 +128,9 @@ class TestPredictPrice:
         assert response.json()["predictions"][0]["currency"] == "USD"
 
     @patch("routers.predictions._load_model", return_value=None)
-    def test_predict_price_predictions_have_confidence_bounds(self, _mock_model, predictions_client):
+    def test_predict_price_predictions_have_confidence_bounds(
+        self, _mock_model, predictions_client
+    ):
         """Each prediction should include confidence_lower and confidence_upper."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
@@ -273,16 +275,18 @@ class TestModelInfo:
 
     def test_model_info_with_redis(self):
         """When redis has model version, it should be returned."""
-        from main import app
+        from api.dependencies import SessionData, get_current_user
         from config.database import get_redis
-        from api.dependencies import get_current_user, SessionData
+        from main import app
 
         mock_redis = AsyncMock()
-        mock_redis.get = AsyncMock(side_effect=lambda key: {
-            "model:latest_version": "v2.3.1",
-            "model:recent_mape": "4.5",
-            "model:last_updated": "2026-02-22T10:00:00Z",
-        }.get(key))
+        mock_redis.get = AsyncMock(
+            side_effect=lambda key: {
+                "model:latest_version": "v2.3.1",
+                "model:recent_mape": "4.5",
+                "model:last_updated": "2026-02-22T10:00:00Z",
+            }.get(key)
+        )
 
         mock_user = SessionData(user_id="test-user-id", email="test@example.com")
         app.dependency_overrides[get_redis] = lambda: mock_redis

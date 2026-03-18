@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 logger = structlog.get_logger(__name__)
 
@@ -84,13 +84,11 @@ async def create_feedback(
         )
 
     result = await db.execute(
-        text(
-            """
+        text("""
             INSERT INTO feedback (user_id, type, message, status)
             VALUES (:user_id, :type, :message, 'new')
             RETURNING id, type, status, created_at
-            """
-        ),
+            """),
         {
             "user_id": current_user.user_id,
             "type": body.type,

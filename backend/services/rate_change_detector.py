@@ -6,7 +6,7 @@ Generates rate_change_alerts when significant changes are detected.
 Optionally finds cheaper alternatives for "better deal" recommendations.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -111,9 +111,7 @@ class RateChangeDetector:
         )
         return self._process_changes(result.mappings().all(), "electricity", threshold)
 
-    async def _detect_gas_changes(
-        self, threshold: float, cutoff: datetime
-    ) -> List[Dict[str, Any]]:
+    async def _detect_gas_changes(self, threshold: float, cutoff: datetime) -> List[Dict[str, Any]]:
         """Detect natural gas price changes from utility_rates table."""
         result = await self._db.execute(
             text("""
@@ -233,15 +231,17 @@ class RateChangeDetector:
                 continue
             change_pct = float(((curr - prev) / prev) * 100)
             if abs(change_pct) >= threshold:
-                changes.append({
-                    "utility_type": utility_type,
-                    "region": row["region"],
-                    "supplier": row.get("supplier") or "Unknown",
-                    "previous_price": float(prev),
-                    "current_price": float(curr),
-                    "change_pct": round(change_pct, 2),
-                    "change_direction": "increase" if change_pct > 0 else "decrease",
-                })
+                changes.append(
+                    {
+                        "utility_type": utility_type,
+                        "region": row["region"],
+                        "supplier": row.get("supplier") or "Unknown",
+                        "previous_price": float(prev),
+                        "current_price": float(curr),
+                        "change_pct": round(change_pct, 2),
+                        "change_direction": "increase" if change_pct > 0 else "decrease",
+                    }
+                )
         return changes
 
     async def find_cheaper_alternative(

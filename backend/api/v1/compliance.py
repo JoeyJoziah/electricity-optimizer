@@ -18,15 +18,10 @@ logger = logging.getLogger(__name__)
 from api.dependencies import SessionData, get_current_user, get_db_session
 from compliance.gdpr import GDPRComplianceService, UserNotFoundError
 from compliance.repositories import ConsentRepository
-from models.consent import (
-    ConsentHistoryResponse,
-    ConsentRequest,
-    ConsentResponse,
-    ConsentStatusResponse,
-    DataDeletionRequest,
-    DataDeletionResponse,
-    UserDataExport,
-)
+from models.consent import (ConsentHistoryResponse, ConsentRequest,
+                            ConsentResponse, ConsentStatusResponse,
+                            DataDeletionRequest, DataDeletionResponse,
+                            UserDataExport)
 from repositories.user_repository import UserRepository
 
 router = APIRouter(tags=["Compliance"])

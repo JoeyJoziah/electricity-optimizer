@@ -44,7 +44,6 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Stable test IDs
 # ---------------------------------------------------------------------------
@@ -121,7 +120,7 @@ def client():
 @pytest.fixture(autouse=True)
 def _clean_overrides():
     """Clear dependency overrides and reset rate limiter after every test."""
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -132,9 +131,9 @@ def _clean_overrides():
 
 def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
     """Install auth + DB overrides, returns the mock db."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id, tier=tier)
     db = _mock_db()
@@ -197,6 +196,7 @@ class TestOAuthState:
     def _patch_settings(self, api_key="test-api-key-for-state"):
         """Patch settings so generate/verify_oauth_state can use an internal key."""
         from unittest.mock import patch as _patch
+
         from config import settings as settings_module
 
         p = _patch.object(settings_module.settings, "internal_api_key", api_key)
@@ -213,7 +213,8 @@ class TestOAuthState:
 
     def test_verify_roundtrip(self):
         """Sign then verify returns the original connection_id."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -223,7 +224,8 @@ class TestOAuthState:
 
     def test_tampered_hmac_rejected(self):
         """Modifying the HMAC part causes verify to return None."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -237,7 +239,8 @@ class TestOAuthState:
 
     def test_tampered_connection_id_rejected(self):
         """Modifying the connection_id causes verify to return None."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -291,6 +294,7 @@ class TestConsentUrls:
 
     def _settings_patch(self):
         from unittest.mock import patch as _patch
+
         from config import settings as settings_module
 
         return _patch.multiple(
@@ -497,6 +501,7 @@ class TestGmailBodyExtraction:
 
     def test_extracts_text_plain_direct(self):
         import base64 as b64
+
         from services.email_scanner_service import _extract_gmail_body_text
 
         text = "Your bill is $123.45 for 847 kWh"
@@ -510,6 +515,7 @@ class TestGmailBodyExtraction:
 
     def test_extracts_text_from_parts(self):
         import base64 as b64
+
         from services.email_scanner_service import _extract_gmail_body_text
 
         text = "Rate: $0.2145/kWh"
@@ -528,6 +534,7 @@ class TestGmailBodyExtraction:
 
     def test_extracts_from_nested_parts(self):
         import base64 as b64
+
         from services.email_scanner_service import _extract_gmail_body_text
 
         text = "Eversource Energy monthly statement"
@@ -784,9 +791,9 @@ class TestEmailOAuthCallback:
 
     def _valid_state(self, connection_id: str, api_key: str = "test-key") -> str:
         """Generate a valid signed state for testing."""
-        import secrets as _secrets
-        import hmac as _hmac
         import hashlib as _hashlib
+        import hmac as _hmac
+        import secrets as _secrets
 
         nonce = _secrets.token_hex(16)
         payload = f"{connection_id}:{nonce}"
@@ -796,15 +803,17 @@ class TestEmailOAuthCallback:
 
     def _install_callback_db(self, provider: str = "gmail", status: str = "pending"):
         """Install DB mock for callback endpoint (no auth needed)."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
-        row = _DictRow({
-            "id": TEST_CONNECTION_ID,
-            "email_provider": provider,
-            "status": status,
-        })
+        row = _DictRow(
+            {
+                "id": TEST_CONNECTION_ID,
+                "email_provider": provider,
+                "status": status,
+            }
+        )
         result = MagicMock()
         result.mappings.return_value.first.return_value = row
         db.execute = AsyncMock(return_value=result)
@@ -838,8 +847,8 @@ class TestEmailOAuthCallback:
 
     def test_connection_not_found_returns_404(self, client):
         """When DB returns no connection, returns 404."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
         not_found_result = MagicMock()
@@ -917,13 +926,15 @@ class TestEmailOAuthCallback:
             "expires_in": 3600,
         }
 
-        with patch("services.email_oauth_service.settings") as mock_settings, \
-             patch("api.v1.connections.settings") as conn_settings, \
-             patch(
-                 "services.email_oauth_service.exchange_gmail_code",
-                 return_value=token_response,
-             ), \
-             patch("utils.encryption.settings") as enc_settings:
+        with (
+            patch("services.email_oauth_service.settings") as mock_settings,
+            patch("api.v1.connections.settings") as conn_settings,
+            patch(
+                "services.email_oauth_service.exchange_gmail_code",
+                return_value=token_response,
+            ),
+            patch("utils.encryption.settings") as enc_settings,
+        ):
             mock_settings.internal_api_key = "test-key"
             mock_settings.jwt_secret = "fallback"
             mock_settings.gmail_client_id = "client-id"
@@ -956,13 +967,15 @@ class TestEmailOAuthCallback:
             "expires_in": 3600,
         }
 
-        with patch("services.email_oauth_service.settings") as mock_settings, \
-             patch("api.v1.connections.settings") as conn_settings, \
-             patch(
-                 "services.email_oauth_service.exchange_outlook_code",
-                 return_value=token_response,
-             ), \
-             patch("utils.encryption.settings") as enc_settings:
+        with (
+            patch("services.email_oauth_service.settings") as mock_settings,
+            patch("api.v1.connections.settings") as conn_settings,
+            patch(
+                "services.email_oauth_service.exchange_outlook_code",
+                return_value=token_response,
+            ),
+            patch("utils.encryption.settings") as enc_settings,
+        ):
             mock_settings.internal_api_key = "test-key"
             mock_settings.jwt_secret = "fallback"
             mock_settings.outlook_client_id = "client-id"
@@ -1006,15 +1019,17 @@ class TestTriggerEmailScan:
         """Pending connection returns 409."""
         db = _install_auth()
 
-        row = _DictRow({
-            "id": TEST_CONNECTION_ID,
-            "user_id": TEST_USER_ID,
-            "email_provider": "gmail",
-            "status": "pending",
-            "oauth_access_token": None,
-            "oauth_refresh_token": None,
-            "oauth_token_expires_at": None,
-        })
+        row = _DictRow(
+            {
+                "id": TEST_CONNECTION_ID,
+                "user_id": TEST_USER_ID,
+                "email_provider": "gmail",
+                "status": "pending",
+                "oauth_access_token": None,
+                "oauth_refresh_token": None,
+                "oauth_token_expires_at": None,
+            }
+        )
         result = MagicMock()
         result.mappings.return_value.first.return_value = row
         db.execute = AsyncMock(return_value=result)
@@ -1026,15 +1041,17 @@ class TestTriggerEmailScan:
         """Disconnected connection returns 409."""
         db = _install_auth()
 
-        row = _DictRow({
-            "id": TEST_CONNECTION_ID,
-            "user_id": TEST_USER_ID,
-            "email_provider": "gmail",
-            "status": "disconnected",
-            "oauth_access_token": None,
-            "oauth_refresh_token": None,
-            "oauth_token_expires_at": None,
-        })
+        row = _DictRow(
+            {
+                "id": TEST_CONNECTION_ID,
+                "user_id": TEST_USER_ID,
+                "email_provider": "gmail",
+                "status": "disconnected",
+                "oauth_access_token": None,
+                "oauth_refresh_token": None,
+                "oauth_token_expires_at": None,
+            }
+        )
         result = MagicMock()
         result.mappings.return_value.first.return_value = row
         db.execute = AsyncMock(return_value=result)
@@ -1050,18 +1067,21 @@ class TestTriggerEmailScan:
         with patch("utils.encryption.settings") as enc_settings:
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
             from utils.encryption import encrypt_field
+
             enc_token = encrypt_field("fake_access_token")
         enc_token_b64 = base64.b64encode(enc_token).decode()
 
-        row = _DictRow({
-            "id": TEST_CONNECTION_ID,
-            "user_id": TEST_USER_ID,
-            "email_provider": "gmail",
-            "status": "active",
-            "oauth_access_token": enc_token_b64,
-            "oauth_refresh_token": None,
-            "oauth_token_expires_at": None,  # not expired
-        })
+        row = _DictRow(
+            {
+                "id": TEST_CONNECTION_ID,
+                "user_id": TEST_USER_ID,
+                "email_provider": "gmail",
+                "status": "active",
+                "oauth_access_token": enc_token_b64,
+                "oauth_refresh_token": None,
+                "oauth_token_expires_at": None,  # not expired
+            }
+        )
         result = MagicMock()
         result.mappings.return_value.first.return_value = row
         db.execute = AsyncMock(return_value=result)
@@ -1077,8 +1097,12 @@ class TestTriggerEmailScan:
             attachment_count=1,
         )
 
-        with patch("utils.encryption.settings") as enc_settings, \
-             patch("services.email_scanner_service.scan_gmail_inbox", return_value=[mock_scan_result]) as mock_scan:
+        with (
+            patch("utils.encryption.settings") as enc_settings,
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox", return_value=[mock_scan_result]
+            ) as mock_scan,
+        ):
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
 
             response = client.post(f"{BASE}/email/{TEST_CONNECTION_ID}/scan")
@@ -1098,18 +1122,21 @@ class TestTriggerEmailScan:
         with patch("utils.encryption.settings") as enc_settings:
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
             from utils.encryption import encrypt_field
+
             enc_token = encrypt_field("fake_access_token")
         enc_token_b64 = base64.b64encode(enc_token).decode()
 
-        row = _DictRow({
-            "id": TEST_CONNECTION_ID,
-            "user_id": TEST_USER_ID,
-            "email_provider": "gmail",
-            "status": "active",
-            "oauth_access_token": enc_token_b64,
-            "oauth_refresh_token": None,
-            "oauth_token_expires_at": None,
-        })
+        row = _DictRow(
+            {
+                "id": TEST_CONNECTION_ID,
+                "user_id": TEST_USER_ID,
+                "email_provider": "gmail",
+                "status": "active",
+                "oauth_access_token": enc_token_b64,
+                "oauth_refresh_token": None,
+                "oauth_token_expires_at": None,
+            }
+        )
         result = MagicMock()
         result.mappings.return_value.first.return_value = row
         db.execute = AsyncMock(return_value=result)
@@ -1132,8 +1159,13 @@ class TestTriggerEmailScan:
             is_utility_bill=True,
         )
 
-        with patch("utils.encryption.settings") as enc_settings, \
-             patch("services.email_scanner_service.scan_gmail_inbox", return_value=[non_bill, utility_bill]):
+        with (
+            patch("utils.encryption.settings") as enc_settings,
+            patch(
+                "services.email_scanner_service.scan_gmail_inbox",
+                return_value=[non_bill, utility_bill],
+            ),
+        ):
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
 
             response = client.post(f"{BASE}/email/{TEST_CONNECTION_ID}/scan")
@@ -1160,9 +1192,7 @@ class TestScanInboxAsync:
         mock_list_response = MagicMock()
         mock_list_response.status_code = 200
         mock_list_response.raise_for_status = MagicMock()
-        mock_list_response.json.return_value = {
-            "messages": [{"id": "msg_001"}]
-        }
+        mock_list_response.json.return_value = {"messages": [{"id": "msg_001"}]}
 
         mock_detail_response = MagicMock()
         mock_detail_response.status_code = 200
@@ -1236,9 +1266,7 @@ class TestScanInboxAsync:
         mock_list_response = MagicMock()
         mock_list_response.status_code = 200
         mock_list_response.raise_for_status = MagicMock()
-        mock_list_response.json.return_value = {
-            "messages": [{"id": "msg_001"}, {"id": "msg_002"}]
-        }
+        mock_list_response.json.return_value = {"messages": [{"id": "msg_001"}, {"id": "msg_002"}]}
 
         # First detail: 200 OK
         mock_detail_ok = MagicMock()
@@ -1285,6 +1313,7 @@ class TestExtractRatesFromEmail:
     async def test_gmail_extraction(self):
         """Extracts rates from a Gmail message body."""
         import base64 as b64
+
         from services.email_scanner_service import extract_rates_from_email
 
         text = "Total amount due: $145.67. You used 847 kWh."

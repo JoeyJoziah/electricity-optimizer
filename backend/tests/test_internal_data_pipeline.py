@@ -21,7 +21,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -89,10 +88,17 @@ class TestFetchWeatherPersistence:
     def test_weather_persists_to_db(self, mock_svc_cls, auth_client, mock_db):
         """Weather results should be inserted into weather_cache table."""
         mock_svc = MagicMock()
-        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={
-            "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "partly cloudy"},
-            "CA": {"temp_f": 85.0, "humidity": 30, "wind_mph": 3.1, "description": "clear sky"},
-        })
+        mock_svc.fetch_weather_for_regions = AsyncMock(
+            return_value={
+                "NY": {
+                    "temp_f": 72.5,
+                    "humidity": 65,
+                    "wind_mph": 8.2,
+                    "description": "partly cloudy",
+                },
+                "CA": {"temp_f": 85.0, "humidity": 30, "wind_mph": 3.1, "description": "clear sky"},
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(return_value=None)
@@ -154,9 +160,11 @@ class TestFetchWeatherPersistence:
     def test_weather_persist_error_tolerated(self, mock_svc_cls, auth_client, mock_db):
         """DB insert failures should be logged and tolerated, not cause 500."""
         mock_svc = MagicMock()
-        mock_svc.fetch_weather_for_regions = AsyncMock(return_value={
-            "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "clear"},
-        })
+        mock_svc.fetch_weather_for_regions = AsyncMock(
+            return_value={
+                "NY": {"temp_f": 72.5, "humidity": 65, "wind_mph": 8.2, "description": "clear"},
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(side_effect=RuntimeError("DB write failed"))
@@ -185,18 +193,28 @@ class TestMarketResearchPersistence:
     def test_market_research_persists_to_db(self, mock_svc_cls, auth_client, mock_db):
         """Market scan results should be inserted into market_intelligence table."""
         mock_svc = MagicMock()
-        mock_svc.weekly_market_scan = AsyncMock(return_value=[
-            {
-                "query": "NY electricity rate change 2026",
-                "data": {
-                    "answer": "Rates are increasing",
-                    "results": [
-                        {"title": "NY Rate Hike", "url": "https://example.com/1", "content": "..."},
-                        {"title": "Energy Report", "url": "https://example.com/2", "content": "..."},
-                    ],
+        mock_svc.weekly_market_scan = AsyncMock(
+            return_value=[
+                {
+                    "query": "NY electricity rate change 2026",
+                    "data": {
+                        "answer": "Rates are increasing",
+                        "results": [
+                            {
+                                "title": "NY Rate Hike",
+                                "url": "https://example.com/1",
+                                "content": "...",
+                            },
+                            {
+                                "title": "Energy Report",
+                                "url": "https://example.com/2",
+                                "content": "...",
+                            },
+                        ],
+                    },
                 },
-            },
-        ])
+            ]
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(return_value=None)
@@ -244,13 +262,15 @@ class TestScrapeRatesAutoDiscovery:
     def test_explicit_urls(self, mock_svc_cls, auth_client, mock_db):
         """Providing explicit supplier_urls should use them directly."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [{"supplier_id": "s1", "extracted_data": {}, "success": True}],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [{"supplier_id": "s1", "extracted_data": {}, "success": True}],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(
@@ -281,16 +301,18 @@ class TestScrapeRatesAutoDiscovery:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 2,
-            "succeeded": 2,
-            "failed": 0,
-            "errors": [],
-            "results": [
-                {"supplier_id": "id-1", "success": True},
-                {"supplier_id": "id-2", "success": True},
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 2,
+                "succeeded": 2,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {"supplier_id": "id-1", "success": True},
+                    {"supplier_id": "id-2", "success": True},
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/scrape-rates")
@@ -327,13 +349,17 @@ class TestScrapeRatesPersistence:
     def test_scrape_results_persisted(self, mock_svc_cls, auth_client, mock_db):
         """Scrape results should be inserted into scraped_rates table."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [{"supplier_id": "s1", "extracted_data": {"rates": [1.5]}, "success": True}],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {"supplier_id": "s1", "extracted_data": {"rates": [1.5]}, "success": True}
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
 
         mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
@@ -341,7 +367,11 @@ class TestScrapeRatesPersistence:
 
         response = auth_client.post(
             f"{BASE_URL}/scrape-rates",
-            json={"supplier_urls": [{"supplier_id": "s1", "url": "https://example.com", "name": "Test"}]},
+            json={
+                "supplier_urls": [
+                    {"supplier_id": "s1", "url": "https://example.com", "name": "Test"}
+                ]
+            },
         )
 
         assert response.status_code == 200
@@ -368,17 +398,19 @@ class TestScrapeRatesBatchSummary:
     def test_endpoint_exposes_succeeded_and_failed_counts(self, mock_svc_cls, auth_client, mock_db):
         """Response includes succeeded/failed counts from the batch summary."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 3,
-            "succeeded": 2,
-            "failed": 1,
-            "errors": [{"supplier_id": "bad", "error": "HTTP 503"}],
-            "results": [
-                {"supplier_id": "s1", "success": True, "extracted_data": {}},
-                {"supplier_id": "s2", "success": True, "extracted_data": {}},
-                {"supplier_id": "bad", "success": False, "extracted_data": None},
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 3,
+                "succeeded": 2,
+                "failed": 1,
+                "errors": [{"supplier_id": "bad", "error": "HTTP 503"}],
+                "results": [
+                    {"supplier_id": "s1", "success": True, "extracted_data": {}},
+                    {"supplier_id": "s2", "success": True, "extracted_data": {}},
+                    {"supplier_id": "bad", "success": False, "extracted_data": None},
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
         mock_db.commit = AsyncMock(return_value=None)
@@ -407,22 +439,34 @@ class TestScrapeRatesBatchSummary:
     def test_partial_failure_does_not_return_500(self, mock_svc_cls, auth_client, mock_db):
         """A batch with failures must not cause a 500 — partial success is still 200."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 5,
-            "succeeded": 3,
-            "failed": 2,
-            "errors": [
-                {"supplier_id": "fail1", "error": "timeout"},
-                {"supplier_id": "fail2", "error": "Connection refused"},
-            ],
-            "results": [
-                {"supplier_id": "ok1", "success": True, "extracted_data": {}},
-                {"supplier_id": "ok2", "success": True, "extracted_data": {}},
-                {"supplier_id": "ok3", "success": True, "extracted_data": {}},
-                {"supplier_id": "fail1", "success": False, "extracted_data": None, "error": "timeout"},
-                {"supplier_id": "fail2", "success": False, "extracted_data": None, "error": "Connection refused"},
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 5,
+                "succeeded": 3,
+                "failed": 2,
+                "errors": [
+                    {"supplier_id": "fail1", "error": "timeout"},
+                    {"supplier_id": "fail2", "error": "Connection refused"},
+                ],
+                "results": [
+                    {"supplier_id": "ok1", "success": True, "extracted_data": {}},
+                    {"supplier_id": "ok2", "success": True, "extracted_data": {}},
+                    {"supplier_id": "ok3", "success": True, "extracted_data": {}},
+                    {
+                        "supplier_id": "fail1",
+                        "success": False,
+                        "extracted_data": None,
+                        "error": "timeout",
+                    },
+                    {
+                        "supplier_id": "fail2",
+                        "success": False,
+                        "extracted_data": None,
+                        "error": "Connection refused",
+                    },
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
         mock_db.commit = AsyncMock(return_value=None)
@@ -448,29 +492,43 @@ class TestScrapeRatesBatchSummary:
     def test_all_fail_still_returns_200(self, mock_svc_cls, auth_client, mock_db):
         """Even if every supplier fails, the endpoint returns 200 with the summary."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 2,
-            "succeeded": 0,
-            "failed": 2,
-            "errors": [
-                {"supplier_id": "a", "error": "timeout"},
-                {"supplier_id": "b", "error": "HTTP 404"},
-            ],
-            "results": [
-                {"supplier_id": "a", "success": False, "extracted_data": None, "error": "timeout"},
-                {"supplier_id": "b", "success": False, "extracted_data": None, "error": "HTTP 404"},
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 2,
+                "succeeded": 0,
+                "failed": 2,
+                "errors": [
+                    {"supplier_id": "a", "error": "timeout"},
+                    {"supplier_id": "b", "error": "HTTP 404"},
+                ],
+                "results": [
+                    {
+                        "supplier_id": "a",
+                        "success": False,
+                        "extracted_data": None,
+                        "error": "timeout",
+                    },
+                    {
+                        "supplier_id": "b",
+                        "success": False,
+                        "extracted_data": None,
+                        "error": "HTTP 404",
+                    },
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
         mock_db.commit = AsyncMock(return_value=None)
 
         response = auth_client.post(
             f"{BASE_URL}/scrape-rates",
-            json={"supplier_urls": [
-                {"supplier_id": "a", "url": "https://a.com"},
-                {"supplier_id": "b", "url": "https://b.com"},
-            ]},
+            json={
+                "supplier_urls": [
+                    {"supplier_id": "a", "url": "https://a.com"},
+                    {"supplier_id": "b", "url": "https://b.com"},
+                ]
+            },
         )
 
         assert response.status_code == 200
@@ -484,13 +542,15 @@ class TestScrapeRatesBatchSummary:
     def test_response_includes_all_summary_keys(self, mock_svc_cls, auth_client, mock_db):
         """The response must include all required batch summary fields."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [{"supplier_id": "x", "success": True, "extracted_data": {}}],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [{"supplier_id": "x", "success": True, "extracted_data": {}}],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
         mock_db.commit = AsyncMock(return_value=None)
@@ -661,6 +721,7 @@ class TestRateScraperServiceConcurrency:
     async def test_concurrency_respects_semaphore_limit(self):
         """Peak concurrent calls must not exceed max_concurrency."""
         import asyncio as _asyncio
+
         from services.rate_scraper_service import RateScraperService
 
         svc = RateScraperService.__new__(RateScraperService)
@@ -681,14 +742,13 @@ class TestRateScraperServiceConcurrency:
             with patch("services.rate_scraper_service._RATE_LIMIT_SLEEP_S", 0.001):
                 # 10 suppliers with max_concurrency=3
                 suppliers = [
-                    {"supplier_id": f"s{i}", "url": f"https://s{i}.com"}
-                    for i in range(10)
+                    {"supplier_id": f"s{i}", "url": f"https://s{i}.com"} for i in range(10)
                 ]
                 await svc.scrape_supplier_rates(suppliers, max_concurrency=3)
 
-        assert peak_concurrent <= 3, (
-            f"Peak concurrent calls ({peak_concurrent}) exceeded semaphore limit (3)"
-        )
+        assert (
+            peak_concurrent <= 3
+        ), f"Peak concurrent calls ({peak_concurrent}) exceeded semaphore limit (3)"
 
     @pytest.mark.asyncio
     async def test_summary_response_format_complete(self):

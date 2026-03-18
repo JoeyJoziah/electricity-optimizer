@@ -18,19 +18,16 @@ Coverage:
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 from uuid import uuid4
 
 import pytest
 
-from services.rate_scraper_service import (
-    RateScraperService,
-    _RATE_LIMIT_SLEEP_S,
-    _PER_SUPPLIER_TIMEOUT_S,
-    _MAX_CONCURRENCY,
-    DIFFBOT_EXTRACT_URL,
-)
-
+from services.rate_scraper_service import (_MAX_CONCURRENCY,
+                                           _PER_SUPPLIER_TIMEOUT_S,
+                                           _RATE_LIMIT_SLEEP_S,
+                                           DIFFBOT_EXTRACT_URL,
+                                           RateScraperService)
 
 # =============================================================================
 # Fixtures
@@ -265,7 +262,12 @@ class TestScrapeSupplierRates:
         async def _fail_scrape(item, sem):
             async with sem:
                 await asyncio.sleep(0)
-                return {"supplier_id": item["supplier_id"], "extracted_data": None, "success": False, "error": "timeout"}
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": None,
+                    "success": False,
+                    "error": "timeout",
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_fail_scrape):
             result = await svc.scrape_supplier_rates(suppliers)
@@ -288,7 +290,12 @@ class TestScrapeSupplierRates:
             async with sem:
                 await asyncio.sleep(0)
                 if "fail" in item["supplier_id"]:
-                    return {"supplier_id": item["supplier_id"], "extracted_data": None, "success": False, "error": "http_error"}
+                    return {
+                        "supplier_id": item["supplier_id"],
+                        "extracted_data": None,
+                        "success": False,
+                        "error": "http_error",
+                    }
                 return {"supplier_id": item["supplier_id"], "extracted_data": {}, "success": True}
 
         with patch.object(svc, "_scrape_one", side_effect=_mixed_scrape):
@@ -308,7 +315,12 @@ class TestScrapeSupplierRates:
         async def _fail_scrape(item, sem):
             async with sem:
                 await asyncio.sleep(0)
-                return {"supplier_id": item["supplier_id"], "extracted_data": None, "success": False, "error": "connection_refused"}
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": None,
+                    "success": False,
+                    "error": "connection_refused",
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_fail_scrape):
             result = await svc.scrape_supplier_rates(suppliers)
@@ -324,7 +336,11 @@ class TestScrapeSupplierRates:
         async def _scrape(item, sem):
             async with sem:
                 await asyncio.sleep(0)
-                return {"supplier_id": item["supplier_id"], "extracted_data": {"rate": 0.1}, "success": True}
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": {"rate": 0.1},
+                    "success": True,
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_scrape):
             result = await svc.scrape_supplier_rates(suppliers)

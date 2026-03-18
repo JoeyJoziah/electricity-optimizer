@@ -11,26 +11,22 @@ Features:
 - Health monitoring across all APIs
 """
 
+import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
-import asyncio
 
 import structlog
 
-from .base import (
-    PriceData,
-    PriceForecast,
-    PricingRegion,
-    APIError,
-)
+from lib.circuit_breaker import CircuitBreaker
+
+from .base import APIError, PriceData, PriceForecast, PricingRegion
+from .cache import PricingCache
 from .eia import EIAClient
 from .flatpeak import FlatpeakClient
-from .nrel import NRELClient
 from .iea import IEAClient
-from .cache import PricingCache
+from .nrel import NRELClient
 from .rate_limiter import RateLimiter
-from lib.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger(__name__)
 
@@ -124,8 +120,7 @@ class PricingService:
 
         # Zenith H-16-02: service-level circuit breakers per client for fast-fail
         self._breakers: dict[str, CircuitBreaker] = {
-            name: CircuitBreaker(f"pricing:{name}")
-            for name in self._clients
+            name: CircuitBreaker(f"pricing:{name}") for name in self._clients
         }
 
         self.logger = logger.bind(service="pricing")
@@ -249,9 +244,7 @@ class PricingService:
             )
             breaker = self._breakers.get(primary_name)
             if breaker:
-                result = await breaker.call(
-                    primary_client.get_current_price(region)
-                )
+                result = await breaker.call(primary_client.get_current_price(region))
             else:
                 result = await primary_client.get_current_price(region)
             return result
@@ -279,9 +272,7 @@ class PricingService:
                     )
                     fb_breaker = self._breakers.get(fallback_name)
                     if fb_breaker:
-                        return await fb_breaker.call(
-                            fallback_client.get_current_price(region)
-                        )
+                        return await fb_breaker.call(fallback_client.get_current_price(region))
                     else:
                         return await fallback_client.get_current_price(region)
                 except Exception as fallback_error:
@@ -319,9 +310,7 @@ class PricingService:
         try:
             breaker = self._breakers.get(primary_name)
             if breaker:
-                return await breaker.call(
-                    primary_client.get_price_forecast(region, hours)
-                )
+                return await breaker.call(primary_client.get_price_forecast(region, hours))
             else:
                 return await primary_client.get_price_forecast(region, hours)
         except Exception as e:

@@ -1,31 +1,20 @@
 """Tests for bill_parser service — field extractors, helpers, and BillParserService."""
 
-import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.bill_parser import (
-    BillParserService,
-    _parse_date_flexible,
-    _strip_commas,
-    _validate_magic_bytes,
-    build_storage_key,
-    extract_billing_period,
-    extract_rate_per_kwh,
-    extract_supplier,
-    extract_text,
-    extract_total_amount,
-    extract_total_kwh,
-    validate_upload_file,
-    ALLOWED_EXTENSIONS,
-    ALLOWED_MIME_TYPES,
-    MAX_FILE_SIZE_BYTES,
-    _MAGIC_PDF,
-    _MAGIC_PNG,
-    _MAGIC_JPG,
-)
+import pytest
 
+from services.bill_parser import (_MAGIC_JPG, _MAGIC_PDF, _MAGIC_PNG,
+                                  ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES,
+                                  MAX_FILE_SIZE_BYTES, BillParserService,
+                                  _parse_date_flexible, _strip_commas,
+                                  _validate_magic_bytes, build_storage_key,
+                                  extract_billing_period, extract_rate_per_kwh,
+                                  extract_supplier, extract_text,
+                                  extract_total_amount, extract_total_kwh,
+                                  validate_upload_file)
 
 # ---------------------------------------------------------------------------
 # Magic bytes / helper tests
@@ -176,9 +165,7 @@ class TestExtractBillingPeriod:
         assert conf == 0.85
 
     def test_billing_period_from_pattern(self):
-        start, end, conf = extract_billing_period(
-            "Billing period from: 01/15/2025 to 02/14/2025"
-        )
+        start, end, conf = extract_billing_period("Billing period from: 01/15/2025 to 02/14/2025")
         assert start == "2025-01-15"
         assert end == "2025-02-14"
 
