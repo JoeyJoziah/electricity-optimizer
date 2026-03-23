@@ -103,6 +103,11 @@ services:
         sync: false
       - key: OUTLOOK_CLIENT_SECRET
         sync: false
+      # --- Security secrets ---
+      - key: OAUTH_STATE_SECRET
+        sync: false
+      - key: ML_MODEL_SIGNING_KEY
+        sync: false
       # --- Gmail SMTP (transactional email fallback) ---
       - key: SMTP_HOST
         sync: false

@@ -63,5 +63,5 @@ nh3==0.2.14
 
 # AI Agent (Gemini primary + Groq fallback + Composio tools)
 google-genai==1.0.0
-composio-gemini==0.7.0
+composio-gemini==0.7.1
 groq==0.9.0
