@@ -116,7 +116,8 @@ class TestSSEMaxConnections:
     @pytest.fixture
     def app_client(self):
         """TestClient with auth and price_service dependencies overridden."""
-        from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
+        from api.dependencies import (get_current_user, get_db_session,
+                                      get_price_service, get_redis)
         from main import app
 
         token = _make_token_data("user-maxconn")
@@ -418,7 +419,8 @@ class TestSSEEndpoint:
         disconnecting immediately.  The inner async generator breaks as soon
         as it detects the disconnection, so the test does not hang.
         """
-        from api.dependencies import get_current_user, get_db_session, get_price_service, get_redis
+        from api.dependencies import (get_current_user, get_db_session,
+                                      get_price_service, get_redis)
         from api.v1 import prices_sse
         from main import app
 

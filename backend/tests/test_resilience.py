@@ -129,9 +129,9 @@ class TestDatabaseResilience:
         client = self._client_with_erroring_db(Exception("DB connection refused"), "db-err")
         try:
             response = client.get("/api/v1/savings/summary")
-            assert response.status_code == 500, (
-                f"Expected 500, got {response.status_code}: {response.text}"
-            )
+            assert (
+                response.status_code == 500
+            ), f"Expected 500, got {response.status_code}: {response.text}"
         finally:
             self._cleanup()
 
@@ -148,9 +148,10 @@ class TestDatabaseResilience:
             response = client.get("/api/v1/savings/summary")
             # 504 = RequestTimeoutMiddleware caught it
             # 500 = global exception handler caught it
-            assert response.status_code in (500, 504), (
-                f"Expected 500 or 504, got {response.status_code}: {response.text}"
-            )
+            assert response.status_code in (
+                500,
+                504,
+            ), f"Expected 500 or 504, got {response.status_code}: {response.text}"
             # Response body must be parseable JSON with a 'detail' key
             body = response.json()
             assert "detail" in body

@@ -10,7 +10,8 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import SessionData, get_recommendation_service, require_tier
+from api.dependencies import (SessionData, get_recommendation_service,
+                              require_tier)
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)

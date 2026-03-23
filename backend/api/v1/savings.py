@@ -11,7 +11,8 @@ GET /savings/combined  — combined savings across all utility types
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import SessionData, get_current_user, get_db_session, require_tier
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              require_tier)
 from services.savings_aggregator import SavingsAggregator
 from services.savings_service import SavingsService
 

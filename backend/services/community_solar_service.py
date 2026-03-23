@@ -152,14 +152,12 @@ class CommunitySolarService:
 
     async def get_state_program_count(self) -> dict:
         """Get count of open community solar programs per state."""
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT state, COUNT(*) as program_count
                 FROM community_solar_programs
                 WHERE enrollment_status IN ('open', 'waitlist')
                 GROUP BY state
                 ORDER BY program_count DESC
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return {r["state"]: r["program_count"] for r in rows}

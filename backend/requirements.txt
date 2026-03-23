@@ -1,5 +1,5 @@
 # FastAPI and ASGI Server
-fastapi==0.125.0
+fastapi==0.135.2
 uvicorn[standard]==0.42.0
 pydantic==2.12.5
 pydantic-settings==2.13.1
@@ -9,19 +9,19 @@ asyncpg==0.31.0
 sqlalchemy[asyncio]==2.0.48
 
 # Redis
-redis[hiredis]==7.0
+redis[hiredis]==7.3.0
 
 # HTTP Client
-httpx==0.26.0
+httpx==0.28.1
 
 # Authentication & Security
-PyJWT[crypto]==2.8
+PyJWT[crypto]==2.12.1
 cryptography==46.0.5
 python-multipart==0.0.22
 bcrypt==4.1.2
 
 # Environment & Configuration
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 
 # Data Validation & Serialization
 email-validator==2.3.0
@@ -29,7 +29,7 @@ python-dateutil==2.9.0.post0
 
 # Monitoring & Logging
 prometheus-client==0.24.1
-sentry-sdk[fastapi]==2.0
+sentry-sdk[fastapi]==2.55.0
 structlog==25.5.0
 
 # OpenTelemetry — opt-in distributed tracing (OTEL_ENABLED=true activates)
@@ -46,7 +46,7 @@ opentelemetry-exporter-otlp-proto-http==1.40.0
 stripe==14.4.1
 
 # Email
-resend==2.23.0
+resend==2.26.0
 aiosmtplib==3.0.2
 jinja2==3.1.6
 
@@ -62,6 +62,6 @@ hnswlib==0.8.0
 nh3==0.3.3
 
 # AI Agent (Gemini primary + Groq fallback + Composio tools)
-google-genai==1.2.0
-composio-gemini==0.11.2
-groq==1.1.0
+google-genai==1.68.0
+composio-gemini==0.11.3
+groq==1.1.1

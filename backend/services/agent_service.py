@@ -386,7 +386,9 @@ class AgentService:
 
         return response.choices[0].message.content
 
-    async def query_async(self, user_id: str, prompt: str, context: dict, db) -> str:  # noqa: ARG002
+    async def query_async(
+        self, user_id: str, prompt: str, context: dict, db
+    ) -> str:  # noqa: ARG002
         """Submit an async job. Returns a job_id. Result stored in Redis."""
         async with traced("agent.query_async", attributes={"agent.provider": "gemini"}):
             job_id = str(uuid.uuid4())
