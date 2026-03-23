@@ -221,9 +221,9 @@ async def get_profile(
         utility_types=utility_types,
         current_supplier_id=str(current_supplier_id) if current_supplier_id else None,
         annual_usage_kwh=annual_usage_kwh,
-        onboarding_completed=bool(onboarding_completed)
-        if onboarding_completed is not None
-        else False,
+        onboarding_completed=(
+            bool(onboarding_completed) if onboarding_completed is not None else False
+        ),
     )
 
 

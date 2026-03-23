@@ -377,7 +377,8 @@ class TestSecurityIntegration:
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from middleware.rate_limiter import RateLimitMiddleware, UserRateLimiter
+        from middleware.rate_limiter import (RateLimitMiddleware,
+                                             UserRateLimiter)
 
         # --- Build a minimal app -------------------------------------------
         mini_app = FastAPI()
@@ -420,12 +421,12 @@ class TestSecurityIntegration:
 
             for resp in allowed_responses:
                 assert resp.status_code == 200, f"Expected 200 within limit, got {resp.status_code}"
-                assert "x-ratelimit-limit" in resp.headers, (
-                    "X-RateLimit-Limit header missing on allowed request"
-                )
-                assert "x-ratelimit-remaining" in resp.headers, (
-                    "X-RateLimit-Remaining header missing on allowed request"
-                )
+                assert (
+                    "x-ratelimit-limit" in resp.headers
+                ), "X-RateLimit-Limit header missing on allowed request"
+                assert (
+                    "x-ratelimit-remaining" in resp.headers
+                ), "X-RateLimit-Remaining header missing on allowed request"
 
             # The last allowed response must show remaining == 0
             assert int(allowed_responses[-1].headers["x-ratelimit-remaining"]) == 0
@@ -436,9 +437,9 @@ class TestSecurityIntegration:
                 "/api/v1/auth/login",
                 headers={"x-forwarded-for": "10.0.0.1"},
             )
-            assert over_limit.status_code == 429, (
-                f"Expected 429 after limit exceeded, got {over_limit.status_code}"
-            )
+            assert (
+                over_limit.status_code == 429
+            ), f"Expected 429 after limit exceeded, got {over_limit.status_code}"
             assert "retry-after" in over_limit.headers, "Retry-After header missing on 429 response"
             assert int(over_limit.headers["retry-after"]) > 0
 
@@ -448,16 +449,16 @@ class TestSecurityIntegration:
                 "/api/v1/auth/login",
                 headers={"x-forwarded-for": "10.0.0.99"},
             )
-            assert other_ip_resp.status_code == 200, (
-                "Rate limit for one IP should not affect a different IP"
-            )
+            assert (
+                other_ip_resp.status_code == 200
+            ), "Rate limit for one IP should not affect a different IP"
 
             # --- Excluded paths are never rate-limited -----------------------
             health_resp = client.get("/health")
             assert health_resp.status_code == 200
-            assert "x-ratelimit-limit" not in health_resp.headers, (
-                "Excluded path /health should not receive rate-limit headers"
-            )
+            assert (
+                "x-ratelimit-limit" not in health_resp.headers
+            ), "Excluded path /health should not receive rate-limit headers"
 
     async def test_security_headers_on_all_responses(self):
         """Test security headers present on all response types.
@@ -541,43 +542,43 @@ class TestSecurityIntegration:
                 # Permissions-Policy must be present
                 perms = resp.headers.get("permissions-policy")
                 assert perms is not None, f"Permissions-Policy missing on {method} {path}"
-                assert "camera=()" in perms, (
-                    f"Permissions-Policy lacks camera=() on {method} {path}"
-                )
+                assert (
+                    "camera=()" in perms
+                ), f"Permissions-Policy lacks camera=() on {method} {path}"
 
                 # X-XSS-Protection must NOT be present (deprecated header)
-                assert resp.headers.get("x-xss-protection") is None, (
-                    f"Deprecated X-XSS-Protection present on {method} {path}"
-                )
+                assert (
+                    resp.headers.get("x-xss-protection") is None
+                ), f"Deprecated X-XSS-Protection present on {method} {path}"
 
                 # HSTS must NOT be present in test/dev mode (requires HTTPS prod)
-                assert resp.headers.get("strict-transport-security") is None, (
-                    f"HSTS should be absent outside production on {method} {path}"
-                )
+                assert (
+                    resp.headers.get("strict-transport-security") is None
+                ), f"HSTS should be absent outside production on {method} {path}"
 
             # --- API paths get additional cache-control headers --------------
             for api_path in ["/api/v1/data", "/api/v1/error"]:
                 resp = client.get(api_path)
                 cache_control = resp.headers.get("cache-control", "")
-                assert "no-store" in cache_control, (
-                    f"Cache-Control 'no-store' missing on API path {api_path}"
-                )
-                assert "private" in cache_control, (
-                    f"Cache-Control 'private' missing on API path {api_path}"
-                )
-                assert resp.headers.get("pragma") == "no-cache", (
-                    f"Pragma: no-cache missing on API path {api_path}"
-                )
-                assert resp.headers.get("expires") == "0", (
-                    f"Expires: 0 missing on API path {api_path}"
-                )
+                assert (
+                    "no-store" in cache_control
+                ), f"Cache-Control 'no-store' missing on API path {api_path}"
+                assert (
+                    "private" in cache_control
+                ), f"Cache-Control 'private' missing on API path {api_path}"
+                assert (
+                    resp.headers.get("pragma") == "no-cache"
+                ), f"Pragma: no-cache missing on API path {api_path}"
+                assert (
+                    resp.headers.get("expires") == "0"
+                ), f"Expires: 0 missing on API path {api_path}"
 
             # --- Non-API paths must NOT get cache-control headers ------------
             root_resp = client.get("/")
-            assert root_resp.headers.get("pragma") is None, (
-                "Non-API root path / should not receive Pragma: no-cache"
-            )
+            assert (
+                root_resp.headers.get("pragma") is None
+            ), "Non-API root path / should not receive Pragma: no-cache"
             plain_resp = client.get("/plain")
-            assert plain_resp.headers.get("pragma") is None, (
-                "Non-API /plain path should not receive Pragma: no-cache"
-            )
+            assert (
+                plain_resp.headers.get("pragma") is None
+            ), "Non-API /plain path should not receive Pragma: no-cache"

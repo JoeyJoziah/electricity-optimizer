@@ -221,9 +221,9 @@ class TestLogSanitizer:
         """Pattern should be a single pre-compiled re.Pattern (alternation of all sub-patterns)."""
         import re
 
-        assert isinstance(_SANITIZER_PATTERN, re.Pattern), (
-            f"Expected re.Pattern, got {type(_SANITIZER_PATTERN)}"
-        )
+        assert isinstance(
+            _SANITIZER_PATTERN, re.Pattern
+        ), f"Expected re.Pattern, got {type(_SANITIZER_PATTERN)}"
         # The combined alternation should contain at least 7 sub-patterns
         # (postgresql, redis, sk_live, sk_test, re_, gsk_, AIza, Bearer, Authorization)
         assert _SANITIZER_PATTERN.groups >= 0  # Valid compiled regex

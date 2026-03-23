@@ -16,16 +16,9 @@ from typing import Any
 
 import structlog
 
-from .base import (
-    APIError,
-    BasePricingClient,
-    CircuitBreakerConfig,
-    PriceData,
-    PriceForecast,
-    PriceUnit,
-    PricingRegion,
-    RetryConfig,
-)
+from .base import (APIError, BasePricingClient, CircuitBreakerConfig,
+                   PriceData, PriceForecast, PriceUnit, PricingRegion,
+                   RetryConfig)
 from .cache import PricingCache
 from .rate_limiter import RateLimiter, create_api_rate_limiter
 

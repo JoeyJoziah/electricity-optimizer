@@ -57,13 +57,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-from models.model_version import (
-    ABAssignment,
-    ABOutcome,
-    ABTest,
-    ModelVersion,
-    VersionComparisonResult,
-)
+from models.model_version import (ABAssignment, ABOutcome, ABTest,
+                                  ModelVersion, VersionComparisonResult)
 
 logger = structlog.get_logger(__name__)
 

@@ -209,7 +209,8 @@ class TestOAuthState:
 
     def test_verify_roundtrip(self):
         """Sign then verify returns the original connection_id and user_id."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID, user_id="user-abc")
@@ -220,7 +221,8 @@ class TestOAuthState:
 
     def test_verify_roundtrip_no_user_id(self):
         """State without user_id still works (backwards compatible)."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -231,7 +233,8 @@ class TestOAuthState:
 
     def test_tampered_hmac_rejected(self):
         """Modifying the HMAC part causes verify to return (None, None)."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -246,7 +249,8 @@ class TestOAuthState:
 
     def test_tampered_connection_id_rejected(self):
         """Modifying the connection_id causes verify to return (None, None)."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -300,7 +304,8 @@ class TestOAuthState:
         """State older than 10 minutes is rejected."""
         import time
 
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -327,7 +332,8 @@ class TestOAuthState:
         """State with a future timestamp is rejected (clock skew attack)."""
         import time
 
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)

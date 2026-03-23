@@ -12,7 +12,8 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from api.dependencies import SessionData, get_analytics_service, get_price_service, require_tier
+from api.dependencies import (SessionData, get_analytics_service,
+                              get_price_service, require_tier)
 from config.settings import get_settings
 from models.price import PriceRegion
 from services.analytics_service import AnalyticsService

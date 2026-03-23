@@ -554,12 +554,12 @@ async def test_run_async_job_docstring_documents_no_db_contract(agent_service):
     """S3-5: The no-DB contract must be documented in the method docstring so
     future developers understand the session lifecycle constraint."""
     docstring = agent_service._run_async_job.__doc__ or ""
-    assert "db" in docstring.lower() or "session" in docstring.lower(), (
-        "_run_async_job docstring should reference the DB/session lifecycle contract"
-    )
-    assert "request" in docstring.lower() or "background" in docstring.lower(), (
-        "_run_async_job docstring should mention it is a background task"
-    )
+    assert (
+        "db" in docstring.lower() or "session" in docstring.lower()
+    ), "_run_async_job docstring should reference the DB/session lifecycle contract"
+    assert (
+        "request" in docstring.lower() or "background" in docstring.lower()
+    ), "_run_async_job docstring should mention it is a background task"
 
 
 async def test_run_async_job_completes_without_db_session(agent_service):

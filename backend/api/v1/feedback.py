@@ -84,13 +84,11 @@ async def create_feedback(
         )
 
     result = await db.execute(
-        text(
-            """
+        text("""
             INSERT INTO feedback (user_id, type, message, status)
             VALUES (:user_id, :type, :message, 'new')
             RETURNING id, type, status, created_at
-            """
-        ),
+            """),
         {
             "user_id": current_user.user_id,
             "type": body.type,
