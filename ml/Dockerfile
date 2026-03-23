@@ -6,7 +6,7 @@
 # and binary availability on 3.11. If upgrading to 3.12, verify that all binary
 # wheels for tensorflow, torch, and optional dependencies are available.
 
-FROM python:3.11-slim@sha256:16cb75beff0e104520a4bc4e98b08987b6978b82e37b81b87d786504e17579e7 as base
+FROM python:3.14-slim@sha256:fb83750094b46fd6b8adaa80f66e2302ecbe45d513f6cece637a841e1025b4ca as base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
