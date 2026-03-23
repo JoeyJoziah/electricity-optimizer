@@ -26,14 +26,14 @@ convention.
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -186,7 +186,7 @@ _DATE_PATTERNS = [
 # ---------------------------------------------------------------------------
 
 
-def _parse_date_flexible(raw: str) -> Optional[str]:
+def _parse_date_flexible(raw: str) -> str | None:
     """Parse a date string in several common formats, returning ISO YYYY-MM-DD."""
     raw = raw.strip().rstrip(",")
     formats = [
@@ -209,7 +209,7 @@ def _strip_commas(value: str) -> str:
     return value.replace(",", "")
 
 
-def _validate_magic_bytes(data: bytes) -> Optional[str]:
+def _validate_magic_bytes(data: bytes) -> str | None:
     """
     Return the detected file type based on magic bytes, or None if unsupported.
 
@@ -240,6 +240,7 @@ def _extract_text_from_pdf(data: bytes) -> str:
     # Try pypdf (optional)
     try:
         import io
+
         import pypdf  # type: ignore
 
         reader = pypdf.PdfReader(io.BytesIO(data))
@@ -276,6 +277,7 @@ def _extract_text_from_image(data: bytes) -> str:
     """
     try:
         import io
+
         import pytesseract  # type: ignore
         from PIL import Image  # type: ignore
 
@@ -302,7 +304,7 @@ def extract_text(data: bytes, file_type: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def extract_rate_per_kwh(text_body: str) -> tuple[Optional[float], float]:
+def extract_rate_per_kwh(text_body: str) -> tuple[float | None, float]:
     """
     Return (rate_per_kwh, confidence) from bill text.
 
@@ -330,7 +332,7 @@ def extract_rate_per_kwh(text_body: str) -> tuple[Optional[float], float]:
     return None, 0.0
 
 
-def extract_supplier(text_body: str) -> tuple[Optional[str], float]:
+def extract_supplier(text_body: str) -> tuple[str | None, float]:
     """
     Return (supplier_name, confidence) from bill text.
 
@@ -347,7 +349,7 @@ def extract_supplier(text_body: str) -> tuple[Optional[str], float]:
 
 def extract_billing_period(
     text_body: str,
-) -> tuple[Optional[str], Optional[str], float]:
+) -> tuple[str | None, str | None, float]:
     """
     Return (start_date_iso, end_date_iso, confidence) from bill text.
 
@@ -366,7 +368,7 @@ def extract_billing_period(
     return None, None, 0.0
 
 
-def extract_total_kwh(text_body: str) -> tuple[Optional[float], float]:
+def extract_total_kwh(text_body: str) -> tuple[float | None, float]:
     """
     Return (total_kwh, confidence) from bill text.
 
@@ -387,7 +389,7 @@ def extract_total_kwh(text_body: str) -> tuple[Optional[float], float]:
     return None, 0.0
 
 
-def extract_total_amount(text_body: str) -> tuple[Optional[float], float]:
+def extract_total_amount(text_body: str) -> tuple[float | None, float]:
     """
     Return (total_amount_usd, confidence) from bill text.
 
@@ -426,7 +428,7 @@ class BillParserService:
     def __init__(
         self,
         db: AsyncSession,
-        uploads_dir: Optional[Path] = None,
+        uploads_dir: Path | None = None,
     ) -> None:
         self.db = db
         self.uploads_dir = uploads_dir or Path("uploads")
@@ -440,7 +442,7 @@ class BillParserService:
         upload_id: str,
         connection_id: str,
         storage_key: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Parse the bill file identified by *storage_key* and persist results.
 
@@ -496,7 +498,7 @@ class BillParserService:
             total_kwh, kwh_conf = extract_total_kwh(text_body)
             total_amount, amount_conf = extract_total_amount(text_body)
 
-            parsed_data: Dict[str, Any] = {
+            parsed_data: dict[str, Any] = {
                 "text_length": len(text_body),
                 "confidences": {
                     "rate": rate_conf,
@@ -558,71 +560,83 @@ class BillParserService:
     # ------------------------------------------------------------------
 
     async def _set_status(self, upload_id: str, status: str) -> None:
-        await self.db.execute(
-            text("""
-                UPDATE bill_uploads
-                SET parse_status = :status, updated_at = NOW()
-                WHERE id = :upload_id
-            """),
-            {"status": status, "upload_id": upload_id},
-        )
-        await self.db.commit()
+        try:
+            await self.db.execute(
+                text("""
+                    UPDATE bill_uploads
+                    SET parse_status = :status, updated_at = NOW()
+                    WHERE id = :upload_id
+                """),
+                {"status": status, "upload_id": upload_id},
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def _mark_failed(self, upload_id: str, error: str) -> None:
-        await self.db.execute(
-            text("""
-                UPDATE bill_uploads
-                SET parse_status = 'failed',
-                    parse_error  = :error,
-                    updated_at   = NOW()
-                WHERE id = :upload_id
-            """),
-            {"error": error, "upload_id": upload_id},
-        )
-        await self.db.commit()
+        try:
+            await self.db.execute(
+                text("""
+                    UPDATE bill_uploads
+                    SET parse_status = 'failed',
+                        parse_error  = :error,
+                        updated_at   = NOW()
+                    WHERE id = :upload_id
+                """),
+                {"error": error, "upload_id": upload_id},
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def _save_results(
         self,
         *,
         upload_id: str,
-        parsed_data: Dict[str, Any],
-        detected_supplier: Optional[str],
-        detected_rate_per_kwh: Optional[float],
-        detected_billing_period_start: Optional[str],
-        detected_billing_period_end: Optional[str],
-        detected_total_kwh: Optional[float],
-        detected_total_amount: Optional[float],
+        parsed_data: dict[str, Any],
+        detected_supplier: str | None,
+        detected_rate_per_kwh: float | None,
+        detected_billing_period_start: str | None,
+        detected_billing_period_end: str | None,
+        detected_total_kwh: float | None,
+        detected_total_amount: float | None,
     ) -> None:
         import json
 
-        await self.db.execute(
-            text("""
-                UPDATE bill_uploads
-                SET parse_status                  = 'complete',
-                    parsed_data                   = :parsed_data,
-                    parse_error                   = NULL,
-                    parsed_at                     = NOW(),
-                    detected_supplier             = :supplier,
-                    detected_rate_per_kwh         = :rate,
-                    detected_billing_period_start = :period_start,
-                    detected_billing_period_end   = :period_end,
-                    detected_total_kwh            = :total_kwh,
-                    detected_total_amount         = :total_amount,
-                    updated_at                    = NOW()
-                WHERE id = :upload_id
-            """),
-            {
-                "upload_id": upload_id,
-                "parsed_data": json.dumps(parsed_data),
-                "supplier": detected_supplier,
-                "rate": detected_rate_per_kwh,
-                "period_start": detected_billing_period_start,
-                "period_end": detected_billing_period_end,
-                "total_kwh": detected_total_kwh,
-                "total_amount": detected_total_amount,
-            },
-        )
-        await self.db.commit()
+        try:
+            await self.db.execute(
+                text("""
+                    UPDATE bill_uploads
+                    SET parse_status                  = 'complete',
+                        parsed_data                   = :parsed_data,
+                        parse_error                   = NULL,
+                        parsed_at                     = NOW(),
+                        detected_supplier             = :supplier,
+                        detected_rate_per_kwh         = :rate,
+                        detected_billing_period_start = :period_start,
+                        detected_billing_period_end   = :period_end,
+                        detected_total_kwh            = :total_kwh,
+                        detected_total_amount         = :total_amount,
+                        updated_at                    = NOW()
+                    WHERE id = :upload_id
+                """),
+                {
+                    "upload_id": upload_id,
+                    "parsed_data": json.dumps(parsed_data),
+                    "supplier": detected_supplier,
+                    "rate": detected_rate_per_kwh,
+                    "period_start": detected_billing_period_start,
+                    "period_end": detected_billing_period_end,
+                    "total_kwh": detected_total_kwh,
+                    "total_amount": detected_total_amount,
+                },
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def _insert_extracted_rate(
         self,
@@ -632,21 +646,25 @@ class BillParserService:
         raw_label: str,
     ) -> None:
         rate_id = str(uuid4())
-        await self.db.execute(
-            text("""
-                INSERT INTO connection_extracted_rates
-                    (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
-                VALUES
-                    (:id, :connection_id, :rate, NOW(), 'bill_parse', :label)
-            """),
-            {
-                "id": rate_id,
-                "connection_id": connection_id,
-                "rate": rate_per_kwh,
-                "label": raw_label,
-            },
-        )
-        await self.db.commit()
+        try:
+            await self.db.execute(
+                text("""
+                    INSERT INTO connection_extracted_rates
+                        (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
+                    VALUES
+                        (:id, :connection_id, :rate, NOW(), 'bill_parse', :label)
+                """),
+                {
+                    "id": rate_id,
+                    "connection_id": connection_id,
+                    "rate": rate_per_kwh,
+                    "label": raw_label,
+                },
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
 
 
 # ---------------------------------------------------------------------------

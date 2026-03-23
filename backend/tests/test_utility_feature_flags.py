@@ -11,7 +11,6 @@ import pytest
 
 from services.feature_flag_service import FeatureFlagService
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -88,7 +87,6 @@ class TestUtilityFlagNames:
 class TestBaseUtilityFlags:
     """Base utility flags (electricity, gas, etc.) should be available to all."""
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize("flag_name", UTILITY_FLAGS)
     async def test_enabled_for_free_tier(self, flag_name):
         db = _mock_db()
@@ -96,7 +94,6 @@ class TestBaseUtilityFlags:
         svc = FeatureFlagService(db)
         assert await svc.is_enabled(flag_name, user_tier="free") is True
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize("flag_name", UTILITY_FLAGS)
     async def test_enabled_for_pro_tier(self, flag_name):
         db = _mock_db()
@@ -104,7 +101,6 @@ class TestBaseUtilityFlags:
         svc = FeatureFlagService(db)
         assert await svc.is_enabled(flag_name, user_tier="pro") is True
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize("flag_name", UTILITY_FLAGS)
     async def test_disabled_when_flag_off(self, flag_name):
         db = _mock_db()
@@ -121,7 +117,6 @@ class TestBaseUtilityFlags:
 class TestTierGatedUtilityFlags:
     """Forecast and export flags require higher tiers."""
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize("flag_name,required_tier", TIER_GATED_FLAGS)
     async def test_blocked_for_free_tier(self, flag_name, required_tier):
         db = _mock_db()
@@ -129,28 +124,24 @@ class TestTierGatedUtilityFlags:
         svc = FeatureFlagService(db)
         assert await svc.is_enabled(flag_name, user_tier="free") is False
 
-    @pytest.mark.asyncio
     async def test_forecast_allowed_for_pro(self):
         db = _mock_db()
         db.execute.return_value = _enabled_row(tier_required="pro")
         svc = FeatureFlagService(db)
         assert await svc.is_enabled("utility_forecast", user_tier="pro") is True
 
-    @pytest.mark.asyncio
     async def test_forecast_allowed_for_business(self):
         db = _mock_db()
         db.execute.return_value = _enabled_row(tier_required="pro")
         svc = FeatureFlagService(db)
         assert await svc.is_enabled("utility_forecast", user_tier="business") is True
 
-    @pytest.mark.asyncio
     async def test_export_blocked_for_pro(self):
         db = _mock_db()
         db.execute.return_value = _enabled_row(tier_required="business")
         svc = FeatureFlagService(db)
         assert await svc.is_enabled("utility_export", user_tier="pro") is False
 
-    @pytest.mark.asyncio
     async def test_export_allowed_for_business(self):
         db = _mock_db()
         db.execute.return_value = _enabled_row(tier_required="business")
@@ -166,36 +157,25 @@ class TestTierGatedUtilityFlags:
 class TestUtilityFlagPercentageRollout:
     """Verify percentage-based rollout works for utility flags."""
 
-    @pytest.mark.asyncio
     async def test_zero_percent_blocks_all(self):
         db = _mock_db()
         db.execute.return_value = _enabled_row(percentage=0)
         svc = FeatureFlagService(db)
-        assert await svc.is_enabled(
-            "utility_electricity", user_id="test-user"
-        ) is False
+        assert await svc.is_enabled("utility_electricity", user_id="test-user") is False
 
-    @pytest.mark.asyncio
     async def test_hundred_percent_allows_all(self):
         db = _mock_db()
         db.execute.return_value = _enabled_row(percentage=100)
         svc = FeatureFlagService(db)
-        assert await svc.is_enabled(
-            "utility_electricity", user_id="test-user"
-        ) is True
+        assert await svc.is_enabled("utility_electricity", user_id="test-user") is True
 
-    @pytest.mark.asyncio
     async def test_rollout_is_deterministic(self):
         """Same user_id always gets the same result for a given flag."""
         db = _mock_db()
         db.execute.return_value = _enabled_row(percentage=50)
         svc = FeatureFlagService(db)
 
-        first = await svc.is_enabled(
-            "utility_propane", user_id="deterministic-user"
-        )
+        first = await svc.is_enabled("utility_propane", user_id="deterministic-user")
         db.execute.return_value = _enabled_row(percentage=50)
-        second = await svc.is_enabled(
-            "utility_propane", user_id="deterministic-user"
-        )
+        second = await svc.is_enabled("utility_propane", user_id="deterministic-user")
         assert first == second

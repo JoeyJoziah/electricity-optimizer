@@ -1,27 +1,13 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { WaterRateBenchmark } from './WaterRateBenchmark'
-import { WaterTierCalculator } from './WaterTierCalculator'
-import { ConservationTips } from './ConservationTips'
-
-const US_STATES: Record<string, string> = {
-  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
-  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia',
-  FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois',
-  IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana',
-  ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota',
-  MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada',
-  NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York',
-  NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
-  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
-  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
-  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin',
-  WY: 'Wyoming',
-}
+import { useState } from "react";
+import { WaterRateBenchmark } from "./WaterRateBenchmark";
+import { WaterTierCalculator } from "./WaterTierCalculator";
+import { ConservationTips } from "./ConservationTips";
+import { US_STATES } from "@/lib/constants/regions";
 
 export function WaterDashboard() {
-  const [selectedState, setSelectedState] = useState<string>('')
+  const [selectedState, setSelectedState] = useState<string>("");
 
   return (
     <div className="space-y-6">
@@ -31,14 +17,18 @@ export function WaterDashboard() {
           Water Rate Benchmarking
         </p>
         <p className="text-sm text-cyan-700 mt-1">
-          Compare municipal water rates in your area. Water utilities are geographic
-          monopolies — this tool helps you understand your rates and find ways to conserve.
+          Compare municipal water rates in your area. Water utilities are
+          geographic monopolies — this tool helps you understand your rates and
+          find ways to conserve.
         </p>
       </div>
 
       {/* State selector */}
       <div>
-        <label htmlFor="water-state-select" className="block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="water-state-select"
+          className="block text-sm font-medium text-gray-700"
+        >
           Select State
         </label>
         <select
@@ -67,5 +57,5 @@ export function WaterDashboard() {
       {/* Conservation tips (always visible) */}
       <ConservationTips />
     </div>
-  )
+  );
 }

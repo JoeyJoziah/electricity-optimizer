@@ -7,26 +7,21 @@ Backed by the supplier_registry table (migration 006).
 """
 
 import re
-from datetime import datetime, timezone
-from typing import Optional, List
+from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel
 from sqlalchemy import text
-import structlog
 
+from api.dependencies import get_db_session, get_redis
 from models.supplier import (
-    SupplierResponse,
     SupplierDetailResponse,
-    SupplierListResponse,
+    SupplierResponse,
     TariffResponse,
-    TariffListResponse,
 )
-from models.utility import UtilityType
-from api.dependencies import get_db_session, get_redis, get_current_user_optional, SessionData
 from repositories.supplier_repository import SupplierRegistryRepository
-
 
 logger = structlog.get_logger(__name__)
 
@@ -42,8 +37,7 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
         UUID(value)
     except (ValueError, AttributeError):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"{label} '{value}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"{label} '{value}' not found"
         )
 
 
@@ -52,7 +46,7 @@ def _validate_region_code(value: str) -> None:
     if not _REGION_RE.match(value):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid region code: '{value}'"
+            detail=f"Invalid region code: '{value}'",
         )
 
 
@@ -63,19 +57,21 @@ def _validate_region_code(value: str) -> None:
 
 class SuppliersResponse(BaseModel):
     """Response for suppliers list endpoint"""
-    suppliers: List[SupplierResponse]
+
+    suppliers: list[SupplierResponse]
     total: int
     page: int
     page_size: int
-    region: Optional[str] = None
-    utility_type: Optional[str] = None
+    region: str | None = None
+    utility_type: str | None = None
 
 
 class SupplierTariffsResponse(BaseModel):
     """Response for supplier tariffs endpoint"""
+
     supplier_id: str
     supplier_name: str
-    tariffs: List[TariffResponse]
+    tariffs: list[TariffResponse]
     total: int
 
 
@@ -90,11 +86,14 @@ class SupplierTariffsResponse(BaseModel):
     summary="List energy suppliers",
     responses={
         200: {"description": "Suppliers retrieved successfully"},
-    }
+    },
 )
 async def list_suppliers(
-    region: Optional[str] = Query(None, description="Filter by region (e.g., us_ct, us_ma)"),
-    utility_type: Optional[str] = Query(None, description="Filter by utility type (electricity, natural_gas, heating_oil, propane, community_solar)"),
+    region: str | None = Query(None, description="Filter by region (e.g., us_ct, us_ma)"),
+    utility_type: str | None = Query(
+        None,
+        description="Filter by utility type (electricity, natural_gas, heating_oil, propane, community_solar)",
+    ),
     green_only: bool = Query(False, description="Filter for green energy providers"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -132,8 +131,8 @@ async def list_suppliers(
 
 @router.get("/registry", summary="List suppliers with API integration")
 async def list_registry_suppliers(
-    region: Optional[str] = Query(None, description="Filter by region"),
-    utility_type: Optional[str] = Query(None, description="Filter by utility type"),
+    region: str | None = Query(None, description="Filter by region"),
+    utility_type: str | None = Query(None, description="Filter by utility type"),
     db=Depends(get_db_session),
     redis=Depends(get_redis),
 ):
@@ -184,7 +183,7 @@ async def list_registry_suppliers(
     responses={
         200: {"description": "Supplier retrieved successfully"},
         404: {"description": "Supplier not found"},
-    }
+    },
 )
 async def get_supplier(
     supplier_id: UUID = Path(..., description="Supplier ID (UUID)"),
@@ -203,7 +202,7 @@ async def get_supplier(
     if not supplier:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID '{supplier_id}' not found"
+            detail=f"Supplier with ID '{supplier_id}' not found",
         )
 
     return SupplierDetailResponse(
@@ -230,11 +229,11 @@ async def get_supplier(
     responses={
         200: {"description": "Tariffs retrieved successfully"},
         404: {"description": "Supplier not found"},
-    }
+    },
 )
 async def get_supplier_tariffs(
     supplier_id: UUID = Path(..., description="Supplier ID (UUID)"),
-    utility_type: Optional[str] = Query(None, description="Filter by utility type"),
+    utility_type: str | None = Query(None, description="Filter by utility type"),
     available_only: bool = Query(True, description="Show only available tariffs"),
     db=Depends(get_db_session),
     redis=Depends(get_redis),
@@ -251,10 +250,10 @@ async def get_supplier_tariffs(
     if not supplier:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID '{supplier_id}' not found"
+            detail=f"Supplier with ID '{supplier_id}' not found",
         )
 
-    from models.supplier import TariffType, ContractLength
+    from models.supplier import ContractLength, TariffType
 
     # Build WHERE clause incrementally so we keep one parameterised query string
     where_clauses = ["supplier_id = :supplier_id"]
@@ -283,7 +282,7 @@ async def get_supplier_tariffs(
     # DB tariff_type values are expected to match TariffType enum members
     # (fixed, variable, time_of_use, prepaid, green, agile).  Unknown values
     # fall back to VARIABLE so the endpoint never hard-crashes on stale data.
-    tariffs: List[TariffResponse] = []
+    tariffs: list[TariffResponse] = []
     for row in rows:
         try:
             tariff_type_value = TariffType(row.tariff_type)
@@ -318,11 +317,11 @@ async def get_supplier_tariffs(
     summary="Get suppliers by region",
     responses={
         200: {"description": "Suppliers retrieved successfully"},
-    }
+    },
 )
 async def get_suppliers_by_region(
     region: str = Path(..., description="Region code (e.g., us_ct, us_ma, us_tx)"),
-    utility_type: Optional[str] = Query(None, description="Filter by utility type"),
+    utility_type: str | None = Query(None, description="Filter by utility type"),
     green_only: bool = Query(False, description="Filter for green energy providers"),
     db=Depends(get_db_session),
     redis=Depends(get_redis),
@@ -358,12 +357,12 @@ async def get_suppliers_by_region(
     summary="Compare suppliers in a region",
     responses={
         200: {"description": "Comparison retrieved successfully"},
-    }
+    },
 )
 async def compare_suppliers(
     region: str = Path(..., description="Region code"),
-    utility_type: Optional[str] = Query("electricity", description="Utility type to compare"),
-    tariff_type: Optional[str] = Query(None, description="Filter by tariff type"),
+    utility_type: str | None = Query("electricity", description="Utility type to compare"),
+    tariff_type: str | None = Query(None, description="Filter by tariff type"),
     db=Depends(get_db_session),
     redis=Depends(get_redis),
 ):
@@ -381,16 +380,18 @@ async def compare_suppliers(
 
     comparison = []
     for supplier in suppliers_data:
-        comparison.append({
-            "supplier_id": supplier["id"],
-            "supplier_name": supplier["name"],
-            "utility_types": supplier["utility_types"],
-            "cheapest_tariff": "Standard Variable",
-            "unit_rate": "0.25",
-            "standing_charge": "0.40",
-            "rating": supplier.get("rating"),
-            "green_energy_provider": supplier["green_energy_provider"],
-        })
+        comparison.append(
+            {
+                "supplier_id": supplier["id"],
+                "supplier_name": supplier["name"],
+                "utility_types": supplier["utility_types"],
+                "cheapest_tariff": "Standard Variable",
+                "unit_rate": "0.25",
+                "standing_charge": "0.40",
+                "rating": supplier.get("rating"),
+                "green_energy_provider": supplier["green_energy_provider"],
+            }
+        )
 
     comparison.sort(key=lambda x: float(x["unit_rate"]))
 
@@ -399,5 +400,5 @@ async def compare_suppliers(
         "utility_type": utility_type,
         "suppliers": comparison,
         "total": len(comparison),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(UTC).isoformat(),
     }

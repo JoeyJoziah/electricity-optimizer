@@ -8,8 +8,9 @@ Tests cover:
 - Error handling and fallback behavior
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 def _make_service(
@@ -85,7 +86,6 @@ class TestTemplateRendering:
 class TestResendPath:
     """Tests for the Resend code path in EmailService.send()."""
 
-    @pytest.mark.asyncio
     async def test_resend_success(self):
         """When Resend is configured and succeeds, send() returns True."""
         service = _make_service(resend_api_key="re_test-key")
@@ -98,13 +98,14 @@ class TestResendPath:
             )
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_resend_failure_falls_back_to_smtp(self):
         """When Resend fails and SMTP is configured, SMTP should be tried."""
         service = _make_service(resend_api_key="re_test-key", smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_resend", return_value=False), \
-             patch.object(service, "_send_via_smtp", return_value=True) as mock_smtp:
+        with (
+            patch.object(service, "_send_via_resend", return_value=False),
+            patch.object(service, "_send_via_smtp", return_value=True) as mock_smtp,
+        ):
             result = await service.send(
                 to="user@example.com",
                 subject="Test",
@@ -113,13 +114,14 @@ class TestResendPath:
         assert result is True
         mock_smtp.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_resend_not_configured_skips(self):
         """When Resend is not configured, _send_via_resend should not be called."""
         service = _make_service(resend_api_key=None, smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_resend") as mock_resend, \
-             patch.object(service, "_send_via_smtp", return_value=True):
+        with (
+            patch.object(service, "_send_via_resend") as mock_resend,
+            patch.object(service, "_send_via_smtp", return_value=True),
+        ):
             result = await service.send(
                 to="user@example.com",
                 subject="Test",
@@ -137,7 +139,6 @@ class TestResendPath:
 class TestSMTPPath:
     """Tests for the SMTP code path in EmailService.send()."""
 
-    @pytest.mark.asyncio
     async def test_smtp_success(self):
         """When SMTP is configured and succeeds, send() returns True."""
         service = _make_service(smtp_host="smtp.test.com")
@@ -150,7 +151,6 @@ class TestSMTPPath:
             )
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_smtp_failure_returns_false(self):
         """When SMTP fails, send() returns False."""
         service = _make_service(smtp_host="smtp.test.com")
@@ -172,7 +172,6 @@ class TestSMTPPath:
 class TestNoProvider:
     """Tests for when no email provider is configured."""
 
-    @pytest.mark.asyncio
     async def test_no_provider_returns_false(self):
         """When neither Resend nor SMTP is configured, send() returns False."""
         service = _make_service(resend_api_key=None, smtp_host=None)
@@ -193,7 +192,6 @@ class TestNoProvider:
 class TestErrorHandling:
     """Tests for error handling in email sending."""
 
-    @pytest.mark.asyncio
     async def test_resend_internal_exception_returns_false(self):
         """_send_via_resend should catch exceptions and return False."""
         service = _make_service(resend_api_key="re_key")
@@ -210,13 +208,14 @@ class TestErrorHandling:
             )
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_both_providers_fail_returns_false(self):
         """When both Resend and SMTP fail, send() returns False."""
         service = _make_service(resend_api_key="re_key", smtp_host="smtp.test.com")
 
-        with patch.object(service, "_send_via_resend", return_value=False), \
-             patch.object(service, "_send_via_smtp", return_value=False):
+        with (
+            patch.object(service, "_send_via_resend", return_value=False),
+            patch.object(service, "_send_via_smtp", return_value=False),
+        ):
             result = await service.send(
                 to="user@example.com",
                 subject="Test",
@@ -224,7 +223,6 @@ class TestErrorHandling:
             )
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_send_with_text_body(self):
         """Passing text_body should forward it to the provider method."""
         service = _make_service(smtp_host="smtp.test.com")
@@ -241,7 +239,6 @@ class TestErrorHandling:
             "user@example.com", "Test", "<p>Hello</p>", "Hello plain text"
         )
 
-    @pytest.mark.asyncio
     async def test_smtp_exception_returns_false(self):
         """_send_via_smtp should catch exceptions and return False."""
         service = _make_service(smtp_host="smtp.test.com")
@@ -249,9 +246,8 @@ class TestErrorHandling:
         # Patch aiosmtplib to raise inside _send_via_smtp
         with patch.dict("sys.modules", {"aiosmtplib": MagicMock()}):
             import sys
-            sys.modules["aiosmtplib"].send = AsyncMock(
-                side_effect=Exception("SMTP connect failed")
-            )
+
+            sys.modules["aiosmtplib"].send = AsyncMock(side_effect=Exception("SMTP connect failed"))
             result = await service._send_via_smtp(
                 to="user@example.com",
                 subject="Test",

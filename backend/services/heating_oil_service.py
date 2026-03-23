@@ -5,11 +5,6 @@ Manages heating oil price data: fetching from EIA, storing in DB,
 querying current prices + history, and dealer directory lookups.
 """
 
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Optional
-from uuid import UUID
-
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +29,8 @@ class HeatingOilService:
     # ------------------------------------------------------------------
 
     async def get_current_prices(
-        self, state: Optional[str] = None,
+        self,
+        state: str | None = None,
     ) -> list[dict]:
         """Get latest heating oil prices, optionally filtered by state.
 
@@ -80,7 +76,9 @@ class HeatingOilService:
         ]
 
     async def get_price_history(
-        self, state: str, weeks: int = 12,
+        self,
+        state: str,
+        weeks: int = 12,
     ) -> list[dict]:
         """Get price history for a state over the last N weeks."""
         state = state.upper()
@@ -109,7 +107,7 @@ class HeatingOilService:
             for r in rows
         ]
 
-    async def get_price_comparison(self, state: str) -> Optional[dict]:
+    async def get_price_comparison(self, state: str) -> dict | None:
         """Compare state heating oil price against national average."""
         state = state.upper()
 
@@ -157,35 +155,60 @@ class HeatingOilService:
     async def store_prices(self, prices: list[dict]) -> int:
         """Store fetched heating oil prices.
 
+        Inserts rows individually to isolate per-row errors (ON CONFLICT upsert).
+        A single commit flushes all successfully staged rows at the end of each
+        500-row chunk. The commit itself is guarded with try/except/rollback to
+        prevent leaving the session in a dirty state on commit failure.
+
         Each dict should have: state, price_per_gallon, source, period_date
         """
+        if not prices:
+            return 0
+
+        insert_sql = text("""
+            INSERT INTO heating_oil_prices
+                (state, price_per_gallon, source, period_date)
+            VALUES (:state, :price, :source, :period_date)
+            ON CONFLICT (state, period_date) DO UPDATE
+                SET price_per_gallon = EXCLUDED.price_per_gallon,
+                    fetched_at = now()
+        """)
+
         stored = 0
-        for p in prices:
-            try:
-                await self.db.execute(
-                    text("""
-                        INSERT INTO heating_oil_prices
-                            (state, price_per_gallon, source, period_date)
-                        VALUES (:state, :price, :source, :period_date)
-                        ON CONFLICT (state, period_date) DO UPDATE
-                            SET price_per_gallon = EXCLUDED.price_per_gallon,
-                                fetched_at = now()
-                    """),
-                    {
-                        "state": p["state"],
-                        "price": p["price_per_gallon"],
-                        "source": p["source"],
-                        "period_date": p["period_date"],
-                    },
-                )
-                stored += 1
-            except Exception as e:
-                logger.warning(
-                    "heating_oil_store_failed",
-                    state=p.get("state"),
-                    error=str(e),
-                )
-        await self.db.commit()
+        chunk_size = 500
+        for chunk_start in range(0, len(prices), chunk_size):
+            chunk = prices[chunk_start : chunk_start + chunk_size]
+            chunk_stored = 0
+            for p in chunk:
+                try:
+                    await self.db.execute(
+                        insert_sql,
+                        {
+                            "state": p["state"],
+                            "price": p["price_per_gallon"],
+                            "source": p["source"],
+                            "period_date": p["period_date"],
+                        },
+                    )
+                    chunk_stored += 1
+                except Exception as e:
+                    logger.warning(
+                        "heating_oil_store_failed",
+                        state=p.get("state"),
+                        error=str(e),
+                    )
+            if chunk_stored:
+                try:
+                    await self.db.commit()
+                    stored += chunk_stored
+                except Exception as e:
+                    await self.db.rollback()
+                    logger.warning(
+                        "heating_oil_store_batch_failed",
+                        chunk_start=chunk_start,
+                        chunk_size=chunk_stored,
+                        error=str(e),
+                    )
         return stored
 
     # ------------------------------------------------------------------
@@ -193,7 +216,9 @@ class HeatingOilService:
     # ------------------------------------------------------------------
 
     async def get_dealers(
-        self, state: str, limit: int = 20,
+        self,
+        state: str,
+        limit: int = 20,
     ) -> list[dict]:
         """Get heating oil dealers for a state."""
         state = state.upper()

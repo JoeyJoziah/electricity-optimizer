@@ -5,8 +5,6 @@ Detects CCA enrollment by zip code/municipality, compares CCA rates
 against default utility rates, and provides opt-out information.
 """
 
-from typing import Optional
-
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,10 +27,10 @@ class CCAService:
 
     async def detect_cca(
         self,
-        zip_code: Optional[str] = None,
-        state: Optional[str] = None,
-        municipality: Optional[str] = None,
-    ) -> Optional[dict]:
+        zip_code: str | None = None,
+        state: str | None = None,
+        municipality: str | None = None,
+    ) -> dict | None:
         """
         Detect if a user is in a CCA program.
 
@@ -116,7 +114,7 @@ class CCAService:
             "is_cheaper": pct < 0,
         }
 
-    async def get_cca_info(self, cca_id: str) -> Optional[dict]:
+    async def get_cca_info(self, cca_id: str) -> dict | None:
         """Get full CCA program details including opt-out info."""
         result = await self._db.execute(
             text("""
@@ -136,7 +134,7 @@ class CCAService:
         info["zip_codes"] = list(row["zip_codes"]) if row["zip_codes"] else []
         return info
 
-    async def list_cca_programs(self, state: Optional[str] = None) -> list[dict]:
+    async def list_cca_programs(self, state: str | None = None) -> list[dict]:
         """List all active CCA programs, optionally filtered by state."""
         if state:
             result = await self._db.execute(
@@ -177,7 +175,9 @@ class CCAService:
             "program_name": row["program_name"],
             "provider": row["provider"],
             "generation_mix": row["generation_mix"],
-            "rate_vs_default_pct": float(row["rate_vs_default_pct"]) if row["rate_vs_default_pct"] else None,
+            "rate_vs_default_pct": float(row["rate_vs_default_pct"])
+            if row["rate_vs_default_pct"]
+            else None,
             "opt_out_url": row["opt_out_url"],
             "program_url": row["program_url"],
             "status": row["status"],

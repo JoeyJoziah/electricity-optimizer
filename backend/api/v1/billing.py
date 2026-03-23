@@ -382,7 +382,22 @@ async def handle_stripe_webhook(
     # same event_id can arrive multiple times.  Attempt to record this
     # event_id as processed.  ON CONFLICT DO NOTHING means rowcount == 0
     # when the row already exists, indicating a duplicate delivery.
+    #
+    # Race-condition fix [14-P0-1]:
+    #   The previous implementation committed the idempotency row BEFORE
+    #   running business logic.  If business logic threw, the event was
+    #   permanently marked "processed" and Stripe would not retry it —
+    #   silently dropping real subscription activations.
+    #
+    #   Fix: we INSERT the row (without committing) before business logic,
+    #   then commit ONLY on success.  On failure we DELETE the row (allowing
+    #   Stripe's retry to re-enter) and log at ERROR so alerting fires.
+    #   Duplicate detection still works: a second delivery during the window
+    #   between INSERT and business-logic completion will block on the
+    #   in-flight INSERT via Postgres row-lock semantics.
     # ------------------------------------------------------------------
+    idempotency_row_inserted = False
+
     try:
         insert_result = await db.execute(
             text(
@@ -392,10 +407,14 @@ async def handle_stripe_webhook(
             ),
             {"event_id": event_id, "event_type": event_type},
         )
-        await db.commit()
+        # Do NOT commit yet — hold the row in the current transaction so
+        # that business-logic failures can roll back (or delete) the guard.
+        idempotency_row_inserted = insert_result.rowcount > 0
 
-        if insert_result.rowcount == 0:
-            # Duplicate delivery — already processed successfully.
+        if not idempotency_row_inserted:
+            # rowcount == 0 → ON CONFLICT fired → duplicate delivery.
+            # Commit the no-op so the transaction closes cleanly.
+            await db.commit()
             logger.info(
                 "webhook_duplicate_skipped",
                 event_id=event_id,
@@ -432,24 +451,67 @@ async def handle_stripe_webhook(
             user_repo = UserRepository(db)
             await apply_webhook_action(result, user_repo, db=db)
 
+        # Business logic succeeded — commit the idempotency guard row so
+        # subsequent duplicate deliveries are correctly short-circuited.
+        await db.commit()
+
     except stripe.StripeError as e:
         # Stripe SDK errors during processing (e.g. API call inside handler).
-        # Log with full traceback so alerts fire, but still ACK to Stripe.
+        # Delete the guard row so Stripe's automatic retry can reprocess the
+        # event once the transient error resolves.
         logger.exception(
             "webhook_stripe_error",
             event_id=event_id,
             error=str(e),
         )
+        if idempotency_row_inserted:
+            try:
+                await db.rollback()
+                await db.execute(
+                    text("DELETE FROM stripe_processed_events WHERE event_id = :event_id"),
+                    {"event_id": event_id},
+                )
+                await db.commit()
+                logger.info(
+                    "webhook_idempotency_row_deleted_after_error",
+                    event_id=event_id,
+                )
+            except Exception as cleanup_err:
+                logger.error(
+                    "webhook_idempotency_cleanup_failed",
+                    event_id=event_id,
+                    error=str(cleanup_err),
+                )
+
     except Exception as e:
         # Unexpected errors (DB issues, logic bugs, etc.).
-        # Log with full traceback and acknowledge receipt so Stripe stops
-        # retrying.  Internal monitoring / alerting must catch these.
+        # Delete the idempotency guard so Stripe retries rather than
+        # silently dropping the event.  Log with full traceback so internal
+        # monitoring / alerting catches this.
         logger.exception(
             "webhook_processing_error",
             event_id=event_id,
             error=str(e),
             error_type=type(e).__name__,
         )
+        if idempotency_row_inserted:
+            try:
+                await db.rollback()
+                await db.execute(
+                    text("DELETE FROM stripe_processed_events WHERE event_id = :event_id"),
+                    {"event_id": event_id},
+                )
+                await db.commit()
+                logger.info(
+                    "webhook_idempotency_row_deleted_after_error",
+                    event_id=event_id,
+                )
+            except Exception as cleanup_err:
+                logger.error(
+                    "webhook_idempotency_cleanup_failed",
+                    event_id=event_id,
+                    error=str(cleanup_err),
+                )
 
     return WebhookEventResponse(
         received=True,

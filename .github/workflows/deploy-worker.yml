@@ -50,6 +50,7 @@ jobs:
         with:
           sparse-checkout: |
             workers/api-gateway
+            .github/actions
 
       - uses: actions/setup-node@v4
         with:
@@ -69,14 +70,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Smoke test
-        run: |
-          sleep 5
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.rateshift.app/health)
-          if [ "$STATUS" != "200" ]; then
-            echo "Smoke test failed: /health returned $STATUS"
-            exit 1
-          fi
-          echo "Smoke test passed: /health returned 200"
+        uses: ./.github/actions/retry-curl
+        with:
+          url: https://api.rateshift.app/health
+          method: GET
+          max-retries: "3"
+          initial-delay: "10"
+          timeout: "30"
 
   notify-failure:
     name: Notify on failure

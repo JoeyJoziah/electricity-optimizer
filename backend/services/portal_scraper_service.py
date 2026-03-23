@@ -32,11 +32,11 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import structlog
+
 from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
@@ -48,11 +48,16 @@ logger = structlog.get_logger(__name__)
 
 # Allowed domains for portal scraping (known utility portals only)
 _ALLOWED_DOMAINS: set[str] = {
-    "duke-energy.com", "www.duke-energy.com",
-    "pge.com", "www.pge.com",
-    "coned.com", "www.coned.com",
-    "comed.com", "secure.comed.com",
-    "fpl.com", "www.fpl.com",
+    "duke-energy.com",
+    "www.duke-energy.com",
+    "pge.com",
+    "www.pge.com",
+    "coned.com",
+    "www.coned.com",
+    "comed.com",
+    "secure.comed.com",
+    "fpl.com",
+    "www.fpl.com",
 }
 
 
@@ -92,11 +97,12 @@ def _validate_portal_url(url: str) -> None:
         )
         # Allow but log — generic scraping is a documented feature
 
+
 # ---------------------------------------------------------------------------
 # Utility registry
 # ---------------------------------------------------------------------------
 
-SUPPORTED_UTILITIES: Dict[str, Dict[str, str]] = {
+SUPPORTED_UTILITIES: dict[str, dict[str, str]] = {
     "duke_energy": {
         "login_url": "https://www.duke-energy.com/sign-in",
         "name": "Duke Energy",
@@ -145,9 +151,7 @@ SUPPORTED_UTILITIES: Dict[str, Dict[str, str]] = {
 
 _DEFAULT_TIMEOUT = 30  # seconds
 _DEFAULT_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (compatible; RateShift/1.0; +https://rateshift.app/bot)"
-    ),
+    "User-Agent": ("Mozilla/5.0 (compatible; RateShift/1.0; +https://rateshift.app/bot)"),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
 }
@@ -157,7 +161,7 @@ _DEFAULT_HEADERS = {
 # ---------------------------------------------------------------------------
 
 
-def _extract_rates_from_html(html: str) -> List[Dict[str, Any]]:
+def _extract_rates_from_html(html: str) -> list[dict[str, Any]]:
     """
     Extract rate-per-kWh values from an HTML page body.
 
@@ -198,7 +202,7 @@ class PortalScraperService:
         svc = PortalScraperService()
         result = await svc.scrape_portal(
             username="user@example.com",
-            password="secret",
+            password="<REDACTED>",
             login_url="https://www.duke-energy.com/sign-in",
             supplier_id="duke_energy",
         )
@@ -227,7 +231,7 @@ class PortalScraperService:
     # Context manager helpers
     # ------------------------------------------------------------------
 
-    async def __aenter__(self) -> "PortalScraperService":
+    async def __aenter__(self) -> PortalScraperService:
         await self._ensure_client()
         return self
 
@@ -262,9 +266,9 @@ class PortalScraperService:
         password: str = "",
         login_url: str = "",
         supplier_id: str = "",
-        connection_id: Optional[str] = None,
-        utility_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        connection_id: str | None = None,  # noqa: ARG002
+        utility_name: str | None = None,
+    ) -> dict[str, Any]:
         """
         Attempt to log in to a utility portal and extract current rate data.
 
@@ -275,7 +279,7 @@ class PortalScraperService:
                            when the caller supplies one, otherwise falls back).
             supplier_id:   Key into ``SUPPORTED_UTILITIES`` (may also be a raw
                            URL string for unsupported utilities).
-            connection_id: Optional connection UUID (used for DB-backed scrapes).
+            _connection_id: Optional connection UUID (used for DB-backed scrapes).
             utility_name:  Human-readable utility name (alias for display/tracing).
 
         Returns:
@@ -318,9 +322,7 @@ class PortalScraperService:
                         client, utility_config, username, password, login_url
                     )
                 else:
-                    result = await self._scrape_generic(
-                        client, login_url, username, password
-                    )
+                    result = await self._scrape_generic(client, login_url, username, password)
 
                 log.info(
                     "portal_scrape_complete",
@@ -344,11 +346,11 @@ class PortalScraperService:
     async def _scrape_known_utility(
         self,
         client: Any,
-        config: Dict[str, str],
+        config: dict[str, str],
         username: str,
         password: str,
         caller_login_url: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attempt a form-POST login for a known/registered utility portal.
 
@@ -419,7 +421,7 @@ class PortalScraperService:
         login_url: str,
         username: str,
         password: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generic HTTP-form scrape for utilities not in the registry.
 
@@ -444,9 +446,13 @@ class PortalScraperService:
             rates = _extract_rates_from_html(post_resp.text)
             # Mark as success if we found any rates; otherwise partial
             success = len(rates) > 0
-            error = None if success else (
-                "No rate data extracted. The portal may require JavaScript or "
-                "multi-factor authentication not supported by HTTP-based scraping."
+            error = (
+                None
+                if success
+                else (
+                    "No rate data extracted. The portal may require JavaScript or "
+                    "multi-factor authentication not supported by HTTP-based scraping."
+                )
             )
             return {
                 "success": success,
@@ -466,7 +472,7 @@ class PortalScraperService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _extract_hidden_fields(html: str) -> Dict[str, str]:
+    def _extract_hidden_fields(html: str) -> dict[str, str]:
         """
         Parse ``<input type="hidden" name="..." value="...">`` tags.
 
@@ -482,7 +488,7 @@ class PortalScraperService:
             r'<input[^>]+type=["\']hidden["\'][^>]*value=["\']([^"\']*)["\'][^>]*name=["\']([^"\']+)["\']',
             re.IGNORECASE,
         )
-        fields: Dict[str, str] = {}
+        fields: dict[str, str] = {}
         for match in pattern.finditer(html):
             fields[match.group(1)] = match.group(2)
         for match in pattern_alt.finditer(html):
@@ -490,7 +496,7 @@ class PortalScraperService:
         return fields
 
     @staticmethod
-    def _is_still_login_page(html: str, utility_name: str) -> bool:
+    def _is_still_login_page(html: str, _utility_name: str) -> bool:
         """
         Heuristic check for a failed login redirect.
 
@@ -530,6 +536,6 @@ class PortalScraperService:
     # Public: extract helper (exposed for testing)
     # ------------------------------------------------------------------
 
-    async def _extract_from_response(self, html: str) -> List[Dict[str, Any]]:
+    async def _extract_from_response(self, html: str) -> list[dict[str, Any]]:
         """Extract rate data from an HTML response string."""
         return _extract_rates_from_html(html)

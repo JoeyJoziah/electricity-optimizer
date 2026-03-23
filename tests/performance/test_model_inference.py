@@ -12,13 +12,12 @@ import time
 import numpy as np
 import statistics
 from typing import List
-from unittest.mock import patch, MagicMock
 
 
 # Performance targets (in milliseconds)
 TARGETS = {
-    "forecast_24h": 1000,      # 1 second
-    "forecast_48h": 1500,      # 1.5 seconds
+    "forecast_24h": 1000,  # 1 second
+    "forecast_48h": 1500,  # 1.5 seconds
     "optimization_simple": 1000,  # 1 second
     "optimization_complex": 2000,  # 2 seconds
     "ensemble_prediction": 1500,  # 1.5 seconds
@@ -78,9 +77,20 @@ def mock_appliances_complex():
     """Complex appliance configuration for optimization."""
     return [
         {"id": "dishwasher", "power_kw": 1.5, "duration_hours": 2, "flexible": True},
-        {"id": "washing_machine", "power_kw": 2.0, "duration_hours": 2, "flexible": True},
+        {
+            "id": "washing_machine",
+            "power_kw": 2.0,
+            "duration_hours": 2,
+            "flexible": True,
+        },
         {"id": "dryer", "power_kw": 3.0, "duration_hours": 1.5, "flexible": True},
-        {"id": "ev_charger", "power_kw": 7.0, "duration_hours": 4, "flexible": True, "priority": "high"},
+        {
+            "id": "ev_charger",
+            "power_kw": 7.0,
+            "duration_hours": 4,
+            "flexible": True,
+            "priority": "high",
+        },
         {"id": "heat_pump", "power_kw": 2.5, "duration_hours": 3, "flexible": True},
         {"id": "pool_pump", "power_kw": 1.0, "duration_hours": 6, "flexible": True},
         {"id": "dehumidifier", "power_kw": 0.5, "duration_hours": 4, "flexible": True},
@@ -90,10 +100,7 @@ def mock_appliances_complex():
 @pytest.fixture
 def mock_price_forecast():
     """Mock price forecast for optimization."""
-    return [
-        {"hour": i, "price": 0.15 + np.sin(i / 4) * 0.10}
-        for i in range(48)
-    ]
+    return [{"hour": i, "price": 0.15 + np.sin(i / 4) * 0.10} for i in range(48)]
 
 
 class TestCNNLSTMForecasterPerformance:
@@ -118,13 +125,14 @@ class TestCNNLSTMForecasterPerformance:
             avg_latency = statistics.mean(latencies)
             p95_latency = sorted(latencies)[int(len(latencies) * 0.95)]
 
-            print(f"\nCNN-LSTM 24h forecast performance:")
+            print("\nCNN-LSTM 24h forecast performance:")
             print(f"  Average: {avg_latency:.2f}ms")
             print(f"  p95: {p95_latency:.2f}ms")
             print(f"  Target: <{TARGETS['forecast_24h']}ms")
 
-            assert p95_latency < TARGETS["forecast_24h"], \
+            assert p95_latency < TARGETS["forecast_24h"], (
                 f"p95 latency {p95_latency:.2f}ms exceeds {TARGETS['forecast_24h']}ms target"
+            )
 
         except ImportError:
             pytest.skip("CNN-LSTM model not available")
@@ -143,12 +151,13 @@ class TestCNNLSTMForecasterPerformance:
 
             p95_latency = sorted(latencies)[int(len(latencies) * 0.95)]
 
-            print(f"\nCNN-LSTM 48h forecast performance:")
+            print("\nCNN-LSTM 48h forecast performance:")
             print(f"  p95: {p95_latency:.2f}ms")
             print(f"  Target: <{TARGETS['forecast_48h']}ms")
 
-            assert p95_latency < TARGETS["forecast_48h"], \
+            assert p95_latency < TARGETS["forecast_48h"], (
                 f"p95 latency {p95_latency:.2f}ms exceeds {TARGETS['forecast_48h']}ms target"
+            )
 
         except ImportError:
             pytest.skip("CNN-LSTM model not available")
@@ -162,13 +171,17 @@ class TestCNNLSTMForecasterPerformance:
 
             # Without uncertainty
             latencies_no_uncertainty = run_multiple_times(
-                lambda: model.predict(mock_price_data, horizon=24, return_uncertainty=False),
+                lambda: model.predict(
+                    mock_price_data, horizon=24, return_uncertainty=False
+                ),
                 iterations=10,
             )
 
             # With uncertainty (Monte Carlo dropout)
             latencies_with_uncertainty = run_multiple_times(
-                lambda: model.predict(mock_price_data, horizon=24, return_uncertainty=True),
+                lambda: model.predict(
+                    mock_price_data, horizon=24, return_uncertainty=True
+                ),
                 iterations=10,
             )
 
@@ -176,12 +189,14 @@ class TestCNNLSTMForecasterPerformance:
             avg_with = statistics.mean(latencies_with_uncertainty)
             overhead = (avg_with - avg_without) / avg_without * 100
 
-            print(f"\nUncertainty quantification overhead:")
+            print("\nUncertainty quantification overhead:")
             print(f"  Without: {avg_without:.2f}ms")
             print(f"  With: {avg_with:.2f}ms")
             print(f"  Overhead: {overhead:.1f}%")
 
-            assert overhead < 100, f"Uncertainty adds {overhead:.1f}% overhead (target: <100%)"
+            assert overhead < 100, (
+                f"Uncertainty adds {overhead:.1f}% overhead (target: <100%)"
+            )
 
         except ImportError:
             pytest.skip("CNN-LSTM model not available")
@@ -190,7 +205,9 @@ class TestCNNLSTMForecasterPerformance:
 class TestMILPOptimizationPerformance:
     """Performance tests for MILP optimization."""
 
-    def test_simple_optimization_speed(self, mock_appliances_simple, mock_price_forecast):
+    def test_simple_optimization_speed(
+        self, mock_appliances_simple, mock_price_forecast
+    ):
         """Simple optimization (1 appliance) should complete in <1s."""
         try:
             from ml.optimization.scheduler import MILPScheduler
@@ -208,18 +225,21 @@ class TestMILPOptimizationPerformance:
             avg_latency = statistics.mean(latencies)
             p95_latency = sorted(latencies)[int(len(latencies) * 0.95)]
 
-            print(f"\nMILP simple optimization (1 appliance) performance:")
+            print("\nMILP simple optimization (1 appliance) performance:")
             print(f"  Average: {avg_latency:.2f}ms")
             print(f"  p95: {p95_latency:.2f}ms")
             print(f"  Target: <{TARGETS['optimization_simple']}ms")
 
-            assert p95_latency < TARGETS["optimization_simple"], \
+            assert p95_latency < TARGETS["optimization_simple"], (
                 f"p95 latency {p95_latency:.2f}ms exceeds {TARGETS['optimization_simple']}ms target"
+            )
 
         except ImportError:
             pytest.skip("MILP scheduler not available")
 
-    def test_complex_optimization_speed(self, mock_appliances_complex, mock_price_forecast):
+    def test_complex_optimization_speed(
+        self, mock_appliances_complex, mock_price_forecast
+    ):
         """Complex optimization (7 appliances) should complete in <2s."""
         try:
             from ml.optimization.scheduler import MILPScheduler
@@ -227,20 +247,23 @@ class TestMILPOptimizationPerformance:
             scheduler = MILPScheduler()
 
             latencies = run_multiple_times(
-                lambda: scheduler.optimize(mock_appliances_complex, mock_price_forecast),
+                lambda: scheduler.optimize(
+                    mock_appliances_complex, mock_price_forecast
+                ),
                 iterations=5,  # Fewer iterations due to longer runtime
             )
 
             avg_latency = statistics.mean(latencies)
             p95_latency = sorted(latencies)[int(len(latencies) * 0.95)]
 
-            print(f"\nMILP complex optimization (7 appliances) performance:")
+            print("\nMILP complex optimization (7 appliances) performance:")
             print(f"  Average: {avg_latency:.2f}ms")
             print(f"  p95: {p95_latency:.2f}ms")
             print(f"  Target: <{TARGETS['optimization_complex']}ms")
 
-            assert p95_latency < TARGETS["optimization_complex"], \
+            assert p95_latency < TARGETS["optimization_complex"], (
                 f"p95 latency {p95_latency:.2f}ms exceeds {TARGETS['optimization_complex']}ms target"
+            )
 
         except ImportError:
             pytest.skip("MILP scheduler not available")
@@ -270,7 +293,7 @@ class TestMILPOptimizationPerformance:
                 )
                 times[n_appliances] = statistics.mean(latencies)
 
-            print(f"\nOptimization scaling:")
+            print("\nOptimization scaling:")
             for n, t in times.items():
                 print(f"  {n} appliances: {t:.2f}ms")
 
@@ -278,7 +301,9 @@ class TestMILPOptimizationPerformance:
             ratio = times[8] / times[1]
             print(f"  Scaling ratio (8/1): {ratio:.2f}x")
 
-            assert ratio < 10, f"Optimization scales poorly: {ratio:.2f}x for 8 appliances"
+            assert ratio < 10, (
+                f"Optimization scales poorly: {ratio:.2f}x for 8 appliances"
+            )
 
         except ImportError:
             pytest.skip("MILP scheduler not available")
@@ -301,12 +326,13 @@ class TestEnsemblePerformance:
 
             p95_latency = sorted(latencies)[int(len(latencies) * 0.95)]
 
-            print(f"\nEnsemble prediction performance:")
+            print("\nEnsemble prediction performance:")
             print(f"  p95: {p95_latency:.2f}ms")
             print(f"  Target: <{TARGETS['ensemble_prediction']}ms")
 
-            assert p95_latency < TARGETS["ensemble_prediction"], \
+            assert p95_latency < TARGETS["ensemble_prediction"], (
                 f"p95 latency {p95_latency:.2f}ms exceeds {TARGETS['ensemble_prediction']}ms target"
+            )
 
         except ImportError:
             pytest.skip("Ensemble predictor not available")
@@ -330,12 +356,14 @@ class TestMemoryUsage:
             after_memory = process.memory_info().rss / 1024 / 1024  # MB
             memory_increase = after_memory - before_memory
 
-            print(f"\nModel memory footprint:")
+            print("\nModel memory footprint:")
             print(f"  Before: {before_memory:.2f} MB")
             print(f"  After: {after_memory:.2f} MB")
             print(f"  Increase: {memory_increase:.2f} MB")
 
-            assert memory_increase < 500, f"Model uses {memory_increase:.2f} MB (target: <500 MB)"
+            assert memory_increase < 500, (
+                f"Model uses {memory_increase:.2f} MB (target: <500 MB)"
+            )
 
         except ImportError:
             pytest.skip("Required modules not available")
@@ -364,12 +392,14 @@ class TestMemoryUsage:
             final_memory = process.memory_info().rss / 1024 / 1024
             memory_growth = final_memory - initial_memory
 
-            print(f"\nMemory growth after 100 predictions:")
+            print("\nMemory growth after 100 predictions:")
             print(f"  Initial: {initial_memory:.2f} MB")
             print(f"  Final: {final_memory:.2f} MB")
             print(f"  Growth: {memory_growth:.2f} MB")
 
-            assert memory_growth < 100, f"Memory grew by {memory_growth:.2f} MB (target: <100 MB)"
+            assert memory_growth < 100, (
+                f"Memory grew by {memory_growth:.2f} MB (target: <100 MB)"
+            )
 
         except ImportError:
             pytest.skip("Required modules not available")

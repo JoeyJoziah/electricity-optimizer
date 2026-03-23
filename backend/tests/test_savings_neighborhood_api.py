@@ -8,13 +8,13 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -40,32 +40,32 @@ class _MockSavingsDB:
         result = MagicMock()
 
         # --- Combined savings query (SUM + GROUP BY utility_type) ---
+        # Aggregator now returns savings_rank_pct per row via LEFT JOIN ranked CTE (19-P2-8)
         if "SUM" in sql and "GROUP BY" in sql and "UTILITY_TYPE" in sql:
             result.mappings.return_value.fetchall.return_value = [
-                {"utility_type": "electricity", "monthly_savings": Decimal("25.50")},
-                {"utility_type": "natural_gas", "monthly_savings": Decimal("12.00")},
+                {
+                    "utility_type": "electricity",
+                    "monthly_savings": Decimal("25.50"),
+                    "savings_rank_pct": 0.72,
+                },
+                {
+                    "utility_type": "natural_gas",
+                    "monthly_savings": Decimal("12.00"),
+                    "savings_rank_pct": 0.72,
+                },
             ]
             return result
 
-        # --- Neighborhood count ---
-        if "COUNT(DISTINCT" in sql and "USER_SAVINGS" in sql:
-            result.scalar.return_value = 25
-            return result
-
-        # --- Neighborhood comparison (check before rank — both have PERCENT_RANK) ---
+        # --- Neighborhood comparison (single CTE query with user_count, 19-P2-7) ---
         if "PERCENT_RANK" in sql and "USER_RATES" in sql:
             result.mappings.return_value.fetchone.return_value = {
+                "user_count": 25,
                 "user_rate": Decimal("0.1850"),
                 "percentile": 0.65,
                 "cheapest_supplier": "Town Square Energy",
                 "cheapest_rate": Decimal("0.1200"),
                 "avg_rate": Decimal("0.1750"),
             }
-            return result
-
-        # --- Savings rank percentile ---
-        if "PERCENT_RANK" in sql and "USER_SAVINGS" in sql and "USER_ID" in sql:
-            result.scalar.return_value = 0.72
             return result
 
         # Fallback

@@ -11,24 +11,23 @@ before /{connection_id} wildcard routes in router.py so FastAPI does not
 capture "email" as a connection_id path parameter.
 """
 
-import base64
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
+from api.dependencies import SessionData, get_db_session
+from api.v1.connections.common import require_paid_tier
 from models.connections import (
     CreateEmailConnectionRequest,
     EmailConnectionInitResponse,
     EmailScanResponse,
 )
-from api.v1.connections.common import require_paid_tier
 
 logger = structlog.get_logger(__name__)
 
@@ -55,7 +54,13 @@ async def create_email_connection(
     Initiate an email-import connection.
     Creates a pending connection and returns the OAuth consent URL.
     """
-    from services.email_oauth_service import get_gmail_consent_url, get_outlook_consent_url, settings as _oauth_settings
+    from services.email_oauth_service import (
+        get_gmail_consent_url,
+        get_outlook_consent_url,
+    )
+    from services.email_oauth_service import (
+        settings as _oauth_settings,
+    )
 
     # Fail fast if OAuth credentials are not configured for the requested provider
     if payload.provider == "gmail":
@@ -74,9 +79,9 @@ async def create_email_connection(
     connection_id = str(uuid4())
 
     if payload.provider == "gmail":
-        redirect_url = get_gmail_consent_url(connection_id)
+        redirect_url = get_gmail_consent_url(connection_id, user_id=current_user.user_id)
     else:
-        redirect_url = get_outlook_consent_url(connection_id)
+        redirect_url = get_outlook_consent_url(connection_id, user_id=current_user.user_id)
 
     await db.execute(
         text("""
@@ -118,22 +123,23 @@ async def email_oauth_callback(
     Exchanges code for tokens, encrypts and stores them,
     then redirects to the frontend connections page.
     """
-    from services.email_oauth_service import (
-        verify_oauth_state,
-        exchange_gmail_code,
-        exchange_outlook_code,
-        encrypt_tokens,
-    )
     import httpx as _httpx
 
-    # Verify state
-    connection_id = verify_oauth_state(state)
+    from services.email_oauth_service import (
+        encrypt_tokens,
+        exchange_gmail_code,
+        exchange_outlook_code,
+        verify_oauth_state,
+    )
+
+    # Verify state (includes timestamp expiry and HMAC integrity)
+    connection_id, state_user_id = verify_oauth_state(state)
     if not connection_id:
         raise HTTPException(status_code=400, detail="Invalid or tampered OAuth state")
 
-    # Look up connection
+    # Look up connection (include user_id for ownership verification)
     result = await db.execute(
-        text("SELECT id, email_provider, status FROM user_connections WHERE id = :cid"),
+        text("SELECT id, user_id, email_provider, status FROM user_connections WHERE id = :cid"),
         {"cid": connection_id},
     )
     row = result.mappings().first()
@@ -141,6 +147,20 @@ async def email_oauth_callback(
         raise HTTPException(status_code=404, detail="Connection not found")
     if row["status"] != "pending":
         raise HTTPException(status_code=409, detail="Connection already processed")
+
+    # Ownership check: the user_id embedded in the signed state must match
+    # the user_id stored in the DB when the connection was created.  This
+    # prevents user A from consuming user B's OAuth callback URL.
+    if state_user_id and row["user_id"] and state_user_id != row["user_id"]:
+        logger.warning(
+            "oauth_callback_ownership_mismatch",
+            connection_id=connection_id,
+            state_user_id=state_user_id,
+            db_user_id=row["user_id"],
+        )
+        raise HTTPException(
+            status_code=403, detail="OAuth state does not belong to this connection"
+        )
 
     provider = row["email_provider"]
 
@@ -164,7 +184,7 @@ async def email_oauth_callback(
     # Encrypt tokens
     enc_access, enc_refresh = encrypt_tokens(access_token, refresh_token)
 
-    # Store encrypted tokens (base64 for text column storage)
+    # Store encrypted tokens as raw BYTEA (no base64 wrapper — migration 059)
     await db.execute(
         text("""
             UPDATE user_connections
@@ -177,8 +197,8 @@ async def email_oauth_callback(
         """),
         {
             "cid": connection_id,
-            "access": base64.b64encode(enc_access).decode(),
-            "refresh": base64.b64encode(enc_refresh).decode() if enc_refresh else None,
+            "access": enc_access,
+            "refresh": enc_refresh,
             "expires": expires_in,
         },
     )
@@ -188,6 +208,7 @@ async def email_oauth_callback(
     # Access settings through the package namespace so that
     # ``patch("api.v1.connections.settings")`` in tests is observed at call time.
     import api.v1.connections as _pkg
+
     _settings = _pkg.settings
     frontend_url = (_settings.frontend_url or "").rstrip("/")
 
@@ -222,7 +243,7 @@ async def email_oauth_callback(
     summary="Trigger email inbox scan",
 )
 async def trigger_email_scan(
-    connection_id: str,
+    connection_id: uuid.UUID,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> EmailScanResponse:
@@ -237,16 +258,17 @@ async def trigger_email_scan(
     The response includes extraction summary counts so callers can surface
     meaningful feedback without inspecting individual bill records.
     """
-    from utils.encryption import decrypt_field as _decrypt_field
+    import httpx as _httpx
+
     from services.email_scanner_service import (
-        scan_gmail_inbox,
-        scan_outlook_inbox,
-        extract_rates_from_email,
         download_gmail_attachments,
         download_outlook_attachments,
         extract_rates_from_attachments,
+        extract_rates_from_email,
+        scan_gmail_inbox,
+        scan_outlook_inbox,
     )
-    import httpx as _httpx
+    from utils.encryption import decrypt_field as _decrypt_field
 
     result = await db.execute(
         text("""
@@ -263,15 +285,23 @@ async def trigger_email_scan(
     if row["status"] != "active":
         raise HTTPException(status_code=409, detail="Connection is not active")
 
-    # Decrypt access token
-    enc_access = base64.b64decode(row["oauth_access_token"])
+    # Decrypt access token — stored as raw BYTEA (migration 059)
+    raw_access = row["oauth_access_token"]
+    enc_access = bytes(raw_access) if raw_access is not None else None
+    if not enc_access:
+        raise HTTPException(status_code=409, detail="No OAuth token found for connection")
     access_token = _decrypt_field(enc_access)
 
     # Check if token expired and refresh if needed
-    if row["oauth_token_expires_at"] and row["oauth_token_expires_at"] < datetime.now(timezone.utc):
+    if row["oauth_token_expires_at"] and row["oauth_token_expires_at"] < datetime.now(UTC):
         if row["oauth_refresh_token"]:
-            from services.email_oauth_service import refresh_gmail_token, refresh_outlook_token, encrypt_tokens
-            enc_refresh = base64.b64decode(row["oauth_refresh_token"])
+            from services.email_oauth_service import (
+                encrypt_tokens,
+                refresh_gmail_token,
+                refresh_outlook_token,
+            )
+
+            enc_refresh = bytes(row["oauth_refresh_token"])
             try:
                 if row["email_provider"] == "gmail":
                     new_tokens = await refresh_gmail_token(enc_refresh)
@@ -294,8 +324,8 @@ async def trigger_email_scan(
                     """),
                     {
                         "cid": connection_id,
-                        "access": base64.b64encode(new_enc_access).decode(),
-                        "refresh": base64.b64encode(new_enc_refresh).decode() if new_enc_refresh else None,
+                        "access": new_enc_access,
+                        "refresh": new_enc_refresh,
                         "expires": new_tokens.get("expires_in", 3600),
                     },
                 )
@@ -303,7 +333,9 @@ async def trigger_email_scan(
             except Exception:
                 raise HTTPException(status_code=502, detail="Token refresh failed")
         else:
-            raise HTTPException(status_code=401, detail="Token expired and no refresh token available")
+            raise HTTPException(
+                status_code=401, detail="Token expired and no refresh token available"
+            )
 
     # Scan inbox
     provider = row["email_provider"]
@@ -407,7 +439,7 @@ async def trigger_email_scan(
     )
 
     return EmailScanResponse(
-        connection_id=connection_id,
+        connection_id=str(connection_id),
         provider=provider,
         total_emails_scanned=len(scan_results),
         utility_bills_found=len(utility_bills),

@@ -6,8 +6,12 @@ tables directly. Sessions are created by Better Auth (via the Next.js frontend)
 and validated here for backend API access.
 
 Session tokens arrive via:
-1. Cookie: 'better-auth.session_token' (primary — set by Better Auth)
-2. Header: 'Authorization: Bearer <session_token>' (API clients)
+1. Cookie: '__Secure-better-auth.session_token' (production HTTPS only)
+   or 'better-auth.session_token' (development/test HTTP)
+2. Header: 'Authorization: Bearer <session_token>' (API clients, all environments)
+
+In production, ONLY the __Secure- prefixed cookie is accepted to prevent
+cookie downgrade attacks (11-P1-2).
 
 Session cache entries in Redis are encrypted with AES-256-GCM using the
 FIELD_ENCRYPTION_KEY to protect user data at rest.
@@ -24,6 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.database import db_manager, get_timescale_session
+from config.settings import settings
 
 logger = structlog.get_logger()
 
@@ -54,19 +59,33 @@ class SessionData:
 # immediate session termination (see invalidate_session_cache in api/v1/auth.py).
 _SESSION_CACHE_TTL = 60  # seconds
 
+# Audit 2026-03-19 finding 11-P1-2: "banned user" marker TTL.
+# When a user is banned, we set a short-lived Redis marker keyed by user_id.
+# The session cache lookup checks this marker and bypasses the cache hit,
+# forcing a DB re-check (which filters banned=true).  This eliminates the
+# stale-cache window entirely without needing a user->token reverse index.
+_BANNED_USER_MARKER_TTL = 120  # seconds (covers 2x cache TTL)
+
 
 def _encrypt_session_cache(plaintext: str) -> bytes:
     """
     Encrypt session cache data with AES-256-GCM before storing in Redis.
 
     Uses the same FIELD_ENCRYPTION_KEY as field-level encryption. Falls back
-    to plaintext JSON if the encryption key is not configured (dev mode).
+    to plaintext JSON if the encryption key is not configured (dev mode only).
+
+    In production, encryption is mandatory — a missing FIELD_ENCRYPTION_KEY
+    raises RuntimeError to prevent storing plaintext session data in Redis.
     """
     try:
         from utils.encryption import encrypt_field
 
         return encrypt_field(plaintext)
     except RuntimeError:
+        if settings.is_production:
+            # 11-P1-4: Never fall back to plaintext in production.
+            # Session data in Redis MUST be encrypted.
+            raise
         # FIELD_ENCRYPTION_KEY not configured — fall back to unencrypted
         # so development environments without the key still work.
         return plaintext.encode("utf-8")
@@ -119,7 +138,24 @@ async def _get_session_from_token(
             cached = await redis.get(cache_key)
             if cached:
                 data = json.loads(_decrypt_session_cache(cached))
-                return SessionData(**data)
+                # Check for "banned user" marker — if present, skip cache hit
+                # and fall through to DB (which filters banned=true).  This
+                # eliminates the stale-cache window after a user ban.
+                user_id = data.get("user_id")
+                if user_id:
+                    banned_marker = await redis.get(f"banned_user:{user_id}")
+                    if banned_marker:
+                        logger.info(
+                            "session_cache_bypass_banned_user",
+                            user_id=user_id,
+                        )
+                        # Delete the stale cache entry proactively
+                        await redis.delete(cache_key)
+                        # Fall through to DB query (will return None for banned user)
+                    else:
+                        return SessionData(**data)
+                else:
+                    return SessionData(**data)
         except Exception:
             pass  # Cache miss, decryption error, or connection error — fall through to DB
 
@@ -192,6 +228,35 @@ async def invalidate_session_cache(session_token: str, redis=None) -> bool:
         return False
 
 
+async def invalidate_sessions_for_banned_user(user_id: str, redis=None) -> bool:
+    """
+    Set a "banned user" marker in Redis so all cached sessions for this user
+    are bypassed on their next use, forcing a DB re-check.
+
+    This is more robust than trying to find and delete individual session
+    cache keys (which are keyed by token hash, not user_id).  The marker
+    lives for ``_BANNED_USER_MARKER_TTL`` seconds — long enough to cover
+    all unexpired cache entries (TTL 60s).
+
+    Call this when banning/suspending a user to immediately revoke access
+    without waiting for the session cache to expire.
+
+    Returns True if the marker was set, False otherwise.
+    """
+    if redis is None:
+        return False
+    try:
+        await redis.setex(
+            f"banned_user:{user_id}",
+            _BANNED_USER_MARKER_TTL,
+            "1",
+        )
+        logger.info("banned_user_marker_set", user_id=user_id, ttl=_BANNED_USER_MARKER_TTL)
+        return True
+    except Exception:
+        return False
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
@@ -222,10 +287,16 @@ async def get_current_user(
     if credentials and credentials.credentials:
         session_token = credentials.credentials
     else:
-        # Check both cookie names: plain (HTTP/dev) and __Secure- prefixed (HTTPS/prod)
-        session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.cookies.get(
-            SESSION_COOKIE_NAME_SECURE
-        )
+        # 11-P1-2: In production (HTTPS), ONLY accept the __Secure- prefixed
+        # cookie to prevent cookie downgrade attacks where an attacker tricks
+        # the browser into sending a non-secure cookie over HTTP.
+        if settings.is_production:
+            session_token = request.cookies.get(SESSION_COOKIE_NAME_SECURE)
+        else:
+            # In dev/test, accept both cookie names (for local HTTP servers)
+            session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.cookies.get(
+                SESSION_COOKIE_NAME_SECURE
+            )
 
     if not session_token:
         logger.warning("missing_session_token")

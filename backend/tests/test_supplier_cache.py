@@ -12,13 +12,12 @@ Note: The legacy SupplierRepository was removed in S4-11 audit remediation.
 """
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_redis(*, hit_value=None) -> AsyncMock:
     """
@@ -38,9 +37,11 @@ def _make_redis(*, hit_value=None) -> AsyncMock:
 
 def _async_iter_factory(items):
     """Return a factory that produces a fresh async generator each call."""
+
     async def _gen(*args, **kwargs):
         for item in items:
             yield item
+
     return _gen
 
 
@@ -70,8 +71,6 @@ def _mapping_result(rows: list) -> MagicMock:
 
 
 class TestSupplierRegistryCacheListSuppliers:
-
-    @pytest.mark.asyncio
     async def test_cache_miss_queries_db_and_populates_cache(self):
         """On a cache miss list_suppliers hits the DB and writes to Redis."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -110,32 +109,33 @@ class TestSupplierRegistryCacheListSuppliers:
         written_payload = json.loads(redis.set.call_args[0][1])
         assert written_payload["total"] == 1
 
-    @pytest.mark.asyncio
     async def test_cache_hit_skips_db(self):
         """On a cache hit list_suppliers returns cached data without DB access."""
         from repositories.supplier_repository import SupplierRegistryRepository
 
-        cached_payload = json.dumps({
-            "suppliers": [
-                {
-                    "id": "abc",
-                    "name": "Cached Supplier",
-                    "utility_types": ["electricity"],
-                    "regions": ["us_ct"],
-                    "website": None,
-                    "phone": None,
-                    "api_available": False,
-                    "rating": None,
-                    "review_count": 0,
-                    "green_energy_provider": False,
-                    "carbon_neutral": False,
-                    "is_active": True,
-                    "metadata": {},
-                    "tariff_types": ["fixed", "variable"],
-                }
-            ],
-            "total": 1,
-        })
+        cached_payload = json.dumps(
+            {
+                "suppliers": [
+                    {
+                        "id": "abc",
+                        "name": "Cached Supplier",
+                        "utility_types": ["electricity"],
+                        "regions": ["us_ct"],
+                        "website": None,
+                        "phone": None,
+                        "api_available": False,
+                        "rating": None,
+                        "review_count": 0,
+                        "green_energy_provider": False,
+                        "carbon_neutral": False,
+                        "is_active": True,
+                        "metadata": {},
+                        "tariff_types": ["fixed", "variable"],
+                    }
+                ],
+                "total": 1,
+            }
+        )
 
         db = _make_db_session()
         redis = _make_redis(hit_value=cached_payload)
@@ -148,7 +148,6 @@ class TestSupplierRegistryCacheListSuppliers:
         # DB must NOT have been touched
         db.execute.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_no_cache_client_falls_through_to_db(self):
         """With cache=None every call goes straight to the database."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -178,7 +177,6 @@ class TestSupplierRegistryCacheListSuppliers:
         assert total == 1
         assert db.execute.call_count == 2
 
-    @pytest.mark.asyncio
     async def test_different_filter_combinations_use_distinct_cache_keys(self):
         """
         Two calls with different parameters must produce distinct cache
@@ -192,24 +190,38 @@ class TestSupplierRegistryCacheListSuppliers:
             "name": "Supplier A",
             "utility_types": ["electricity"],
             "regions": ["us_ct"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
         row_b = {
             "id": "bbb",
             "name": "Supplier B",
             "utility_types": ["natural_gas"],
             "regions": ["us_ma"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": True,
-            "carbon_neutral": True, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": True,
+            "carbon_neutral": True,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
         db.execute.side_effect = [
-            _mapping_result([row_a]), _mapping_result([row_a]),
-            _mapping_result([row_b]), _mapping_result([row_b]),
+            _mapping_result([row_a]),
+            _mapping_result([row_a]),
+            _mapping_result([row_b]),
+            _mapping_result([row_b]),
         ]
         redis = _make_redis(hit_value=None)
 
@@ -232,8 +244,6 @@ class TestSupplierRegistryCacheListSuppliers:
 
 
 class TestSupplierRegistryCacheGetById:
-
-    @pytest.mark.asyncio
     async def test_cache_miss_queries_db_and_writes_cache(self):
         from repositories.supplier_repository import SupplierRegistryRepository
 
@@ -272,20 +282,27 @@ class TestSupplierRegistryCacheGetById:
         key = redis.set.call_args[0][0]
         assert "00000000-0000-0000-0000-000000000010" in key
 
-    @pytest.mark.asyncio
     async def test_cache_hit_skips_db_get_by_id(self):
         from repositories.supplier_repository import SupplierRegistryRepository
 
-        cached = json.dumps({
-            "id": "00000000-0000-0000-0000-000000000010",
-            "name": "Eversource Energy",
-            "utility_types": ["electricity"],
-            "regions": ["us_ct"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": 4.2, "review_count": 55, "green_energy_provider": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
-            "tariff_types": ["fixed", "variable"],
-        })
+        cached = json.dumps(
+            {
+                "id": "00000000-0000-0000-0000-000000000010",
+                "name": "Eversource Energy",
+                "utility_types": ["electricity"],
+                "regions": ["us_ct"],
+                "website": None,
+                "phone": None,
+                "api_available": False,
+                "rating": 4.2,
+                "review_count": 55,
+                "green_energy_provider": False,
+                "carbon_neutral": False,
+                "is_active": True,
+                "metadata": {},
+                "tariff_types": ["fixed", "variable"],
+            }
+        )
 
         db = _make_db_session()
         redis = _make_redis(hit_value=cached)
@@ -296,7 +313,6 @@ class TestSupplierRegistryCacheGetById:
         assert supplier["name"] == "Eversource Energy"
         db.execute.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_get_by_id_returns_none_for_missing_supplier(self):
         from repositories.supplier_repository import SupplierRegistryRepository
 
@@ -321,8 +337,6 @@ class TestSupplierRegistryCacheGetById:
 
 
 class TestSupplierRegistryClearCache:
-
-    @pytest.mark.asyncio
     async def test_clear_registry_cache_deletes_all_keys(self):
         """clear_registry_cache() scans and deletes every supplier_registry:* key."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -343,7 +357,6 @@ class TestSupplierRegistryClearCache:
         deleted_keys = {c.args[0] for c in redis.delete.call_args_list}
         assert deleted_keys == set(existing_keys)
 
-    @pytest.mark.asyncio
     async def test_clear_registry_cache_no_op_without_redis(self):
         """clear_registry_cache() is a no-op when no cache client is provided."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -353,7 +366,6 @@ class TestSupplierRegistryClearCache:
         # Should not raise
         await repo.clear_registry_cache()
 
-    @pytest.mark.asyncio
     async def test_clear_registry_cache_survives_redis_error(self):
         """If Redis raises during clear, the method should not propagate the error."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -378,8 +390,6 @@ class TestSupplierRegistryClearCache:
 
 
 class TestCacheErrorResilience:
-
-    @pytest.mark.asyncio
     async def test_list_suppliers_continues_if_cache_get_fails(self):
         """If Redis.get() throws, list_suppliers falls through to the DB."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -389,10 +399,15 @@ class TestCacheErrorResilience:
             "name": "Fallback Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_tx"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0,
-            "green_energy": False, "carbon_neutral": False,
-            "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
@@ -407,7 +422,6 @@ class TestCacheErrorResilience:
         assert total == 1
         assert suppliers[0]["name"] == "Fallback Supplier"
 
-    @pytest.mark.asyncio
     async def test_list_suppliers_continues_if_cache_set_fails(self):
         """If Redis.set() throws after a DB hit, the result is still returned."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -417,10 +431,15 @@ class TestCacheErrorResilience:
             "name": "Resilient Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_oh"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0,
-            "green_energy": False, "carbon_neutral": False,
-            "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
@@ -435,7 +454,6 @@ class TestCacheErrorResilience:
         assert total == 1
         assert suppliers[0]["name"] == "Resilient Supplier"
 
-    @pytest.mark.asyncio
     async def test_get_by_id_continues_if_cache_get_fails(self):
         """If Redis.get() raises for get_by_id, the DB is queried instead."""
         from repositories.supplier_repository import SupplierRegistryRepository
@@ -446,9 +464,15 @@ class TestCacheErrorResilience:
             "name": "DB Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_il"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }[k]
 
         db = _make_db_session()
@@ -472,20 +496,24 @@ class TestCacheErrorResilience:
 
 
 class TestCacheTTL:
-
-    @pytest.mark.asyncio
     async def test_list_suppliers_uses_3600s_ttl(self):
         """Cache entries for list_suppliers must be set with a 1-hour TTL."""
-        from repositories.supplier_repository import SupplierRegistryRepository, _SUPPLIER_CACHE_TTL
+        from repositories.supplier_repository import _SUPPLIER_CACHE_TTL, SupplierRegistryRepository
 
         row = {
             "id": "00000000-0000-0000-0000-000000000040",
             "name": "TTL Supplier",
             "utility_types": ["electricity"],
             "regions": ["us_ny"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }
 
         db = _make_db_session()
@@ -501,10 +529,9 @@ class TestCacheTTL:
         assert call_kwargs.get("ex") == _SUPPLIER_CACHE_TTL
         assert _SUPPLIER_CACHE_TTL == 3600
 
-    @pytest.mark.asyncio
     async def test_get_by_id_uses_3600s_ttl(self):
         """Cache entries for get_by_id must be set with a 1-hour TTL."""
-        from repositories.supplier_repository import SupplierRegistryRepository, _SUPPLIER_CACHE_TTL
+        from repositories.supplier_repository import _SUPPLIER_CACHE_TTL, SupplierRegistryRepository
 
         row = MagicMock()
         row.__getitem__ = lambda self, k: {
@@ -512,9 +539,15 @@ class TestCacheTTL:
             "name": "TTL Lookup",
             "utility_types": ["electricity"],
             "regions": ["us_pa"],
-            "website": None, "phone": None, "api_available": False,
-            "rating": None, "review_count": 0, "green_energy": False,
-            "carbon_neutral": False, "is_active": True, "metadata": {},
+            "website": None,
+            "phone": None,
+            "api_available": False,
+            "rating": None,
+            "review_count": 0,
+            "green_energy": False,
+            "carbon_neutral": False,
+            "is_active": True,
+            "metadata": {},
         }[k]
 
         db = _make_db_session()

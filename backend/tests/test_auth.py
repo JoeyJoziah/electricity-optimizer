@@ -8,13 +8,11 @@ Comprehensive tests for Neon Auth session validation:
 - Auth API endpoints
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
-
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -45,10 +43,9 @@ class TestNeonAuthSessionValidation:
     # _get_session_from_token Tests
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_get_session_from_token_valid(self, mock_db_session):
         """Test valid session token returns SessionData"""
-        from auth.neon_auth import _get_session_from_token, SessionData
+        from auth.neon_auth import SessionData, _get_session_from_token
 
         # Mock the DB result row
         mock_row = MagicMock()
@@ -70,7 +67,6 @@ class TestNeonAuthSessionValidation:
         assert result.name == "Test User"
         assert result.email_verified is True
 
-    @pytest.mark.asyncio
     async def test_get_session_from_token_expired(self, mock_db_session):
         """Test expired session token returns None"""
         from auth.neon_auth import _get_session_from_token
@@ -83,7 +79,6 @@ class TestNeonAuthSessionValidation:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_get_session_from_token_banned_user(self, mock_db_session):
         """Test banned user session returns None (query filters banned users)"""
         from auth.neon_auth import _get_session_from_token
@@ -97,10 +92,9 @@ class TestNeonAuthSessionValidation:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_get_session_from_token_no_name(self, mock_db_session):
         """Test session with null name defaults to empty string"""
-        from auth.neon_auth import _get_session_from_token, SessionData
+        from auth.neon_auth import SessionData, _get_session_from_token
 
         mock_row = MagicMock()
         mock_row.user_id = "user-456"
@@ -123,11 +117,11 @@ class TestNeonAuthSessionValidation:
     # get_current_user Tests
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_get_current_user_from_bearer_header(self, mock_db_session, mock_request):
         """Test extracting session token from Authorization header"""
-        from auth.neon_auth import get_current_user, SessionData
         from fastapi.security import HTTPAuthorizationCredentials
+
+        from auth.neon_auth import get_current_user
 
         mock_row = MagicMock()
         mock_row.user_id = "user-789"
@@ -149,10 +143,9 @@ class TestNeonAuthSessionValidation:
         assert result.user_id == "user-789"
         assert result.email == "bearer@example.com"
 
-    @pytest.mark.asyncio
     async def test_get_current_user_from_cookie(self, mock_db_session, mock_request):
         """Test extracting session token from cookie"""
-        from auth.neon_auth import get_current_user, SESSION_COOKIE_NAME
+        from auth.neon_auth import SESSION_COOKIE_NAME, get_current_user
 
         mock_request.cookies = {SESSION_COOKIE_NAME: "cookie-session-token"}
 
@@ -172,10 +165,9 @@ class TestNeonAuthSessionValidation:
         assert result.user_id == "user-cookie"
         assert result.email == "cookie@example.com"
 
-    @pytest.mark.asyncio
     async def test_get_current_user_from_secure_cookie(self, mock_db_session, mock_request):
         """Test extracting session token from __Secure- prefixed cookie (HTTPS/production)"""
-        from auth.neon_auth import get_current_user, SESSION_COOKIE_NAME_SECURE
+        from auth.neon_auth import SESSION_COOKIE_NAME_SECURE, get_current_user
 
         mock_request.cookies = {SESSION_COOKIE_NAME_SECURE: "secure-session-token"}
 
@@ -196,11 +188,11 @@ class TestNeonAuthSessionValidation:
         assert result.email == "secure@example.com"
         assert result.email_verified is True
 
-    @pytest.mark.asyncio
     async def test_get_current_user_no_token_raises_401(self, mock_db_session, mock_request):
         """Test missing session token raises 401"""
-        from auth.neon_auth import get_current_user
         from fastapi import HTTPException
+
+        from auth.neon_auth import get_current_user
 
         mock_request.cookies = {}
 
@@ -209,37 +201,33 @@ class TestNeonAuthSessionValidation:
 
         assert exc_info.value.status_code == 401
 
-    @pytest.mark.asyncio
     async def test_get_current_user_invalid_token_raises_401(self, mock_db_session, mock_request):
         """Test invalid session token raises 401"""
-        from auth.neon_auth import get_current_user
         from fastapi import HTTPException
         from fastapi.security import HTTPAuthorizationCredentials
+
+        from auth.neon_auth import get_current_user
 
         # DB returns no matching session
         mock_result = MagicMock()
         mock_result.fetchone.return_value = None
         mock_db_session.execute.return_value = mock_result
 
-        credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="invalid-token"
-        )
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="invalid-token")
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(mock_request, credentials, mock_db_session)
 
         assert exc_info.value.status_code == 401
 
-    @pytest.mark.asyncio
     async def test_get_current_user_no_db_raises_503(self, mock_request):
         """Test missing database connection raises 503"""
-        from auth.neon_auth import get_current_user
         from fastapi import HTTPException
         from fastapi.security import HTTPAuthorizationCredentials
 
-        credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="valid-token"
-        )
+        from auth.neon_auth import get_current_user
+
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="valid-token")
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(mock_request, credentials, None)
@@ -250,7 +238,6 @@ class TestNeonAuthSessionValidation:
     # get_current_user_optional Tests
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_get_current_user_optional_returns_none(self, mock_db_session, mock_request):
         """Test optional auth returns None for unauthenticated request"""
         from auth.neon_auth import get_current_user_optional
@@ -261,10 +248,9 @@ class TestNeonAuthSessionValidation:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_get_current_user_optional_returns_user(self, mock_db_session, mock_request):
         """Test optional auth returns SessionData when authenticated"""
-        from auth.neon_auth import get_current_user_optional, SESSION_COOKIE_NAME, SessionData
+        from auth.neon_auth import SESSION_COOKIE_NAME, SessionData, get_current_user_optional
 
         mock_request.cookies = {SESSION_COOKIE_NAME: "token"}
 
@@ -301,15 +287,13 @@ class TestNeonAuthSessionValidation:
         """Test SessionData with role"""
         from auth.neon_auth import SessionData
 
-        data = SessionData(
-            user_id="u1", email="e@e.com", role="admin"
-        )
+        data = SessionData(user_id="u1", email="e@e.com", role="admin")
         assert data.role == "admin"
 
-    @pytest.mark.asyncio
     async def test_session_cache_key_uses_sha256(self, mock_db_session):
         """Test that session cache key uses SHA-256 hash, not token prefix (P0-2 fix)."""
         import hashlib
+
         from auth.neon_auth import _get_session_from_token
 
         mock_redis = AsyncMock()
@@ -327,11 +311,9 @@ class TestNeonAuthSessionValidation:
         expected_key = f"session:{expected_hash}"
         mock_redis.get.assert_awaited_once_with(expected_key)
 
-    @pytest.mark.asyncio
     async def test_similar_tokens_produce_different_cache_keys(self, mock_db_session):
         """Two tokens sharing the same 16-char prefix must produce different cache keys."""
         import hashlib
-        from auth.neon_auth import _get_session_from_token
 
         # Two tokens with identical first 16 chars but different suffixes
         token_a = "abcdef1234567890_suffix_AAA"
@@ -343,11 +325,11 @@ class TestNeonAuthSessionValidation:
         # The old code would produce the same cache key for both
         assert hash_a != hash_b, "Tokens with same prefix must have distinct cache keys"
 
-    @pytest.mark.asyncio
     async def test_session_cache_stores_with_sha256_key(self, mock_db_session):
         """Verify Redis SET uses SHA-256 cache key on cache miss + DB hit."""
         import hashlib
-        from auth.neon_auth import _get_session_from_token, _SESSION_CACHE_TTL, SessionData
+
+        from auth.neon_auth import _SESSION_CACHE_TTL, SessionData, _get_session_from_token
 
         mock_redis = AsyncMock()
         mock_redis.get.return_value = None
@@ -379,10 +361,10 @@ class TestNeonAuthSessionValidation:
         assert call_args[0][0] == expected_key
         assert call_args[0][1] == _SESSION_CACHE_TTL
 
-    @pytest.mark.asyncio
     async def test_invalidate_session_cache_deletes_key(self):
         """Test invalidate_session_cache deletes the Redis entry."""
         import hashlib
+
         from auth.neon_auth import invalidate_session_cache
 
         mock_redis = AsyncMock()
@@ -396,7 +378,6 @@ class TestNeonAuthSessionValidation:
         expected_key = f"session:{expected_hash}"
         mock_redis.delete.assert_awaited_once_with(expected_key)
 
-    @pytest.mark.asyncio
     async def test_invalidate_session_cache_no_redis(self):
         """Test invalidate_session_cache returns False when Redis is None."""
         from auth.neon_auth import invalidate_session_cache
@@ -404,7 +385,6 @@ class TestNeonAuthSessionValidation:
         result = await invalidate_session_cache("some-token", redis=None)
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_invalidate_session_cache_miss(self):
         """Test invalidate_session_cache returns False when key not in cache."""
         from auth.neon_auth import invalidate_session_cache
@@ -428,12 +408,12 @@ class TestAuthAPI:
     # Me Endpoint Tests
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_me_endpoint_requires_auth(self):
         """Test GET /api/v1/auth/me returns 401 without auth"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
@@ -446,20 +426,19 @@ class TestAuthAPI:
     # Password Strength Endpoint Tests
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_password_check_strength_strong(self):
         """Test password strength check with strong password"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
 
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/auth/password/check-strength",
-                json={"password": "ValidPass123!"}
+                "/api/v1/auth/password/check-strength", json={"password": "ValidPass123!"}
             )
             assert response.status_code == 200
             data = response.json()
@@ -468,40 +447,36 @@ class TestAuthAPI:
             assert "valid" in data
             assert data["valid"] is True
 
-    @pytest.mark.asyncio
     async def test_password_check_strength_weak(self):
         """Test password strength check with weak password"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
 
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/auth/password/check-strength",
-                json={"password": "weak"}
+                "/api/v1/auth/password/check-strength", json={"password": "weak"}
             )
             assert response.status_code == 200
             data = response.json()
             assert data["valid"] is False
 
-    @pytest.mark.asyncio
     async def test_password_check_strength_empty_rejected(self):
         """Test password strength check rejects empty password"""
-        from api.v1.auth import router
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from api.v1.auth import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/auth")
 
         with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/auth/password/check-strength",
-                json={"password": ""}
-            )
+            response = client.post("/api/v1/auth/password/check-strength", json={"password": ""})
             assert response.status_code == 422
 
 
@@ -513,7 +488,6 @@ class TestAuthAPI:
 class TestAuthRateLimiting:
     """Tests for authentication rate limiting"""
 
-    @pytest.mark.asyncio
     async def test_login_rate_limit_after_failures(self):
         """Test account lockout after failed attempts"""
         from middleware.rate_limiter import UserRateLimiter
@@ -535,7 +509,6 @@ class TestAuthRateLimiting:
         assert seconds_remaining > 0
         assert seconds_remaining <= 15 * 60  # within 15-minute window
 
-    @pytest.mark.asyncio
     async def test_rate_limit_per_ip(self):
         """Test rate limiting per IP address"""
         from middleware.rate_limiter import UserRateLimiter
@@ -555,7 +528,6 @@ class TestAuthRateLimiting:
         assert allowed is False
         assert remaining == 0
 
-    @pytest.mark.asyncio
     async def test_rate_limit_reset_after_success(self):
         """Test rate limit resets after successful login"""
         from middleware.rate_limiter import UserRateLimiter
@@ -685,6 +657,7 @@ class TestSecurityHeaders:
         """Build a minimal FastAPI app wrapped with SecurityHeadersMiddleware."""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
         from middleware.security_headers import SecurityHeadersMiddleware
 
         app = FastAPI()
@@ -715,8 +688,8 @@ class TestSecurityHeaders:
         """Test Strict-Transport-Security header is added in production"""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
         from middleware.security_headers import SecurityHeadersMiddleware
-        from unittest.mock import patch
 
         app = FastAPI()
 
@@ -751,10 +724,9 @@ class TestSecurityHeaders:
 class TestAuthIntegration:
     """Integration tests for authentication flow (Neon Auth)"""
 
-    @pytest.mark.asyncio
     async def test_session_validation_flow(self):
         """Test session token validation against neon_auth schema"""
-        from auth.neon_auth import _get_session_from_token, SessionData
+        from auth.neon_auth import SessionData, _get_session_from_token
 
         # Auth flows (sign-up/sign-in) are handled by Better Auth on the frontend.
         # The backend validates sessions via neon_auth schema queries.
@@ -777,14 +749,14 @@ class TestAuthIntegration:
         assert session.email == "integration@example.com"
         assert session.email_verified is True
 
-    @pytest.mark.asyncio
     async def test_me_endpoint_with_valid_session(self):
         """Test /me returns user data when session is valid"""
-        from auth.neon_auth import get_current_user, SessionData
-        from config.database import get_timescale_session
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
-        from api.v1.auth import router
+
+        from api.v1.auth import _get_current_user_with_brute_force_tracking, router
+        from auth.neon_auth import SessionData
+        from config.database import get_timescale_session
 
         # Build a standalone app with the auth router
         app = FastAPI()
@@ -795,14 +767,16 @@ class TestAuthIntegration:
         mock_db.execute.return_value = MagicMock()
         mock_db.commit = AsyncMock()
 
-        # Override dependencies
+        # Override dependencies — /me uses _get_current_user_with_brute_force_tracking
         valid_session = SessionData(
             user_id="me-user-1",
             email="me@example.com",
             name="Me User",
             email_verified=True,
         )
-        app.dependency_overrides[get_current_user] = lambda: valid_session
+        app.dependency_overrides[_get_current_user_with_brute_force_tracking] = lambda: (
+            valid_session
+        )
         app.dependency_overrides[get_timescale_session] = lambda: mock_db
 
         with TestClient(app) as client:
@@ -814,7 +788,6 @@ class TestAuthIntegration:
             assert data["email"] == "me@example.com"
             assert data["email_verified"] is True
 
-    @pytest.mark.asyncio
     async def test_expired_session_rejected(self):
         """Test that expired sessions are rejected — DB returns None for expired rows"""
         from auth.neon_auth import _get_session_from_token
@@ -830,3 +803,257 @@ class TestAuthIntegration:
 
         # Expired session returns None, not a SessionData
         assert session is None
+
+
+# =============================================================================
+# SPRINT 4: AUTH HARDENING TESTS (Audit 2026-03-19)
+# =============================================================================
+
+
+class TestLoginBruteForceProtection:
+    """Task 4.3: Login brute-force protection on /me endpoint."""
+
+    async def test_lockout_after_5_failed_attempts(self):
+        """After 5 failed login attempts, /me should return 429."""
+        from api.v1.auth import _login_attempt_limiter
+
+        # Reset the limiter to ensure clean state
+        _login_attempt_limiter.reset()
+
+        identifier = "login:ip:10.0.0.99"
+        for _ in range(5):
+            await _login_attempt_limiter.record_login_attempt(identifier, success=False)
+
+        is_locked, seconds = await _login_attempt_limiter.is_locked_out(identifier)
+        assert is_locked is True
+        assert seconds > 0
+
+    async def test_successful_login_clears_lockout(self):
+        """A successful login should reset the failure counter."""
+        from api.v1.auth import _login_attempt_limiter
+
+        _login_attempt_limiter.reset()
+
+        identifier = "login:ip:10.0.0.100"
+        for _ in range(3):
+            await _login_attempt_limiter.record_login_attempt(identifier, success=False)
+
+        # Successful login clears counter
+        await _login_attempt_limiter.record_login_attempt(identifier, success=True)
+
+        is_locked, _ = await _login_attempt_limiter.is_locked_out(identifier)
+        assert is_locked is False
+
+    async def test_check_login_lockout_blocks_locked_ip(self):
+        """_check_login_lockout raises 429 for locked-out IPs."""
+        from fastapi import HTTPException
+
+        from api.v1.auth import _check_login_lockout, _login_attempt_limiter
+
+        _login_attempt_limiter.reset()
+
+        # Lock out the IP
+        identifier = "login:ip:192.168.1.50"
+        for _ in range(5):
+            await _login_attempt_limiter.record_login_attempt(identifier, success=False)
+
+        # Simulate a request from that IP
+        mock_request = MagicMock()
+        mock_request.client.host = "192.168.1.50"
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _check_login_lockout(mock_request)
+
+        assert exc_info.value.status_code == 429
+        assert "Too many failed attempts" in exc_info.value.detail
+
+    async def test_check_login_lockout_allows_unlocked_ip(self):
+        """_check_login_lockout does not block unlocked IPs."""
+        from api.v1.auth import _check_login_lockout, _login_attempt_limiter
+
+        _login_attempt_limiter.reset()
+
+        mock_request = MagicMock()
+        mock_request.client.host = "192.168.1.51"
+
+        # Should not raise
+        await _check_login_lockout(mock_request)
+
+
+class TestBannedUserSessionBypass:
+    """Task 4.4: Immediate session cache invalidation after user ban."""
+
+    async def test_banned_marker_bypasses_cache(self):
+        """When a banned_user marker exists, cached session is bypassed."""
+        import json
+
+        from auth.neon_auth import _get_session_from_token
+
+        # Mock Redis with a cached session AND a banned marker
+        mock_redis = AsyncMock()
+        cached_data = json.dumps(
+            {
+                "user_id": "banned-user-123",
+                "email": "banned@example.com",
+                "name": "Banned",
+                "email_verified": True,
+                "role": None,
+            }
+        ).encode("utf-8")
+        mock_redis.get = AsyncMock(
+            side_effect=lambda key: (
+                cached_data
+                if key.startswith("session:")
+                else b"1"
+                if key == "banned_user:banned-user-123"
+                else None
+            )
+        )
+        mock_redis.delete = AsyncMock()
+
+        # DB returns None because user is banned
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        result = await _get_session_from_token("some-token", mock_db, redis=mock_redis)
+
+        # Should return None (banned user filtered out by DB query)
+        assert result is None
+        # Should have deleted the stale cache entry
+        mock_redis.delete.assert_awaited()
+
+    async def test_no_banned_marker_returns_cached_session(self):
+        """Without a banned marker, cached session is returned normally."""
+        import json
+
+        from auth.neon_auth import SessionData, _get_session_from_token
+
+        mock_redis = AsyncMock()
+        cached_data = json.dumps(
+            {
+                "user_id": "active-user-456",
+                "email": "active@example.com",
+                "name": "Active",
+                "email_verified": True,
+                "role": None,
+            }
+        ).encode("utf-8")
+        mock_redis.get = AsyncMock(
+            side_effect=lambda key: (
+                cached_data if key.startswith("session:") else None
+            )  # No banned marker
+        )
+
+        mock_db = AsyncMock()
+        result = await _get_session_from_token("some-token", mock_db, redis=mock_redis)
+
+        assert isinstance(result, SessionData)
+        assert result.user_id == "active-user-456"
+
+    async def test_invalidate_sessions_for_banned_user_sets_marker(self):
+        """invalidate_sessions_for_banned_user sets a Redis marker."""
+        from auth.neon_auth import (
+            _BANNED_USER_MARKER_TTL,
+            invalidate_sessions_for_banned_user,
+        )
+
+        mock_redis = AsyncMock()
+        mock_redis.setex = AsyncMock()
+
+        result = await invalidate_sessions_for_banned_user("user-to-ban", redis=mock_redis)
+
+        assert result is True
+        mock_redis.setex.assert_awaited_once_with(
+            "banned_user:user-to-ban",
+            _BANNED_USER_MARKER_TTL,
+            "1",
+        )
+
+    async def test_invalidate_sessions_returns_false_without_redis(self):
+        """invalidate_sessions_for_banned_user returns False without Redis."""
+        from auth.neon_auth import invalidate_sessions_for_banned_user
+
+        result = await invalidate_sessions_for_banned_user("any-user", redis=None)
+        assert result is False
+
+
+class TestPasswordPolicyStrengthening:
+    """Task 4.5: Stronger password validation beyond length-only."""
+
+    def test_consecutive_identical_chars_rejected(self):
+        """Password with 3+ consecutive identical chars is rejected."""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError, match="identical consecutive"):
+            validate_password("Abcdefffg1!x")  # "fff" = 3 consecutive
+
+    def test_sequential_alpha_rejected(self):
+        """Password with sequential alphabetic chars (abcd) is rejected."""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError, match="sequential"):
+            validate_password("Xabcdefgh1!z")  # "abcdefgh" = sequential
+
+    def test_sequential_numeric_rejected(self):
+        """Password with sequential numeric chars (1234) is rejected."""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError, match="sequential"):
+            validate_password("Good1234Pass!")  # "1234" = sequential
+
+    def test_sequential_keyboard_rejected(self):
+        """Password with keyboard row sequences (qwer) is rejected."""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError, match="sequential"):
+            validate_password("Xqwerty1!zzz")  # "qwert" = keyboard row
+
+    def test_max_length_exceeded_rejected(self):
+        """Password exceeding MAX_PASSWORD_LENGTH is rejected."""
+        from auth.password import MAX_PASSWORD_LENGTH, validate_password
+
+        long_password = "Aa1!" + "x" * (MAX_PASSWORD_LENGTH + 1)
+        with pytest.raises(ValueError, match="at most"):
+            validate_password(long_password)
+
+    def test_valid_strong_password_passes(self):
+        """A properly strong password still passes validation."""
+        from auth.password import validate_password
+
+        # No consecutive, no sequential, meets all complexity rules
+        result = validate_password("Tr0ub4d&Rx!Z")
+        assert result is True
+
+    def test_strength_check_includes_new_checks(self):
+        """check_password_strength returns no_consecutive and no_sequential."""
+        from auth.password import check_password_strength
+
+        result = check_password_strength("Tr0ub4d&Rx!Z")
+        assert "no_consecutive" in result["checks"]
+        assert "no_sequential" in result["checks"]
+        assert result["checks"]["no_consecutive"] is True
+        assert result["checks"]["no_sequential"] is True
+
+    def test_strength_check_flags_consecutive(self):
+        """check_password_strength flags consecutive identical chars."""
+        from auth.password import check_password_strength
+
+        result = check_password_strength("Abcdefffg1!x")
+        assert result["checks"]["no_consecutive"] is False
+        assert result["valid"] is False
+
+    def test_strength_check_max_score_is_10(self):
+        """Max score is now 10 (8 checks + 2 length bonuses)."""
+        from auth.password import check_password_strength
+
+        result = check_password_strength("Tr0ub4d&Rx!Z_very_long_pw")
+        assert result["max_score"] == 10
+
+    def test_reverse_sequential_rejected(self):
+        """Reverse sequential chars (dcba, 4321) are also rejected."""
+        from auth.password import validate_password
+
+        with pytest.raises(ValueError, match="sequential"):
+            validate_password("Good4321Pass!")  # "4321" = reverse sequential

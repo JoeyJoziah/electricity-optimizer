@@ -1,11 +1,14 @@
 """Tests for bill_parser service — field extractors, helpers, and BillParserService."""
 
-import pytest
-import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from services.bill_parser import (
+    _MAGIC_JPG,
+    _MAGIC_PDF,
+    _MAGIC_PNG,
     BillParserService,
     _parse_date_flexible,
     _strip_commas,
@@ -18,14 +21,7 @@ from services.bill_parser import (
     extract_total_amount,
     extract_total_kwh,
     validate_upload_file,
-    ALLOWED_EXTENSIONS,
-    ALLOWED_MIME_TYPES,
-    MAX_FILE_SIZE_BYTES,
-    _MAGIC_PDF,
-    _MAGIC_PNG,
-    _MAGIC_JPG,
 )
-
 
 # ---------------------------------------------------------------------------
 # Magic bytes / helper tests
@@ -176,9 +172,7 @@ class TestExtractBillingPeriod:
         assert conf == 0.85
 
     def test_billing_period_from_pattern(self):
-        start, end, conf = extract_billing_period(
-            "Billing period from: 01/15/2025 to 02/14/2025"
-        )
+        start, end, conf = extract_billing_period("Billing period from: 01/15/2025 to 02/14/2025")
         assert start == "2025-01-15"
         assert end == "2025-02-14"
 
@@ -345,7 +339,6 @@ def mock_db():
     return db
 
 
-@pytest.mark.asyncio
 async def test_parse_file_not_found(mock_db):
     """Service returns failed status when file does not exist."""
     service = BillParserService(db=mock_db, uploads_dir=Path("/nonexistent/dir"))
@@ -354,7 +347,6 @@ async def test_parse_file_not_found(mock_db):
     assert "not found" in result["parse_error"].lower()
 
 
-@pytest.mark.asyncio
 async def test_parse_path_traversal_blocked(mock_db, tmp_path):
     """Service blocks directory traversal in storage_key."""
     service = BillParserService(db=mock_db, uploads_dir=tmp_path)
@@ -362,7 +354,6 @@ async def test_parse_path_traversal_blocked(mock_db, tmp_path):
     assert result["parse_status"] == "failed"
 
 
-@pytest.mark.asyncio
 async def test_parse_unsupported_file_type(mock_db, tmp_path):
     """Service marks parse as failed when magic bytes are unrecognized."""
     bad_file = tmp_path / "bad.pdf"
@@ -373,7 +364,6 @@ async def test_parse_unsupported_file_type(mock_db, tmp_path):
     assert "Unsupported" in result["parse_error"]
 
 
-@pytest.mark.asyncio
 async def test_parse_pdf_with_rate_extracts_data(mock_db, tmp_path):
     """Service extracts rate and marks parse as complete for a PDF with text."""
     # Build a minimal PDF-magic-prefixed file with extractable text
@@ -399,7 +389,6 @@ async def test_parse_pdf_with_rate_extracts_data(mock_db, tmp_path):
         assert result["detected_rate_per_kwh"] is not None
 
 
-@pytest.mark.asyncio
 async def test_parse_calls_set_status_processing(mock_db, tmp_path):
     """Service marks upload as 'processing' at start of parse."""
     bad_file = tmp_path / "bad.pdf"

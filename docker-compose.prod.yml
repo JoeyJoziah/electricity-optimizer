@@ -1,3 +1,20 @@
+# ============================================================================
+# DEPRECATED — DO NOT USE
+# ============================================================================
+# This file is a vestige of the pre-Neon local PostgreSQL setup.
+# Production now runs on:
+#   - Neon PostgreSQL (serverless, project cold-rice-23455092)
+#   - Render (backend)
+#   - Vercel (frontend)
+#   - Cloudflare Workers (edge layer)
+#
+# The local postgres/redis/prometheus/grafana services defined here are NOT
+# used in production. Kept only for historical reference and possible local
+# development use. For the current deployment architecture, see:
+#   - docs/REDEPLOYMENT_RUNBOOK.md
+#   - CLAUDE.md (Architecture Quick Reference)
+#
+# Original header:
 # Docker Compose - Electricity Optimizer Platform
 # Production configuration with optimized settings
 # Usage: docker compose -f docker-compose.prod.yml up -d

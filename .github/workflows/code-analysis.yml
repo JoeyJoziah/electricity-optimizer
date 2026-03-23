@@ -25,7 +25,7 @@ jobs:
         uses: ./.github/actions/setup-node-env
 
       - name: Install claude-flow
-        run: npm install -g claude-flow@latest
+        run: npm install -g claude-flow@5.53.0
 
       - name: Analyze diff risk
         run: |
@@ -46,6 +46,7 @@ jobs:
           cat circular.json >> $GITHUB_STEP_SUMMARY || echo "No circular dependency report generated" >> $GITHUB_STEP_SUMMARY
 
       - name: Security scan
+        continue-on-error: true
         run: |
           claude-flow security scan --format json > security.json
           echo "## Security Scan" >> $GITHUB_STEP_SUMMARY

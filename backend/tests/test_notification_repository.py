@@ -13,11 +13,10 @@ Coverage:
      push/email outcomes persisted via update_delivery.
 """
 
-import json
 import os
 import re
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -101,7 +100,7 @@ def _notification_row(
         "title": "Test notification",
         "body": None,
         "read_at": None,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
         "metadata": None,
         "delivery_channel": delivery_channel,
         "delivery_status": delivery_status,
@@ -139,9 +138,7 @@ class TestMigration032Structure:
 
     def test_error_message_column_present(self):
         sql = _read_migration_032()
-        assert "error_message" in sql.lower(), (
-            "Migration 032 must add the error_message column"
-        )
+        assert "error_message" in sql.lower(), "Migration 032 must add the error_message column"
 
     def test_error_message_is_text_type(self):
         sql = _read_migration_032()
@@ -158,9 +155,7 @@ class TestMigration032Structure:
         assert "delivery_channel" in normalised, (
             "Migration 032 must reference delivery_channel in an index"
         )
-        assert "created_at" in normalised, (
-            "Migration 032 must include created_at in an index"
-        )
+        assert "created_at" in normalised, "Migration 032 must include created_at in an index"
         assert re.search(
             r"create index if not exists\s+\w+\s+on notifications\s*\(",
             normalised,
@@ -172,10 +167,7 @@ class TestMigration032Structure:
             stripped = line.strip().upper()
             if stripped.startswith("--"):
                 continue
-            if (
-                stripped.startswith("CREATE INDEX")
-                and "IF NOT EXISTS" not in stripped
-            ):
+            if stripped.startswith("CREATE INDEX") and "IF NOT EXISTS" not in stripped:
                 pytest.fail(f"CREATE INDEX without IF NOT EXISTS at line {i}: {line.strip()}")
 
     def test_no_serial_columns(self):
@@ -197,20 +189,24 @@ class TestNotificationModelErrorMessage:
 
     def test_model_has_error_message(self):
         from models.notification import Notification
+
         assert "error_message" in Notification.model_fields
 
     def test_error_message_defaults_to_none(self):
         from models.notification import Notification
+
         n = Notification(user_id="u1", title="T")
         assert n.error_message is None
 
     def test_error_message_accepts_string(self):
         from models.notification import Notification
+
         n = Notification(user_id="u1", title="T", error_message="SMTP timeout")
         assert n.error_message == "SMTP timeout"
 
     def test_delivery_update_has_error_message(self):
         from models.notification import NotificationDeliveryUpdate
+
         upd = NotificationDeliveryUpdate(
             delivery_status="failed",
             error_message="Connection refused",
@@ -219,6 +215,7 @@ class TestNotificationModelErrorMessage:
 
     def test_delivery_update_error_message_optional(self):
         from models.notification import NotificationDeliveryUpdate
+
         upd = NotificationDeliveryUpdate(delivery_status="sent")
         assert upd.error_message is None
 
@@ -229,10 +226,9 @@ class TestNotificationModelErrorMessage:
 
 
 class TestNotificationRepositoryGetById:
-
-    @pytest.mark.asyncio
     async def test_get_by_id_returns_notification(self):
         from repositories.notification_repository import NotificationRepository
+
         nid = str(uuid4())
         uid = str(uuid4())
         db = _mock_db()
@@ -245,9 +241,9 @@ class TestNotificationRepositoryGetById:
         assert result.id == nid
         assert result.user_id == uid
 
-    @pytest.mark.asyncio
     async def test_get_by_id_returns_none_when_not_found(self):
         from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.return_value = _mapping_result([])
         repo = NotificationRepository(db)
@@ -255,10 +251,10 @@ class TestNotificationRepositoryGetById:
         result = await repo.get_by_id(str(uuid4()), user_id=str(uuid4()))
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_get_by_id_raises_repository_error_on_db_failure(self):
-        from repositories.notification_repository import NotificationRepository
         from repositories.base import RepositoryError
+        from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.side_effect = Exception("DB down")
         repo = NotificationRepository(db)
@@ -266,24 +262,24 @@ class TestNotificationRepositoryGetById:
         with pytest.raises(RepositoryError):
             await repo.get_by_id(str(uuid4()), user_id=str(uuid4()))
 
-    @pytest.mark.asyncio
     async def test_get_by_id_maps_error_message(self):
         from repositories.notification_repository import NotificationRepository
+
         nid = str(uuid4())
         uid = str(uuid4())
         db = _mock_db()
-        db.execute.return_value = _mapping_result([
-            _notification_row(nid=nid, user_id=uid, error_message="Push token expired")
-        ])
+        db.execute.return_value = _mapping_result(
+            [_notification_row(nid=nid, user_id=uid, error_message="Push token expired")]
+        )
         repo = NotificationRepository(db)
 
         result = await repo.get_by_id(nid, user_id=uid)
         assert result.error_message == "Push token expired"
 
-    @pytest.mark.asyncio
     async def test_get_by_id_rejects_wrong_user(self):
         """IDOR protection: querying with a different user_id returns None."""
         from repositories.notification_repository import NotificationRepository
+
         nid = str(uuid4())
         owner_uid = str(uuid4())
         attacker_uid = str(uuid4())
@@ -307,10 +303,9 @@ class TestNotificationRepositoryGetById:
 
 
 class TestNotificationRepositoryGetByDeliveryStatus:
-
-    @pytest.mark.asyncio
     async def test_returns_notifications_for_status(self):
         from repositories.notification_repository import NotificationRepository
+
         uid = str(uuid4())
         rows = [
             _notification_row(user_id=uid, delivery_status="failed"),
@@ -324,9 +319,9 @@ class TestNotificationRepositoryGetByDeliveryStatus:
         assert len(results) == 2
         assert all(r.delivery_status == "failed" for r in results)
 
-    @pytest.mark.asyncio
     async def test_returns_empty_list_when_none_match(self):
         from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.return_value = _mapping_result([])
         repo = NotificationRepository(db)
@@ -334,9 +329,9 @@ class TestNotificationRepositoryGetByDeliveryStatus:
         results = await repo.get_by_delivery_status(str(uuid4()), "bounced")
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_query_includes_user_id_and_status_params(self):
         from repositories.notification_repository import NotificationRepository
+
         uid = str(uuid4())
         db = _mock_db()
         db.execute.return_value = _mapping_result([])
@@ -350,10 +345,10 @@ class TestNotificationRepositoryGetByDeliveryStatus:
         assert params["status"] == "pending"
         assert params["lim"] == 10
 
-    @pytest.mark.asyncio
     async def test_raises_repository_error_on_failure(self):
-        from repositories.notification_repository import NotificationRepository
         from repositories.base import RepositoryError
+        from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.side_effect = Exception("timeout")
         repo = NotificationRepository(db)
@@ -362,9 +357,9 @@ class TestNotificationRepositoryGetByDeliveryStatus:
             await repo.get_by_delivery_status(str(uuid4()), "sent")
 
     @pytest.mark.parametrize("status", ["pending", "sent", "delivered", "failed", "bounced"])
-    @pytest.mark.asyncio
     async def test_all_valid_statuses_accepted(self, status):
         from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.return_value = _mapping_result([])
         repo = NotificationRepository(db)
@@ -379,10 +374,9 @@ class TestNotificationRepositoryGetByDeliveryStatus:
 
 
 class TestNotificationRepositoryGetByChannel:
-
-    @pytest.mark.asyncio
     async def test_returns_notifications_for_channel(self):
         from repositories.notification_repository import NotificationRepository
+
         uid = str(uuid4())
         rows = [
             _notification_row(user_id=uid, delivery_channel="email"),
@@ -395,9 +389,9 @@ class TestNotificationRepositoryGetByChannel:
         assert len(results) == 1
         assert results[0].delivery_channel == "email"
 
-    @pytest.mark.asyncio
     async def test_returns_empty_list_when_no_match(self):
         from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.return_value = _mapping_result([])
         repo = NotificationRepository(db)
@@ -405,9 +399,9 @@ class TestNotificationRepositoryGetByChannel:
         results = await repo.get_by_channel(str(uuid4()), "push")
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_query_includes_user_id_and_channel_params(self):
         from repositories.notification_repository import NotificationRepository
+
         uid = str(uuid4())
         db = _mock_db()
         db.execute.return_value = _mapping_result([])
@@ -421,10 +415,10 @@ class TestNotificationRepositoryGetByChannel:
         assert params["channel"] == "in_app"
         assert params["lim"] == 25
 
-    @pytest.mark.asyncio
     async def test_raises_repository_error_on_failure(self):
-        from repositories.notification_repository import NotificationRepository
         from repositories.base import RepositoryError
+        from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.side_effect = Exception("connection refused")
         repo = NotificationRepository(db)
@@ -433,9 +427,9 @@ class TestNotificationRepositoryGetByChannel:
             await repo.get_by_channel(str(uuid4()), "push")
 
     @pytest.mark.parametrize("channel", ["email", "push", "in_app"])
-    @pytest.mark.asyncio
     async def test_all_valid_channels_accepted(self, channel):
         from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.return_value = _mapping_result([])
         repo = NotificationRepository(db)
@@ -449,11 +443,10 @@ class TestNotificationRepositoryGetByChannel:
 
 
 class TestNotificationRepositoryUpdateDelivery:
-
-    @pytest.mark.asyncio
     async def test_update_delivery_status_only(self):
-        from repositories.notification_repository import NotificationRepository
         from models.notification import NotificationDeliveryUpdate
+        from repositories.notification_repository import NotificationRepository
+
         nid = str(uuid4())
         db = _mock_db()
         db.execute.return_value = _rowcount_result(1)
@@ -465,12 +458,12 @@ class TestNotificationRepositoryUpdateDelivery:
         assert ok is True
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_update_with_all_fields(self):
-        from repositories.notification_repository import NotificationRepository
         from models.notification import NotificationDeliveryUpdate
+        from repositories.notification_repository import NotificationRepository
+
         nid = str(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         db = _mock_db()
         db.execute.return_value = _rowcount_result(1)
         repo = NotificationRepository(db)
@@ -494,10 +487,10 @@ class TestNotificationRepositoryUpdateDelivery:
         assert params["delivered_at"] == now
         assert params["retry_count"] == 2
 
-    @pytest.mark.asyncio
     async def test_update_with_error_message(self):
-        from repositories.notification_repository import NotificationRepository
         from models.notification import NotificationDeliveryUpdate
+        from repositories.notification_repository import NotificationRepository
+
         nid = str(uuid4())
         db = _mock_db()
         db.execute.return_value = _rowcount_result(1)
@@ -514,10 +507,10 @@ class TestNotificationRepositoryUpdateDelivery:
         params = call_args.args[1] if call_args.args else call_args.kwargs
         assert params["error_message"] == "SMTP connection timeout"
 
-    @pytest.mark.asyncio
     async def test_update_returns_false_when_not_found(self):
-        from repositories.notification_repository import NotificationRepository
         from models.notification import NotificationDeliveryUpdate
+        from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.return_value = _rowcount_result(0)
         repo = NotificationRepository(db)
@@ -527,11 +520,11 @@ class TestNotificationRepositoryUpdateDelivery:
 
         assert ok is False
 
-    @pytest.mark.asyncio
     async def test_update_raises_repository_error_on_failure(self):
-        from repositories.notification_repository import NotificationRepository
         from models.notification import NotificationDeliveryUpdate
         from repositories.base import RepositoryError
+        from repositories.notification_repository import NotificationRepository
+
         db = _mock_db()
         db.execute.side_effect = Exception("DB locked")
         repo = NotificationRepository(db)
@@ -540,11 +533,11 @@ class TestNotificationRepositoryUpdateDelivery:
         with pytest.raises(RepositoryError):
             await repo.update_delivery(str(uuid4()), upd)
 
-    @pytest.mark.asyncio
     async def test_only_non_none_fields_included_in_update(self):
         """None fields must NOT produce SET clauses (partial update semantics)."""
-        from repositories.notification_repository import NotificationRepository
         from models.notification import NotificationDeliveryUpdate
+        from repositories.notification_repository import NotificationRepository
+
         nid = str(uuid4())
         db = _mock_db()
         db.execute.return_value = _rowcount_result(1)
@@ -621,6 +614,7 @@ def dispatcher_with_tracking(
     mock_email_service,
 ):
     from services.notification_dispatcher import NotificationDispatcher
+
     return NotificationDispatcher(
         db=mock_db_for_dispatcher,
         notification_service=mock_notification_service,
@@ -632,7 +626,6 @@ def dispatcher_with_tracking(
 class TestDispatcherDeliveryTracking:
     """Verify that NotificationDispatcher persists delivery tracking correctly."""
 
-    @pytest.mark.asyncio
     async def test_in_app_insert_includes_delivery_channel(
         self, dispatcher_with_tracking, mock_db_for_dispatcher
     ):
@@ -654,10 +647,7 @@ class TestDispatcherDeliveryTracking:
         assert "delivery_channel" in sql
         assert "delivery_status" in sql
 
-    @pytest.mark.asyncio
-    async def test_notification_id_returned_for_in_app_channel(
-        self, dispatcher_with_tracking
-    ):
+    async def test_notification_id_returned_for_in_app_channel(self, dispatcher_with_tracking):
         """send() should return a non-None notification_id when IN_APP is included."""
         from services.notification_dispatcher import NotificationChannel
 
@@ -670,10 +660,7 @@ class TestDispatcherDeliveryTracking:
 
         assert result["notification_id"] is not None
 
-    @pytest.mark.asyncio
-    async def test_notification_id_none_without_in_app_channel(
-        self, dispatcher_with_tracking
-    ):
+    async def test_notification_id_none_without_in_app_channel(self, dispatcher_with_tracking):
         """send() should return notification_id=None when IN_APP is not in channels."""
         from services.notification_dispatcher import NotificationChannel
 
@@ -687,7 +674,6 @@ class TestDispatcherDeliveryTracking:
 
         assert result["notification_id"] is None
 
-    @pytest.mark.asyncio
     async def test_push_failure_records_error_on_in_app_row(
         self, dispatcher_with_tracking, mock_db_for_dispatcher, mock_push_service
     ):
@@ -708,12 +694,9 @@ class TestDispatcherDeliveryTracking:
         assert result["channels"]["push"] is False
         # Two execute calls expected: INSERT then UPDATE
         assert mock_db_for_dispatcher.execute.await_count == 2
-        update_call_sql = str(
-            mock_db_for_dispatcher.execute.call_args_list[1].args[0]
-        ).upper()
+        update_call_sql = str(mock_db_for_dispatcher.execute.call_args_list[1].args[0]).upper()
         assert "UPDATE" in update_call_sql
 
-    @pytest.mark.asyncio
     async def test_push_success_records_sent_on_in_app_row(
         self, dispatcher_with_tracking, mock_db_for_dispatcher, mock_push_service
     ):
@@ -736,7 +719,6 @@ class TestDispatcherDeliveryTracking:
         update_params = mock_db_for_dispatcher.execute.call_args_list[1].args[1]
         assert update_params["delivery_status"] == "sent"
 
-    @pytest.mark.asyncio
     async def test_email_failure_records_error_message_on_in_app_row(
         self, dispatcher_with_tracking, mock_db_for_dispatcher, mock_email_service
     ):
@@ -761,7 +743,6 @@ class TestDispatcherDeliveryTracking:
         assert update_params["delivery_status"] == "failed"
         assert "SMTP auth failed" in update_params["error_message"]
 
-    @pytest.mark.asyncio
     async def test_dedup_skip_returns_none_notification_id(
         self, dispatcher_with_tracking, mock_db_for_dispatcher
     ):

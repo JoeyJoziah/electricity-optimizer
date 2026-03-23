@@ -7,7 +7,6 @@ Fallback: Nominatim / OpenStreetMap (free, no key required, 1 req/s policy).
 
 import httpx
 import structlog
-from typing import Optional
 
 from config.settings import get_settings
 
@@ -18,29 +17,112 @@ NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 # Two-letter state abbreviations
 _US_STATES = {
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
-    "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
-    "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
-    "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
-    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "DC",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
     "WY",
 }
 
 # OWM returns full state names — map to 2-letter abbreviations
 _STATE_NAME_TO_ABBR: dict[str, str] = {
-    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
-    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
-    "District of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Hawaii": "HI",
-    "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA",
-    "Kansas": "KS", "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME",
-    "Maryland": "MD", "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN",
-    "Mississippi": "MS", "Missouri": "MO", "Montana": "MT", "Nebraska": "NE",
-    "Nevada": "NV", "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM",
-    "New York": "NY", "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH",
-    "Oklahoma": "OK", "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
-    "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX",
-    "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
-    "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY",
+    "Alabama": "AL",
+    "Alaska": "AK",
+    "Arizona": "AZ",
+    "Arkansas": "AR",
+    "California": "CA",
+    "Colorado": "CO",
+    "Connecticut": "CT",
+    "Delaware": "DE",
+    "District of Columbia": "DC",
+    "Florida": "FL",
+    "Georgia": "GA",
+    "Hawaii": "HI",
+    "Idaho": "ID",
+    "Illinois": "IL",
+    "Indiana": "IN",
+    "Iowa": "IA",
+    "Kansas": "KS",
+    "Kentucky": "KY",
+    "Louisiana": "LA",
+    "Maine": "ME",
+    "Maryland": "MD",
+    "Massachusetts": "MA",
+    "Michigan": "MI",
+    "Minnesota": "MN",
+    "Mississippi": "MS",
+    "Missouri": "MO",
+    "Montana": "MT",
+    "Nebraska": "NE",
+    "Nevada": "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "ND",
+    "Ohio": "OH",
+    "Oklahoma": "OK",
+    "Oregon": "OR",
+    "Pennsylvania": "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    "Tennessee": "TN",
+    "Texas": "TX",
+    "Utah": "UT",
+    "Vermont": "VT",
+    "Virginia": "VA",
+    "Washington": "WA",
+    "West Virginia": "WV",
+    "Wisconsin": "WI",
+    "Wyoming": "WY",
 }
 
 
@@ -49,7 +131,7 @@ class GeocodingService:
         self._settings = settings or get_settings()
         self._owm_key = self._settings.openweathermap_api_key
 
-    async def geocode(self, address: str) -> Optional[dict]:
+    async def geocode(self, address: str) -> dict | None:
         """Full geocode returning lat/lng and state abbreviation.
 
         Tries OpenWeatherMap first, falls back to Nominatim on failure.
@@ -64,14 +146,14 @@ class GeocodingService:
 
         return None
 
-    async def address_to_region(self, address: str) -> Optional[str]:
+    async def address_to_region(self, address: str) -> str | None:
         """Resolve a US address to a two-letter state abbreviation."""
         result = await self.geocode(address)
         if result and result.get("state") in _US_STATES:
             return result["state"]
         return None
 
-    async def _geocode_owm(self, address: str) -> Optional[dict]:
+    async def _geocode_owm(self, address: str) -> dict | None:
         """Geocode via OpenWeatherMap /geo/1.0/direct."""
         if not self._owm_key:
             logger.debug("geocode_owm_skip", reason="no API key")
@@ -103,7 +185,7 @@ class GeocodingService:
             logger.warning("geocode_owm_failed", error=str(e))
             return None
 
-    async def _geocode_nominatim(self, address: str) -> Optional[dict]:
+    async def _geocode_nominatim(self, address: str) -> dict | None:
         """Geocode via Nominatim (OpenStreetMap) — free, no API key."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:

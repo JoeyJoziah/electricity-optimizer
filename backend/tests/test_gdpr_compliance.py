@@ -9,14 +9,12 @@ Comprehensive tests for GDPR compliance features:
 - Article 21: Right to object (consent withdrawal)
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
-
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -38,9 +36,9 @@ class TestConsentRecordModel:
             user_id="user-123",
             purpose="data_processing",
             consent_given=True,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ip_address="192.168.1.1",
-            user_agent="Mozilla/5.0"
+            user_agent="Mozilla/5.0",
         )
 
         assert record.user_id == "user-123"
@@ -51,15 +49,16 @@ class TestConsentRecordModel:
 
     def test_consent_record_required_fields(self):
         """Test that all required fields are present"""
-        from models.consent import ConsentRecord
         from pydantic import ValidationError
+
+        from models.consent import ConsentRecord
 
         with pytest.raises(ValidationError):
             ConsentRecord()
 
     def test_consent_record_valid_purposes(self):
         """Test that consent purposes are validated"""
-        from models.consent import ConsentRecord, ConsentPurpose
+        from models.consent import ConsentPurpose
 
         assert ConsentPurpose.DATA_PROCESSING.value == "data_processing"
         assert ConsentPurpose.MARKETING.value == "marketing"
@@ -76,12 +75,12 @@ class TestConsentRecordModel:
             user_id="user-123",
             purpose="marketing",
             consent_given=False,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ip_address="10.0.0.1",
             user_agent="Chrome/120.0",
             consent_version="1.0",
-            withdrawal_timestamp=datetime.now(timezone.utc),
-            metadata={"source": "web"}
+            withdrawal_timestamp=datetime.now(UTC),
+            metadata={"source": "web"},
         )
 
         assert record.id == "consent-id-123"
@@ -100,7 +99,7 @@ class TestConsentRecordModel:
             consent_given=True,
             timestamp=naive_dt,
             ip_address="192.168.1.1",
-            user_agent="Test"
+            user_agent="Test",
         )
 
         assert record.timestamp.tzinfo is not None
@@ -118,10 +117,7 @@ class TestConsentRequestModels:
         """Test consent request schema validation"""
         from models.consent import ConsentRequest
 
-        request = ConsentRequest(
-            purpose="data_processing",
-            consent_given=True
-        )
+        request = ConsentRequest(purpose="data_processing", consent_given=True)
 
         assert request.purpose == "data_processing"
         assert request.consent_given is True
@@ -135,8 +131,8 @@ class TestConsentRequestModels:
             user_id="user-123",
             purpose="analytics",
             consent_given=True,
-            timestamp=datetime.now(timezone.utc),
-            message="Consent recorded successfully"
+            timestamp=datetime.now(UTC),
+            message="Consent recorded successfully",
         )
 
         assert response.message == "Consent recorded successfully"
@@ -149,16 +145,12 @@ class TestConsentRequestModels:
             user_id="user-123",
             purpose="data_processing",
             consent_given=True,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ip_address="192.168.1.1",
-            user_agent="Test"
+            user_agent="Test",
         )
 
-        response = ConsentHistoryResponse(
-            user_id="user-123",
-            consents=[record],
-            total_count=1
-        )
+        response = ConsentHistoryResponse(user_id="user-123", consents=[record], total_count=1)
 
         assert len(response.consents) == 1
         assert response.total_count == 1
@@ -178,13 +170,13 @@ class TestDataExportModels:
 
         export = UserDataExport(
             user_id="user-123",
-            export_timestamp=datetime.now(timezone.utc),
+            export_timestamp=datetime.now(UTC),
             profile_data={"email": "test@example.com", "name": "Test User"},
             preferences_data={"notifications": True},
             consent_history=[],
             price_alerts=[],
             recommendations=[],
-            activity_logs=[]
+            activity_logs=[],
         )
 
         assert export.user_id == "user-123"
@@ -202,18 +194,18 @@ class TestDataExportModels:
             "consent_history",
             "price_alerts",
             "recommendations",
-            "activity_logs"
+            "activity_logs",
         ]
 
         export = UserDataExport(
             user_id="user-123",
-            export_timestamp=datetime.now(timezone.utc),
+            export_timestamp=datetime.now(UTC),
             profile_data={},
             preferences_data={},
             consent_history=[],
             price_alerts=[],
             recommendations=[],
-            activity_logs=[]
+            activity_logs=[],
         )
 
         for field in required_fields:
@@ -244,10 +236,7 @@ class TestGDPRComplianceService:
         """Create mock user repository"""
         repo = AsyncMock()
         repo.get_by_id.return_value = MagicMock(
-            id="user-123",
-            email="test@example.com",
-            name="Test User",
-            preferences={}
+            id="user-123", email="test@example.com", name="Test User", preferences={}
         )
         repo.delete.return_value = True
         return repo
@@ -256,9 +245,11 @@ class TestGDPRComplianceService:
     def mock_db_session(self):
         """Create mock database session for atomic GDPR deletion."""
         session = AsyncMock()
-        session.execute = AsyncMock(return_value=MagicMock(
-            mappings=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
-        ))
+        session.execute = AsyncMock(
+            return_value=MagicMock(
+                mappings=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+            )
+        )
         session.commit = AsyncMock()
         session.rollback = AsyncMock()
         return session
@@ -278,7 +269,6 @@ class TestGDPRComplianceService:
     # Consent Recording Tests (Article 6)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_record_consent_success(self, gdpr_service, mock_consent_repository):
         """Test successful consent recording"""
         result = await gdpr_service.record_consent(
@@ -286,13 +276,12 @@ class TestGDPRComplianceService:
             purpose="data_processing",
             consent_given=True,
             ip_address="192.168.1.1",
-            user_agent="Mozilla/5.0"
+            user_agent="Mozilla/5.0",
         )
 
         assert result is not None
         mock_consent_repository.create.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_record_consent_with_all_metadata(self, gdpr_service, mock_consent_repository):
         """Test consent recording captures all required metadata"""
         await gdpr_service.record_consent(
@@ -300,7 +289,7 @@ class TestGDPRComplianceService:
             purpose="marketing",
             consent_given=False,
             ip_address="10.0.0.1",
-            user_agent="Chrome/120"
+            user_agent="Chrome/120",
         )
 
         call_args = mock_consent_repository.create.call_args
@@ -313,7 +302,6 @@ class TestGDPRComplianceService:
         assert consent_record.user_agent == "Chrome/120"
         assert consent_record.timestamp is not None
 
-    @pytest.mark.asyncio
     async def test_record_consent_withdrawal(self, gdpr_service, mock_consent_repository):
         """Test consent withdrawal is properly recorded"""
         # Record initial consent
@@ -322,7 +310,7 @@ class TestGDPRComplianceService:
             purpose="marketing",
             consent_given=True,
             ip_address="192.168.1.1",
-            user_agent="Test"
+            user_agent="Test",
         )
 
         # Withdraw consent
@@ -331,12 +319,11 @@ class TestGDPRComplianceService:
             purpose="marketing",
             consent_given=False,
             ip_address="192.168.1.1",
-            user_agent="Test"
+            user_agent="Test",
         )
 
         assert mock_consent_repository.create.call_count == 2
 
-    @pytest.mark.asyncio
     async def test_record_consent_multiple_purposes(self, gdpr_service, mock_consent_repository):
         """Test recording consent for multiple purposes"""
         purposes = ["data_processing", "marketing", "analytics", "price_alerts"]
@@ -347,7 +334,7 @@ class TestGDPRComplianceService:
                 purpose=purpose,
                 consent_given=True,
                 ip_address="192.168.1.1",
-                user_agent="Test"
+                user_agent="Test",
             )
 
         assert mock_consent_repository.create.call_count == len(purposes)
@@ -356,7 +343,6 @@ class TestGDPRComplianceService:
     # Consent History Tests
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_get_consent_history(self, gdpr_service, mock_consent_repository):
         """Test retrieving consent history for a user"""
         mock_consent_repository.get_by_user_id.return_value = [
@@ -365,15 +351,15 @@ class TestGDPRComplianceService:
                 user_id="user-123",
                 purpose="data_processing",
                 consent_given=True,
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(UTC),
             ),
             MagicMock(
                 id="consent-2",
                 user_id="user-123",
                 purpose="marketing",
                 consent_given=False,
-                timestamp=datetime.now(timezone.utc)
-            )
+                timestamp=datetime.now(UTC),
+            ),
         ]
 
         history = await gdpr_service.get_consent_history("user-123")
@@ -381,7 +367,6 @@ class TestGDPRComplianceService:
         assert len(history) == 2
         mock_consent_repository.get_by_user_id.assert_called_once_with("user-123")
 
-    @pytest.mark.asyncio
     async def test_get_consent_history_empty(self, gdpr_service, mock_consent_repository):
         """Test consent history for user with no consents"""
         mock_consent_repository.get_by_user_id.return_value = []
@@ -390,13 +375,12 @@ class TestGDPRComplianceService:
 
         assert len(history) == 0
 
-    @pytest.mark.asyncio
     async def test_get_current_consent_status(self, gdpr_service, mock_consent_repository):
         """Test getting current consent status for all purposes"""
         mock_consent_repository.get_latest_by_user_and_purpose.return_value = {
             "data_processing": True,
             "marketing": False,
-            "analytics": True
+            "analytics": True,
         }
 
         status = await gdpr_service.get_current_consent_status("user-123")
@@ -409,8 +393,9 @@ class TestGDPRComplianceService:
     # Data Export Tests (Article 15 & 20)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
-    async def test_export_user_data_returns_all_data(self, gdpr_service, mock_consent_repository, mock_user_repository):
+    async def test_export_user_data_returns_all_data(
+        self, gdpr_service, mock_consent_repository, mock_user_repository
+    ):
         """Test data export returns all user data"""
         export = await gdpr_service.export_user_data("user-123")
 
@@ -421,14 +406,13 @@ class TestGDPRComplianceService:
         assert "preferences_data" in export
         assert "consent_history" in export
 
-    @pytest.mark.asyncio
     async def test_export_user_data_includes_profile(self, gdpr_service, mock_user_repository):
         """Test data export includes user profile"""
         mock_user = MagicMock(
             id="user-123",
             email="test@example.com",
             region="uk",
-            preferences={"notifications": True}
+            preferences={"notifications": True},
         )
         mock_user.name = "Test User"
         mock_user_repository.get_by_id.return_value = mock_user
@@ -438,22 +422,18 @@ class TestGDPRComplianceService:
         assert export["profile_data"]["email"] == "test@example.com"
         assert export["profile_data"]["name"] == "Test User"
 
-    @pytest.mark.asyncio
-    async def test_export_user_data_includes_consent_history(self, gdpr_service, mock_consent_repository):
+    async def test_export_user_data_includes_consent_history(
+        self, gdpr_service, mock_consent_repository
+    ):
         """Test data export includes consent history"""
         mock_consent_repository.get_by_user_id.return_value = [
-            MagicMock(
-                purpose="data_processing",
-                consent_given=True,
-                timestamp=datetime.now(timezone.utc)
-            )
+            MagicMock(purpose="data_processing", consent_given=True, timestamp=datetime.now(UTC))
         ]
 
         export = await gdpr_service.export_user_data("user-123")
 
         assert len(export["consent_history"]) > 0
 
-    @pytest.mark.asyncio
     async def test_export_user_data_machine_readable(self, gdpr_service):
         """Test data export is in machine-readable format (JSON serializable)"""
         import json
@@ -464,7 +444,6 @@ class TestGDPRComplianceService:
         json_str = json.dumps(export, default=str)
         assert json_str is not None
 
-    @pytest.mark.asyncio
     async def test_export_user_data_nonexistent_user(self, gdpr_service, mock_user_repository):
         """Test data export for nonexistent user"""
         from compliance.gdpr import UserNotFoundError
@@ -478,36 +457,45 @@ class TestGDPRComplianceService:
     # Data Deletion Tests (Article 17)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_delete_user_data_success(self, gdpr_service, mock_db_session):
         """Test successful user data deletion"""
         result = await gdpr_service.delete_user_data("user-123")
 
         assert result is not None
-        # 2 commits: one for the atomic deletion, one for the deletion_log INSERT
-        assert mock_db_session.commit.call_count == 2
+        # Single commit: deletion + deletion_log INSERT are now in ONE transaction
+        # (fix for 09-P0-3 — deletion log transaction isolation)
+        assert mock_db_session.commit.call_count == 1
 
-    @pytest.mark.asyncio
     async def test_delete_user_data_deletes_all_categories(self, gdpr_service, mock_db_session):
         """Test deletion removes all user data categories atomically."""
         result = await gdpr_service.delete_user_data("user-123")
 
         # Verify all expected categories were deleted
         expected = {
-            "consents", "price_alerts", "recommendations",
-            "activity_logs", "extracted_rates", "bill_uploads",
-            "connections", "supplier_accounts", "profile",
-            "agent_data", "community_data", "notifications",
-            "feedback", "savings", "recommendation_outcomes",
-            "ml_data", "referrals",
+            "consents",
+            "price_alerts",
+            "recommendations",
+            "activity_logs",
+            "extracted_rates",
+            "bill_uploads",
+            "connections",
+            "supplier_accounts",
+            "profile",
+            "agent_data",
+            "community_data",
+            "notifications",
+            "feedback",
+            "savings",
+            "recommendation_outcomes",
+            "ml_data",
+            "referrals",
         }
         assert set(result.data_categories_deleted) == expected
 
-        # 2 commits: one for the atomic deletion, one for the deletion_log INSERT
-        assert mock_db_session.commit.call_count == 2
+        # Single commit: deletion + audit log are fully atomic (fix for 09-P0-3)
+        assert mock_db_session.commit.call_count == 1
         mock_db_session.rollback.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_delete_user_data_logs_deletion(self, gdpr_service):
         """Test that data deletion is logged for audit purposes"""
         result = await gdpr_service.delete_user_data("user-123")
@@ -516,18 +504,13 @@ class TestGDPRComplianceService:
         assert result.deletion_type == "full"
         assert result.legal_basis == "user_request"
 
-    @pytest.mark.asyncio
     async def test_delete_user_data_anonymizes_retained_data(self, gdpr_service, mock_db_session):
         """Test that retained data (for legal reasons) is anonymized"""
-        result = await gdpr_service.delete_user_data(
-            "user-123",
-            anonymize_retained=True
-        )
+        result = await gdpr_service.delete_user_data("user-123", anonymize_retained=True)
 
         assert result.deletion_type == "anonymization"
         assert "activity_logs" in result.data_categories_deleted
 
-    @pytest.mark.asyncio
     async def test_delete_user_data_nonexistent_user(self, gdpr_service, mock_user_repository):
         """Test deletion for nonexistent user"""
         from compliance.gdpr import UserNotFoundError
@@ -537,7 +520,6 @@ class TestGDPRComplianceService:
         with pytest.raises(UserNotFoundError):
             await gdpr_service.delete_user_data("nonexistent-user")
 
-    @pytest.mark.asyncio
     async def test_delete_user_data_rollback_on_failure(self, gdpr_service, mock_db_session):
         """Test that partial failure rolls back all changes (atomic)."""
         from compliance.gdpr import DataDeletionError
@@ -562,7 +544,6 @@ class TestGDPRComplianceService:
         mock_db_session.rollback.assert_called_once()
         mock_db_session.commit.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_delete_user_data_cascade(self, gdpr_service, mock_db_session):
         """Test cascade deletion of all related data via SQL."""
         await gdpr_service.delete_user_data("user-123")
@@ -577,18 +558,14 @@ class TestGDPRComplianceService:
     # Right to Object Tests (Article 21)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_withdraw_all_consents(self, gdpr_service, mock_consent_repository):
         """Test withdrawing all consents at once"""
         await gdpr_service.withdraw_all_consents(
-            user_id="user-123",
-            ip_address="192.168.1.1",
-            user_agent="Test"
+            user_id="user-123", ip_address="192.168.1.1", user_agent="Test"
         )
 
         # Should create withdrawal records for all consent types
 
-    @pytest.mark.asyncio
     async def test_consent_withdrawal_stops_processing(self, gdpr_service):
         """Test that consent withdrawal stops related processing"""
         await gdpr_service.record_consent(
@@ -596,7 +573,7 @@ class TestGDPRComplianceService:
             purpose="marketing",
             consent_given=False,
             ip_address="192.168.1.1",
-            user_agent="Test"
+            user_agent="Test",
         )
 
         # After withdrawal, related processing should be stopped
@@ -630,7 +607,6 @@ class TestConsentRepository:
 
         return ConsentRepository(mock_db_session)
 
-    @pytest.mark.asyncio
     async def test_create_consent_record(self, consent_repository, mock_db_session):
         """Test creating a consent record in database"""
         from models.consent import ConsentRecord
@@ -639,9 +615,9 @@ class TestConsentRepository:
             user_id="user-123",
             purpose="data_processing",
             consent_given=True,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ip_address="192.168.1.1",
-            user_agent="Test"
+            user_agent="Test",
         )
 
         await consent_repository.create(record)
@@ -649,14 +625,12 @@ class TestConsentRepository:
         mock_db_session.add.assert_called_once()
         mock_db_session.commit.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_consents_by_user_id(self, consent_repository, mock_db_session):
         """Test retrieving consents by user ID"""
         await consent_repository.get_by_user_id("user-123")
 
         mock_db_session.execute.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_latest_consent_by_purpose(self, consent_repository, mock_db_session):
         """Test getting latest consent for specific purpose via DISTINCT ON."""
         # Mock the raw SQL fetchall result (purpose, consent_given)
@@ -664,15 +638,11 @@ class TestConsentRepository:
         mock_result.fetchall.return_value = [("marketing", True)]
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
-        result = await consent_repository.get_latest_by_user_and_purpose(
-            "user-123",
-            "marketing"
-        )
+        result = await consent_repository.get_latest_by_user_and_purpose("user-123", "marketing")
 
         mock_db_session.execute.assert_called_once()
         assert result == {"marketing": True}
 
-    @pytest.mark.asyncio
     async def test_get_latest_consent_all_purposes(self, consent_repository, mock_db_session):
         """Test getting latest consent for all purposes via DISTINCT ON."""
         mock_result = MagicMock()
@@ -692,7 +662,6 @@ class TestConsentRepository:
             "analytics": True,
         }
 
-    @pytest.mark.asyncio
     async def test_get_latest_consent_empty(self, consent_repository, mock_db_session):
         """Test getting latest consent when no records exist."""
         mock_result = MagicMock()
@@ -703,7 +672,6 @@ class TestConsentRepository:
 
         assert result == {}
 
-    @pytest.mark.asyncio
     async def test_delete_consents_by_user_id(self, consent_repository, mock_db_session):
         """Test deleting all consents for a user.
 
@@ -730,12 +698,12 @@ class TestDeletionLog:
 
         log = DeletionLog(
             user_id="user-123",
-            deleted_at=datetime.now(timezone.utc),
+            deleted_at=datetime.now(UTC),
             deleted_by="user-123",  # Self-deletion
             deletion_type="full",
             ip_address="192.168.1.1",
             user_agent="Test",
-            data_categories_deleted=["profile", "consents", "preferences"]
+            data_categories_deleted=["profile", "consents", "preferences"],
         )
 
         assert log.user_id == "user-123"
@@ -748,12 +716,12 @@ class TestDeletionLog:
 
         log = DeletionLog(
             user_id="user-123",
-            deleted_at=datetime.now(timezone.utc),
+            deleted_at=datetime.now(UTC),
             deleted_by="user-123",
             deletion_type="full",
             ip_address="192.168.1.1",
             user_agent="Test",
-            data_categories_deleted=["profile"]
+            data_categories_deleted=["profile"],
         )
 
         # Deletion logs should be immutable for audit purposes
@@ -777,6 +745,7 @@ class TestGDPRComplianceAPI:
     def mock_session_data(self):
         """Mock authenticated user session"""
         from auth.neon_auth import SessionData
+
         return SessionData(
             user_id="user-123",
             email="test@example.com",
@@ -784,18 +753,17 @@ class TestGDPRComplianceAPI:
             email_verified=True,
         )
 
-    @pytest.mark.asyncio
     async def test_consent_endpoint_requires_auth(self):
         """Test that consent endpoints require authentication"""
-        from api.v1.compliance import record_consent
         import inspect
+
+        from api.v1.compliance import record_consent
 
         # Verify the endpoint has get_current_user dependency
         sig = inspect.signature(record_consent)
         param_names = list(sig.parameters.keys())
         assert "current_user" in param_names
 
-    @pytest.mark.asyncio
     async def test_record_consent_endpoint(self, mock_gdpr_service, mock_session_data):
         """Test POST /api/v1/compliance/consent endpoint"""
         from models.consent import ConsentRecord
@@ -805,7 +773,7 @@ class TestGDPRComplianceAPI:
             user_id="user-123",
             purpose="data_processing",
             consent_given=True,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ip_address="127.0.0.1",
             user_agent="Test",
         )
@@ -834,12 +802,11 @@ class TestGDPRComplianceAPI:
         assert result.consent_given is True
         mock_gdpr_service.record_consent.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_export_data_endpoint(self, mock_gdpr_service, mock_session_data):
         """Test GET /api/v1/compliance/gdpr/export endpoint"""
         mock_gdpr_service.export_user_data.return_value = {
             "user_id": "user-123",
-            "export_timestamp": datetime.now(timezone.utc).isoformat(),
+            "export_timestamp": datetime.now(UTC).isoformat(),
             "export_format_version": "1.0",
             "profile_data": {"email": "test@example.com"},
             "preferences_data": {},
@@ -860,15 +827,14 @@ class TestGDPRComplianceAPI:
         assert result.export_format_version == "1.0"
         mock_gdpr_service.export_user_data.assert_called_once_with("user-123")
 
-    @pytest.mark.asyncio
     async def test_delete_data_endpoint(self, mock_gdpr_service, mock_session_data):
         """Test DELETE /api/v1/compliance/gdpr/delete-my-data endpoint"""
-        from models.consent import DeletionLog, DataDeletionRequest
+        from models.consent import DataDeletionRequest, DeletionLog
 
         mock_log = DeletionLog(
             id="del-1",
             user_id="user-123",
-            deleted_at=datetime.now(timezone.utc),
+            deleted_at=datetime.now(UTC),
             deleted_by="user-123",
             deletion_type="full",
             ip_address="127.0.0.1",
@@ -897,7 +863,6 @@ class TestGDPRComplianceAPI:
         assert "savings" in result.deleted_categories
         mock_gdpr_service.delete_user_data.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_consent_history_endpoint(self, mock_gdpr_service, mock_session_data):
         """Test GET /api/v1/compliance/gdpr/consents endpoint"""
         from models.consent import ConsentRecord
@@ -908,7 +873,7 @@ class TestGDPRComplianceAPI:
                 user_id="user-123",
                 purpose="data_processing",
                 consent_given=True,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 ip_address="127.0.0.1",
                 user_agent="Test",
             ),
@@ -942,35 +907,32 @@ class TestDataRetention:
 
         return DataRetentionService(retention_days=730)
 
-    @pytest.mark.asyncio
     async def test_identify_expired_data(self, retention_service):
         """Test identifying data past retention period"""
         assert retention_service.retention_days == 730
 
         # Cutoff date should be 730 days ago
-        cutoff = datetime.now(timezone.utc) - timedelta(days=730)
-        assert cutoff < datetime.now(timezone.utc)
+        cutoff = datetime.now(UTC) - timedelta(days=730)
+        assert cutoff < datetime.now(UTC)
 
         # A record older than retention period should be considered expired
-        old_date = datetime.now(timezone.utc) - timedelta(days=731)
+        old_date = datetime.now(UTC) - timedelta(days=731)
         assert old_date < cutoff
 
         # A recent record should NOT be considered expired
-        recent_date = datetime.now(timezone.utc) - timedelta(days=100)
+        recent_date = datetime.now(UTC) - timedelta(days=100)
         assert recent_date > cutoff
 
-    @pytest.mark.asyncio
     async def test_purge_expired_data(self, retention_service):
         """Test purging expired data"""
         # Retention service should track what was purged
         assert retention_service.retention_days == 730
 
         # Verify the service can compute the retention window correctly
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_service.retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_service.retention_days)
         assert isinstance(cutoff, datetime)
         assert cutoff.tzinfo is not None
 
-    @pytest.mark.asyncio
     async def test_retention_respects_legal_holds(self, retention_service):
         """Test that retention respects legal hold flags"""
         # Retention period is configurable
@@ -1029,7 +991,6 @@ class TestDataAnonymization:
 class TestGDPRIntegration:
     """Integration tests for GDPR compliance"""
 
-    @pytest.mark.asyncio
     async def test_full_consent_flow(self):
         """Test complete consent flow: record -> view -> withdraw"""
         mock_db = AsyncMock()
@@ -1052,18 +1013,23 @@ class TestGDPRIntegration:
 
         # Step 1: Record consent
         mock_record = ConsentRecord(
-            id="c1", user_id="user-1", purpose="data_processing",
-            consent_given=True, timestamp=datetime.now(timezone.utc),
-            ip_address="127.0.0.1", user_agent="Test",
+            id="c1",
+            user_id="user-1",
+            purpose="data_processing",
+            consent_given=True,
+            timestamp=datetime.now(UTC),
+            ip_address="127.0.0.1",
+            user_agent="Test",
         )
         consent_repo.create.return_value = mock_record
-        consent_repo.get_latest_by_user_and_purpose.return_value = {
-            "data_processing": mock_record
-        }
+        consent_repo.get_latest_by_user_and_purpose.return_value = {"data_processing": mock_record}
 
         result = await service.record_consent(
-            user_id="user-1", purpose="data_processing",
-            consent_given=True, ip_address="127.0.0.1", user_agent="Test",
+            user_id="user-1",
+            purpose="data_processing",
+            consent_given=True,
+            ip_address="127.0.0.1",
+            user_agent="Test",
         )
         assert result.consent_given is True
 
@@ -1072,7 +1038,6 @@ class TestGDPRIntegration:
         history = await service.get_consent_history("user-1")
         assert len(history) == 1
 
-    @pytest.mark.asyncio
     async def test_full_data_export_flow(self):
         """Test complete data export flow"""
         mock_db = AsyncMock()
@@ -1082,8 +1047,11 @@ class TestGDPRIntegration:
         from compliance.gdpr import GDPRComplianceService
 
         user_repo.get_by_id.return_value = MagicMock(
-            id="user-1", email="test@example.com", name="Test",
-            region="CT", is_active=True,
+            id="user-1",
+            email="test@example.com",
+            name="Test",
+            region="CT",
+            is_active=True,
         )
         consent_repo.get_by_user_id.return_value = []
 
@@ -1099,7 +1067,6 @@ class TestGDPRIntegration:
         assert "profile_data" in result
         assert "export_timestamp" in result
 
-    @pytest.mark.asyncio
     async def test_full_deletion_flow(self):
         """Test complete data deletion flow"""
         mock_db = AsyncMock()
@@ -1139,7 +1106,6 @@ class TestGDPRIntegration:
         assert mock_db.execute.call_count >= 17
         assert mock_db.commit.call_count >= 1
 
-    @pytest.mark.asyncio
     async def test_consent_persists_across_sessions(self):
         """Test that consent records contain required audit fields"""
         from models.consent import ConsentRecord
@@ -1149,7 +1115,7 @@ class TestGDPRIntegration:
             user_id="user-1",
             purpose="data_processing",
             consent_given=True,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ip_address="192.168.1.1",
             user_agent="Mozilla/5.0",
             consent_version="1.0",

@@ -4,24 +4,32 @@ Email scanner service — searches Gmail/Outlook inboxes for utility bill emails
 Uses Gmail API (REST) and Microsoft Graph API to find emails matching
 utility bill keywords, then extracts rate data from email body/attachments.
 """
+
 import base64
 import re
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
-
-from utils.encryption import decrypt_field
 
 _OAUTH_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 
 # Keywords that indicate a utility bill email
 UTILITY_KEYWORDS = [
-    "electricity bill", "electric bill", "energy bill", "utility bill",
-    "energy statement", "account statement", "kWh", "kilowatt",
-    "monthly statement", "billing statement", "energy usage",
-    "your bill is ready", "payment due",
+    "electricity bill",
+    "electric bill",
+    "energy bill",
+    "utility bill",
+    "energy statement",
+    "account statement",
+    "kWh",
+    "kilowatt",
+    "monthly statement",
+    "billing statement",
+    "energy usage",
+    "your bill is ready",
+    "payment due",
 ]
 
 # Subject line patterns (case-insensitive)
@@ -43,7 +51,7 @@ class EmailScanResult:
         sender: str,
         date: datetime,
         is_utility_bill: bool = False,
-        extracted_data: Optional[Dict[str, Any]] = None,
+        extracted_data: dict[str, Any] | None = None,
         attachment_count: int = 0,
     ):
         self.email_id = email_id
@@ -72,25 +80,22 @@ def _matches_utility_keywords(text: str) -> bool:
     for keyword in UTILITY_KEYWORDS:
         if keyword.lower() in text_lower:
             return True
-    for pattern in SUBJECT_PATTERNS:
-        if pattern.search(text):
-            return True
-    return False
+    return any(pattern.search(text) for pattern in SUBJECT_PATTERNS)
 
 
 async def scan_gmail_inbox(
     access_token: str,
     lookback_days: int = 365,
     max_results: int = 50,
-) -> List[EmailScanResult]:
+) -> list[EmailScanResult]:
     """
     Scan Gmail inbox for utility bill emails.
 
     Uses Gmail API to search for emails matching utility keywords
     within the lookback period.
     """
-    results: List[EmailScanResult] = []
-    after_date = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime("%Y/%m/%d")
+    results: list[EmailScanResult] = []
+    after_date = (datetime.now(UTC) - timedelta(days=lookback_days)).strftime("%Y/%m/%d")
 
     # Build Gmail search query
     keyword_query = " OR ".join(f'"{kw}"' for kw in UTILITY_KEYWORDS[:6])
@@ -116,7 +121,9 @@ async def scan_gmail_inbox(
                 continue
 
             msg_data = msg_resp.json()
-            headers = {h["name"]: h["value"] for h in msg_data.get("payload", {}).get("headers", [])}
+            headers = {
+                h["name"]: h["value"] for h in msg_data.get("payload", {}).get("headers", [])
+            }
 
             subject = headers.get("Subject", "")
             sender = headers.get("From", "")
@@ -129,22 +136,25 @@ async def scan_gmail_inbox(
             is_bill = _matches_utility_keywords(subject) or _matches_utility_keywords(sender)
 
             try:
-                email_date = datetime.now(timezone.utc)  # Fallback
+                email_date = datetime.now(UTC)  # Fallback
                 if date_str:
                     # Parse RFC 2822 date (simplified)
                     from email.utils import parsedate_to_datetime
+
                     email_date = parsedate_to_datetime(date_str)
             except (ValueError, TypeError):
-                email_date = datetime.now(timezone.utc)
+                email_date = datetime.now(UTC)
 
-            results.append(EmailScanResult(
-                email_id=msg_stub["id"],
-                subject=subject,
-                sender=sender,
-                date=email_date,
-                is_utility_bill=is_bill,
-                attachment_count=attachment_count,
-            ))
+            results.append(
+                EmailScanResult(
+                    email_id=msg_stub["id"],
+                    subject=subject,
+                    sender=sender,
+                    date=email_date,
+                    is_utility_bill=is_bill,
+                    attachment_count=attachment_count,
+                )
+            )
 
     return results
 
@@ -153,14 +163,14 @@ async def scan_outlook_inbox(
     access_token: str,
     lookback_days: int = 365,
     max_results: int = 50,
-) -> List[EmailScanResult]:
+) -> list[EmailScanResult]:
     """
     Scan Outlook inbox for utility bill emails.
 
     Uses Microsoft Graph API to search for emails matching utility keywords.
     """
-    results: List[EmailScanResult] = []
-    after_date = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
+    results: list[EmailScanResult] = []
+    after_date = (datetime.now(UTC) - timedelta(days=lookback_days)).isoformat()
 
     # Build $search query for Graph API
     search_terms = " OR ".join(f'"{kw}"' for kw in UTILITY_KEYWORDS[:6])
@@ -188,18 +198,20 @@ async def scan_outlook_inbox(
             try:
                 email_date = datetime.fromisoformat(msg["receivedDateTime"].replace("Z", "+00:00"))
             except (ValueError, KeyError):
-                email_date = datetime.now(timezone.utc)
+                email_date = datetime.now(UTC)
 
             is_bill = _matches_utility_keywords(subject) or _matches_utility_keywords(sender)
 
-            results.append(EmailScanResult(
-                email_id=msg["id"],
-                subject=subject,
-                sender=sender,
-                date=email_date,
-                is_utility_bill=is_bill,
-                attachment_count=1 if msg.get("hasAttachments") else 0,
-            ))
+            results.append(
+                EmailScanResult(
+                    email_id=msg["id"],
+                    subject=subject,
+                    sender=sender,
+                    date=email_date,
+                    is_utility_bill=is_bill,
+                    attachment_count=1 if msg.get("hasAttachments") else 0,
+                )
+            )
 
     return results
 
@@ -208,7 +220,7 @@ async def extract_rates_from_email(
     provider: str,
     access_token: str,
     email_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Extract rate data from a specific email's body and attachments.
 
@@ -275,7 +287,7 @@ def _extract_gmail_body_text(payload: dict) -> str:
 async def download_gmail_attachments(
     access_token: str,
     email_id: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Download all PDF/image attachments from a Gmail message.
 
@@ -287,7 +299,7 @@ async def download_gmail_attachments(
     Limits to 5 attachments per email.  Skips non-PDF/image parts.
     """
     _ALLOWED_MIME = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
 
     async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
         # Fetch message with full payload to read part metadata
@@ -306,11 +318,13 @@ async def download_gmail_attachments(
             attachment_id = part.get("body", {}).get("attachmentId")
 
             if filename and attachment_id and mime_type.lower() in _ALLOWED_MIME:
-                results.append({
-                    "filename": filename,
-                    "attachment_id": attachment_id,
-                    "mime_type": mime_type.lower(),
-                })
+                results.append(
+                    {
+                        "filename": filename,
+                        "attachment_id": attachment_id,
+                        "mime_type": mime_type.lower(),
+                    }
+                )
 
             for sub in part.get("parts", []):
                 _collect_parts(sub)
@@ -332,11 +346,13 @@ async def download_gmail_attachments(
                 raw_data = att_resp.json().get("data", "")
                 # Gmail returns base64url-encoded data
                 file_bytes = base64.urlsafe_b64decode(raw_data + "==")
-                results.append({
-                    "filename": meta["filename"],
-                    "data": file_bytes,
-                    "mime_type": meta["mime_type"],
-                })
+                results.append(
+                    {
+                        "filename": meta["filename"],
+                        "data": file_bytes,
+                        "mime_type": meta["mime_type"],
+                    }
+                )
             except Exception:
                 # Skip attachments that fail to download
                 continue
@@ -347,7 +363,7 @@ async def download_gmail_attachments(
 async def download_outlook_attachments(
     access_token: str,
     email_id: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Download all PDF/image attachments from an Outlook/Graph API message.
 
@@ -358,7 +374,7 @@ async def download_outlook_attachments(
     Limits to 5 attachments per email.  Skips non-PDF/image content types.
     """
     _ALLOWED_MIME = {"application/pdf", "image/png", "image/jpeg", "image/jpg"}
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
 
     async with httpx.AsyncClient(timeout=_OAUTH_TIMEOUT) as client:
         resp = await client.get(
@@ -378,11 +394,13 @@ async def download_outlook_attachments(
                 continue
             try:
                 file_bytes = base64.b64decode(content_bytes)
-                results.append({
-                    "filename": att.get("name", "attachment"),
-                    "data": file_bytes,
-                    "mime_type": mime_type,
-                })
+                results.append(
+                    {
+                        "filename": att.get("name", "attachment"),
+                        "data": file_bytes,
+                        "mime_type": mime_type,
+                    }
+                )
             except Exception:
                 continue
 
@@ -390,8 +408,8 @@ async def download_outlook_attachments(
 
 
 async def extract_rates_from_attachments(
-    attachments: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    attachments: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Parse each attachment through bill_parser extractors.
 
@@ -405,13 +423,13 @@ async def extract_rates_from_attachments(
     """
     # Lazy import to avoid circular deps
     from services.bill_parser import (
-        extract_text,
+        _validate_magic_bytes,
+        extract_billing_period,
         extract_rate_per_kwh,
         extract_supplier,
-        extract_billing_period,
-        extract_total_kwh,
+        extract_text,
         extract_total_amount,
-        _validate_magic_bytes,
+        extract_total_kwh,
     )
 
     _MIME_TO_TYPE = {
@@ -421,7 +439,7 @@ async def extract_rates_from_attachments(
         "image/jpg": "jpg",
     }
 
-    extracted_results: List[Dict[str, Any]] = []
+    extracted_results: list[dict[str, Any]] = []
 
     for att in attachments:
         filename = att.get("filename", "unknown")
@@ -448,7 +466,7 @@ async def extract_rates_from_attachments(
             total_kwh, _ = extract_total_kwh(text_body)
             total_amount, _ = extract_total_amount(text_body)
 
-            result: Dict[str, Any] = {"filename": filename}
+            result: dict[str, Any] = {"filename": filename}
             if rate is not None and rate_conf >= 0.5:
                 result["rate_per_kwh"] = rate
             if supplier:
@@ -471,9 +489,9 @@ async def extract_rates_from_attachments(
     return extracted_results
 
 
-def _extract_rates_from_text(text: str) -> Dict[str, Any]:
+def _extract_rates_from_text(text: str) -> dict[str, Any]:
     """Extract rate information from email text using regex patterns from bill_parser."""
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
 
     # Rate per kWh
     rate_match = re.search(

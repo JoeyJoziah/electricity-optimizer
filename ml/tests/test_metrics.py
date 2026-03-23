@@ -71,10 +71,14 @@ class TestMeanAbsoluteError:
     def test_symmetry(self):
         y_true = np.array([1.0, 2.0, 3.0])
         y_pred = np.array([2.0, 3.0, 4.0])
-        assert mean_absolute_error(y_true, y_pred) == mean_absolute_error(y_pred, y_true)
+        assert mean_absolute_error(y_true, y_pred) == mean_absolute_error(
+            y_pred, y_true
+        )
 
     def test_single_element(self):
-        assert mean_absolute_error(np.array([5.0]), np.array([3.0])) == pytest.approx(2.0)
+        assert mean_absolute_error(np.array([5.0]), np.array([3.0])) == pytest.approx(
+            2.0
+        )
 
     def test_returns_float(self):
         result = mean_absolute_error(np.array([1.0, 2.0]), np.array([1.1, 2.1]))
@@ -107,10 +111,14 @@ class TestRootMeanSquaredError:
 
     def test_rmse_gte_mae(self):
         y_true, y_pred = _make_arrays()
-        assert root_mean_squared_error(y_true, y_pred) >= mean_absolute_error(y_true, y_pred)
+        assert root_mean_squared_error(y_true, y_pred) >= mean_absolute_error(
+            y_true, y_pred
+        )
 
     def test_single_element(self):
-        assert root_mean_squared_error(np.array([5.0]), np.array([3.0])) == pytest.approx(2.0)
+        assert root_mean_squared_error(
+            np.array([5.0]), np.array([3.0])
+        ) == pytest.approx(2.0)
 
 
 # =============================================================================
@@ -161,7 +169,9 @@ class TestSMAPE:
     def test_returns_zero_when_all_zero(self):
         y_true = np.array([0.0, 0.0])
         y_pred = np.array([0.0, 0.0])
-        assert symmetric_mean_absolute_percentage_error(y_true, y_pred) == pytest.approx(0.0)
+        assert symmetric_mean_absolute_percentage_error(
+            y_true, y_pred
+        ) == pytest.approx(0.0)
 
     def test_known_values(self):
         y_true = np.array([100.0])
@@ -302,25 +312,33 @@ class TestPredictionIntervalCoverage:
         y_true = np.array([1.0, 2.0, 3.0])
         y_lower = np.array([0.0, 1.0, 2.0])
         y_upper = np.array([2.0, 3.0, 4.0])
-        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(100.0)
+        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(
+            100.0
+        )
 
     def test_none_within_interval_is_zero(self):
         y_true = np.array([5.0, 5.0, 5.0])
         y_lower = np.array([0.0, 0.0, 0.0])
         y_upper = np.array([1.0, 1.0, 1.0])
-        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(0.0)
+        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(
+            0.0
+        )
 
     def test_half_within_interval_is_50(self):
         y_true = np.array([0.5, 5.0])  # First inside, second outside
         y_lower = np.array([0.0, 0.0])
         y_upper = np.array([1.0, 1.0])
-        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(50.0)
+        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(
+            50.0
+        )
 
     def test_boundary_values_are_covered(self):
         y_true = np.array([0.0, 1.0])  # Exactly at bounds
         y_lower = np.array([0.0, 0.0])
         y_upper = np.array([1.0, 1.0])
-        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(100.0)
+        assert prediction_interval_coverage(y_true, y_lower, y_upper) == pytest.approx(
+            100.0
+        )
 
     def test_returns_percentage_range(self):
         y_true, y_pred = _make_arrays()
@@ -344,7 +362,7 @@ class TestIntervalScore:
         assert score == pytest.approx(1.0)  # All widths = 1.0
 
     def test_penalizes_values_below_lower(self):
-        y_true = np.array([0.0])   # Below lower
+        y_true = np.array([0.0])  # Below lower
         y_lower = np.array([1.0])
         y_upper = np.array([2.0])
         alpha = 0.1
@@ -353,7 +371,7 @@ class TestIntervalScore:
         assert score == pytest.approx(21.0)
 
     def test_penalizes_values_above_upper(self):
-        y_true = np.array([3.0])   # Above upper
+        y_true = np.array([3.0])  # Above upper
         y_lower = np.array([1.0])
         y_upper = np.array([2.0])
         alpha = 0.1
@@ -540,7 +558,9 @@ class TestEvaluateForecast:
     def test_with_intervals(self):
         y_true, y_pred = _make_arrays()
         y_lower, y_upper = _make_intervals(y_pred)
-        m = evaluate_forecast(y_true, y_pred, y_lower=y_lower, y_upper=y_upper, verbose=False)
+        m = evaluate_forecast(
+            y_true, y_pred, y_lower=y_lower, y_upper=y_upper, verbose=False
+        )
         assert m.coverage_95 is not None
 
     def test_perfect_prediction_mae_zero(self):
@@ -610,9 +630,16 @@ class TestCompareModels:
 class TestForecastMetricsDataclass:
     def _basic_metrics(self, **overrides):
         defaults = dict(
-            mae=0.01, rmse=0.02, mape=5.0, smape=4.8, mse=0.0004,
-            r2_score=0.95, direction_accuracy=75.0, weighted_direction_accuracy=72.0,
-            n_samples=24, forecast_horizon=24,
+            mae=0.01,
+            rmse=0.02,
+            mape=5.0,
+            smape=4.8,
+            mse=0.0004,
+            r2_score=0.95,
+            direction_accuracy=75.0,
+            weighted_direction_accuracy=72.0,
+            n_samples=24,
+            forecast_horizon=24,
         )
         defaults.update(overrides)
         return ForecastMetrics(**defaults)
@@ -620,9 +647,18 @@ class TestForecastMetricsDataclass:
     def test_to_dict_contains_all_fields(self):
         m = self._basic_metrics()
         d = m.to_dict()
-        for attr in ["mae", "rmse", "mape", "smape", "mse", "r2_score",
-                     "direction_accuracy", "weighted_direction_accuracy",
-                     "n_samples", "forecast_horizon"]:
+        for attr in [
+            "mae",
+            "rmse",
+            "mape",
+            "smape",
+            "mse",
+            "r2_score",
+            "direction_accuracy",
+            "weighted_direction_accuracy",
+            "n_samples",
+            "forecast_horizon",
+        ]:
             assert attr in d
 
     def test_str_contains_key_labels(self):
@@ -668,7 +704,9 @@ class TestEdgeCases:
         assert mean_absolute_error(y_true, y_pred) == pytest.approx(0.05)
         assert root_mean_squared_error(y_true, y_pred) == pytest.approx(0.05)
         # MAPE: 100 * |0.15-0.20| / 0.15
-        assert mean_absolute_percentage_error(y_true, y_pred) == pytest.approx(100.0 / 3, rel=0.01)
+        assert mean_absolute_percentage_error(y_true, y_pred) == pytest.approx(
+            100.0 / 3, rel=0.01
+        )
 
     def test_very_close_predictions_near_zero_metrics(self):
         y_true = np.linspace(0.1, 0.5, 100)

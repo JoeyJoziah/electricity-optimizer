@@ -12,13 +12,10 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from services.optimization_report_service import (
-    OptimizationReportService,
     AVG_MONTHLY_CONSUMPTION,
+    OptimizationReportService,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -37,9 +34,7 @@ def _make_db(row_sets=None):
     """Create a mock DB that returns different row sets per call."""
     db = AsyncMock()
     if row_sets:
-        db.execute = AsyncMock(
-            side_effect=[_mapping_result(rs) for rs in row_sets]
-        )
+        db.execute = AsyncMock(side_effect=[_mapping_result(rs) for rs in row_sets])
     else:
         db.execute = AsyncMock(return_value=_mapping_result([]))
     return db
@@ -73,7 +68,6 @@ class TestAvgMonthlyConsumption:
 
 
 class TestReportStructure:
-    @pytest.mark.asyncio
     async def test_empty_report_has_required_keys(self):
         db = _make_db([[], [], [], []])
         service = OptimizationReportService(db)
@@ -87,7 +81,6 @@ class TestReportStructure:
         assert result["savings_opportunities"] == []
         assert result["utility_count"] == 0
 
-    @pytest.mark.asyncio
     async def test_annual_spend_is_12x_monthly(self):
         elec_rows = [{"price_per_kwh": 0.15, "supplier": "ACME"}]
         db = _make_db([elec_rows, [], [], []])
@@ -103,7 +96,6 @@ class TestReportStructure:
 
 
 class TestElectricitySpend:
-    @pytest.mark.asyncio
     async def test_monthly_cost_calculation(self):
         rows = [{"price_per_kwh": 0.20, "supplier": "Test"}]
         db = _make_db([rows, [], [], []])
@@ -114,7 +106,6 @@ class TestElectricitySpend:
         assert elec["utility_type"] == "electricity"
         assert abs(elec["monthly_cost"] - 177.20) < 0.01
 
-    @pytest.mark.asyncio
     async def test_savings_generated_when_price_spread(self):
         rows = [
             {"price_per_kwh": 0.25, "supplier": "Expensive"},
@@ -136,7 +127,6 @@ class TestElectricitySpend:
 
 
 class TestMultiUtilityAggregation:
-    @pytest.mark.asyncio
     async def test_utility_count_matches_data(self):
         elec_rows = [{"price_per_kwh": 0.15, "supplier": "A"}]
         gas_rows = [{"price_per_kwh": 1.20}]
@@ -149,7 +139,6 @@ class TestMultiUtilityAggregation:
         assert "electricity" in types
         assert "natural_gas" in types
 
-    @pytest.mark.asyncio
     async def test_total_monthly_aggregates_all(self):
         elec_rows = [{"price_per_kwh": 0.15, "supplier": "A"}]
         gas_rows = [{"price_per_kwh": 1.50}]
@@ -167,7 +156,6 @@ class TestMultiUtilityAggregation:
 
 
 class TestHeatingOilSpend:
-    @pytest.mark.asyncio
     async def test_heating_oil_cost_calculation(self):
         oil_rows = [{"price_per_gallon": 3.50}]
         db = _make_db([[], [], oil_rows, []])
@@ -180,7 +168,6 @@ class TestHeatingOilSpend:
 
 
 class TestPropaneSpend:
-    @pytest.mark.asyncio
     async def test_propane_cost_calculation(self):
         propane_rows = [{"price_per_gallon": 2.80}]
         db = _make_db([[], [], [], propane_rows])

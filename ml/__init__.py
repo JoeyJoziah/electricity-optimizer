@@ -40,7 +40,8 @@ try:
         ElectricityPriceFeatureEngine,
         create_dummy_data,
     )
-    __all__.extend(['ElectricityPriceFeatureEngine', 'create_dummy_data'])
+
+    __all__.extend(["ElectricityPriceFeatureEngine", "create_dummy_data"])
 except ImportError:
     pass
 
@@ -53,13 +54,16 @@ try:
         ConsumptionProfile,
         SwitchingRecommendation,
     )
-    __all__.extend([
-        'SupplierSwitchingEngine',
-        'Tariff',
-        'TariffType',
-        'ConsumptionProfile',
-        'SwitchingRecommendation',
-    ])
+
+    __all__.extend(
+        [
+            "SupplierSwitchingEngine",
+            "Tariff",
+            "TariffType",
+            "ConsumptionProfile",
+            "SwitchingRecommendation",
+        ]
+    )
 except ImportError:
     pass
 
@@ -69,7 +73,8 @@ try:
         ElectricityPriceForecaster,
         EnsembleForecaster,
     )
-    __all__.extend(['ElectricityPriceForecaster', 'EnsembleForecaster'])
+
+    __all__.extend(["ElectricityPriceForecaster", "EnsembleForecaster"])
 except ImportError:
     pass
 
@@ -79,7 +84,8 @@ try:
         XGBoostForecaster,
         LightGBMForecaster,
     )
-    __all__.extend(['XGBoostForecaster', 'LightGBMForecaster'])
+
+    __all__.extend(["XGBoostForecaster", "LightGBMForecaster"])
 except ImportError:
     pass
 
@@ -90,7 +96,8 @@ try:
         ModelTrainer,
         train_model,
     )
-    __all__.extend(['TrainingConfig', 'ModelTrainer', 'train_model'])
+
+    __all__.extend(["TrainingConfig", "ModelTrainer", "train_model"])
 except ImportError:
     pass
 
@@ -102,6 +109,9 @@ try:
         ModelBacktester,
         run_backtest,
     )
-    __all__.extend(['BacktestConfig', 'BacktestResult', 'ModelBacktester', 'run_backtest'])
+
+    __all__.extend(
+        ["BacktestConfig", "BacktestResult", "ModelBacktester", "run_backtest"]
+    )
 except ImportError:
     pass

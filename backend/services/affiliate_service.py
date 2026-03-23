@@ -6,9 +6,8 @@ click events for revenue attribution.
 """
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode, urlparse
+from typing import Any
+from urllib.parse import urlencode
 
 import structlog
 from sqlalchemy import text
@@ -18,7 +17,7 @@ logger = structlog.get_logger(__name__)
 
 # Affiliate partner configuration
 # In production, these would come from a config table or env vars.
-AFFILIATE_PARTNERS: Dict[str, Dict[str, str]] = {
+AFFILIATE_PARTNERS: dict[str, dict[str, str]] = {
     "choose_energy": {
         "base_url": "https://www.chooseenergy.com/shop/",
         "utm_source": "rateshift",
@@ -42,7 +41,7 @@ class AffiliateService:
         utility_type: str,
         region: str,
         partner: str = "choose_energy",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a tracked affiliate URL for a supplier.
 
         Returns None if no affiliate partner is configured for this context.
@@ -61,8 +60,8 @@ class AffiliateService:
 
     async def record_click(
         self,
-        user_id: Optional[str],
-        supplier_id: Optional[str],
+        user_id: str | None,
+        supplier_id: str | None,
         supplier_name: str,
         utility_type: str,
         region: str,
@@ -71,27 +70,31 @@ class AffiliateService:
     ) -> str:
         """Record an affiliate click event. Returns the click ID."""
         click_id = str(uuid.uuid4())
-        await self.db.execute(
-            text("""
-                INSERT INTO affiliate_clicks
-                    (id, user_id, supplier_id, supplier_name, utility_type,
-                     region, source_page, affiliate_url)
-                VALUES
-                    (:id, :user_id, :supplier_id, :supplier_name, :utility_type,
-                     :region, :source_page, :affiliate_url)
-            """),
-            {
-                "id": click_id,
-                "user_id": user_id,
-                "supplier_id": supplier_id,
-                "supplier_name": supplier_name,
-                "utility_type": utility_type,
-                "region": region,
-                "source_page": source_page,
-                "affiliate_url": affiliate_url,
-            },
-        )
-        await self.db.commit()
+        try:
+            await self.db.execute(
+                text("""
+                    INSERT INTO affiliate_clicks
+                        (id, user_id, supplier_id, supplier_name, utility_type,
+                         region, source_page, affiliate_url)
+                    VALUES
+                        (:id, :user_id, :supplier_id, :supplier_name, :utility_type,
+                         :region, :source_page, :affiliate_url)
+                """),
+                {
+                    "id": click_id,
+                    "user_id": user_id,
+                    "supplier_id": supplier_id,
+                    "supplier_name": supplier_name,
+                    "utility_type": utility_type,
+                    "region": region,
+                    "source_page": source_page,
+                    "affiliate_url": affiliate_url,
+                },
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
         logger.info(
             "affiliate_click_recorded",
             click_id=click_id,
@@ -106,17 +109,21 @@ class AffiliateService:
         commission_cents: int = 0,
     ) -> bool:
         """Mark a click as converted (user actually switched)."""
-        result = await self.db.execute(
-            text("""
-                UPDATE affiliate_clicks
-                SET converted = true,
-                    converted_at = NOW(),
-                    commission_cents = :commission
-                WHERE id = :click_id AND NOT converted
-            """),
-            {"click_id": click_id, "commission": commission_cents},
-        )
-        await self.db.commit()
+        try:
+            result = await self.db.execute(
+                text("""
+                    UPDATE affiliate_clicks
+                    SET converted = true,
+                        converted_at = NOW(),
+                        commission_cents = :commission
+                    WHERE id = :click_id AND NOT converted
+                """),
+                {"click_id": click_id, "commission": commission_cents},
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
         updated = result.rowcount > 0
         if updated:
             logger.info(
@@ -129,7 +136,7 @@ class AffiliateService:
     async def get_revenue_summary(
         self,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get affiliate revenue summary for internal reporting."""
         result = await self.db.execute(
             text("""
@@ -151,9 +158,7 @@ class AffiliateService:
                 "utility_type": r["utility_type"],
                 "total_clicks": r["total_clicks"],
                 "conversions": r["conversions"],
-                "conversion_rate": round(
-                    r["conversions"] / max(r["total_clicks"], 1) * 100, 1
-                ),
+                "conversion_rate": round(r["conversions"] / max(r["total_clicks"], 1) * 100, 1),
                 "total_commission_cents": r["total_commission_cents"],
             }
             for r in rows

@@ -9,10 +9,10 @@ POST /affiliate/click    — record an affiliate click
 GET  /affiliate/revenue  — internal revenue summary (requires API key)
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,18 +25,18 @@ router = APIRouter(prefix="/affiliate", tags=["Affiliate"])
 
 class ClickRequest(BaseModel):
     supplier_name: str = Field(description="Supplier being clicked on")
-    supplier_id: Optional[str] = Field(default=None, description="Supplier UUID if known")
+    supplier_id: str | None = Field(default=None, description="Supplier UUID if known")
     utility_type: str = Field(description="Utility type: electricity, natural_gas, etc.")
     region: str = Field(description="State/region code")
     source_page: str = Field(description="Page where click originated")
-    user_id: Optional[str] = Field(default=None, description="Authenticated user ID")
+    user_id: str | None = Field(default=None, description="Authenticated user ID")
 
 
 @router.post("/click", summary="Record affiliate click")
 async def record_affiliate_click(
     body: ClickRequest,
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Record a click on an affiliate/switch CTA."""
     if db is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
@@ -74,7 +74,7 @@ async def record_affiliate_click(
 async def get_revenue_summary(
     days: int = Query(default=30, ge=1, le=365, description="Lookback period in days"),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get affiliate revenue summary. Internal use only."""
     if db is None:
         raise HTTPException(status_code=503, detail="Database unavailable")

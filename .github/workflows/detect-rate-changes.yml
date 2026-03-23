@@ -10,6 +10,7 @@ permissions:
 jobs:
   detect:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,7 +26,9 @@ jobs:
         with:
           url: ${{ secrets.BACKEND_URL }}/api/v1/internal/detect-rate-changes
           method: POST
-          api-key: ${{ secrets.INTERNAL_API_KEY }}
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
 
       - name: Notify on failure
         if: failure()

@@ -10,23 +10,21 @@ Tests for:
 RED phase: These tests should FAIL initially until endpoints are implemented.
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from datetime import datetime, timezone
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
-
 
 # =============================================================================
-# MODULE-SCOPED CLIENT FIXTURE
+# CLIENT FIXTURE
 # =============================================================================
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def client():
-    """Module-scoped TestClient — avoids 28 redundant ASGI lifespan startups."""
+    """Function-scoped TestClient — isolates ASGI state between tests."""
     from main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -86,8 +84,8 @@ class TestPriceEndpoints:
         """Test GET /api/v1/prices/current endpoint"""
         response = client.get("/api/v1/prices/current?region=uk")
 
-        # Should return 200 or appropriate error
-        assert response.status_code in [200, 404, 422, 500]
+        # Should return 200, 404 (no data), or 422 (validation) — never 500
+        assert response.status_code in [200, 404, 422]
 
         if response.status_code == 200:
             data = response.json()
@@ -108,15 +106,9 @@ class TestPriceEndpoints:
 
     def test_get_price_history(self, client):
         """Test GET /api/v1/prices/history endpoint"""
-        response = client.get(
-            "/api/v1/prices/history",
-            params={
-                "region": "uk",
-                "days": 7
-            }
-        )
+        response = client.get("/api/v1/prices/history", params={"region": "uk", "days": 7})
 
-        assert response.status_code in [200, 404, 500]
+        assert response.status_code in [200, 404]
 
         if response.status_code == 200:
             data = response.json()
@@ -130,7 +122,7 @@ class TestPriceEndpoints:
             params={"region": "uk", "days": 1},
         )
 
-        assert response.status_code in [200, 500]
+        assert response.status_code in [200, 404]
         if response.status_code == 200:
             data = response.json()
             for field in ("total", "page", "page_size", "pages"):
@@ -151,7 +143,7 @@ class TestPriceEndpoints:
             params={"region": "uk"},
         )
 
-        assert response.status_code in [200, 500]
+        assert response.status_code in [200, 404]
         if response.status_code == 200:
             data = response.json()
             assert data["page_size"] == 24
@@ -163,7 +155,7 @@ class TestPriceEndpoints:
             params={"region": "uk", "days": 7, "page_size": 10},
         )
 
-        assert response.status_code in [200, 500]
+        assert response.status_code in [200, 404]
         if response.status_code == 200:
             data = response.json()
             assert data["page_size"] == 10
@@ -176,7 +168,7 @@ class TestPriceEndpoints:
             params={"region": "uk", "days": 7, "page": 2, "page_size": 5},
         )
 
-        assert response.status_code in [200, 500]
+        assert response.status_code in [200, 404]
         if response.status_code == 200:
             data = response.json()
             assert data["page"] == 2
@@ -213,7 +205,7 @@ class TestPriceEndpoints:
             params={"region": "uk", "days": 30, "page": 1, "page_size": 12},
         )
 
-        assert response.status_code in [200, 500]
+        assert response.status_code in [200, 404]
         if response.status_code == 200:
             data = response.json()
             assert len(data["prices"]) <= data["page_size"]
@@ -225,7 +217,7 @@ class TestPriceEndpoints:
             params={"region": "uk", "days": 7, "page_size": 24},
         )
 
-        assert response.status_code in [200, 500]
+        assert response.status_code in [200, 404]
         if response.status_code == 200:
             data = response.json()
             total = data["total"]
@@ -235,13 +227,7 @@ class TestPriceEndpoints:
 
     def test_get_price_forecast(self, client):
         """Test GET /api/v1/prices/forecast endpoint"""
-        response = client.get(
-            "/api/v1/prices/forecast",
-            params={
-                "region": "uk",
-                "hours": 24
-            }
-        )
+        response = client.get("/api/v1/prices/forecast", params={"region": "uk", "hours": 24})
 
         # Unauthenticated request: 401 because no auth token is present.
         # The tier gate (403) only fires after auth succeeds.
@@ -251,7 +237,7 @@ class TestPriceEndpoints:
         """Test GET /api/v1/prices/compare endpoint"""
         response = client.get("/api/v1/prices/compare?region=uk")
 
-        assert response.status_code in [200, 404, 500]
+        assert response.status_code in [200, 404]
 
         if response.status_code == 200:
             data = response.json()
@@ -263,44 +249,99 @@ class TestPriceEndpoints:
 # =============================================================================
 
 
+def _supplier_client_with_mock(execute_side_effect):
+    """Create a TestClient with mocked DB session for supplier endpoints.
+
+    Args:
+        execute_side_effect: list or callable for mock_session.execute.
+    """
+    from api.dependencies import get_db_session, get_redis
+    from main import app
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=execute_side_effect)
+
+    async def mock_get_db_session():
+        yield mock_session
+
+    async def mock_get_redis():
+        return None
+
+    app.dependency_overrides[get_db_session] = mock_get_db_session
+    app.dependency_overrides[get_redis] = mock_get_redis
+    try:
+        with TestClient(app, raise_server_exceptions=False) as c:
+            yield c
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+        app.dependency_overrides.pop(get_redis, None)
+
+
 class TestSupplierEndpoints:
-    """Tests for supplier API endpoints"""
+    """Tests for supplier API endpoints.
 
-    def test_list_suppliers(self, client):
+    Supplier endpoints require a live DB session. These tests override
+    get_db_session with a mock that returns empty result sets so the
+    endpoint logic is exercised without a real database.
+    """
+
+    @pytest.fixture
+    def list_supplier_client(self):
+        """Client for list endpoints: execute returns count=0, rows=[]."""
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+
+        rows_result = MagicMock()
+        rows_result.mappings.return_value.all.return_value = []
+
+        yield from _supplier_client_with_mock([count_result, rows_result])
+
+    @pytest.fixture
+    def single_supplier_client(self):
+        """Client for single-item endpoints: execute returns no matching row."""
+        empty_result = MagicMock()
+        empty_result.mappings.return_value.first.return_value = None
+
+        yield from _supplier_client_with_mock([empty_result])
+
+    def test_list_suppliers(self, list_supplier_client):
         """Test GET /api/v1/suppliers endpoint"""
-        response = client.get("/api/v1/suppliers")
+        response = list_supplier_client.get("/api/v1/suppliers")
 
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "suppliers" in data
-            assert isinstance(data["suppliers"], list)
+        data = response.json()
+        assert "suppliers" in data
+        assert isinstance(data["suppliers"], list)
 
-    def test_list_suppliers_by_region(self, client):
+    def test_list_suppliers_by_region(self, list_supplier_client):
         """Test GET /api/v1/suppliers?region=uk endpoint"""
-        response = client.get("/api/v1/suppliers?region=uk")
+        response = list_supplier_client.get("/api/v1/suppliers?region=uk")
 
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
 
-    def test_get_supplier_by_id(self, client):
-        """Test GET /api/v1/suppliers/{id} endpoint"""
-        # Use a well-formed UUID that won't exist in the test DB
-        response = client.get("/api/v1/suppliers/00000000-0000-0000-0000-000000000001")
+    def test_get_supplier_by_id(self, single_supplier_client):
+        """Test GET /api/v1/suppliers/{id} endpoint with non-existent UUID"""
+        response = single_supplier_client.get(
+            "/api/v1/suppliers/00000000-0000-0000-0000-000000000001"
+        )
 
-        # 200 if found, 404 if not in DB
-        assert response.status_code in [200, 404, 500]
+        # Mock DB returns no row, so endpoint returns 404
+        assert response.status_code == 404
 
     def test_get_supplier_by_id_invalid_uuid(self, client):
         """Test GET /api/v1/suppliers/{id} rejects non-UUID path params"""
         response = client.get("/api/v1/suppliers/not-a-uuid")
         assert response.status_code == 422
 
-    def test_get_supplier_tariffs(self, client):
-        """Test GET /api/v1/suppliers/{id}/tariffs endpoint"""
-        response = client.get("/api/v1/suppliers/00000000-0000-0000-0000-000000000001/tariffs")
+    def test_get_supplier_tariffs(self, single_supplier_client):
+        """Test GET /api/v1/suppliers/{id}/tariffs endpoint with non-existent UUID"""
+        response = single_supplier_client.get(
+            "/api/v1/suppliers/00000000-0000-0000-0000-000000000001/tariffs"
+        )
 
-        assert response.status_code in [200, 404, 500]
+        # Mock DB returns no supplier, so endpoint returns 404
+        assert response.status_code == 404
 
 
 # =============================================================================
@@ -321,8 +362,7 @@ class TestAuthenticationEndpoints:
     def test_protected_endpoint_with_invalid_token(self, client):
         """Test protected endpoints reject invalid tokens"""
         response = client.get(
-            "/api/v1/user/preferences",
-            headers={"Authorization": "Bearer invalid_token"}
+            "/api/v1/user/preferences", headers={"Authorization": "Bearer invalid_token"}
         )
 
         # 401 = auth rejected (token invalid/expired)
@@ -332,10 +372,7 @@ class TestAuthenticationEndpoints:
 
     def test_user_preferences_endpoint(self, client):
         """Test POST /api/v1/user/preferences requires auth"""
-        response = client.post(
-            "/api/v1/user/preferences",
-            json={"notification_enabled": True}
-        )
+        response = client.post("/api/v1/user/preferences", json={"notification_enabled": True})
 
         assert response.status_code == 401
 
@@ -358,7 +395,7 @@ class TestRecommendationEndpoints:
         """Test usage recommendation endpoint requires authentication"""
         response = client.get(
             "/api/v1/recommendations/usage",
-            params={"appliance": "washing_machine", "duration_hours": 2}
+            params={"appliance": "washing_machine", "duration_hours": 2},
         )
 
         assert response.status_code == 401
@@ -427,7 +464,7 @@ class TestCORS:
             headers={
                 "Origin": "http://localhost:3000",
                 "Access-Control-Request-Method": "GET",
-            }
+            },
         )
 
         # CORS preflight should return 200 or 204 or 405
@@ -436,10 +473,7 @@ class TestCORS:
 
     def test_cors_allows_configured_origins(self, client):
         """Test CORS allows configured origins"""
-        response = client.get(
-            "/health",
-            headers={"Origin": "http://localhost:3000"}
-        )
+        response = client.get("/health", headers={"Origin": "http://localhost:3000"})
 
         assert response.status_code == 200
         # Access-Control-Allow-Origin should be present
@@ -487,3 +521,74 @@ class TestResponseFormat:
 
         assert response.status_code == 200
         assert "x-process-time" in response.headers
+
+
+# =============================================================================
+# GENERAL EXCEPTION HANDLER SANITIZATION TESTS
+# =============================================================================
+
+
+class TestGeneralExceptionHandlerSanitization:
+    """Verify the general exception handler never leaks raw exception details
+    to HTTP clients — regardless of the runtime environment.
+
+    The handler in app_factory.py previously returned ``str(exc)`` in
+    non-production environments.  This is a security vulnerability: SQLAlchemy
+    exceptions contain connection strings (with credentials), crypto exceptions
+    expose algorithm details, etc.
+
+    The fix: always return a generic message; log the full exception server-side.
+    """
+
+    def test_general_handler_returns_generic_message_in_test_env(self):
+        """The general exception handler must return a generic 500, not raw exc text."""
+
+        from fastapi.testclient import TestClient
+
+        from main import app
+
+        # Inject a route that unconditionally raises an exception with
+        # sensitive content to simulate an unhandled exception reaching the
+        # global exception handler.
+        @app.get("/test-exception-leak-canary")
+        async def _canary_exception():
+            raise RuntimeError(
+                "SECRET_TOKEN=sk_live_xxxxxDATABASE_URL=postgresql://admin:hunter2@db/prod"
+            )
+
+        with TestClient(app, raise_server_exceptions=False) as test_client:
+            response = test_client.get("/test-exception-leak-canary")
+
+        assert response.status_code == 500
+        body = response.text
+        # The raw exception string must NOT appear in the response body
+        assert "SECRET_TOKEN" not in body
+        assert "sk_live_" not in body
+        assert "hunter2" not in body
+        assert "DATABASE_URL" not in body
+        assert "postgresql://" not in body
+
+        # Response must still be valid JSON with a non-empty detail
+        data = response.json()
+        assert "detail" in data
+        assert isinstance(data["detail"], str)
+        assert len(data["detail"]) > 0
+
+    def test_general_handler_detail_is_not_raw_exception_string(self):
+        """The detail field must not equal str(exc) under any environment."""
+
+        from fastapi.testclient import TestClient
+
+        from main import app
+
+        @app.get("/test-exception-detail-canary")
+        async def _detail_canary():
+            raise ValueError("this_is_a_very_specific_internal_error_xyz123")
+
+        with TestClient(app, raise_server_exceptions=False) as test_client:
+            response = test_client.get("/test-exception-detail-canary")
+
+        assert response.status_code == 500
+        data = response.json()
+        # The exact exception string must not appear verbatim in the response
+        assert "this_is_a_very_specific_internal_error_xyz123" not in data.get("detail", "")

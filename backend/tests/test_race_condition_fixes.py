@@ -16,7 +16,7 @@ import asyncio
 import sys
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -54,7 +54,6 @@ class TestAtomicRedisRateLimiter:
         )
         return lim
 
-    @pytest.mark.asyncio
     async def test_check_redis_uses_eval_not_pipeline(self, limiter, redis_mock):
         """_check_redis must call redis.eval, NOT redis.pipeline."""
         redis_mock.eval.return_value = 1  # count=1, under limit
@@ -67,7 +66,6 @@ class TestAtomicRedisRateLimiter:
         assert allowed is True
         assert remaining == 9
 
-    @pytest.mark.asyncio
     async def test_check_redis_denied_when_over_limit(self, limiter, redis_mock):
         """Returns (False, 0) when the Lua script reports count > limit."""
         redis_mock.eval.return_value = 11  # count=11 > limit=10
@@ -76,7 +74,6 @@ class TestAtomicRedisRateLimiter:
         assert allowed is False
         assert remaining == 0
 
-    @pytest.mark.asyncio
     async def test_check_redis_passes_correct_args(self, limiter, redis_mock):
         """Lua script receives key, now, window, limit as positional ARGV."""
         redis_mock.eval.return_value = 5
@@ -91,7 +88,6 @@ class TestAtomicRedisRateLimiter:
         assert positional[4] == 60, "window ARGV[2] mismatch"
         assert positional[5] == 100, "limit ARGV[3] mismatch"
 
-    @pytest.mark.asyncio
     async def test_check_redis_both_uses_two_eval_calls(self, limiter, redis_mock):
         """_check_redis_both fires two atomic Lua evals (one per window)."""
         # Return (count, count) for both gather results
@@ -106,10 +102,9 @@ class TestAtomicRedisRateLimiter:
 
         assert redis_mock.eval.call_count == 2
         assert m_ok is True
-        assert m_rem == 7   # 10 - 3
+        assert m_rem == 7  # 10 - 3
         assert h_ok is True
 
-    @pytest.mark.asyncio
     async def test_concurrent_requests_do_not_exceed_limit(self, redis_mock):
         """
         Simulate N concurrent check_rate_limit calls.  The Lua eval mock
@@ -155,7 +150,6 @@ class TestSSEConnectionCounterFinally:
     even when the generator raises an unexpected exception mid-stream.
     """
 
-    @pytest.mark.asyncio
     async def test_counter_decremented_on_generator_exception(self):
         """
         If the generator body raises an unhandled exception the finally block
@@ -214,7 +208,6 @@ class TestSSEConnectionCounterFinally:
         # Counter must be back to zero (key removed)
         assert "user-exception-test" not in prices_sse._sse_connections
 
-    @pytest.mark.asyncio
     async def test_counter_decremented_on_cancelled_error(self):
         """CancelledError (client disconnect) must also trigger decrement."""
         from api.v1 import prices_sse
@@ -252,7 +245,6 @@ class TestSSEConnectionCounterFinally:
             "Counter must be zero after CancelledError"
         )
 
-    @pytest.mark.asyncio
     async def test_incr_decr_balance_under_normal_completion(self):
         """Normal generator exhaustion should leave the counter at zero."""
         from api.v1 import prices_sse
@@ -300,7 +292,6 @@ class TestSlidingWindowLimiterEviction:
     After crossing _MAX_KEYS all stale keys should be evicted.
     """
 
-    @pytest.mark.asyncio
     async def test_eviction_triggered_at_max_keys(self):
         """
         When the key count reaches _MAX_KEYS, stale keys (all timestamps
@@ -333,7 +324,6 @@ class TestSlidingWindowLimiterEviction:
             f"Expected 0 stale keys after eviction, found {len(stale_remaining)}"
         )
 
-    @pytest.mark.asyncio
     async def test_active_keys_not_evicted(self):
         """Keys with recent activity must survive the eviction sweep."""
         from integrations.pricing_apis.rate_limiter import SlidingWindowLimiter
@@ -359,12 +349,9 @@ class TestSlidingWindowLimiterEviction:
         await limiter.acquire("new-trigger")
 
         active_remaining = [k for k in limiter._windows if k.startswith("active-key-")]
-        assert len(active_remaining) == 4, (
-            "Active keys must not be evicted during sweep"
-        )
+        assert len(active_remaining) == 4, "Active keys must not be evicted during sweep"
         assert "stale-only" not in limiter._windows, "Stale key must be evicted"
 
-    @pytest.mark.asyncio
     async def test_no_eviction_below_threshold(self):
         """No sweep should happen while key count is below _MAX_KEYS."""
         from integrations.pricing_apis.rate_limiter import SlidingWindowLimiter
@@ -392,7 +379,6 @@ class TestSlidingWindowLimiterEviction:
             "Stale keys must not be eagerly evicted when below threshold"
         )
 
-    @pytest.mark.asyncio
     async def test_stale_key_evicted_when_other_key_triggers_sweep(self):
         """
         A stale key (all timestamps expired) is evicted when a *different*
@@ -425,7 +411,6 @@ class TestSlidingWindowLimiterEviction:
         # The actively-acquired key must still be present
         assert "new-key" in limiter._windows
 
-    @pytest.mark.asyncio
     async def test_rate_limiting_still_works_after_eviction(self):
         """Eviction must not disrupt active rate limiting logic."""
         from integrations.pricing_apis.rate_limiter import SlidingWindowLimiter
@@ -479,7 +464,6 @@ class TestRedisRateLimiterAtomicAcquire:
             name="test-redis-atomic",
         )
 
-    @pytest.mark.asyncio
     async def test_acquire_uses_eval_not_pipeline(self, rl, redis_mock):
         """acquire() must call redis.eval and must NOT call redis.pipeline."""
         result = await rl.acquire("somekey")
@@ -490,14 +474,12 @@ class TestRedisRateLimiterAtomicAcquire:
             "redis.pipeline must NOT be called — use atomic Lua script"
         )
 
-    @pytest.mark.asyncio
     async def test_acquire_returns_false_when_lua_denies(self, rl, redis_mock):
         """When Lua returns allowed=0 acquire() returns False."""
         redis_mock.eval.return_value = [0, 10]  # denied, count at limit
         result = await rl.acquire("somekey")
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_acquire_passes_tokens_to_lua(self, rl, redis_mock):
         """tokens=2 must be forwarded as ARGV[4]."""
         redis_mock.eval.return_value = [1, 2]
@@ -507,7 +489,6 @@ class TestRedisRateLimiterAtomicAcquire:
         # (script, numkeys, redis_key, now, window, limit, tokens)
         assert args[6] == 2, f"Expected tokens=2 in ARGV[4], got {args[6]}"
 
-    @pytest.mark.asyncio
     async def test_concurrent_acquire_respects_limit(self, redis_mock):
         """
         Simulate concurrent acquires: Lua counter increments each call.

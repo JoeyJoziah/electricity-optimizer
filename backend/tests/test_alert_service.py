@@ -1,9 +1,8 @@
 """Tests for the Price Alert Service."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from services.alert_service import AlertService, AlertThreshold, PriceAlert
 
@@ -15,7 +14,7 @@ class MockPrice:
         self.region = region
         self.supplier = supplier
         self.price_per_kwh = Decimal(str(price_per_kwh))
-        self.timestamp = timestamp or datetime.now(timezone.utc)
+        self.timestamp = timestamp or datetime.now(UTC)
 
 
 class TestAlertThreshold:
@@ -107,7 +106,7 @@ class TestAlertService:
         assert len(triggered) == 0
 
     def test_check_optimal_windows(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Create 6 hours of prices: first 2 cheap, rest expensive
         prices = [
             MockPrice("us_ct", "Eversource", 0.12, now + timedelta(hours=0)),
@@ -146,7 +145,6 @@ class TestAlertService:
         triggered = self.service.check_optimal_windows(prices, thresholds)
         assert len(triggered) == 0
 
-    @pytest.mark.asyncio
     async def test_send_alerts(self):
         threshold = AlertThreshold(user_id="u1", email="test@example.com")
         alert = PriceAlert(
@@ -155,14 +153,13 @@ class TestAlertService:
             threshold=Decimal("0.20"),
             region="us_ct",
             supplier="Eversource Energy",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
         sent = await self.service.send_alerts([(threshold, alert)])
         assert sum(sent) == 1
         self.mock_email.send.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_send_alerts_email_failure(self):
         self.mock_email.send = AsyncMock(return_value=False)
         threshold = AlertThreshold(user_id="u1", email="test@example.com")
@@ -172,7 +169,7 @@ class TestAlertService:
             threshold=Decimal("0.30"),
             region="us_ct",
             supplier="Eversource Energy",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
         sent = await self.service.send_alerts([(threshold, alert)])
@@ -185,7 +182,7 @@ class TestAlertService:
             threshold=Decimal("0.20"),
             region="us_ct",
             supplier="Eversource",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         subject = self.service._get_alert_subject(alert)
         assert "Price Drop" in subject
@@ -198,8 +195,8 @@ class TestAlertService:
             threshold=None,
             region="us_ct",
             supplier="Eversource",
-            timestamp=datetime.now(timezone.utc),
-            optimal_window_start=datetime(2026, 2, 12, 2, 0, tzinfo=timezone.utc),
+            timestamp=datetime.now(UTC),
+            optimal_window_start=datetime(2026, 2, 12, 2, 0, tzinfo=UTC),
         )
         subject = self.service._get_alert_subject(alert)
         assert "Optimal" in subject
@@ -228,7 +225,7 @@ class TestAlertServiceWithDispatcher:
             threshold=Decimal("0.20"),
             region=region,
             supplier="Eversource Energy",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
     def _make_dispatcher(self, send_return=None):
@@ -242,7 +239,6 @@ class TestAlertServiceWithDispatcher:
         dispatcher.send = AsyncMock(return_value=send_return)
         return dispatcher
 
-    @pytest.mark.asyncio
     async def test_dispatcher_called_instead_of_email_service(self):
         """When a dispatcher is configured, it should be called instead of the email service."""
         mock_email = MagicMock()
@@ -261,7 +257,6 @@ class TestAlertServiceWithDispatcher:
         # EmailService.send should NOT be called directly when dispatcher succeeds
         mock_email.send.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_dispatcher_send_uses_all_three_channels(self):
         """send_alerts() via dispatcher should request IN_APP, PUSH, and EMAIL channels."""
         from services.notification_dispatcher import NotificationChannel
@@ -282,7 +277,6 @@ class TestAlertServiceWithDispatcher:
         assert NotificationChannel.PUSH in channels
         assert NotificationChannel.EMAIL in channels
 
-    @pytest.mark.asyncio
     async def test_dispatcher_passes_email_address(self):
         """The user's email should be forwarded as email_to to the dispatcher."""
         mock_email = MagicMock()
@@ -298,14 +292,11 @@ class TestAlertServiceWithDispatcher:
         call_kwargs = dispatcher.send.call_args.kwargs
         assert call_kwargs.get("email_to") == "user@example.com"
 
-    @pytest.mark.asyncio
     async def test_dispatcher_dedup_skipped_counts_as_not_sent(self):
         """When the dispatcher deduplicates a send, the alert should NOT count as sent."""
         mock_email = MagicMock()
         mock_email.render_template = MagicMock(return_value="<html>alert</html>")
-        dispatcher = self._make_dispatcher(
-            send_return={"skipped_dedup": True, "channels": {}}
-        )
+        dispatcher = self._make_dispatcher(send_return={"skipped_dedup": True, "channels": {}})
 
         service = AlertService(email_service=mock_email, dispatcher=dispatcher)
         threshold = self._make_threshold()
@@ -315,7 +306,6 @@ class TestAlertServiceWithDispatcher:
 
         assert sum(sent) == 0
 
-    @pytest.mark.asyncio
     async def test_dispatcher_failure_falls_back_to_email_service(self):
         """When the dispatcher raises, the service should fall back to direct email."""
         mock_email = MagicMock()
@@ -335,7 +325,6 @@ class TestAlertServiceWithDispatcher:
         assert sum(sent) == 1
         mock_email.send.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_no_dispatcher_uses_legacy_email_path(self):
         """When no dispatcher is provided, direct EmailService.send() should be used."""
         mock_email = MagicMock()
@@ -351,7 +340,6 @@ class TestAlertServiceWithDispatcher:
         assert sum(sent) == 1
         mock_email.send.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_dispatcher_all_channels_fail_counts_zero(self):
         """When all dispatcher channels return False, the alert should not count as sent."""
         mock_email = MagicMock()
@@ -371,7 +359,6 @@ class TestAlertServiceWithDispatcher:
 
         assert sum(sent) == 0
 
-    @pytest.mark.asyncio
     async def test_dispatcher_dedup_key_includes_user_alert_and_region(self):
         """The dedup_key should embed user_id, alert_type, and region."""
         mock_email = MagicMock()

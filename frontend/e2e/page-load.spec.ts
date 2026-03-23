@@ -287,7 +287,6 @@ test.describe("Public Pages - Load Successfully", () => {
         await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       // Landing page should have a heading or hero content
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 5000,
@@ -310,7 +309,6 @@ test.describe("Public Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/pricing");
       // Should show pricing tiers
       await expect(page.getByText(/free|pro|business/i).first()).toBeVisible({
@@ -331,7 +329,6 @@ test.describe("Public Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/privacy");
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
         timeout: 5000,
@@ -351,7 +348,6 @@ test.describe("Public Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/terms");
       await expect(
         page.getByRole("heading", { level: 1, name: /terms/i }),
@@ -382,7 +378,6 @@ test.describe("Auth Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/auth/login");
       // Should show login form
       await expect(page.locator("#email")).toBeVisible({ timeout: 5000 });
@@ -402,7 +397,6 @@ test.describe("Auth Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/auth/signup");
       // Should show signup form
       await expect(page.locator("#email")).toBeVisible({ timeout: 5000 });
@@ -421,7 +415,6 @@ test.describe("Auth Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/auth/forgot-password");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 5000,
@@ -441,8 +434,11 @@ test.describe("Auth Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
-      // May redirect or show content depending on token presence
+      // May redirect or show content depending on token presence.
+      // Verify the page rendered semantic content (heading or form element).
+      await expect(
+        page.locator('h1, h2, form, [role="main"]').first(),
+      ).toBeVisible({ timeout: 5000 });
       expect(errors).toEqual([]);
     },
   );
@@ -458,7 +454,10 @@ test.describe("Auth Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
+      // Verify the page rendered semantic content (heading or status message)
+      await expect(
+        page.locator('h1, h2, [role="status"], [role="main"]').first(),
+      ).toBeVisible({ timeout: 5000 });
       expect(errors).toEqual([]);
     },
   );
@@ -501,7 +500,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/dashboard");
       await expect(
         page.getByRole("heading", { name: "Dashboard" }),
@@ -521,7 +519,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/prices");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -541,7 +538,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/suppliers");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -561,7 +557,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/connections");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -581,7 +576,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/optimize");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -601,7 +595,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/settings");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -621,7 +614,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/alerts");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -641,7 +633,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/assistant");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -678,7 +669,10 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
+      // Verify the onboarding page rendered semantic content (heading or form)
+      await expect(
+        page.locator('h1, h2, form, [role="main"]').first(),
+      ).toBeVisible({ timeout: 10000 });
       expect(errors).toEqual([]);
     },
   );
@@ -695,7 +689,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/propane");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -715,7 +708,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/water");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -735,7 +727,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/gas-rates");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -755,7 +746,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/heating-oil");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -775,7 +765,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/community-solar");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -795,7 +784,6 @@ test.describe("Protected Pages - Load Successfully", () => {
         });
       });
 
-      await expect(page.locator("body")).toBeVisible();
       expect(page.url()).toContain("/community");
       await expect(page.getByRole("heading").first()).toBeVisible({
         timeout: 10000,
@@ -862,9 +850,9 @@ test.describe("No Redirect Loops", () => {
 
       await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15000 });
       // Wait for the landing page to finish rendering to detect any redirect loops
-      await expect(
-        page.locator('main, h1, [role="main"], body').first(),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('main, h1, [role="main"]').first()).toBeVisible(
+        { timeout: 10000 },
+      );
 
       // Should stay on landing page
       const url = page.url();
@@ -1134,9 +1122,7 @@ test.describe("Error Recovery", () => {
         timeout: 15000,
       });
 
-      // Dashboard should still render (not white screen/crash)
-      await expect(page.locator("body")).toBeVisible();
-      // The heading should still appear
+      // Dashboard should still render (not white screen/crash) — verify the heading appears
       await expect(
         page.getByRole("heading", { name: "Dashboard" }),
       ).toBeVisible({ timeout: 10000 });
@@ -1194,7 +1180,6 @@ test.describe("Error Recovery", () => {
       });
 
       // Dashboard should eventually show content (React Query retries)
-      await expect(page.locator("body")).toBeVisible();
       await expect(
         page.getByRole("heading", { name: "Dashboard" }),
       ).toBeVisible({ timeout: 10000 });

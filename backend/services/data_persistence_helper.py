@@ -51,6 +51,10 @@ async def persist_batch(
                 **safe_extras,
             )
     if persisted:
-        await db.commit()
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
         logger.info(f"{log_context}_persisted", count=persisted)
     return persisted

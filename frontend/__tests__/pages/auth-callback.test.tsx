@@ -1,42 +1,42 @@
-import { render } from '@testing-library/react'
-import '@testing-library/jest-dom'
+import { render } from "@testing-library/react";
+import "@testing-library/jest-dom";
 
-const mockRouterReplace = jest.fn()
+const mockRouterReplace = jest.fn();
 
-jest.mock('next/navigation', () => ({
+jest.mock("next/navigation", () => ({
   useRouter: () => ({
     replace: mockRouterReplace,
     push: jest.fn(),
   }),
-}))
+}));
 
-import AuthCallbackPage from '@/app/(app)/auth/callback/page'
+import AuthCallbackPage from "@/app/(auth)/auth/callback/page";
 
-describe('AuthCallbackPage', () => {
+describe("AuthCallbackPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-  })
+    jest.clearAllMocks();
+  });
 
-  it('renders a loading spinner', () => {
-    render(<AuthCallbackPage />)
+  it("renders a loading spinner", () => {
+    render(<AuthCallbackPage />);
     // The spinner uses animate-spin class
-    const spinner = document.querySelector('.animate-spin')
-    expect(spinner).not.toBeNull()
-  })
+    const spinner = document.querySelector(".animate-spin");
+    expect(spinner).not.toBeNull();
+  });
 
-  it('renders within a full-height centered container', () => {
-    render(<AuthCallbackPage />)
-    const container = document.querySelector('.min-h-screen')
-    expect(container).not.toBeNull()
-  })
+  it("renders within a full-height centered container", () => {
+    render(<AuthCallbackPage />);
+    const container = document.querySelector(".min-h-screen");
+    expect(container).not.toBeNull();
+  });
 
-  it('calls router.replace with /dashboard on mount', () => {
-    render(<AuthCallbackPage />)
-    expect(mockRouterReplace).toHaveBeenCalledWith('/dashboard')
-  })
+  it("calls router.replace with /dashboard on mount", () => {
+    render(<AuthCallbackPage />);
+    expect(mockRouterReplace).toHaveBeenCalledWith("/dashboard");
+  });
 
-  it('calls router.replace exactly once', () => {
-    render(<AuthCallbackPage />)
-    expect(mockRouterReplace).toHaveBeenCalledTimes(1)
-  })
-})
+  it("calls router.replace exactly once", () => {
+    render(<AuthCallbackPage />);
+    expect(mockRouterReplace).toHaveBeenCalledTimes(1);
+  });
+});

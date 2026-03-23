@@ -15,13 +15,12 @@ All database calls and HTTP calls are fully mocked.
 No real Postgres or UtilityAPI connections are made.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Stable test constants
@@ -82,7 +81,6 @@ SAMPLE_AUTH_STATUS_INACTIVE = {
 class TestUtilityAPIClientAuthForm:
     """Tests for UtilityAPIClient.create_authorization_form()."""
 
-    @pytest.mark.asyncio
     async def test_create_form_returns_url_with_utility(self):
         """Form URL includes the supplier name as a query param."""
         from integrations.utilityapi import UtilityAPIClient
@@ -93,28 +91,22 @@ class TestUtilityAPIClientAuthForm:
         assert "utilityapi.com/authorize" in url
         assert "Eversource+Energy" in url or "Eversource%20Energy" in url
 
-    @pytest.mark.asyncio
     async def test_create_form_includes_state(self):
         """state parameter is echoed into the form URL."""
         from integrations.utilityapi import UtilityAPIClient
 
         client = UtilityAPIClient(api_key="test-key")
-        url = await client.create_authorization_form(
-            TEST_SUPPLIER_NAME, state=TEST_CONNECTION_ID
-        )
+        url = await client.create_authorization_form(TEST_SUPPLIER_NAME, state=TEST_CONNECTION_ID)
 
         assert TEST_CONNECTION_ID in url
 
-    @pytest.mark.asyncio
     async def test_create_form_includes_redirect_url(self):
         """redirect_url appears in the form URL when provided."""
         from integrations.utilityapi import UtilityAPIClient
 
         redirect = "https://app.example.com/callback"
         client = UtilityAPIClient(api_key="test-key")
-        url = await client.create_authorization_form(
-            TEST_SUPPLIER_NAME, redirect_url=redirect
-        )
+        url = await client.create_authorization_form(TEST_SUPPLIER_NAME, redirect_url=redirect)
 
         assert "callback" in url
 
@@ -122,10 +114,10 @@ class TestUtilityAPIClientAuthForm:
 class TestUtilityAPIClientAuthStatus:
     """Tests for UtilityAPIClient.get_authorization_status()."""
 
-    @pytest.mark.asyncio
     async def test_get_auth_status_success(self):
         """Returns the authorization dict on 200 response."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient
 
         mock_resp = MagicMock(spec=httpx.Response)
@@ -142,10 +134,10 @@ class TestUtilityAPIClientAuthStatus:
         assert result["status"] == "active"
         assert result["uid"] == TEST_AUTH_UID
 
-    @pytest.mark.asyncio
     async def test_get_auth_status_404_raises(self):
         """HTTP 404 raises UtilityAPIError with status_code=404."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
 
         mock_resp = MagicMock(spec=httpx.Response)
@@ -163,17 +155,15 @@ class TestUtilityAPIClientAuthStatus:
 
         assert exc_info.value.status_code == 404
 
-    @pytest.mark.asyncio
     async def test_get_auth_status_timeout_raises(self):
         """Network timeout raises UtilityAPIError."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
 
         mock_http = AsyncMock(spec=httpx.AsyncClient)
         mock_http.is_closed = False
-        mock_http.request = AsyncMock(
-            side_effect=httpx.TimeoutException("timeout")
-        )
+        mock_http.request = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
 
         client = UtilityAPIClient(api_key="test-key", http_client=mock_http)
 
@@ -184,10 +174,10 @@ class TestUtilityAPIClientAuthStatus:
 class TestUtilityAPIClientMeters:
     """Tests for UtilityAPIClient.get_meters()."""
 
-    @pytest.mark.asyncio
     async def test_get_meters_returns_list(self):
         """Returns a list of meter dicts on success."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient
 
         mock_resp = MagicMock(spec=httpx.Response)
@@ -204,10 +194,10 @@ class TestUtilityAPIClientMeters:
         assert len(meters) == 1
         assert meters[0]["uid"] == TEST_METER_UID
 
-    @pytest.mark.asyncio
     async def test_get_meters_empty_list(self):
         """Returns an empty list when no meters are found."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient
 
         mock_resp = MagicMock(spec=httpx.Response)
@@ -223,17 +213,15 @@ class TestUtilityAPIClientMeters:
 
         assert meters == []
 
-    @pytest.mark.asyncio
     async def test_get_meters_network_error_raises(self):
         """Network error raises UtilityAPIError."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
 
         mock_http = AsyncMock(spec=httpx.AsyncClient)
         mock_http.is_closed = False
-        mock_http.request = AsyncMock(
-            side_effect=httpx.RequestError("connection refused")
-        )
+        mock_http.request = AsyncMock(side_effect=httpx.RequestError("connection refused"))
 
         client = UtilityAPIClient(api_key="test-key", http_client=mock_http)
 
@@ -244,10 +232,10 @@ class TestUtilityAPIClientMeters:
 class TestUtilityAPIClientBills:
     """Tests for UtilityAPIClient.get_bills()."""
 
-    @pytest.mark.asyncio
     async def test_get_bills_returns_list(self):
         """Returns a list of bill dicts on success."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient
 
         mock_resp = MagicMock(spec=httpx.Response)
@@ -264,10 +252,10 @@ class TestUtilityAPIClientBills:
         assert len(bills) == 1
         assert bills[0]["uid"] == "b_001"
 
-    @pytest.mark.asyncio
     async def test_get_bills_with_since_filter(self):
         """``since`` datetime is passed as a query parameter."""
         import httpx
+
         from integrations.utilityapi import UtilityAPIClient
 
         mock_resp = MagicMock(spec=httpx.Response)
@@ -278,7 +266,7 @@ class TestUtilityAPIClientBills:
         mock_http.is_closed = False
         mock_http.request = AsyncMock(return_value=mock_resp)
 
-        since = datetime(2025, 11, 1, tzinfo=timezone.utc)
+        since = datetime(2025, 11, 1, tzinfo=UTC)
         client = UtilityAPIClient(api_key="test-key", http_client=mock_http)
         await client.get_bills(TEST_METER_UID, since=since)
 
@@ -436,11 +424,10 @@ def _mock_db_with_connection(
 class TestConnectionSyncServiceSyncConnection:
     """Tests for ConnectionSyncService.sync_connection()."""
 
-    @pytest.mark.asyncio
     async def test_sync_connection_success(self):
         """Successful sync returns success=True and correct new_rates_found count."""
-        from services.connection_sync_service import ConnectionSyncService
         from integrations.utilityapi import UtilityAPIClient
+        from services.connection_sync_service import ConnectionSyncService
 
         # _mock_db_with_connection returns fetch on call 1, generic mocks after
         db = _mock_db_with_connection()
@@ -452,13 +439,13 @@ class TestConnectionSyncServiceSyncConnection:
             side_effect=[
                 {
                     "rate_per_kwh": 0.225,
-                    "effective_date": datetime.now(timezone.utc),
+                    "effective_date": datetime.now(UTC),
                     "source": "api_pull",
                     "raw_label": "Standard Rate",
                 },
                 {
                     "rate_per_kwh": 0.20,
-                    "effective_date": datetime.now(timezone.utc),
+                    "effective_date": datetime.now(UTC),
                     "source": "api_pull",
                     "raw_label": None,
                 },
@@ -474,11 +461,9 @@ class TestConnectionSyncServiceSyncConnection:
         assert result["error"] is None
         assert result["connection_id"] == TEST_CONNECTION_ID
 
-    @pytest.mark.asyncio
     async def test_sync_connection_not_found(self):
         """Returns failure when connection_id is not in the DB."""
         from services.connection_sync_service import ConnectionSyncService
-        from integrations.utilityapi import UtilityAPIClient
 
         db = AsyncMock()
         db.commit = AsyncMock()
@@ -494,7 +479,6 @@ class TestConnectionSyncServiceSyncConnection:
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
-    @pytest.mark.asyncio
     async def test_sync_connection_no_auth_uid(self):
         """Returns failure when the connection has no stored auth UID."""
         from services.connection_sync_service import ConnectionSyncService
@@ -506,11 +490,10 @@ class TestConnectionSyncServiceSyncConnection:
         assert result["success"] is False
         assert "authorized" in result["error"].lower()
 
-    @pytest.mark.asyncio
     async def test_sync_connection_meters_api_error(self):
         """Returns failure when UtilityAPI meters fetch fails."""
-        from services.connection_sync_service import ConnectionSyncService
         from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
+        from services.connection_sync_service import ConnectionSyncService
 
         db = _mock_db_with_connection()
 
@@ -526,11 +509,10 @@ class TestConnectionSyncServiceSyncConnection:
         assert result["success"] is False
         assert result["error"] is not None
 
-    @pytest.mark.asyncio
     async def test_sync_connection_no_meters(self):
         """Returns failure when no meters are associated with the authorization."""
-        from services.connection_sync_service import ConnectionSyncService
         from integrations.utilityapi import UtilityAPIClient
+        from services.connection_sync_service import ConnectionSyncService
 
         db = _mock_db_with_connection()
 
@@ -544,11 +526,10 @@ class TestConnectionSyncServiceSyncConnection:
         assert result["success"] is False
         assert "meters" in result["error"].lower()
 
-    @pytest.mark.asyncio
     async def test_sync_connection_rate_extraction_error_continues(self):
         """Rate extraction failure for one bill does not abort the whole sync."""
-        from services.connection_sync_service import ConnectionSyncService
         from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
+        from services.connection_sync_service import ConnectionSyncService
 
         db = _mock_db_with_connection()
 
@@ -559,7 +540,7 @@ class TestConnectionSyncServiceSyncConnection:
         # First bill fails extraction, second succeeds
         good_rate = {
             "rate_per_kwh": 0.225,
-            "effective_date": datetime.now(timezone.utc),
+            "effective_date": datetime.now(UTC),
             "source": "api_pull",
             "raw_label": None,
         }
@@ -582,7 +563,6 @@ class TestConnectionSyncServiceSyncConnection:
 class TestConnectionSyncServiceSyncAllDue:
     """Tests for ConnectionSyncService.sync_all_due()."""
 
-    @pytest.mark.asyncio
     async def test_sync_all_due_empty(self):
         """Returns empty list when no connections are due for sync."""
         from services.connection_sync_service import ConnectionSyncService
@@ -597,7 +577,6 @@ class TestConnectionSyncServiceSyncAllDue:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_sync_all_due_handles_missing_columns(self):
         """Gracefully returns empty list when migration-009 columns don't exist."""
         from services.connection_sync_service import ConnectionSyncService
@@ -610,7 +589,6 @@ class TestConnectionSyncServiceSyncAllDue:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_sync_all_due_syncs_each_connection(self):
         """Each due connection is synced."""
         from services.connection_sync_service import ConnectionSyncService
@@ -626,8 +604,20 @@ class TestConnectionSyncServiceSyncAllDue:
         db.commit = AsyncMock()
 
         sync_results = [
-            {"connection_id": conn_id_1, "success": True, "new_rates_found": 1, "error": None, "synced_at": datetime.now(timezone.utc)},
-            {"connection_id": conn_id_2, "success": False, "new_rates_found": 0, "error": "No meters", "synced_at": datetime.now(timezone.utc)},
+            {
+                "connection_id": conn_id_1,
+                "success": True,
+                "new_rates_found": 1,
+                "error": None,
+                "synced_at": datetime.now(UTC),
+            },
+            {
+                "connection_id": conn_id_2,
+                "success": False,
+                "new_rates_found": 0,
+                "error": "No meters",
+                "synced_at": datetime.now(UTC),
+            },
         ]
 
         svc = ConnectionSyncService(db)
@@ -642,22 +632,23 @@ class TestConnectionSyncServiceSyncAllDue:
 class TestConnectionSyncServiceGetSyncStatus:
     """Tests for ConnectionSyncService.get_sync_status()."""
 
-    @pytest.mark.asyncio
     async def test_get_sync_status_with_last_sync(self):
         """Returns correct next_sync_at when last_sync_at is set."""
         from services.connection_sync_service import ConnectionSyncService
 
-        last_sync = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        last_sync = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
 
         class _DictRow(dict):
             pass
 
-        row = _DictRow({
-            "id": TEST_CONNECTION_ID,
-            "last_sync_at": last_sync,
-            "last_sync_error": None,
-            "sync_frequency_hours": 24,
-        })
+        row = _DictRow(
+            {
+                "id": TEST_CONNECTION_ID,
+                "last_sync_at": last_sync,
+                "last_sync_error": None,
+                "sync_frequency_hours": 24,
+            }
+        )
 
         db = AsyncMock()
         result = MagicMock()
@@ -673,7 +664,6 @@ class TestConnectionSyncServiceGetSyncStatus:
         assert status["next_sync_at"] == expected_next
         assert status["sync_frequency_hours"] == 24
 
-    @pytest.mark.asyncio
     async def test_get_sync_status_never_synced(self):
         """Returns None for next_sync_at when last_sync_at is None."""
         from services.connection_sync_service import ConnectionSyncService
@@ -681,12 +671,14 @@ class TestConnectionSyncServiceGetSyncStatus:
         class _DictRow(dict):
             pass
 
-        row = _DictRow({
-            "id": TEST_CONNECTION_ID,
-            "last_sync_at": None,
-            "last_sync_error": None,
-            "sync_frequency_hours": 24,
-        })
+        row = _DictRow(
+            {
+                "id": TEST_CONNECTION_ID,
+                "last_sync_at": None,
+                "last_sync_error": None,
+                "sync_frequency_hours": 24,
+            }
+        )
 
         db = AsyncMock()
         result = MagicMock()
@@ -698,7 +690,6 @@ class TestConnectionSyncServiceGetSyncStatus:
 
         assert status["next_sync_at"] is None
 
-    @pytest.mark.asyncio
     async def test_get_sync_status_not_found(self):
         """Returns None when the connection does not exist."""
         from services.connection_sync_service import ConnectionSyncService
@@ -779,7 +770,7 @@ def client():
     Resets the rate limiter before and after each test so that the
     in-memory counter doesn't accumulate across the test suite.
     """
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
 
@@ -792,7 +783,7 @@ def client():
 @pytest.fixture(autouse=True)
 def _clean_overrides():
     """Clear dependency_overrides and reset the rate limiter between tests."""
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -802,9 +793,9 @@ def _clean_overrides():
 
 
 def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id, tier=tier)
     db = _mock_db()
@@ -839,7 +830,7 @@ class TestManualSyncEndpoint:
             "success": True,
             "new_rates_found": 3,
             "error": None,
-            "synced_at": datetime.now(timezone.utc),
+            "synced_at": datetime.now(UTC),
         }
 
         with patch(
@@ -869,9 +860,9 @@ class TestManualSyncEndpoint:
 
     def test_sync_requires_paid_tier(self, client):
         """Free-tier user receives 403 on sync endpoint."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         app.dependency_overrides.pop(require_paid_tier, None)
 
@@ -897,7 +888,7 @@ class TestManualSyncEndpoint:
             "success": False,
             "new_rates_found": 0,
             "error": "No meters found for this authorization.",
-            "synced_at": datetime.now(timezone.utc),
+            "synced_at": datetime.now(UTC),
         }
 
         with patch(
@@ -924,7 +915,7 @@ class TestSyncStatusEndpoint:
         ownership_result = MagicMock()
         ownership_result.fetchone.return_value = MagicMock()
 
-        last_sync = datetime(2026, 2, 20, 10, 0, 0, tzinfo=timezone.utc)
+        last_sync = datetime(2026, 2, 20, 10, 0, 0, tzinfo=UTC)
         status_data = {
             "connection_id": TEST_CONNECTION_ID,
             "last_sync_at": last_sync,
@@ -1003,7 +994,9 @@ class TestAuthorizationCallbackEndpoint:
             mock_settings.internal_api_key = self._HMAC_TEST_KEY
             return sign_callback_state(connection_id, user_id)
 
-    def _setup_callback_db(self, db, connection_found: bool = True, status: str = "pending", user_id: str = None):
+    def _setup_callback_db(
+        self, db, connection_found: bool = True, status: str = "pending", user_id: str = None
+    ):
         """Configure DB mock for callback tests."""
         if user_id is None:
             user_id = TEST_USER_ID
@@ -1022,8 +1015,8 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_activates_connection(self, client):
         """Valid callback with HMAC-signed state activates connection."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
         self._setup_callback_db(db)
@@ -1032,29 +1025,33 @@ class TestAuthorizationCallbackEndpoint:
         signed_state = self._sign_state(TEST_CONNECTION_ID)
         mock_auth_status = {"uid": TEST_AUTH_UID, "status": "active"}
 
-        with patch(
-            "integrations.utilityapi.UtilityAPIClient.get_authorization_status",
-            new_callable=AsyncMock,
-            return_value=mock_auth_status,
-        ), patch(
-            "integrations.utilityapi.UtilityAPIClient.close",
-            new_callable=AsyncMock,
-        ), patch(
-            "utils.encryption.encrypt_field",
-            return_value=b"encrypted_uid",
-        ), patch(
-            "services.connection_sync_service.ConnectionSyncService.sync_connection",
-            new_callable=AsyncMock,
-            return_value={
-                "connection_id": TEST_CONNECTION_ID,
-                "success": True,
-                "new_rates_found": 0,
-                "error": None,
-                "synced_at": datetime.now(timezone.utc),
-            },
-        ), patch(
-            "api.v1.connections.settings"
-        ) as mock_settings:
+        with (
+            patch(
+                "integrations.utilityapi.UtilityAPIClient.get_authorization_status",
+                new_callable=AsyncMock,
+                return_value=mock_auth_status,
+            ),
+            patch(
+                "integrations.utilityapi.UtilityAPIClient.close",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "utils.encryption.encrypt_field",
+                return_value=b"encrypted_uid",
+            ),
+            patch(
+                "services.connection_sync_service.ConnectionSyncService.sync_connection",
+                new_callable=AsyncMock,
+                return_value={
+                    "connection_id": TEST_CONNECTION_ID,
+                    "success": True,
+                    "new_rates_found": 0,
+                    "error": None,
+                    "synced_at": datetime.now(UTC),
+                },
+            ),
+            patch("api.v1.connections.settings") as mock_settings,
+        ):
             mock_settings.internal_api_key = self._HMAC_TEST_KEY
             response = client.get(
                 f"{BASE}/direct/callback",
@@ -1071,8 +1068,8 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_rejects_unsigned_state(self, client):
         """Callback with raw (unsigned) connection_id as state returns 400."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
         app.dependency_overrides[get_db_session] = lambda: db
@@ -1091,8 +1088,8 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_rejects_tampered_hmac(self, client):
         """Callback with tampered HMAC signature returns 400."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
         app.dependency_overrides[get_db_session] = lambda: db
@@ -1113,8 +1110,8 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_connection_not_found(self, client):
         """Callback for unknown connection_id returns 404."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
         self._setup_callback_db(db, connection_found=False)
@@ -1137,11 +1134,13 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_inactive_authorization_returns_error_status(self, client):
         """Revoked UtilityAPI authorization sets connection status to error."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
-        conn_row = _DictRow({"id": TEST_CONNECTION_ID, "user_id": TEST_USER_ID, "status": "pending"})
+        conn_row = _DictRow(
+            {"id": TEST_CONNECTION_ID, "user_id": TEST_USER_ID, "status": "pending"}
+        )
         conn_result = MagicMock()
         conn_result.mappings.return_value.first.return_value = conn_row
         conn_result.fetchone.return_value = conn_row
@@ -1151,16 +1150,18 @@ class TestAuthorizationCallbackEndpoint:
 
         signed_state = self._sign_state(TEST_CONNECTION_ID)
 
-        with patch(
-            "integrations.utilityapi.UtilityAPIClient.get_authorization_status",
-            new_callable=AsyncMock,
-            return_value={"uid": TEST_AUTH_UID, "status": "revoked"},
-        ), patch(
-            "integrations.utilityapi.UtilityAPIClient.close",
-            new_callable=AsyncMock,
-        ), patch(
-            "api.v1.connections.settings"
-        ) as mock_settings:
+        with (
+            patch(
+                "integrations.utilityapi.UtilityAPIClient.get_authorization_status",
+                new_callable=AsyncMock,
+                return_value={"uid": TEST_AUTH_UID, "status": "revoked"},
+            ),
+            patch(
+                "integrations.utilityapi.UtilityAPIClient.close",
+                new_callable=AsyncMock,
+            ),
+            patch("api.v1.connections.settings") as mock_settings,
+        ):
             mock_settings.internal_api_key = self._HMAC_TEST_KEY
             response = client.get(
                 f"{BASE}/direct/callback",
@@ -1176,12 +1177,14 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_utilityapi_error_sets_error_status(self, client):
         """UtilityAPI verification failure returns error status (not 500)."""
-        from main import app
         from api.dependencies import get_db_session
         from integrations.utilityapi import UtilityAPIError
+        from main import app
 
         db = _mock_db()
-        conn_row = _DictRow({"id": TEST_CONNECTION_ID, "user_id": TEST_USER_ID, "status": "pending"})
+        conn_row = _DictRow(
+            {"id": TEST_CONNECTION_ID, "user_id": TEST_USER_ID, "status": "pending"}
+        )
         conn_result = MagicMock()
         conn_result.mappings.return_value.first.return_value = conn_row
         conn_result.fetchone.return_value = conn_row
@@ -1191,16 +1194,18 @@ class TestAuthorizationCallbackEndpoint:
 
         signed_state = self._sign_state(TEST_CONNECTION_ID)
 
-        with patch(
-            "integrations.utilityapi.UtilityAPIClient.get_authorization_status",
-            new_callable=AsyncMock,
-            side_effect=UtilityAPIError("Service unavailable", status_code=503),
-        ), patch(
-            "integrations.utilityapi.UtilityAPIClient.close",
-            new_callable=AsyncMock,
-        ), patch(
-            "api.v1.connections.settings"
-        ) as mock_settings:
+        with (
+            patch(
+                "integrations.utilityapi.UtilityAPIClient.get_authorization_status",
+                new_callable=AsyncMock,
+                side_effect=UtilityAPIError("Service unavailable", status_code=503),
+            ),
+            patch(
+                "integrations.utilityapi.UtilityAPIClient.close",
+                new_callable=AsyncMock,
+            ),
+            patch("api.v1.connections.settings") as mock_settings,
+        ):
             mock_settings.internal_api_key = self._HMAC_TEST_KEY
             response = client.get(
                 f"{BASE}/direct/callback",
@@ -1216,8 +1221,8 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_missing_authorization_uid_returns_422(self, client):
         """Missing required authorization_uid query param → 422."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
         app.dependency_overrides[get_db_session] = lambda: db
@@ -1233,8 +1238,8 @@ class TestAuthorizationCallbackEndpoint:
 
     def test_callback_missing_state_returns_422(self, client):
         """Missing required state query param → 422."""
-        from main import app
         from api.dependencies import get_db_session
+        from main import app
 
         db = _mock_db()
         app.dependency_overrides[get_db_session] = lambda: db
@@ -1270,7 +1275,7 @@ class TestSyncModels:
         """SyncResultResponse serializes correctly for a successful sync."""
         from models.connections import SyncResultResponse
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         model = SyncResultResponse(
             connection_id=TEST_CONNECTION_ID,
             success=True,
@@ -1286,7 +1291,7 @@ class TestSyncModels:
         """SyncResultResponse serializes correctly for a failed sync."""
         from models.connections import SyncResultResponse
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         model = SyncResultResponse(
             connection_id=TEST_CONNECTION_ID,
             success=False,

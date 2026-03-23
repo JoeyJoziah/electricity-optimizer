@@ -5,9 +5,9 @@ Manages in-app notifications for users: creating, listing unread, counting,
 and marking as read.
 """
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -24,14 +24,18 @@ class NotificationService:
         type: str = "info",
     ) -> None:
         """Insert a new notification row for the given user."""
-        await self._db.execute(
-            text(
-                "INSERT INTO notifications (user_id, type, title, body)"
-                " VALUES (:uid, :type, :title, :body)"
-            ),
-            {"uid": user_id, "type": type, "title": title, "body": body},
-        )
-        await self._db.commit()
+        try:
+            await self._db.execute(
+                text(
+                    "INSERT INTO notifications (user_id, type, title, body)"
+                    " VALUES (:uid, :type, :title, :body)"
+                ),
+                {"uid": user_id, "type": type, "title": title, "body": body},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         logger.info("notification_created", user_id=user_id, type=type, title=title)
 
     async def get_unread(self, user_id: str) -> list[dict]:
@@ -61,10 +65,7 @@ class NotificationService:
     async def get_unread_count(self, user_id: str) -> int:
         """Return the count of unread notifications for the user."""
         result = await self._db.execute(
-            text(
-                "SELECT COUNT(*) FROM notifications"
-                " WHERE user_id = :uid AND read_at IS NULL"
-            ),
+            text("SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND read_at IS NULL"),
             {"uid": user_id},
         )
         return result.scalar() or 0
@@ -75,14 +76,17 @@ class NotificationService:
 
         Returns the number of notifications that were marked read.
         """
-        result = await self._db.execute(
-            text(
-                "UPDATE notifications SET read_at = NOW()"
-                " WHERE user_id = :uid AND read_at IS NULL"
-            ),
-            {"uid": user_id},
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text(
+                    "UPDATE notifications SET read_at = NOW() WHERE user_id = :uid AND read_at IS NULL"
+                ),
+                {"uid": user_id},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         count = result.rowcount
         if count > 0:
             logger.info(
@@ -99,14 +103,18 @@ class NotificationService:
         Returns True when the row was updated (was unread and owned by user),
         False when nothing was changed (not found or already read).
         """
-        result = await self._db.execute(
-            text(
-                "UPDATE notifications SET read_at = NOW()"
-                " WHERE id = :nid AND user_id = :uid AND read_at IS NULL"
-            ),
-            {"nid": notification_id, "uid": user_id},
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text(
+                    "UPDATE notifications SET read_at = NOW()"
+                    " WHERE id = :nid AND user_id = :uid AND read_at IS NULL"
+                ),
+                {"nid": notification_id, "uid": user_id},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         updated = result.rowcount > 0
         if updated:
             logger.info(

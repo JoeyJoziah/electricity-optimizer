@@ -1,25 +1,29 @@
-'use client'
+"use client";
 
-import Script from 'next/script'
-import { CLARITY_PROJECT_ID } from '@/lib/config/env'
+import Script from "next/script";
+import { CLARITY_PROJECT_ID } from "@/lib/config/env";
+
+/**
+ * Sanitize Clarity project ID to prevent XSS.
+ * Clarity project IDs are strictly alphanumeric (e.g. "abc123def").
+ * Strip anything that is not a letter or digit.
+ */
+function sanitizeClarityId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9]/g, "");
+}
 
 export function ClarityScript({ nonce }: { nonce?: string }) {
-  if (!CLARITY_PROJECT_ID) return null
+  if (!CLARITY_PROJECT_ID) return null;
+
+  const safeId = sanitizeClarityId(CLARITY_PROJECT_ID);
+  if (!safeId) return null;
 
   return (
     <Script
       id="microsoft-clarity"
       strategy="afterInteractive"
       nonce={nonce}
-      dangerouslySetInnerHTML={{
-        __html: `
-          (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-          })(window,document,"clarity","script","${CLARITY_PROJECT_ID}");
-        `,
-      }}
+      src={`https://www.clarity.ms/tag/${safeId}`}
     />
-  )
+  );
 }

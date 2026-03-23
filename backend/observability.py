@@ -34,8 +34,7 @@ automatically (HTTP method, route, status code, etc.).
 
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -68,7 +67,7 @@ def get_tracer(name: str = __name__):
 # ---------------------------------------------------------------------------
 
 
-def init_telemetry(app: "FastAPI") -> bool:
+def init_telemetry(app: FastAPI) -> bool:
     """Initialise OpenTelemetry instrumentation on *app*.
 
     Parameters
@@ -101,7 +100,7 @@ def init_telemetry(app: "FastAPI") -> bool:
 
 
 def _configure_tracer_provider(
-    endpoint: Optional[str],
+    endpoint: str | None,
     is_production: bool,
 ) -> bool:
     """Wire up the TracerProvider, exporter and all auto-instrumentors.
@@ -167,7 +166,7 @@ def _configure_tracer_provider(
         class _SilentSpanExporter(SpanExporter):
             """Silently discard spans — used in production without a collector."""
 
-            def export(self, spans):  # type: ignore[override]
+            def export(self, _spans):  # type: ignore[override]
                 return SpanExportResult.SUCCESS
 
             def shutdown(self) -> None:
@@ -190,7 +189,7 @@ def _configure_tracer_provider(
     return True
 
 
-def _instrument_fastapi(app: Optional["FastAPI"]) -> None:
+def _instrument_fastapi(app: FastAPI | None) -> None:
     """Instrument the FastAPI application.
 
     The FastAPI instrumentor patches the ASGI call stack automatically once
@@ -217,7 +216,7 @@ def _instrument_fastapi(app: Optional["FastAPI"]) -> None:
         logger.warning("otel_fastapi_instrument_failed", error=str(exc))
 
 
-def instrument_fastapi_app(app: "FastAPI") -> None:
+def instrument_fastapi_app(app: FastAPI) -> None:
     """Instrument a specific FastAPI *app* instance.
 
     Call this from ``create_app()`` after ``init_telemetry()`` has already
@@ -233,7 +232,7 @@ def instrument_fastapi_app(app: "FastAPI") -> None:
     _instrument_fastapi(app)
 
 
-def instrument_sqlalchemy_engine(engine: "AsyncEngine") -> None:
+def instrument_sqlalchemy_engine(engine: AsyncEngine) -> None:
     """Instrument an existing SQLAlchemy *engine* for tracing.
 
     Call this after the engine is created (e.g. in ``DatabaseManager``).

@@ -8,7 +8,8 @@ frontend/
 
 # Local development
 .venv/
-.env.test
+.env*
+!.env.example
 backend/.env
 .loki/
 .claude/
@@ -39,4 +40,3 @@ docker-compose*.yml
 __pycache__/
 .mypy_cache/
 .pytest_cache/
-scripts/

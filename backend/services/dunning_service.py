@@ -338,7 +338,11 @@ class DunningService:
         }
 
         # Commit the payment failure record before any early returns
-        await self._db.commit()
+        try:
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
 
         # 2. Cooldown check
         should_send = await self.should_send_dunning(user_id, stripe_invoice_id)
@@ -387,7 +391,11 @@ class DunningService:
             )
 
         # Single commit for the entire payment failure flow
-        await self._db.commit()
+        try:
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
 
         return result
 

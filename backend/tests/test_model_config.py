@@ -16,11 +16,10 @@ Covers:
 """
 
 import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # =============================================================================
 # Helpers / fixtures
@@ -48,8 +47,8 @@ def _make_row(
     row.training_metadata = training_metadata or {}
     row.accuracy_metrics = accuracy_metrics or {}
     row.is_active = is_active
-    row.created_at = created_at or datetime(2026, 3, 10, 0, 0, tzinfo=timezone.utc)
-    row.updated_at = updated_at or datetime(2026, 3, 10, 0, 0, tzinfo=timezone.utc)
+    row.created_at = created_at or datetime(2026, 3, 10, 0, 0, tzinfo=UTC)
+    row.updated_at = updated_at or datetime(2026, 3, 10, 0, 0, tzinfo=UTC)
     return row
 
 
@@ -66,6 +65,7 @@ def mock_db():
 @pytest.fixture
 def repo(mock_db):
     from repositories.model_config_repository import ModelConfigRepository
+
     return ModelConfigRepository(mock_db)
 
 
@@ -77,7 +77,6 @@ def repo(mock_db):
 class TestGetActiveConfig:
     """Tests for ModelConfigRepository.get_active_config"""
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_no_row(self, repo, mock_db):
         """Should return None when there is no active config in the DB."""
         result_mock = MagicMock()
@@ -88,7 +87,6 @@ class TestGetActiveConfig:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_model_config_when_row_exists(self, repo, mock_db):
         """Should return a ModelConfig built from the DB row."""
         row = _make_row(
@@ -109,7 +107,6 @@ class TestGetActiveConfig:
         assert result.is_active is True
         assert result.weights_json["cnn_lstm"]["weight"] == 0.6
 
-    @pytest.mark.asyncio
     async def test_accepts_json_string_weights(self, repo, mock_db):
         """Should parse weights_json even when the column value is a JSON string."""
         weights = {"cnn_lstm": {"weight": 0.5}, "xgboost": {"weight": 0.5}}
@@ -122,7 +119,6 @@ class TestGetActiveConfig:
 
         assert result.weights_json == weights
 
-    @pytest.mark.asyncio
     async def test_raises_repository_error_on_db_failure(self, repo, mock_db):
         """Should raise RepositoryError when the DB execute call raises."""
         from repositories.base import RepositoryError
@@ -141,10 +137,13 @@ class TestGetActiveConfig:
 class TestSaveConfig:
     """Tests for ModelConfigRepository.save_config"""
 
-    @pytest.mark.asyncio
     async def test_returns_model_config_with_correct_fields(self, repo, mock_db):
         """Should return a ModelConfig with the provided values."""
-        weights = {"cnn_lstm": {"weight": 0.5}, "xgboost": {"weight": 0.25}, "lightgbm": {"weight": 0.25}}
+        weights = {
+            "cnn_lstm": {"weight": 0.5},
+            "xgboost": {"weight": 0.25},
+            "lightgbm": {"weight": 0.25},
+        }
         result = await repo.save_config(
             model_name="ensemble",
             version="v3.0",
@@ -160,7 +159,6 @@ class TestSaveConfig:
         assert result.accuracy_metrics == {"mape": 4.2, "rmse": 0.01}
         assert result.is_active is True
 
-    @pytest.mark.asyncio
     async def test_executes_deactivate_then_insert(self, repo, mock_db):
         """Should run two SQL statements: UPDATE (deactivate) then INSERT."""
         await repo.save_config(
@@ -169,16 +167,18 @@ class TestSaveConfig:
             weights={"cnn_lstm": {"weight": 1.0}},
         )
 
-        # Two execute() calls: one UPDATE + one INSERT
-        assert mock_db.execute.call_count == 2
-        # The first statement should contain UPDATE
+        # Three execute() calls: SELECT FOR UPDATE + UPDATE + INSERT
+        assert mock_db.execute.call_count == 3
+        # The first statement should be SELECT ... FOR UPDATE (row-level lock)
         first_sql = str(mock_db.execute.call_args_list[0][0][0])
-        assert "UPDATE" in first_sql.upper()
-        # The second should contain INSERT
+        assert "FOR UPDATE" in first_sql.upper()
+        # The second statement should contain UPDATE (deactivate)
         second_sql = str(mock_db.execute.call_args_list[1][0][0])
-        assert "INSERT" in second_sql.upper()
+        assert "UPDATE" in second_sql.upper()
+        # The third should contain INSERT
+        third_sql = str(mock_db.execute.call_args_list[2][0][0])
+        assert "INSERT" in third_sql.upper()
 
-    @pytest.mark.asyncio
     async def test_commits_after_insert(self, repo, mock_db):
         """Should call commit exactly once after the two SQL statements."""
         await repo.save_config(
@@ -189,21 +189,18 @@ class TestSaveConfig:
 
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_returns_uuid_id(self, repo, mock_db):
         """The returned ModelConfig should have a non-empty UUID id."""
         import re
+
         result = await repo.save_config(
             model_name="ensemble",
             version="v1.0",
             weights={"cnn_lstm": {"weight": 1.0}},
         )
-        uuid_pattern = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_pattern.match(result.id), f"Expected UUID, got: {result.id!r}"
 
-    @pytest.mark.asyncio
     async def test_defaults_metadata_and_metrics_to_empty_dict(self, repo, mock_db):
         """Should default metadata and metrics to empty dicts when not provided."""
         result = await repo.save_config(
@@ -215,13 +212,12 @@ class TestSaveConfig:
         assert result.training_metadata == {}
         assert result.accuracy_metrics == {}
 
-    @pytest.mark.asyncio
     async def test_rolls_back_and_raises_on_db_error(self, repo, mock_db):
         """Should rollback and raise RepositoryError when the DB INSERT fails."""
         from repositories.base import RepositoryError
 
-        # First execute (UPDATE) succeeds; second (INSERT) fails
-        mock_db.execute.side_effect = [None, Exception("disk full")]
+        # First execute (SELECT FOR UPDATE) + second (UPDATE) succeed; third (INSERT) fails
+        mock_db.execute.side_effect = [None, None, Exception("disk full")]
 
         with pytest.raises(RepositoryError, match="Failed to save config"):
             await repo.save_config(
@@ -232,7 +228,6 @@ class TestSaveConfig:
 
         mock_db.rollback.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_insert_contains_model_name_and_version(self, repo, mock_db):
         """The INSERT parameters should include the correct model_name and version."""
         await repo.save_config(
@@ -241,8 +236,8 @@ class TestSaveConfig:
             weights={"m": {"weight": 1.0}},
         )
 
-        # Second call is the INSERT; check that params contain correct values
-        insert_params = mock_db.execute.call_args_list[1][0][1]
+        # Third call is the INSERT (after SELECT FOR UPDATE + UPDATE); check params
+        insert_params = mock_db.execute.call_args_list[2][0][1]
         assert insert_params["model_name"] == "my_model"
         assert insert_params["model_version"] == "v42.1"
 
@@ -255,7 +250,6 @@ class TestSaveConfig:
 class TestListVersions:
     """Tests for ModelConfigRepository.list_versions"""
 
-    @pytest.mark.asyncio
     async def test_returns_empty_list_when_no_rows(self, repo, mock_db):
         """Should return [] when there are no historical configs."""
         result_mock = MagicMock()
@@ -266,7 +260,6 @@ class TestListVersions:
 
         assert result == []
 
-    @pytest.mark.asyncio
     async def test_returns_list_of_model_configs(self, repo, mock_db):
         """Should return a list of ModelConfig objects, newest first."""
         rows = [
@@ -285,7 +278,6 @@ class TestListVersions:
         assert result[1].model_version == "v2.0"
         assert result[2].model_version == "v1.0"
 
-    @pytest.mark.asyncio
     async def test_default_limit_is_20(self, repo, mock_db):
         """Should pass limit=20 by default."""
         result_mock = MagicMock()
@@ -297,7 +289,6 @@ class TestListVersions:
         params = mock_db.execute.call_args[0][1]
         assert params["limit"] == 20
 
-    @pytest.mark.asyncio
     async def test_custom_limit_is_passed(self, repo, mock_db):
         """Should pass the provided limit to the SQL query."""
         result_mock = MagicMock()
@@ -309,7 +300,6 @@ class TestListVersions:
         params = mock_db.execute.call_args[0][1]
         assert params["limit"] == 5
 
-    @pytest.mark.asyncio
     async def test_raises_repository_error_on_db_failure(self, repo, mock_db):
         """Should raise RepositoryError when the DB execute call raises."""
         from repositories.base import RepositoryError
@@ -328,7 +318,6 @@ class TestListVersions:
 class TestActiveConfigSwitching:
     """Tests that verify the deactivate-then-activate pattern."""
 
-    @pytest.mark.asyncio
     async def test_deactivate_uses_correct_model_name(self, repo, mock_db):
         """The UPDATE statement must filter by the correct model_name."""
         await repo.save_config(
@@ -340,7 +329,6 @@ class TestActiveConfigSwitching:
         update_params = mock_db.execute.call_args_list[0][0][1]
         assert update_params["model_name"] == "forecast_model"
 
-    @pytest.mark.asyncio
     async def test_new_row_is_always_active(self, repo, mock_db):
         """The ModelConfig returned by save_config should always have is_active=True."""
         result = await repo.save_config(
@@ -351,7 +339,6 @@ class TestActiveConfigSwitching:
 
         assert result.is_active is True
 
-    @pytest.mark.asyncio
     async def test_second_save_produces_new_id(self, repo, mock_db):
         """Two saves should generate different UUIDs."""
         r1 = await repo.save_config(
@@ -376,7 +363,6 @@ class TestActiveConfigSwitching:
 class TestFallbackToDefaults:
     """Tests that the system behaves correctly when no saved config exists."""
 
-    @pytest.mark.asyncio
     async def test_get_active_config_none_means_use_defaults(self, repo, mock_db):
         """
         When get_active_config returns None the caller (EnsemblePredictor or
@@ -390,7 +376,6 @@ class TestFallbackToDefaults:
 
         assert result is None  # Caller must handle None → use defaults
 
-    @pytest.mark.asyncio
     async def test_load_weights_from_db_returns_none_when_no_active(self):
         """LearningService.load_weights_from_db returns None when no active config."""
         from services.learning_service import LearningService
@@ -417,7 +402,6 @@ class TestFallbackToDefaults:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_load_weights_from_db_returns_none_when_db_is_none(self):
         """load_weights_from_db should return None immediately when db_session is None."""
         from services.learning_service import LearningService
@@ -444,7 +428,6 @@ class TestFallbackToDefaults:
 class TestWeightVersioning:
     """Tests for correct versioning behaviour across multiple saves."""
 
-    @pytest.mark.asyncio
     async def test_save_config_includes_version_in_params(self, repo, mock_db):
         """Version string must be included verbatim in INSERT params."""
         await repo.save_config(
@@ -453,10 +436,9 @@ class TestWeightVersioning:
             weights={"m": {"weight": 1.0}},
         )
 
-        insert_params = mock_db.execute.call_args_list[1][0][1]
+        insert_params = mock_db.execute.call_args_list[2][0][1]
         assert insert_params["model_version"] == "v5.2-hotfix"
 
-    @pytest.mark.asyncio
     async def test_list_versions_uses_correct_model_name(self, repo, mock_db):
         """list_versions must scope the query to the correct model_name."""
         result_mock = MagicMock()
@@ -468,17 +450,20 @@ class TestWeightVersioning:
         params = mock_db.execute.call_args[0][1]
         assert params["model_name"] == "custom_model"
 
-    @pytest.mark.asyncio
     async def test_weights_json_serialised_as_json_string_in_insert(self, repo, mock_db):
         """weights_json must be serialised to a JSON string for the INSERT."""
-        weights = {"cnn_lstm": {"weight": 0.5}, "xgboost": {"weight": 0.25}, "lightgbm": {"weight": 0.25}}
+        weights = {
+            "cnn_lstm": {"weight": 0.5},
+            "xgboost": {"weight": 0.25},
+            "lightgbm": {"weight": 0.25},
+        }
         await repo.save_config(
             model_name="ensemble",
             version="v1.0",
             weights=weights,
         )
 
-        insert_params = mock_db.execute.call_args_list[1][0][1]
+        insert_params = mock_db.execute.call_args_list[2][0][1]
         # The parameter must be a JSON string (for the ::jsonb cast)
         raw = insert_params["weights_json"]
         assert isinstance(raw, str)
@@ -511,14 +496,15 @@ class TestLearningServiceDbPersistence:
         )
         return service, mock_obs, redis
 
-    @pytest.mark.asyncio
     async def test_update_ensemble_weights_persists_to_db(self):
         """update_ensemble_weights should call save_config when db_session is provided."""
         mock_db = AsyncMock()
         service, mock_obs, _ = self._make_service(mock_db)
-        mock_obs.get_model_accuracy_by_version = AsyncMock(return_value=[
-            {"model_version": "v2.1", "mape": 5.0, "count": 50},
-        ])
+        mock_obs.get_model_accuracy_by_version = AsyncMock(
+            return_value=[
+                {"model_version": "v2.1", "mape": 5.0, "count": 50},
+            ]
+        )
 
         MockRepo = MagicMock()
         instance = MockRepo.return_value
@@ -531,32 +517,39 @@ class TestLearningServiceDbPersistence:
 
         assert result is not None
 
-    @pytest.mark.asyncio
     async def test_update_ensemble_weights_no_db_still_returns_weights(self):
         """update_ensemble_weights should work fine when db_session is None."""
         service, mock_obs, _ = self._make_service(mock_db=None)
-        mock_obs.get_model_accuracy_by_version = AsyncMock(return_value=[
-            {"model_version": "v2.1", "mape": 5.0, "count": 50},
-        ])
+        mock_obs.get_model_accuracy_by_version = AsyncMock(
+            return_value=[
+                {"model_version": "v2.1", "mape": 5.0, "count": 50},
+            ]
+        )
 
         result = await service.update_ensemble_weights("US")
 
         assert result is not None
         assert "v2.1" in result
 
-    @pytest.mark.asyncio
     async def test_db_persist_failure_does_not_crash_learning_cycle(self):
         """A DB write failure should be caught and logged, not propagated."""
         mock_db = AsyncMock()
         mock_db.execute.side_effect = Exception("DB unavailable")
         mock_db.rollback = AsyncMock()
         service, mock_obs, _ = self._make_service(mock_db)
-        mock_obs.get_model_accuracy_by_version = AsyncMock(return_value=[
-            {"model_version": "v2.1", "mape": 5.0, "count": 50},
-        ])
-        mock_obs.get_forecast_accuracy = AsyncMock(return_value={
-            "total": 50, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
-        })
+        mock_obs.get_model_accuracy_by_version = AsyncMock(
+            return_value=[
+                {"model_version": "v2.1", "mape": 5.0, "count": 50},
+            ]
+        )
+        mock_obs.get_forecast_accuracy = AsyncMock(
+            return_value={
+                "total": 50,
+                "mape": 5.0,
+                "rmse": 0.01,
+                "coverage": 90.0,
+            }
+        )
         mock_obs.get_hourly_bias = AsyncMock(return_value=[])
 
         # Should not raise even though DB is broken
@@ -564,11 +557,10 @@ class TestLearningServiceDbPersistence:
 
         assert len(result["regions_processed"]) == 1
 
-    @pytest.mark.asyncio
     async def test_load_weights_from_db_returns_weights_json_when_active(self):
         """load_weights_from_db should return the weights_json of the active config."""
-        from services.learning_service import LearningService
         from models.model_config import ModelConfig
+        from services.learning_service import LearningService
 
         mock_db = AsyncMock()
         mock_obs = AsyncMock()
@@ -598,7 +590,6 @@ class TestLearningServiceDbPersistence:
 
         assert result == {"cnn_lstm": {"weight": 0.5}, "xgboost": {"weight": 0.5}}
 
-    @pytest.mark.asyncio
     async def test_load_weights_from_db_error_returns_none(self):
         """load_weights_from_db should return None (not raise) on DB errors."""
         from services.learning_service import LearningService
@@ -614,9 +605,7 @@ class TestLearningServiceDbPersistence:
 
         MockRepo = MagicMock()
         instance = MockRepo.return_value
-        instance.get_active_config = AsyncMock(
-            side_effect=Exception("connection reset")
-        )
+        instance.get_active_config = AsyncMock(side_effect=Exception("connection reset"))
         with patch(
             "repositories.model_config_repository.ModelConfigRepository",
             MockRepo,

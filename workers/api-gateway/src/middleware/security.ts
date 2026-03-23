@@ -55,8 +55,11 @@ export function getSecurityHeaders(requestId: string, colo: string): Record<stri
   return {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
     "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.rateshift.app; frame-ancestors 'none'",
+    "X-XSS-Protection": "0",
     "X-Request-ID": requestId,
     "X-Edge-Colo": colo,
   };

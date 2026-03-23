@@ -6,11 +6,11 @@ Links users to their utility providers (electricity, gas, etc.)
 for personalized rate comparisons.
 """
 
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from models.utility import UtilityType
 
@@ -25,11 +25,11 @@ class UtilityAccount(BaseModel):
     utility_type: UtilityType
     region: str = Field(..., min_length=2, max_length=50)
     provider_name: str = Field(..., min_length=1, max_length=200)
-    account_number_encrypted: Optional[bytes] = None
+    account_number_encrypted: bytes | None = None
     is_primary: bool = False
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class UtilityAccountCreate(BaseModel):
@@ -40,9 +40,9 @@ class UtilityAccountCreate(BaseModel):
     utility_type: UtilityType
     region: str = Field(..., min_length=2, max_length=50)
     provider_name: str = Field(..., min_length=1, max_length=200)
-    account_number: Optional[str] = Field(None, max_length=100)
+    account_number: str | None = Field(None, max_length=100)
     is_primary: bool = False
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class UtilityAccountUpdate(BaseModel):
@@ -50,10 +50,10 @@ class UtilityAccountUpdate(BaseModel):
 
     model_config = ConfigDict(use_enum_values=True)
 
-    provider_name: Optional[str] = Field(None, min_length=1, max_length=200)
-    account_number: Optional[str] = Field(None, max_length=100)
-    is_primary: Optional[bool] = None
-    metadata: Optional[Dict[str, Any]] = None
+    provider_name: str | None = Field(None, min_length=1, max_length=200)
+    account_number: str | None = Field(None, max_length=100)
+    is_primary: bool | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class UtilityAccountResponse(BaseModel):
@@ -67,6 +67,6 @@ class UtilityAccountResponse(BaseModel):
     region: str
     provider_name: str
     is_primary: bool
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime

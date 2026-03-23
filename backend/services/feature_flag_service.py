@@ -120,7 +120,11 @@ class FeatureFlagService:
 
         set_parts.append("updated_at = NOW()")
         sql = f"UPDATE feature_flags SET {', '.join(set_parts)} WHERE name = :name"
-        await self._db.execute(text(sql), params)
-        await self._db.commit()
+        try:
+            await self._db.execute(text(sql), params)
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         logger.info("feature_flag_updated", name=name, changes=set_parts)
         return True

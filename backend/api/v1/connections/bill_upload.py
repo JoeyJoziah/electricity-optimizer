@@ -20,6 +20,7 @@ Patching note:
 """
 
 import asyncio
+import uuid
 from uuid import uuid4
 
 import structlog
@@ -145,7 +146,7 @@ async def create_upload_connection(
     summary="Upload a utility bill file for parsing",
 )
 async def upload_bill_file(
-    connection_id: str,
+    connection_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: SessionData = Depends(require_paid_tier),
@@ -220,7 +221,7 @@ async def upload_bill_file(
 
     # Generate IDs and storage path
     upload_id = str(uuid4())
-    storage_key = build_storage_key(connection_id, upload_id, filename)
+    storage_key = build_storage_key(str(connection_id), upload_id, filename)
     dest = uploads_dir / storage_key
 
     # Persist file to local storage (async to avoid blocking the event loop)
@@ -259,16 +260,17 @@ async def upload_bill_file(
     log.info("bill_upload_created", upload_id=upload_id, file_type=file_type, bytes=len(data))
 
     # Schedule background parse (fire-and-forget; status queryable via GET)
+    cid_str = str(connection_id)
     background_tasks.add_task(
         background_parse_fn,
         upload_id=upload_id,
-        connection_id=connection_id,
+        connection_id=cid_str,
         storage_key=storage_key,
     )
 
     return BillUploadResponse(
         id=upload_id,
-        connection_id=connection_id,
+        connection_id=cid_str,
         file_name=filename,
         file_type=file_type,
         file_size_bytes=len(data),
@@ -287,7 +289,7 @@ async def upload_bill_file(
     summary="List bill uploads for a connection",
 )
 async def list_bill_uploads(
-    connection_id: str,
+    connection_id: uuid.UUID,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> BillUploadListResponse:
@@ -346,8 +348,8 @@ async def list_bill_uploads(
     summary="Get single bill upload status",
 )
 async def get_bill_upload(
-    connection_id: str,
-    upload_id: str,
+    connection_id: uuid.UUID,
+    upload_id: uuid.UUID,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> BillUploadResponse:
@@ -395,8 +397,8 @@ async def get_bill_upload(
     summary="Re-trigger bill parsing for an upload",
 )
 async def reparse_bill_upload(
-    connection_id: str,
-    upload_id: str,
+    connection_id: uuid.UUID,
+    upload_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
@@ -461,19 +463,20 @@ async def reparse_bill_upload(
     )
     await db.commit()
 
-    logger.info("bill_reparse_scheduled", upload_id=upload_id, connection_id=connection_id)
+    cid_str = str(connection_id)
+    logger.info("bill_reparse_scheduled", upload_id=upload_id, connection_id=cid_str)
 
     # Schedule background parse
     background_tasks.add_task(
         background_parse_fn,
-        upload_id=upload_id,
-        connection_id=connection_id,
+        upload_id=str(upload_id),
+        connection_id=cid_str,
         storage_key=storage_key,
     )
 
     return BillUploadResponse(
-        id=upload_id,
-        connection_id=connection_id,
+        id=str(upload_id),
+        connection_id=cid_str,
         file_name=row["file_name"],
         file_type=row["file_type"],
         file_size_bytes=row["file_size_bytes"],

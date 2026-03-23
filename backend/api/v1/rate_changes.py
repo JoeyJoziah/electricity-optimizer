@@ -11,15 +11,14 @@ GET  /rate-changes/preferences   — user's per-utility alert preferences
 PUT  /rate-changes/preferences   — upsert per-utility alert preference
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 logger = structlog.get_logger(__name__)
 
@@ -34,13 +33,15 @@ router = APIRouter(prefix="/rate-changes", tags=["Rate Changes"])
 class UpsertPreferenceRequest(BaseModel):
     """Body for PUT /rate-changes/preferences."""
 
-    utility_type: str = Field(description="Utility type: electricity, natural_gas, heating_oil, etc.")
-    enabled: Optional[bool] = Field(default=None, description="Enable/disable alerts for this utility")
-    channels: Optional[List[str]] = Field(
+    utility_type: str = Field(
+        description="Utility type: electricity, natural_gas, heating_oil, etc."
+    )
+    enabled: bool | None = Field(default=None, description="Enable/disable alerts for this utility")
+    channels: list[str] | None = Field(
         default=None,
         description="Notification channels: email, push, in_app",
     )
-    cadence: Optional[str] = Field(
+    cadence: str | None = Field(
         default=None,
         description="Alert cadence: realtime, daily, weekly",
     )
@@ -57,12 +58,12 @@ class UpsertPreferenceRequest(BaseModel):
     response_description="Recent rate changes across utility types",
 )
 async def get_rate_changes(
-    utility_type: Optional[str] = Query(default=None, description="Filter by utility type"),
-    region: Optional[str] = Query(default=None, description="Filter by region/state"),
+    utility_type: str | None = Query(default=None, description="Filter by utility type"),
+    region: str | None = Query(default=None, description="Filter by region/state"),
     days: int = Query(default=7, ge=1, le=90, description="Look back N days"),
     limit: int = Query(default=50, ge=1, le=200, description="Max results"),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Return recent rate changes, optionally filtered by utility type and region.
     Shows both increases and decreases with optional cheaper-alternative recommendations.
@@ -92,7 +93,7 @@ async def get_rate_changes(
 async def get_preferences(
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return the authenticated user's per-utility alert notification preferences."""
     if db is None:
         raise HTTPException(
@@ -115,7 +116,7 @@ async def upsert_preference(
     body: UpsertPreferenceRequest,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create or update per-utility alert notification preferences."""
     if db is None:
         raise HTTPException(

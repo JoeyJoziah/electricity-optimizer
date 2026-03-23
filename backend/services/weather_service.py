@@ -8,7 +8,6 @@ import asyncio
 
 import httpx
 import structlog
-from typing import Optional
 
 from config.settings import get_settings
 
@@ -77,9 +76,7 @@ class WeatherService:
         self._settings = settings or get_settings()
         self._api_key = self._settings.openweathermap_api_key
 
-    async def get_current_weather(
-        self, lat: float, lon: float
-    ) -> Optional[dict]:
+    async def get_current_weather(self, lat: float, lon: float) -> dict | None:
         """Fetch current weather. 1 API call.
 
         Note: OpenWeatherMap API v2.5 only supports API key authentication
@@ -113,9 +110,7 @@ class WeatherService:
                 "description": data["weather"][0]["description"],
             }
 
-    async def get_forecast_5day(
-        self, lat: float, lon: float
-    ) -> Optional[list]:
+    async def get_forecast_5day(self, lat: float, lon: float) -> list | None:
         """Fetch 5-day/3-hour forecast. 1 API call.
 
         See get_current_weather docstring for OWM appid query-param rationale.
@@ -146,31 +141,39 @@ class WeatherService:
                 for entry in data["list"]
             ]
 
-    async def fetch_weather_for_regions(
-        self, regions: list[str]
-    ) -> dict[str, dict]:
+    async def fetch_weather_for_regions(self, regions: list[str]) -> dict[str, dict]:
         """Fetch current weather for multiple US state regions.
 
         Uses asyncio.gather with a Semaphore(10) to parallelize calls while
         staying within rate limits. Budget: 1 call per region.
         51 regions = 51 calls/day (5.1% of daily limit).
+
+        Each coroutine returns a (region, data) pair instead of mutating a
+        shared dict, eliminating the race condition that occurs when multiple
+        coroutines write to the same container under asyncio.gather.
         """
         sem = asyncio.Semaphore(10)
-        results: dict[str, dict] = {}
 
-        async def _fetch_one(region: str) -> None:
+        async def _fetch_one(region: str) -> tuple[str, dict | None]:
+            """Fetch weather for a single region and return (region, data).
+
+            Returns (region, None) when the region has no coordinates or
+            when the API call fails, so the caller can safely filter.
+            """
             coords = STATE_COORDS.get(region)
             if not coords:
-                return
+                return region, None
             async with sem:
                 try:
                     weather = await self.get_current_weather(*coords)
-                    if weather:
-                        results[region] = weather
+                    return region, weather
                 except Exception as e:
-                    logger.warning(
-                        "weather_fetch_failed", region=region, error=str(e)
-                    )
+                    logger.warning("weather_fetch_failed", region=region, error=str(e))
+                    return region, None
 
-        await asyncio.gather(*[_fetch_one(r) for r in regions])
-        return results
+        # Collect (region, data) pairs from gather instead of mutating a
+        # shared dict inside the coroutine.
+        pairs: list[tuple[str, dict | None]] = await asyncio.gather(
+            *[_fetch_one(r) for r in regions]
+        )
+        return {region: data for region, data in pairs if data is not None}

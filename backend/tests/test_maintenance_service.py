@@ -13,12 +13,10 @@ Covers all public methods:
 - Endpoint integration: happy path (7 tasks), zero deletions, API key auth
 """
 
-import os
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # =============================================================================
 # HELPERS
@@ -58,9 +56,9 @@ class TestCleanupActivityLogs:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
-    @pytest.mark.asyncio
     async def test_returns_deleted_count_and_retention_days(self, service, db):
         """Should return the number of deleted rows and the retention period used."""
         db.execute = AsyncMock(return_value=_make_result(rowcount=42))
@@ -70,7 +68,6 @@ class TestCleanupActivityLogs:
         assert result["deleted"] == 42
         assert result["retention_days"] == 365
 
-    @pytest.mark.asyncio
     async def test_default_retention_is_365_days(self, service, db):
         """Default retention period should be 365 days."""
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
@@ -79,7 +76,6 @@ class TestCleanupActivityLogs:
 
         assert result["retention_days"] == 365
 
-    @pytest.mark.asyncio
     async def test_commit_is_called(self, service, db):
         """Should call commit after the DELETE."""
         db.execute = AsyncMock(return_value=_make_result(rowcount=5))
@@ -88,7 +84,6 @@ class TestCleanupActivityLogs:
 
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_zero_rows_deleted(self, service, db):
         """Should return deleted=0 when no logs are older than the cutoff."""
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
@@ -98,7 +93,6 @@ class TestCleanupActivityLogs:
         assert result["deleted"] == 0
         assert result["retention_days"] == 30
 
-    @pytest.mark.asyncio
     async def test_execute_called_once(self, service, db):
         """Should issue exactly one DELETE query."""
         db.execute = AsyncMock(return_value=_make_result(rowcount=10))
@@ -107,15 +101,13 @@ class TestCleanupActivityLogs:
 
         db.execute.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_cutoff_passed_to_query(self, service, db):
         """The DELETE query must receive a :cutoff parameter."""
         db.execute = AsyncMock(return_value=_make_result(rowcount=3))
 
-        from datetime import timezone
-        before = datetime.now(timezone.utc) - timedelta(days=365)
+        before = datetime.now(UTC) - timedelta(days=365)
         await service.cleanup_activity_logs(retention_days=365)
-        after = datetime.now(timezone.utc) - timedelta(days=365)
+        after = datetime.now(UTC) - timedelta(days=365)
 
         call_args = db.execute.call_args
         params = call_args[0][1]
@@ -123,7 +115,6 @@ class TestCleanupActivityLogs:
         # Cutoff should be within a few seconds of expected value
         assert before <= params["cutoff"] <= after + timedelta(seconds=2)
 
-    @pytest.mark.asyncio
     async def test_custom_retention_period(self, service, db):
         """Should respect a custom retention_days argument."""
         db.execute = AsyncMock(return_value=_make_result(rowcount=100))
@@ -151,9 +142,9 @@ class TestCleanupOldPrices:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
-    @pytest.mark.asyncio
     async def test_returns_deleted_count(self, service, db):
         result_mock = MagicMock()
         result_mock.scalar.return_value = 42
@@ -164,7 +155,6 @@ class TestCleanupOldPrices:
         assert result["deleted"] == 42
         assert result["retention_days"] == 365
 
-    @pytest.mark.asyncio
     async def test_default_retention_is_365(self, service, db):
         result_mock = MagicMock()
         result_mock.scalar.return_value = 0
@@ -174,7 +164,6 @@ class TestCleanupOldPrices:
 
         assert result["retention_days"] == 365
 
-    @pytest.mark.asyncio
     async def test_handles_null_scalar(self, service, db):
         result_mock = MagicMock()
         result_mock.scalar.return_value = None
@@ -202,9 +191,9 @@ class TestCleanupOldObservations:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
-    @pytest.mark.asyncio
     async def test_returns_deleted_count(self, service, db):
         result_mock = MagicMock()
         result_mock.scalar.return_value = 100
@@ -215,7 +204,6 @@ class TestCleanupOldObservations:
         assert result["deleted"] == 100
         assert result["retention_days"] == 90
 
-    @pytest.mark.asyncio
     async def test_default_retention_is_90(self, service, db):
         result_mock = MagicMock()
         result_mock.scalar.return_value = 0
@@ -243,34 +231,30 @@ class TestCleanupWeatherCache:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
-    @pytest.mark.asyncio
     async def test_returns_deleted_count(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=15))
         result = await service.cleanup_weather_cache(retention_days=30)
         assert result["deleted"] == 15
         assert result["retention_days"] == 30
 
-    @pytest.mark.asyncio
     async def test_default_retention_is_30(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
         result = await service.cleanup_weather_cache()
         assert result["retention_days"] == 30
 
-    @pytest.mark.asyncio
     async def test_commit_is_called(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=5))
         await service.cleanup_weather_cache()
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_zero_rows_deleted(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
         result = await service.cleanup_weather_cache()
         assert result["deleted"] == 0
 
-    @pytest.mark.asyncio
     async def test_cutoff_uses_fetched_at(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
         await service.cleanup_weather_cache()
@@ -297,28 +281,25 @@ class TestCleanupScrapedRates:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
-    @pytest.mark.asyncio
     async def test_returns_deleted_count(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=200))
         result = await service.cleanup_scraped_rates(retention_days=90)
         assert result["deleted"] == 200
         assert result["retention_days"] == 90
 
-    @pytest.mark.asyncio
     async def test_default_retention_is_90(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
         result = await service.cleanup_scraped_rates()
         assert result["retention_days"] == 90
 
-    @pytest.mark.asyncio
     async def test_commit_is_called(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=3))
         await service.cleanup_scraped_rates()
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_cutoff_uses_fetched_at(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
         await service.cleanup_scraped_rates()
@@ -345,28 +326,25 @@ class TestCleanupMarketIntelligence:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
-    @pytest.mark.asyncio
     async def test_returns_deleted_count(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=50))
         result = await service.cleanup_market_intelligence(retention_days=180)
         assert result["deleted"] == 50
         assert result["retention_days"] == 180
 
-    @pytest.mark.asyncio
     async def test_default_retention_is_180(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
         result = await service.cleanup_market_intelligence()
         assert result["retention_days"] == 180
 
-    @pytest.mark.asyncio
     async def test_commit_is_called(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=7))
         await service.cleanup_market_intelligence()
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_cutoff_uses_fetched_at(self, service, db):
         db.execute = AsyncMock(return_value=_make_result(rowcount=0))
         await service.cleanup_market_intelligence()
@@ -393,9 +371,9 @@ class TestCleanupExpiredUploads:
     @pytest.fixture
     def service(self, db):
         from services.maintenance_service import MaintenanceService
+
         return MaintenanceService(db)
 
-    @pytest.mark.asyncio
     async def test_returns_zero_when_no_old_uploads(self, service, db):
         """Should return deleted=0 when no uploads are older than the cutoff."""
         db.execute = AsyncMock(return_value=_make_result(fetchall_value=[]))
@@ -407,7 +385,6 @@ class TestCleanupExpiredUploads:
         # No DELETE queries should be issued
         db.commit.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_default_retention_is_730_days(self, service, db):
         """Default retention period should be 730 days."""
         db.execute = AsyncMock(return_value=_make_result(fetchall_value=[]))
@@ -416,7 +393,6 @@ class TestCleanupExpiredUploads:
 
         assert result["retention_days"] == 730
 
-    @pytest.mark.asyncio
     async def test_returns_correct_deleted_count(self, service, db):
         """Should return count equal to number of upload rows found."""
         rows = [
@@ -429,7 +405,6 @@ class TestCleanupExpiredUploads:
 
         assert result["deleted"] == 2
 
-    @pytest.mark.asyncio
     async def test_deletes_extracted_rates_before_uploads(self, service, db):
         """Should DELETE from connection_extracted_rates before bill_uploads (FK order)."""
         rows = [("upload-uuid-1", None)]
@@ -445,7 +420,6 @@ class TestCleanupExpiredUploads:
         third_sql = str(calls[2][0][0])
         assert "bill_uploads" in third_sql
 
-    @pytest.mark.asyncio
     async def test_commit_called_after_deletes(self, service, db):
         """Should commit once after all DELETE operations."""
         rows = [("id-1", None)]
@@ -455,7 +429,6 @@ class TestCleanupExpiredUploads:
 
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_removes_existing_files(self, service, db, tmp_path):
         """Should delete files on disk that exist at the stored path."""
         tmp_file = tmp_path / "bill.pdf"
@@ -468,7 +441,6 @@ class TestCleanupExpiredUploads:
 
         assert not tmp_file.exists()
 
-    @pytest.mark.asyncio
     async def test_skips_nonexistent_files(self, service, db):
         """Should not raise when file_path does not exist on disk."""
         rows = [("id-1", "/nonexistent/path/bill.pdf")]
@@ -479,7 +451,6 @@ class TestCleanupExpiredUploads:
 
         assert result["deleted"] == 1
 
-    @pytest.mark.asyncio
     async def test_skips_none_file_paths(self, service, db):
         """Should not attempt to delete files when file_path is None."""
         rows = [("id-1", None), ("id-2", None)]
@@ -489,7 +460,6 @@ class TestCleanupExpiredUploads:
 
         assert result["deleted"] == 2
 
-    @pytest.mark.asyncio
     async def test_oserror_suppressed_on_file_removal(self, service, db, tmp_path):
         """OSError during file removal should be swallowed (best-effort cleanup)."""
         tmp_file = tmp_path / "bill.pdf"
@@ -504,7 +474,6 @@ class TestCleanupExpiredUploads:
 
         assert result["deleted"] == 1
 
-    @pytest.mark.asyncio
     async def test_multiple_uploads_upload_ids_in_fk_delete(self, service, db):
         """All upload IDs must appear in the FK DELETE query params."""
         rows = [
@@ -526,15 +495,13 @@ class TestCleanupExpiredUploads:
         assert "bbbb-2222" in fk_delete_params["ids"]
         assert "cccc-3333" in fk_delete_params["ids"]
 
-    @pytest.mark.asyncio
     async def test_cutoff_passed_to_select_query(self, service, db):
         """The SELECT query must receive a :cutoff parameter."""
         db.execute = AsyncMock(return_value=_make_result(fetchall_value=[]))
 
-        from datetime import timezone
-        before = datetime.now(timezone.utc) - timedelta(days=730)
+        before = datetime.now(UTC) - timedelta(days=730)
         await service.cleanup_expired_uploads(retention_days=730)
-        after = datetime.now(timezone.utc) - timedelta(days=730)
+        after = datetime.now(UTC) - timedelta(days=730)
 
         select_call = db.execute.call_args_list[0]
         params = select_call[0][1]
@@ -556,13 +523,14 @@ class TestMaintenanceEndpoint:
 
     @pytest.fixture
     def auth_client(self, mock_db):
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         app.dependency_overrides[verify_api_key] = lambda: True
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         from fastapi.testclient import TestClient
+
         client = TestClient(app)
         yield client
 
@@ -571,13 +539,14 @@ class TestMaintenanceEndpoint:
 
     @pytest.fixture
     def unauth_client(self, mock_db):
-        from main import app
         from api.dependencies import get_db_session, verify_api_key
+        from main import app
 
         app.dependency_overrides.pop(verify_api_key, None)
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         from fastapi.testclient import TestClient
+
         client = TestClient(app)
         yield client
 
@@ -610,7 +579,6 @@ class TestMaintenanceEndpoint:
         )
         mock_svc_cls.return_value = mock_svc
 
-        from fastapi.testclient import TestClient
         response = auth_client.post("/api/v1/internal/maintenance/cleanup")
 
         assert response.status_code == 200
@@ -635,9 +603,7 @@ class TestMaintenanceEndpoint:
         mock_svc.cleanup_expired_uploads = AsyncMock(
             return_value={"deleted": 0, "retention_days": 730}
         )
-        mock_svc.cleanup_old_prices = AsyncMock(
-            return_value={"deleted": 0, "retention_days": 365}
-        )
+        mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0, "retention_days": 365})
         mock_svc.cleanup_old_observations = AsyncMock(
             return_value={"deleted": 0, "retention_days": 90}
         )
@@ -669,3 +635,37 @@ class TestMaintenanceEndpoint:
         response = unauth_client.post("/api/v1/internal/maintenance/cleanup")
 
         assert response.status_code == 401
+
+
+# =============================================================================
+# TestDbMaintenanceScript — standalone asyncpg script (scripts/db_maintenance.py)
+# =============================================================================
+
+
+class TestParseDeleteCount:
+    """Tests for _parse_delete_count() helper in scripts/db_maintenance.py (P1-9 fix)."""
+
+    def test_parses_standard_delete_tag(self):
+        """Should parse 'DELETE 42' -> 42."""
+        from scripts.db_maintenance import _parse_delete_count
+
+        assert _parse_delete_count("DELETE 42") == 42
+
+    def test_parses_zero_count(self):
+        """Should parse 'DELETE 0' -> 0."""
+        from scripts.db_maintenance import _parse_delete_count
+
+        assert _parse_delete_count("DELETE 0") == 0
+
+    def test_parses_large_count(self):
+        """Should parse 'DELETE 10000' -> 10000."""
+        from scripts.db_maintenance import _parse_delete_count
+
+        assert _parse_delete_count("DELETE 10000") == 10000
+
+    def test_returns_zero_for_unexpected_format(self):
+        """Should return 0 for malformed command tags."""
+        from scripts.db_maintenance import _parse_delete_count
+
+        assert _parse_delete_count("UNEXPECTED") == 0
+        assert _parse_delete_count("") == 0

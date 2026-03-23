@@ -37,10 +37,10 @@ namespace_id = "1003"
 
 # Environment variables (non-secret)
 [vars]
-ORIGIN_URL = "https://electricity-optimizer.onrender.com"
 ALLOWED_ORIGINS = "https://rateshift.app,https://www.rateshift.app"
 
 # Secrets (set via `wrangler secret put`):
+# - ORIGIN_URL          (Render backend URL — MUST be a secret to prevent bypass of CF Worker security layer)
 # - INTERNAL_API_KEY
 # - RATE_LIMIT_BYPASS_KEY
 

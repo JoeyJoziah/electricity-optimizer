@@ -5,14 +5,12 @@ Public endpoints for water rate benchmarking and conservation tips.
 Monitoring only — no "switch" CTA (Decision D4: water is a monopoly).
 """
 
-from typing import Optional
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session
-from services.water_rate_service import WaterRateService, AVG_MONTHLY_GALLONS
+from services.water_rate_service import AVG_MONTHLY_GALLONS, WaterRateService
 
 logger = structlog.get_logger(__name__)
 
@@ -21,8 +19,8 @@ router = APIRouter(prefix="/rates/water")
 
 @router.get("", tags=["Water"])
 async def get_water_rates(
-    state: Optional[str] = Query(None, description="2-letter state code"),
-    municipality: Optional[str] = Query(None, description="Municipality name"),
+    state: str | None = Query(None, description="2-letter state code"),
+    municipality: str | None = Query(None, description="Municipality name"),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get water rates, optionally filtered by state or municipality."""
@@ -72,7 +70,5 @@ async def get_water_tips():
     return {
         "tips": tips,
         "count": len(tips),
-        "estimated_annual_savings_gallons": sum(
-            t["estimated_savings_gallons"] for t in tips
-        ),
+        "estimated_annual_savings_gallons": sum(t["estimated_savings_gallons"] for t in tips),
     }

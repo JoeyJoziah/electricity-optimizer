@@ -27,8 +27,8 @@ Design decisions:
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -81,8 +81,8 @@ class UtilityAPIClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        http_client: Optional[httpx.AsyncClient] = None,
+        api_key: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ):
         """
         Args:
@@ -122,7 +122,7 @@ class UtilityAPIClient:
         if self._owns_client and self._http_client and not self._http_client.is_closed:
             await self._http_client.aclose()
 
-    async def __aenter__(self) -> "UtilityAPIClient":
+    async def __aenter__(self) -> UtilityAPIClient:
         return self
 
     async def __aexit__(self, *args: Any) -> None:
@@ -137,8 +137,8 @@ class UtilityAPIClient:
         method: str,
         path: str,
         *,
-        params: Optional[dict] = None,
-        json: Optional[dict] = None,
+        params: dict | None = None,
+        json: dict | None = None,
     ) -> dict:
         """
         Make an authenticated request to the UtilityAPI.
@@ -152,9 +152,7 @@ class UtilityAPIClient:
         # Zenith H-16-02: fast-fail if the circuit breaker is open
         cb = self._circuit_breaker
         if cb.state.value == "open":
-            raise UtilityAPIError(
-                f"Circuit breaker open for UtilityAPI — skipping {method} {path}"
-            )
+            raise UtilityAPIError(f"Circuit breaker open for UtilityAPI — skipping {method} {path}")
 
         client = await self._get_client()
         try:
@@ -177,9 +175,7 @@ class UtilityAPIClient:
                 error=str(exc),
             )
             await cb.record_failure()
-            raise UtilityAPIError(
-                f"Request to UtilityAPI timed out: {method} {path}"
-            ) from exc
+            raise UtilityAPIError(f"Request to UtilityAPI timed out: {method} {path}") from exc
         except httpx.RequestError as exc:
             logger.warning(
                 "utilityapi_request_error",
@@ -188,9 +184,7 @@ class UtilityAPIClient:
                 error=str(exc),
             )
             await cb.record_failure()
-            raise UtilityAPIError(
-                f"Network error calling UtilityAPI: {exc}"
-            ) from exc
+            raise UtilityAPIError(f"Network error calling UtilityAPI: {exc}") from exc
 
         if response.status_code >= 400:
             body: Any = None
@@ -220,9 +214,7 @@ class UtilityAPIClient:
         try:
             return response.json()
         except Exception as exc:
-            raise UtilityAPIError(
-                f"Could not parse UtilityAPI JSON response: {exc}"
-            ) from exc
+            raise UtilityAPIError(f"Could not parse UtilityAPI JSON response: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Authorization form
@@ -232,8 +224,8 @@ class UtilityAPIClient:
         self,
         supplier_name: str,
         *,
-        state: Optional[str] = None,
-        redirect_url: Optional[str] = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
     ) -> str:
         """
         Generate a UtilityAPI authorization form URL for the customer.
@@ -335,7 +327,7 @@ class UtilityAPIClient:
     async def get_bills(
         self,
         meter_uid: str,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
     ) -> list[dict]:
         """
         Fetch billing history for a meter.
@@ -357,9 +349,7 @@ class UtilityAPIClient:
             "limit": _BILLS_FETCH_LIMIT,
         }
         if since is not None:
-            params["start"] = since.astimezone(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            )
+            params["start"] = since.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         logger.info(
             "utilityapi_get_bills",
@@ -455,9 +445,9 @@ class UtilityAPIClient:
                     bill_uid=uid,
                     date_str=date_str,
                 )
-                effective_date = datetime.now(timezone.utc)
+                effective_date = datetime.now(UTC)
         else:
-            effective_date = datetime.now(timezone.utc)
+            effective_date = datetime.now(UTC)
 
         raw_label = base.get("rate_name") or None
 
@@ -496,13 +486,14 @@ def _parse_date(date_str: str) -> datetime:
     if "T" in normalized:
         dt = datetime.fromisoformat(normalized)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
 
     # Date-only: treat as midnight UTC
     from datetime import date as _date  # noqa: F401 (avoid shadowing built-in)
+
     parts = normalized.split("-")
     if len(parts) != 3:
         raise ValueError(f"Unrecognized date format: {date_str!r}")
     year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
-    return datetime(year, month, day, 0, 0, 0, tzinfo=timezone.utc)
+    return datetime(year, month, day, 0, 0, 0, tzinfo=UTC)

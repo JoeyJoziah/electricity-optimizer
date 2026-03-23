@@ -10,8 +10,6 @@ Security hardening: Verify AES-256-GCM encryption of session cache in Redis.
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from auth.neon_auth import (
     _SESSION_CACHE_TTL,
     _decrypt_session_cache,
@@ -29,7 +27,6 @@ class TestSessionCacheTTL:
             f"Expected _SESSION_CACHE_TTL=60 (Zenith H-15-01), got {_SESSION_CACHE_TTL}"
         )
 
-    @pytest.mark.asyncio
     async def test_session_cached_with_correct_ttl(self):
         """Verify Redis setex is called with TTL=60 when caching a session."""
         mock_redis = AsyncMock()
@@ -60,7 +57,6 @@ class TestSessionCacheTTL:
         call_args = mock_redis.setex.call_args
         assert call_args[0][1] == 60, f"Expected setex TTL=60, got {call_args[0][1]}"
 
-    @pytest.mark.asyncio
     async def test_session_returned_from_cache(self):
         """Verify cached sessions are returned without hitting DB (legacy plaintext)."""
         # Legacy unencrypted cache entry (starts with '{')
@@ -74,7 +70,14 @@ class TestSessionCacheTTL:
             }
         )
         mock_redis = AsyncMock()
-        mock_redis.get = AsyncMock(return_value=cached_data)
+
+        # Return cached data for session key, None for banned_user marker
+        async def _redis_get(key):
+            if key.startswith("banned_user:"):
+                return None
+            return cached_data
+
+        mock_redis.get = AsyncMock(side_effect=_redis_get)
 
         mock_db = AsyncMock()
 
@@ -85,7 +88,6 @@ class TestSessionCacheTTL:
         # DB should NOT have been called
         mock_db.execute.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_invalidate_session_cache(self):
         """Verify cache invalidation deletes the correct key."""
         mock_redis = AsyncMock()
@@ -145,7 +147,6 @@ class TestSessionCacheEncryption:
         data = json.loads(result)
         assert data["user_id"] == "str-user"
 
-    @pytest.mark.asyncio
     async def test_encrypted_cache_stored_on_cache_miss(self):
         """On cache miss, session data is stored encrypted in Redis."""
         mock_redis = AsyncMock()
@@ -181,7 +182,6 @@ class TestSessionCacheEncryption:
             # Encrypted data should NOT start with '{' (which would indicate plaintext JSON)
             assert stored_value[0:1] != b"{"
 
-    @pytest.mark.asyncio
     async def test_encrypted_cache_read_on_cache_hit(self):
         """Encrypted cache entries are decrypted and returned correctly."""
         import secrets
@@ -204,7 +204,14 @@ class TestSessionCacheEncryption:
             encrypted = _encrypt_session_cache(session_payload)
 
         mock_redis = AsyncMock()
-        mock_redis.get = AsyncMock(return_value=encrypted)
+
+        # Return encrypted data for session key, None for banned_user marker
+        async def _redis_get(key):
+            if key.startswith("banned_user:"):
+                return None
+            return encrypted
+
+        mock_redis.get = AsyncMock(side_effect=_redis_get)
         mock_db = AsyncMock()
 
         with patch("utils.encryption.settings") as mock_settings:

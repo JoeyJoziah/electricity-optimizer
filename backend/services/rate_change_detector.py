@@ -6,9 +6,9 @@ Generates rate_change_alerts when significant changes are detected.
 Optionally finds cheaper alternatives for "better deal" recommendations.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = structlog.get_logger(__name__)
 
 # Minimum % change to trigger an alert, per utility type
-DEFAULT_THRESHOLDS: Dict[str, float] = {
+DEFAULT_THRESHOLDS: dict[str, float] = {
     "electricity": 5.0,
     "natural_gas": 5.0,
     "heating_oil": 3.0,
@@ -27,7 +27,7 @@ DEFAULT_THRESHOLDS: Dict[str, float] = {
 }
 
 # How far back to look for the "previous" price, per utility type
-LOOKBACK_DAYS: Dict[str, int] = {
+LOOKBACK_DAYS: dict[str, int] = {
     "electricity": 7,
     "natural_gas": 14,
     "heating_oil": 14,
@@ -45,8 +45,8 @@ class RateChangeDetector:
     async def detect_changes(
         self,
         utility_type: str,
-        threshold_pct: Optional[float] = None,
-    ) -> List[Dict[str, Any]]:
+        threshold_pct: float | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Detect rate changes for a given utility type across all regions.
 
@@ -64,7 +64,7 @@ class RateChangeDetector:
         """
         threshold = threshold_pct or DEFAULT_THRESHOLDS.get(utility_type, 5.0)
         lookback = LOOKBACK_DAYS.get(utility_type, 14)
-        cutoff = datetime.now(timezone.utc) - timedelta(days=lookback)
+        cutoff = datetime.now(UTC) - timedelta(days=lookback)
 
         if utility_type == "heating_oil":
             return await self._detect_heating_oil_changes(threshold, cutoff)
@@ -77,7 +77,7 @@ class RateChangeDetector:
 
     async def _detect_electricity_changes(
         self, threshold: float, cutoff: datetime
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect electricity price changes from electricity_prices table."""
         result = await self._db.execute(
             text("""
@@ -111,9 +111,7 @@ class RateChangeDetector:
         )
         return self._process_changes(result.mappings().all(), "electricity", threshold)
 
-    async def _detect_gas_changes(
-        self, threshold: float, cutoff: datetime
-    ) -> List[Dict[str, Any]]:
+    async def _detect_gas_changes(self, threshold: float, cutoff: datetime) -> list[dict[str, Any]]:
         """Detect natural gas price changes from utility_rates table."""
         result = await self._db.execute(
             text("""
@@ -150,7 +148,7 @@ class RateChangeDetector:
 
     async def _detect_heating_oil_changes(
         self, threshold: float, cutoff: datetime
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect heating oil price changes from heating_oil_prices table."""
         result = await self._db.execute(
             text("""
@@ -185,7 +183,7 @@ class RateChangeDetector:
 
     async def _detect_propane_changes(
         self, threshold: float, cutoff: datetime
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect propane price changes from propane_prices table."""
         result = await self._db.execute(
             text("""
@@ -223,7 +221,7 @@ class RateChangeDetector:
         rows: list,
         utility_type: str,
         threshold: float,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Filter rows by threshold and return change dicts."""
         changes = []
         for row in rows:
@@ -233,15 +231,17 @@ class RateChangeDetector:
                 continue
             change_pct = float(((curr - prev) / prev) * 100)
             if abs(change_pct) >= threshold:
-                changes.append({
-                    "utility_type": utility_type,
-                    "region": row["region"],
-                    "supplier": row.get("supplier") or "Unknown",
-                    "previous_price": float(prev),
-                    "current_price": float(curr),
-                    "change_pct": round(change_pct, 2),
-                    "change_direction": "increase" if change_pct > 0 else "decrease",
-                })
+                changes.append(
+                    {
+                        "utility_type": utility_type,
+                        "region": row["region"],
+                        "supplier": row.get("supplier") or "Unknown",
+                        "previous_price": float(prev),
+                        "current_price": float(curr),
+                        "change_pct": round(change_pct, 2),
+                        "change_direction": "increase" if change_pct > 0 else "decrease",
+                    }
+                )
         return changes
 
     async def find_cheaper_alternative(
@@ -249,7 +249,7 @@ class RateChangeDetector:
         utility_type: str,
         region: str,
         current_price: float,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Find a cheaper supplier alternative in the same region.
 
@@ -302,55 +302,68 @@ class RateChangeDetector:
 
     async def store_changes(
         self,
-        changes: List[Dict[str, Any]],
+        changes: list[dict[str, Any]],
     ) -> int:
-        """Persist detected rate changes to rate_change_alerts table."""
+        """Persist detected rate changes to rate_change_alerts table (500-row chunks)."""
+        if not changes:
+            return 0
+
+        insert_sql = text("""
+            INSERT INTO rate_change_alerts
+                (id, utility_type, region, supplier,
+                 previous_price, current_price, change_pct,
+                 change_direction, detected_at,
+                 recommendation_supplier, recommendation_price,
+                 recommendation_savings)
+            VALUES
+                (:id, :utility_type, :region, :supplier,
+                 :previous_price, :current_price, :change_pct,
+                 :change_direction, :detected_at,
+                 :rec_supplier, :rec_price, :rec_savings)
+        """)
+
         stored = 0
-        for change in changes:
-            await self._db.execute(
-                text("""
-                    INSERT INTO rate_change_alerts
-                        (id, utility_type, region, supplier,
-                         previous_price, current_price, change_pct,
-                         change_direction, detected_at,
-                         recommendation_supplier, recommendation_price,
-                         recommendation_savings)
-                    VALUES
-                        (:id, :utility_type, :region, :supplier,
-                         :previous_price, :current_price, :change_pct,
-                         :change_direction, :detected_at,
-                         :rec_supplier, :rec_price, :rec_savings)
-                """),
-                {
-                    "id": str(uuid4()),
-                    "utility_type": change["utility_type"],
-                    "region": change["region"],
-                    "supplier": change["supplier"],
-                    "previous_price": change["previous_price"],
-                    "current_price": change["current_price"],
-                    "change_pct": change["change_pct"],
-                    "change_direction": change["change_direction"],
-                    "detected_at": datetime.now(timezone.utc),
-                    "rec_supplier": change.get("recommendation_supplier"),
-                    "rec_price": change.get("recommendation_price"),
-                    "rec_savings": change.get("recommendation_savings"),
-                },
-            )
-            stored += 1
-        await self._db.commit()
+        chunk_size = 500
+        now = datetime.now(UTC)
+        for chunk_start in range(0, len(changes), chunk_size):
+            chunk = changes[chunk_start : chunk_start + chunk_size]
+            try:
+                for change in chunk:
+                    await self._db.execute(
+                        insert_sql,
+                        {
+                            "id": str(uuid4()),
+                            "utility_type": change["utility_type"],
+                            "region": change["region"],
+                            "supplier": change["supplier"],
+                            "previous_price": change["previous_price"],
+                            "current_price": change["current_price"],
+                            "change_pct": change["change_pct"],
+                            "change_direction": change["change_direction"],
+                            "detected_at": now,
+                            "rec_supplier": change.get("recommendation_supplier"),
+                            "rec_price": change.get("recommendation_price"),
+                            "rec_savings": change.get("recommendation_savings"),
+                        },
+                    )
+                await self._db.commit()
+                stored += len(chunk)
+            except Exception:
+                await self._db.rollback()
+                raise
         return stored
 
     async def get_recent_changes(
         self,
-        utility_type: Optional[str] = None,
-        region: Optional[str] = None,
+        utility_type: str | None = None,
+        region: str | None = None,
         days: int = 7,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Retrieve recent rate change alerts, optionally filtered."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         conditions = ["detected_at >= :cutoff"]
-        params: Dict[str, Any] = {"cutoff": cutoff, "limit": limit}
+        params: dict[str, Any] = {"cutoff": cutoff, "limit": limit}
 
         if utility_type:
             conditions.append("utility_type = :utility_type")
@@ -408,7 +421,7 @@ class AlertPreferenceService:
     def __init__(self, db: AsyncSession):
         self._db = db
 
-    async def get_preferences(self, user_id: str) -> List[Dict[str, Any]]:
+    async def get_preferences(self, user_id: str) -> list[dict[str, Any]]:
         """Get all alert preferences for a user."""
         result = await self._db.execute(
             text("""
@@ -426,12 +439,12 @@ class AlertPreferenceService:
         self,
         user_id: str,
         utility_type: str,
-        enabled: Optional[bool] = None,
-        channels: Optional[List[str]] = None,
-        cadence: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        enabled: bool | None = None,
+        channels: list[str] | None = None,
+        cadence: str | None = None,
+    ) -> dict[str, Any]:
         """Create or update alert preference for a utility type."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "id": str(uuid4()),
             "user_id": user_id,
             "utility_type": utility_type,
@@ -439,24 +452,28 @@ class AlertPreferenceService:
             "channels": channels or ["email"],
             "cadence": cadence or "daily",
         }
-        result = await self._db.execute(
-            text("""
-                INSERT INTO alert_preferences
-                    (id, user_id, utility_type, enabled, channels, cadence)
-                VALUES
-                    (:id, :user_id, :utility_type, :enabled, :channels, :cadence)
-                ON CONFLICT (user_id, utility_type)
-                DO UPDATE SET
-                    enabled = EXCLUDED.enabled,
-                    channels = EXCLUDED.channels,
-                    cadence = EXCLUDED.cadence,
-                    updated_at = NOW()
-                RETURNING id, user_id, utility_type, enabled, channels, cadence,
-                          created_at, updated_at
-            """),
-            params,
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("""
+                    INSERT INTO alert_preferences
+                        (id, user_id, utility_type, enabled, channels, cadence)
+                    VALUES
+                        (:id, :user_id, :utility_type, :enabled, :channels, :cadence)
+                    ON CONFLICT (user_id, utility_type)
+                    DO UPDATE SET
+                        enabled = EXCLUDED.enabled,
+                        channels = EXCLUDED.channels,
+                        cadence = EXCLUDED.cadence,
+                        updated_at = NOW()
+                    RETURNING id, user_id, utility_type, enabled, channels, cadence,
+                              created_at, updated_at
+                """),
+                params,
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         row = result.mappings().first()
         return self._row_to_dict(row)
 
@@ -475,7 +492,7 @@ class AlertPreferenceService:
         return row[0] if row else True
 
     @staticmethod
-    def _row_to_dict(row) -> Dict[str, Any]:
+    def _row_to_dict(row) -> dict[str, Any]:
         return {
             "id": str(row["id"]),
             "user_id": str(row["user_id"]),

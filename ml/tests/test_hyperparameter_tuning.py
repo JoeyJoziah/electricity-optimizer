@@ -19,7 +19,6 @@ import importlib.util
 import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Mock tensorflow and optuna at sys.modules level
@@ -54,12 +53,14 @@ for mod_name, mod in {
 # ---------------------------------------------------------------------------
 _BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "training"))
 
+
 def _load_module(name, filepath):
     spec = importlib.util.spec_from_file_location(name, filepath)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
+
 
 _hp_mod = _load_module(
     "ml.training.hyperparameter_tuning",
@@ -74,6 +75,7 @@ BayesianOptimizer = _hp_mod.BayesianOptimizer
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _dummy_data(n=50, seq_len=24, features=10, horizon=24):
     X_train = np.random.randn(n, seq_len, features).astype(np.float32)
@@ -142,17 +144,26 @@ class TestHyperparameterSpace:
         mock_trial = MagicMock()
         mock_trial.suggest_categorical.side_effect = lambda name, choices: choices[0]
         mock_trial.suggest_int.side_effect = lambda name, low, high: low
-        mock_trial.suggest_float.side_effect = lambda name, low, high: low
-        mock_trial.suggest_loguniform.side_effect = lambda name, low, high: low
+        # suggest_float is used for both regular and log-scale floats
+        # (suggest_loguniform is deprecated in Optuna v3+).
+        mock_trial.suggest_float.side_effect = lambda name, low, high, **kwargs: low
 
         result = space.to_optuna_space(mock_trial)
 
         assert isinstance(result, dict)
         expected_keys = {
-            "cnn_filters", "cnn_kernel_size", "cnn_layers",
-            "lstm_units", "lstm_layers", "lstm_dropout",
-            "dense_units", "dense_layers", "dense_dropout",
-            "learning_rate", "batch_size", "optimizer",
+            "cnn_filters",
+            "cnn_kernel_size",
+            "cnn_layers",
+            "lstm_units",
+            "lstm_layers",
+            "lstm_dropout",
+            "dense_units",
+            "dense_layers",
+            "dense_dropout",
+            "learning_rate",
+            "batch_size",
+            "optimizer",
             "lookback_hours",
         }
         assert expected_keys == set(result.keys())
@@ -163,8 +174,7 @@ class TestHyperparameterSpace:
         mock_trial = MagicMock()
         mock_trial.suggest_categorical.side_effect = lambda name, choices: choices[0]
         mock_trial.suggest_int.side_effect = lambda name, low, high: low
-        mock_trial.suggest_float.side_effect = lambda name, low, high: low
-        mock_trial.suggest_loguniform.side_effect = lambda name, low, high: low
+        mock_trial.suggest_float.side_effect = lambda name, low, high, **kwargs: low
 
         result = space.to_optuna_space(mock_trial)
 
@@ -172,7 +182,11 @@ class TestHyperparameterSpace:
         assert result["lstm_units"] in space.lstm_units
         assert result["batch_size"] in space.batch_size
         assert result["optimizer"] in space.optimizer
-        assert min(space.learning_rate) <= result["learning_rate"] <= max(space.learning_rate)
+        assert (
+            min(space.learning_rate)
+            <= result["learning_rate"]
+            <= max(space.learning_rate)
+        )
 
     def test_kernel_sizes_are_odd(self):
         """Default kernel sizes should be odd (required for symmetric padding)."""
@@ -184,7 +198,9 @@ class TestHyperparameterSpace:
         """Default batch sizes should be powers of two for GPU efficiency."""
         space = HyperparameterSpace()
         for bs in space.batch_size:
-            assert (bs & (bs - 1)) == 0 and bs > 0, f"Batch size {bs} is not a power of 2"
+            assert (bs & (bs - 1)) == 0 and bs > 0, (
+                f"Batch size {bs} is not a power of 2"
+            )
 
 
 # ===================================================================
@@ -203,8 +219,10 @@ class TestHyperparameterTuner:
         tuner = HyperparameterTuner(
             model_builder=_default_model_builder,
             search_space=HyperparameterSpace(),
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             results_dir=results_dir,
         )
         assert results_dir.exists()
@@ -215,8 +233,10 @@ class TestHyperparameterTuner:
         tuner = HyperparameterTuner(
             model_builder=_default_model_builder,
             search_space=HyperparameterSpace(),
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             direction="minimize",
             results_dir=tmp_path / "res",
         )
@@ -230,8 +250,10 @@ class TestHyperparameterTuner:
         tuner = HyperparameterTuner(
             model_builder=_default_model_builder,
             search_space=HyperparameterSpace(),
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             direction="maximize",
             results_dir=tmp_path / "res",
         )
@@ -246,8 +268,10 @@ class TestHyperparameterTuner:
         tuner = HyperparameterTuner(
             model_builder=builder,
             search_space=HyperparameterSpace(),
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             results_dir=tmp_path / "res",
         )
 
@@ -270,8 +294,10 @@ class TestHyperparameterTuner:
         tuner = HyperparameterTuner(
             model_builder=builder,
             search_space=HyperparameterSpace(),
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             metric="val_loss",
             direction="minimize",
             results_dir=tmp_path / "res",
@@ -287,8 +313,10 @@ class TestHyperparameterTuner:
         tuner = HyperparameterTuner(
             model_builder=_default_model_builder,
             search_space=HyperparameterSpace(),
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             results_dir=tmp_path / "res",
         )
         tuner.results = [{"trial": 1, "score": 0.5, "params": {"lr": 0.001}}]
@@ -305,19 +333,29 @@ class TestHyperparameterTuner:
     def test_grid_search_returns_best(self, tmp_path):
         """grid_search returns best params and score from evaluated trials."""
         space = HyperparameterSpace(
-            cnn_filters=[16], cnn_kernel_size=[3], cnn_layers=[1],
-            lstm_units=[32], lstm_layers=[1], lstm_dropout=[0.1],
-            dense_units=[16], dense_layers=[1], dense_dropout=[0.0],
-            learning_rate=[0.001], batch_size=[16],
-            optimizer=["adam"], lookback_hours=[72],
+            cnn_filters=[16],
+            cnn_kernel_size=[3],
+            cnn_layers=[1],
+            lstm_units=[32],
+            lstm_layers=[1],
+            lstm_dropout=[0.1],
+            dense_units=[16],
+            dense_layers=[1],
+            dense_dropout=[0.0],
+            learning_rate=[0.001],
+            batch_size=[16],
+            optimizer=["adam"],
+            lookback_hours=[72],
         )
         X_train, y_train, X_val, y_val = _dummy_data()
 
         tuner = HyperparameterTuner(
             model_builder=_default_model_builder,
             search_space=space,
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             results_dir=tmp_path / "res",
         )
 
@@ -329,6 +367,7 @@ class TestHyperparameterTuner:
     def test_random_search_respects_n_trials(self, tmp_path):
         """random_search should not exceed n_trials evaluations."""
         call_count = [0]
+
         def counting_builder(params):
             call_count[0] += 1
             return _default_model_builder(params)
@@ -337,8 +376,10 @@ class TestHyperparameterTuner:
         tuner = HyperparameterTuner(
             model_builder=counting_builder,
             search_space=HyperparameterSpace(),
-            X_train=X_train, y_train=y_train,
-            X_val=X_val, y_val=y_val,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
             results_dir=tmp_path / "res",
         )
         tuner.random_search(n_trials=3)
@@ -367,8 +408,10 @@ class TestBayesianOptimizer:
 
             best_params, best_score = BayesianOptimizer.optimize(
                 model_builder=_default_model_builder,
-                X_train=X_train, y_train=y_train,
-                X_val=X_val, y_val=y_val,
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
                 n_trials=5,
             )
 
@@ -386,8 +429,10 @@ class TestBayesianOptimizer:
 
             BayesianOptimizer.optimize(
                 model_builder=_default_model_builder,
-                X_train=X_train, y_train=y_train,
-                X_val=X_val, y_val=y_val,
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
                 n_trials=2,
                 search_space=None,
             )

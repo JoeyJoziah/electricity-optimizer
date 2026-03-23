@@ -58,6 +58,7 @@ try:
     from ml.optimization.load_shifter import MILPOptimizer
     from ml.optimization.scheduler import ApplianceScheduler
     from ml.optimization.visualization import ScheduleVisualizer
+
     _HAS_PULP = True
 except ImportError:
     MILPOptimizer = None  # type: ignore[assignment,misc]

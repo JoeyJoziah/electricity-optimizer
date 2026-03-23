@@ -1,4 +1,4 @@
--- Migration 010: Add UtilityAPI sync columns to user_connections
+-- Migration 011: Add UtilityAPI sync columns to user_connections
 -- Required for Phase 4: UtilityAPI Direct Sync
 --
 -- These columns support the sync service's scheduling, error tracking,

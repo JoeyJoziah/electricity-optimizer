@@ -5,12 +5,10 @@ Provides token bucket and sliding window rate limiting for API calls.
 Supports both in-memory and Redis-backed rate limiting for distributed systems.
 """
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Optional
 import asyncio
 import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import structlog
 
@@ -62,9 +60,9 @@ logger = structlog.get_logger(__name__)
 class RateLimitConfig:
     """Configuration for rate limiting"""
 
-    requests_per_minute: Optional[int] = None
-    requests_per_hour: Optional[int] = None
-    requests_per_day: Optional[int] = None
+    requests_per_minute: int | None = None
+    requests_per_hour: int | None = None
+    requests_per_day: int | None = None
 
     # Burst allowance (multiplier of per-minute rate)
     burst_multiplier: float = 1.5
@@ -96,7 +94,7 @@ class RateLimiter(ABC):
     async def wait_for_token(
         self,
         key: str = "default",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> bool:
         """
         Wait until a token is available.
@@ -158,10 +156,7 @@ class TokenBucketLimiter(RateLimiter):
         """Refill tokens based on elapsed time"""
         now = time.monotonic()
         elapsed = now - bucket["last_update"]
-        bucket["tokens"] = min(
-            self.capacity,
-            bucket["tokens"] + (elapsed * self.rate)
-        )
+        bucket["tokens"] = min(self.capacity, bucket["tokens"] + (elapsed * self.rate))
         bucket["last_update"] = now
 
     async def acquire(self, key: str = "default", tokens: int = 1) -> bool:
@@ -191,7 +186,7 @@ class TokenBucketLimiter(RateLimiter):
     async def wait_for_token(
         self,
         key: str = "default",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> bool:
         """Wait until token is available"""
         start_time = time.monotonic()
@@ -295,7 +290,8 @@ class SlidingWindowLimiter(RateLimiter):
         # Periodic sweep: evict stale *other* keys when the dict is too large.
         if len(self._windows) >= self._MAX_KEYS:
             stale = [
-                k for k, timestamps in self._windows.items()
+                k
+                for k, timestamps in self._windows.items()
                 if k != key and (not timestamps or timestamps[-1] <= cutoff)
             ]
             for k in stale:
@@ -333,7 +329,7 @@ class SlidingWindowLimiter(RateLimiter):
     async def wait_for_token(
         self,
         key: str = "default",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> bool:
         """Wait until token is available"""
         start_time = time.monotonic()
@@ -409,7 +405,7 @@ class CompositeRateLimiter(RateLimiter):
     async def wait_for_token(
         self,
         key: str = "default",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> bool:
         """Wait for all limiters to have tokens"""
         start_time = time.monotonic()
@@ -484,12 +480,12 @@ class RedisRateLimiter(RateLimiter):
 
         result = await self.redis.eval(
             _REDIS_RATE_LIMIT_LUA,
-            1,                          # numkeys
-            redis_key,                  # KEYS[1]
-            now,                        # ARGV[1]
-            int(self.window_seconds),   # ARGV[2]
-            self.requests_per_window,   # ARGV[3]
-            tokens,                     # ARGV[4]
+            1,  # numkeys
+            redis_key,  # KEYS[1]
+            now,  # ARGV[1]
+            int(self.window_seconds),  # ARGV[2]
+            self.requests_per_window,  # ARGV[3]
+            tokens,  # ARGV[4]
         )
 
         allowed = bool(int(result[0]))
@@ -514,7 +510,7 @@ class RedisRateLimiter(RateLimiter):
     async def wait_for_token(
         self,
         key: str = "default",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> bool:
         """Wait for token availability"""
         start_time = time.monotonic()
@@ -553,8 +549,8 @@ class RedisRateLimiter(RateLimiter):
 
 def create_api_rate_limiter(
     api_name: str,
-    requests_per_minute: Optional[int] = None,
-    requests_per_hour: Optional[int] = None,
+    requests_per_minute: int | None = None,
+    requests_per_hour: int | None = None,
 ) -> RateLimiter:
     """
     Factory function to create rate limiter for an API.

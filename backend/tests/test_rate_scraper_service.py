@@ -18,19 +18,15 @@ Coverage:
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, call
-from uuid import uuid4
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from services.rate_scraper_service import (
-    RateScraperService,
     _RATE_LIMIT_SLEEP_S,
-    _PER_SUPPLIER_TIMEOUT_S,
-    _MAX_CONCURRENCY,
     DIFFBOT_EXTRACT_URL,
+    RateScraperService,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -77,7 +73,6 @@ def _supplier(supplier_id: str = "sup-1", url: str = "https://example.com/rates"
 
 
 class TestExtractRatesFromUrl:
-    @pytest.mark.asyncio
     async def test_returns_none_when_no_token(self):
         svc = RateScraperService(settings=_settings_no_token())
         with patch("services.rate_scraper_service.httpx.AsyncClient") as mock_cls:
@@ -85,7 +80,6 @@ class TestExtractRatesFromUrl:
             mock_cls.assert_not_called()
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_json_on_success(self):
         svc = RateScraperService(settings=_settings_with_token())
         extracted = {"objects": [{"text": "rate $0.12 per kWh"}]}
@@ -96,7 +90,6 @@ class TestExtractRatesFromUrl:
 
         assert result == extracted
 
-    @pytest.mark.asyncio
     async def test_request_passes_token_in_auth_header(self):
         svc = RateScraperService(settings=_settings_with_token())
         mock_client = _make_client(_http_response({}))
@@ -110,7 +103,6 @@ class TestExtractRatesFromUrl:
         params = call_kwargs.kwargs.get("params", {})
         assert params.get("url") == "https://example.com"
 
-    @pytest.mark.asyncio
     async def test_requests_diffbot_endpoint(self):
         svc = RateScraperService(settings=_settings_with_token())
         mock_client = _make_client(_http_response({}))
@@ -121,13 +113,12 @@ class TestExtractRatesFromUrl:
         url_called = mock_client.get.call_args.args[0]
         assert url_called == DIFFBOT_EXTRACT_URL
 
-    @pytest.mark.asyncio
     async def test_raises_on_http_error(self):
         svc = RateScraperService(settings=_settings_with_token())
         mock_client = _make_client(_http_response({}, status_code=403))
 
         with patch("services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client):
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017
                 await svc.extract_rates_from_url("https://example.com")
 
 
@@ -137,7 +128,6 @@ class TestExtractRatesFromUrl:
 
 
 class TestScrapeOne:
-    @pytest.mark.asyncio
     async def test_success_returns_extracted_data(self):
         svc = RateScraperService(settings=_settings_with_token())
         extracted = {"objects": [{"text": "rate $0.10/kWh"}]}
@@ -152,7 +142,6 @@ class TestScrapeOne:
         assert result["extracted_data"] == extracted
         assert result["supplier_id"] == "sup-1"
 
-    @pytest.mark.asyncio
     async def test_failure_returns_success_false(self):
         svc = RateScraperService(settings=_settings_with_token())
         semaphore = asyncio.Semaphore(1)
@@ -166,7 +155,6 @@ class TestScrapeOne:
         assert "error" in result
         assert result["supplier_id"] == "sup-fail"
 
-    @pytest.mark.asyncio
     async def test_timeout_returns_success_false_with_timeout_error(self):
         svc = RateScraperService(settings=_settings_with_token())
         semaphore = asyncio.Semaphore(1)
@@ -174,7 +162,7 @@ class TestScrapeOne:
         # Simulate asyncio.wait_for raising TimeoutError by patching it directly
         async def _raise_timeout(coro, timeout):
             coro.close()  # prevent "coroutine was never awaited" warning
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         with patch("asyncio.wait_for", side_effect=_raise_timeout):
             with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -183,7 +171,6 @@ class TestScrapeOne:
         assert result["success"] is False
         assert result.get("error") == "timeout"
 
-    @pytest.mark.asyncio
     async def test_sleeps_after_call_even_on_failure(self):
         svc = RateScraperService(settings=_settings_with_token())
         semaphore = asyncio.Semaphore(1)
@@ -196,7 +183,6 @@ class TestScrapeOne:
         # The rate-limit sleep must always be called in the finally block
         mock_sleep.assert_awaited_once_with(_RATE_LIMIT_SLEEP_S)
 
-    @pytest.mark.asyncio
     async def test_sleeps_after_successful_call(self):
         svc = RateScraperService(settings=_settings_with_token())
         semaphore = asyncio.Semaphore(1)
@@ -208,7 +194,6 @@ class TestScrapeOne:
 
         mock_sleep.assert_awaited_once_with(_RATE_LIMIT_SLEEP_S)
 
-    @pytest.mark.asyncio
     async def test_none_extraction_result_returns_success_false(self):
         """When extract_rates_from_url returns None (unconfigured token), success=False."""
         svc = RateScraperService(settings=_settings_no_token())
@@ -226,27 +211,24 @@ class TestScrapeOne:
 
 
 class TestScrapeSupplierRates:
-    @pytest.mark.asyncio
     async def test_empty_list_returns_zero_counts(self):
         svc = RateScraperService(settings=_settings_with_token())
         result = await svc.scrape_supplier_rates([])
         assert result == {"total": 0, "succeeded": 0, "failed": 0, "errors": [], "results": []}
 
-    @pytest.mark.asyncio
     async def test_none_input_treated_as_empty(self):
         svc = RateScraperService(settings=_settings_with_token())
         result = await svc.scrape_supplier_rates(None)
         assert result["total"] == 0
         assert result["succeeded"] == 0
 
-    @pytest.mark.asyncio
     async def test_all_succeed_counts_correctly(self):
         svc = RateScraperService(settings=_settings_with_token())
         suppliers = [_supplier(f"sup-{i}", f"https://example.com/{i}") for i in range(3)]
 
         async def _ok_scrape(item, sem):
             async with sem:
-                await asyncio.sleep(0)
+                await asyncio.sleep(0)  # Yield control to let queued coroutines advance
                 return {"supplier_id": item["supplier_id"], "extracted_data": {}, "success": True}
 
         with patch.object(svc, "_scrape_one", side_effect=_ok_scrape):
@@ -257,15 +239,19 @@ class TestScrapeSupplierRates:
         assert result["failed"] == 0
         assert result["errors"] == []
 
-    @pytest.mark.asyncio
     async def test_all_fail_counts_correctly(self):
         svc = RateScraperService(settings=_settings_with_token())
         suppliers = [_supplier(f"sup-{i}") for i in range(2)]
 
         async def _fail_scrape(item, sem):
             async with sem:
-                await asyncio.sleep(0)
-                return {"supplier_id": item["supplier_id"], "extracted_data": None, "success": False, "error": "timeout"}
+                await asyncio.sleep(0)  # Yield control to let queued coroutines advance
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": None,
+                    "success": False,
+                    "error": "timeout",
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_fail_scrape):
             result = await svc.scrape_supplier_rates(suppliers)
@@ -275,7 +261,6 @@ class TestScrapeSupplierRates:
         assert result["failed"] == 2
         assert len(result["errors"]) == 2
 
-    @pytest.mark.asyncio
     async def test_partial_success(self):
         svc = RateScraperService(settings=_settings_with_token())
         suppliers = [
@@ -286,9 +271,14 @@ class TestScrapeSupplierRates:
 
         async def _mixed_scrape(item, sem):
             async with sem:
-                await asyncio.sleep(0)
+                await asyncio.sleep(0)  # Yield control to let queued coroutines advance
                 if "fail" in item["supplier_id"]:
-                    return {"supplier_id": item["supplier_id"], "extracted_data": None, "success": False, "error": "http_error"}
+                    return {
+                        "supplier_id": item["supplier_id"],
+                        "extracted_data": None,
+                        "success": False,
+                        "error": "http_error",
+                    }
                 return {"supplier_id": item["supplier_id"], "extracted_data": {}, "success": True}
 
         with patch.object(svc, "_scrape_one", side_effect=_mixed_scrape):
@@ -300,15 +290,19 @@ class TestScrapeSupplierRates:
         assert len(result["errors"]) == 1
         assert result["errors"][0]["supplier_id"] == "fail-1"
 
-    @pytest.mark.asyncio
     async def test_errors_list_contains_supplier_id_and_error(self):
         svc = RateScraperService(settings=_settings_with_token())
         suppliers = [_supplier("bad-sup")]
 
         async def _fail_scrape(item, sem):
             async with sem:
-                await asyncio.sleep(0)
-                return {"supplier_id": item["supplier_id"], "extracted_data": None, "success": False, "error": "connection_refused"}
+                await asyncio.sleep(0)  # Yield control to let queued coroutines advance
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": None,
+                    "success": False,
+                    "error": "connection_refused",
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_fail_scrape):
             result = await svc.scrape_supplier_rates(suppliers)
@@ -316,15 +310,18 @@ class TestScrapeSupplierRates:
         assert result["errors"][0]["supplier_id"] == "bad-sup"
         assert "error" in result["errors"][0]
 
-    @pytest.mark.asyncio
     async def test_results_list_contains_all_raw_results(self):
         svc = RateScraperService(settings=_settings_with_token())
         suppliers = [_supplier("s1"), _supplier("s2")]
 
         async def _scrape(item, sem):
             async with sem:
-                await asyncio.sleep(0)
-                return {"supplier_id": item["supplier_id"], "extracted_data": {"rate": 0.1}, "success": True}
+                await asyncio.sleep(0)  # Yield control to let queued coroutines advance
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": {"rate": 0.1},
+                    "success": True,
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_scrape):
             result = await svc.scrape_supplier_rates(suppliers)
@@ -334,7 +331,6 @@ class TestScrapeSupplierRates:
         assert "s1" in supplier_ids
         assert "s2" in supplier_ids
 
-    @pytest.mark.asyncio
     async def test_respects_max_concurrency_parameter(self):
         """Verify custom max_concurrency creates a semaphore with that limit."""
         svc = RateScraperService(settings=_settings_with_token())
@@ -344,14 +340,14 @@ class TestScrapeSupplierRates:
         async def _capture_scrape(item, sem):
             captured_semaphores.append(sem)
             async with sem:
-                await asyncio.sleep(0)
+                await asyncio.sleep(0)  # Yield control to let queued coroutines advance
                 return {"supplier_id": item["supplier_id"], "extracted_data": {}, "success": True}
 
         with patch.object(svc, "_scrape_one", side_effect=_capture_scrape):
             await svc.scrape_supplier_rates(suppliers, max_concurrency=2)
 
         # All tasks should share the same semaphore instance
-        assert len(set(id(s) for s in captured_semaphores)) == 1
+        assert len({id(s) for s in captured_semaphores}) == 1
         # The semaphore should have the custom bound
         sem = captured_semaphores[0]
         assert sem._value == 2  # asyncio.Semaphore stores initial value

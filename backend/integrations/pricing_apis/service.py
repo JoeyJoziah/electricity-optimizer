@@ -11,26 +11,23 @@ Features:
 - Health monitoring across all APIs
 """
 
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Optional
 import asyncio
 
 import structlog
 
+from lib.circuit_breaker import CircuitBreaker
+
 from .base import (
+    APIError,
     PriceData,
     PriceForecast,
     PricingRegion,
-    APIError,
 )
+from .cache import PricingCache
 from .eia import EIAClient
 from .flatpeak import FlatpeakClient
-from .nrel import NRELClient
 from .iea import IEAClient
-from .cache import PricingCache
-from .rate_limiter import RateLimiter
-from lib.circuit_breaker import CircuitBreaker
+from .nrel import NRELClient
 
 logger = structlog.get_logger(__name__)
 
@@ -68,13 +65,13 @@ class PricingService:
 
     def __init__(
         self,
-        flatpeak_key: Optional[str] = None,
-        nrel_key: Optional[str] = None,
-        iea_key: Optional[str] = None,
-        eia_key: Optional[str] = None,
-        cache: Optional[PricingCache] = None,
+        flatpeak_key: str | None = None,
+        nrel_key: str | None = None,
+        iea_key: str | None = None,
+        eia_key: str | None = None,
+        cache: PricingCache | None = None,
         timeout: float = 30.0,
-        nrel_base_url: Optional[str] = None,
+        nrel_base_url: str | None = None,
     ):
         """
         Initialize the pricing service.
@@ -91,7 +88,7 @@ class PricingService:
         self.timeout = timeout
 
         # Initialize clients based on available keys
-        self._clients: dict[str, Optional[object]] = {}
+        self._clients: dict[str, object | None] = {}
 
         if flatpeak_key:
             self._clients["flatpeak"] = FlatpeakClient(
@@ -124,8 +121,7 @@ class PricingService:
 
         # Zenith H-16-02: service-level circuit breakers per client for fast-fail
         self._breakers: dict[str, CircuitBreaker] = {
-            name: CircuitBreaker(f"pricing:{name}")
-            for name in self._clients
+            name: CircuitBreaker(f"pricing:{name}") for name in self._clients
         }
 
         self.logger = logger.bind(service="pricing")
@@ -249,9 +245,7 @@ class PricingService:
             )
             breaker = self._breakers.get(primary_name)
             if breaker:
-                result = await breaker.call(
-                    primary_client.get_current_price(region)
-                )
+                result = await breaker.call(primary_client.get_current_price(region))
             else:
                 result = await primary_client.get_current_price(region)
             return result
@@ -279,9 +273,7 @@ class PricingService:
                     )
                     fb_breaker = self._breakers.get(fallback_name)
                     if fb_breaker:
-                        return await fb_breaker.call(
-                            fallback_client.get_current_price(region)
-                        )
+                        return await fb_breaker.call(fallback_client.get_current_price(region))
                     else:
                         return await fallback_client.get_current_price(region)
                 except Exception as fallback_error:
@@ -319,9 +311,7 @@ class PricingService:
         try:
             breaker = self._breakers.get(primary_name)
             if breaker:
-                return await breaker.call(
-                    primary_client.get_price_forecast(region, hours)
-                )
+                return await breaker.call(primary_client.get_price_forecast(region, hours))
             else:
                 return await primary_client.get_price_forecast(region, hours)
         except Exception as e:
@@ -457,7 +447,7 @@ class PricingService:
         """
         all_regions = set()
 
-        for name, client in self._clients.items():
+        for _name, client in self._clients.items():
             if client:
                 all_regions.update(client.get_supported_regions())
 

@@ -66,7 +66,6 @@ class TestSSEConnectionCounting:
     location: config.database.get_redis.
     """
 
-    @pytest.mark.asyncio
     async def test_sse_connection_counting_increment(self):
         """_sse_incr increases the in-memory counter for a user."""
         from api.v1 import prices_sse
@@ -83,7 +82,6 @@ class TestSSEConnectionCounting:
         assert count == 1
         assert prices_sse._sse_connections["user-a"] == 1
 
-    @pytest.mark.asyncio
     async def test_sse_connection_counting_decrement(self):
         """_sse_decr decreases the in-memory counter and removes the key at 0."""
         from api.v1 import prices_sse
@@ -171,7 +169,6 @@ class TestSSEMaxConnections:
 class TestSSEEventGenerator:
     """Tests for _price_event_generator internals."""
 
-    @pytest.mark.asyncio
     async def test_sse_heartbeat_sent(self):
         """Generator yields a ': heartbeat\\n\\n' comment during sleep interval.
 
@@ -216,7 +213,6 @@ class TestSSEEventGenerator:
             "greater than interval_seconds, causing the threshold to never be reached"
         )
 
-    @pytest.mark.asyncio
     async def test_sse_heartbeat_interval_less_than_data_interval(self):
         """heartbeat_interval must be less than interval_seconds.
 
@@ -263,7 +259,6 @@ class TestSSEEventGenerator:
                 "heartbeat_interval is not less than interval_seconds"
             )
 
-    @pytest.mark.asyncio
     async def test_sse_data_event_format(self):
         """Yielded data events have 'data: {json}\\n\\n' format with required keys."""
         from api.v1.prices_sse import _price_event_generator
@@ -298,7 +293,6 @@ class TestSSEEventGenerator:
         assert "price_per_kwh" in payload
         assert payload["source"] == "live"
 
-    @pytest.mark.asyncio
     async def test_sse_fallback_data(self):
         """When DB returns empty list, generator falls back to mock data."""
         from api.v1.prices_sse import _price_event_generator
@@ -340,7 +334,6 @@ class TestSSEEventGenerator:
         payload = json.loads(events[0][len("data: ") : -2])
         assert payload["source"] == "fallback"
 
-    @pytest.mark.asyncio
     async def test_sse_error_recovery(self):
         """Exception in get_current_prices triggers fallback mock path."""
         from api.v1.prices_sse import _price_event_generator
@@ -376,7 +369,6 @@ class TestSSEEventGenerator:
         payload = json.loads(events[0][len("data: ") : -2])
         assert payload["source"] == "fallback"
 
-    @pytest.mark.asyncio
     async def test_sse_client_disconnect(self):
         """Generator stops producing events once request.is_disconnected() returns True."""
         from api.v1.prices_sse import _price_event_generator

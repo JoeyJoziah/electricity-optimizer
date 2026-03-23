@@ -12,19 +12,17 @@ Implements GDPR compliance functionality:
 
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import structlog
 
 from models.consent import (
+    ConsentPurpose,
     ConsentRecord,
     DeletionLog,
-    UserDataExport,
-    ConsentPurpose,
 )
-
 
 logger = structlog.get_logger()
 
@@ -36,6 +34,7 @@ logger = structlog.get_logger()
 
 class GDPRError(Exception):
     """Base exception for GDPR compliance errors"""
+
     pass
 
 
@@ -49,16 +48,19 @@ class UserNotFoundError(GDPRError):
 
 class ConsentError(GDPRError):
     """Raised when consent operation fails"""
+
     pass
 
 
 class DataExportError(GDPRError):
     """Raised when data export fails"""
+
     pass
 
 
 class DataDeletionError(GDPRError):
     """Raised when data deletion fails"""
+
     pass
 
 
@@ -175,7 +177,7 @@ class GDPRComplianceService:
         ip_address: str,
         user_agent: str,
         consent_version: str = "1.0",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ConsentRecord:
         """
         Record a consent decision (grant or withdrawal).
@@ -198,10 +200,7 @@ class GDPRComplianceService:
             ConsentError: If consent recording fails
         """
         logger.info(
-            "recording_consent",
-            user_id=user_id,
-            purpose=purpose,
-            consent_given=consent_given
+            "recording_consent", user_id=user_id, purpose=purpose, consent_given=consent_given
         )
 
         try:
@@ -210,39 +209,29 @@ class GDPRComplianceService:
                 user_id=user_id,
                 purpose=purpose,
                 consent_given=consent_given,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 ip_address=ip_address,
                 user_agent=user_agent,
                 consent_version=consent_version,
-                withdrawal_timestamp=None if consent_given else datetime.now(timezone.utc),
+                withdrawal_timestamp=None if consent_given else datetime.now(UTC),
                 metadata=metadata,
             )
 
             await self.consent_repo.create(record)
 
-            logger.info(
-                "consent_recorded",
-                consent_id=record.id,
-                user_id=user_id,
-                purpose=purpose
-            )
+            logger.info("consent_recorded", consent_id=record.id, user_id=user_id, purpose=purpose)
 
             return record
 
         except Exception as e:
-            logger.error(
-                "consent_recording_failed",
-                user_id=user_id,
-                purpose=purpose,
-                error=str(e)
-            )
+            logger.error("consent_recording_failed", user_id=user_id, purpose=purpose, error=str(e))
             raise ConsentError(f"Failed to record consent: {str(e)}") from e
 
     async def get_consent_history(
         self,
         user_id: str,
-        purpose: Optional[str] = None,
-    ) -> List[ConsentRecord]:
+        purpose: str | None = None,
+    ) -> list[ConsentRecord]:
         """
         Get consent history for a user.
 
@@ -257,26 +246,20 @@ class GDPRComplianceService:
 
         try:
             if purpose:
-                records = await self.consent_repo.get_by_user_and_purpose(
-                    user_id, purpose
-                )
+                records = await self.consent_repo.get_by_user_and_purpose(user_id, purpose)
             else:
                 records = await self.consent_repo.get_by_user_id(user_id)
 
             return records
 
         except Exception as e:
-            logger.error(
-                "consent_history_fetch_failed",
-                user_id=user_id,
-                error=str(e)
-            )
+            logger.error("consent_history_fetch_failed", user_id=user_id, error=str(e))
             raise
 
     async def get_current_consent_status(
         self,
         user_id: str,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """
         Get current consent status for all purposes.
 
@@ -293,11 +276,7 @@ class GDPRComplianceService:
             return status
 
         except Exception as e:
-            logger.error(
-                "consent_status_fetch_failed",
-                user_id=user_id,
-                error=str(e)
-            )
+            logger.error("consent_status_fetch_failed", user_id=user_id, error=str(e))
             raise
 
     async def withdraw_all_consents(
@@ -305,7 +284,7 @@ class GDPRComplianceService:
         user_id: str,
         ip_address: str,
         user_agent: str,
-    ) -> List[ConsentRecord]:
+    ) -> list[ConsentRecord]:
         """
         Withdraw consent for all purposes (Article 21).
 
@@ -332,8 +311,8 @@ class GDPRComplianceService:
         """
         logger.info("withdrawing_all_consents", user_id=user_id)
 
-        now = datetime.now(timezone.utc)
-        withdrawals: List[ConsentRecord] = []
+        now = datetime.now(UTC)
+        withdrawals: list[ConsentRecord] = []
 
         # Build all withdrawal records in memory first
         for purpose in ConsentPurpose:
@@ -378,9 +357,7 @@ class GDPRComplianceService:
                             "user_agent": record.user_agent,
                             "consent_version": record.consent_version,
                             "withdrawal_ts": record.withdrawal_timestamp,
-                            "metadata": json.dumps(record.metadata)
-                            if record.metadata
-                            else None,
+                            "metadata": json.dumps(record.metadata) if record.metadata else None,
                         },
                     )
 
@@ -394,9 +371,7 @@ class GDPRComplianceService:
                     user_id=user_id,
                     error=str(e),
                 )
-                raise ConsentError(
-                    f"Failed to withdraw all consents atomically: {str(e)}"
-                ) from e
+                raise ConsentError(f"Failed to withdraw all consents atomically: {str(e)}") from e
         else:
             # Fallback: per-record path (each record_consent commits individually)
             try:
@@ -408,9 +383,7 @@ class GDPRComplianceService:
                     user_id=user_id,
                     error=str(e),
                 )
-                raise ConsentError(
-                    f"Failed to withdraw consents: {str(e)}"
-                ) from e
+                raise ConsentError(f"Failed to withdraw consents: {str(e)}") from e
 
         logger.info(
             "all_consents_withdrawn",
@@ -427,7 +400,7 @@ class GDPRComplianceService:
     async def export_user_data(
         self,
         user_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Export all user data in machine-readable format.
 
@@ -514,11 +487,11 @@ class GDPRComplianceService:
                 logs = await self.activity_log_repo.get_by_user_id(user_id)
                 activity_logs = [
                     {
-                        "action": l.action,
-                        "timestamp": str(l.timestamp),
-                        "details": getattr(l, "details", {}),
+                        "action": log_entry.action,
+                        "timestamp": str(log_entry.timestamp),
+                        "details": getattr(log_entry, "details", {}),
                     }
-                    for l in logs
+                    for log_entry in logs
                 ]
 
             # Get linked supplier accounts (if DB session available)
@@ -526,7 +499,8 @@ class GDPRComplianceService:
             if self.db_session:
                 try:
                     from sqlalchemy import text as sa_text
-                    from utils.encryption import decrypt_field, mask_account_number
+
+                    from utils.encryption import decrypt_field
 
                     result = await self.db_session.execute(
                         sa_text("""
@@ -583,14 +557,16 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in notif_result.mappings().all():
-                        notifications_data.append({
-                            "id": str(row["id"]),
-                            "type": row["type"],
-                            "title": row["title"],
-                            "body": row.get("body"),
-                            "read_at": str(row["read_at"]) if row.get("read_at") else None,
-                            "created_at": str(row["created_at"]),
-                        })
+                        notifications_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "type": row["type"],
+                                "title": row["title"],
+                                "body": row.get("body"),
+                                "read_at": str(row["read_at"]) if row.get("read_at") else None,
+                                "created_at": str(row["created_at"]),
+                            }
+                        )
                 except Exception as e:
                     logger.warning("notifications_export_failed", error=str(e))
 
@@ -610,17 +586,21 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in posts_result.mappings().all():
-                        community_posts_data.append({
-                            "id": str(row["id"]),
-                            "region": row["region"],
-                            "utility_type": row["utility_type"],
-                            "post_type": row["post_type"],
-                            "title": row["title"],
-                            "body": row["body"],
-                            "rate_per_unit": str(row["rate_per_unit"]) if row.get("rate_per_unit") else None,
-                            "supplier_name": row.get("supplier_name"),
-                            "created_at": str(row["created_at"]),
-                        })
+                        community_posts_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "region": row["region"],
+                                "utility_type": row["utility_type"],
+                                "post_type": row["post_type"],
+                                "title": row["title"],
+                                "body": row["body"],
+                                "rate_per_unit": str(row["rate_per_unit"])
+                                if row.get("rate_per_unit")
+                                else None,
+                                "supplier_name": row.get("supplier_name"),
+                                "created_at": str(row["created_at"]),
+                            }
+                        )
                 except Exception as e:
                     logger.warning("community_posts_export_failed", error=str(e))
 
@@ -642,16 +622,18 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in conn_result.mappings().all():
-                        connections_data.append({
-                            "id": str(row["id"]),
-                            "connection_type": row["connection_type"],
-                            "connection_method": row.get("connection_method"),
-                            "supplier_name": row.get("supplier_name"),
-                            "label": row.get("label"),
-                            "status": row["status"],
-                            "created_at": str(row["created_at"]),
-                            "updated_at": str(row.get("updated_at")),
-                        })
+                        connections_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "connection_type": row["connection_type"],
+                                "connection_method": row.get("connection_method"),
+                                "supplier_name": row.get("supplier_name"),
+                                "label": row.get("label"),
+                                "status": row["status"],
+                                "created_at": str(row["created_at"]),
+                                "updated_at": str(row.get("updated_at")),
+                            }
+                        )
 
                     # Bill uploads
                     bill_result = await self.db_session.execute(
@@ -665,14 +647,16 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in bill_result.mappings().all():
-                        bill_uploads_data.append({
-                            "id": str(row["id"]),
-                            "connection_id": str(row["connection_id"]),
-                            "filename": row["filename"],
-                            "file_size": row.get("file_size"),
-                            "status": row["status"],
-                            "created_at": str(row["created_at"]),
-                        })
+                        bill_uploads_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "connection_id": str(row["connection_id"]),
+                                "filename": row["filename"],
+                                "file_size": row.get("file_size"),
+                                "status": row["status"],
+                                "created_at": str(row["created_at"]),
+                            }
+                        )
 
                     # Extracted rates
                     rates_result = await self.db_session.execute(
@@ -686,20 +670,22 @@ class GDPRComplianceService:
                         {"user_id": user_id},
                     )
                     for row in rates_result.mappings().all():
-                        extracted_rates_data.append({
-                            "id": str(row["id"]),
-                            "connection_id": str(row["connection_id"]),
-                            "rate_amount": str(row.get("rate_amount")),
-                            "rate_unit": row.get("rate_unit"),
-                            "effective_date": str(row.get("effective_date")),
-                            "utility_type": row.get("utility_type"),
-                        })
+                        extracted_rates_data.append(
+                            {
+                                "id": str(row["id"]),
+                                "connection_id": str(row["connection_id"]),
+                                "rate_amount": str(row.get("rate_amount")),
+                                "rate_unit": row.get("rate_unit"),
+                                "effective_date": str(row.get("effective_date")),
+                                "utility_type": row.get("utility_type"),
+                            }
+                        )
                 except Exception as e:
                     logger.warning("connection_data_export_failed", error=str(e))
 
             export = {
                 "user_id": user_id,
-                "export_timestamp": datetime.now(timezone.utc).isoformat(),
+                "export_timestamp": datetime.now(UTC).isoformat(),
                 "export_format_version": "1.3",
                 "profile_data": profile_data,
                 "preferences_data": preferences_data,
@@ -715,22 +701,14 @@ class GDPRComplianceService:
                 "community_posts": community_posts_data,
             }
 
-            logger.info(
-                "user_data_exported",
-                user_id=user_id,
-                data_categories=list(export.keys())
-            )
+            logger.info("user_data_exported", user_id=user_id, data_categories=list(export.keys()))
 
             return export
 
         except UserNotFoundError:
             raise
         except Exception as e:
-            logger.error(
-                "data_export_failed",
-                user_id=user_id,
-                error=str(e)
-            )
+            logger.error("data_export_failed", user_id=user_id, error=str(e))
             raise DataExportError(f"Failed to export user data: {str(e)}") from e
 
     # -------------------------------------------------------------------------
@@ -740,7 +718,7 @@ class GDPRComplianceService:
     async def delete_user_data(
         self,
         user_id: str,
-        deleted_by: Optional[str] = None,
+        deleted_by: str | None = None,
         ip_address: str = "0.0.0.0",
         user_agent: str = "System",
         anonymize_retained: bool = False,
@@ -774,7 +752,7 @@ class GDPRComplianceService:
             "deleting_user_data",
             user_id=user_id,
             deleted_by=deleted_by or user_id,
-            anonymize_retained=anonymize_retained
+            anonymize_retained=anonymize_retained,
         )
 
         # Verify user exists (read-only check before starting transaction)
@@ -783,14 +761,12 @@ class GDPRComplianceService:
             raise UserNotFoundError(user_id)
 
         if not self.db_session:
-            raise DataDeletionError(
-                "Database session required for atomic GDPR deletion"
-            )
+            raise DataDeletionError("Database session required for atomic GDPR deletion")
 
         from sqlalchemy import text as sa_text
 
-        deleted_categories: List[str] = []
-        upload_files_to_delete: List[str] = []
+        deleted_categories: list[str] = []
+        upload_files_to_delete: list[str] = []
 
         try:
             # --- Atomic transaction: all DELETEs or none ---
@@ -819,10 +795,7 @@ class GDPRComplianceService:
             # 4. Handle activity logs
             if anonymize_retained:
                 await self.db_session.execute(
-                    sa_text(
-                        "UPDATE activity_logs SET user_id = 'anonymized' "
-                        "WHERE user_id = :uid"
-                    ),
+                    sa_text("UPDATE activity_logs SET user_id = 'anonymized' WHERE user_id = :uid"),
                     {"uid": user_id},
                 )
             else:
@@ -856,9 +829,8 @@ class GDPRComplianceService:
             )
             for row in bill_result.mappings().all():
                 import os
-                upload_files_to_delete.append(
-                    os.path.join("uploads", str(row["id"]))
-                )
+
+                upload_files_to_delete.append(os.path.join("uploads", str(row["id"])))
 
             await self.db_session.execute(
                 sa_text("""
@@ -880,9 +852,7 @@ class GDPRComplianceService:
 
             # 8. Delete supplier accounts
             await self.db_session.execute(
-                sa_text(
-                    "DELETE FROM user_supplier_accounts WHERE user_id = :uid"
-                ),
+                sa_text("DELETE FROM user_supplier_accounts WHERE user_id = :uid"),
                 {"uid": user_id},
             )
             deleted_categories.append("supplier_accounts")
@@ -970,49 +940,27 @@ class GDPRComplianceService:
             )
             deleted_categories.append("profile")
 
-            # Single commit for the entire transaction
-            await self.db_session.commit()
-
-        except Exception as e:
-            await self.db_session.rollback()
-            logger.error(
-                "data_deletion_failed",
+            # --- Build deletion log INSIDE the transaction [09-P0-3 fix] ---
+            # The log is written before commit so that a crash between deletion
+            # and log-persist cannot leave us with a user deleted but no audit
+            # trail.  Both the deletion and the log record are atomic.
+            #
+            # Note: user_id is preserved in the log as the original user_id
+            # string even though the users row is now deleted — the FK is
+            # ON DELETE SET NULL, so after commit the DB will NULL it out.
+            # We capture user_id in the log before that happens.
+            deletion_log = DeletionLog(
+                id=str(uuid4()),
                 user_id=user_id,
-                error=str(e)
+                deleted_at=datetime.now(UTC),
+                deleted_by=deleted_by or user_id,
+                deletion_type="anonymization" if anonymize_retained else "full",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                data_categories_deleted=deleted_categories,
+                legal_basis="user_request",
             )
-            raise DataDeletionError(
-                f"Failed to delete user data: {str(e)}"
-            ) from e
 
-        # --- Post-commit: best-effort file cleanup ---
-        for path in upload_files_to_delete:
-            try:
-                import os
-                if os.path.exists(path):
-                    os.remove(path)
-            except Exception as e:
-                logger.warning(
-                    "gdpr_file_cleanup_failed",
-                    user_id=user_id,
-                    path=path,
-                    error=str(e),
-                )
-
-        # Create deletion log
-        deletion_log = DeletionLog(
-            id=str(uuid4()),
-            user_id=user_id,
-            deleted_at=datetime.now(timezone.utc),
-            deleted_by=deleted_by or user_id,
-            deletion_type="anonymization" if anonymize_retained else "full",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            data_categories_deleted=deleted_categories,
-            legal_basis="user_request",
-        )
-
-        # Persist deletion log to the immutable audit table
-        try:
             await self.db_session.execute(
                 sa_text("""
                     INSERT INTO deletion_logs
@@ -1034,19 +982,31 @@ class GDPRComplianceService:
                     "legal_basis": deletion_log.legal_basis,
                 },
             )
-            await self.db_session.commit()
-        except Exception as e:
-            logger.error(
-                "deletion_log_persist_failed",
-                user_id=user_id,
-                error=str(e),
-            )
 
-        logger.info(
-            "user_data_deleted",
-            user_id=user_id,
-            categories_deleted=deleted_categories
-        )
+            # Single commit — deletions + audit log are fully atomic
+            await self.db_session.commit()
+
+        except Exception as e:
+            await self.db_session.rollback()
+            logger.error("data_deletion_failed", user_id=user_id, error=str(e))
+            raise DataDeletionError(f"Failed to delete user data: {str(e)}") from e
+
+        # --- Post-commit: best-effort file cleanup ---
+        for path in upload_files_to_delete:
+            try:
+                import os
+
+                if os.path.exists(path):
+                    os.remove(path)
+            except Exception as e:
+                logger.warning(
+                    "gdpr_file_cleanup_failed",
+                    user_id=user_id,
+                    path=path,
+                    error=str(e),
+                )
+
+        logger.info("user_data_deleted", user_id=user_id, categories_deleted=deleted_categories)
 
         return deletion_log
 
@@ -1081,14 +1041,14 @@ class DataRetentionService:
         self.consent_repo = consent_repository
         self.activity_log_repo = activity_log_repository
 
-    async def identify_expired_data(self) -> Dict[str, List[str]]:
+    async def identify_expired_data(self) -> dict[str, list[str]]:
         """
         Identify data that has exceeded retention period.
 
         Returns:
             Dict mapping data category to list of expired record IDs
         """
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=self.retention_days)
 
         expired = {}
 
@@ -1101,7 +1061,7 @@ class DataRetentionService:
     async def purge_expired_data(
         self,
         respect_legal_holds: bool = True,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Purge data that has exceeded retention period.
 
@@ -1113,13 +1073,12 @@ class DataRetentionService:
         """
         logger.info("purging_expired_data", retention_days=self.retention_days)
 
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=self.retention_days)
         purged = {}
 
         if self.activity_log_repo:
             count = await self.activity_log_repo.delete_before_date(
-                cutoff_date,
-                respect_legal_holds=respect_legal_holds
+                cutoff_date, respect_legal_holds=respect_legal_holds
             )
             purged["activity_logs"] = count
 

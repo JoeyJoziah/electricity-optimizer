@@ -15,11 +15,9 @@ Constraint Types:
 
 from typing import List, Dict, Optional, Any, Tuple
 import pulp
-import numpy as np
 
 from ml.optimization.appliance_models import (
     Appliance,
-    PriorityLevel,
     OptimizationConfig,
 )
 
@@ -419,10 +417,7 @@ class ConstraintBuilder:
         required_slots = appliance.duration_slots
 
         # All required slots must be scheduled before deadline
-        valid_before_deadline = [
-            t for t in variables.keys()
-            if t < deadline_slot
-        ]
+        valid_before_deadline = [t for t in variables.keys() if t < deadline_slot]
 
         if len(valid_before_deadline) < required_slots:
             # Cannot meet deadline - make infeasible
@@ -434,8 +429,7 @@ class ConstraintBuilder:
         else:
             # Force all operation before deadline
             after_deadline = [
-                variables[t] for t in variables.keys()
-                if t >= deadline_slot
+                variables[t] for t in variables.keys() if t >= deadline_slot
             ]
             if after_deadline:
                 self._add_constraint(

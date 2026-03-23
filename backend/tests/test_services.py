@@ -9,11 +9,11 @@ Tests for:
 RED phase: These tests should FAIL initially until services are implemented.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # =============================================================================
 # PRICE SERVICE TESTS
@@ -37,11 +37,10 @@ class TestPriceService:
         cache.set = AsyncMock()
         return cache
 
-    @pytest.mark.asyncio
     async def test_get_current_price(self, mock_price_repo, mock_cache):
         """Test getting current price for a region"""
+        from models.price import PriceRegion
         from services.price_service import PriceService
-        from models.price import Price, PriceRegion
 
         # Setup mock return
         mock_price_repo.get_latest_by_supplier.return_value = MagicMock(
@@ -49,44 +48,40 @@ class TestPriceService:
             region="us_ct",
             supplier="Eversource Energy",
             price_per_kwh=Decimal("0.26"),
-            timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            timestamp=datetime.now(UTC),
+            currency="USD",
         )
 
         service = PriceService(mock_price_repo, mock_cache)
         price = await service.get_current_price(
-            region=PriceRegion.US_CT,
-            supplier="Eversource Energy"
+            region=PriceRegion.US_CT, supplier="Eversource Energy"
         )
 
         assert price.price_per_kwh == Decimal("0.26")
         assert price.supplier == "Eversource Energy"
         assert price.region == PriceRegion.US_CT
 
-    @pytest.mark.asyncio
     async def test_get_cheapest_supplier(self, mock_price_repo, mock_cache):
         """Test finding the cheapest supplier in a region"""
-        from services.price_service import PriceService
         from models.price import PriceRegion
+        from services.price_service import PriceService
 
-        # Setup mock with multiple suppliers
-        mock_price_repo.get_current_prices.return_value = [
-            MagicMock(supplier="Expensive Co", price_per_kwh=Decimal("0.35")),
-            MagicMock(supplier="Cheap Energy", price_per_kwh=Decimal("0.18")),
-            MagicMock(supplier="Mid Range", price_per_kwh=Decimal("0.25")),
-        ]
+        # Service now delegates to repo.get_cheapest_price() (SQL LIMIT 1)
+        mock_price_repo.get_cheapest_price = AsyncMock(
+            return_value=MagicMock(supplier="Cheap Energy", price_per_kwh=Decimal("0.18"))
+        )
 
         service = PriceService(mock_price_repo, mock_cache)
         cheapest = await service.get_cheapest_supplier(region=PriceRegion.US_CT)
 
         assert cheapest.supplier == "Cheap Energy"
         assert cheapest.price_per_kwh == Decimal("0.18")
+        mock_price_repo.get_cheapest_price.assert_awaited_once_with(PriceRegion.US_CT)
 
-    @pytest.mark.asyncio
     async def test_get_price_comparison(self, mock_price_repo, mock_cache):
         """Test getting price comparison across suppliers"""
-        from services.price_service import PriceService
         from models.price import PriceRegion
+        from services.price_service import PriceService
 
         mock_price_repo.get_current_prices.return_value = [
             MagicMock(supplier="A", price_per_kwh=Decimal("0.25")),
@@ -101,15 +96,17 @@ class TestPriceService:
         # Should be sorted by price ascending
         assert comparison[0].price_per_kwh <= comparison[1].price_per_kwh
 
-    @pytest.mark.asyncio
     async def test_calculate_daily_cost(self, mock_price_repo, mock_cache):
         """Test calculating daily cost based on usage"""
-        from services.price_service import PriceService
         from models.price import PriceRegion
+        from services.price_service import PriceService
 
         # 24 hours of prices
         mock_price_repo.get_historical_prices.return_value = [
-            MagicMock(price_per_kwh=Decimal("0.20"), timestamp=datetime.now(timezone.utc) + timedelta(hours=i))
+            MagicMock(
+                price_per_kwh=Decimal("0.20"),
+                timestamp=datetime.now(UTC) + timedelta(hours=i),
+            )
             for i in range(24)
         ]
 
@@ -120,40 +117,35 @@ class TestPriceService:
             region=PriceRegion.US_CT,
             supplier="Test",
             kwh_usage=Decimal("10.0"),
-            target_date=datetime.now(timezone.utc).date()
+            target_date=datetime.now(UTC).date(),
         )
 
         # 10 kWh * 0.20/kWh = 2.00
         assert cost == Decimal("2.00")
 
-    @pytest.mark.asyncio
     async def test_get_price_forecast(self, mock_price_repo, mock_cache):
         """Test getting price forecast"""
+        from models.price import PriceRegion
         from services.price_service import PriceService
-        from models.price import PriceRegion, PriceForecast
 
         mock_price_repo.get_current_prices.return_value = [
             MagicMock(price_per_kwh=Decimal("0.26"), supplier="Test Supplier", currency="USD")
         ]
 
         service = PriceService(mock_price_repo, mock_cache)
-        forecast = await service.get_price_forecast(
-            region=PriceRegion.US_CT,
-            hours=24
-        )
+        forecast = await service.get_price_forecast(region=PriceRegion.US_CT, hours=24)
 
-        assert hasattr(forecast, 'prices')
+        assert hasattr(forecast, "prices")
         assert isinstance(forecast.prices, list)
         assert len(forecast.prices) > 0
 
-    @pytest.mark.asyncio
     async def test_get_optimal_usage_windows(self, mock_price_repo, mock_cache):
         """Test finding optimal low-price windows for appliance usage"""
-        from services.price_service import PriceService
         from models.price import PriceRegion
+        from services.price_service import PriceService
 
         # The SQL-based implementation uses self._repo._db.execute() directly
-        base_time = datetime.now(timezone.utc).replace(minute=0, second=0)
+        base_time = datetime.now(UTC).replace(minute=0, second=0)
 
         # Mock the DB execute result to return rows with window_start and window_avg
         mock_result = MagicMock()
@@ -166,17 +158,15 @@ class TestPriceService:
 
         service = PriceService(mock_price_repo, mock_cache)
         windows = await service.get_optimal_usage_windows(
-            region=PriceRegion.US_CT,
-            duration_hours=2,
-            within_hours=24
+            region=PriceRegion.US_CT, duration_hours=2, within_hours=24
         )
 
         assert isinstance(windows, list)
         assert len(windows) == 2
         # First window should have lowest avg price
-        assert windows[0]['avg_price'] == Decimal("0.1200")
-        assert windows[0]['start'] == base_time
-        assert windows[0]['end'] == base_time + timedelta(hours=2)
+        assert windows[0]["avg_price"] == Decimal("0.1200")
+        assert windows[0]["start"] == base_time
+        assert windows[0]["end"] == base_time + timedelta(hours=2)
 
 
 # =============================================================================
@@ -197,18 +187,13 @@ class TestRecommendationService:
         """Create a mock user repository"""
         return AsyncMock()
 
-    @pytest.mark.asyncio
     async def test_generate_switching_recommendation(self, mock_price_service, mock_user_repo):
         """Test generating supplier switching recommendation"""
         from services.recommendation_service import RecommendationService
-        from models.price import PriceRegion
 
         # User is on expensive supplier
         mock_user_repo.get_by_id.return_value = MagicMock(
-            id="user_123",
-            current_supplier="Expensive Energy",
-            region="us_ct",
-            preferences={}
+            id="user_123", current_supplier="Expensive Energy", region="us_ct", preferences={}
         )
 
         mock_price_service.get_price_comparison.return_value = [
@@ -222,21 +207,17 @@ class TestRecommendationService:
         assert recommendation.recommended_supplier == "Cheap Energy"
         assert recommendation.potential_savings > Decimal("0")
 
-    @pytest.mark.asyncio
     async def test_generate_usage_recommendation(self, mock_price_service, mock_user_repo):
         """Test generating usage timing recommendation"""
         from services.recommendation_service import RecommendationService
 
-        mock_user_repo.get_by_id.return_value = MagicMock(
-            id="user_123",
-            region="us_ct"
-        )
+        mock_user_repo.get_by_id.return_value = MagicMock(id="user_123", region="us_ct")
 
         mock_price_service.get_optimal_usage_windows.return_value = [
             {
-                'start': datetime.now(timezone.utc),
-                'end': datetime.now(timezone.utc) + timedelta(hours=2),
-                'avg_price': Decimal("0.12")
+                "start": datetime.now(UTC),
+                "end": datetime.now(UTC) + timedelta(hours=2),
+                "avg_price": Decimal("0.12"),
             }
         ]
 
@@ -246,16 +227,15 @@ class TestRecommendationService:
 
         service = RecommendationService(mock_price_service, mock_user_repo)
         recommendation = await service.get_usage_recommendation(
-            user_id="user_123",
-            appliance="washing_machine",
-            duration_hours=2
+            user_id="user_123", appliance="washing_machine", duration_hours=2
         )
 
-        assert 'optimal_start_time' in recommendation
-        assert recommendation['optimal_start_time'] is not None
+        assert "optimal_start_time" in recommendation
+        assert recommendation["optimal_start_time"] is not None
 
-    @pytest.mark.asyncio
-    async def test_recommendation_respects_user_preferences(self, mock_price_service, mock_user_repo):
+    async def test_recommendation_respects_user_preferences(
+        self, mock_price_service, mock_user_repo
+    ):
         """Test recommendations respect user preferences like green energy"""
         from services.recommendation_service import RecommendationService
 
@@ -266,8 +246,14 @@ class TestRecommendationService:
         )
 
         mock_price_service.get_price_comparison.return_value = [
-            MagicMock(supplier="Dirty Cheap", price_per_kwh=Decimal("0.10"), green_energy_percentage=0),
-            MagicMock(supplier="Green Energy Co", price_per_kwh=Decimal("0.20"), green_energy_percentage=100),
+            MagicMock(
+                supplier="Dirty Cheap", price_per_kwh=Decimal("0.10"), green_energy_percentage=0
+            ),
+            MagicMock(
+                supplier="Green Energy Co",
+                price_per_kwh=Decimal("0.20"),
+                green_energy_percentage=100,
+            ),
         ]
 
         service = RecommendationService(mock_price_service, mock_user_repo)
@@ -290,52 +276,55 @@ class TestAnalyticsService:
         """Create a mock price repository"""
         return AsyncMock()
 
-    @pytest.mark.asyncio
     async def test_calculate_average_price(self, mock_price_repo):
         """Test calculating average price for a period"""
-        from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
+        from services.analytics_service import AnalyticsService
 
-        mock_price_repo.get_price_statistics_with_stddev = AsyncMock(return_value={
-            "min_price": Decimal("0.2000"), "max_price": Decimal("0.3000"),
-            "avg_price": Decimal("0.2500"), "stddev_price": Decimal("0.0500"),
-            "count": 3, "period_days": 7, "utility_type": "electricity",
-        })
+        mock_price_repo.get_price_statistics_with_stddev = AsyncMock(
+            return_value={
+                "min_price": Decimal("0.2000"),
+                "max_price": Decimal("0.3000"),
+                "avg_price": Decimal("0.2500"),
+                "stddev_price": Decimal("0.0500"),
+                "count": 3,
+                "period_days": 7,
+                "utility_type": "electricity",
+            }
+        )
 
         service = AnalyticsService(mock_price_repo)
-        avg = await service.calculate_average_price(
-            region=PriceRegion.US_CT,
-            days=7
-        )
+        avg = await service.calculate_average_price(region=PriceRegion.US_CT, days=7)
 
         assert avg == Decimal("0.2500")
 
-    @pytest.mark.asyncio
     async def test_calculate_price_volatility(self, mock_price_repo):
         """Test calculating price volatility"""
-        from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
+        from services.analytics_service import AnalyticsService
 
-        mock_price_repo.get_price_statistics_with_stddev = AsyncMock(return_value={
-            "min_price": Decimal("0.1000"), "max_price": Decimal("0.5000"),
-            "avg_price": Decimal("0.3000"), "stddev_price": Decimal("0.1826"),
-            "count": 4, "period_days": 7, "utility_type": "electricity",
-        })
+        mock_price_repo.get_price_statistics_with_stddev = AsyncMock(
+            return_value={
+                "min_price": Decimal("0.1000"),
+                "max_price": Decimal("0.5000"),
+                "avg_price": Decimal("0.3000"),
+                "stddev_price": Decimal("0.1826"),
+                "count": 4,
+                "period_days": 7,
+                "utility_type": "electricity",
+            }
+        )
 
         service = AnalyticsService(mock_price_repo)
-        volatility = await service.calculate_volatility(
-            region=PriceRegion.US_CT,
-            days=7
-        )
+        volatility = await service.calculate_volatility(region=PriceRegion.US_CT, days=7)
 
         assert volatility > 0  # High variance prices
         assert isinstance(volatility, Decimal)
 
-    @pytest.mark.asyncio
     async def test_get_price_trends(self, mock_price_repo):
         """Test getting price trend analysis"""
-        from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
+        from services.analytics_service import AnalyticsService
 
         # SQL aggregate returns increasing trend
         mock_price_repo.get_price_trend_aggregates.return_value = {
@@ -345,38 +334,33 @@ class TestAnalyticsService:
         }
 
         service = AnalyticsService(mock_price_repo)
-        trend = await service.get_price_trend(
-            region=PriceRegion.US_CT,
-            days=7
-        )
+        trend = await service.get_price_trend(region=PriceRegion.US_CT, days=7)
 
-        assert trend['direction'] == 'increasing'
-        assert trend['change_percent'] > 0
+        assert trend["direction"] == "increasing"
+        assert trend["change_percent"] > 0
 
-    @pytest.mark.asyncio
     async def test_get_peak_hours_analysis(self, mock_price_repo):
         """Test analyzing peak usage hours"""
-        from services.analytics_service import AnalyticsService
         from models.price import PriceRegion
+        from services.analytics_service import AnalyticsService
 
         # Mock SQL-aggregated hourly averages (peak prices 16:00-20:00)
         hourly_rows = []
         for hour in range(24):
             price = Decimal("0.35") if 16 <= hour <= 20 else Decimal("0.15")
-            hourly_rows.append({
-                "hour": hour,
-                "avg_price": price,
-                "count": 10,
-            })
+            hourly_rows.append(
+                {
+                    "hour": hour,
+                    "avg_price": price,
+                    "count": 10,
+                }
+            )
 
         mock_price_repo.get_hourly_price_averages = AsyncMock(return_value=hourly_rows)
 
         service = AnalyticsService(mock_price_repo)
-        analysis = await service.get_peak_hours_analysis(
-            region=PriceRegion.US_CT,
-            days=7
-        )
+        analysis = await service.get_peak_hours_analysis(region=PriceRegion.US_CT, days=7)
 
-        assert 'peak_hours' in analysis
-        assert 'off_peak_hours' in analysis
-        assert 16 in analysis['peak_hours']
+        assert "peak_hours" in analysis
+        assert "off_peak_hours" in analysis
+        assert 16 in analysis["peak_hours"]

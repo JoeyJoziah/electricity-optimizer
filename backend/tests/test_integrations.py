@@ -11,48 +11,45 @@ Tests cover:
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+import time
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
-import json
 
 import httpx
 import pytest
 
 # Import all components to test
 from integrations.pricing_apis.base import (
-    BasePricingClient,
-    PriceData,
-    ForecastData,
-    ForecastData as PriceForecast,  # backward-compat alias used in tests below
-    PricingRegion,
-    PriceUnit,
-    APIError,
-    RateLimitError,
     AuthenticationError,
-    ServiceUnavailableError,
-    CircuitBreakerOpenError,
     CircuitBreaker,
-    CircuitState,
     CircuitBreakerConfig,
+    CircuitBreakerOpenError,
+    CircuitState,
+    PriceData,
+    PriceUnit,
+    PricingRegion,
+    RateLimitError,
     RetryConfig,
+    ServiceUnavailableError,
 )
-from integrations.pricing_apis.flatpeak import FlatpeakClient
-from integrations.pricing_apis.nrel import NRELClient
-from integrations.pricing_apis.iea import IEAClient
+from integrations.pricing_apis.base import (
+    ForecastData as PriceForecast,  # backward-compat alias used in tests below
+)
 from integrations.pricing_apis.cache import (
-    PricingCache,
-    InMemoryCache,
     CacheConfig,
     CacheEntry,
+    InMemoryCache,
 )
+from integrations.pricing_apis.flatpeak import FlatpeakClient
+from integrations.pricing_apis.iea import IEAClient
+from integrations.pricing_apis.nrel import NRELClient
 from integrations.pricing_apis.rate_limiter import (
-    TokenBucketLimiter,
-    SlidingWindowLimiter,
     CompositeRateLimiter,
+    SlidingWindowLimiter,
+    TokenBucketLimiter,
     create_api_rate_limiter,
 )
-
 
 # =============================================================================
 # FIXTURES
@@ -93,7 +90,7 @@ def flatpeak_response_current():
 @pytest.fixture
 def flatpeak_response_forecast():
     """Sample Flatpeak forecast response"""
-    base_time = datetime.now(timezone.utc)
+    base_time = datetime.now(UTC)
     return {
         "data": {
             "model_version": "v2.1",
@@ -168,7 +165,7 @@ class TestPriceData:
         """Test creating a PriceData instance"""
         price = PriceData(
             region=PricingRegion.US_CT,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             price=Decimal("0.2600"),
             unit=PriceUnit.KWH,
             currency="USD",
@@ -183,7 +180,7 @@ class TestPriceData:
         """Test PriceData to_dict and from_dict"""
         original = PriceData(
             region=PricingRegion.GERMANY,
-            timestamp=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 15, 10, 30, tzinfo=UTC),
             price=Decimal("0.35"),
             unit=PriceUnit.KWH,
             currency="EUR",
@@ -202,7 +199,7 @@ class TestPriceData:
         """Test MWh to kWh conversion"""
         price_mwh = PriceData(
             region=PricingRegion.UK,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             price=Decimal("285.0"),  # EUR/MWh
             unit=PriceUnit.MWH,
             currency="EUR",
@@ -222,7 +219,7 @@ class TestPriceForecast:
         prices = [
             PriceData(
                 region=PricingRegion.US_CT,
-                timestamp=datetime.now(timezone.utc) + timedelta(hours=i),
+                timestamp=datetime.now(UTC) + timedelta(hours=i),
                 price=Decimal("0.26"),
                 unit=PriceUnit.KWH,
                 currency="USD",
@@ -232,7 +229,7 @@ class TestPriceForecast:
 
         forecast = PriceForecast(
             region=PricingRegion.US_CT,
-            forecast_generated_at=datetime.now(timezone.utc),
+            forecast_generated_at=datetime.now(UTC),
             forecast_horizon_hours=24,
             source_api="flatpeak",
             prices=prices,
@@ -246,7 +243,7 @@ class TestPriceForecast:
         """Test PriceForecast serialization"""
         forecast = PriceForecast(
             region=PricingRegion.US_CT,
-            forecast_generated_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            forecast_generated_at=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
             forecast_horizon_hours=24,
             source_api="test",
             prices=[],
@@ -263,7 +260,6 @@ class TestPriceForecast:
 class TestCircuitBreaker:
     """Tests for circuit breaker pattern"""
 
-    @pytest.mark.asyncio
     async def test_circuit_closed_allows_requests(self):
         """Test that closed circuit allows requests"""
         cb = CircuitBreaker("test")
@@ -271,7 +267,6 @@ class TestCircuitBreaker:
         assert cb.state == CircuitState.CLOSED
         assert await cb.can_execute()
 
-    @pytest.mark.asyncio
     async def test_circuit_opens_after_failures(self):
         """Test that circuit opens after threshold failures"""
         config = CircuitBreakerConfig(failure_threshold=3)
@@ -284,10 +279,9 @@ class TestCircuitBreaker:
         assert cb.state == CircuitState.OPEN
         assert not await cb.can_execute()
 
-    @pytest.mark.asyncio
     async def test_circuit_half_open_after_timeout(self):
         """Test circuit transitions to half-open after timeout"""
-        config = CircuitBreakerConfig(failure_threshold=2, timeout_seconds=0.05)
+        config = CircuitBreakerConfig(failure_threshold=2, timeout_seconds=10)
         cb = CircuitBreaker("test", config)
 
         # Trigger open state
@@ -296,26 +290,27 @@ class TestCircuitBreaker:
 
         assert cb.state == CircuitState.OPEN
 
-        # Wait for timeout
-        await asyncio.sleep(0.1)
+        # Simulate time passing by backdating _last_failure_time
+        cb._last_failure_time = datetime.now(UTC) - timedelta(seconds=15)
 
         # Should be half-open now
         assert cb.state == CircuitState.HALF_OPEN
         assert await cb.can_execute()
 
-    @pytest.mark.asyncio
     async def test_circuit_closes_after_success(self):
         """Test circuit closes after successful calls in half-open"""
         config = CircuitBreakerConfig(
             failure_threshold=1,
             success_threshold=2,
-            timeout_seconds=0,
+            timeout_seconds=10,
         )
         cb = CircuitBreaker("test", config)
 
         # Open the circuit
         await cb.record_failure()
-        await asyncio.sleep(0.1)  # Wait for timeout
+
+        # Simulate time passing by backdating _last_failure_time
+        cb._last_failure_time = datetime.now(UTC) - timedelta(seconds=15)
 
         # Should be half-open
         assert cb.state == CircuitState.HALF_OPEN
@@ -335,7 +330,6 @@ class TestCircuitBreaker:
 class TestTokenBucketLimiter:
     """Tests for token bucket rate limiter"""
 
-    @pytest.mark.asyncio
     async def test_acquire_tokens(self, token_bucket_limiter):
         """Test acquiring tokens from bucket"""
         # Should have full capacity
@@ -344,7 +338,6 @@ class TestTokenBucketLimiter:
         remaining = await token_bucket_limiter.get_remaining()
         assert remaining == 9  # 10 - 1
 
-    @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self):
         """Test behavior when rate limit exceeded"""
         limiter = TokenBucketLimiter(rate=0.1, capacity=2, name="test")
@@ -354,7 +347,6 @@ class TestTokenBucketLimiter:
         assert await limiter.acquire()
         assert not await limiter.acquire()  # Should fail
 
-    @pytest.mark.asyncio
     async def test_token_refill(self):
         """Test token refill over time"""
         limiter = TokenBucketLimiter(rate=100.0, capacity=10, name="test")
@@ -363,13 +355,13 @@ class TestTokenBucketLimiter:
         await limiter.acquire()
         await limiter.acquire()
 
-        # Wait for refill
-        await asyncio.sleep(0.1)
+        # Simulate time passing by backdating the bucket's last_update
+        bucket = limiter._get_bucket("default")
+        bucket["last_update"] -= 0.1  # 0.1s at 100 tokens/s = 10 tokens refilled
 
         remaining = await limiter.get_remaining()
         assert remaining >= 8  # Should have refilled some
 
-    @pytest.mark.asyncio
     async def test_wait_for_token(self):
         """Test waiting for token availability"""
         limiter = TokenBucketLimiter(rate=100.0, capacity=1, name="test")
@@ -389,7 +381,6 @@ class TestTokenBucketLimiter:
 class TestSlidingWindowLimiter:
     """Tests for sliding window rate limiter"""
 
-    @pytest.mark.asyncio
     async def test_sliding_window_basic(self):
         """Test basic sliding window functionality"""
         limiter = SlidingWindowLimiter(
@@ -405,12 +396,11 @@ class TestSlidingWindowLimiter:
         # 6th should fail
         assert not await limiter.acquire()
 
-    @pytest.mark.asyncio
     async def test_sliding_window_expiry(self):
         """Test that old requests expire from window"""
         limiter = SlidingWindowLimiter(
             requests_per_window=2,
-            window_seconds=0.1,
+            window_seconds=10.0,
             name="test",
         )
 
@@ -419,17 +409,17 @@ class TestSlidingWindowLimiter:
         await limiter.acquire()
         assert not await limiter.acquire()
 
-        # Wait for window to slide
-        await asyncio.sleep(0.15)
+        # Simulate time passing by backdating all timestamps in the window
+        old_time = time.monotonic() - 15.0  # 15s ago, well past the 10s window
+        limiter._windows["default"] = [old_time, old_time]
 
-        # Should be able to acquire again
+        # Should be able to acquire again (old entries expired)
         assert await limiter.acquire()
 
 
 class TestCompositeRateLimiter:
     """Tests for composite rate limiter"""
 
-    @pytest.mark.asyncio
     async def test_composite_limits(self):
         """Test that composite limiter respects all limits"""
         minute_limiter = TokenBucketLimiter(rate=10, capacity=5, name="minute")
@@ -509,7 +499,6 @@ class TestCacheEntry:
 class TestInMemoryCache:
     """Tests for in-memory cache"""
 
-    @pytest.mark.asyncio
     async def test_set_and_get(self, memory_cache):
         """Test basic set and get operations"""
         await memory_cache.set("test_key", {"price": 0.25})
@@ -518,27 +507,28 @@ class TestInMemoryCache:
 
         assert result == {"price": 0.25}
 
-    @pytest.mark.asyncio
     async def test_cache_miss(self, memory_cache):
         """Test cache miss returns None"""
         result = await memory_cache.get("nonexistent")
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_cache_expiry(self):
         """Test that expired entries are not returned"""
         cache = InMemoryCache(CacheConfig(current_price_ttl=1))
 
-        await cache.set("test_key", {"price": 0.25}, ttl=0)
+        await cache.set("test_key", {"price": 0.25}, ttl=60)
+
+        # Backdate the cache entry's created_at to simulate expiry
+        full_key = cache._generate_key("test_key")
+        cache._cache[full_key].created_at = datetime.utcnow() - timedelta(seconds=120)
 
         # Entry should be considered expired
-        await asyncio.sleep(0.1)
         result = await cache.get("test_key")
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_fetch_on_miss(self, memory_cache):
         """Test fetch function is called on cache miss"""
+
         async def fetch():
             return {"price": 0.30}
 
@@ -550,7 +540,6 @@ class TestInMemoryCache:
         cached = await memory_cache.get("missing_key")
         assert cached == {"price": 0.30}
 
-    @pytest.mark.asyncio
     async def test_delete(self, memory_cache):
         """Test cache deletion"""
         await memory_cache.set("to_delete", {"value": 1})
@@ -559,7 +548,6 @@ class TestInMemoryCache:
         await memory_cache.delete("to_delete")
         assert not await memory_cache.exists("to_delete")
 
-    @pytest.mark.asyncio
     async def test_delete_pattern(self, memory_cache):
         """Test pattern-based deletion"""
         await memory_cache.set("api:flatpeak:uk", {"price": 0.25})
@@ -572,7 +560,6 @@ class TestInMemoryCache:
         assert not await memory_cache.exists("api:flatpeak:uk")
         assert await memory_cache.exists("api:nrel:us")
 
-    @pytest.mark.asyncio
     async def test_current_price_convenience(self, memory_cache):
         """Test current price convenience methods"""
         price_data = {"price": "0.25", "region": "UK"}
@@ -583,7 +570,6 @@ class TestInMemoryCache:
 
         assert result == price_data
 
-    @pytest.mark.asyncio
     async def test_metrics(self, memory_cache):
         """Test cache metrics collection"""
         await memory_cache.set("key1", {"value": 1})
@@ -606,7 +592,6 @@ class TestInMemoryCache:
 class TestFlatpeakClient:
     """Tests for Flatpeak API client"""
 
-    @pytest.mark.asyncio
     async def test_get_current_price(self, flatpeak_response_current):
         """Test fetching current price from Flatpeak"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -631,7 +616,6 @@ class TestFlatpeakClient:
                 assert price.supplier == "Eversource Energy"
                 assert price.source_api == "flatpeak"
 
-    @pytest.mark.asyncio
     async def test_get_price_forecast(self, flatpeak_response_forecast):
         """Test fetching price forecast from Flatpeak"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -657,14 +641,12 @@ class TestFlatpeakClient:
                 assert len(forecast.prices) == 24
                 assert forecast.source_api == "flatpeak"
 
-    @pytest.mark.asyncio
     async def test_unsupported_region(self):
         """Test error for unsupported region"""
         async with FlatpeakClient(api_key="test-key") as client:
             with pytest.raises(ValueError, match="not supported"):
                 await client.get_current_price(PricingRegion.US_CA)
 
-    @pytest.mark.asyncio
     async def test_supported_regions(self):
         """Test that correct regions are reported as supported"""
         async with FlatpeakClient(api_key="test-key") as client:
@@ -692,7 +674,6 @@ class TestFlatpeakClient:
 class TestNRELClient:
     """Tests for NREL API client"""
 
-    @pytest.mark.asyncio
     async def test_get_current_price(self, nrel_response):
         """Test fetching current rate from NREL"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -716,7 +697,6 @@ class TestNRELClient:
                 assert price.currency == "USD"
                 assert price.supplier == "Pacific Gas & Electric"
 
-    @pytest.mark.asyncio
     async def test_get_price_forecast(self, nrel_response):
         """Test generating price forecast from NREL"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -743,7 +723,6 @@ class TestNRELClient:
                 # NREL uses synthetic forecast, so lower confidence
                 assert forecast.confidence_level == 0.7
 
-    @pytest.mark.asyncio
     async def test_supported_regions(self):
         """Test that correct US regions are supported"""
         async with NRELClient(api_key="test-key") as client:
@@ -762,7 +741,6 @@ class TestNRELClient:
 class TestIEAClient:
     """Tests for IEA API client"""
 
-    @pytest.mark.asyncio
     async def test_get_current_price(self, iea_response):
         """Test fetching current price from IEA"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -786,7 +764,6 @@ class TestIEAClient:
                 assert price.price == Decimal("0.2855")
                 assert price.source_api == "iea"
 
-    @pytest.mark.asyncio
     async def test_bearer_auth(self):
         """Test that Bearer token authentication is used"""
         client = IEAClient(api_key="test-bearer-token")
@@ -795,7 +772,6 @@ class TestIEAClient:
 
         assert headers["Authorization"] == "Bearer test-bearer-token"
 
-    @pytest.mark.asyncio
     async def test_global_region_support(self):
         """Test that global regions are supported"""
         async with IEAClient(api_key="test-key") as client:
@@ -814,7 +790,6 @@ class TestIEAClient:
 class TestErrorHandling:
     """Tests for error handling across all clients"""
 
-    @pytest.mark.asyncio
     async def test_rate_limit_error(self):
         """Test handling of rate limit errors"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -836,7 +811,6 @@ class TestErrorHandling:
 
                 assert exc_info.value.retry_after == 60
 
-    @pytest.mark.asyncio
     async def test_authentication_error(self):
         """Test handling of authentication errors"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -855,7 +829,6 @@ class TestErrorHandling:
                 with pytest.raises(AuthenticationError):
                     await client.get_current_price(PricingRegion.UK)
 
-    @pytest.mark.asyncio
     async def test_service_unavailable_error(self):
         """Test handling of 503 errors"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -880,7 +853,6 @@ class TestErrorHandling:
                 with pytest.raises(ServiceUnavailableError):
                     await client.get_current_price(PricingRegion.UK)
 
-    @pytest.mark.asyncio
     async def test_circuit_breaker_opens_on_failures(self):
         """Test that circuit breaker opens after repeated failures"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -915,7 +887,6 @@ class TestErrorHandling:
                 with pytest.raises(CircuitBreakerOpenError):
                     await client.get_current_price(PricingRegion.UK)
 
-    @pytest.mark.asyncio
     async def test_auth_error_401_does_not_trip_circuit_breaker(self):
         """
         S1-17: A 401 Unauthorized response is a configuration problem, not an
@@ -953,7 +924,6 @@ class TestErrorHandling:
                 assert client.circuit_breaker.state == CircuitState.CLOSED
                 assert client.circuit_breaker._failure_count == 0
 
-    @pytest.mark.asyncio
     async def test_auth_error_403_does_not_trip_circuit_breaker(self):
         """
         S1-17: A 403 Forbidden response is also a configuration/permissions
@@ -988,7 +958,6 @@ class TestErrorHandling:
                 assert client.circuit_breaker.state == CircuitState.CLOSED
                 assert client.circuit_breaker._failure_count == 0
 
-    @pytest.mark.asyncio
     async def test_5xx_error_does_trip_circuit_breaker(self):
         """
         S1-17 (complementary): 5xx server errors ARE infrastructure failures and
@@ -1031,7 +1000,6 @@ class TestErrorHandling:
 class TestCacheIntegration:
     """Tests for cache integration with clients"""
 
-    @pytest.mark.asyncio
     async def test_flatpeak_with_cache(self, flatpeak_response_current, memory_cache):
         """Test Flatpeak client uses cache correctly"""
         with patch("httpx.AsyncClient") as MockClient:
@@ -1070,12 +1038,12 @@ class TestCacheIntegration:
 class TestRetryLogic:
     """Tests for retry behavior"""
 
-    @pytest.mark.asyncio
     async def test_retry_on_500_error(self):
         """Test that 500 errors trigger retries"""
         call_count = 0
 
         with patch("httpx.AsyncClient") as MockClient:
+
             async def mock_request(*args, **kwargs):
                 nonlocal call_count
                 call_count += 1

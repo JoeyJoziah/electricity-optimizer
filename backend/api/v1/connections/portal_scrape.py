@@ -24,7 +24,8 @@ Registration note:
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import structlog
@@ -32,14 +33,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, SessionData
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
 from models.connections import (
     CreatePortalConnectionRequest,
     PortalConnectionResponse,
     PortalScrapeResponse,
 )
-from utils.encryption import encrypt_field, decrypt_field
+from utils.encryption import decrypt_field, encrypt_field
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -159,7 +160,7 @@ async def create_portal_connection(
     summary="Trigger a manual portal scrape",
 )
 async def trigger_portal_scrape(
-    connection_id: str,
+    connection_id: uuid.UUID,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> PortalScrapeResponse:
@@ -174,7 +175,6 @@ async def trigger_portal_scrape(
     Returns a ``PortalScrapeResponse`` with ``status``, ``rates_extracted``,
     and any ``error`` message.
     """
-    from services.portal_scraper_service import PortalScraperService
 
     log = logger.bind(connection_id=connection_id, user_id=current_user.user_id)
 
@@ -233,7 +233,7 @@ async def trigger_portal_scrape(
         log=log,
     )
 
-    scraped_at = datetime.now(timezone.utc)
+    scraped_at = datetime.now(UTC)
     new_status = "active" if scrape_result["success"] else "error"
     rates_extracted = len(scrape_result.get("rates", []))
 
@@ -292,7 +292,7 @@ async def trigger_portal_scrape(
     )
 
     return PortalScrapeResponse(
-        connection_id=connection_id,
+        connection_id=str(connection_id),
         status="success" if scrape_result["success"] else "failed",
         rates_extracted=rates_extracted,
         error=scrape_result.get("error"),

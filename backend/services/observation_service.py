@@ -5,17 +5,17 @@ Thin orchestrator that delegates data access to ForecastObservationRepository.
 Adds logging and business-level coordination on top of raw data operations.
 """
 
-import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Any
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
 from repositories.forecast_observation_repository import ForecastObservationRepository
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class ObservationService:
@@ -31,11 +31,13 @@ class ObservationService:
         self,
         forecast_id: str,
         region: str,
-        predictions: List[Dict[str, Any]],
-        model_version: Optional[str] = None,
+        predictions: list[dict[str, Any]],
+        model_version: str | None = None,
     ) -> int:
         """Batch-INSERT forecast predictions into forecast_observations."""
-        async with traced("ml.record_forecast", attributes={"ml.region": region, "ml.forecast_id": forecast_id}):
+        async with traced(
+            "ml.record_forecast", attributes={"ml.region": region, "ml.forecast_id": forecast_id}
+        ):
             count = await self._repo.insert_forecasts(
                 forecast_id, region, predictions, model_version
             )
@@ -50,7 +52,7 @@ class ObservationService:
 
     async def observe_actuals_batch(
         self,
-        region: Optional[str] = None,
+        region: str | None = None,
     ) -> int:
         """Match unobserved forecast rows to actual prices."""
         async with traced("ml.observe_actuals", attributes={"ml.region": region or "all"}):
@@ -62,7 +64,7 @@ class ObservationService:
         self,
         user_id: str,
         recommendation_type: str,
-        recommendation_data: Dict[str, Any],
+        recommendation_data: dict[str, Any],
     ) -> str:
         """Record a recommendation served to a user."""
         outcome_id = await self._repo.insert_recommendation(
@@ -80,7 +82,7 @@ class ObservationService:
         self,
         outcome_id: str,
         accepted: bool,
-        actual_savings: Optional[float] = None,
+        actual_savings: float | None = None,
     ) -> bool:
         """Update a recommendation outcome with user response."""
         updated = await self._repo.update_recommendation_response(
@@ -98,7 +100,7 @@ class ObservationService:
         self,
         region: str,
         days: int = 7,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compute accuracy metrics for observed forecasts."""
         return await self._repo.get_accuracy_metrics(region, days)
 
@@ -106,7 +108,7 @@ class ObservationService:
         self,
         region: str,
         days: int = 7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Compute per-hour bias (predicted - actual) for bias correction."""
         return await self._repo.get_hourly_bias(region, days)
 
@@ -114,7 +116,7 @@ class ObservationService:
         self,
         region: str,
         days: int = 7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Compute accuracy breakdown by model_version."""
         return await self._repo.get_accuracy_by_version(region, days)
 
@@ -137,24 +139,30 @@ class ObservationService:
             return {"archived": 0, "message": "No old observations to archive"}
 
         # Delete old observations (in production, would move to archive table first)
-        await self._repo._db.execute(
-            text("DELETE FROM forecast_observations WHERE created_at < :cutoff"),
-            {"cutoff": cutoff},
-        )
-        await self._repo._db.commit()
+        try:
+            await self._repo._db.execute(
+                text("DELETE FROM forecast_observations WHERE created_at < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            await self._repo._db.commit()
+        except Exception:
+            await self._repo._db.rollback()
+            raise
 
-        logger.info("observations_archived", extra={"count": count, "cutoff_days": days})
+        logger.info("observations_archived", count=count, cutoff_days=days)
         return {"archived": count, "cutoff_days": days}
 
     async def get_observation_summary(self):
         """Get summary statistics for observations."""
-        result = await self._repo._db.execute(text("""
+        result = await self._repo._db.execute(
+            text("""
             SELECT
                 COUNT(*) as total,
                 MIN(created_at) as oldest,
                 MAX(created_at) as newest
             FROM forecast_observations
-        """))
+        """)
+        )
         row = result.fetchone()
         if not row or not row[0]:
             return {"total": 0, "oldest": None, "newest": None}

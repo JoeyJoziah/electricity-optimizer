@@ -302,7 +302,10 @@ test.describe("Mobile Navigation", () => {
     if (menuButtonCount === 0) {
       // No hamburger button — mobile navigation may use a different pattern
       // (e.g., bottom nav). Skip the open/close assertion.
-      test.skip();
+      test.skip(
+        true,
+        "No hamburger menu button found — mobile nav uses a different pattern",
+      );
       return;
     }
 
@@ -333,7 +336,10 @@ test.describe("Mobile Navigation", () => {
     const menuButtonCount = await menuButton.count();
 
     if (menuButtonCount === 0) {
-      test.skip();
+      test.skip(
+        true,
+        "No hamburger menu button found — mobile nav uses a different pattern",
+      );
       return;
     }
 

@@ -14,24 +14,23 @@ Supported Regions:
 - Spain
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
 from .base import (
+    APIError,
     BasePricingClient,
+    CircuitBreakerConfig,
     PriceData,
     PriceForecast,
-    PricingRegion,
     PriceUnit,
-    APIError,
+    PricingRegion,
     RetryConfig,
-    CircuitBreakerConfig,
 )
-from .rate_limiter import RateLimiter, create_api_rate_limiter
 from .cache import PricingCache
+from .rate_limiter import RateLimiter, create_api_rate_limiter
 
 logger = structlog.get_logger(__name__)
 
@@ -73,7 +72,7 @@ class FlatpeakClient(BasePricingClient):
 
     Example usage:
         ```python
-        async with FlatpeakClient(api_key="your-key") as client:
+        async with FlatpeakClient(api_key="<REDACTED>") as client:
             price = await client.get_current_price(PricingRegion.UK)
             print(f"Current price: {price.price} {price.currency}/{price.unit}")
 
@@ -89,10 +88,10 @@ class FlatpeakClient(BasePricingClient):
         self,
         api_key: str,
         timeout: float = 30.0,
-        retry_config: Optional[RetryConfig] = None,
-        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
-        rate_limiter: Optional[RateLimiter] = None,
-        cache: Optional[PricingCache] = None,
+        retry_config: RetryConfig | None = None,
+        circuit_breaker_config: CircuitBreakerConfig | None = None,
+        rate_limiter: RateLimiter | None = None,
+        cache: PricingCache | None = None,
     ):
         """
         Initialize Flatpeak client.
@@ -157,7 +156,7 @@ class FlatpeakClient(BasePricingClient):
         if timestamp_str:
             timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
         else:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         # Price is typically in local currency per kWh
         price = Decimal(str(data.get("price", 0)))
@@ -181,8 +180,12 @@ class FlatpeakClient(BasePricingClient):
             supplier=data.get("supplier"),
             tariff_name=data.get("tariff_name"),
             source_api="flatpeak",
-            energy_cost=Decimal(str(breakdown.get("energy", 0))) if breakdown.get("energy") else None,
-            network_cost=Decimal(str(breakdown.get("network", 0))) if breakdown.get("network") else None,
+            energy_cost=Decimal(str(breakdown.get("energy", 0)))
+            if breakdown.get("energy")
+            else None,
+            network_cost=Decimal(str(breakdown.get("network", 0)))
+            if breakdown.get("network")
+            else None,
             taxes=Decimal(str(breakdown.get("taxes", 0))) if breakdown.get("taxes") else None,
             levies=Decimal(str(breakdown.get("levies", 0))) if breakdown.get("levies") else None,
             is_peak=data.get("is_peak"),
@@ -321,7 +324,7 @@ class FlatpeakClient(BasePricingClient):
 
         result = PriceForecast(
             region=region,
-            forecast_generated_at=datetime.now(timezone.utc),
+            forecast_generated_at=datetime.now(UTC),
             forecast_horizon_hours=hours,
             source_api="flatpeak",
             prices=prices,

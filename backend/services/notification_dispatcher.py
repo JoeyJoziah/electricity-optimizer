@@ -42,10 +42,10 @@ Usage:
 
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
-from enum import Enum
-from typing import Dict, List, Optional, Any, Tuple
-from uuid import UUID, uuid4
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
 
 import structlog
 from sqlalchemy import text
@@ -53,9 +53,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.notification import NotificationDeliveryUpdate
 from repositories.notification_repository import NotificationRepository
+from services.email_service import EmailService
 from services.notification_service import NotificationService
 from services.push_notification_service import PushNotificationService
-from services.email_service import EmailService
 
 logger = structlog.get_logger(__name__)
 
@@ -63,14 +63,14 @@ logger = structlog.get_logger(__name__)
 _DEFAULT_COOLDOWN_SECONDS = 3600  # 1 hour
 
 
-class NotificationChannel(str, Enum):
+class NotificationChannel(StrEnum):
     IN_APP = "in_app"
     PUSH = "push"
     EMAIL = "email"
 
 
 # Ordered from lowest cost to highest so fallback chains degrade gracefully.
-ALL_CHANNELS: List[NotificationChannel] = [
+ALL_CHANNELS: list[NotificationChannel] = [
     NotificationChannel.IN_APP,
     NotificationChannel.PUSH,
     NotificationChannel.EMAIL,
@@ -123,16 +123,16 @@ class NotificationDispatcher:
         user_id: str,
         type: str,
         title: str,
-        body: Optional[str] = None,
-        channels: Optional[List[NotificationChannel]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        dedup_key: Optional[str] = None,
-        cooldown_seconds: Optional[int] = None,
+        body: str | None = None,
+        channels: list[NotificationChannel] | None = None,
+        metadata: dict[str, Any] | None = None,
+        dedup_key: str | None = None,
+        cooldown_seconds: int | None = None,
         # Email-specific parameters
-        email_to: Optional[str] = None,
-        email_subject: Optional[str] = None,
-        email_html: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        email_to: str | None = None,
+        email_subject: str | None = None,
+        email_html: str | None = None,
+    ) -> dict[str, Any]:
         """Dispatch a notification to the requested channels.
 
         Args:
@@ -181,7 +181,7 @@ class NotificationDispatcher:
         # ------------------------------------------------------------------
         # 2. Merge dedup_key into metadata so we can query it later
         # ------------------------------------------------------------------
-        effective_metadata: Dict[str, Any] = dict(metadata or {})
+        effective_metadata: dict[str, Any] = dict(metadata or {})
         if dedup_key:
             effective_metadata["dedup_key"] = dedup_key
 
@@ -189,8 +189,8 @@ class NotificationDispatcher:
         # 3. Route to each channel — IN_APP first (creates the row / notification_id),
         #    then PUSH and EMAIL concurrently (both are external HTTP calls).
         # ------------------------------------------------------------------
-        results: Dict[str, bool] = {}
-        notification_id: Optional[str] = None
+        results: dict[str, bool] = {}
+        notification_id: str | None = None
 
         # Step 3a: IN_APP must run first — it creates the DB row whose ID is
         # needed by the push/email outcome-tracking helpers.
@@ -251,7 +251,21 @@ class NotificationDispatcher:
                     error=error,
                 )
 
-        await asyncio.gather(_dispatch_push(), _dispatch_email(), return_exceptions=True)
+        # return_exceptions=True prevents one channel failure from aborting the
+        # other, but it silently swallows exceptions unless we inspect the
+        # return values.  Log any BaseException instances so failures are
+        # visible in the log stream rather than being silently dropped.
+        gather_results = await asyncio.gather(
+            _dispatch_push(), _dispatch_email(), return_exceptions=True
+        )
+        for exc in gather_results:
+            if isinstance(exc, BaseException):
+                logger.error(
+                    "notification_dispatch_unhandled_exception",
+                    user_id=user_id,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
 
         logger.info(
             "notification_dispatched",
@@ -277,9 +291,9 @@ class NotificationDispatcher:
         user_id: str,
         type: str,
         title: str,
-        body: Optional[str],
-        metadata: Dict[str, Any],
-    ) -> Tuple[Optional[str], bool]:
+        body: str | None,
+        metadata: dict[str, Any],
+    ) -> tuple[str | None, bool]:
         """Write an in-app notification row with delivery_status='sent'.
 
         Returns:
@@ -345,8 +359,8 @@ class NotificationDispatcher:
         user_id: str,
         title: str,
         body: str,
-        metadata: Dict[str, Any],
-    ) -> Tuple[bool, Optional[str]]:
+        metadata: dict[str, Any],
+    ) -> tuple[bool, str | None]:
         """Send a OneSignal push notification.
 
         Returns:
@@ -376,18 +390,16 @@ class NotificationDispatcher:
         self,
         to: str,
         subject: str,
-        body: Optional[str],
-        html: Optional[str],
-    ) -> Tuple[bool, Optional[str]]:
+        body: str | None,
+        html: str | None,
+    ) -> tuple[bool, str | None]:
         """Send an email notification.
 
         Returns:
             (success, error_message) — error_message is None on success.
         """
         try:
-            html_body = html or (
-                f"<p>{body}</p>" if body else f"<p>{subject}</p>"
-            )
+            html_body = html or (f"<p>{body}</p>" if body else f"<p>{subject}</p>")
             ok = await self._email_service.send(
                 to=to,
                 subject=subject,
@@ -413,8 +425,8 @@ class NotificationDispatcher:
         notification_id: str,
         channel: str,
         success: bool,
-        error: Optional[str],
-        retry_count: Optional[int] = None,
+        error: str | None,
+        retry_count: int | None = None,
     ) -> None:
         """Write the push/email delivery outcome back to the in-app row.
 
@@ -426,7 +438,7 @@ class NotificationDispatcher:
             update = NotificationDeliveryUpdate(
                 delivery_status="sent",
                 delivery_channel=channel,  # type: ignore[arg-type]
-                delivered_at=datetime.now(timezone.utc),
+                delivered_at=datetime.now(UTC),
                 retry_count=retry_count,
             )
         else:
@@ -469,7 +481,7 @@ class NotificationDispatcher:
             True  — a duplicate exists; the caller should skip delivery.
             False — no duplicate found; the caller may proceed.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=cooldown_seconds)
+        cutoff = datetime.now(UTC) - timedelta(seconds=cooldown_seconds)
         try:
             result = await self._db.execute(
                 text("""

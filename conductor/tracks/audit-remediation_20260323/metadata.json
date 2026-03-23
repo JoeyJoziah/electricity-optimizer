@@ -1,0 +1,19 @@
+{
+  "id": "audit-remediation_20260323",
+  "title": "Codebase Audit Remediation 2026-03-23 (~560 findings, 75 tasks, 9 sprints)",
+  "type": "chore",
+  "status": "complete",
+  "created": "2026-03-23T00:00:00Z",
+  "updated": "2026-03-23T23:30:00Z",
+  "current_phase": 9,
+  "current_task": "8.8",
+  "phases": {
+    "total": 9,
+    "completed": 9
+  },
+  "tasks": {
+    "total": 75,
+    "completed": 75
+  },
+  "commits": []
+}

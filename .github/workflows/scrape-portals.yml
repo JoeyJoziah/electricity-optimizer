@@ -35,7 +35,7 @@ jobs:
             Content-Type: application/json
           body: '{}'
           max-retries: "3"
-          retry-delay: "10"
+          initial-delay: "10"
 
       - name: Log result
         if: always()

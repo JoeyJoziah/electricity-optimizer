@@ -13,8 +13,8 @@ Covers:
 """
 
 import hashlib
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -41,7 +41,7 @@ def _make_version_row(
     row.config = config or {"lr": 0.01, "epochs": 10}
     row.metrics = metrics or {"mape": 5.0, "rmse": 0.01}
     row.is_active = is_active
-    row.created_at = created_at or datetime(2026, 3, 10, 0, 0, tzinfo=timezone.utc)
+    row.created_at = created_at or datetime(2026, 3, 10, 0, 0, tzinfo=UTC)
     row.promoted_at = promoted_at
     return row
 
@@ -65,7 +65,7 @@ def _make_ab_test_row(
     row.version_b_id = version_b_id
     row.traffic_split = traffic_split
     row.status = status
-    row.started_at = started_at or datetime(2026, 3, 10, 0, 0, tzinfo=timezone.utc)
+    row.started_at = started_at or datetime(2026, 3, 10, 0, 0, tzinfo=UTC)
     row.ended_at = ended_at
     row.results = results or {}
     return row
@@ -110,7 +110,6 @@ def _mock_fetchall(mock_db, rows):
 class TestCreateVersion:
     """Tests for ModelVersionService.create_version"""
 
-    @pytest.mark.asyncio
     async def test_returns_model_version_with_correct_fields(self, service, mock_db):
         """create_version should return a ModelVersion with the provided values."""
         config = {"lr": 0.01, "batch_size": 32}
@@ -129,18 +128,14 @@ class TestCreateVersion:
         assert result.metrics == metrics
         assert result.is_active is False
 
-    @pytest.mark.asyncio
     async def test_generates_uuid_id(self, service, mock_db):
         """The returned version should have a valid UUID id."""
         import re
 
         result = await service.create_version("ensemble", config={}, metrics={})
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
-    @pytest.mark.asyncio
     async def test_auto_generates_version_tag_when_omitted(self, service, mock_db):
         """version_tag should be auto-generated when not provided."""
         result = await service.create_version("ensemble", config={}, metrics={})
@@ -148,21 +143,18 @@ class TestCreateVersion:
         assert result.version_tag.startswith("v")
         assert len(result.version_tag) > 1
 
-    @pytest.mark.asyncio
     async def test_new_version_is_inactive(self, service, mock_db):
         """create_version must create an INACTIVE version."""
         result = await service.create_version("ensemble", config={}, metrics={})
 
         assert result.is_active is False
 
-    @pytest.mark.asyncio
     async def test_commits_after_insert(self, service, mock_db):
         """Should call commit exactly once."""
         await service.create_version("ensemble", config={}, metrics={})
 
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_rollback_and_reraise_on_db_error(self, service, mock_db):
         """Should rollback and re-raise the exception on DB failure."""
         mock_db.execute.side_effect = Exception("disk full")
@@ -172,7 +164,6 @@ class TestCreateVersion:
 
         mock_db.rollback.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_insert_params_contain_model_name_and_tag(self, service, mock_db):
         """INSERT parameters must include the model_name and version_tag."""
         await service.create_version("my_model", config={}, metrics={}, version_tag="v42")
@@ -181,7 +172,6 @@ class TestCreateVersion:
         assert insert_params["model_name"] == "my_model"
         assert insert_params["version_tag"] == "v42"
 
-    @pytest.mark.asyncio
     async def test_config_serialised_as_json_string(self, service, mock_db):
         """The config dict must be JSON-serialised for the ::jsonb cast."""
         import json
@@ -202,7 +192,6 @@ class TestCreateVersion:
 class TestGetActiveVersion:
     """Tests for ModelVersionService.get_active_version"""
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_no_active_row(self, service, mock_db):
         """Should return None when no active version exists."""
         _mock_fetchone(mock_db, None)
@@ -211,7 +200,6 @@ class TestGetActiveVersion:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_model_version_when_row_exists(self, service, mock_db):
         """Should return a populated ModelVersion from the active row."""
         row = _make_version_row(
@@ -231,7 +219,6 @@ class TestGetActiveVersion:
         assert result.version_tag == "v3.0"
         assert result.is_active is True
 
-    @pytest.mark.asyncio
     async def test_query_filters_by_model_name(self, service, mock_db):
         """The SQL query must filter by the correct model_name."""
         _mock_fetchone(mock_db, None)
@@ -241,7 +228,6 @@ class TestGetActiveVersion:
         params = mock_db.execute.call_args[0][1]
         assert params["model_name"] == "forecast_model"
 
-    @pytest.mark.asyncio
     async def test_parses_json_string_config(self, service, mock_db):
         """Should handle config/metrics columns returned as raw JSON strings."""
         import json
@@ -266,7 +252,6 @@ class TestGetActiveVersion:
 class TestPromoteVersion:
     """Tests for ModelVersionService.promote_version"""
 
-    @pytest.mark.asyncio
     async def test_raises_value_error_when_version_not_found(self, service, mock_db):
         """Should raise ValueError if the version_id does not exist."""
         _mock_fetchone(mock_db, None)
@@ -274,7 +259,6 @@ class TestPromoteVersion:
         with pytest.raises(ValueError, match="Model version not found"):
             await service.promote_version("non-existent-id")
 
-    @pytest.mark.asyncio
     async def test_returns_model_version_with_is_active_true(self, service, mock_db):
         """Promoted version must have is_active=True."""
         row = _make_version_row(
@@ -290,7 +274,6 @@ class TestPromoteVersion:
         assert result.is_active is True
         assert result.id == "ver-2"
 
-    @pytest.mark.asyncio
     async def test_promoted_at_is_set(self, service, mock_db):
         """promoted_at must be populated after promotion."""
         row = _make_version_row(id="ver-3", model_name="ensemble")
@@ -301,7 +284,6 @@ class TestPromoteVersion:
         assert result.promoted_at is not None
         assert isinstance(result.promoted_at, datetime)
 
-    @pytest.mark.asyncio
     async def test_executes_two_updates(self, service, mock_db):
         """Should run two UPDATEs: one to deactivate others, one to activate target."""
         row = _make_version_row(id="ver-4", model_name="ensemble")
@@ -315,7 +297,6 @@ class TestPromoteVersion:
         # 1 SELECT + 2 UPDATEs = 3 execute calls
         assert mock_db.execute.call_count == 3
 
-    @pytest.mark.asyncio
     async def test_commits_once(self, service, mock_db):
         """Should commit exactly once after both UPDATEs."""
         row = _make_version_row(id="ver-5")
@@ -327,7 +308,6 @@ class TestPromoteVersion:
 
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_rollback_on_update_failure(self, service, mock_db):
         """Should rollback and re-raise if the UPDATE fails."""
         row = _make_version_row(id="ver-6")
@@ -341,7 +321,6 @@ class TestPromoteVersion:
 
         mock_db.rollback.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_deactivate_uses_correct_model_name(self, service, mock_db):
         """The deactivation UPDATE must filter by model_name."""
         row = _make_version_row(
@@ -358,7 +337,6 @@ class TestPromoteVersion:
         deactivate_params = mock_db.execute.call_args_list[1][0][1]
         assert deactivate_params["model_name"] == "price_forecast"
 
-    @pytest.mark.asyncio
     async def test_deactivate_excludes_target_version(self, service, mock_db):
         """The deactivation UPDATE must exclude the version being promoted."""
         row = _make_version_row(id="ver-8", model_name="ensemble")
@@ -380,7 +358,6 @@ class TestPromoteVersion:
 class TestListVersions:
     """Tests for ModelVersionService.list_versions"""
 
-    @pytest.mark.asyncio
     async def test_returns_empty_list_when_no_rows(self, service, mock_db):
         """Should return [] when there are no versions stored."""
         _mock_fetchall(mock_db, [])
@@ -389,7 +366,6 @@ class TestListVersions:
 
         assert result == []
 
-    @pytest.mark.asyncio
     async def test_returns_list_of_model_versions(self, service, mock_db):
         """Should return a list of ModelVersion objects."""
         rows = [
@@ -406,7 +382,6 @@ class TestListVersions:
         assert result[1].version_tag == "v2.0"
         assert result[2].version_tag == "v1.0"
 
-    @pytest.mark.asyncio
     async def test_default_limit_is_10(self, service, mock_db):
         """Should pass limit=10 by default."""
         _mock_fetchall(mock_db, [])
@@ -416,7 +391,6 @@ class TestListVersions:
         params = mock_db.execute.call_args[0][1]
         assert params["limit"] == 10
 
-    @pytest.mark.asyncio
     async def test_custom_limit_is_passed(self, service, mock_db):
         """Should pass the provided limit to the SQL query."""
         _mock_fetchall(mock_db, [])
@@ -426,7 +400,6 @@ class TestListVersions:
         params = mock_db.execute.call_args[0][1]
         assert params["limit"] == 5
 
-    @pytest.mark.asyncio
     async def test_filters_by_model_name(self, service, mock_db):
         """Should scope the query to the correct model_name."""
         _mock_fetchall(mock_db, [])
@@ -436,7 +409,6 @@ class TestListVersions:
         params = mock_db.execute.call_args[0][1]
         assert params["model_name"] == "custom_model"
 
-    @pytest.mark.asyncio
     async def test_active_version_is_marked_correctly(self, service, mock_db):
         """The active version in the list should have is_active=True."""
         rows = [
@@ -480,7 +452,6 @@ class TestCompareVersions:
         result_b.fetchone.return_value = row_b
         mock_db.execute.side_effect = [result_a, result_b]
 
-    @pytest.mark.asyncio
     async def test_raises_if_version_a_not_found(self, service, mock_db):
         """Should raise ValueError if version_a_id does not exist."""
         _mock_fetchone(mock_db, None)
@@ -488,7 +459,6 @@ class TestCompareVersions:
         with pytest.raises(ValueError, match="Model version not found"):
             await service.compare_versions("missing-a", "ver-b")
 
-    @pytest.mark.asyncio
     async def test_raises_if_version_b_not_found(self, service, mock_db):
         """Should raise ValueError if version_b_id does not exist."""
         row_a = _make_version_row(id="ver-a")
@@ -501,7 +471,6 @@ class TestCompareVersions:
         with pytest.raises(ValueError, match="Model version not found"):
             await service.compare_versions("ver-a", "missing-b")
 
-    @pytest.mark.asyncio
     async def test_numeric_delta_computed_correctly(self, service, mock_db):
         """Delta should equal b_val - a_val for numeric metrics."""
         self._setup_two_versions(
@@ -515,7 +484,6 @@ class TestCompareVersions:
         assert result.metric_comparison["mape"]["delta"] == pytest.approx(-1.0)
         assert result.metric_comparison["rmse"]["delta"] == pytest.approx(-0.005)
 
-    @pytest.mark.asyncio
     async def test_non_numeric_metric_has_none_delta(self, service, mock_db):
         """Non-numeric metric values should produce delta=None."""
         self._setup_two_versions(
@@ -528,7 +496,6 @@ class TestCompareVersions:
 
         assert result.metric_comparison["label"]["delta"] is None
 
-    @pytest.mark.asyncio
     async def test_missing_metric_in_one_version(self, service, mock_db):
         """Metrics present in only one version should appear with None for the other."""
         self._setup_two_versions(
@@ -544,7 +511,6 @@ class TestCompareVersions:
         assert result.metric_comparison["coverage"]["version_b"] == 0.95
         assert result.metric_comparison["coverage"]["delta"] is None
 
-    @pytest.mark.asyncio
     async def test_returns_correct_version_tags_in_result(self, service, mock_db):
         """Comparison result should carry the correct version tags."""
         self._setup_two_versions(
@@ -581,12 +547,8 @@ class TestCreateABTest:
         no_test = MagicMock()
         no_test.fetchone.return_value = None
 
-        ver_a_row = _make_version_row(
-            id="ver-a", model_name=model_name, is_active=True
-        )
-        ver_b_row = _make_version_row(
-            id="ver-b", model_name=model_name, is_active=False
-        )
+        ver_a_row = _make_version_row(id="ver-a", model_name=model_name, is_active=True)
+        ver_b_row = _make_version_row(id="ver-b", model_name=model_name, is_active=False)
         result_a = MagicMock()
         result_a.fetchone.return_value = ver_a_row
         result_b = MagicMock()
@@ -595,7 +557,6 @@ class TestCreateABTest:
 
         mock_db.execute.side_effect = [no_test, result_a, result_b, insert_result]
 
-    @pytest.mark.asyncio
     async def test_returns_ab_test_with_running_status(self, service, mock_db):
         """New A/B test should have status='running'."""
         self._setup_no_running_test_and_two_versions(mock_db)
@@ -607,7 +568,6 @@ class TestCreateABTest:
         assert result.version_a_id == "ver-a"
         assert result.version_b_id == "ver-b"
 
-    @pytest.mark.asyncio
     async def test_default_traffic_split_is_50_percent(self, service, mock_db):
         """Default traffic_split should be 0.5."""
         self._setup_no_running_test_and_two_versions(mock_db)
@@ -616,18 +576,14 @@ class TestCreateABTest:
 
         assert result.traffic_split == pytest.approx(0.5)
 
-    @pytest.mark.asyncio
     async def test_custom_traffic_split_is_respected(self, service, mock_db):
         """Supplied traffic_split must be stored correctly."""
         self._setup_no_running_test_and_two_versions(mock_db)
 
-        result = await service.create_ab_test(
-            "ensemble", "ver-a", "ver-b", traffic_split=0.3
-        )
+        result = await service.create_ab_test("ensemble", "ver-a", "ver-b", traffic_split=0.3)
 
         assert result.traffic_split == pytest.approx(0.3)
 
-    @pytest.mark.asyncio
     async def test_raises_if_running_test_already_exists(self, service, mock_db):
         """Should raise ValueError when a running test already exists."""
         running_row = _make_ab_test_row(model_name="ensemble", status="running")
@@ -638,19 +594,16 @@ class TestCreateABTest:
         with pytest.raises(ValueError, match="already running"):
             await service.create_ab_test("ensemble", "ver-a", "ver-b")
 
-    @pytest.mark.asyncio
     async def test_raises_for_invalid_traffic_split_zero(self, service, mock_db):
         """traffic_split=0.0 should raise ValueError before any DB call."""
         with pytest.raises(ValueError, match="traffic_split"):
             await service.create_ab_test("ensemble", "ver-a", "ver-b", traffic_split=0.0)
 
-    @pytest.mark.asyncio
     async def test_raises_for_invalid_traffic_split_one(self, service, mock_db):
         """traffic_split=1.0 should raise ValueError before any DB call."""
         with pytest.raises(ValueError, match="traffic_split"):
             await service.create_ab_test("ensemble", "ver-a", "ver-b", traffic_split=1.0)
 
-    @pytest.mark.asyncio
     async def test_raises_if_version_a_not_found(self, service, mock_db):
         """Should raise ValueError if version_a does not exist in the DB."""
         no_test = MagicMock()
@@ -662,16 +615,13 @@ class TestCreateABTest:
         with pytest.raises(ValueError, match="Model version not found"):
             await service.create_ab_test("ensemble", "missing-a", "ver-b")
 
-    @pytest.mark.asyncio
     async def test_raises_if_version_belongs_to_different_model(self, service, mock_db):
         """Should raise ValueError if a version belongs to a different model."""
         no_test = MagicMock()
         no_test.fetchone.return_value = None
 
         # version_a belongs to model "other_model", not "ensemble"
-        wrong_model_row = _make_version_row(
-            id="ver-wrong", model_name="other_model"
-        )
+        wrong_model_row = _make_version_row(id="ver-wrong", model_name="other_model")
         result_wrong = MagicMock()
         result_wrong.fetchone.return_value = wrong_model_row
         mock_db.execute.side_effect = [no_test, result_wrong]
@@ -679,38 +629,29 @@ class TestCreateABTest:
         with pytest.raises(ValueError, match="belongs to model"):
             await service.create_ab_test("ensemble", "ver-wrong", "ver-b")
 
-    @pytest.mark.asyncio
     async def test_generated_test_id_is_uuid(self, service, mock_db):
         """The returned test should have a valid UUID id."""
         import re
 
         self._setup_no_running_test_and_two_versions(mock_db)
         result = await service.create_ab_test("ensemble", "ver-a", "ver-b")
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
-    @pytest.mark.asyncio
     async def test_commits_after_insert(self, service, mock_db):
         """Should commit exactly once after inserting the test row."""
         self._setup_no_running_test_and_two_versions(mock_db)
         await service.create_ab_test("ensemble", "ver-a", "ver-b")
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_rollback_on_db_failure(self, service, mock_db):
         """Should rollback and re-raise if the INSERT fails."""
         no_test = MagicMock()
         no_test.fetchone.return_value = None
         ver_a_result = MagicMock()
-        ver_a_result.fetchone.return_value = _make_version_row(
-            id="ver-a", model_name="ensemble"
-        )
+        ver_a_result.fetchone.return_value = _make_version_row(id="ver-a", model_name="ensemble")
         ver_b_result = MagicMock()
-        ver_b_result.fetchone.return_value = _make_version_row(
-            id="ver-b", model_name="ensemble"
-        )
+        ver_b_result.fetchone.return_value = _make_version_row(id="ver-b", model_name="ensemble")
         mock_db.execute.side_effect = [
             no_test,
             ver_a_result,
@@ -732,7 +673,6 @@ class TestCreateABTest:
 class TestGetABAssignment:
     """Tests for ModelVersionService.get_ab_assignment"""
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_no_running_test(self, service, mock_db):
         """Should return None when there is no running A/B test for the model."""
         _mock_fetchone(mock_db, None)
@@ -741,7 +681,6 @@ class TestGetABAssignment:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_ab_assignment_object(self, service, mock_db):
         """Should return an ABAssignment with test_id and user_id set."""
         test_row = _make_ab_test_row(
@@ -760,7 +699,6 @@ class TestGetABAssignment:
         assert result.assigned_version_id in ("ver-a", "ver-b")
         assert result.bucket in ("a", "b")
 
-    @pytest.mark.asyncio
     async def test_same_user_always_gets_same_bucket(self, service, mock_db):
         """Determinism: the same user_id must always receive the same bucket."""
         test_row = _make_ab_test_row(
@@ -780,7 +718,6 @@ class TestGetABAssignment:
             f"Expected all assignments to be the same bucket, got: {assignments}"
         )
 
-    @pytest.mark.asyncio
     async def test_different_users_can_get_different_buckets(self, service, mock_db):
         """
         With 0.5 traffic split and enough users, both buckets should be assigned.
@@ -804,7 +741,6 @@ class TestGetABAssignment:
         assert "a" in buckets, "No users were assigned to bucket A"
         assert "b" in buckets, "No users were assigned to bucket B"
 
-    @pytest.mark.asyncio
     async def test_traffic_split_skew_routes_most_to_a(self, service, mock_db):
         """
         With traffic_split=0.9, approximately 90% of users should be in bucket A.
@@ -826,11 +762,8 @@ class TestGetABAssignment:
                 bucket_a_count += 1
 
         ratio = bucket_a_count / total
-        assert ratio >= 0.70, (
-            f"Expected >= 70% in bucket A with 0.9 split, got {ratio:.2%}"
-        )
+        assert ratio >= 0.70, f"Expected >= 70% in bucket A with 0.9 split, got {ratio:.2%}"
 
-    @pytest.mark.asyncio
     async def test_assignment_is_stable_across_calls_via_hash(self):
         """
         White-box test: verify the SHA-256 hash produces the correct bucket
@@ -840,7 +773,7 @@ class TestGetABAssignment:
         user_id = "fixed-user-id"
         traffic_split = 0.5
 
-        hash_input = f"{test_id}:{user_id}".encode("utf-8")
+        hash_input = f"{test_id}:{user_id}".encode()
         hash_int = int(hashlib.sha256(hash_input).hexdigest(), 16)
         bucket_pct = hash_int % 100
         split_pct = int(traffic_split * 100)  # 50
@@ -877,7 +810,6 @@ class TestGetABAssignment:
 class TestRecordABOutcome:
     """Tests for ModelVersionService.record_ab_outcome"""
 
-    @pytest.mark.asyncio
     async def test_returns_ab_outcome_object(self, service, mock_db):
         """Should return a populated ABOutcome on success."""
         result = await service.record_ab_outcome(
@@ -892,7 +824,6 @@ class TestRecordABOutcome:
         assert result.user_id == "user-1"
         assert result.outcome == "conversion"
 
-    @pytest.mark.asyncio
     async def test_outcome_has_uuid_id(self, service, mock_db):
         """The returned ABOutcome should have a valid UUID id."""
         import re
@@ -903,19 +834,15 @@ class TestRecordABOutcome:
             user_id="user-1",
             outcome="success",
         )
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
-    @pytest.mark.asyncio
     async def test_commits_after_insert(self, service, mock_db):
         """Should commit exactly once after the INSERT."""
         await service.record_ab_outcome("t1", "v1", "u1", "hit")
 
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_insert_contains_on_conflict_do_nothing(self, service, mock_db):
         """The INSERT SQL must include ON CONFLICT DO NOTHING for idempotency."""
         await service.record_ab_outcome("t1", "v1", "u1", "hit")
@@ -923,7 +850,6 @@ class TestRecordABOutcome:
         sql = str(mock_db.execute.call_args[0][0])
         assert "ON CONFLICT" in sql.upper() and "DO NOTHING" in sql.upper()
 
-    @pytest.mark.asyncio
     async def test_insert_params_include_all_fields(self, service, mock_db):
         """INSERT params must include test_id, version_id, user_id, and outcome."""
         await service.record_ab_outcome(
@@ -939,7 +865,6 @@ class TestRecordABOutcome:
         assert params["user_id"] == "user-DEF"
         assert params["outcome"] == "error"
 
-    @pytest.mark.asyncio
     async def test_rollback_and_reraise_on_db_error(self, service, mock_db):
         """Should rollback and re-raise if the INSERT fails."""
         mock_db.execute.side_effect = Exception("unique constraint")
@@ -949,7 +874,6 @@ class TestRecordABOutcome:
 
         mock_db.rollback.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_recorded_at_is_set(self, service, mock_db):
         """recorded_at must be a timezone-aware datetime."""
         result = await service.record_ab_outcome("t1", "v1", "u1", "hit")
@@ -966,11 +890,11 @@ class TestRecordABOutcome:
 class TestPromoteDeactivateIntegration:
     """Higher-level tests verifying the deactivate-then-activate pattern."""
 
-    @pytest.mark.asyncio
     async def test_promotion_produces_unique_promoted_at_timestamps(self, mock_db):
         """Two promotions for different versions should get different promoted_at values."""
-        from services.model_version_service import ModelVersionService
         import asyncio
+
+        from services.model_version_service import ModelVersionService
 
         svc = ModelVersionService(mock_db)
 
@@ -981,10 +905,11 @@ class TestPromoteDeactivateIntegration:
         result_1.fetchone.return_value = row_1
         result_2 = MagicMock()
         result_2.fetchone.return_value = row_2
-        mock_db.execute.side_effect = (
-            [result_1, MagicMock(), MagicMock()]
-            + [result_2, MagicMock(), MagicMock()]
-        )
+        mock_db.execute.side_effect = [result_1, MagicMock(), MagicMock()] + [
+            result_2,
+            MagicMock(),
+            MagicMock(),
+        ]
 
         promo_1 = await svc.promote_version("v1")
         await asyncio.sleep(0.001)  # ensure clock advances slightly
@@ -994,7 +919,6 @@ class TestPromoteDeactivateIntegration:
         assert promo_1.promoted_at is not None
         assert promo_2.promoted_at is not None
 
-    @pytest.mark.asyncio
     async def test_list_versions_reflects_active_state(self, service, mock_db):
         """
         After promotion, only the promoted version row should have is_active=True

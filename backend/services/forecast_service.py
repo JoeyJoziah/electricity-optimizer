@@ -7,9 +7,7 @@ Provides rate forecasting across utility types:
 - Water: not forecasted (rates change via municipal schedule, not market)
 """
 
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
-from typing import Optional
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import text
@@ -26,9 +24,16 @@ FORECAST_HORIZON_DAYS = 30
 
 # Allowlists for SQL identifiers to prevent injection
 _ALLOWED_TABLES = frozenset({"electricity_prices", "heating_oil_prices", "propane_prices"})
-_ALLOWED_COLS = frozenset({
-    "price_per_kwh", "price_per_gallon", "fetched_at", "timestamp", "region", "state",
-})
+_ALLOWED_COLS = frozenset(
+    {
+        "price_per_kwh",
+        "price_per_gallon",
+        "fetched_at",
+        "timestamp",
+        "region",
+        "state",
+    }
+)
 
 
 def _validate_sql_identifier(value: str, allowlist: frozenset, label: str) -> str:
@@ -47,7 +52,7 @@ class ForecastService:
     async def get_forecast(
         self,
         utility_type: str,
-        state: Optional[str] = None,
+        state: str | None = None,
         horizon_days: int = FORECAST_HORIZON_DAYS,
     ) -> dict:
         """
@@ -111,9 +116,7 @@ class ForecastService:
 
         return {"utility_type": utility_type, "error": "Unknown utility type"}
 
-    async def _forecast_electricity(
-        self, state: Optional[str], horizon_days: int
-    ) -> dict:
+    async def _forecast_electricity(self, state: str | None, horizon_days: int) -> dict:
         """Electricity forecast using historical price data and trend extrapolation.
 
         Note: The ML EnsemblePredictor is already available via PriceService.get_price_forecast
@@ -157,8 +160,8 @@ class ForecastService:
         table: str,
         price_col: str,
         unit: str,
-        where_clause: Optional[str],
-        state: Optional[str],
+        where_clause: str | None,
+        state: str | None,
         state_col: str,
         state_prefix: str,
         horizon_days: int,
@@ -173,11 +176,11 @@ class ForecastService:
         params: dict = {"lookback_days": TREND_LOOKBACK_DAYS}
 
         # Time filter — use fetched_at or period_date depending on table
-        time_col = "fetched_at" if table in ("heating_oil_prices", "propane_prices") else "timestamp"
-        _validate_sql_identifier(time_col, _ALLOWED_COLS, "column")
-        conditions.append(
-            f"{time_col} >= NOW() - make_interval(days => :lookback_days)"
+        time_col = (
+            "fetched_at" if table in ("heating_oil_prices", "propane_prices") else "timestamp"
         )
+        _validate_sql_identifier(time_col, _ALLOWED_COLS, "column")
+        conditions.append(f"{time_col} >= NOW() - make_interval(days => :lookback_days)")
 
         if where_clause:
             conditions.append(where_clause)
@@ -189,12 +192,16 @@ class ForecastService:
 
         where = " AND ".join(conditions)
 
+        # Hard limit: the trend extrapolation only needs TREND_LOOKBACK_DAYS of
+        # daily data points (≤90 rows).  A generous cap of 1000 prevents full-
+        # table scans if the time-filter index is ever missing or stale.
         result = await self.db.execute(
             text(f"""
                 SELECT {price_col}, {time_col}
                 FROM {table}
                 WHERE {where}
                 ORDER BY {time_col} ASC
+                LIMIT 1000
             """),
             params,
         )
@@ -216,7 +223,7 @@ class ForecastService:
         price_col: str,
         time_col: str,
         unit: str,
-        state: Optional[str],
+        state: str | None,
         horizon_days: int,
     ) -> dict:
         """Simple linear trend extrapolation from historical data points.
@@ -282,7 +289,9 @@ class ForecastService:
         forecasted_rate = max(forecasted_rate, 0.0)
 
         # Trend direction
-        pct_change = ((forecasted_rate - current_rate) / current_rate * 100) if current_rate > 0 else 0
+        pct_change = (
+            ((forecasted_rate - current_rate) / current_rate * 100) if current_rate > 0 else 0
+        )
         if pct_change > 1:
             trend = "increasing"
         elif pct_change < -1:
@@ -314,5 +323,5 @@ class ForecastService:
             "model": "trend_extrapolation_v1",
             "data_points": n,
             "r_squared": round(max(r_squared, 0), 4),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }

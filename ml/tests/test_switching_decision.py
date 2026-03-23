@@ -13,8 +13,6 @@ Test Coverage:
 """
 
 import pytest
-import numpy as np
-from datetime import datetime, timedelta
 
 
 class TestTariff:
@@ -30,7 +28,7 @@ class TestTariff:
             name="Test Fixed Rate",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.28,
-            standing_charge=0.45
+            standing_charge=0.45,
         )
 
         assert tariff.id == "test_tariff"
@@ -48,14 +46,11 @@ class TestTariff:
             name="Fixed",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.25,  # 25p per kWh
-            standing_charge=0.50  # 50p per day
+            standing_charge=0.50,  # 50p per day
         )
 
         # 3500 kWh over 365 days
-        cost = tariff.calculate_cost(
-            consumption_kwh=3500,
-            days=365
-        )
+        cost = tariff.calculate_cost(consumption_kwh=3500, days=365)
 
         expected_standing = 0.50 * 365  # 182.50
         expected_energy = 3500 * 0.25  # 875.00
@@ -76,15 +71,11 @@ class TestTariff:
             standing_charge=0.50,
             peak_rate=0.35,
             off_peak_rate=0.12,
-            peak_hours=[(16, 21)]
+            peak_hours=[(16, 21)],
         )
 
         # 3500 kWh, 40% during peak
-        cost = tariff.calculate_cost(
-            consumption_kwh=3500,
-            days=365,
-            peak_fraction=0.4
-        )
+        cost = tariff.calculate_cost(consumption_kwh=3500, days=365, peak_fraction=0.4)
 
         expected_standing = 0.50 * 365
         peak_consumption = 3500 * 0.4
@@ -105,15 +96,15 @@ class TestTariff:
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.25,
             standing_charge=0.45,
-            renewable_percentage=50
+            renewable_percentage=50,
         )
 
         data = tariff.to_dict()
 
-        assert data['id'] == "test"
-        assert data['supplier'] == "TestSupplier"
-        assert data['tariff_type'] == "fixed_rate"
-        assert data['renewable_percentage'] == 50
+        assert data["id"] == "test"
+        assert data["supplier"] == "TestSupplier"
+        assert data["tariff_type"] == "fixed_rate"
+        assert data["renewable_percentage"] == 50
 
 
 class TestConsumptionProfile:
@@ -123,10 +114,7 @@ class TestConsumptionProfile:
         """Test consumption profile can be created."""
         from ml.optimization.switching_decision import ConsumptionProfile
 
-        profile = ConsumptionProfile(
-            annual_consumption_kwh=3500,
-            peak_fraction=0.4
-        )
+        profile = ConsumptionProfile(annual_consumption_kwh=3500, peak_fraction=0.4)
 
         assert profile.annual_consumption_kwh == 3500
         assert profile.peak_fraction == 0.4
@@ -156,12 +144,10 @@ class TestConsumptionProfile:
         """Test custom monthly consumption can be set."""
         from ml.optimization.switching_decision import ConsumptionProfile
 
-        custom_monthly = [400, 350, 300, 250, 200, 150,
-                         150, 200, 250, 300, 400, 350]
+        custom_monthly = [400, 350, 300, 250, 200, 150, 150, 200, 250, 300, 400, 350]
 
         profile = ConsumptionProfile(
-            annual_consumption_kwh=3300,
-            monthly_consumption=custom_monthly
+            annual_consumption_kwh=3300, monthly_consumption=custom_monthly
         )
 
         assert profile.monthly_consumption == custom_monthly
@@ -176,7 +162,7 @@ class TestSwitchingRecommendation:
             SwitchingRecommendation,
             Tariff,
             TariffType,
-            RiskLevel
+            RiskLevel,
         )
 
         tariff = Tariff(
@@ -185,7 +171,7 @@ class TestSwitchingRecommendation:
             name="Better Rate",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.22,
-            standing_charge=0.40
+            standing_charge=0.40,
         )
 
         rec = SwitchingRecommendation(
@@ -198,7 +184,7 @@ class TestSwitchingRecommendation:
             risk_level=RiskLevel.LOW,
             confidence=0.85,
             reasons=["Lower rate", "No exit fee"],
-            warnings=["Contract length"]
+            warnings=["Contract length"],
         )
 
         assert rec.annual_savings == 200.0
@@ -212,7 +198,7 @@ class TestSwitchingRecommendation:
             SwitchingRecommendation,
             Tariff,
             TariffType,
-            RiskLevel
+            RiskLevel,
         )
 
         tariff = Tariff(
@@ -221,42 +207,7 @@ class TestSwitchingRecommendation:
             name="Better Rate",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.22,
-            standing_charge=0.40
-        )
-
-        rec = SwitchingRecommendation(
-            recommended_tariff=tariff,
-            current_annual_cost=1200.0,
-            projected_annual_cost=1000.0,
-            annual_savings=200.0,
-            savings_percentage=16.67,
-            payback_months=0.0,
-            risk_level=RiskLevel.LOW,
-            confidence=0.85
-        )
-
-        data = rec.to_dict()
-
-        assert 'recommended_tariff' in data
-        assert data['annual_savings'] == 200.0
-        assert data['risk_level'] == 'low'
-
-    def test_recommendation_summary(self):
-        """Test recommendation summary generation."""
-        from ml.optimization.switching_decision import (
-            SwitchingRecommendation,
-            Tariff,
-            TariffType,
-            RiskLevel
-        )
-
-        tariff = Tariff(
-            id="new",
-            supplier="NewSupplier",
-            name="Better Rate",
-            tariff_type=TariffType.FIXED_RATE,
-            unit_rate=0.22,
-            standing_charge=0.40
+            standing_charge=0.40,
         )
 
         rec = SwitchingRecommendation(
@@ -268,7 +219,42 @@ class TestSwitchingRecommendation:
             payback_months=0.0,
             risk_level=RiskLevel.LOW,
             confidence=0.85,
-            reasons=["Lower rate"]
+        )
+
+        data = rec.to_dict()
+
+        assert "recommended_tariff" in data
+        assert data["annual_savings"] == 200.0
+        assert data["risk_level"] == "low"
+
+    def test_recommendation_summary(self):
+        """Test recommendation summary generation."""
+        from ml.optimization.switching_decision import (
+            SwitchingRecommendation,
+            Tariff,
+            TariffType,
+            RiskLevel,
+        )
+
+        tariff = Tariff(
+            id="new",
+            supplier="NewSupplier",
+            name="Better Rate",
+            tariff_type=TariffType.FIXED_RATE,
+            unit_rate=0.22,
+            standing_charge=0.40,
+        )
+
+        rec = SwitchingRecommendation(
+            recommended_tariff=tariff,
+            current_annual_cost=1200.0,
+            projected_annual_cost=1000.0,
+            annual_savings=200.0,
+            savings_percentage=16.67,
+            payback_months=0.0,
+            risk_level=RiskLevel.LOW,
+            confidence=0.85,
+            reasons=["Lower rate"],
         )
 
         summary = rec.summary()
@@ -287,8 +273,7 @@ class TestSupplierSwitchingEngine:
         from ml.optimization.switching_decision import SupplierSwitchingEngine
 
         return SupplierSwitchingEngine(
-            min_savings_threshold=0.05,
-            prefer_renewable=False
+            min_savings_threshold=0.05, prefer_renewable=False
         )
 
     @pytest.fixture
@@ -303,7 +288,7 @@ class TestSupplierSwitchingEngine:
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.32,
             standing_charge=0.50,
-            exit_fee=0
+            exit_fee=0,
         )
 
     @pytest.fixture
@@ -318,7 +303,7 @@ class TestSupplierSwitchingEngine:
                 name="Budget Fixed",
                 tariff_type=TariffType.FIXED_RATE,
                 unit_rate=0.24,
-                standing_charge=0.42
+                standing_charge=0.42,
             ),
             Tariff(
                 id="green",
@@ -327,7 +312,7 @@ class TestSupplierSwitchingEngine:
                 tariff_type=TariffType.FIXED_RATE,
                 unit_rate=0.30,
                 standing_charge=0.48,
-                renewable_percentage=100
+                renewable_percentage=100,
             ),
             Tariff(
                 id="tou",
@@ -337,8 +322,8 @@ class TestSupplierSwitchingEngine:
                 unit_rate=0.26,
                 standing_charge=0.45,
                 peak_rate=0.38,
-                off_peak_rate=0.14
-            )
+                off_peak_rate=0.14,
+            ),
         ]
 
     @pytest.fixture
@@ -346,20 +331,20 @@ class TestSupplierSwitchingEngine:
         """Create consumption profile."""
         from ml.optimization.switching_decision import ConsumptionProfile
 
-        return ConsumptionProfile(
-            annual_consumption_kwh=3500,
-            peak_fraction=0.35
-        )
+        return ConsumptionProfile(annual_consumption_kwh=3500, peak_fraction=0.35)
 
     def test_engine_initialization(self):
         """Test engine can be initialized."""
-        from ml.optimization.switching_decision import SupplierSwitchingEngine, RiskLevel
+        from ml.optimization.switching_decision import (
+            SupplierSwitchingEngine,
+            RiskLevel,
+        )
 
         engine = SupplierSwitchingEngine(
             min_savings_threshold=0.05,
             max_risk_tolerance=RiskLevel.MEDIUM,
             prefer_renewable=True,
-            renewable_premium_tolerance=0.03
+            renewable_premium_tolerance=0.03,
         )
 
         assert engine.min_savings_threshold == 0.05
@@ -369,31 +354,29 @@ class TestSupplierSwitchingEngine:
         """Test single tariff analysis."""
         analysis = engine.analyze_tariff(current_tariff, profile)
 
-        assert 'annual_cost' in analysis
-        assert 'monthly_costs' in analysis
-        assert 'effective_rate' in analysis
-        assert 'risk_level' in analysis
+        assert "annual_cost" in analysis
+        assert "monthly_costs" in analysis
+        assert "effective_rate" in analysis
+        assert "risk_level" in analysis
 
         # Check monthly costs sum to approximately annual cost
-        monthly_sum = sum(analysis['monthly_costs'])
-        assert abs(monthly_sum - analysis['annual_cost']) < 1
+        monthly_sum = sum(analysis["monthly_costs"])
+        assert abs(monthly_sum - analysis["annual_cost"]) < 1
 
     def test_compare_tariffs_finds_savings(
         self, engine, current_tariff, alternatives, profile
     ):
         """Test comparing tariffs identifies savings opportunities."""
-        recommendations = engine.compare_tariffs(
-            current_tariff,
-            alternatives,
-            profile
-        )
+        recommendations = engine.compare_tariffs(current_tariff, alternatives, profile)
 
         # Should find at least one recommendation
         assert len(recommendations) >= 1
 
         # First recommendation should have highest savings
         if len(recommendations) > 1:
-            assert recommendations[0].annual_savings >= recommendations[1].annual_savings
+            assert (
+                recommendations[0].annual_savings >= recommendations[1].annual_savings
+            )
 
     def test_compare_tariffs_excludes_low_savings(
         self, engine, current_tariff, profile
@@ -408,13 +391,11 @@ class TestSupplierSwitchingEngine:
             name="Barely Cheaper",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.315,  # Only slightly cheaper
-            standing_charge=0.50
+            standing_charge=0.50,
         )
 
         recommendations = engine.compare_tariffs(
-            current_tariff,
-            [marginal_alternative],
-            profile
+            current_tariff, [marginal_alternative], profile
         )
 
         # Should not recommend marginal savings
@@ -424,11 +405,7 @@ class TestSupplierSwitchingEngine:
         self, engine, current_tariff, alternatives, profile
     ):
         """Test getting the best single recommendation."""
-        best = engine.get_best_recommendation(
-            current_tariff,
-            alternatives,
-            profile
-        )
+        best = engine.get_best_recommendation(current_tariff, alternatives, profile)
 
         assert best is not None
         assert best.annual_savings > 0
@@ -438,11 +415,7 @@ class TestSupplierSwitchingEngine:
         self, engine, current_tariff, alternatives, profile
     ):
         """Test should_switch returns True for beneficial switches."""
-        should, rec = engine.should_switch(
-            current_tariff,
-            alternatives,
-            profile
-        )
+        should, rec = engine.should_switch(current_tariff, alternatives, profile)
 
         assert should is True
         assert rec is not None
@@ -458,7 +431,7 @@ class TestSupplierSwitchingEngine:
             name="Already Cheapest",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.18,
-            standing_charge=0.35
+            standing_charge=0.35,
         )
 
         expensive_alternatives = [
@@ -468,14 +441,12 @@ class TestSupplierSwitchingEngine:
                 name="Expensive Option",
                 tariff_type=TariffType.FIXED_RATE,
                 unit_rate=0.30,
-                standing_charge=0.50
+                standing_charge=0.50,
             )
         ]
 
         should, rec = engine.should_switch(
-            cheap_current,
-            expensive_alternatives,
-            profile
+            cheap_current, expensive_alternatives, profile
         )
 
         assert should is False
@@ -490,7 +461,7 @@ class TestSupplierSwitchingEngine:
             name="Fixed",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.25,
-            standing_charge=0.40
+            standing_charge=0.40,
         )
 
         dynamic = Tariff(
@@ -499,14 +470,14 @@ class TestSupplierSwitchingEngine:
             name="Dynamic",
             tariff_type=TariffType.DYNAMIC,
             unit_rate=0.18,
-            standing_charge=0.40
+            standing_charge=0.40,
         )
 
         fixed_analysis = engine.analyze_tariff(fixed, profile)
         dynamic_analysis = engine.analyze_tariff(dynamic, profile)
 
-        assert fixed_analysis['risk_level'] == RiskLevel.LOW
-        assert dynamic_analysis['risk_level'] == RiskLevel.HIGH
+        assert fixed_analysis["risk_level"] == RiskLevel.LOW
+        assert dynamic_analysis["risk_level"] == RiskLevel.HIGH
 
 
 class TestPreferRenewable:
@@ -518,13 +489,13 @@ class TestPreferRenewable:
             SupplierSwitchingEngine,
             Tariff,
             TariffType,
-            ConsumptionProfile
+            ConsumptionProfile,
         )
 
         engine = SupplierSwitchingEngine(
             min_savings_threshold=0.0,  # Accept any savings
             prefer_renewable=True,
-            renewable_premium_tolerance=0.10
+            renewable_premium_tolerance=0.10,
         )
 
         current = Tariff(
@@ -534,7 +505,7 @@ class TestPreferRenewable:
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.28,
             standing_charge=0.45,
-            renewable_percentage=0
+            renewable_percentage=0,
         )
 
         alternatives = [
@@ -545,7 +516,7 @@ class TestPreferRenewable:
                 tariff_type=TariffType.FIXED_RATE,
                 unit_rate=0.22,  # Cheaper
                 standing_charge=0.40,
-                renewable_percentage=0
+                renewable_percentage=0,
             ),
             Tariff(
                 id="green",
@@ -554,8 +525,8 @@ class TestPreferRenewable:
                 tariff_type=TariffType.FIXED_RATE,
                 unit_rate=0.25,  # More expensive but green
                 standing_charge=0.45,
-                renewable_percentage=100
-            )
+                renewable_percentage=100,
+            ),
         ]
 
         profile = ConsumptionProfile(annual_consumption_kwh=3500)
@@ -576,7 +547,7 @@ class TestExitFeeHandling:
             SupplierSwitchingEngine,
             Tariff,
             TariffType,
-            ConsumptionProfile
+            ConsumptionProfile,
         )
 
         engine = SupplierSwitchingEngine(min_savings_threshold=0.0)
@@ -588,7 +559,7 @@ class TestExitFeeHandling:
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.32,
             standing_charge=0.50,
-            exit_fee=100.0  # $100 exit fee
+            exit_fee=100.0,  # $100 exit fee
         )
 
         alternatives = [
@@ -598,7 +569,7 @@ class TestExitFeeHandling:
                 name="Better Rate",
                 tariff_type=TariffType.FIXED_RATE,
                 unit_rate=0.25,
-                standing_charge=0.45
+                standing_charge=0.45,
             )
         ]
 
@@ -621,7 +592,7 @@ class TestTOUTariffRecommendation:
             SupplierSwitchingEngine,
             Tariff,
             TariffType,
-            ConsumptionProfile
+            ConsumptionProfile,
         )
 
         engine = SupplierSwitchingEngine(min_savings_threshold=0.0)
@@ -632,7 +603,7 @@ class TestTOUTariffRecommendation:
             name="Flat Rate",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.28,
-            standing_charge=0.45
+            standing_charge=0.45,
         )
 
         alternatives = [
@@ -645,7 +616,7 @@ class TestTOUTariffRecommendation:
                 standing_charge=0.45,
                 peak_rate=0.35,
                 off_peak_rate=0.10,
-                peak_hours=[(16, 21)]
+                peak_hours=[(16, 21)],
             )
         ]
 
@@ -653,7 +624,7 @@ class TestTOUTariffRecommendation:
         profile = ConsumptionProfile(
             annual_consumption_kwh=3500,
             peak_fraction=0.2,  # Only 20% during peak
-            flexible_load_fraction=0.4
+            flexible_load_fraction=0.4,
         )
 
         recs = engine.compare_tariffs(current, alternatives, profile)
@@ -672,7 +643,7 @@ class TestEdgeCases:
             SupplierSwitchingEngine,
             Tariff,
             TariffType,
-            ConsumptionProfile
+            ConsumptionProfile,
         )
 
         engine = SupplierSwitchingEngine()
@@ -683,7 +654,7 @@ class TestEdgeCases:
             name="Old Tariff",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.28,
-            standing_charge=0.45
+            standing_charge=0.45,
         )
 
         profile = ConsumptionProfile(annual_consumption_kwh=3500)
@@ -698,7 +669,7 @@ class TestEdgeCases:
             SupplierSwitchingEngine,
             Tariff,
             TariffType,
-            ConsumptionProfile
+            ConsumptionProfile,
         )
 
         engine = SupplierSwitchingEngine(min_savings_threshold=0.0)
@@ -709,7 +680,7 @@ class TestEdgeCases:
             name="Old Tariff",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.28,
-            standing_charge=0.45
+            standing_charge=0.45,
         )
 
         # Include current in alternatives
@@ -728,7 +699,7 @@ class TestEdgeCases:
             SupplierSwitchingEngine,
             Tariff,
             TariffType,
-            ConsumptionProfile
+            ConsumptionProfile,
         )
 
         engine = SupplierSwitchingEngine()
@@ -739,7 +710,7 @@ class TestEdgeCases:
             name="Test Tariff",
             tariff_type=TariffType.FIXED_RATE,
             unit_rate=0.28,
-            standing_charge=0.45
+            standing_charge=0.45,
         )
 
         profile = ConsumptionProfile(annual_consumption_kwh=0)
@@ -748,4 +719,4 @@ class TestEdgeCases:
 
         # Should only have standing charge
         expected_cost = 0.45 * 365
-        assert abs(analysis['annual_cost'] - expected_cost) < 0.01
+        assert abs(analysis["annual_cost"] - expected_cost) < 0.01

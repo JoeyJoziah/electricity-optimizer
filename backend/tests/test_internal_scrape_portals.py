@@ -17,7 +17,6 @@ PortalScraperService is patched to avoid real HTTP calls.
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -25,7 +24,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
-
 
 BASE_URL = "/api/v1/internal"
 
@@ -54,11 +52,11 @@ def _make_conn_row(
         username_b64 = base64.b64encode(b"\x00" * 40).decode("ascii")
 
     return (
-        connection_id,          # id
-        TEST_USER_ID,           # user_id
-        TEST_SUPPLIER_ID,       # supplier_id
-        username_b64,           # portal_username (encrypted+base64)
-        encrypted_b64,          # portal_password_encrypted
+        connection_id,  # id
+        TEST_USER_ID,  # user_id
+        TEST_SUPPLIER_ID,  # supplier_id
+        username_b64,  # portal_username (encrypted+base64)
+        encrypted_b64,  # portal_password_encrypted
         "https://duke-energy.com/sign-in",  # portal_login_url
     )
 
@@ -179,9 +177,9 @@ class TestScrapeAllPortals:
         #   3. UPDATE portal_scrape_status
         mock_db.execute = AsyncMock(
             side_effect=[
-                _fetchall_result([conn_row]),   # main SELECT
-                AsyncMock(),                    # INSERT rate
-                AsyncMock(),                    # UPDATE status
+                _fetchall_result([conn_row]),  # main SELECT
+                AsyncMock(),  # INSERT rate
+                AsyncMock(),  # UPDATE status
             ]
         )
 
@@ -218,7 +216,7 @@ class TestScrapeAllPortals:
         mock_db.execute = AsyncMock(
             side_effect=[
                 _fetchall_result([conn_row]),  # main SELECT
-                AsyncMock(),                   # UPDATE status (called even on error)
+                AsyncMock(),  # UPDATE status (called even on error)
             ]
         )
 
@@ -242,7 +240,7 @@ class TestScrapeAllPortals:
         mock_db.execute = AsyncMock(
             side_effect=[
                 _fetchall_result([conn_row]),  # main SELECT
-                AsyncMock(),                   # UPDATE status
+                AsyncMock(),  # UPDATE status
             ]
         )
 
@@ -282,9 +280,9 @@ class TestScrapeAllPortals:
         mock_db.execute = AsyncMock(
             side_effect=[
                 _fetchall_result([conn_row_ok, conn_row_bad]),  # main SELECT
-                AsyncMock(),   # INSERT rate (success conn)
-                AsyncMock(),   # UPDATE status (success conn)
-                AsyncMock(),   # UPDATE status (failed conn — decrypt error)
+                AsyncMock(),  # INSERT rate (success conn)
+                AsyncMock(),  # UPDATE status (success conn)
+                AsyncMock(),  # UPDATE status (failed conn — decrypt error)
             ]
         )
 
@@ -381,3 +379,106 @@ class TestScrapeAllPortals:
             headers={"Content-Type": "application/json"},
         )
         assert response.status_code == 200
+
+
+# ===========================================================================
+# Error sanitization — exception text must NEVER reach the client
+# ===========================================================================
+
+
+class TestPortalScanErrorSanitization:
+    """Verify that exception details in _scrape_one are sanitized before
+    they appear in the HTTP response.
+
+    The ``errors`` list in the response body must NOT contain raw exception
+    strings from decrypt failures or scrape exceptions — those can include
+    AES key material, connection strings, or library internals.
+    """
+
+    def test_decrypt_error_in_response_is_generic(self, auth_client, mock_db):
+        """Credential decrypt failure should produce a generic error message,
+        not the raw exception string (which may include algorithm details)."""
+        conn_row = _make_conn_row(encrypted_b64="NOT-VALID-BASE64!!!")
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _fetchall_result([conn_row]),  # main SELECT
+                AsyncMock(),  # UPDATE status (called even on error)
+            ]
+        )
+
+        response = auth_client.post(f"{BASE_URL}/scrape-portals", json={})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["failed"] == 1
+
+        # The errors list is returned by the endpoint and must not expose
+        # raw exception internals (e.g. AES key details, C library paths,
+        # internal method names prefixed with underscores).
+        for err_str in body["errors"]:
+            # Must not contain raw Python exception class paths
+            assert "Traceback" not in err_str
+            assert "__" not in err_str  # double-underscore == internal dunder
+
+    def test_scrape_exception_error_in_response_is_generic(self, auth_client, mock_db):
+        """When PortalScraperService raises an exception, the error string
+        persisted into the response must not contain DATABASE_URL or secrets."""
+        conn_row = _make_conn_row()
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _fetchall_result([conn_row]),  # main SELECT
+                AsyncMock(),  # UPDATE status
+            ]
+        )
+
+        sensitive_exc_msg = "Connection failed: DATABASE_URL=postgresql://admin:hunter2@prod.db/app"
+
+        with (
+            patch("api.v1.internal.portal_scan.decrypt_field", return_value="s3cr3t!"),
+            patch("services.portal_scraper_service.PortalScraperService", autospec=True) as MockSvc,
+        ):
+            instance = MockSvc.return_value.__aenter__.return_value
+            instance.scrape_portal = AsyncMock(side_effect=Exception(sensitive_exc_msg))
+
+            response = auth_client.post(f"{BASE_URL}/scrape-portals", json={})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["failed"] == 1
+
+        # The full sensitive exception message must not leak into the HTTP response
+        full_body = response.text
+        assert "hunter2" not in full_body
+        assert "postgresql://" not in full_body
+        assert "DATABASE_URL" not in full_body
+
+    def test_decrypt_error_message_is_sanitized_not_raw_exception(self, auth_client, mock_db):
+        """The error message for a decrypt failure must be a generic string,
+        not contain the raw exception type or AES internals."""
+        conn_row = _make_conn_row()
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                _fetchall_result([conn_row]),  # main SELECT
+                AsyncMock(),  # UPDATE status
+            ]
+        )
+
+        sensitive_exc_msg = "AES-256-GCM tag verification failed: HMAC mismatch at offset 32"
+
+        with patch(
+            "api.v1.internal.portal_scan.decrypt_field",
+            side_effect=Exception(sensitive_exc_msg),
+        ):
+            response = auth_client.post(f"{BASE_URL}/scrape-portals", json={})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["failed"] == 1
+
+        full_body = response.text
+        assert "AES-256-GCM" not in full_body
+        assert "HMAC mismatch" not in full_body
+        assert "offset 32" not in full_body

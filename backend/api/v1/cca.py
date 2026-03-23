@@ -4,6 +4,8 @@ CCA (Community Choice Aggregation) endpoints.
 Covers: /cca/detect, /cca/compare/{cca_id}, /cca/info/{cca_id}, /cca/programs
 """
 
+import uuid
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +38,9 @@ async def detect_cca(
 
     service = CCAService(db)
     cca = await service.detect_cca(
-        zip_code=zip_code, state=state, municipality=municipality,
+        zip_code=zip_code,
+        state=state,
+        municipality=municipality,
     )
 
     return {
@@ -47,13 +51,13 @@ async def detect_cca(
 
 @router.get("/compare/{cca_id}")
 async def compare_cca_rate(
-    cca_id: str,
+    cca_id: uuid.UUID,
     default_rate: float = Query(..., gt=0, description="Default utility rate in $/kWh"),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Compare a CCA program's rate against the default utility rate."""
     service = CCAService(db)
-    result = await service.compare_cca_rate(cca_id, default_rate)
+    result = await service.compare_cca_rate(str(cca_id), default_rate)
 
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -63,12 +67,12 @@ async def compare_cca_rate(
 
 @router.get("/info/{cca_id}")
 async def cca_info(
-    cca_id: str,
+    cca_id: uuid.UUID,
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get full CCA program details including opt-out information."""
     service = CCAService(db)
-    info = await service.get_cca_info(cca_id)
+    info = await service.get_cca_info(str(cca_id))
 
     if not info:
         raise HTTPException(status_code=404, detail="CCA program not found")

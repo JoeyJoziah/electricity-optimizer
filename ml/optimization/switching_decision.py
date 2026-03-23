@@ -14,11 +14,9 @@ Features:
 Target: Identify savings opportunities > 5% of annual bill
 """
 
-import numpy as np
-import pandas as pd
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 import logging
 
@@ -27,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class TariffType(Enum):
     """Types of electricity tariffs."""
+
     FIXED_RATE = "fixed_rate"
     VARIABLE_RATE = "variable_rate"
     TIME_OF_USE = "time_of_use"
@@ -36,6 +35,7 @@ class TariffType(Enum):
 
 class RiskLevel(Enum):
     """Risk levels for switching decisions."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -61,6 +61,7 @@ class Tariff:
         renewable_percentage: Percentage from renewable sources
         fixed_until: Date until which rate is fixed (optional)
     """
+
     id: str
     supplier: str
     name: str
@@ -76,10 +77,7 @@ class Tariff:
     fixed_until: Optional[datetime] = None
 
     def calculate_cost(
-        self,
-        consumption_kwh: float,
-        days: int = 365,
-        peak_fraction: float = 0.4
+        self, consumption_kwh: float, days: int = 365, peak_fraction: float = 0.4
     ) -> float:
         """
         Calculate total cost for given consumption.
@@ -94,12 +92,16 @@ class Tariff:
         """
         standing = self.standing_charge * days
 
-        if self.tariff_type == TariffType.TIME_OF_USE and self.peak_rate and self.off_peak_rate:
+        if (
+            self.tariff_type == TariffType.TIME_OF_USE
+            and self.peak_rate
+            and self.off_peak_rate
+        ):
             peak_consumption = consumption_kwh * peak_fraction
             off_peak_consumption = consumption_kwh * (1 - peak_fraction)
             energy_cost = (
-                peak_consumption * self.peak_rate +
-                off_peak_consumption * self.off_peak_rate
+                peak_consumption * self.peak_rate
+                + off_peak_consumption * self.off_peak_rate
             )
         else:
             energy_cost = consumption_kwh * self.unit_rate
@@ -109,19 +111,19 @@ class Tariff:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'id': self.id,
-            'supplier': self.supplier,
-            'name': self.name,
-            'tariff_type': self.tariff_type.value,
-            'unit_rate': self.unit_rate,
-            'standing_charge': self.standing_charge,
-            'peak_rate': self.peak_rate,
-            'off_peak_rate': self.off_peak_rate,
-            'peak_hours': self.peak_hours,
-            'exit_fee': self.exit_fee,
-            'contract_length_months': self.contract_length_months,
-            'renewable_percentage': self.renewable_percentage,
-            'fixed_until': str(self.fixed_until) if self.fixed_until else None
+            "id": self.id,
+            "supplier": self.supplier,
+            "name": self.name,
+            "tariff_type": self.tariff_type.value,
+            "unit_rate": self.unit_rate,
+            "standing_charge": self.standing_charge,
+            "peak_rate": self.peak_rate,
+            "off_peak_rate": self.off_peak_rate,
+            "peak_hours": self.peak_hours,
+            "exit_fee": self.exit_fee,
+            "contract_length_months": self.contract_length_months,
+            "renewable_percentage": self.renewable_percentage,
+            "fixed_until": str(self.fixed_until) if self.fixed_until else None,
         }
 
 
@@ -140,6 +142,7 @@ class ConsumptionProfile:
         has_solar: Whether household has solar panels
         flexible_load_fraction: Fraction of load that can be shifted
     """
+
     annual_consumption_kwh: float
     monthly_consumption: Optional[List[float]] = None
     hourly_pattern: Optional[List[float]] = None
@@ -154,18 +157,50 @@ class ConsumptionProfile:
         if self.monthly_consumption is None:
             # Default seasonal pattern (higher in winter)
             self.monthly_consumption = [
-                self.annual_consumption_kwh * w for w in
-                [0.11, 0.10, 0.09, 0.08, 0.07, 0.06,
-                 0.06, 0.07, 0.08, 0.09, 0.10, 0.09]
+                self.annual_consumption_kwh * w
+                for w in [
+                    0.11,
+                    0.10,
+                    0.09,
+                    0.08,
+                    0.07,
+                    0.06,
+                    0.06,
+                    0.07,
+                    0.08,
+                    0.09,
+                    0.10,
+                    0.09,
+                ]
             ]
 
         if self.hourly_pattern is None:
             # Default daily pattern
             self.hourly_pattern = [
-                0.02, 0.02, 0.02, 0.02, 0.02, 0.03,
-                0.04, 0.06, 0.06, 0.05, 0.04, 0.04,
-                0.04, 0.04, 0.04, 0.04, 0.05, 0.07,
-                0.08, 0.07, 0.06, 0.05, 0.04, 0.03
+                0.02,
+                0.02,
+                0.02,
+                0.02,
+                0.02,
+                0.03,
+                0.04,
+                0.06,
+                0.06,
+                0.05,
+                0.04,
+                0.04,
+                0.04,
+                0.04,
+                0.04,
+                0.04,
+                0.05,
+                0.07,
+                0.08,
+                0.07,
+                0.06,
+                0.05,
+                0.04,
+                0.03,
             ]
 
 
@@ -187,6 +222,7 @@ class SwitchingRecommendation:
         warnings: List of potential concerns
         switching_costs: One-time switching costs
     """
+
     recommended_tariff: Tariff
     current_annual_cost: float
     projected_annual_cost: float
@@ -202,17 +238,17 @@ class SwitchingRecommendation:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'recommended_tariff': self.recommended_tariff.to_dict(),
-            'current_annual_cost': self.current_annual_cost,
-            'projected_annual_cost': self.projected_annual_cost,
-            'annual_savings': self.annual_savings,
-            'savings_percentage': self.savings_percentage,
-            'payback_months': self.payback_months,
-            'risk_level': self.risk_level.value,
-            'confidence': self.confidence,
-            'reasons': self.reasons,
-            'warnings': self.warnings,
-            'switching_costs': self.switching_costs
+            "recommended_tariff": self.recommended_tariff.to_dict(),
+            "current_annual_cost": self.current_annual_cost,
+            "projected_annual_cost": self.projected_annual_cost,
+            "annual_savings": self.annual_savings,
+            "savings_percentage": self.savings_percentage,
+            "payback_months": self.payback_months,
+            "risk_level": self.risk_level.value,
+            "confidence": self.confidence,
+            "reasons": self.reasons,
+            "warnings": self.warnings,
+            "switching_costs": self.switching_costs,
         }
 
     def summary(self) -> str:
@@ -261,7 +297,7 @@ class SupplierSwitchingEngine:
         min_savings_threshold: float = 0.05,
         max_risk_tolerance: RiskLevel = RiskLevel.MEDIUM,
         prefer_renewable: bool = False,
-        renewable_premium_tolerance: float = 0.05
+        renewable_premium_tolerance: float = 0.05,
     ):
         """
         Initialize the switching engine.
@@ -278,9 +314,7 @@ class SupplierSwitchingEngine:
         self.renewable_premium_tolerance = renewable_premium_tolerance
 
     def analyze_tariff(
-        self,
-        tariff: Tariff,
-        profile: ConsumptionProfile
+        self, tariff: Tariff, profile: ConsumptionProfile
     ) -> Dict[str, Any]:
         """
         Analyze a tariff for a consumption profile.
@@ -295,7 +329,7 @@ class SupplierSwitchingEngine:
         annual_cost = tariff.calculate_cost(
             consumption_kwh=profile.annual_consumption_kwh,
             days=365,
-            peak_fraction=profile.peak_fraction
+            peak_fraction=profile.peak_fraction,
         )
 
         # Calculate monthly costs
@@ -305,7 +339,7 @@ class SupplierSwitchingEngine:
             cost = tariff.calculate_cost(
                 consumption_kwh=monthly_kwh,
                 days=days_in_month,
-                peak_fraction=profile.peak_fraction
+                peak_fraction=profile.peak_fraction,
             )
             monthly_costs.append(cost)
 
@@ -319,12 +353,12 @@ class SupplierSwitchingEngine:
             effective_rate = 0.0
 
         return {
-            'tariff': tariff,
-            'annual_cost': annual_cost,
-            'monthly_costs': monthly_costs,
-            'effective_rate': effective_rate,
-            'risk_level': risk,
-            'is_renewable': tariff.renewable_percentage > 0
+            "tariff": tariff,
+            "annual_cost": annual_cost,
+            "monthly_costs": monthly_costs,
+            "effective_rate": effective_rate,
+            "risk_level": risk,
+            "is_renewable": tariff.renewable_percentage > 0,
         }
 
     def _assess_tariff_risk(self, tariff: Tariff) -> RiskLevel:
@@ -344,7 +378,7 @@ class SupplierSwitchingEngine:
         self,
         current_tariff: Tariff,
         alternatives: List[Tariff],
-        profile: ConsumptionProfile
+        profile: ConsumptionProfile,
     ) -> List[SwitchingRecommendation]:
         """
         Compare current tariff with alternatives.
@@ -358,7 +392,7 @@ class SupplierSwitchingEngine:
             List of recommendations sorted by savings
         """
         current_analysis = self.analyze_tariff(current_tariff, profile)
-        current_cost = current_analysis['annual_cost']
+        current_cost = current_analysis["annual_cost"]
 
         recommendations = []
 
@@ -367,7 +401,7 @@ class SupplierSwitchingEngine:
                 continue
 
             alt_analysis = self.analyze_tariff(alt_tariff, profile)
-            alt_cost = alt_analysis['annual_cost']
+            alt_cost = alt_analysis["annual_cost"]
 
             savings = current_cost - alt_cost
             savings_pct = (savings / current_cost) * 100 if current_cost > 0 else 0
@@ -377,36 +411,28 @@ class SupplierSwitchingEngine:
                 continue
 
             # Skip if risk too high
-            alt_risk = alt_analysis['risk_level']
+            alt_risk = alt_analysis["risk_level"]
             if alt_risk == RiskLevel.HIGH and self.max_risk_tolerance != RiskLevel.HIGH:
                 continue
 
             # Calculate payback
             switching_costs = current_tariff.exit_fee
-            payback_months = (switching_costs / savings * 12) if savings > 0 else float('inf')
+            payback_months = (
+                (switching_costs / savings * 12) if savings > 0 else float("inf")
+            )
 
             # Determine confidence
             confidence = self._calculate_confidence(
-                current_tariff,
-                alt_tariff,
-                savings_pct,
-                payback_months
+                current_tariff, alt_tariff, savings_pct, payback_months
             )
 
             # Build reasons and warnings
             reasons = self._generate_reasons(
-                current_tariff,
-                alt_tariff,
-                savings,
-                savings_pct,
-                profile
+                current_tariff, alt_tariff, savings, savings_pct, profile
             )
 
             warnings = self._generate_warnings(
-                current_tariff,
-                alt_tariff,
-                alt_analysis,
-                profile
+                current_tariff, alt_tariff, alt_analysis, profile
             )
 
             recommendation = SwitchingRecommendation(
@@ -420,7 +446,7 @@ class SupplierSwitchingEngine:
                 confidence=confidence,
                 reasons=reasons,
                 warnings=warnings,
-                switching_costs=switching_costs
+                switching_costs=switching_costs,
             )
 
             recommendations.append(recommendation)
@@ -435,7 +461,7 @@ class SupplierSwitchingEngine:
         current: Tariff,
         alternative: Tariff,
         savings_pct: float,
-        payback_months: float
+        payback_months: float,
     ) -> float:
         """Calculate confidence in recommendation."""
         confidence = 0.5
@@ -472,7 +498,7 @@ class SupplierSwitchingEngine:
         alternative: Tariff,
         savings: float,
         savings_pct: float,
-        profile: ConsumptionProfile
+        profile: ConsumptionProfile,
     ) -> List[str]:
         """Generate reasons for recommendation."""
         reasons = []
@@ -490,10 +516,14 @@ class SupplierSwitchingEngine:
             reasons.append("Fixed rate protects against price increases")
 
         if alternative.renewable_percentage > current.renewable_percentage:
-            reasons.append(f"Higher renewable content ({alternative.renewable_percentage}%)")
+            reasons.append(
+                f"Higher renewable content ({alternative.renewable_percentage}%)"
+            )
 
-        if (alternative.tariff_type == TariffType.TIME_OF_USE and
-                profile.flexible_load_fraction > 0.2):
+        if (
+            alternative.tariff_type == TariffType.TIME_OF_USE
+            and profile.flexible_load_fraction > 0.2
+        ):
             reasons.append("TOU tariff suits your flexible consumption")
 
         return reasons
@@ -503,7 +533,7 @@ class SupplierSwitchingEngine:
         current: Tariff,
         alternative: Tariff,
         alt_analysis: Dict,
-        profile: ConsumptionProfile
+        profile: ConsumptionProfile,
     ) -> List[str]:
         """Generate warnings for recommendation."""
         warnings = []
@@ -517,14 +547,18 @@ class SupplierSwitchingEngine:
         if alternative.tariff_type == TariffType.DYNAMIC:
             warnings.append("Dynamic pricing can be volatile")
 
-        if (alternative.tariff_type == TariffType.TIME_OF_USE and
-                profile.peak_fraction > 0.5):
+        if (
+            alternative.tariff_type == TariffType.TIME_OF_USE
+            and profile.peak_fraction > 0.5
+        ):
             warnings.append("High peak usage may reduce TOU savings")
 
         if alternative.contract_length_months > current.contract_length_months:
-            warnings.append(f"Longer contract ({alternative.contract_length_months} months)")
+            warnings.append(
+                f"Longer contract ({alternative.contract_length_months} months)"
+            )
 
-        if alt_analysis['risk_level'] == RiskLevel.HIGH:
+        if alt_analysis["risk_level"] == RiskLevel.HIGH:
             warnings.append("Higher risk tariff")
 
         return warnings
@@ -533,7 +567,7 @@ class SupplierSwitchingEngine:
         self,
         current_tariff: Tariff,
         alternatives: List[Tariff],
-        profile: ConsumptionProfile
+        profile: ConsumptionProfile,
     ) -> Optional[SwitchingRecommendation]:
         """
         Get the single best switching recommendation.
@@ -546,25 +580,19 @@ class SupplierSwitchingEngine:
         Returns:
             Best recommendation or None if no beneficial switch found
         """
-        recommendations = self.compare_tariffs(
-            current_tariff,
-            alternatives,
-            profile
-        )
+        recommendations = self.compare_tariffs(current_tariff, alternatives, profile)
 
         if not recommendations:
             return None
 
         # Filter by confidence and risk
         valid_recs = [
-            r for r in recommendations
-            if r.confidence >= 0.5 and r.payback_months <= 6
+            r for r in recommendations if r.confidence >= 0.5 and r.payback_months <= 6
         ]
 
         if self.prefer_renewable:
             renewable_recs = [
-                r for r in valid_recs
-                if r.recommended_tariff.renewable_percentage > 50
+                r for r in valid_recs if r.recommended_tariff.renewable_percentage > 50
             ]
             if renewable_recs:
                 # Allow slightly lower savings for renewable
@@ -576,7 +604,7 @@ class SupplierSwitchingEngine:
         self,
         current_tariff: Tariff,
         alternatives: List[Tariff],
-        profile: ConsumptionProfile
+        profile: ConsumptionProfile,
     ) -> Tuple[bool, Optional[SwitchingRecommendation]]:
         """
         Determine if switching is recommended.
@@ -589,20 +617,16 @@ class SupplierSwitchingEngine:
         Returns:
             Tuple of (should_switch, recommendation)
         """
-        rec = self.get_best_recommendation(
-            current_tariff,
-            alternatives,
-            profile
-        )
+        rec = self.get_best_recommendation(current_tariff, alternatives, profile)
 
         if rec is None:
             return False, None
 
         # Check criteria
         should = (
-            rec.savings_percentage >= self.min_savings_threshold * 100 and
-            rec.payback_months <= 12 and
-            rec.confidence >= 0.5
+            rec.savings_percentage >= self.min_savings_threshold * 100
+            and rec.payback_months <= 12
+            and rec.confidence >= 0.5
         )
 
         return should, rec
@@ -619,7 +643,7 @@ def create_sample_tariffs() -> List[Tariff]:
             unit_rate=0.28,
             standing_charge=0.45,
             contract_length_months=12,
-            renewable_percentage=0
+            renewable_percentage=0,
         ),
         Tariff(
             id="variable_flex",
@@ -629,7 +653,7 @@ def create_sample_tariffs() -> List[Tariff]:
             unit_rate=0.25,
             standing_charge=0.40,
             contract_length_months=0,
-            renewable_percentage=20
+            renewable_percentage=20,
         ),
         Tariff(
             id="tou_smart",
@@ -642,7 +666,7 @@ def create_sample_tariffs() -> List[Tariff]:
             off_peak_rate=0.12,
             peak_hours=[(16, 21)],
             contract_length_months=24,
-            renewable_percentage=30
+            renewable_percentage=30,
         ),
         Tariff(
             id="green_100",
@@ -652,7 +676,7 @@ def create_sample_tariffs() -> List[Tariff]:
             unit_rate=0.30,
             standing_charge=0.48,
             contract_length_months=12,
-            renewable_percentage=100
+            renewable_percentage=100,
         ),
         Tariff(
             id="dynamic_agile",
@@ -662,8 +686,8 @@ def create_sample_tariffs() -> List[Tariff]:
             unit_rate=0.18,
             standing_charge=0.42,
             contract_length_months=12,
-            renewable_percentage=40
-        )
+            renewable_percentage=40,
+        ),
     ]
 
 
@@ -682,7 +706,7 @@ def example_usage():
         unit_rate=0.32,
         standing_charge=0.50,
         exit_fee=0,
-        renewable_percentage=0
+        renewable_percentage=0,
     )
 
     alternatives = create_sample_tariffs()
@@ -692,14 +716,11 @@ def example_usage():
         annual_consumption_kwh=3500,
         peak_fraction=0.35,
         has_ev=False,
-        flexible_load_fraction=0.25
+        flexible_load_fraction=0.25,
     )
 
     # Initialize engine
-    engine = SupplierSwitchingEngine(
-        min_savings_threshold=0.05,
-        prefer_renewable=False
-    )
+    engine = SupplierSwitchingEngine(min_savings_threshold=0.05, prefer_renewable=False)
 
     # Get recommendation
     should_switch, rec = engine.should_switch(current, alternatives, profile)

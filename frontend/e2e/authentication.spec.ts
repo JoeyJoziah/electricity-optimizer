@@ -91,21 +91,27 @@ test.describe("Authentication Flows", () => {
       await page.fill("#password", "WrongPass123!");
       await page.click('button[type="submit"]');
 
-      // Either the error alert appears OR the page stays on login (auth failed silently).
-      // The role="alert" div is rendered when error state is set.
-      const errorVisible = await page
-        .getByText(/invalid|failed|error/i)
-        .isVisible({ timeout: 8000 })
-        .catch(() => false);
-      const stayedOnLogin = page.url().includes("/auth/login");
+      // The page must stay on the login URL (invalid credentials should never redirect to dashboard).
+      // Some browsers also surface the error message from the 401 response.
+      await expect(page).toHaveURL(/\/auth\/login/);
 
-      // At least one condition must be true: error shown OR still on login page
-      expect(errorVisible || stayedOnLogin).toBeTruthy();
+      // Verify the login form is still present (not a blank page)
+      await expect(page.locator("#email")).toBeVisible({ timeout: 8000 });
+
+      // If an error alert rendered, verify it contains a relevant message
+      const errorLocator = page.getByText(/invalid|failed|error/i);
+      const errorVisible = await errorLocator.isVisible().catch(() => false);
+      if (errorVisible) {
+        await expect(errorLocator.first()).toBeVisible();
+      }
     },
   );
 
-  // HTML5 email validation shows native browser tooltip, not visible text
-  test.skip("validates email format", async ({ page }) => {
+  // HTML5 email validation shows native browser tooltip, not visible text.
+  // TODO(#GH-needs-issue): Rewrite to test native constraint validation API
+  test.fixme("validates email format — needs native constraint validation rewrite", async ({
+    page,
+  }) => {
     await page.goto("/auth/login");
 
     await page.fill("#email", "invalid-email");
@@ -136,8 +142,11 @@ test.describe("Authentication Flows", () => {
 
       await page.click('button:has-text("Continue with Google")');
 
-      // Should initiate OAuth flow (in real scenario, redirects to Google)
-      await expect(page.locator("body")).toBeVisible();
+      // Should initiate OAuth flow — Better Auth mock returns a redirect URL
+      // Verify the page is still on login (mock doesn't actually redirect) or has navigated
+      await expect(page).toHaveURL(
+        /\/(auth\/login|auth\/callback|accounts\.google)/,
+      );
     },
   );
 
@@ -152,8 +161,11 @@ test.describe("Authentication Flows", () => {
     await page.waitForURL(/\/(dashboard|auth)/, { timeout: 10000 });
   });
 
-  // Magic link not supported — useAuth returns error message
-  test.skip("user can login with magic link", async ({ page }) => {
+  // Magic link not supported — useAuth returns error message.
+  // TODO(#GH-needs-issue): Remove or rewrite once magic link auth is implemented
+  test.fixme("user can login with magic link — feature not yet implemented", async ({
+    page,
+  }) => {
     await page.goto("/auth/login");
 
     await page.click("text=Sign in with magic link");
@@ -296,10 +308,21 @@ test.describe("Authentication Flows", () => {
       await page.goto("/dashboard");
 
       // The app should detect the expired session during useEffect
-      // and the useAuth hook will set user to null
-      // Middleware allowed the request (cookie exists) but the client sees no session
-      // This is acceptable — the next navigation will redirect
-      await expect(page.locator("body")).toBeVisible();
+      // and the useAuth hook will set user to null.
+      // Middleware allowed the request (cookie exists) but the client sees no session.
+      // Verify the page rendered meaningful content (dashboard heading or auth redirect).
+      const onDashboard = page.url().includes("/dashboard");
+      const onLogin = page.url().includes("/auth/login");
+      if (onDashboard) {
+        // Dashboard loaded — verify the heading rendered (not a blank page)
+        await expect(
+          page.getByRole("heading", { name: "Dashboard" }),
+        ).toBeVisible({ timeout: 10000 });
+      } else {
+        // Redirected to login — verify the login form is present
+        expect(onLogin).toBeTruthy();
+        await expect(page.locator("#email")).toBeVisible({ timeout: 10000 });
+      }
     },
   );
 });
@@ -417,14 +440,18 @@ test.describe("Authentication Security", () => {
         await responsePromise;
       }
 
-      // Either the rate limit error appears OR the page stays on login
-      const errorVisible = await page
-        .getByText(/too many|rate limit|try again|failed|error/i)
-        .isVisible({ timeout: 8000 })
-        .catch(() => false);
-      const stayedOnLogin = page.url().includes("/auth/login");
+      // After rate limiting, the page must stay on login (no redirect to dashboard).
+      await expect(page).toHaveURL(/\/auth\/login/);
 
-      expect(errorVisible || stayedOnLogin).toBeTruthy();
+      // Verify the login form is still interactive (not a blank page)
+      await expect(page.locator("#email")).toBeVisible({ timeout: 8000 });
+
+      // If the rate limit error surfaced in the UI, verify it contains a relevant message
+      const errorLocator = page.getByText(/too many|rate limit|try again/i);
+      const errorVisible = await errorLocator.isVisible().catch(() => false);
+      if (errorVisible) {
+        await expect(errorLocator.first()).toBeVisible();
+      }
     },
   );
 

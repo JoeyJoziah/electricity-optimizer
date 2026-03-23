@@ -1,19 +1,23 @@
-# Ruff configuration for RateShift
-# ruff 0.15+ enables B904, SIM, ARG by default; these are pre-existing
+# Ruff configuration for RateShift (root — applies to ml/, tests/load/)
+# backend/ has its own [tool.ruff] in backend/pyproject.toml
+# ruff 0.15+ enables B904, SIM, ARG, UP by default; these are pre-existing
 # across the codebase and should be addressed in a dedicated lint track.
 
 [lint]
 ignore = [
     "B904",    # raise-without-from-inside-except (widespread, needs dedicated fix)
-    "E402",    # module-import-not-at-top (compliance.py pattern)
+    "E402",    # module-import-not-at-top
     "SIM102",  # collapsible-if
     "SIM103",  # needless-bool
-    "SIM105",  # suppressible-exception (contextlib.suppress preference)
-    "ARG001",  # unused-function-argument (FastAPI Depends pattern)
-    "ARG002",  # unused-method-argument (test fixtures)
+    "SIM105",  # suppressible-exception
+    "SIM108",  # use-ternary-operator
+    "SIM117",  # multiple-with-statements
+    "ARG001",  # unused-function-argument
+    "ARG002",  # unused-method-argument
+    "F841",    # local-variable-is-assigned-to-but-never-used (test side effects)
+    "F401",    # imported-but-unused (availability checks in test_forecaster.py)
 ]
 
 [lint.per-file-ignores]
-"backend/tests/*" = ["ARG001", "ARG002"]
-"ml/tests/*" = ["ARG001", "ARG002"]
-"tests/*" = ["ARG001", "ARG002"]
+"ml/tests/*" = ["ARG001", "ARG002", "F841", "B007"]
+"tests/*" = ["ARG001", "ARG002", "F841", "B007"]

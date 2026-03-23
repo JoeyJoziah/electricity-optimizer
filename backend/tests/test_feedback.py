@@ -16,15 +16,14 @@ accumulation across tests.
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
-
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -52,7 +51,7 @@ class _MockFeedbackDB:
             raise RuntimeError("DB connection error")
 
         params = params or {}
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         row = MagicMock()
         row.id = str(uuid4())
         row.type = params.get("type", "general")
@@ -98,6 +97,7 @@ def client(authed_session, mock_db):
 def unauthed_client(mock_db):
     """TestClient with no auth override (exercises 401 path)."""
     from main import app
+
     # Remove any lingering auth override
     app.dependency_overrides.pop(get_current_user, None)
     app.dependency_overrides[get_db_session] = lambda: mock_db
@@ -202,9 +202,7 @@ class TestCreateFeedback:
         assert resp.status_code == 422
 
     def test_missing_type_returns_422(self, client):
-        resp = client.post(
-            self.URL, json={"message": "Feedback without a type field."}
-        )
+        resp = client.post(self.URL, json={"message": "Feedback without a type field."})
         assert resp.status_code == 422
 
     def test_empty_body_returns_422(self, client):

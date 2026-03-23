@@ -5,29 +5,28 @@ CRUD endpoints for managing user utility accounts (electricity, gas, etc.).
 """
 
 import uuid
-from typing import List
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from models.utility import UtilityType
 from models.utility_account import (
     UtilityAccount,
     UtilityAccountCreate,
-    UtilityAccountUpdate,
     UtilityAccountResponse,
+    UtilityAccountUpdate,
 )
 from repositories.utility_account_repository import UtilityAccountRepository
-
-import structlog
+from utils.encryption import encrypt_field
 
 logger = structlog.get_logger()
 
 router = APIRouter(tags=["Utility Accounts"])
 
 
-@router.get("/", response_model=List[UtilityAccountResponse])
+@router.get("/", response_model=list[UtilityAccountResponse])
 async def list_utility_accounts(
     utility_type: str | None = None,
     current_user: SessionData = Depends(get_current_user),
@@ -59,8 +58,9 @@ async def create_utility_account(
         provider_name=body.provider_name,
         is_primary=body.is_primary,
         metadata=body.metadata,
-        # account_number encryption would happen here in a real flow
-        account_number_encrypted=body.account_number.encode() if body.account_number else None,
+        account_number_encrypted=encrypt_field(body.account_number)
+        if body.account_number
+        else None,
     )
 
     created = await repo.create(account)
@@ -90,7 +90,9 @@ async def get_utility_account(
     account = await repo.get_by_id(str(account_id))
 
     if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found"
+        )
     if account.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
 
@@ -111,7 +113,9 @@ async def update_utility_account(
     # Ownership check
     existing = await repo.get_by_id(account_id_str)
     if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found"
+        )
     if existing.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
 
@@ -128,7 +132,9 @@ async def update_utility_account(
 
     updated = await repo.update(account_id_str, update_entity)
     if not updated:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Update failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Update failed"
+        )
 
     logger.info("utility_account_updated", user_id=current_user.user_id, account_id=account_id_str)
     return UtilityAccountResponse.model_validate(updated)
@@ -147,12 +153,16 @@ async def delete_utility_account(
     # Ownership check
     existing = await repo.get_by_id(account_id_str)
     if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found"
+        )
     if existing.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
 
     deleted = await repo.delete(account_id_str)
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Delete failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Delete failed"
+        )
 
     logger.info("utility_account_deleted", user_id=current_user.user_id, account_id=account_id_str)

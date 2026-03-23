@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * Reset Password Page
@@ -9,54 +9,54 @@
  * Password requirements match the server config (minPasswordLength: 12).
  */
 
-import React, { useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { authClient } from '@/lib/auth/client'
+import React, { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { authClient } from "@/lib/auth/client";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-const MIN_PASSWORD_LENGTH = 12
+const MIN_PASSWORD_LENGTH = 12;
 
 function ResetPasswordForm() {
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token') || ''
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") || "";
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError("");
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
+      setError("Passwords do not match.");
+      return;
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
-      return
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
-      await authClient.resetPassword({ newPassword: password, token })
-      setSuccess(true)
+      await authClient.resetPassword({ newPassword: password, token });
+      setSuccess(true);
     } catch (err: unknown) {
       const message =
         err instanceof Error
           ? err.message
-          : 'Failed to reset password. The link may have expired.'
-      setError(message)
+          : "Failed to reset password. The link may have expired.";
+      setError(message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // No token in the URL -- the link is invalid or was truncated
   if (!token) {
@@ -79,7 +79,9 @@ function ResetPasswordForm() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Invalid reset link</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Invalid reset link
+            </h2>
             <p className="mt-2 text-sm text-gray-600">
               This password reset link is invalid or has expired.
             </p>
@@ -92,7 +94,7 @@ function ResetPasswordForm() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   // Password was reset successfully
@@ -116,9 +118,12 @@ function ResetPasswordForm() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Password reset successful</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Password reset successful
+            </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Your password has been updated. You can now sign in with your new password.
+              Your password has been updated. You can now sign in with your new
+              password.
             </p>
             <Link
               href="/auth/login"
@@ -129,7 +134,7 @@ function ResetPasswordForm() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   // Main form
@@ -141,7 +146,8 @@ function ResetPasswordForm() {
             <CardTitle as="h2">Set new password</CardTitle>
           </CardHeader>
           <p className="mb-6 text-sm text-gray-600">
-            Enter your new password below. It must be at least {MIN_PASSWORD_LENGTH} characters.
+            Enter your new password below. It must be at least{" "}
+            {MIN_PASSWORD_LENGTH} characters.
           </p>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -168,21 +174,36 @@ function ResetPasswordForm() {
               />
               {error && (
                 <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg flex items-center gap-2">
-                  <svg className="w-4 h-4 text-danger-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-4 h-4 text-danger-500 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <p className="text-sm text-danger-600">{error}</p>
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={loading} loading={loading}>
-                {loading ? 'Resetting...' : 'Reset password'}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading}
+                loading={loading}
+              >
+                {loading ? "Resetting..." : "Reset password"}
               </Button>
             </form>
           </CardContent>
         </div>
       </Card>
     </div>
-  )
+  );
 }
 
 export default function ResetPasswordPage() {
@@ -200,5 +221,5 @@ export default function ResetPasswordPage() {
     >
       <ResetPasswordForm />
     </Suspense>
-  )
+  );
 }

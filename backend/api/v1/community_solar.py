@@ -5,6 +5,7 @@ Public endpoints for community solar program discovery,
 savings estimation, and program details.
 """
 
+import uuid
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -31,7 +32,7 @@ async def get_community_solar_programs(
         raise HTTPException(
             status_code=400,
             detail=f"Community solar programs not tracked for state '{state_upper}'. "
-                   f"Available states: {sorted(COMMUNITY_SOLAR_STATES)}",
+            f"Available states: {sorted(COMMUNITY_SOLAR_STATES)}",
         )
 
     if enrollment_status and enrollment_status not in ("open", "waitlist", "closed"):
@@ -83,12 +84,12 @@ async def estimate_community_solar_savings(
 
 @router.get("/program/{program_id}")
 async def get_community_solar_program(
-    program_id: str,
+    program_id: uuid.UUID,
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get details for a specific community solar program."""
     service = CommunitySolarService(db)
-    program = await service.get_program_by_id(program_id)
+    program = await service.get_program_by_id(str(program_id))
 
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
@@ -106,8 +107,5 @@ async def get_community_solar_states(
 
     return {
         "total_states": len(counts),
-        "states": [
-            {"state": state, "program_count": count}
-            for state, count in counts.items()
-        ],
+        "states": [{"state": state, "program_count": count} for state, count in counts.items()],
     }

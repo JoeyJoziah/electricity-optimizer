@@ -103,7 +103,6 @@ class TestStripePaymentFailedFlow:
         user.subscription_tier = "pro"
         return user
 
-    @pytest.mark.asyncio
     async def test_handle_webhook_event_payment_failed_parses_correctly(
         self, stripe_event_payment_failed
     ):
@@ -133,7 +132,6 @@ class TestStripePaymentFailedFlow:
         assert result["currency"] == "USD"
         assert result["invoice_id"] == "in_test_001"
 
-    @pytest.mark.asyncio
     async def test_apply_webhook_action_resolves_user_via_customer_id(
         self, stripe_event_payment_failed, mock_user
     ):
@@ -183,7 +181,6 @@ class TestStripePaymentFailedFlow:
         assert call_kwargs["stripe_invoice_id"] == "in_test_001"
         assert call_kwargs["amount_owed"] == pytest.approx(4.99)
 
-    @pytest.mark.asyncio
     async def test_apply_webhook_action_returns_false_when_customer_not_found(self):
         """apply_webhook_action returns False when customer_id maps to no user."""
         from services.stripe_service import apply_webhook_action
@@ -205,7 +202,6 @@ class TestStripePaymentFailedFlow:
 
         assert applied is False
 
-    @pytest.mark.asyncio
     async def test_full_payment_failed_webhook_cycle(self, mock_user):
         """
         Full cycle: parse event → resolve user → record failure → send soft dunning email.
@@ -340,7 +336,6 @@ class TestCommunityRateLimiting:
             "post_type": "tip",
         }
 
-    @pytest.mark.asyncio
     async def test_post_below_limit_succeeds(self, service, post_data):
         """9 posts this hour — 10th post should succeed (no ValueError raised)."""
         db = self._make_db(post_count=9)
@@ -352,7 +347,6 @@ class TestCommunityRateLimiting:
         assert post is not None
         assert "id" in post
 
-    @pytest.mark.asyncio
     async def test_post_at_exact_limit_succeeds(self, service, post_data):
         """Exactly 10 posts this hour — the current post is the 10th, should succeed."""
         db = self._make_db(post_count=9)
@@ -363,7 +357,6 @@ class TestCommunityRateLimiting:
         post = await service.create_post(db, "user-1", post_data, agent)
         assert post is not None
 
-    @pytest.mark.asyncio
     async def test_post_exceeds_limit_raises_value_error(self, service, post_data):
         """10 posts already this hour — 11th raises ValueError (rate limit exceeded)."""
         db = AsyncMock()
@@ -377,7 +370,6 @@ class TestCommunityRateLimiting:
         with pytest.raises(ValueError, match="Rate limit exceeded"):
             await service.create_post(db, "user-1", post_data, agent)
 
-    @pytest.mark.asyncio
     async def test_rate_limit_per_user_independent(self, service, post_data):
         """Different users have independent rate limits (the db query is scoped by user_id)."""
         # User A is at the limit
@@ -423,7 +415,6 @@ class TestCommunityRateLimiting:
         result = await service.create_post(db_b, "user-b", post_data, agent)
         assert result is not None
 
-    @pytest.mark.asyncio
     async def test_rate_limit_check_uses_correct_user_id(self, service, post_data):
         """The rate-limit SQL is parameterised with the correct user_id."""
         db = AsyncMock()
@@ -471,7 +462,6 @@ class TestAlertDeduplication:
     # _should_send_alert
     # -----------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_should_send_when_no_history(self, alert_service):
         """No prior alert → should_send returns True."""
         db = AsyncMock()
@@ -488,7 +478,6 @@ class TestAlertDeduplication:
         )
         assert can_send is True
 
-    @pytest.mark.asyncio
     async def test_should_not_send_within_immediate_cooldown(self, alert_service):
         """Alert sent <1h ago with 'immediate' frequency → suppressed."""
         db = AsyncMock()
@@ -506,7 +495,6 @@ class TestAlertDeduplication:
         )
         assert can_send is False
 
-    @pytest.mark.asyncio
     async def test_should_not_send_within_daily_cooldown(self, alert_service):
         """Alert sent <24h ago with 'daily' frequency → suppressed."""
         db = AsyncMock()
@@ -523,7 +511,6 @@ class TestAlertDeduplication:
         )
         assert can_send is False
 
-    @pytest.mark.asyncio
     async def test_should_not_send_within_weekly_cooldown(self, alert_service):
         """Alert sent <7d ago with 'weekly' frequency → suppressed."""
         db = AsyncMock()
@@ -540,7 +527,6 @@ class TestAlertDeduplication:
         )
         assert can_send is False
 
-    @pytest.mark.asyncio
     async def test_cooldown_cutoff_uses_correct_window_for_each_frequency(self, alert_service):
         """Verify that the cutoff parameter passed to the DB query matches the frequency."""
 
@@ -572,7 +558,6 @@ class TestAlertDeduplication:
     # _batch_should_send_alerts
     # -----------------------------------------------------------------------
 
-    @pytest.mark.asyncio
     async def test_batch_dedup_returns_in_cooldown_set(self, alert_service):
         """_batch_should_send_alerts returns the set of (user, type, region) in cooldown."""
 
@@ -607,7 +592,6 @@ class TestAlertDeduplication:
 
         assert (user_id, "price_drop", "US_CT") in in_cooldown
 
-    @pytest.mark.asyncio
     async def test_batch_dedup_empty_input_returns_empty_set(self, alert_service):
         """Empty triggered_pairs returns empty set without querying DB."""
         db = AsyncMock()
@@ -615,7 +599,6 @@ class TestAlertDeduplication:
         assert result == set()
         db.execute.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_batch_dedup_no_cooldown_when_db_returns_no_rows(self, alert_service):
         """When DB returns no rows, all alerts are outside cooldown (not suppressed)."""
 
@@ -704,7 +687,6 @@ class TestDunningEscalationCycle:
         db.commit = AsyncMock()
         return db
 
-    @pytest.mark.asyncio
     async def test_first_failure_sends_soft_dunning_email(self):
         """First payment failure sends soft dunning email (retry_count=1)."""
         from services.dunning_service import DunningService
@@ -742,7 +724,6 @@ class TestDunningEscalationCycle:
         render_call = email_service.render_template.call_args
         assert render_call[0][0] == "dunning_soft.html"
 
-    @pytest.mark.asyncio
     async def test_third_failure_sends_final_dunning_email(self):
         """Third payment failure sends final dunning email (retry_count=3)."""
         from services.dunning_service import DunningService
@@ -778,7 +759,6 @@ class TestDunningEscalationCycle:
         render_call = email_service.render_template.call_args
         assert render_call[0][0] == "dunning_final.html"
 
-    @pytest.mark.asyncio
     async def test_escalation_downgrades_user_to_free_after_third_failure(self):
         """escalate_if_needed downgrades a pro user after 3 failures."""
         from services.dunning_service import DunningService
@@ -798,7 +778,6 @@ class TestDunningEscalationCycle:
         assert mock_user.subscription_tier == "free"
         user_repo.update.assert_called_once_with("user-1", mock_user)
 
-    @pytest.mark.asyncio
     async def test_escalation_not_triggered_before_third_failure(self):
         """escalate_if_needed returns None for retry_count < 3."""
         from services.dunning_service import DunningService
@@ -813,7 +792,6 @@ class TestDunningEscalationCycle:
 
         user_repo.get_by_id.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_escalation_skipped_for_already_free_user(self):
         """escalate_if_needed skips downgrade if user is already on free tier."""
         from services.dunning_service import DunningService
@@ -832,7 +810,6 @@ class TestDunningEscalationCycle:
         assert action is None
         user_repo.update.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_dunning_cooldown_prevents_duplicate_email(self):
         """
         If a dunning email was sent within 24h for this invoice, skip the second one.
@@ -862,7 +839,6 @@ class TestDunningEscalationCycle:
         assert result["email_sent"] is False
         email_service.send.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_overdue_accounts_query_uses_grace_period_cutoff(self):
         """get_overdue_accounts filters by created_at <= cutoff (grace_period_days)."""
         from services.dunning_service import DunningService
@@ -902,7 +878,6 @@ class TestSessionAuthCache:
     def _token_cache_key(self, token: str) -> str:
         return f"session:{hashlib.sha256(token.encode()).hexdigest()[:32]}"
 
-    @pytest.mark.asyncio
     async def test_cache_hit_returns_session_without_db_query(self):
         """Valid cached session data returned from Redis, DB is NOT queried."""
         from auth.neon_auth import _get_session_from_token
@@ -919,7 +894,14 @@ class TestSessionAuthCache:
         )
 
         redis = AsyncMock()
-        redis.get = AsyncMock(return_value=cached_payload.encode())
+
+        # Return cached payload for session key, None for banned_user marker
+        async def _redis_get(key):
+            if key.startswith("banned_user:"):
+                return None
+            return cached_payload.encode()
+
+        redis.get = AsyncMock(side_effect=_redis_get)
 
         db = AsyncMock()
 
@@ -933,7 +915,6 @@ class TestSessionAuthCache:
         # DB should NOT have been queried
         db.execute.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_cache_miss_falls_through_to_db(self):
         """Cache miss: DB is queried and result is cached with 60s TTL."""
         from auth.neon_auth import _SESSION_CACHE_TTL, _get_session_from_token
@@ -971,7 +952,6 @@ class TestSessionAuthCache:
         assert setex_args[1] == _SESSION_CACHE_TTL  # TTL = 60
         assert _SESSION_CACHE_TTL == 60  # explicit assertion on the constant
 
-    @pytest.mark.asyncio
     async def test_cache_miss_invalid_session_returns_none(self):
         """Cache miss + DB returns no row → None (session invalid/expired)."""
         from auth.neon_auth import _get_session_from_token
@@ -992,7 +972,6 @@ class TestSessionAuthCache:
         # Nothing should be cached
         redis.setex.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_invalidate_session_cache_removes_redis_key(self):
         """invalidate_session_cache deletes the hashed token key from Redis."""
         from auth.neon_auth import invalidate_session_cache
@@ -1007,7 +986,6 @@ class TestSessionAuthCache:
         expected_key = self._token_cache_key(token)
         redis.delete.assert_called_once_with(expected_key)
 
-    @pytest.mark.asyncio
     async def test_invalidate_session_cache_returns_false_when_no_redis(self):
         """invalidate_session_cache returns False gracefully when Redis is None."""
         from auth.neon_auth import invalidate_session_cache
@@ -1015,7 +993,6 @@ class TestSessionAuthCache:
         deleted = await invalidate_session_cache("some-token", redis=None)
         assert deleted is False
 
-    @pytest.mark.asyncio
     async def test_session_cache_key_uses_sha256_hash(self):
         """Cache key is sha256(token)[:32] — consistent across calls."""
         from auth.neon_auth import _get_session_from_token
@@ -1042,7 +1019,6 @@ class TestSessionAuthCache:
         expected_key = self._token_cache_key(token)
         assert get_args[0] == expected_key
 
-    @pytest.mark.asyncio
     async def test_redis_error_falls_through_to_db_gracefully(self):
         """If Redis.get raises, fall through to DB without crashing."""
         from auth.neon_auth import _get_session_from_token

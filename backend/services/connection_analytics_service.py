@@ -4,8 +4,9 @@ Connection analytics service — rate comparison, history, and savings calculati
 Provides analytics endpoints for comparing user's extracted rates against market
 prices, historical rate trends, and estimated savings calculations.
 """
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,8 +21,8 @@ class ConnectionAnalyticsService:
     async def get_rate_comparison(
         self,
         user_id: str,
-        connection_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        connection_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Compare user's extracted rates vs current market average.
 
@@ -38,7 +39,7 @@ class ConnectionAnalyticsService:
         # NOTE: connection_extracted_rates has effective_date (not extracted_at)
         # and supplier_name lives on user_connections (not on extracted_rates).
         cid_filter = "AND uc.id = :cid" if connection_id else ""
-        params: Dict[str, Any] = {"uid": user_id}
+        params: dict[str, Any] = {"uid": user_id}
         if connection_id:
             params["cid"] = connection_id
 
@@ -82,9 +83,15 @@ class ConnectionAnalyticsService:
         )
         market_row = market_result.mappings().first()
 
-        market_avg = float(market_row["avg_price"]) if market_row and market_row["avg_price"] else user_rate
-        market_min = float(market_row["min_price"]) if market_row and market_row["min_price"] else user_rate
-        market_max = float(market_row["max_price"]) if market_row and market_row["max_price"] else user_rate
+        market_avg = (
+            float(market_row["avg_price"]) if market_row and market_row["avg_price"] else user_rate
+        )
+        market_min = (
+            float(market_row["min_price"]) if market_row and market_row["min_price"] else user_rate
+        )
+        market_max = (
+            float(market_row["max_price"]) if market_row and market_row["max_price"] else user_rate
+        )
 
         delta = user_rate - market_avg
         pct_diff = (delta / market_avg * 100) if market_avg else 0
@@ -106,9 +113,9 @@ class ConnectionAnalyticsService:
     async def get_rate_history(
         self,
         user_id: str,
-        connection_id: Optional[str] = None,
+        connection_id: str | None = None,
         days: int = 365,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get historical rate data for chart rendering.
 
@@ -125,7 +132,7 @@ class ConnectionAnalyticsService:
             WHERE uc.user_id = :uid
               AND cer.effective_date >= NOW() - make_interval(days => :days)
         """
-        params: Dict[str, Any] = {"uid": user_id, "days": days}
+        params: dict[str, Any] = {"uid": user_id, "days": days}
         if connection_id:
             query += " AND uc.id = :cid"
             params["cid"] = connection_id
@@ -136,14 +143,16 @@ class ConnectionAnalyticsService:
 
         data_points = []
         for row in rows:
-            data_points.append({
-                "date": row["effective_date"].isoformat() if row["effective_date"] else None,
-                "rate": float(row["rate_per_kwh"]) if row["rate_per_kwh"] else None,
-                "supplier": row["supplier_name"],
-                "connection_id": row["connection_id"],
-                "connection_label": row["label"],
-                "source": row["source"],
-            })
+            data_points.append(
+                {
+                    "date": row["effective_date"].isoformat() if row["effective_date"] else None,
+                    "rate": float(row["rate_per_kwh"]) if row["rate_per_kwh"] else None,
+                    "supplier": row["supplier_name"],
+                    "connection_id": row["connection_id"],
+                    "connection_label": row["label"],
+                    "source": row["source"],
+                }
+            )
 
         return {
             "data_points": data_points,
@@ -155,7 +164,7 @@ class ConnectionAnalyticsService:
         self,
         user_id: str,
         monthly_kwh: float = 900,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate estimated annual savings based on rate comparison.
 
@@ -198,7 +207,7 @@ class ConnectionAnalyticsService:
         self,
         user_id: str,
         stale_threshold_days: int = 30,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Find connections that haven't synced in >30 days."""
         result = await self.db.execute(
             text("""
@@ -224,9 +233,9 @@ class ConnectionAnalyticsService:
                 "email_provider": row["email_provider"],
                 "last_scan_at": row["last_scan_at"].isoformat() if row["last_scan_at"] else None,
                 "days_since_sync": (
-                    (datetime.now(timezone.utc) - row["last_scan_at"]).days
+                    (datetime.now(UTC) - row["last_scan_at"]).days
                     if row["last_scan_at"]
-                    else (datetime.now(timezone.utc) - row["created_at"]).days
+                    else (datetime.now(UTC) - row["created_at"]).days
                     if row["created_at"]
                     else None
                 ),
@@ -238,7 +247,7 @@ class ConnectionAnalyticsService:
         self,
         user_id: str,
         threshold_pct: float = 5.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect significant rate changes (>threshold%) between consecutive extractions."""
         result = await self.db.execute(
             text("""
@@ -266,15 +275,19 @@ class ConnectionAnalyticsService:
                 continue
             change_pct = abs((current - previous) / previous) * 100
             if change_pct >= threshold_pct:
-                alerts.append({
-                    "connection_id": row["connection_id"],
-                    "connection_label": row["label"],
-                    "supplier": row["supplier_name"],
-                    "previous_rate": round(previous, 4),
-                    "current_rate": round(current, 4),
-                    "change_percentage": round(change_pct, 2),
-                    "direction": "increase" if current > previous else "decrease",
-                    "detected_at": row["effective_date"].isoformat() if row["effective_date"] else None,
-                })
+                alerts.append(
+                    {
+                        "connection_id": row["connection_id"],
+                        "connection_label": row["label"],
+                        "supplier": row["supplier_name"],
+                        "previous_rate": round(previous, 4),
+                        "current_rate": round(current, 4),
+                        "change_percentage": round(change_pct, 2),
+                        "direction": "increase" if current > previous else "decrease",
+                        "detected_at": row["effective_date"].isoformat()
+                        if row["effective_date"]
+                        else None,
+                    }
+                )
 
         return alerts

@@ -1,0 +1,6 @@
+# This file has been consolidated into requirements.txt (2026-03-19)
+# requirements-ml.txt was the canonical source of ML dependencies but duplicate.
+# All versions are now in ml/requirements.txt for single source of truth.
+#
+# If you need the old content, it's in git history at:
+# git log --all -- ml/requirements-ml.txt

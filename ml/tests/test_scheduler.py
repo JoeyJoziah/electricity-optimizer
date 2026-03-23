@@ -20,16 +20,12 @@ Covers:
 """
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
 from ml.optimization.appliance_models import (
     Appliance,
     ApplianceType,
-    ApplianceSchedule,
     ScheduleResult,
     PriceProfile,
     OptimizationConfig,
@@ -112,7 +108,9 @@ class TestAddAppliance:
         app = Appliance(name="Dup", power_kw=1.0, duration_hours=1.0)
         scheduler.add_appliance(app)
         with pytest.raises(ValueError, match="already exists"):
-            scheduler.add_appliance(Appliance(name="Dup", power_kw=2.0, duration_hours=1.0))
+            scheduler.add_appliance(
+                Appliance(name="Dup", power_kw=2.0, duration_hours=1.0)
+            )
 
     def test_multiple_appliances_added(self, scheduler):
         for i in range(5):
@@ -146,7 +144,9 @@ class TestAddAppliancePreset:
         assert scheduler.appliances[0].priority == PriorityLevel.HIGH
 
     def test_enum_priority_accepted(self, scheduler):
-        scheduler.add_appliance_preset("dishwasher", "anytime", priority=PriorityLevel.CRITICAL)
+        scheduler.add_appliance_preset(
+            "dishwasher", "anytime", priority=PriorityLevel.CRITICAL
+        )
         assert scheduler.appliances[0].priority == PriorityLevel.CRITICAL
 
     def test_appliance_type_as_enum(self, scheduler):
@@ -433,8 +433,7 @@ class TestCompareScenarios:
         scheduler.add_appliance_preset("dishwasher", "anytime")
         flat = np.full(96, 0.15)
         tou = np.where(
-            np.array([(s // 4) in range(16, 21) for s in range(96)]),
-            0.35, 0.10
+            np.array([(s // 4) in range(16, 21) for s in range(96)]), 0.35, 0.10
         )
         results = scheduler.compare_scenarios({"flat": flat, "tou": tou})
         assert isinstance(results, dict)
@@ -472,9 +471,17 @@ class TestGetScheduleSummary:
     def test_required_keys_present(self, configured_scheduler):
         configured_scheduler.optimize()
         summary = configured_scheduler.get_schedule_summary()
-        for key in ["status", "total_cost", "baseline_cost", "savings_percent",
-                    "savings_amount", "total_energy_kwh", "peak_power_kw",
-                    "solve_time_seconds", "schedules"]:
+        for key in [
+            "status",
+            "total_cost",
+            "baseline_cost",
+            "savings_percent",
+            "savings_amount",
+            "total_energy_kwh",
+            "peak_power_kw",
+            "solve_time_seconds",
+            "schedules",
+        ]:
             assert key in summary, f"Missing key: {key}"
 
     def test_schedules_list_contains_entries(self, configured_scheduler):
@@ -487,7 +494,14 @@ class TestGetScheduleSummary:
         configured_scheduler.optimize()
         summary = configured_scheduler.get_schedule_summary()
         entry = summary["schedules"][0]
-        for field in ["appliance", "type", "power_kw", "run_periods", "cost", "energy_kwh"]:
+        for field in [
+            "appliance",
+            "type",
+            "power_kw",
+            "run_periods",
+            "cost",
+            "energy_kwh",
+        ]:
             assert field in entry, f"Missing schedule field: {field}"
 
     def test_accepts_explicit_result_arg(self, configured_scheduler, scheduler):

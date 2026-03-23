@@ -15,12 +15,11 @@ Coverage:
 - weekly_market_scan: calls search_energy_news once per region
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from services.market_intelligence_service import MarketIntelligenceService
-
 
 # =============================================================================
 # Fixtures
@@ -39,7 +38,9 @@ def _settings_no_key() -> MagicMock:
     return settings
 
 
-def _tavily_response(answer: str = "Test answer", n_results: int = 2, long_content: bool = False) -> dict:
+def _tavily_response(
+    answer: str = "Test answer", n_results: int = 2, long_content: bool = False
+) -> dict:
     """Build a synthetic Tavily API response."""
     content = "X" * 1000 if long_content else "Short content"
     return {
@@ -76,7 +77,6 @@ def _mock_http_client(json_response: dict, status_code: int = 200) -> AsyncMock:
 
 
 class TestSearchEnergyNews:
-    @pytest.mark.asyncio
     async def test_returns_none_when_no_api_key(self):
         svc = MarketIntelligenceService(settings=_settings_no_key())
         with patch("services.market_intelligence_service.httpx.AsyncClient") as mock_cls:
@@ -85,12 +85,13 @@ class TestSearchEnergyNews:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_structured_dict_on_success(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response())
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("CT electricity rates")
 
         assert result is not None
@@ -99,12 +100,13 @@ class TestSearchEnergyNews:
         assert result["answer"] == "Test answer"
         assert len(result["results"]) == 2
 
-    @pytest.mark.asyncio
     async def test_result_fields_include_title_url_content(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response(n_results=1))
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("query")
 
         item = result["results"][0]
@@ -112,78 +114,87 @@ class TestSearchEnergyNews:
         assert "url" in item
         assert "content" in item
 
-    @pytest.mark.asyncio
     async def test_content_truncated_to_500_chars(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response(n_results=1, long_content=True))
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("query")
 
         content = result["results"][0]["content"]
         assert len(content) <= 500
 
-    @pytest.mark.asyncio
     async def test_respects_max_results_in_request(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response(n_results=3))
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.search_energy_news("query", max_results=3)
 
         json_body = mock_client.post.call_args.kwargs.get("json", {})
         assert json_body.get("max_results") == 3
 
-    @pytest.mark.asyncio
     async def test_request_includes_api_key(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response())
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.search_energy_news("query")
 
         json_body = mock_client.post.call_args.kwargs.get("json", {})
         assert json_body.get("api_key") == "tvly-test-api-key"
 
-    @pytest.mark.asyncio
     async def test_uses_basic_search_depth(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client(_tavily_response())
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.search_energy_news("query")
 
         json_body = mock_client.post.call_args.kwargs.get("json", {})
         assert json_body.get("search_depth") == "basic"
 
-    @pytest.mark.asyncio
     async def test_raises_on_http_error(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client({}, status_code=429)
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
-            with pytest.raises(Exception):
-                await svc.search_energy_news("query")
+        with (
+            patch(
+                "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            ),
+            pytest.raises(Exception),  # noqa: B017
+        ):
+            await svc.search_energy_news("query")
 
-    @pytest.mark.asyncio
     async def test_empty_results_list(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         mock_client = _mock_http_client({"answer": "No data", "results": []})
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("obscure query")
 
         assert result is not None
         assert result["results"] == []
         assert result["answer"] == "No data"
 
-    @pytest.mark.asyncio
     async def test_missing_answer_defaults_to_none(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         # Tavily response without 'answer' key
         mock_client = _mock_http_client({"results": []})
 
-        with patch("services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.search_energy_news("query")
 
         assert result["answer"] is None
@@ -195,13 +206,11 @@ class TestSearchEnergyNews:
 
 
 class TestWeeklyMarketScan:
-    @pytest.mark.asyncio
     async def test_returns_empty_list_for_no_regions(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         result = await svc.weekly_market_scan([])
         assert result == []
 
-    @pytest.mark.asyncio
     async def test_calls_search_once_per_region(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         regions = ["CT", "NY", "MA"]
@@ -213,7 +222,6 @@ class TestWeeklyMarketScan:
         assert mock_search.await_count == len(regions)
         assert len(result) == len(regions)
 
-    @pytest.mark.asyncio
     async def test_caps_at_10_regions(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         # Pass 15 regions; only the first 10 should be queried
@@ -226,7 +234,6 @@ class TestWeeklyMarketScan:
         assert mock_search.await_count == 10
         assert len(result) == 10
 
-    @pytest.mark.asyncio
     async def test_skips_failed_queries_without_raising(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         regions = ["CT", "NY", "MA"]
@@ -244,7 +251,6 @@ class TestWeeklyMarketScan:
         for r in result:
             assert "NY" not in r["query"]
 
-    @pytest.mark.asyncio
     async def test_skips_none_results(self):
         svc = MarketIntelligenceService(settings=_settings_no_key())
         regions = ["CT", "NY"]
@@ -257,7 +263,6 @@ class TestWeeklyMarketScan:
         # None results are not appended
         assert result == []
 
-    @pytest.mark.asyncio
     async def test_result_includes_query_and_data(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         regions = ["TX"]
@@ -273,7 +278,6 @@ class TestWeeklyMarketScan:
         assert result[0]["data"] == search_data
         assert "TX" in result[0]["query"]
 
-    @pytest.mark.asyncio
     async def test_query_includes_year(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
         regions = ["CA"]

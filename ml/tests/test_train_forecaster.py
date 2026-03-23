@@ -148,7 +148,10 @@ class TestTrainingConfig:
     def test_custom_overrides(self):
         """Custom keyword arguments override defaults."""
         cfg = TrainingConfig(
-            epochs=10, batch_size=8, learning_rate=0.01, target_mape=5.0,
+            epochs=10,
+            batch_size=8,
+            learning_rate=0.01,
+            target_mape=5.0,
         )
         assert cfg.epochs == 10
         assert cfg.batch_size == 8
@@ -214,7 +217,9 @@ class TestModelTrainer:
 
     def test_split_data_proportions(self, tmp_path):
         """split_data creates train/val/test with correct proportions."""
-        trainer = self._make_trainer(tmp_path, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15)
+        trainer = self._make_trainer(
+            tmp_path, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15
+        )
 
         n = 100
         X = np.random.randn(n, 168, 10).astype(np.float32)
@@ -273,7 +278,9 @@ class TestModelTrainer:
 
         trainer.save_models()
 
-        json_files = list(Path(trainer.config.output_dir).glob("training_results_*.json"))
+        json_files = list(
+            Path(trainer.config.output_dir).glob("training_results_*.json")
+        )
         assert len(json_files) == 1
 
         with open(json_files[0]) as f:
@@ -312,11 +319,13 @@ class TestTrainModel:
             mock_instance.run.return_value = {"status": "success"}
             MockTrainer.return_value = mock_instance
 
-            result = train_model(TrainingConfig(
-                output_dir=str(tmp_path / "out"),
-                checkpoint_dir=str(tmp_path / "ckpt"),
-                log_dir=str(tmp_path / "log"),
-            ))
+            result = train_model(
+                TrainingConfig(
+                    output_dir=str(tmp_path / "out"),
+                    checkpoint_dir=str(tmp_path / "ckpt"),
+                    log_dir=str(tmp_path / "log"),
+                )
+            )
 
         MockTrainer.assert_called_once()
         mock_instance.run.assert_called_once()
@@ -346,7 +355,9 @@ class TestRunPipeline:
     def test_run_orchestrates_all_steps(self, tmp_path):
         """run() calls load_data -> prepare_features -> split -> train -> eval -> save."""
         config = TrainingConfig(
-            use_dummy_data=True, epochs=2, train_ensemble=False,
+            use_dummy_data=True,
+            epochs=2,
+            train_ensemble=False,
             output_dir=str(tmp_path / "out"),
             checkpoint_dir=str(tmp_path / "ckpt"),
             log_dir=str(tmp_path / "log"),
@@ -362,11 +373,13 @@ class TestRunPipeline:
 
         trainer.load_data = MagicMock(return_value=mock_df)
         trainer.prepare_features = MagicMock(return_value=(X, y))
-        trainer.split_data = MagicMock(return_value=(
-            (X[:70], y[:70]),
-            (X[70:85], y[70:85]),
-            (X[85:], y[85:]),
-        ))
+        trainer.split_data = MagicMock(
+            return_value=(
+                (X[:70], y[:70]),
+                (X[70:85], y[70:85]),
+                (X[85:], y[85:]),
+            )
+        )
         trainer.train_cnn_lstm = MagicMock(return_value={"loss": [0.1]})
         trainer.train_ensemble = MagicMock()
         trainer.evaluate = MagicMock(return_value={"cnn_lstm": {"mape": 7.0}})

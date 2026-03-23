@@ -17,6 +17,26 @@ from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Set stripe.api_key once at module load time.
+#
+# Previously this was done inside StripeService.__init__(), which meant every
+# construction of the service (i.e. every request) was mutating a module-level
+# global — not concurrency-safe under async load.  Setting it here ensures:
+#   1. The assignment runs exactly once per process startup.
+#   2. No concurrent request can interleave a different key mid-flight
+#      (the global stripe library does not support per-client keys in v7-).
+#   3. StripeService.__init__() no longer writes to shared mutable state.
+#
+# NOTE: When upgrading to stripe-python v7+ that exposes a per-client
+# ``stripe.StripeClient``, migrate all SDK calls to use that client
+# object instead and remove this module-level assignment entirely.
+# ---------------------------------------------------------------------------
+if settings.stripe_secret_key:
+    stripe.api_key = settings.stripe_secret_key
+    key_mode = "live" if settings.stripe_secret_key.startswith("sk_live_") else "test"
+    logger.info("stripe_api_key_set", mode=key_mode)
+
 
 class StripeService:
     """
@@ -29,15 +49,18 @@ class StripeService:
     """
 
     def __init__(self, db=None):
-        """Initialize Stripe service with API key from settings."""
+        """Initialize Stripe service.
+
+        The stripe.api_key is set once at module load time (see module-level
+        code above) rather than here per-request, so this constructor no longer
+        mutates any global state.
+        """
         self._db = db
         if not settings.stripe_secret_key:
             logger.warning("stripe_not_configured", message="STRIPE_SECRET_KEY not set")
             self._configured = False
         else:
-            stripe.api_key = settings.stripe_secret_key
             self._configured = True
-            logger.info("stripe_service_initialized")
 
     @property
     def is_configured(self) -> bool:
@@ -501,6 +524,113 @@ class StripeService:
                     invoice_id=invoice_id,
                 )
 
+            # Payment succeeded — reactivate tier and clear dunning state.
+            # This is the counterpart to invoice.payment_failed: when Stripe
+            # successfully charges a past-due invoice the user's subscription
+            # should be re-activated and any dunning escalation reversed.
+            elif event_type == "invoice.payment_succeeded":
+                invoice = data
+                customer_id = invoice.get("customer")
+                subscription_id = invoice.get("subscription")
+                # billing_reason "subscription_cycle" = normal renewal;
+                # "subscription_update" = plan change; "subscription_create" =
+                # first charge.  We handle all of them the same way.
+                billing_reason = invoice.get("billing_reason", "")
+                invoice_id = invoice.get("id")
+
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "payment_succeeded",
+                        "customer_id": customer_id,
+                        "subscription_id": subscription_id,
+                        "billing_reason": billing_reason,
+                        "invoice_id": invoice_id,
+                    }
+                )
+
+                logger.info(
+                    "payment_succeeded",
+                    customer_id=customer_id,
+                    subscription_id=subscription_id,
+                    billing_reason=billing_reason,
+                    invoice_id=invoice_id,
+                )
+
+            # Charge refunded — flag user account for review.
+            # Stripe does not automatically cancel the subscription on refund,
+            # so we flag the user for manual review rather than auto-downgrading.
+            # A full refund may indicate fraud or a billing dispute; the ops team
+            # should verify before revoking access.
+            elif event_type == "charge.refunded":
+                charge = data
+                customer_id = charge.get("customer")
+                charge_id = charge.get("id")
+                amount_refunded = charge.get("amount_refunded", 0)
+                currency = charge.get("currency", "usd").upper()
+
+                # Convert cents to dollars
+                if amount_refunded and isinstance(amount_refunded, (int, float)):
+                    amount_refunded = Decimal(str(amount_refunded)) / Decimal("100")
+
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "charge_refunded",
+                        "customer_id": customer_id,
+                        "charge_id": charge_id,
+                        "amount_refunded": amount_refunded,
+                        "currency": currency,
+                    }
+                )
+
+                logger.warning(
+                    "charge_refunded",
+                    customer_id=customer_id,
+                    charge_id=charge_id,
+                    amount_refunded=amount_refunded,
+                )
+
+            # Dispute created — flag account immediately.
+            # Chargebacks are a fraud signal; flag the account so ops can
+            # review and, if warranted, freeze it before evidence is submitted.
+            elif event_type == "charge.dispute.created":
+                dispute = data
+                customer_id = dispute.get("customer") or (
+                    # Disputes may not have direct customer — look it up from charge
+                    None
+                )
+                charge_id = dispute.get("charge")
+                dispute_id = dispute.get("id")
+                dispute_reason = dispute.get("reason", "unknown")
+                dispute_amount = dispute.get("amount", 0)
+                currency = dispute.get("currency", "usd").upper()
+
+                if dispute_amount and isinstance(dispute_amount, (int, float)):
+                    dispute_amount = Decimal(str(dispute_amount)) / Decimal("100")
+
+                result.update(
+                    {
+                        "handled": True,
+                        "action": "dispute_created",
+                        "customer_id": customer_id,
+                        "charge_id": charge_id,
+                        "dispute_id": dispute_id,
+                        "dispute_reason": dispute_reason,
+                        "dispute_amount": dispute_amount,
+                        "currency": currency,
+                    }
+                )
+
+                logger.warning(
+                    "dispute_created",
+                    customer_id=customer_id,
+                    charge_id=charge_id,
+                    dispute_id=dispute_id,
+                    dispute_reason=dispute_reason,
+                    dispute_amount=dispute_amount,
+                )
+
             else:
                 logger.info("webhook_event_ignored", event_type=event_type)
 
@@ -600,6 +730,103 @@ async def apply_webhook_action(
                 user_id=user_id,
                 customer_id=customer_id,
             )
+
+    elif action == "payment_succeeded":
+        # Re-activate user's subscription tier after a successful payment.
+        #
+        # This reverses any dunning escalation: if the user was downgraded to
+        # free tier after 3+ payment failures and then catches up, they should
+        # be restored to their paid tier.  We query the current Stripe
+        # subscription to determine the authoritative tier rather than relying
+        # on stale metadata in the invoice.
+        if db is not None:
+            subscription_id = result.get("subscription_id")
+            restored_tier: str | None = None
+
+            if subscription_id:
+                try:
+                    subscription = await asyncio.to_thread(
+                        stripe.Subscription.retrieve, subscription_id
+                    )
+                    restored_tier = subscription.metadata.get("tier")
+                    # Stripe may store sub-status "active" after payment
+                    # succeeds; only restore if subscription is actually live.
+                    if subscription.status not in ("active", "trialing"):
+                        logger.info(
+                            "payment_succeeded_subscription_not_active",
+                            user_id=user_id,
+                            subscription_id=subscription_id,
+                            status=subscription.status,
+                        )
+                        restored_tier = None
+                except stripe.StripeError as e:
+                    logger.warning(
+                        "payment_succeeded_subscription_lookup_failed",
+                        user_id=user_id,
+                        subscription_id=subscription_id,
+                        error=str(e),
+                    )
+
+            if restored_tier and restored_tier in ("pro", "business"):
+                user.subscription_tier = restored_tier
+                await user_repo.update(user_id, user)
+                await invalidate_tier_cache(user_id)
+                logger.info(
+                    "tier_restored_after_payment",
+                    user_id=user_id,
+                    tier=restored_tier,
+                    subscription_id=subscription_id,
+                )
+            else:
+                # Could not determine tier from Stripe — log for ops review
+                # but do not downgrade; err on the side of granting access.
+                logger.warning(
+                    "payment_succeeded_tier_unknown",
+                    user_id=user_id,
+                    customer_id=customer_id,
+                    subscription_id=subscription_id,
+                )
+        else:
+            logger.warning(
+                "payment_succeeded_no_db_session",
+                user_id=user_id,
+                customer_id=customer_id,
+            )
+
+    elif action in ("charge_refunded", "dispute_created"):
+        # Flag account for ops review — we do not auto-downgrade because:
+        #   - Refunds: Stripe subscription may still be valid (partial refund,
+        #     goodwill refund, etc.). Ops should verify intent.
+        #   - Disputes: evidence window is time-limited; flagging triggers alert
+        #     so ops can respond within Stripe's 7-21 day window.
+        #
+        # We log a structured WARNING at CRITICAL severity to ensure alert
+        # routing (Sentry/Slack) picks it up without a code path to DB.
+        charge_id = result.get("charge_id", "unknown")
+        dispute_id = result.get("dispute_id", "unknown")
+        if action == "dispute_created":
+            logger.warning(
+                "account_dispute_flagged_for_review",
+                user_id=user_id,
+                customer_id=customer_id,
+                charge_id=charge_id,
+                dispute_id=dispute_id,
+                dispute_reason=result.get("dispute_reason", "unknown"),
+                dispute_amount=result.get("dispute_amount"),
+                severity="CRITICAL",
+                action_required="ops_review",
+            )
+        else:
+            logger.warning(
+                "account_refund_flagged_for_review",
+                user_id=user_id,
+                customer_id=customer_id,
+                charge_id=charge_id,
+                amount_refunded=result.get("amount_refunded"),
+                severity="HIGH",
+                action_required="ops_review",
+            )
+
     else:
         return False
 

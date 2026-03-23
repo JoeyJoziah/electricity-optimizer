@@ -16,15 +16,13 @@ the service modules directly, not api.v1.internal.email_scan.
 """
 
 import asyncio
-import base64
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
-
 
 BASE_URL = "/api/v1/internal"
 
@@ -46,7 +44,7 @@ def _make_email_result(
     r.email_id = email_id
     r.subject = subject
     r.sender = sender
-    r.date = datetime(2026, 2, 1, 12, 0, tzinfo=timezone.utc)
+    r.date = datetime(2026, 2, 1, 12, 0, tzinfo=UTC)
     r.is_utility_bill = is_utility_bill
     r.attachment_count = attachment_count
     r.to_dict.return_value = {
@@ -74,24 +72,28 @@ def _make_connection_row(
         "id": conn_id,
         "user_id": "user-abc",
         "email_provider": provider,
-        "oauth_access_token": (
-            base64.b64encode(b"fake-encrypted-token").decode() if has_token else None
-        ),
-        "oauth_refresh_token": (
-            base64.b64encode(b"fake-encrypted-refresh").decode()
-            if has_refresh
-            else None
-        ),
+        # Raw BYTEA bytes (migration 059 — no base64 wrapper)
+        "oauth_access_token": (b"fake-encrypted-token" if has_token else None),
+        "oauth_refresh_token": (b"fake-encrypted-refresh" if has_refresh else None),
         "oauth_token_expires_at": (
-            (datetime.now(timezone.utc) - timedelta(hours=2))
+            (datetime.now(UTC) - timedelta(hours=2))
             if token_expired
-            else (datetime.now(timezone.utc) + timedelta(hours=1))
+            else (datetime.now(UTC) + timedelta(hours=1))
         ),
     }[k]
-    row.get = lambda k, default=None: row[k] if k in [
-        "id", "user_id", "email_provider", "oauth_access_token",
-        "oauth_refresh_token", "oauth_token_expires_at",
-    ] else default
+    row.get = lambda k, default=None: (
+        row[k]
+        if k
+        in [
+            "id",
+            "user_id",
+            "email_provider",
+            "oauth_access_token",
+            "oauth_refresh_token",
+            "oauth_token_expires_at",
+        ]
+        else default
+    )
     return row
 
 
@@ -182,6 +184,7 @@ class TestScanEmailsHappyPath:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -212,13 +215,11 @@ class TestScanEmailsHappyPath:
         ]
         mock_extract.return_value = {"rate_per_kwh": 0.12}
 
-        connections = [
-            _make_connection_row(conn_id=f"c{i}", provider="gmail")
-            for i in range(3)
-        ]
+        connections = [_make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(3)]
         mock_db = _make_db_with_connections(connections)
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -227,7 +228,7 @@ class TestScanEmailsHappyPath:
         data = response.json()
         assert data["status"] == "ok"
         assert data["connections_scanned"] == 3
-        assert data["emails_found"] == 6   # 3 connections × 2 emails
+        assert data["emails_found"] == 6  # 3 connections × 2 emails
         assert data["rates_extracted"] == 6
         assert data["errors"] == []
 
@@ -249,6 +250,7 @@ class TestScanEmailsHappyPath:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -264,6 +266,7 @@ class TestScanEmailsHappyPath:
         mock_db = _make_db_with_connections([])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -294,6 +297,7 @@ class TestScanEmailsHappyPath:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -325,13 +329,14 @@ class TestScanEmailsHappyPath:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["emails_found"] == 1   # only the utility bill
+        assert data["emails_found"] == 1  # only the utility bill
         assert data["rates_extracted"] == 1
 
 
@@ -349,6 +354,7 @@ class TestScanEmailsTokenHandling:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -399,6 +405,7 @@ class TestScanEmailsTokenHandling:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -422,6 +429,7 @@ class TestScanEmailsTokenHandling:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -438,9 +446,7 @@ class TestScanEmailsTokenHandling:
         side_effect=RuntimeError("provider 500"),
     )
     @patch("utils.encryption.decrypt_field", return_value="plain-old-token")
-    def test_token_refresh_failure_skips_connection(
-        self, mock_decrypt, mock_refresh, auth_client
-    ):
+    def test_token_refresh_failure_skips_connection(self, mock_decrypt, mock_refresh, auth_client):
         """A failed token refresh skips the connection without crashing the batch."""
         conn = _make_connection_row(
             conn_id="c1",
@@ -451,6 +457,7 @@ class TestScanEmailsTokenHandling:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -459,7 +466,7 @@ class TestScanEmailsTokenHandling:
         data = response.json()
         assert data["connections_scanned"] == 1
         assert data["emails_found"] == 0
-        assert data["errors"] == []   # skipped, not an error
+        assert data["errors"] == []  # skipped, not an error
 
 
 # =============================================================================
@@ -501,13 +508,11 @@ class TestScanEmailsErrorIsolation:
         mock_extract.return_value = {"rate_per_kwh": 0.12}
         mock_decrypt.return_value = "plain-token"
 
-        connections = [
-            _make_connection_row(conn_id=f"c{i}", provider="gmail")
-            for i in range(3)
-        ]
+        connections = [_make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(3)]
         mock_db = _make_db_with_connections(connections)
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -554,6 +559,7 @@ class TestScanEmailsErrorIsolation:
         mock_db.execute = AsyncMock(side_effect=_execute_side_effect)
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -567,14 +573,13 @@ class TestScanEmailsErrorIsolation:
         assert data["errors"] == []
 
     @patch("utils.encryption.decrypt_field", side_effect=Exception("decryption error"))
-    def test_decryption_failure_recorded_as_connection_error(
-        self, mock_decrypt, auth_client
-    ):
+    def test_decryption_failure_recorded_as_connection_error(self, mock_decrypt, auth_client):
         """A decrypt_field exception is captured per-connection and surfaced in errors."""
         conn = _make_connection_row(conn_id="c1")
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -584,11 +589,12 @@ class TestScanEmailsErrorIsolation:
         assert data["connections_scanned"] == 1
         assert len(data["errors"]) == 1
         assert data["errors"][0]["connection_id"] == "c1"
-        assert "decryption error" in data["errors"][0]["error"]
+        assert "See server logs for details" in data["errors"][0]["error"]
 
     def test_db_unavailable_returns_503(self, auth_client):
         """When db is None the endpoint must return 503, not 500."""
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: None
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -604,7 +610,6 @@ class TestScanEmailsErrorIsolation:
 class TestScanEmailsConcurrency:
     """Verify that the semaphore limits peak concurrency toward email APIs."""
 
-    @pytest.mark.asyncio
     async def test_semaphore_limits_peak_concurrency(self):
         """
         Directly invoke the endpoint logic via the scan_all_emails coroutine
@@ -633,21 +638,18 @@ class TestScanEmailsConcurrency:
                 side_effect=_counting_scan,
             ),
         ):
-            conns = [
-                _make_connection_row(conn_id=f"c{i}", provider="gmail")
-                for i in range(10)
-            ]
+            conns = [_make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(10)]
 
             # Build a mock DB that returns the connections list
             mock_db = _make_db_with_connections(conns)
 
             # Call the endpoint function directly (bypasses HTTP stack)
             from api.v1.internal.email_scan import scan_all_emails
+
             result = await scan_all_emails(db=mock_db)
 
         assert peak <= _mod._SCAN_SEMAPHORE_LIMIT, (
-            f"Peak concurrency {peak} exceeded semaphore limit "
-            f"{_mod._SCAN_SEMAPHORE_LIMIT}"
+            f"Peak concurrency {peak} exceeded semaphore limit {_mod._SCAN_SEMAPHORE_LIMIT}"
         )
         assert result["connections_scanned"] == 10
 
@@ -702,6 +704,7 @@ class TestScanEmailsAuth:
         mock_db = _make_db_with_connections([])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -730,6 +733,7 @@ class TestScanEmailsResponseSchema:
         mock_db = _make_db_with_connections([conn])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")
@@ -745,6 +749,7 @@ class TestScanEmailsResponseSchema:
         mock_db = _make_db_with_connections([])
 
         from main import app
+
         app.dependency_overrides[get_db_session] = lambda: mock_db
 
         response = auth_client.post(f"{BASE_URL}/scan-emails")

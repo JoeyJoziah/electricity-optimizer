@@ -15,13 +15,12 @@ Coverage:
   - Paid-tier gate enforcement on analytics endpoints
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Stable test IDs
@@ -110,7 +109,7 @@ def client():
 @pytest.fixture(autouse=True)
 def _clean_overrides():
     """Clean dependency overrides and reset rate limiter before/after each test."""
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -123,9 +122,9 @@ def _clean_overrides():
 
 def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
     """Install auth + DB overrides so require_paid_tier succeeds."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id, tier=tier)
     db = _mock_db()
@@ -153,7 +152,6 @@ BASE = "/api/v1/connections"
 class TestGetRateComparisonService:
     """Unit tests for ConnectionAnalyticsService.get_rate_comparison."""
 
-    @pytest.mark.asyncio
     async def test_get_rate_comparison_with_data(self):
         """Returns full comparison dict when extracted rates exist.
 
@@ -162,27 +160,31 @@ class TestGetRateComparisonService:
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Query 1: combined rate + region JOIN (user_region now returned inline)
-        rate_region_row = _DictRow({
-            "rate_per_kwh": 0.2500,
-            "supplier_name": "Eversource",
-            "effective_date": now,
-            "connection_id": TEST_CONNECTION_ID,
-            "connection_type": "direct",
-            "user_region": "US_CT",
-        })
+        rate_region_row = _DictRow(
+            {
+                "rate_per_kwh": 0.2500,
+                "supplier_name": "Eversource",
+                "effective_date": now,
+                "connection_id": TEST_CONNECTION_ID,
+                "connection_type": "direct",
+                "user_region": "US_CT",
+            }
+        )
         rate_region_result = MagicMock()
         rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
         # Query 2: market aggregate
-        market_row = _DictRow({
-            "avg_price": 0.2000,
-            "min_price": 0.1500,
-            "max_price": 0.2800,
-            "sample_count": 42,
-        })
+        market_row = _DictRow(
+            {
+                "avg_price": 0.2000,
+                "min_price": 0.1500,
+                "max_price": 0.2800,
+                "sample_count": 42,
+            }
+        )
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
@@ -202,7 +204,6 @@ class TestGetRateComparisonService:
         assert result["sample_count"] == 42
         assert result["region"] == "US_CT"
 
-    @pytest.mark.asyncio
     async def test_get_rate_comparison_no_data(self):
         """Returns has_data=False when no extracted rates exist."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -217,7 +218,6 @@ class TestGetRateComparisonService:
         assert result["has_data"] is False
         assert "message" in result
 
-    @pytest.mark.asyncio
     async def test_get_rate_comparison_with_connection_id_filter(self):
         """Query includes connection_id filter when provided."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -235,7 +235,6 @@ class TestGetRateComparisonService:
         params = call_args[0][1]
         assert params.get("cid") == TEST_CONNECTION_ID
 
-    @pytest.mark.asyncio
     async def test_get_rate_comparison_below_average(self):
         """User rate below market average: delta is negative, is_above_average=False.
 
@@ -244,27 +243,31 @@ class TestGetRateComparisonService:
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Query 1: combined rate + region
-        rate_region_row = _DictRow({
-            "rate_per_kwh": 0.1500,
-            "supplier_name": "UI",
-            "effective_date": now,
-            "connection_id": TEST_CONNECTION_ID,
-            "connection_type": "direct",
-            "user_region": "US_CT",
-        })
+        rate_region_row = _DictRow(
+            {
+                "rate_per_kwh": 0.1500,
+                "supplier_name": "UI",
+                "effective_date": now,
+                "connection_id": TEST_CONNECTION_ID,
+                "connection_type": "direct",
+                "user_region": "US_CT",
+            }
+        )
         rate_region_result = MagicMock()
         rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
         # Query 2: market aggregate
-        market_row = _DictRow({
-            "avg_price": 0.2000,
-            "min_price": 0.1200,
-            "max_price": 0.2800,
-            "sample_count": 10,
-        })
+        market_row = _DictRow(
+            {
+                "avg_price": 0.2000,
+                "min_price": 0.1200,
+                "max_price": 0.2800,
+                "sample_count": 10,
+            }
+        )
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
@@ -281,33 +284,36 @@ class TestGetRateComparisonService:
 class TestGetRateHistoryService:
     """Unit tests for ConnectionAnalyticsService.get_rate_history."""
 
-    @pytest.mark.asyncio
     async def test_get_rate_history_returns_data_points(self):
         """Returns list of data points from extracted rates."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         rows = [
-            _DictRow({
-                "rate_per_kwh": 0.21,
-                "supplier_name": "Eversource",
-                "effective_date": now - timedelta(days=10),
-                "source": "bill_parse",
-                "connection_id": TEST_CONNECTION_ID,
-                "connection_type": "direct",
-                "label": "Home",
-            }),
-            _DictRow({
-                "rate_per_kwh": 0.23,
-                "supplier_name": "Eversource",
-                "effective_date": now,
-                "source": "bill_parse",
-                "connection_id": TEST_CONNECTION_ID,
-                "connection_type": "direct",
-                "label": "Home",
-            }),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.21,
+                    "supplier_name": "Eversource",
+                    "effective_date": now - timedelta(days=10),
+                    "source": "bill_parse",
+                    "connection_id": TEST_CONNECTION_ID,
+                    "connection_type": "direct",
+                    "label": "Home",
+                }
+            ),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.23,
+                    "supplier_name": "Eversource",
+                    "effective_date": now,
+                    "source": "bill_parse",
+                    "connection_id": TEST_CONNECTION_ID,
+                    "connection_type": "direct",
+                    "label": "Home",
+                }
+            ),
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -322,7 +328,6 @@ class TestGetRateHistoryService:
         assert output["data_points"][0]["rate"] == 0.21
         assert output["data_points"][1]["rate"] == 0.23
 
-    @pytest.mark.asyncio
     async def test_get_rate_history_empty(self):
         """Returns empty data_points when no history exists."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -338,7 +343,6 @@ class TestGetRateHistoryService:
         assert output["total"] == 0
         assert output["data_points"] == []
 
-    @pytest.mark.asyncio
     async def test_get_rate_history_custom_days(self):
         """Custom days parameter is passed through."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -355,7 +359,6 @@ class TestGetRateHistoryService:
         params = db.execute.call_args[0][1]
         assert params["days"] == 90
 
-    @pytest.mark.asyncio
     async def test_get_rate_history_with_connection_filter(self):
         """Connection ID filter is passed in query params."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -375,7 +378,6 @@ class TestGetRateHistoryService:
 class TestGetSavingsEstimateService:
     """Unit tests for ConnectionAnalyticsService.get_savings_estimate."""
 
-    @pytest.mark.asyncio
     async def test_savings_user_above_market(self):
         """User rate above market → positive savings."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -414,7 +416,6 @@ class TestGetSavingsEstimateService:
         assert result["current_annual_cost"] == pytest.approx(0.25 * 10800, abs=0.01)
         assert result["best_annual_cost"] == pytest.approx(0.15 * 10800, abs=0.01)
 
-    @pytest.mark.asyncio
     async def test_savings_user_below_market(self):
         """User rate below market best → zero savings vs best."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -449,7 +450,6 @@ class TestGetSavingsEstimateService:
         # user_rate < market_avg → no savings vs avg either
         assert result["estimated_annual_savings_vs_average"] == 0
 
-    @pytest.mark.asyncio
     async def test_savings_no_rate_data(self):
         """Returns has_data=False when no comparison data."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -471,26 +471,27 @@ class TestGetSavingsEstimateService:
 class TestCheckStaleConnectionsService:
     """Unit tests for ConnectionAnalyticsService.check_stale_connections."""
 
-    @pytest.mark.asyncio
     async def test_stale_connections_detected(self):
         """Returns stale connections when last_scan_at is old."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        old_scan = datetime.now(timezone.utc) - timedelta(days=45)
-        created = datetime.now(timezone.utc) - timedelta(days=60)
+        old_scan = datetime.now(UTC) - timedelta(days=45)
+        created = datetime.now(UTC) - timedelta(days=60)
 
         rows = [
-            _DictRow({
-                "id": TEST_CONNECTION_ID,
-                "connection_type": "direct",
-                "label": "Home",
-                "email_provider": None,
-                "status": "active",
-                "last_scan_at": old_scan,
-                "updated_at": old_scan,
-                "created_at": created,
-            })
+            _DictRow(
+                {
+                    "id": TEST_CONNECTION_ID,
+                    "connection_type": "direct",
+                    "label": "Home",
+                    "email_provider": None,
+                    "status": "active",
+                    "last_scan_at": old_scan,
+                    "updated_at": old_scan,
+                    "created_at": created,
+                }
+            )
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -504,7 +505,6 @@ class TestCheckStaleConnectionsService:
         assert stale[0]["connection_type"] == "direct"
         assert stale[0]["days_since_sync"] >= 45
 
-    @pytest.mark.asyncio
     async def test_no_stale_connections(self):
         """Returns empty list when no stale connections."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -519,25 +519,26 @@ class TestCheckStaleConnectionsService:
 
         assert stale == []
 
-    @pytest.mark.asyncio
     async def test_stale_connection_null_last_scan_at(self):
         """Connection with NULL last_scan_at falls back to created_at for days calculation."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        created = datetime.now(timezone.utc) - timedelta(days=50)
+        created = datetime.now(UTC) - timedelta(days=50)
 
         rows = [
-            _DictRow({
-                "id": TEST_CONNECTION_ID,
-                "connection_type": "email_import",
-                "label": None,
-                "email_provider": "gmail",
-                "status": "active",
-                "last_scan_at": None,
-                "updated_at": created,
-                "created_at": created,
-            })
+            _DictRow(
+                {
+                    "id": TEST_CONNECTION_ID,
+                    "connection_type": "email_import",
+                    "label": None,
+                    "email_provider": "gmail",
+                    "status": "active",
+                    "last_scan_at": None,
+                    "updated_at": created,
+                    "created_at": created,
+                }
+            )
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -554,23 +555,24 @@ class TestCheckStaleConnectionsService:
 class TestDetectRateChangesService:
     """Unit tests for ConnectionAnalyticsService.detect_rate_changes."""
 
-    @pytest.mark.asyncio
     async def test_significant_rate_change_detected(self):
         """Rate change >=5% produces an alert."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         rows = [
-            _DictRow({
-                "rate_per_kwh": 0.2700,
-                "supplier_name": "Eversource",
-                "effective_date": now,
-                "connection_id": TEST_CONNECTION_ID,
-                "label": "Home",
-                "prev_rate": 0.2400,  # 12.5% increase
-            }),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.2700,
+                    "supplier_name": "Eversource",
+                    "effective_date": now,
+                    "connection_id": TEST_CONNECTION_ID,
+                    "label": "Home",
+                    "prev_rate": 0.2400,  # 12.5% increase
+                }
+            ),
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -585,23 +587,24 @@ class TestDetectRateChangesService:
         assert alerts[0]["current_rate"] == 0.27
         assert alerts[0]["previous_rate"] == 0.24
 
-    @pytest.mark.asyncio
     async def test_no_significant_rate_change(self):
         """Rate change <5% produces no alert."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         rows = [
-            _DictRow({
-                "rate_per_kwh": 0.2510,
-                "supplier_name": "Eversource",
-                "effective_date": now,
-                "connection_id": TEST_CONNECTION_ID,
-                "label": "Home",
-                "prev_rate": 0.2500,  # 0.4% change — below threshold
-            }),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.2510,
+                    "supplier_name": "Eversource",
+                    "effective_date": now,
+                    "connection_id": TEST_CONNECTION_ID,
+                    "label": "Home",
+                    "prev_rate": 0.2500,  # 0.4% change — below threshold
+                }
+            ),
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -612,23 +615,24 @@ class TestDetectRateChangesService:
 
         assert alerts == []
 
-    @pytest.mark.asyncio
     async def test_rate_change_skips_null_prev(self):
         """Rows with NULL prev_rate (first extraction) are skipped."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         rows = [
-            _DictRow({
-                "rate_per_kwh": 0.25,
-                "supplier_name": "Eversource",
-                "effective_date": now,
-                "connection_id": TEST_CONNECTION_ID,
-                "label": "Home",
-                "prev_rate": None,  # No previous rate
-            }),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.25,
+                    "supplier_name": "Eversource",
+                    "effective_date": now,
+                    "connection_id": TEST_CONNECTION_ID,
+                    "label": "Home",
+                    "prev_rate": None,  # No previous rate
+                }
+            ),
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -639,23 +643,24 @@ class TestDetectRateChangesService:
 
         assert alerts == []
 
-    @pytest.mark.asyncio
     async def test_rate_decrease_detected(self):
         """Rate decrease >=5% detected with direction='decrease'."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         rows = [
-            _DictRow({
-                "rate_per_kwh": 0.2000,
-                "supplier_name": "UI",
-                "effective_date": now,
-                "connection_id": TEST_CONNECTION_ID,
-                "label": "Office",
-                "prev_rate": 0.2500,  # 20% decrease
-            }),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.2000,
+                    "supplier_name": "UI",
+                    "effective_date": now,
+                    "connection_id": TEST_CONNECTION_ID,
+                    "label": "Office",
+                    "prev_rate": 0.2500,  # 20% decrease
+                }
+            ),
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -668,7 +673,6 @@ class TestDetectRateChangesService:
         assert alerts[0]["direction"] == "decrease"
         assert alerts[0]["change_percentage"] == pytest.approx(20.0, abs=0.1)
 
-    @pytest.mark.asyncio
     async def test_rate_change_no_rows(self):
         """Empty result set produces no alerts."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -699,26 +703,30 @@ class TestAnalyticsComparisonEndpoint:
         """
         db = _install_auth()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Query 1: combined rate + region (single JOIN)
-        rate_region_row = _DictRow({
-            "rate_per_kwh": 0.25,
-            "supplier_name": "Eversource",
-            "effective_date": now,
-            "connection_id": TEST_CONNECTION_ID,
-            "connection_type": "direct",
-            "user_region": "US_CT",
-        })
+        rate_region_row = _DictRow(
+            {
+                "rate_per_kwh": 0.25,
+                "supplier_name": "Eversource",
+                "effective_date": now,
+                "connection_id": TEST_CONNECTION_ID,
+                "connection_type": "direct",
+                "user_region": "US_CT",
+            }
+        )
         rate_region_result = MagicMock()
         rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
         # Query 2: market aggregate
-        market_row = _DictRow({
-            "avg_price": 0.20,
-            "min_price": 0.15,
-            "max_price": 0.28,
-            "sample_count": 50,
-        })
+        market_row = _DictRow(
+            {
+                "avg_price": 0.20,
+                "min_price": 0.15,
+                "max_price": 0.28,
+                "sample_count": 50,
+            }
+        )
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
@@ -757,9 +765,9 @@ class TestAnalyticsComparisonEndpoint:
 
     def test_comparison_requires_paid_tier(self, client):
         """Free-tier user gets 403."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         app.dependency_overrides.pop(require_paid_tier, None)
 
@@ -781,17 +789,19 @@ class TestAnalyticsHistoryEndpoint:
         """Endpoint returns data points list."""
         db = _install_auth()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rows = [
-            _DictRow({
-                "rate_per_kwh": 0.22,
-                "supplier_name": "Eversource",
-                "effective_date": now - timedelta(days=5),
-                "source": "bill_parse",
-                "connection_id": TEST_CONNECTION_ID,
-                "connection_type": "direct",
-                "label": "Home",
-            }),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.22,
+                    "supplier_name": "Eversource",
+                    "effective_date": now - timedelta(days=5),
+                    "source": "bill_parse",
+                    "connection_id": TEST_CONNECTION_ID,
+                    "connection_type": "direct",
+                    "label": "Home",
+                }
+            ),
         ]
         history_result = MagicMock()
         history_result.mappings.return_value.all.return_value = rows
@@ -855,27 +865,31 @@ class TestAnalyticsSavingsEndpoint:
         Uses 2-query pattern via get_rate_comparison: (1) rate+region JOIN, (2) market.
         """
         db = _install_auth()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Query 1: combined rate + region
-        rate_region_row = _DictRow({
-            "rate_per_kwh": 0.25,
-            "supplier_name": "Eversource",
-            "effective_date": now,
-            "connection_id": TEST_CONNECTION_ID,
-            "connection_type": "direct",
-            "user_region": "US_CT",
-        })
+        rate_region_row = _DictRow(
+            {
+                "rate_per_kwh": 0.25,
+                "supplier_name": "Eversource",
+                "effective_date": now,
+                "connection_id": TEST_CONNECTION_ID,
+                "connection_type": "direct",
+                "user_region": "US_CT",
+            }
+        )
         rate_region_result = MagicMock()
         rate_region_result.mappings.return_value.first.return_value = rate_region_row
 
         # Query 2: market aggregate
-        market_row = _DictRow({
-            "avg_price": 0.20,
-            "min_price": 0.15,
-            "max_price": 0.28,
-            "sample_count": 20,
-        })
+        market_row = _DictRow(
+            {
+                "avg_price": 0.20,
+                "min_price": 0.15,
+                "max_price": 0.28,
+                "sample_count": 20,
+            }
+        )
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = market_row
 
@@ -922,31 +936,35 @@ class TestAnalyticsHealthEndpoint:
         """Returns stale_connections and rate_change_alerts lists."""
         db = _install_auth()
 
-        old_scan = datetime.now(timezone.utc) - timedelta(days=45)
-        created_at = datetime.now(timezone.utc) - timedelta(days=60)
+        old_scan = datetime.now(UTC) - timedelta(days=45)
+        created_at = datetime.now(UTC) - timedelta(days=60)
 
         stale_rows = [
-            _DictRow({
-                "id": TEST_CONNECTION_ID,
-                "connection_type": "direct",
-                "label": "Home",
-                "email_provider": None,
-                "status": "active",
-                "last_scan_at": old_scan,
-                "updated_at": old_scan,
-                "created_at": created_at,
-            })
+            _DictRow(
+                {
+                    "id": TEST_CONNECTION_ID,
+                    "connection_type": "direct",
+                    "label": "Home",
+                    "email_provider": None,
+                    "status": "active",
+                    "last_scan_at": old_scan,
+                    "updated_at": old_scan,
+                    "created_at": created_at,
+                }
+            )
         ]
 
         change_rows = [
-            _DictRow({
-                "rate_per_kwh": 0.27,
-                "supplier_name": "Eversource",
-                "effective_date": datetime.now(timezone.utc),
-                "connection_id": TEST_CONNECTION_ID,
-                "label": "Home",
-                "prev_rate": 0.24,
-            }),
+            _DictRow(
+                {
+                    "rate_per_kwh": 0.27,
+                    "supplier_name": "Eversource",
+                    "effective_date": datetime.now(UTC),
+                    "connection_id": TEST_CONNECTION_ID,
+                    "label": "Home",
+                    "prev_rate": 0.24,
+                }
+            ),
         ]
 
         stale_result = MagicMock()
@@ -1053,9 +1071,9 @@ class TestUpdateConnectionEndpoint:
 
     def test_update_connection_requires_paid_tier(self, client):
         """Free-tier user cannot update connections."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         app.dependency_overrides.pop(require_paid_tier, None)
 

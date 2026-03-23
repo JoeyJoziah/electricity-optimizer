@@ -15,18 +15,18 @@ list_versions(model_name, limit)      -> List[ModelConfig]
 """
 
 import json
-import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.model_config import ModelConfig
 from repositories.base import RepositoryError
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class ModelConfigRepository:
@@ -46,7 +46,7 @@ class ModelConfigRepository:
     # Read helpers
     # ------------------------------------------------------------------
 
-    async def get_active_config(self, model_name: str) -> Optional[ModelConfig]:
+    async def get_active_config(self, model_name: str) -> ModelConfig | None:
         """
         Return the currently active configuration for *model_name*.
 
@@ -76,15 +76,13 @@ class ModelConfigRepository:
                 return None
             return self._row_to_model(row)
         except Exception as exc:
-            raise RepositoryError(
-                f"Failed to get active config for {model_name!r}: {exc}", exc
-            )
+            raise RepositoryError(f"Failed to get active config for {model_name!r}: {exc}", exc)
 
     async def list_versions(
         self,
         model_name: str,
         limit: int = 20,
-    ) -> List[ModelConfig]:
+    ) -> list[ModelConfig]:
         """
         Return up to *limit* historical configurations for *model_name*,
         newest first.  Useful for auditing or rolling back weights.
@@ -104,9 +102,7 @@ class ModelConfigRepository:
             )
             return [self._row_to_model(row) for row in result.fetchall()]
         except Exception as exc:
-            raise RepositoryError(
-                f"Failed to list versions for {model_name!r}: {exc}", exc
-            )
+            raise RepositoryError(f"Failed to list versions for {model_name!r}: {exc}", exc)
 
     # ------------------------------------------------------------------
     # Write helpers
@@ -116,9 +112,9 @@ class ModelConfigRepository:
         self,
         model_name: str,
         version: str,
-        weights: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-        metrics: Optional[Dict[str, Any]] = None,
+        weights: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+        metrics: dict[str, Any] | None = None,
     ) -> ModelConfig:
         """
         Persist a new weight configuration and mark it active.
@@ -133,12 +129,25 @@ class ModelConfigRepository:
         under normal operation (single-writer assumption).
         """
         new_id = str(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         metadata = metadata or {}
         metrics = metrics or {}
 
         try:
-            # Step 1: deactivate existing active configs
+            # Step 1a: acquire row-level lock on the current active config
+            # to prevent concurrent save_config calls from both reading
+            # is_active=true and creating duplicate active rows.
+            await self._db.execute(
+                text(
+                    "SELECT id FROM model_config"
+                    " WHERE model_name = :model_name"
+                    "   AND is_active = true"
+                    " FOR UPDATE"
+                ),
+                {"model_name": model_name},
+            )
+
+            # Step 1b: deactivate existing active configs
             await self._db.execute(
                 text(
                     "UPDATE model_config"
@@ -177,10 +186,10 @@ class ModelConfigRepository:
             await self._db.commit()
 
             logger.info(
-                "model_config_saved model_name=%s version=%s id=%s",
-                model_name,
-                version,
-                new_id,
+                "model_config_saved",
+                model_name=model_name,
+                version=version,
+                id=new_id,
             )
 
             return ModelConfig(

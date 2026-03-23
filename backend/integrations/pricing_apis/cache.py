@@ -9,12 +9,12 @@ Provides intelligent caching with:
 - Metrics and monitoring
 """
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Optional, TypeVar, Generic
 import asyncio
-import hashlib
 import json
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Any, Generic, TypeVar
 
 import structlog
 
@@ -66,7 +66,7 @@ class CacheEntry(Generic[T]):
         timezone-aware (production) or naive (tests that pass datetime.utcnow()).
         """
         if self.created_at.tzinfo is not None:
-            return datetime.now(timezone.utc)
+            return datetime.now(UTC)
         return datetime.utcnow()  # noqa: DTZ003 — intentional naive match
 
     @property
@@ -125,7 +125,7 @@ class PricingCache:
     def __init__(
         self,
         redis_client,  # Redis client (async)
-        config: Optional[CacheConfig] = None,
+        config: CacheConfig | None = None,
     ):
         self.redis = redis_client
         self.config = config or CacheConfig()
@@ -156,9 +156,9 @@ class PricingCache:
     async def get(
         self,
         key: str,
-        fetch_func: Optional[Callable[[], Any]] = None,
-        ttl: Optional[int] = None,
-    ) -> Optional[Any]:
+        fetch_func: Callable[[], Any] | None = None,
+        ttl: int | None = None,
+    ) -> Any | None:
         """
         Get value from cache with optional fetch on miss.
 
@@ -228,7 +228,7 @@ class PricingCache:
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """
         Set value in cache.
@@ -247,7 +247,7 @@ class PricingCache:
         try:
             entry = CacheEntry(
                 value=value,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 ttl_seconds=effective_ttl,
                 key=key,
             )
@@ -332,7 +332,7 @@ class PricingCache:
         self,
         key: str,
         fetch_func: Callable[[], Any],
-        ttl: Optional[int],
+        ttl: int | None,
     ) -> None:
         """Schedule background refresh for a key"""
         async with self._refresh_lock:
@@ -353,12 +353,21 @@ class PricingCache:
                         key=key,
                         error=str(e),
                     )
-                finally:
-                    async with self._refresh_lock:
-                        self._refresh_tasks.pop(key, None)
 
-            task = asyncio.create_task(refresh())
+            try:
+                task = asyncio.create_task(refresh())
+            except RuntimeError:
+                # Event loop closed — cannot schedule refresh
+                return
+
             self._refresh_tasks[key] = task
+
+            # Use done_callback for guaranteed cleanup even on cancellation
+            # (19-P2-4).  This runs regardless of how the task finishes.
+            def _on_done(_t: asyncio.Task, _key: str = key) -> None:
+                self._refresh_tasks.pop(_key, None)
+
+            task.add_done_callback(_on_done)
 
     # ==========================================================================
     # Convenience methods for pricing data
@@ -386,8 +395,8 @@ class PricingCache:
         self,
         api: str,
         region: str,
-        fetch_func: Optional[Callable[[], Any]] = None,
-    ) -> Optional[dict]:
+        fetch_func: Callable[[], Any] | None = None,
+    ) -> dict | None:
         """Get current price with appropriate TTL"""
         key = self.current_price_key(api, region)
         return await self.get(key, fetch_func, self.config.current_price_ttl)
@@ -407,8 +416,8 @@ class PricingCache:
         api: str,
         region: str,
         hours: int,
-        fetch_func: Optional[Callable[[], Any]] = None,
-    ) -> Optional[dict]:
+        fetch_func: Callable[[], Any] | None = None,
+    ) -> dict | None:
         """Get forecast with appropriate TTL"""
         key = self.forecast_key(api, region, hours)
         return await self.get(key, fetch_func, self.config.price_forecast_ttl)
@@ -486,10 +495,7 @@ class PricingCache:
                 )
                 return "failed"
 
-        tasks = [
-            warm_item(key, func, ttl)
-            for key, func, ttl in items
-        ]
+        tasks = [warm_item(key, func, ttl) for key, func, ttl in items]
 
         outcomes = await asyncio.gather(*tasks)
 
@@ -519,7 +525,7 @@ class InMemoryCache(PricingCache):
     Not suitable for distributed systems.
     """
 
-    def __init__(self, config: Optional[CacheConfig] = None):
+    def __init__(self, config: CacheConfig | None = None):
         self.config = config or CacheConfig()
         self.logger = logger.bind(component="memory_cache")
 
@@ -536,9 +542,9 @@ class InMemoryCache(PricingCache):
     async def get(
         self,
         key: str,
-        fetch_func: Optional[Callable[[], Any]] = None,
-        ttl: Optional[int] = None,
-    ) -> Optional[Any]:
+        fetch_func: Callable[[], Any] | None = None,
+        ttl: int | None = None,
+    ) -> Any | None:
         """Get value from in-memory cache"""
         full_key = self._generate_key(key)
 
@@ -583,7 +589,7 @@ class InMemoryCache(PricingCache):
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """Set value in memory cache"""
         full_key = self._generate_key(key)
@@ -592,7 +598,7 @@ class InMemoryCache(PricingCache):
         async with self._lock:
             self._cache[full_key] = CacheEntry(
                 value=value,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 ttl_seconds=effective_ttl,
                 key=key,
             )
@@ -618,10 +624,7 @@ class InMemoryCache(PricingCache):
         deleted = 0
 
         async with self._lock:
-            keys_to_delete = [
-                k for k in self._cache.keys()
-                if fnmatch.fnmatch(k, full_pattern)
-            ]
+            keys_to_delete = [k for k in self._cache if fnmatch.fnmatch(k, full_pattern)]
             for key in keys_to_delete:
                 del self._cache[key]
                 deleted += 1
@@ -654,10 +657,7 @@ class InMemoryCache(PricingCache):
         expired = 0
 
         async with self._lock:
-            keys_to_delete = [
-                k for k, v in self._cache.items()
-                if v.is_expired
-            ]
+            keys_to_delete = [k for k, v in self._cache.items() if v.is_expired]
             for key in keys_to_delete:
                 del self._cache[key]
                 expired += 1

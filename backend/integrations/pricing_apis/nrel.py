@@ -10,33 +10,31 @@ Supported Regions:
 - All US states via ZIP code or state abbreviation
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
 from .base import (
+    APIError,
     BasePricingClient,
+    CircuitBreakerConfig,
     PriceData,
     PriceForecast,
-    PricingRegion,
     PriceUnit,
-    APIError,
+    PricingRegion,
     RetryConfig,
-    CircuitBreakerConfig,
 )
-from .rate_limiter import RateLimiter, create_api_rate_limiter
 from .cache import PricingCache
+from .rate_limiter import RateLimiter, create_api_rate_limiter
 
 logger = structlog.get_logger(__name__)
 
 
 # Build NREL_REGION_MAP dynamically for all US regions.
 # PricingRegion is aliased to models.region.Region (all 50 states + DC).
-NREL_REGION_MAP: dict[PricingRegion, str] = {
-    r: r.state_code for r in PricingRegion if r.is_us
-}
+NREL_REGION_MAP: dict[PricingRegion, str] = {r: r.state_code for r in PricingRegion if r.is_us}
 
 # Representative ZIP codes for each state (for API calls).
 # Capital / major-city ZIP used for rate lookups.
@@ -112,7 +110,7 @@ class NRELClient(BasePricingClient):
 
     Example usage:
         ```python
-        async with NRELClient(api_key="your-nrel-key") as client:
+        async with NRELClient(api_key="<REDACTED>") as client:
             # Get current rate by ZIP code
             price = await client.get_current_price(PricingRegion.US_CA)
             print(f"Average rate: {price.price} {price.currency}/{price.unit}")
@@ -129,12 +127,12 @@ class NRELClient(BasePricingClient):
         self,
         api_key: str,
         timeout: float = 30.0,
-        retry_config: Optional[RetryConfig] = None,
-        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
-        rate_limiter: Optional[RateLimiter] = None,
-        cache: Optional[PricingCache] = None,
+        retry_config: RetryConfig | None = None,
+        circuit_breaker_config: CircuitBreakerConfig | None = None,
+        rate_limiter: RateLimiter | None = None,
+        cache: PricingCache | None = None,
         default_sector: str = SECTOR_RESIDENTIAL,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
     ):
         """
         Initialize NREL client.
@@ -224,7 +222,7 @@ class NRELClient(BasePricingClient):
 
         return PriceData(
             region=region,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             price=price,
             unit=PriceUnit.KWH,
             currency="USD",
@@ -346,7 +344,7 @@ class NRELClient(BasePricingClient):
         # This is a simplified model - real implementation would use
         # actual TOU schedules from the utility
         prices = []
-        base_time = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        base_time = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
 
         for hour_offset in range(hours):
             forecast_time = base_time + timedelta(hours=hour_offset)
@@ -381,7 +379,7 @@ class NRELClient(BasePricingClient):
 
         result = PriceForecast(
             region=region,
-            forecast_generated_at=datetime.now(timezone.utc),
+            forecast_generated_at=datetime.now(UTC),
             forecast_horizon_hours=hours,
             source_api="nrel",
             prices=prices,
@@ -402,10 +400,10 @@ class NRELClient(BasePricingClient):
 
     async def get_utility_rates(
         self,
-        zip_code: Optional[str] = None,
-        lat: Optional[float] = None,
-        lon: Optional[float] = None,
-        address: Optional[str] = None,
+        zip_code: str | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
+        address: str | None = None,
     ) -> dict:
         """
         Get detailed utility rate information for a location.
@@ -434,9 +432,7 @@ class NRELClient(BasePricingClient):
         elif address:
             params["address"] = address
         else:
-            raise ValueError(
-                "Must provide zip_code, (lat, lon), or address"
-            )
+            raise ValueError("Must provide zip_code, (lat, lon), or address")
 
         self.logger.info("fetching_utility_rates", params=params)
 

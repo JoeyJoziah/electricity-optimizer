@@ -1,10 +1,8 @@
 """Tests for AffiliateService."""
 
-import pytest
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
-from services.affiliate_service import AffiliateService, AFFILIATE_PARTNERS
+from services.affiliate_service import AFFILIATE_PARTNERS, AffiliateService
 
 
 def _mock_db():
@@ -62,7 +60,6 @@ class TestGenerateAffiliateUrl:
 
 
 class TestRecordClick:
-    @pytest.mark.asyncio
     async def test_records_click_and_returns_id(self):
         db = _mock_db()
         service = AffiliateService(db)
@@ -80,7 +77,6 @@ class TestRecordClick:
         db.execute.assert_called_once()
         db.commit.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_records_click_without_user(self):
         db = _mock_db()
         service = AffiliateService(db)
@@ -98,7 +94,6 @@ class TestRecordClick:
 
 
 class TestMarkConverted:
-    @pytest.mark.asyncio
     async def test_marks_as_converted(self):
         db = _mock_db()
         result_mock = MagicMock()
@@ -111,7 +106,6 @@ class TestMarkConverted:
         assert converted is True
         db.commit.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_returns_false_when_already_converted(self):
         db = _mock_db()
         result_mock = MagicMock()
@@ -125,22 +119,25 @@ class TestMarkConverted:
 
 
 class TestGetRevenueSummary:
-    @pytest.mark.asyncio
     async def test_returns_summary_by_utility(self):
         db = _mock_db()
         rows = [
-            _row({
-                "utility_type": "electricity",
-                "total_clicks": 100,
-                "conversions": 10,
-                "total_commission_cents": 5000,
-            }),
-            _row({
-                "utility_type": "natural_gas",
-                "total_clicks": 50,
-                "conversions": 3,
-                "total_commission_cents": 1500,
-            }),
+            _row(
+                {
+                    "utility_type": "electricity",
+                    "total_clicks": 100,
+                    "conversions": 10,
+                    "total_commission_cents": 5000,
+                }
+            ),
+            _row(
+                {
+                    "utility_type": "natural_gas",
+                    "total_clicks": 50,
+                    "conversions": 3,
+                    "total_commission_cents": 1500,
+                }
+            ),
         ]
         result_mock = MagicMock()
         result_mock.mappings.return_value.all.return_value = rows
@@ -156,7 +153,6 @@ class TestGetRevenueSummary:
         assert len(summary["by_utility"]) == 2
         assert summary["by_utility"][0]["conversion_rate"] == 10.0
 
-    @pytest.mark.asyncio
     async def test_returns_empty_when_no_clicks(self):
         db = _mock_db()
         result_mock = MagicMock()

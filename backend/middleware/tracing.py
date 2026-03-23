@@ -19,7 +19,6 @@ import uuid
 import structlog
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-
 logger = structlog.get_logger(__name__)
 
 # Only allow safe ASCII tokens as caller-supplied request IDs (max 64 chars)
@@ -56,6 +55,13 @@ class TracingMiddleware:
 
         # Store on scope state for endpoint access via request.state.trace_id
         scope.setdefault("state", {})["trace_id"] = trace_id
+
+        # Clear any context vars leftover from a previous request that ran on
+        # the same thread / asyncio task before binding fresh values.  Without
+        # this, trace_id and any other bound keys from a prior request can leak
+        # into the current request's log records when the event loop recycles
+        # an existing asyncio.Task for a new connection (common under uvicorn).
+        structlog.contextvars.clear_contextvars()
 
         # Bind to structlog context for automatic inclusion in all log records
         structlog.contextvars.bind_contextvars(trace_id=trace_id)

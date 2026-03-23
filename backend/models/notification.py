@@ -22,12 +22,11 @@ Schema (cumulative across migrations 015, 026, 029, 032):
     error_message    TEXT                               -- migration 032
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Literal, Optional
+from datetime import UTC, datetime
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ---------------------------------------------------------------------------
 # Delivery status literals
@@ -57,24 +56,22 @@ class Notification(BaseModel):
     user_id: str
     type: str = Field(default="info", max_length=50)
     title: str
-    body: Optional[str] = None
-    read_at: Optional[datetime] = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    body: str | None = None
+    read_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Dispatcher metadata (migration 026)
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
     # Delivery tracking (migration 029)
-    delivery_channel: Optional[DeliveryChannel] = None
+    delivery_channel: DeliveryChannel | None = None
     delivery_status: DeliveryStatus = "pending"
-    delivered_at: Optional[datetime] = None
-    delivery_metadata: Dict[str, Any] = Field(default_factory=dict)
+    delivered_at: datetime | None = None
+    delivery_metadata: dict[str, Any] = Field(default_factory=dict)
     retry_count: int = Field(default=0, ge=0)
 
     # Failure diagnostics (migration 032)
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +90,9 @@ class NotificationCreate(BaseModel):
     user_id: str
     type: str = Field(default="info", max_length=50)
     title: str = Field(..., min_length=1)
-    body: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    delivery_channel: Optional[DeliveryChannel] = None
+    body: str | None = None
+    metadata: dict[str, Any] | None = None
+    delivery_channel: DeliveryChannel | None = None
 
 
 class NotificationDeliveryUpdate(BaseModel):
@@ -107,11 +104,11 @@ class NotificationDeliveryUpdate(BaseModel):
     """
 
     delivery_status: DeliveryStatus
-    delivery_channel: Optional[DeliveryChannel] = None
-    delivered_at: Optional[datetime] = None
-    delivery_metadata: Optional[Dict[str, Any]] = None
-    retry_count: Optional[int] = Field(default=None, ge=0)
-    error_message: Optional[str] = None
+    delivery_channel: DeliveryChannel | None = None
+    delivered_at: datetime | None = None
+    delivery_metadata: dict[str, Any] | None = None
+    retry_count: int | None = Field(default=None, ge=0)
+    error_message: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -133,14 +130,14 @@ class NotificationResponse(BaseModel):
     id: str
     type: str
     title: str
-    body: Optional[str] = None
-    read_at: Optional[datetime] = None
+    body: str | None = None
+    read_at: datetime | None = None
     created_at: datetime
 
     # Delivery tracking
-    delivery_channel: Optional[DeliveryChannel] = None
+    delivery_channel: DeliveryChannel | None = None
     delivery_status: DeliveryStatus = "pending"
-    delivered_at: Optional[datetime] = None
+    delivered_at: datetime | None = None
     retry_count: int = 0
 
 

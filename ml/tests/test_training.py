@@ -36,11 +36,7 @@ class TestTrainingConfiguration:
         """Test custom training configuration."""
         from ml.models.price_forecaster import ModelConfig
 
-        config = ModelConfig(
-            epochs=100,
-            batch_size=64,
-            learning_rate=0.0001
-        )
+        config = ModelConfig(epochs=100, batch_size=64, learning_rate=0.0001)
 
         assert config.epochs == 100
         assert config.batch_size == 64
@@ -51,18 +47,14 @@ class TestTrainingConfiguration:
         from ml.models.price_forecaster import ModelConfig
         from dataclasses import asdict
 
-        config = ModelConfig(
-            sequence_length=120,
-            num_features=10,
-            epochs=50
-        )
+        config = ModelConfig(sequence_length=120, num_features=10, epochs=50)
 
         config_dict = asdict(config)
 
         assert isinstance(config_dict, dict)
-        assert config_dict['sequence_length'] == 120
-        assert config_dict['num_features'] == 10
-        assert config_dict['epochs'] == 50
+        assert config_dict["sequence_length"] == 120
+        assert config_dict["num_features"] == 10
+        assert config_dict["epochs"] == 50
 
 
 class TestTrainingCallbacks:
@@ -80,21 +72,22 @@ class TestTrainingCallbacks:
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
             epochs=100,  # Many epochs
-            batch_size=16
+            batch_size=16,
         )
 
         model = ElectricityPriceForecaster(config=config)
 
         # Training should stop early due to EarlyStopping callback
         history = model.fit(
-            X, y,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            X,
+            y,
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
         # Should have stopped before 100 epochs
-        actual_epochs = len(history['loss'])
+        actual_epochs = len(history["loss"])
         # Allow full training for small data
         assert actual_epochs <= 100
 
@@ -110,17 +103,18 @@ class TestTrainingCallbacks:
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
             epochs=3,
-            batch_size=16
+            batch_size=16,
         )
 
-        checkpoint_dir = os.path.join(tmp_model_dir, 'checkpoints')
+        checkpoint_dir = os.path.join(tmp_model_dir, "checkpoints")
 
         model = ElectricityPriceForecaster(config=config)
         model.fit(
-            X, y,
+            X,
+            y,
             checkpoint_dir=checkpoint_dir,
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
         # Check checkpoint was created
@@ -140,17 +134,18 @@ class TestTrainingCallbacks:
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
             epochs=2,
-            batch_size=16
+            batch_size=16,
         )
 
-        log_dir = os.path.join(tmp_model_dir, 'logs')
+        log_dir = os.path.join(tmp_model_dir, "logs")
 
         model = ElectricityPriceForecaster(config=config)
         model.fit(
-            X, y,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
+            X,
+            y,
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
             log_dir=log_dir,
-            verbose=0
+            verbose=0,
         )
 
         # Check logs were created
@@ -170,25 +165,22 @@ class TestTrainingDataValidation:
         X[10, 50, 5] = np.nan  # Add NaN
         y = np.random.randn(50, 24).astype(np.float32)
 
-        config = ModelConfig(
-            sequence_length=168,
-            num_features=10,
-            epochs=1
-        )
+        config = ModelConfig(sequence_length=168, num_features=10, epochs=1)
 
         model = ElectricityPriceForecaster(config=config)
 
         # Should either raise error or handle NaN gracefully
         # (TensorFlow will produce NaN loss with NaN inputs)
         history = model.fit(
-            X, y,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            X,
+            y,
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
         # Check if loss is NaN (indicates NaN propagation)
-        final_loss = history['loss'][-1]
+        final_loss = history["loss"][-1]
         if np.isnan(final_loss):
             # This is expected behavior - NaN in = NaN out
             pass
@@ -205,19 +197,20 @@ class TestTrainingDataValidation:
             sequence_length=X.shape[1],
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
-            epochs=1
+            epochs=1,
         )
 
         model = ElectricityPriceForecaster(config=config)
         history = model.fit(
-            X, y,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            X,
+            y,
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
-        assert 'loss' in history
-        assert len(history['loss']) >= 1
+        assert "loss" in history
+        assert len(history["loss"]) >= 1
 
 
 class TestValidationSplit:
@@ -234,19 +227,20 @@ class TestValidationSplit:
             sequence_length=X.shape[1],
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
-            epochs=2
+            epochs=2,
         )
 
         model = ElectricityPriceForecaster(config=config)
         history = model.fit(
-            X, y,  # No separate validation data
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            X,
+            y,  # No separate validation data
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
         # Should have validation loss
-        assert 'val_loss' in history
+        assert "val_loss" in history
 
     @pytest.mark.requires_tf
     def test_explicit_validation_data(self, sample_training_data, tmp_model_dir):
@@ -263,20 +257,21 @@ class TestValidationSplit:
             sequence_length=X.shape[1],
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
-            epochs=2
+            epochs=2,
         )
 
         model = ElectricityPriceForecaster(config=config)
         history = model.fit(
-            X_train, y_train,
+            X_train,
+            y_train,
             X_val=X_val,
             y_val=y_val,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
-        assert 'val_loss' in history
+        assert "val_loss" in history
 
 
 class TestLearningRateScheduling:
@@ -295,15 +290,16 @@ class TestLearningRateScheduling:
             forecast_horizon=y.shape[1],
             epochs=20,  # Enough epochs for LR reduction
             learning_rate=0.01,  # High LR to trigger reduction
-            batch_size=32
+            batch_size=32,
         )
 
         model = ElectricityPriceForecaster(config=config)
         model.fit(
-            X, y,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            X,
+            y,
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
         # Model should complete training
@@ -331,18 +327,19 @@ class TestTrainingReproducibility:
                 num_features=X.shape[2],
                 forecast_horizon=y.shape[1],
                 epochs=2,
-                batch_size=16
+                batch_size=16,
             )
 
             model = ElectricityPriceForecaster(config=config)
             history = model.fit(
-                X, y,
-                checkpoint_dir=os.path.join(tmp_model_dir, f'checkpoints_{seed}'),
-                log_dir=os.path.join(tmp_model_dir, f'logs_{seed}'),
-                verbose=0
+                X,
+                y,
+                checkpoint_dir=os.path.join(tmp_model_dir, f"checkpoints_{seed}"),
+                log_dir=os.path.join(tmp_model_dir, f"logs_{seed}"),
+                verbose=0,
             )
 
-            return history['loss'][-1]
+            return history["loss"][-1]
 
         # Train twice with same seed
         loss1 = train_with_seed(42)
@@ -363,7 +360,7 @@ class TestModelRegistry:
 
         config = ModelConfig()
 
-        assert hasattr(config, 'name') or hasattr(config, 'version')
+        assert hasattr(config, "name") or hasattr(config, "version")
         # Model should have identifiable version
 
     @pytest.mark.requires_tf
@@ -378,30 +375,31 @@ class TestModelRegistry:
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
             epochs=1,
-            name='test_model',
-            version='1.0.0'
+            name="test_model",
+            version="1.0.0",
         )
 
         model = ElectricityPriceForecaster(config=config)
         model.fit(
-            X, y,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            X,
+            y,
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
-        save_path = os.path.join(tmp_model_dir, 'saved')
+        save_path = os.path.join(tmp_model_dir, "saved")
         model.save(save_path)
 
         # Config should be saved as JSON
-        config_path = os.path.join(save_path, 'config.json')
+        config_path = os.path.join(save_path, "config.json")
         assert os.path.exists(config_path)
 
         with open(config_path) as f:
             saved_config = json.load(f)
 
-        assert saved_config['name'] == 'test_model'
-        assert saved_config['version'] == '1.0.0'
+        assert saved_config["name"] == "test_model"
+        assert saved_config["version"] == "1.0.0"
 
 
 class TestTrainingMetrics:
@@ -419,19 +417,20 @@ class TestTrainingMetrics:
             num_features=X.shape[2],
             forecast_horizon=y.shape[1],
             epochs=3,
-            batch_size=16
+            batch_size=16,
         )
 
         model = ElectricityPriceForecaster(config=config)
         history = model.fit(
-            X, y,
-            checkpoint_dir=os.path.join(tmp_model_dir, 'checkpoints'),
-            log_dir=os.path.join(tmp_model_dir, 'logs'),
-            verbose=0
+            X,
+            y,
+            checkpoint_dir=os.path.join(tmp_model_dir, "checkpoints"),
+            log_dir=os.path.join(tmp_model_dir, "logs"),
+            verbose=0,
         )
 
         # MAE should be tracked (MAPE might be in custom callback)
-        assert 'mae' in history or 'val_mae' in history
+        assert "mae" in history or "val_mae" in history
 
 
 class TestHyperparameterTuning:
@@ -446,7 +445,7 @@ class TestHyperparameterTuning:
                 learning_rate_range=(1e-5, 1e-2),
                 batch_size_options=[16, 32, 64],
                 lstm_units_range=(32, 256),
-                cnn_filters_options=[[32, 64], [64, 128], [64, 128, 64]]
+                cnn_filters_options=[[32, 64], [64, 128], [64, 128, 64]],
             )
 
             assert space.learning_rate_range == (1e-5, 1e-2)
@@ -460,7 +459,7 @@ class TestHyperparameterTuning:
         try:
             from ml.training.hyperparameter_tuning import (
                 HyperparameterTuner,
-                HyperparameterSearchSpace
+                HyperparameterSearchSpace,
             )
 
             X, y = sample_training_data
@@ -468,13 +467,11 @@ class TestHyperparameterTuning:
             space = HyperparameterSearchSpace(
                 learning_rate_range=(1e-4, 1e-2),
                 batch_size_options=[16, 32],
-                lstm_units_range=(16, 64)
+                lstm_units_range=(16, 64),
             )
 
             tuner = HyperparameterTuner(
-                search_space=space,
-                n_trials=2,
-                epochs_per_trial=1
+                search_space=space, n_trials=2, epochs_per_trial=1
             )
 
             best_config = tuner.search(X, y)

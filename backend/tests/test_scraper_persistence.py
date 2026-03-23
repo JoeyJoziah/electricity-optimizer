@@ -28,7 +28,6 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_db_session, get_redis, verify_api_key
 
-
 BASE_URL = "/api/v1/internal"
 
 
@@ -80,6 +79,7 @@ class TestExtractRateFromDiffbotData:
     def _fn(self, data):
         """Import lazily so tests don't depend on module-load order."""
         from api.v1.internal.data_pipeline import _extract_rate_from_diffbot_data
+
         return _extract_rate_from_diffbot_data(data)
 
     # ----- happy paths -------------------------------------------------------
@@ -201,6 +201,7 @@ class TestExtractRateFromDiffbotData:
         """
         # Use monkeypatching to inject a bad capture group
         import re
+
         from api.v1.internal.data_pipeline import _extract_rate_from_diffbot_data
 
         original_search = re.search
@@ -232,21 +233,21 @@ class TestScrapeRatesRateExtraction:
     def test_rates_found_zero_when_no_rate_text(self, mock_svc_cls, auth_client, mock_db):
         """When extracted_data has no rate text, rates_found must be 0."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [
-                {
-                    "supplier_id": "s1",
-                    "success": True,
-                    "extracted_data": {
-                        "text": "Welcome to our energy portal."
-                    },
-                }
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {
+                        "supplier_id": "s1",
+                        "success": True,
+                        "extracted_data": {"text": "Welcome to our energy portal."},
+                    }
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -264,21 +265,23 @@ class TestScrapeRatesRateExtraction:
     def test_rates_found_one_when_single_rate_detected(self, mock_svc_cls, auth_client, mock_db):
         """When one result has a detectable rate, rates_found = 1."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [
-                {
-                    "supplier_id": "s1",
-                    "success": True,
-                    "extracted_data": {
-                        "text": "Current rate: $0.1250 per kWh for all residential plans."
-                    },
-                }
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {
+                        "supplier_id": "s1",
+                        "success": True,
+                        "extracted_data": {
+                            "text": "Current rate: $0.1250 per kWh for all residential plans."
+                        },
+                    }
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -297,31 +300,33 @@ class TestScrapeRatesRateExtraction:
     ):
         """Mixed batch: only suppliers with rate text in extracted_data count."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 3,
-            "succeeded": 3,
-            "failed": 0,
-            "errors": [],
-            "results": [
-                {
-                    "supplier_id": "s1",
-                    "success": True,
-                    "extracted_data": {"text": "Price: 0.1100 kWh residential."},
-                },
-                {
-                    "supplier_id": "s2",
-                    "success": True,
-                    "extracted_data": {"text": "No pricing information available."},
-                },
-                {
-                    "supplier_id": "s3",
-                    "success": True,
-                    "extracted_data": {
-                        "objects": [{"text": "Charge: $0.0990 per kWh commercial."}]
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 3,
+                "succeeded": 3,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {
+                        "supplier_id": "s1",
+                        "success": True,
+                        "extracted_data": {"text": "Price: 0.1100 kWh residential."},
                     },
-                },
-            ],
-        })
+                    {
+                        "supplier_id": "s2",
+                        "success": True,
+                        "extracted_data": {"text": "No pricing information available."},
+                    },
+                    {
+                        "supplier_id": "s3",
+                        "success": True,
+                        "extracted_data": {
+                            "objects": [{"text": "Charge: $0.0990 per kWh commercial."}]
+                        },
+                    },
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -344,19 +349,21 @@ class TestScrapeRatesRateExtraction:
     def test_rates_found_zero_when_all_results_fail(self, mock_svc_cls, auth_client, mock_db):
         """Failed scrapes (success=False, extracted_data=None) → rates_found = 0."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 2,
-            "succeeded": 0,
-            "failed": 2,
-            "errors": [
-                {"supplier_id": "a", "error": "timeout"},
-                {"supplier_id": "b", "error": "HTTP 503"},
-            ],
-            "results": [
-                {"supplier_id": "a", "success": False, "extracted_data": None},
-                {"supplier_id": "b", "success": False, "extracted_data": None},
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 2,
+                "succeeded": 0,
+                "failed": 2,
+                "errors": [
+                    {"supplier_id": "a", "error": "timeout"},
+                    {"supplier_id": "b", "error": "HTTP 503"},
+                ],
+                "results": [
+                    {"supplier_id": "a", "success": False, "extracted_data": None},
+                    {"supplier_id": "b", "success": False, "extracted_data": None},
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -378,13 +385,15 @@ class TestScrapeRatesRateExtraction:
     def test_response_always_includes_rates_found_key(self, mock_svc_cls, auth_client, mock_db):
         """The ``rates_found`` key must always be present in the response body."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [{"supplier_id": "x", "success": True, "extracted_data": {}}],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [{"supplier_id": "x", "success": True, "extracted_data": {}}],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -411,19 +420,21 @@ class TestScrapeRatesRateExtraction:
             return len(rows)
 
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [
-                {
-                    "supplier_id": "s1",
-                    "success": True,
-                    "extracted_data": {"text": "Rate: $0.1375 per kWh residential."},
-                }
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {
+                        "supplier_id": "s1",
+                        "success": True,
+                        "extracted_data": {"text": "Rate: $0.1375 per kWh residential."},
+                    }
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -455,19 +466,21 @@ class TestScrapeRatesRateExtraction:
             return len(rows)
 
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [
-                {
-                    "supplier_id": "s1",
-                    "success": True,
-                    "extracted_data": {"text": "No pricing info here."},
-                }
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {
+                        "supplier_id": "s1",
+                        "success": True,
+                        "extracted_data": {"text": "No pricing info here."},
+                    }
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -489,24 +502,29 @@ class TestScrapeRatesRateExtraction:
     def test_rates_found_in_objects_list_format(self, mock_svc_cls, auth_client, mock_db):
         """Diffbot nested objects-list format is handled for rate extraction."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 1,
-            "succeeded": 1,
-            "failed": 0,
-            "errors": [],
-            "results": [
-                {
-                    "supplier_id": "s1",
-                    "success": True,
-                    "extracted_data": {
-                        "objects": [
-                            {"type": "header", "text": "Electricity Plans"},
-                            {"type": "content", "text": "Charge: $0.0950 per kWh for all plans."},
-                        ]
-                    },
-                }
-            ],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 1,
+                "succeeded": 1,
+                "failed": 0,
+                "errors": [],
+                "results": [
+                    {
+                        "supplier_id": "s1",
+                        "success": True,
+                        "extracted_data": {
+                            "objects": [
+                                {"type": "header", "text": "Electricity Plans"},
+                                {
+                                    "type": "content",
+                                    "text": "Charge: $0.0950 per kWh for all plans.",
+                                },
+                            ]
+                        },
+                    }
+                ],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 
@@ -523,13 +541,15 @@ class TestScrapeRatesRateExtraction:
     def test_rates_found_zero_when_no_results(self, mock_svc_cls, auth_client, mock_db):
         """Empty results list → rates_found = 0 (no KeyError on empty batch)."""
         mock_svc = MagicMock()
-        mock_svc.scrape_supplier_rates = AsyncMock(return_value={
-            "total": 0,
-            "succeeded": 0,
-            "failed": 0,
-            "errors": [],
-            "results": [],
-        })
+        mock_svc.scrape_supplier_rates = AsyncMock(
+            return_value={
+                "total": 0,
+                "succeeded": 0,
+                "failed": 0,
+                "errors": [],
+                "results": [],
+            }
+        )
         mock_svc_cls.return_value = mock_svc
         mock_db.execute = AsyncMock(return_value=None)
 

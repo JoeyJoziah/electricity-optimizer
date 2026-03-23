@@ -10,7 +10,7 @@ Routes
 POST /api/v1/feedback  — create a feedback entry (requires auth)
 """
 
-from typing import Any, Dict, Literal
+from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 logger = structlog.get_logger(__name__)
 
@@ -70,7 +70,7 @@ async def create_feedback(
     body: CreateFeedbackRequest,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Store a feedback item submitted by the authenticated user.
 

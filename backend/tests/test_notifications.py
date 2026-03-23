@@ -75,7 +75,7 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _clean_overrides():
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -85,8 +85,8 @@ def _clean_overrides():
 
 
 def _install_auth(db: AsyncMock = None, user_id: str = TEST_USER_ID):
-    from main import app
     from api.dependencies import get_current_user, get_db_session
+    from main import app
 
     session = _session_data(user_id=user_id)
     if db is None:
@@ -265,7 +265,6 @@ class TestMarkNotificationRead:
 class TestNotificationService:
     """Direct unit tests for NotificationService methods."""
 
-    @pytest.mark.asyncio
     async def test_create_executes_insert_and_commits(self):
         from services.notification_service import NotificationService
 
@@ -283,7 +282,6 @@ class TestNotificationService:
         db.execute.assert_awaited_once()
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_create_default_type_is_info(self):
         from services.notification_service import NotificationService
 
@@ -297,7 +295,6 @@ class TestNotificationService:
         params = call_args[0][1] if call_args[0] else call_args.args[1]
         assert params["type"] == "info"
 
-    @pytest.mark.asyncio
     async def test_get_unread_returns_mapped_list(self):
         from services.notification_service import NotificationService
 
@@ -315,7 +312,6 @@ class TestNotificationService:
         assert result[0]["title"] == "Title"
         assert result[0]["body"] == "Body"
 
-    @pytest.mark.asyncio
     async def test_get_unread_empty(self):
         from services.notification_service import NotificationService
 
@@ -326,7 +322,6 @@ class TestNotificationService:
         result = await svc.get_unread(TEST_USER_ID)
         assert result == []
 
-    @pytest.mark.asyncio
     async def test_get_unread_count_returns_integer(self):
         from services.notification_service import NotificationService
 
@@ -337,7 +332,6 @@ class TestNotificationService:
         count = await svc.get_unread_count(TEST_USER_ID)
         assert count == 5
 
-    @pytest.mark.asyncio
     async def test_get_unread_count_none_returns_zero(self):
         from services.notification_service import NotificationService
 
@@ -348,7 +342,6 @@ class TestNotificationService:
         count = await svc.get_unread_count(TEST_USER_ID)
         assert count == 0
 
-    @pytest.mark.asyncio
     async def test_mark_all_read_returns_count(self):
         from services.notification_service import NotificationService
 
@@ -362,7 +355,6 @@ class TestNotificationService:
         assert count == 3
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_mark_all_read_returns_zero_when_none(self):
         from services.notification_service import NotificationService
 
@@ -375,7 +367,6 @@ class TestNotificationService:
         count = await svc.mark_all_read(TEST_USER_ID)
         assert count == 0
 
-    @pytest.mark.asyncio
     async def test_mark_read_returns_true_on_match(self):
         from services.notification_service import NotificationService
 
@@ -389,7 +380,6 @@ class TestNotificationService:
         assert ok is True
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_mark_read_returns_false_on_no_match(self):
         from services.notification_service import NotificationService
 

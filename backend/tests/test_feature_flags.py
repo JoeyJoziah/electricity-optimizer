@@ -119,7 +119,6 @@ def unauth_client(mock_db):
 class TestFeatureFlagServiceIsEnabled:
     """Unit tests for FeatureFlagService.is_enabled()."""
 
-    @pytest.mark.asyncio
     async def test_unknown_flag_returns_false(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -130,7 +129,6 @@ class TestFeatureFlagServiceIsEnabled:
         result = await svc.is_enabled("nonexistent_flag")
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_disabled_flag_returns_false(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -145,7 +143,6 @@ class TestFeatureFlagServiceIsEnabled:
 
         assert await svc.is_enabled("connections") is False
 
-    @pytest.mark.asyncio
     async def test_enabled_no_tier_returns_true(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -159,7 +156,6 @@ class TestFeatureFlagServiceIsEnabled:
 
         assert await svc.is_enabled("connections") is True
 
-    @pytest.mark.asyncio
     async def test_tier_gate_blocks_free_user(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -174,7 +170,6 @@ class TestFeatureFlagServiceIsEnabled:
 
         assert await svc.is_enabled("connections", user_tier="free") is False
 
-    @pytest.mark.asyncio
     async def test_tier_gate_allows_pro_user(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -188,7 +183,6 @@ class TestFeatureFlagServiceIsEnabled:
 
         assert await svc.is_enabled("connections", user_tier="pro") is True
 
-    @pytest.mark.asyncio
     async def test_tier_gate_allows_business_for_pro_flag(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -202,7 +196,6 @@ class TestFeatureFlagServiceIsEnabled:
 
         assert await svc.is_enabled("connections", user_tier="business") is True
 
-    @pytest.mark.asyncio
     async def test_tier_check_skipped_when_no_user_tier(self):
         """When user_tier is not provided the tier gate must not block."""
         from services.feature_flag_service import FeatureFlagService
@@ -218,7 +211,6 @@ class TestFeatureFlagServiceIsEnabled:
         # No user_tier supplied — tier gate is skipped
         assert await svc.is_enabled("connections") is True
 
-    @pytest.mark.asyncio
     async def test_zero_percent_always_excluded(self):
         """percentage=0 means nobody gets in (hash % 100 >= 0 always)."""
         from services.feature_flag_service import FeatureFlagService
@@ -233,7 +225,6 @@ class TestFeatureFlagServiceIsEnabled:
 
         assert await svc.is_enabled("optimization_schedule", user_id=str(uuid4())) is False
 
-    @pytest.mark.asyncio
     async def test_hundred_percent_always_included(self):
         """percentage=100 means the hash check is skipped entirely."""
         from services.feature_flag_service import FeatureFlagService
@@ -248,7 +239,6 @@ class TestFeatureFlagServiceIsEnabled:
 
         assert await svc.is_enabled("bill_upload", user_id=str(uuid4())) is True
 
-    @pytest.mark.asyncio
     async def test_percentage_rollout_deterministic(self):
         """Same flag+user combo must always return the same decision."""
         import hashlib
@@ -288,7 +278,6 @@ class TestFeatureFlagServiceIsEnabled:
 
 
 class TestFeatureFlagServiceGetAllFlags:
-    @pytest.mark.asyncio
     async def test_returns_empty_list(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -299,7 +288,6 @@ class TestFeatureFlagServiceGetAllFlags:
         flags = await svc.get_all_flags()
         assert flags == []
 
-    @pytest.mark.asyncio
     async def test_maps_rows_to_dicts(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -327,7 +315,6 @@ class TestFeatureFlagServiceGetAllFlags:
 
 
 class TestFeatureFlagServiceUpdateFlag:
-    @pytest.mark.asyncio
     async def test_update_enabled_only(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -339,7 +326,6 @@ class TestFeatureFlagServiceUpdateFlag:
         db.execute.assert_awaited_once()
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_update_multiple_fields(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -351,7 +337,6 @@ class TestFeatureFlagServiceUpdateFlag:
         )
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_no_fields_returns_false(self):
         from services.feature_flag_service import FeatureFlagService
 
@@ -362,7 +347,6 @@ class TestFeatureFlagServiceUpdateFlag:
         assert result is False
         db.execute.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_update_percentage_only(self):
         from services.feature_flag_service import FeatureFlagService
 

@@ -1,22 +1,23 @@
-'use client'
+"use client";
 
-import { useCCADetect } from '@/lib/hooks/useCCA'
-import { useSettingsStore } from '@/lib/store/settings'
+import { useCCADetect } from "@/lib/hooks/useCCA";
+import { useSettingsStore } from "@/lib/store/settings";
+import { isSafeHref } from "@/lib/utils/url";
 
 interface CCAAlertProps {
-  onViewDetails?: (ccaId: string) => void
-  onDismiss?: () => void
+  onViewDetails?: (ccaId: string) => void;
+  onDismiss?: () => void;
 }
 
 export function CCAAlert({ onViewDetails, onDismiss }: CCAAlertProps) {
-  const region = useSettingsStore((s) => s.region)
-  const stateCode = region ? region.slice(3).toUpperCase() : undefined
+  const region = useSettingsStore((s) => s.region);
+  const stateCode = region ? region.slice(3).toUpperCase() : undefined;
 
-  const { data, isLoading } = useCCADetect(undefined, stateCode)
+  const { data, isLoading } = useCCADetect(undefined, stateCode);
 
-  if (isLoading || !data?.in_cca || !data.program) return null
+  if (isLoading || !data?.in_cca || !data.program) return null;
 
-  const program = data.program
+  const program = data.program;
 
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -29,11 +30,13 @@ export function CCAAlert({ onViewDetails, onDismiss }: CCAAlertProps) {
             <strong>{program.program_name}</strong> by {program.provider} serves
             your area ({program.municipality}, {program.state}).
           </p>
-          {program.rate_vs_default_pct !== null && program.rate_vs_default_pct < 0 && (
-            <p className="mt-1 text-sm font-medium text-green-700">
-              {Math.abs(program.rate_vs_default_pct)}% lower than default utility rate
-            </p>
-          )}
+          {program.rate_vs_default_pct !== null &&
+            program.rate_vs_default_pct < 0 && (
+              <p className="mt-1 text-sm font-medium text-green-700">
+                {Math.abs(program.rate_vs_default_pct)}% lower than default
+                utility rate
+              </p>
+            )}
           <div className="mt-2 flex gap-2">
             {onViewDetails && (
               <button
@@ -43,7 +46,7 @@ export function CCAAlert({ onViewDetails, onDismiss }: CCAAlertProps) {
                 View Details
               </button>
             )}
-            {program.program_url && (
+            {program.program_url && isSafeHref(program.program_url) && (
               <a
                 href={program.program_url}
                 target="_blank"
@@ -66,5 +69,5 @@ export function CCAAlert({ onViewDetails, onDismiss }: CCAAlertProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

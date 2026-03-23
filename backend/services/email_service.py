@@ -5,8 +5,8 @@ Provides email sending with Resend as primary and SMTP as fallback.
 Includes Jinja2 template rendering for HTML emails.
 """
 
+import asyncio
 import os
-from typing import Optional
 
 import structlog
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -35,6 +35,20 @@ class EmailService:
             autoescape=select_autoescape(["html"]),
         )
 
+        # Set resend.api_key exactly once during construction so that
+        # concurrent calls to _send_via_resend never race to overwrite the
+        # global.  Setting a module-level global per-call is not safe under
+        # asyncio.gather because coroutines interleave between awaits — one
+        # coroutine could write a different key just before another coroutine
+        # reads it.
+        if self._settings.resend_api_key:
+            try:
+                import resend
+
+                resend.api_key = self._settings.resend_api_key
+            except ImportError:
+                pass  # resend not installed; Resend path will be skipped at send time
+
     def render_template(self, template_name: str, **context) -> str:
         """Render an HTML email template with the given context."""
         template = self._jinja_env.get_template(template_name)
@@ -45,7 +59,7 @@ class EmailService:
         to: str,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> bool:
         """
         Send an email. Tries Resend first, falls back to SMTP.
@@ -73,13 +87,15 @@ class EmailService:
         to: str,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> bool:
-        """Send email via Resend API."""
+        """Send email via Resend API.
+
+        resend.api_key is set once in __init__ — we do NOT set it here to
+        avoid the global-mutation race condition under concurrent requests.
+        """
         try:
             import resend
-
-            resend.api_key = self._settings.resend_api_key
 
             from_address = f"{self._settings.email_from_name} <{self._settings.email_from_address}>"
 
@@ -92,8 +108,6 @@ class EmailService:
 
             if text_body:
                 params["text"] = text_body
-
-            import asyncio
 
             await asyncio.to_thread(resend.Emails.send, params)
 
@@ -113,7 +127,7 @@ class EmailService:
         to: str,
         subject: str,
         html_body: str,
-        text_body: Optional[str] = None,
+        text_body: str | None = None,
     ) -> bool:
         """Send email via SMTP (fallback)."""
         try:

@@ -463,7 +463,10 @@ test.describe("Accessibility — Focus Management", () => {
     const createButtonExists = await createButton.count();
     if (createButtonExists === 0) {
       // If no modal trigger exists on this page, skip gracefully
-      test.skip();
+      test.skip(
+        true,
+        "No alert creation button found on page — UI may have changed",
+      );
       return;
     }
 

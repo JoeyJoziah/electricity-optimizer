@@ -19,18 +19,19 @@ On EnsemblePredictor startup the load order is:
 """
 
 import json
-import logging
-from typing import Optional, Dict, Any, List
+from datetime import UTC
+from typing import Any
 
 import numpy as np
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-from services.observation_service import ObservationService
 from services.hnsw_vector_store import HNSWVectorStore
+from services.observation_service import ObservationService
 from services.vector_store import price_curve_to_vector
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Weight bounds to prevent any single model from dominating or being zeroed out
 MIN_WEIGHT = 0.1
@@ -54,8 +55,8 @@ class LearningService:
         self,
         observation_service: ObservationService,
         vector_store: HNSWVectorStore,
-        redis_client: Optional[Any] = None,
-        db_session: Optional[AsyncSession] = None,
+        redis_client: Any | None = None,
+        db_session: AsyncSession | None = None,
     ):
         self._obs = observation_service
         self._vs = vector_store
@@ -66,7 +67,7 @@ class LearningService:
         self,
         region: str,
         days: int = 7,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Compute rolling accuracy metrics from observed forecasts.
 
@@ -80,7 +81,7 @@ class LearningService:
         self,
         region: str,
         days: int = 7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Detect systematic over/under-prediction by hour.
 
@@ -93,8 +94,8 @@ class LearningService:
         self,
         region: str,
         days: int = 7,
-        accuracy_metrics: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, float]]:
+        accuracy_metrics: dict[str, Any] | None = None,
+    ) -> dict[str, float] | None:
         """
         Compute new ensemble weights based on model accuracy.
 
@@ -116,11 +117,11 @@ class LearningService:
             model_stats = await self._obs.get_model_accuracy_by_version(region, days)
 
         if not model_stats or len(model_stats) < 1:
-            logger.info("insufficient_data_for_weight_update region=%s", region)
+            logger.info("insufficient_data_for_weight_update", region=region)
             return None
 
         # Inverse-MAPE weighting
-        weights: Dict[str, float] = {}
+        weights: dict[str, float] = {}
         inverse_errors = {}
         for stat in model_stats:
             version = stat["model_version"]
@@ -161,12 +162,12 @@ class LearningService:
                     json.dumps(ensemble_payload),
                 )
                 logger.info(
-                    "ensemble_weights_updated_redis region=%s weights=%s",
-                    region,
-                    weights,
+                    "ensemble_weights_updated_redis",
+                    region=region,
+                    weights=weights,
                 )
             except Exception as e:
-                logger.warning("redis_weight_update_failed error=%s", str(e))
+                logger.warning("redis_weight_update_failed", error=str(e))
 
         # --- Persist to PostgreSQL (durable, survives restarts) ---
         if self._db is not None:
@@ -182,11 +183,11 @@ class LearningService:
 
     async def _persist_weights_to_db(
         self,
-        weights: Dict[str, Any],
+        weights: dict[str, Any],
         region: str,
         days: int,
-        accuracy_metrics: Dict[str, Any],
-        model_stats: List[Dict[str, Any]],
+        accuracy_metrics: dict[str, Any],
+        model_stats: list[dict[str, Any]],
     ) -> None:
         """
         Write ensemble weights to the PostgreSQL model_config table AND
@@ -204,8 +205,9 @@ class LearningService:
         in-memory learning cycle from completing.
         """
         try:
+            from datetime import datetime
+
             from repositories.model_config_repository import ModelConfigRepository
-            from datetime import datetime, timezone
 
             repo = ModelConfigRepository(self._db)
             # Build a version string based on the best-performing model
@@ -216,7 +218,7 @@ class LearningService:
                 "region": region,
                 "days": days,
                 "model_stats_count": len(model_stats),
-                "trained_at": datetime.now(timezone.utc).isoformat(),
+                "trained_at": datetime.now(UTC).isoformat(),
             }
             await repo.save_config(
                 model_name=ENSEMBLE_MODEL_NAME,
@@ -226,19 +228,18 @@ class LearningService:
                 metrics=accuracy_metrics,
             )
             logger.info(
-                "ensemble_weights_persisted_to_db model_name=%s version=%s",
-                ENSEMBLE_MODEL_NAME,
-                best_version,
+                "ensemble_weights_persisted_to_db",
+                model_name=ENSEMBLE_MODEL_NAME,
+                version=best_version,
             )
         except Exception as e:
-            logger.warning(
-                "db_weight_persist_failed error=%s", str(e)
-            )
+            logger.warning("db_weight_persist_failed", error=str(e))
 
         # --- Create a new ModelVersion record for lineage tracking ---
         try:
+            from datetime import datetime
+
             from services.model_version_service import ModelVersionService
-            from datetime import datetime, timezone
 
             mv_svc = ModelVersionService(self._db)
             new_version = await mv_svc.create_version(
@@ -255,37 +256,33 @@ class LearningService:
                 # No active version yet — always promote the first one.
                 await mv_svc.promote_version(new_version.id)
                 logger.info(
-                    "model_version_promoted_first model_version=%s",
-                    new_version.version_tag,
+                    "model_version_promoted_first",
+                    model_version=new_version.version_tag,
                 )
             elif new_mape is not None:
                 active_mape = active.metrics.get("mape") if active.metrics else None
                 if active_mape is None or new_mape < active_mape:
                     await mv_svc.promote_version(new_version.id)
                     logger.info(
-                        "model_version_promoted_improved model_version=%s "
-                        "new_mape=%.4f active_mape=%s",
-                        new_version.version_tag,
-                        new_mape,
-                        active_mape,
+                        "model_version_promoted_improved",
+                        model_version=new_version.version_tag,
+                        new_mape=new_mape,
+                        active_mape=active_mape,
                     )
                 else:
                     logger.info(
-                        "model_version_not_promoted model_version=%s "
-                        "new_mape=%.4f active_mape=%.4f",
-                        new_version.version_tag,
-                        new_mape,
-                        active_mape,
+                        "model_version_not_promoted",
+                        model_version=new_version.version_tag,
+                        new_mape=new_mape,
+                        active_mape=active_mape,
                     )
         except Exception as e:
-            logger.warning(
-                "model_version_create_failed error=%s", str(e)
-            )
+            logger.warning("model_version_create_failed", error=str(e))
 
     async def load_weights_from_db(
         self,
         model_name: str = ENSEMBLE_MODEL_NAME,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Load the active ensemble weights from PostgreSQL.
 
@@ -301,27 +298,26 @@ class LearningService:
             config = await repo.get_active_config(model_name)
             if config is None:
                 logger.info(
-                    "no_active_db_weights model_name=%s using_defaults=true",
-                    model_name,
+                    "no_active_db_weights",
+                    model_name=model_name,
+                    using_defaults=True,
                 )
                 return None
             logger.info(
-                "ensemble_weights_loaded_from_db model_name=%s version=%s",
-                model_name,
-                config.model_version,
+                "ensemble_weights_loaded_from_db",
+                model_name=model_name,
+                version=config.model_version,
             )
             return config.weights_json
         except Exception as e:
-            logger.warning(
-                "db_weight_load_failed model_name=%s error=%s", model_name, str(e)
-            )
+            logger.warning("db_weight_load_failed", model_name=model_name, error=str(e))
             return None
 
     async def store_bias_correction(
         self,
         region: str,
         days: int = 7,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Store hourly bias as a correction vector in the vector store.
 
@@ -358,10 +354,10 @@ class LearningService:
         )
 
         logger.info(
-            "bias_correction_stored region=%s vector_id=%s max_bias=%s",
-            region,
-            vec_id,
-            float(np.max(np.abs(bias_vector))),
+            "bias_correction_stored",
+            region=region,
+            vector_id=vec_id,
+            max_bias=float(np.max(np.abs(bias_vector))),
         )
         return vec_id
 
@@ -377,14 +373,14 @@ class LearningService:
             Number of vectors pruned.
         """
         count = await self._vs.async_prune(min_confidence, min_usage)
-        logger.info("stale_patterns_pruned count=%d", count)
+        logger.info("stale_patterns_pruned", count=count)
         return count
 
     async def run_full_cycle(
         self,
-        regions: Optional[List[str]] = None,
+        regions: list[str] | None = None,
         days: int = 7,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Run the complete nightly learning cycle.
 
@@ -398,7 +394,7 @@ class LearningService:
         if regions is None:
             regions = ["US"]
 
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             "regions_processed": [],
             "weights_updated": {},
             "bias_corrections": {},
@@ -409,9 +405,9 @@ class LearningService:
             # 1. Compute accuracy
             accuracy = await self.compute_rolling_accuracy(region, days)
             logger.info(
-                "rolling_accuracy_computed region=%s accuracy=%s",
-                region,
-                accuracy,
+                "rolling_accuracy_computed",
+                region=region,
+                accuracy=accuracy,
             )
 
             # 2. Update ensemble weights (Redis + PostgreSQL)
@@ -428,10 +424,12 @@ class LearningService:
             if bias_id:
                 results["bias_corrections"][region] = bias_id
 
-            results["regions_processed"].append({
-                "region": region,
-                "accuracy": accuracy,
-            })
+            results["regions_processed"].append(
+                {
+                    "region": region,
+                    "accuracy": accuracy,
+                }
+            )
 
         # 4. Prune stale patterns
         results["pruned"] = await self.prune_stale_patterns()
@@ -446,7 +444,7 @@ class LearningService:
                         str(primary["mape"]),
                     )
             except Exception as e:
-                logger.warning("redis_mape_update_failed error=%s", str(e))
+                logger.warning("redis_mape_update_failed", error=str(e))
 
-        logger.info("learning_cycle_complete results=%s", results)
+        logger.info("learning_cycle_complete", results=results)
         return results

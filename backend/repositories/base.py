@@ -6,11 +6,12 @@ Implements the Repository pattern for data access abstraction.
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional, List, Any
-from datetime import datetime
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
+# Upper bound for page_size on all list() methods to prevent memory exhaustion.
+MAX_PAGE_SIZE = 100
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -18,7 +19,7 @@ T = TypeVar("T", bound=BaseModel)
 class RepositoryError(Exception):
     """Base exception for repository errors"""
 
-    def __init__(self, message: str, original_error: Optional[Exception] = None):
+    def __init__(self, message: str, original_error: Exception | None = None):
         self.message = message
         self.original_error = original_error
         super().__init__(self.message)
@@ -26,16 +27,19 @@ class RepositoryError(Exception):
 
 class NotFoundError(RepositoryError):
     """Raised when an entity is not found"""
+
     pass
 
 
 class DuplicateError(RepositoryError):
     """Raised when a duplicate entity is detected"""
+
     pass
 
 
 class ValidationError(RepositoryError):
     """Raised when validation fails"""
+
     pass
 
 
@@ -48,7 +52,7 @@ class BaseRepository(ABC, Generic[T]):
     """
 
     @abstractmethod
-    async def get_by_id(self, id: str) -> Optional[T]:
+    async def get_by_id(self, id: str) -> T | None:
         """
         Retrieve an entity by its ID.
 
@@ -74,7 +78,7 @@ class BaseRepository(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    async def update(self, id: str, entity: T) -> Optional[T]:
+    async def update(self, id: str, entity: T) -> T | None:
         """
         Update an existing entity.
 
@@ -101,12 +105,7 @@ class BaseRepository(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[T]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> list[T]:
         """
         List entities with pagination and optional filtering.
 
@@ -132,5 +131,3 @@ class BaseRepository(ABC, Generic[T]):
             Number of matching entities
         """
         pass
-
-

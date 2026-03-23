@@ -14,12 +14,10 @@ first, "analytics" gets captured as a connection_id and these endpoints will
 never be reached.
 """
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, SessionData
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
 
 router = APIRouter()
@@ -35,12 +33,13 @@ router = APIRouter()
     summary="Compare user rates vs market",
 )
 async def get_rate_comparison(
-    connection_id: Optional[str] = Query(None),
+    connection_id: str | None = Query(None),
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Compare extracted rates against current market prices."""
     from services.connection_analytics_service import ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     return await svc.get_rate_comparison(current_user.user_id, connection_id)
 
@@ -55,13 +54,14 @@ async def get_rate_comparison(
     summary="Rate history for chart rendering",
 )
 async def get_rate_history(
-    connection_id: Optional[str] = Query(None),
+    connection_id: str | None = Query(None),
     days: int = Query(365, ge=1, le=1095),
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get time-series rate data for chart rendering."""
     from services.connection_analytics_service import ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     return await svc.get_rate_history(current_user.user_id, connection_id, days)
 
@@ -82,6 +82,7 @@ async def get_savings_estimate(
 ):
     """Calculate estimated annual savings based on rate comparison."""
     from services.connection_analytics_service import ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     return await svc.get_savings_estimate(current_user.user_id, monthly_kwh)
 
@@ -101,6 +102,7 @@ async def get_connection_health(
 ):
     """Check for stale or unhealthy connections."""
     from services.connection_analytics_service import ConnectionAnalyticsService
+
     svc = ConnectionAnalyticsService(db)
     stale = await svc.check_stale_connections(current_user.user_id)
     alerts = await svc.detect_rate_changes(current_user.user_id)

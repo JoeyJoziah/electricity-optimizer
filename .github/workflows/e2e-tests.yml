@@ -96,9 +96,12 @@ jobs:
 
       - name: Set up database
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f backend/migrations/init_neon.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f backend/migrations/002_gdpr_auth_tables.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f backend/migrations/003_reconcile_schema.sql
+          # Apply ALL migrations in sequential order (not just the first 3).
+          # This ensures E2E tests run against the same schema as production.
+          for f in $(ls backend/migrations/[0-9]*.sql backend/migrations/init_neon.sql 2>/dev/null | sort); do
+            echo "Applying migration: $f"
+            PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f "$f"
+          done
         env:
           PGHOST: localhost
 

@@ -7,12 +7,11 @@ These models back the three tables added in migration 030:
   - ab_outcomes     (per-user outcome events recorded during a test)
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ---------------------------------------------------------------------------
 # model_versions
@@ -29,14 +28,14 @@ class ModelVersion(BaseModel):
     version_tag: str = Field(..., min_length=1, max_length=50)
 
     # Arbitrary JSON: hyperparameters, ensemble weights, feature lists, etc.
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
 
     # Evaluation metrics captured at training time (mape, rmse, coverage…)
-    metrics: Dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
 
     is_active: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    promoted_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    promoted_at: datetime | None = None
 
 
 class ModelVersionCreate(BaseModel):
@@ -44,8 +43,8 @@ class ModelVersionCreate(BaseModel):
 
     model_name: str = Field(..., min_length=1, max_length=100)
     version_tag: str = Field(..., min_length=1, max_length=50)
-    config: Dict[str, Any] = Field(default_factory=dict)
-    metrics: Dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelVersionResponse(BaseModel):
@@ -56,11 +55,11 @@ class ModelVersionResponse(BaseModel):
     id: str
     model_name: str
     version_tag: str
-    config: Dict[str, Any]
-    metrics: Dict[str, Any]
+    config: dict[str, Any]
+    metrics: dict[str, Any]
     is_active: bool
     created_at: datetime
-    promoted_at: Optional[datetime]
+    promoted_at: datetime | None
 
 
 # ---------------------------------------------------------------------------
@@ -84,11 +83,11 @@ class ABTest(BaseModel):
     # Status lifecycle: running → completed | stopped
     status: str = Field(default="running")
 
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    ended_at: Optional[datetime] = None
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    ended_at: datetime | None = None
 
     # Aggregated results written when the test is concluded
-    results: Dict[str, Any] = Field(default_factory=dict)
+    results: dict[str, Any] = Field(default_factory=dict)
 
 
 class ABTestCreate(BaseModel):
@@ -112,8 +111,8 @@ class ABTestResponse(BaseModel):
     traffic_split: float
     status: str
     started_at: datetime
-    ended_at: Optional[datetime]
-    results: Dict[str, Any]
+    ended_at: datetime | None
+    results: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +130,7 @@ class ABOutcome(BaseModel):
     version_id: str
     user_id: str
     outcome: str = Field(..., min_length=1, max_length=50)
-    recorded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ABOutcomeCreate(BaseModel):
@@ -155,7 +154,7 @@ class VersionComparisonResult(BaseModel):
     version_b: ModelVersionResponse
 
     # Key → {version_a: value, version_b: value, delta: value}
-    metric_comparison: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    metric_comparison: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

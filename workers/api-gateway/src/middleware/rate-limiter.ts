@@ -1,4 +1,5 @@
 import type { Env, RateLimitBinding, RateLimitResult, RateLimitTier } from "../types";
+import { timingSafeEqual } from "./internal-auth";
 
 /**
  * Rate limiter using Cloudflare's native rate limiting bindings.
@@ -23,8 +24,11 @@ export async function checkRateLimit(
   // tier (requireApiKey routes). NEVER bypass strict (auth) or standard tiers.
   if (tier === "internal") {
     const bypassKey = request.headers.get("X-RateLimit-Bypass");
-    if (bypassKey && env.RATE_LIMIT_BYPASS_KEY && bypassKey === env.RATE_LIMIT_BYPASS_KEY) {
-      return { allowed: true, remaining: Infinity, limit: Infinity, resetAt: 0 };
+    if (bypassKey && env.RATE_LIMIT_BYPASS_KEY) {
+      const match = await timingSafeEqual(bypassKey, env.RATE_LIMIT_BYPASS_KEY);
+      if (match) {
+        return { allowed: true, remaining: Infinity, limit: Infinity, resetAt: 0 };
+      }
     }
   }
 

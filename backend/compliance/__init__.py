@@ -9,13 +9,13 @@ Provides GDPR compliance functionality including:
 """
 
 from compliance.gdpr import (
-    GDPRComplianceService,
-    DataRetentionService,
-    UserNotFoundError,
     ConsentError,
+    DataRetentionService,
+    GDPRComplianceService,
+    UserNotFoundError,
     anonymize_email,
-    anonymize_name,
     anonymize_ip,
+    anonymize_name,
     anonymize_user_agent,
 )
 

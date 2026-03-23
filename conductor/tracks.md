@@ -23,4 +23,8 @@
 
 | [x] | audit-remediation_20260318 | Codebase Audit Remediation 2026-03-18 (568 findings, 39 tasks) | 2026-03-18 | 2026-03-18 |
 
+| [x] | audit-remediation_20260319 | Codebase Audit Remediation 2026-03-19 (514 findings, 66 tasks) | 2026-03-19 | 2026-03-19 |
+
+| [x] | audit-remediation_20260323 | Codebase Audit Remediation 2026-03-23 (~560 findings, 75 tasks, 9 sprints) | 2026-03-23 | 2026-03-23 |
+
 <!-- Tracks registered by /conductor:new-track -->

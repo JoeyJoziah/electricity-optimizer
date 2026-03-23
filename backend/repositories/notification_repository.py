@@ -15,8 +15,7 @@ channel.
 """
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import text
@@ -28,7 +27,7 @@ from models.notification import (
     Notification,
     NotificationDeliveryUpdate,
 )
-from repositories.base import NotFoundError, RepositoryError
+from repositories.base import RepositoryError
 
 logger = structlog.get_logger(__name__)
 
@@ -78,7 +77,7 @@ class NotificationRepository:
     # Read operations
     # =========================================================================
 
-    async def get_by_id(self, notification_id: str, user_id: str) -> Optional[Notification]:
+    async def get_by_id(self, notification_id: str, user_id: str) -> Notification | None:
         """Return the notification row for the given ID owned by user_id, or None."""
         try:
             result = await self._db.execute(
@@ -100,16 +99,14 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to fetch notification {notification_id}", exc
-            )
+            raise RepositoryError(f"Failed to fetch notification {notification_id}", exc)
 
     async def get_by_delivery_status(
         self,
         user_id: str,
         status: DeliveryStatus,
         limit: int = 50,
-    ) -> List[Notification]:
+    ) -> list[Notification]:
         """
         Return up to ``limit`` notifications for ``user_id`` with the given
         ``delivery_status``, ordered newest-first.
@@ -138,16 +135,14 @@ class NotificationRepository:
                 status=status,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to query notifications by status={status}", exc
-            )
+            raise RepositoryError(f"Failed to query notifications by status={status}", exc)
 
     async def get_by_channel(
         self,
         user_id: str,
         channel: DeliveryChannel,
         limit: int = 50,
-    ) -> List[Notification]:
+    ) -> list[Notification]:
         """
         Return up to ``limit`` notifications for ``user_id`` delivered via
         ``channel``, ordered newest-first.
@@ -177,9 +172,7 @@ class NotificationRepository:
                 channel=channel,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to query notifications by channel={channel}", exc
-            )
+            raise RepositoryError(f"Failed to query notifications by channel={channel}", exc)
 
     # =========================================================================
     # Write operations
@@ -189,6 +182,7 @@ class NotificationRepository:
         self,
         notification_id: str,
         update: NotificationDeliveryUpdate,
+        user_id: str | None = None,
     ) -> bool:
         """
         Patch the delivery-tracking columns on an existing notification row.
@@ -196,12 +190,21 @@ class NotificationRepository:
         Only non-None fields from ``update`` are written.  ``delivery_status``
         is always updated since it is required on the schema.
 
+        Args:
+            notification_id: The notification to update.
+            update: Delivery status fields to patch.
+            user_id: Optional owner filter.  When provided, the UPDATE only
+                matches rows belonging to this user (prevents cross-user
+                modification).  Internal callers may omit this for
+                backwards compatibility, but API-facing code should
+                always supply it.
+
         Returns:
             True  — row was found and updated.
             False — no row matched ``notification_id``.
         """
-        set_clauses: List[str] = ["delivery_status = :delivery_status"]
-        params: Dict[str, Any] = {"nid": notification_id, "delivery_status": update.delivery_status}
+        set_clauses: list[str] = ["delivery_status = :delivery_status"]
+        params: dict[str, Any] = {"nid": notification_id, "delivery_status": update.delivery_status}
 
         if update.delivery_channel is not None:
             set_clauses.append("delivery_channel = :delivery_channel")
@@ -223,11 +226,11 @@ class NotificationRepository:
             set_clauses.append("error_message = :error_message")
             params["error_message"] = update.error_message
 
-        sql = (
-            "UPDATE notifications"
-            " SET " + ", ".join(set_clauses) +
-            " WHERE id = :nid"
-        )
+        where_clause = " WHERE id = :nid"
+        if user_id is not None:
+            where_clause += " AND user_id = :uid"
+            params["uid"] = user_id
+        sql = "UPDATE notifications SET " + ", ".join(set_clauses) + where_clause
 
         try:
             result = await self._db.execute(text(sql), params)
@@ -252,6 +255,4 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(
-                f"Failed to update delivery tracking for {notification_id}", exc
-            )
+            raise RepositoryError(f"Failed to update delivery tracking for {notification_id}", exc)

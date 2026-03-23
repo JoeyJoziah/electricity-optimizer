@@ -6,8 +6,7 @@ identifies top savings opportunities ranked by dollar impact,
 and generates a structured report (Business tier).
 """
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import text
@@ -34,7 +33,7 @@ class OptimizationReportService:
     async def generate_report(
         self,
         state: str,
-        user_id: Optional[str] = None,
+        _user_id: str | None = None,
     ) -> dict:
         """
         Generate a multi-utility optimization report.
@@ -47,7 +46,7 @@ class OptimizationReportService:
             Report dict with utilities, total_monthly_spend, savings_opportunities
         """
         state = state.upper()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         utilities = []
         total_monthly = 0.0
@@ -105,7 +104,7 @@ class OptimizationReportService:
             "utility_count": len(utilities),
         }
 
-    async def _get_electricity_spend(self, state: str) -> Optional[dict]:
+    async def _get_electricity_spend(self, state: str) -> dict | None:
         """Get electricity spend analysis for a state."""
         result = await self.db.execute(
             text("""
@@ -142,7 +141,7 @@ class OptimizationReportService:
 
         return {
             "utility_type": "electricity",
-            "unit": f"$/kWh",
+            "unit": "$/kWh",
             "current_rate": round(avg_price, 4),
             "monthly_consumption": consumption["amount"],
             "consumption_unit": consumption["unit"],
@@ -150,7 +149,7 @@ class OptimizationReportService:
             "savings": savings,
         }
 
-    async def _get_gas_spend(self, state: str) -> Optional[dict]:
+    async def _get_gas_spend(self, state: str) -> dict | None:
         """Get natural gas spend analysis."""
         result = await self.db.execute(
             text("""
@@ -182,7 +181,7 @@ class OptimizationReportService:
             "savings": None,  # Gas savings require supplier comparison (future)
         }
 
-    async def _get_heating_oil_spend(self, state: str) -> Optional[dict]:
+    async def _get_heating_oil_spend(self, state: str) -> dict | None:
         """Get heating oil spend analysis."""
         result = await self.db.execute(
             text("""
@@ -226,7 +225,7 @@ class OptimizationReportService:
             "savings": savings,
         }
 
-    async def _get_propane_spend(self, state: str) -> Optional[dict]:
+    async def _get_propane_spend(self, state: str) -> dict | None:
         """Get propane spend analysis."""
         result = await self.db.execute(
             text("""

@@ -17,7 +17,7 @@ import pytest
 import numpy as np
 import pandas as pd
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class TestBacktestConfiguration:
@@ -44,7 +44,7 @@ class TestBacktestConfiguration:
             min_train_size=4320,  # 6 months
             test_size=360,  # 15 days
             step_size=72,  # 3 days
-            target_mape=8.0
+            target_mape=8.0,
         )
 
         assert config.window_type == "rolling"
@@ -81,7 +81,7 @@ class TestBacktestResults:
             r2=0.85,
             direction_accuracy=0.65,
             coverage=0.92,
-            mean_interval_width=5.0
+            mean_interval_width=5.0,
         )
 
         assert result.mape == 8.5
@@ -108,7 +108,7 @@ class TestBacktestResults:
             direction_accuracy=0.65,
             coverage=0.92,
             mean_interval_width=5.0,
-            mape_by_hour=hourly_mape
+            mape_by_hour=hourly_mape,
         )
 
         assert result.mape_by_hour == hourly_mape
@@ -127,7 +127,7 @@ class TestMetricsCalculator:
         mape = MetricsCalculator.mape(y_true, y_pred)
 
         # Expected: mean(|10/100|, |10/200|, |10/300|, |20/400|) * 100
-        expected = np.mean([10/100, 10/200, 10/300, 20/400]) * 100
+        expected = np.mean([10 / 100, 10 / 200, 10 / 300, 20 / 400]) * 100
 
         assert abs(mape - expected) < 0.01
 
@@ -215,31 +215,29 @@ class TestMetricsCalculator:
 
         metrics = MetricsCalculator.compute_all(y_true, y_pred, y_lower, y_upper)
 
-        assert 'mape' in metrics
-        assert 'rmse' in metrics
-        assert 'mae' in metrics
-        assert 'r2' in metrics
-        assert 'direction_accuracy' in metrics
-        assert 'coverage' in metrics
+        assert "mape" in metrics
+        assert "rmse" in metrics
+        assert "mae" in metrics
+        assert "r2" in metrics
+        assert "direction_accuracy" in metrics
+        assert "coverage" in metrics
 
 
 class TestModelBacktester:
     """Tests for the backtesting framework."""
 
-    def test_backtester_initialization(self, mock_forecaster, feature_engine, tmp_results_dir):
+    def test_backtester_initialization(
+        self, mock_forecaster, feature_engine, tmp_results_dir
+    ):
         """Test backtester can be initialized."""
         from ml.evaluation.backtesting import ModelBacktester, BacktestConfig
 
         config = BacktestConfig(
-            min_train_size=500,
-            test_size=100,
-            output_dir=tmp_results_dir
+            min_train_size=500, test_size=100, output_dir=tmp_results_dir
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         assert backtester.model is not None
@@ -261,20 +259,18 @@ class TestModelBacktester:
             retrain_frequency=10000,  # Don't retrain
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(sample_price_data)
 
-        assert 'overall' in summary
-        assert 'period_statistics' in summary
-        assert summary['period_statistics']['n_periods'] >= 1
+        assert "overall" in summary
+        assert "period_statistics" in summary
+        assert summary["period_statistics"]["n_periods"] >= 1
 
     def test_backtester_overall_metrics(
         self, mock_forecaster, feature_engine, sample_price_data, tmp_results_dir
@@ -291,22 +287,20 @@ class TestModelBacktester:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(sample_price_data)
 
-        overall = summary['overall']
-        assert 'mape' in overall
-        assert 'rmse' in overall
-        assert 'mae' in overall
-        assert 'r2' in overall
+        overall = summary["overall"]
+        assert "mape" in overall
+        assert "rmse" in overall
+        assert "mae" in overall
+        assert "r2" in overall
 
     def test_backtester_period_statistics(
         self, mock_forecaster, feature_engine, sample_price_data, tmp_results_dir
@@ -323,23 +317,21 @@ class TestModelBacktester:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(sample_price_data)
 
-        stats = summary['period_statistics']
-        assert 'n_periods' in stats
-        assert 'mape_mean' in stats
-        assert 'mape_std' in stats
-        assert 'mape_min' in stats
-        assert 'mape_max' in stats
+        stats = summary["period_statistics"]
+        assert "n_periods" in stats
+        assert "mape_mean" in stats
+        assert "mape_std" in stats
+        assert "mape_min" in stats
+        assert "mape_max" in stats
 
     def test_backtester_target_achievement(
         self, mock_forecaster, feature_engine, sample_price_data, tmp_results_dir
@@ -358,22 +350,20 @@ class TestModelBacktester:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(sample_price_data)
 
-        target = summary['target_achievement']
-        assert 'mape_target' in target
-        assert 'mape_achieved' in target
-        assert 'coverage_target' in target
-        assert 'coverage_achieved' in target
+        target = summary["target_achievement"]
+        assert "mape_target" in target
+        assert "mape_achieved" in target
+        assert "coverage_target" in target
+        assert "coverage_achieved" in target
 
 
 class TestBacktestWithExtendedData:
@@ -395,19 +385,17 @@ class TestBacktestWithExtendedData:
             retrain_frequency=10000,  # Don't retrain
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(extended_price_data)
 
         # Should have multiple periods
-        n_periods = summary['period_statistics']['n_periods']
+        n_periods = summary["period_statistics"]["n_periods"]
         assert n_periods >= 10, f"Expected at least 10 periods, got {n_periods}"
 
     def test_backtest_rolling_window_6_months(
@@ -426,18 +414,16 @@ class TestBacktestWithExtendedData:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(extended_price_data)
 
-        assert summary['period_statistics']['n_periods'] >= 5
+        assert summary["period_statistics"]["n_periods"] >= 5
 
 
 class TestBacktestResultsPersistence:
@@ -456,20 +442,18 @@ class TestBacktestResultsPersistence:
             retrain_frequency=1000,
             generate_plots=False,
             save_predictions=True,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         backtester.run(sample_price_data)
 
         # Check files were created
         files = os.listdir(tmp_results_dir)
-        json_files = [f for f in files if f.endswith('.json')]
+        json_files = [f for f in files if f.endswith(".json")]
 
         assert len(json_files) > 0
 
@@ -488,20 +472,18 @@ class TestBacktestResultsPersistence:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=True,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         backtester.run(sample_price_data)
 
         # Check NPZ file was created
         files = os.listdir(tmp_results_dir)
-        npz_files = [f for f in files if f.endswith('.npz')]
+        npz_files = [f for f in files if f.endswith(".npz")]
 
         assert len(npz_files) > 0
 
@@ -524,19 +506,17 @@ class TestHourlyBreakdown:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(sample_price_data)
 
-        assert 'hourly_mape' in summary
-        hourly = summary['hourly_mape']
+        assert "hourly_mape" in summary
+        hourly = summary["hourly_mape"]
 
         # Should have entries for each forecast hour
         assert len(hourly) > 0
@@ -556,17 +536,15 @@ class TestHourlyBreakdown:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         summary = backtester.run(sample_price_data)
-        hourly = summary['hourly_mape']
+        hourly = summary["hourly_mape"]
 
         # With real models, later hours typically have higher MAPE
         # For mock model, just verify structure
@@ -585,19 +563,17 @@ class TestBacktestEdgeCases:
         from ml.evaluation.backtesting import ModelBacktester, BacktestConfig
 
         # Create very small dataset
-        dates = pd.date_range(start='2024-01-01', periods=100, freq='H')
-        small_data = pd.DataFrame({'price': np.random.rand(100)}, index=dates)
+        dates = pd.date_range(start="2024-01-01", periods=100, freq="H")
+        small_data = pd.DataFrame({"price": np.random.rand(100)}, index=dates)
 
         config = BacktestConfig(
             min_train_size=500,  # More than available data
             test_size=100,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=mock_forecaster,
-            feature_engine=feature_engine,
-            config=config
+            model=mock_forecaster, feature_engine=feature_engine, config=config
         )
 
         with pytest.raises(ValueError, match="Insufficient data"):
@@ -632,13 +608,11 @@ class TestBacktestEdgeCases:
             retrain_frequency=10000,
             generate_plots=False,
             save_predictions=False,
-            output_dir=tmp_results_dir
+            output_dir=tmp_results_dir,
         )
 
         backtester = ModelBacktester(
-            model=FailingModel(),
-            feature_engine=feature_engine,
-            config=config
+            model=FailingModel(), feature_engine=feature_engine, config=config
         )
 
         # Should complete without raising

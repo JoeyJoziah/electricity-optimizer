@@ -23,15 +23,15 @@ accumulation across tests.
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from services.alert_service import AlertService, PriceAlert
 
 # ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ class _MockAlertDB:
     # -----------------------------------------------------------------------
 
     def _insert_config(self, params: dict) -> MagicMock:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         row = {
             "id": params.get("id", str(uuid4())),
             "user_id": params["user_id"],
@@ -155,14 +155,20 @@ class _MockAlertDB:
         if row is None:
             return self._mapping_first(None)
         # Apply permitted fields
-        for key in ("region", "currency", "price_below", "price_above",
-                    "notify_optimal_windows", "is_active"):
+        for key in (
+            "region",
+            "currency",
+            "price_below",
+            "price_above",
+            "notify_optimal_windows",
+            "is_active",
+        ):
             if key in params:
                 val = params[key]
                 if key in ("price_below", "price_above") and val is not None:
                     val = Decimal(str(val))
                 row[key] = val
-        row["updated_at"] = datetime.now(tz=timezone.utc)
+        row["updated_at"] = datetime.now(tz=UTC)
         return self._mapping_first(row)
 
     def _delete_config(self, params: dict) -> MagicMock:
@@ -191,23 +197,21 @@ class _MockAlertDB:
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
         rows = [r for r in self._configs if str(r["user_id"]) == str(uid)]
-        return self._mapping_all(rows[offset: offset + limit])
+        return self._mapping_all(rows[offset : offset + limit])
 
     # -----------------------------------------------------------------------
     # History handlers
     # -----------------------------------------------------------------------
 
     def _insert_history(self, params: dict) -> MagicMock:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         row = {
             "id": params.get("id", str(uuid4())),
             "user_id": params["user_id"],
             "alert_config_id": params.get("alert_config_id"),
             "alert_type": params["alert_type"],
             "current_price": Decimal(str(params["current_price"])),
-            "threshold": (
-                Decimal(str(params["threshold"])) if params.get("threshold") else None
-            ),
+            "threshold": (Decimal(str(params["threshold"])) if params.get("threshold") else None),
             "region": params["region"],
             "supplier": params.get("supplier"),
             "currency": params.get("currency", "USD"),
@@ -236,7 +240,7 @@ class _MockAlertDB:
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
         rows = [r for r in self._history if str(r["user_id"]) == str(uid)]
-        return self._mapping_all(rows[offset: offset + limit])
+        return self._mapping_all(rows[offset : offset + limit])
 
     # -----------------------------------------------------------------------
     # Helpers
@@ -288,7 +292,7 @@ class _MockAlertDB:
         is_active: bool = True,
     ) -> dict:
         """Insert a config row directly."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         row = {
             "id": str(uuid4()),
             "user_id": user_id,
@@ -314,7 +318,7 @@ class _MockAlertDB:
         supplier: str = "Eversource Energy",
     ) -> dict:
         """Insert a history row directly."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         row = {
             "id": str(uuid4()),
             "user_id": user_id,
@@ -384,7 +388,6 @@ class TestAlertServiceDBMethods:
         self.service = AlertService()
         self.db = _MockAlertDB()
 
-    @pytest.mark.asyncio
     async def test_create_alert_stores_row(self):
         config = await self.service.create_alert(
             user_id=TEST_USER_ID,
@@ -396,7 +399,6 @@ class TestAlertServiceDBMethods:
         assert config["price_below"] == pytest.approx(0.20)
         assert config["is_active"] is True
 
-    @pytest.mark.asyncio
     async def test_create_alert_raises_if_no_conditions(self):
         with pytest.raises(ValueError, match="At least one"):
             await self.service.create_alert(
@@ -408,12 +410,10 @@ class TestAlertServiceDBMethods:
                 notify_optimal_windows=False,
             )
 
-    @pytest.mark.asyncio
     async def test_get_user_alerts_empty(self):
         alerts = await self.service.get_user_alerts(TEST_USER_ID, self.db)
         assert alerts == []
 
-    @pytest.mark.asyncio
     async def test_get_user_alerts_returns_owned(self):
         self.db.seed_config(user_id=TEST_USER_ID)
         self.db.seed_config(user_id=TEST_USER_ID, price_below=0.15)
@@ -424,19 +424,16 @@ class TestAlertServiceDBMethods:
         for a in alerts:
             assert a["user_id"] == TEST_USER_ID
 
-    @pytest.mark.asyncio
     async def test_delete_alert_returns_true_when_found(self):
         row = self.db.seed_config(user_id=TEST_USER_ID)
         deleted = await self.service.delete_alert(TEST_USER_ID, row["id"], self.db)
         assert deleted is True
         assert len(self.db._configs) == 0
 
-    @pytest.mark.asyncio
     async def test_delete_alert_returns_false_when_missing(self):
         deleted = await self.service.delete_alert(TEST_USER_ID, str(uuid4()), self.db)
         assert deleted is False
 
-    @pytest.mark.asyncio
     async def test_delete_alert_enforces_ownership(self):
         row = self.db.seed_config(user_id=OTHER_USER_ID)
         deleted = await self.service.delete_alert(TEST_USER_ID, row["id"], self.db)
@@ -444,7 +441,6 @@ class TestAlertServiceDBMethods:
         # Row still present for the other user
         assert len(self.db._configs) == 1
 
-    @pytest.mark.asyncio
     async def test_update_alert_modifies_fields(self):
         row = self.db.seed_config(user_id=TEST_USER_ID, price_below=0.20)
         updated = await self.service.update_alert(
@@ -457,7 +453,6 @@ class TestAlertServiceDBMethods:
         assert updated["price_below"] == pytest.approx(0.15)
         assert updated["region"] == "us_ny"
 
-    @pytest.mark.asyncio
     async def test_update_alert_returns_none_when_missing(self):
         updated = await self.service.update_alert(
             user_id=TEST_USER_ID,
@@ -467,27 +462,22 @@ class TestAlertServiceDBMethods:
         )
         assert updated is None
 
-    @pytest.mark.asyncio
     async def test_get_alert_history_empty(self):
         result = await self.service.get_alert_history(TEST_USER_ID, self.db)
         assert result["total"] == 0
         assert result["items"] == []
         assert result["pages"] == 1
 
-    @pytest.mark.asyncio
     async def test_get_alert_history_pagination(self):
         for _ in range(5):
             self.db.seed_history(user_id=TEST_USER_ID)
         self.db.seed_history(user_id=OTHER_USER_ID)  # should not appear
 
-        result = await self.service.get_alert_history(
-            TEST_USER_ID, self.db, page=1, page_size=2
-        )
+        result = await self.service.get_alert_history(TEST_USER_ID, self.db, page=1, page_size=2)
         assert result["total"] == 5
         assert len(result["items"]) == 2
         assert result["pages"] == 3
 
-    @pytest.mark.asyncio
     async def test_record_triggered_alert(self):
         alert = PriceAlert(
             alert_type="price_drop",
@@ -495,7 +485,7 @@ class TestAlertServiceDBMethods:
             threshold=Decimal("0.20"),
             region="us_ct",
             supplier="Eversource Energy",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         record = await self.service.record_triggered_alert(
             user_id=TEST_USER_ID,
@@ -541,8 +531,16 @@ class TestGetAlerts:
         response = auth_client.get("/api/v1/alerts")
         assert response.status_code == 200
         item = response.json()["alerts"][0]
-        for key in ("id", "user_id", "region", "currency", "price_below",
-                    "notify_optimal_windows", "is_active", "created_at"):
+        for key in (
+            "id",
+            "user_id",
+            "region",
+            "currency",
+            "price_below",
+            "notify_optimal_windows",
+            "is_active",
+            "created_at",
+        ):
             assert key in item, f"Missing key: {key}"
 
 
@@ -670,8 +668,15 @@ class TestAlertHistory:
         response = auth_client.get("/api/v1/alerts/history")
         assert response.status_code == 200
         item = response.json()["items"][0]
-        for key in ("id", "user_id", "alert_type", "current_price", "region",
-                    "triggered_at", "email_sent"):
+        for key in (
+            "id",
+            "user_id",
+            "alert_type",
+            "current_price",
+            "region",
+            "triggered_at",
+            "email_sent",
+        ):
             assert key in item, f"Missing key: {key}"
 
     def test_history_requires_auth(self, unauth_client):

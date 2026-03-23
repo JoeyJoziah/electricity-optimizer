@@ -31,7 +31,6 @@ batch summary rather than raising so callers can report partial success.
 """
 
 import asyncio
-from typing import Optional
 
 import httpx
 import structlog
@@ -59,7 +58,7 @@ class RateScraperService:
         self._token = self._settings.diffbot_api_token
         self._db = db
 
-    async def extract_rates_from_url(self, url: str) -> Optional[dict]:
+    async def extract_rates_from_url(self, url: str) -> dict | None:
         """Extract structured data from a supplier rate page.
 
         Uses 1 Diffbot credit per page. Free tier: 10,000/month.
@@ -112,7 +111,7 @@ class RateScraperService:
                     supplier_id=supplier_id,
                     url=url,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     "scrape_timeout",
                     supplier_id=supplier_id,
@@ -148,7 +147,7 @@ class RateScraperService:
 
     async def scrape_supplier_rates(
         self,
-        supplier_urls: Optional[list] = None,
+        supplier_urls: list | None = None,
         max_concurrency: int = _MAX_CONCURRENCY,
     ) -> dict:
         """Scrape multiple supplier URLs with concurrent rate limiting.

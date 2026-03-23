@@ -1,19 +1,20 @@
-'use client'
+"use client";
 
-import { useHeatingOilDealers } from '@/lib/hooks/useHeatingOil'
+import { useHeatingOilDealers } from "@/lib/hooks/useHeatingOil";
+import { isSafeHref } from "@/lib/utils/url";
 
 interface DealerListProps {
-  state: string
+  state: string;
 }
 
 export function DealerList({ state }: DealerListProps) {
-  const { data, isLoading, error } = useHeatingOilDealers(state)
+  const { data, isLoading, error } = useHeatingOilDealers(state);
 
   if (isLoading) {
-    return <div className="animate-pulse rounded-lg bg-gray-100 h-32" />
+    return <div className="animate-pulse rounded-lg bg-gray-100 h-32" />;
   }
 
-  if (error || !data || data.dealers.length === 0) return null
+  if (error || !data || data.dealers.length === 0) return null;
 
   return (
     <div className="rounded-lg border p-4">
@@ -28,7 +29,9 @@ export function DealerList({ state }: DealerListProps) {
               <div>
                 <p className="font-medium text-gray-900">{dealer.name}</p>
                 {dealer.city && (
-                  <p className="text-sm text-gray-500">{dealer.city}, {state}</p>
+                  <p className="text-sm text-gray-500">
+                    {dealer.city}, {state}
+                  </p>
                 )}
               </div>
               {dealer.rating && (
@@ -46,7 +49,7 @@ export function DealerList({ state }: DealerListProps) {
                   {dealer.phone}
                 </a>
               )}
-              {dealer.website && (
+              {dealer.website && isSafeHref(dealer.website) && (
                 <a
                   href={dealer.website}
                   target="_blank"
@@ -61,5 +64,5 @@ export function DealerList({ state }: DealerListProps) {
         ))}
       </div>
     </div>
-  )
+  );
 }

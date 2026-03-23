@@ -11,17 +11,13 @@ Coverage:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from services.rate_export_service import (
-    RateExportService,
     EXPORT_CONFIGS,
-    MAX_EXPORT_DAYS,
+    RateExportService,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,12 +78,16 @@ class TestExportConfigs:
 
 
 class TestExportJSON:
-    @pytest.mark.asyncio
     async def test_json_format_structure(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rows = [
-            {"region": "us_ct", "supplier": "A", "price_per_kwh": 0.15,
-             "currency": "USD", "timestamp": now},
+            {
+                "region": "us_ct",
+                "supplier": "A",
+                "price_per_kwh": 0.15,
+                "currency": "USD",
+                "timestamp": now,
+            },
         ]
         db = _make_db(rows)
         service = RateExportService(db)
@@ -98,7 +98,6 @@ class TestExportJSON:
         assert "date_range" in result
         assert isinstance(result["data"], list)
 
-    @pytest.mark.asyncio
     async def test_empty_export(self):
         service = RateExportService(_make_db([]))
         result = await service.export_rates("electricity", format="json")
@@ -112,12 +111,16 @@ class TestExportJSON:
 
 
 class TestExportCSV:
-    @pytest.mark.asyncio
     async def test_csv_format_structure(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rows = [
-            {"region": "us_ct", "supplier": "A", "price_per_kwh": 0.15,
-             "currency": "USD", "timestamp": now},
+            {
+                "region": "us_ct",
+                "supplier": "A",
+                "price_per_kwh": 0.15,
+                "currency": "USD",
+                "timestamp": now,
+            },
         ]
         db = _make_db(rows)
         service = RateExportService(db)
@@ -128,7 +131,6 @@ class TestExportCSV:
         assert isinstance(result["data"], str)
         assert "region" in result["data"]
 
-    @pytest.mark.asyncio
     async def test_csv_has_header_row(self):
         service = RateExportService(_make_db([]))
         result = await service.export_rates("electricity", format="csv")
@@ -142,7 +144,6 @@ class TestExportCSV:
 
 
 class TestUnknownUtilityType:
-    @pytest.mark.asyncio
     async def test_error_returned(self):
         service = RateExportService(_make_db())
         result = await service.export_rates("solar")
@@ -156,19 +157,19 @@ class TestUnknownUtilityType:
 
 
 class TestDateRangeEnforcement:
-    @pytest.mark.asyncio
     async def test_max_window_enforced(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         far_past = now - timedelta(days=500)
         service = RateExportService(_make_db([]))
         result = await service.export_rates(
-            "electricity", format="json",
-            start_date=far_past, end_date=now,
+            "electricity",
+            format="json",
+            start_date=far_past,
+            end_date=now,
         )
         assert "error" not in result
         assert result["count"] == 0
 
-    @pytest.mark.asyncio
     async def test_default_90_day_window(self):
         service = RateExportService(_make_db([]))
         result = await service.export_rates("electricity", format="json")

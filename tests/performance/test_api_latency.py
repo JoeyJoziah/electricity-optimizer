@@ -11,14 +11,45 @@ Validates API endpoints meet performance SLAs:
 import pytest
 import time
 import statistics
-from typing import List, Callable
-import asyncio
+from typing import List
 import httpx
 
 # Test configuration
 BASE_URL = "http://localhost:8000"
 NUM_REQUESTS = 100  # Number of requests per test
 WARMUP_REQUESTS = 5  # Warmup requests before measuring
+
+# How long to wait for the server health check (seconds)
+_SERVER_CHECK_TIMEOUT = 3.0
+
+
+def _require_server(base_url: str = BASE_URL) -> None:
+    """Assert the server is reachable; skip the test suite if it is not.
+
+    Called once per module via the ``require_server`` session-scoped fixture.
+    Raises ``pytest.skip`` with a clear message rather than silently passing
+    when the backend is offline so that the CI log makes the situation obvious.
+    """
+    try:
+        with httpx.Client(base_url=base_url, timeout=_SERVER_CHECK_TIMEOUT) as probe:
+            response = probe.get("/health")
+            if response.status_code != 200:
+                pytest.skip(
+                    f"Backend server at {base_url} returned HTTP {response.status_code} "
+                    "on /health — performance tests require a running server."
+                )
+    except httpx.TransportError as exc:
+        pytest.skip(
+            f"Backend server at {base_url} is not reachable "
+            f"({type(exc).__name__}: {exc}). "
+            "Start the server before running performance tests."
+        )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def require_server():
+    """Module-scoped fixture: abort the entire module if the server is down."""
+    _require_server(BASE_URL)
 
 
 class PerformanceMetrics:
@@ -103,7 +134,7 @@ def auth_headers(client):
     try:
         response = client.post(
             "/api/v1/auth/signin",
-            json={"email": "test@example.com", "password": "TestPass123!"}
+            json={"email": "test@example.com", "password": "TestPass123!"},
         )
         if response.status_code == 200:
             token = response.json().get("access_token")
@@ -120,9 +151,14 @@ class TestHealthEndpointPerformance:
     def test_health_endpoint_latency(self, client):
         """Health endpoint should respond in <50ms p95."""
         latencies = measure_latencies(client, "GET", "/health")
+
+        assert len(latencies) > 0, (
+            "No successful responses from /health — server may have become unreachable."
+        )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nHealth endpoint performance:")
+        print("\nHealth endpoint performance:")
         print(f"  p50: {metrics.p50:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
         print(f"  p99: {metrics.p99:.2f}ms")
@@ -153,44 +189,64 @@ class TestPriceEndpointPerformance:
 
     def test_current_price_latency(self, client):
         """Current price endpoint should respond in <200ms p95."""
-        latencies = measure_latencies(
-            client, "GET", "/api/v1/prices/current?region=UK"
+        latencies = measure_latencies(client, "GET", "/api/v1/prices/current?region=UK")
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/prices/current — "
+            "verify the endpoint is reachable and returns 200."
         )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nCurrent price endpoint performance:")
+        print("\nCurrent price endpoint performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p50: {metrics.p50:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
         print(f"  p99: {metrics.p99:.2f}ms")
 
-        assert metrics.p95 < 200, f"p95 latency {metrics.p95:.2f}ms exceeds 200ms target"
+        assert metrics.p95 < 200, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 200ms target"
+        )
 
     def test_price_history_latency(self, client):
         """Price history endpoint should respond in <300ms p95."""
         latencies = measure_latencies(
             client, "GET", "/api/v1/prices/history?region=UK&days=7"
         )
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/prices/history — "
+            "verify the endpoint is reachable and returns 200."
+        )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nPrice history endpoint performance:")
+        print("\nPrice history endpoint performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
 
-        assert metrics.p95 < 300, f"p95 latency {metrics.p95:.2f}ms exceeds 300ms target"
+        assert metrics.p95 < 300, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 300ms target"
+        )
 
     def test_price_compare_latency(self, client):
         """Price comparison endpoint should respond in <400ms p95."""
-        latencies = measure_latencies(
-            client, "GET", "/api/v1/prices/compare?region=UK"
+        latencies = measure_latencies(client, "GET", "/api/v1/prices/compare?region=UK")
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/prices/compare — "
+            "verify the endpoint is reachable and returns 200."
         )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nPrice comparison endpoint performance:")
+        print("\nPrice comparison endpoint performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
 
-        assert metrics.p95 < 400, f"p95 latency {metrics.p95:.2f}ms exceeds 400ms target"
+        assert metrics.p95 < 400, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 400ms target"
+        )
 
 
 class TestForecastEndpointPerformance:
@@ -201,28 +257,44 @@ class TestForecastEndpointPerformance:
         latencies = measure_latencies(
             client, "GET", "/api/v1/prices/forecast?region=UK&hours=24"
         )
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/prices/forecast (24h) — "
+            "verify the endpoint is reachable and returns 200."
+        )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\n24-hour forecast endpoint performance:")
+        print("\n24-hour forecast endpoint performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p50: {metrics.p50:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
         print(f"  p99: {metrics.p99:.2f}ms")
 
-        assert metrics.p95 < 500, f"p95 latency {metrics.p95:.2f}ms exceeds 500ms target"
+        assert metrics.p95 < 500, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 500ms target"
+        )
 
     def test_48h_forecast_latency(self, client):
         """48-hour forecast should respond in <800ms p95."""
         latencies = measure_latencies(
             client, "GET", "/api/v1/prices/forecast?region=UK&hours=48"
         )
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/prices/forecast (48h) — "
+            "verify the endpoint is reachable and returns 200."
+        )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\n48-hour forecast endpoint performance:")
+        print("\n48-hour forecast endpoint performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
 
-        assert metrics.p95 < 800, f"p95 latency {metrics.p95:.2f}ms exceeds 800ms target"
+        assert metrics.p95 < 800, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 800ms target"
+        )
 
 
 class TestOptimizationEndpointPerformance:
@@ -243,17 +315,27 @@ class TestOptimizationEndpointPerformance:
         }
 
         latencies = measure_latencies(
-            client, "POST", "/api/v1/optimization/schedule",
+            client,
+            "POST",
+            "/api/v1/optimization/schedule",
             num_requests=50,  # Fewer requests due to higher latency
             json_data=data,
         )
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/optimization/schedule (simple) — "
+            "verify the endpoint is reachable and returns 200."
+        )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nSimple optimization (1 appliance) performance:")
+        print("\nSimple optimization (1 appliance) performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
 
-        assert metrics.p95 < 1000, f"p95 latency {metrics.p95:.2f}ms exceeds 1000ms target"
+        assert metrics.p95 < 1000, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 1000ms target"
+        )
 
     def test_complex_optimization_latency(self, client):
         """Complex optimization (5 appliances) should respond in <2s p95."""
@@ -268,18 +350,28 @@ class TestOptimizationEndpointPerformance:
         }
 
         latencies = measure_latencies(
-            client, "POST", "/api/v1/optimization/schedule",
+            client,
+            "POST",
+            "/api/v1/optimization/schedule",
             num_requests=20,  # Fewer requests due to higher latency
             json_data=data,
         )
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/optimization/schedule (complex) — "
+            "verify the endpoint is reachable and returns 200."
+        )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nComplex optimization (5 appliances) performance:")
+        print("\nComplex optimization (5 appliances) performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
         print(f"  p99: {metrics.p99:.2f}ms")
 
-        assert metrics.p95 < 2000, f"p95 latency {metrics.p95:.2f}ms exceeds 2000ms target"
+        assert metrics.p95 < 2000, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 2000ms target"
+        )
 
 
 class TestSupplierEndpointPerformance:
@@ -287,29 +379,41 @@ class TestSupplierEndpointPerformance:
 
     def test_supplier_list_latency(self, client):
         """Supplier list should respond in <200ms p95."""
-        latencies = measure_latencies(
-            client, "GET", "/api/v1/suppliers?region=UK"
+        latencies = measure_latencies(client, "GET", "/api/v1/suppliers?region=UK")
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/suppliers — "
+            "verify the endpoint is reachable and returns 200."
         )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nSupplier list endpoint performance:")
+        print("\nSupplier list endpoint performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
 
-        assert metrics.p95 < 200, f"p95 latency {metrics.p95:.2f}ms exceeds 200ms target"
+        assert metrics.p95 < 200, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 200ms target"
+        )
 
     def test_supplier_details_latency(self, client):
         """Supplier details should respond in <150ms p95."""
-        latencies = measure_latencies(
-            client, "GET", "/api/v1/suppliers/supplier_1"
+        latencies = measure_latencies(client, "GET", "/api/v1/suppliers/supplier_1")
+
+        assert len(latencies) > 0, (
+            "No successful 200 responses from /api/v1/suppliers/supplier_1 — "
+            "verify the endpoint is reachable and returns 200."
         )
+
         metrics = PerformanceMetrics(latencies)
 
-        print(f"\nSupplier details endpoint performance:")
+        print("\nSupplier details endpoint performance:")
         print(f"  Average: {metrics.avg:.2f}ms")
         print(f"  p95: {metrics.p95:.2f}ms")
 
-        assert metrics.p95 < 150, f"p95 latency {metrics.p95:.2f}ms exceeds 150ms target"
+        assert metrics.p95 < 150, (
+            f"p95 latency {metrics.p95:.2f}ms exceeds 150ms target"
+        )
 
 
 class TestCachePerformance:
@@ -337,7 +441,7 @@ class TestCachePerformance:
         cold_avg = statistics.mean(cold_latencies) * 1000
         warm_avg = statistics.mean(warm_latencies) * 1000
 
-        print(f"\nCache performance:")
+        print("\nCache performance:")
         print(f"  Cold average: {cold_avg:.2f}ms")
         print(f"  Warm average: {warm_avg:.2f}ms")
         print(f"  Improvement: {((cold_avg - warm_avg) / cold_avg * 100):.1f}%")

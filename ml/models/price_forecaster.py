@@ -27,7 +27,7 @@ from tensorflow.keras.callbacks import (
     ModelCheckpoint,
     ReduceLROnPlateau,
     TensorBoard,
-    Callback
+    Callback,
 )
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import Loss
@@ -50,7 +50,7 @@ class ModelConfig:
 
     # Output configuration
     forecast_horizon: int = 24  # 24-hour ahead forecast
-    num_quantiles: int = 3      # point estimate, lower, upper bounds
+    num_quantiles: int = 3  # point estimate, lower, upper bounds
     confidence_level: float = 0.9  # 90% confidence interval
 
     # CNN configuration
@@ -105,11 +105,7 @@ class AttentionLayer(layers.Layer):
     """
 
     def __init__(
-        self,
-        num_heads: int = 4,
-        key_dim: int = 32,
-        dropout: float = 0.1,
-        **kwargs
+        self, num_heads: int = 4, key_dim: int = 32, dropout: float = 0.1, **kwargs
     ):
         super().__init__(**kwargs)
         self.num_heads = num_heads
@@ -118,9 +114,7 @@ class AttentionLayer(layers.Layer):
 
     def build(self, input_shape):
         self.attention = layers.MultiHeadAttention(
-            num_heads=self.num_heads,
-            key_dim=self.key_dim,
-            dropout=self.dropout_rate
+            num_heads=self.num_heads, key_dim=self.key_dim, dropout=self.dropout_rate
         )
         self.layer_norm = layers.LayerNormalization()
         self.dropout = layers.Dropout(self.dropout_rate)
@@ -134,11 +128,13 @@ class AttentionLayer(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            'num_heads': self.num_heads,
-            'key_dim': self.key_dim,
-            'dropout': self.dropout_rate
-        })
+        config.update(
+            {
+                "num_heads": self.num_heads,
+                "key_dim": self.key_dim,
+                "dropout": self.dropout_rate,
+            }
+        )
         return config
 
 
@@ -168,7 +164,7 @@ class QuantileLoss(Loss):
         y_true_expanded = tf.expand_dims(y_true, axis=-1)
 
         for i, q in enumerate(self.quantiles):
-            pred_q = y_pred[:, :, i:i+1]
+            pred_q = y_pred[:, :, i : i + 1]
             error = y_true_expanded - pred_q
             loss_q = tf.maximum(q * error, (q - 1) * error)
             losses.append(loss_q)
@@ -197,7 +193,7 @@ class MAPECallback(Callback):
 
         # Compute MAPE
         mape = np.mean(np.abs((self.y_val - y_pred) / (self.y_val + 1e-8))) * 100
-        logs['val_mape'] = mape
+        logs["val_mape"] = mape
 
         if epoch % 10 == 0:
             logger.info(f"Epoch {epoch}: MAPE = {mape:.2f}%")
@@ -223,34 +219,32 @@ def create_cnn_lstm_model(config: ModelConfig) -> Model:
     """
     # Input layer
     inputs = layers.Input(
-        shape=(config.sequence_length, config.num_features),
-        name='input'
+        shape=(config.sequence_length, config.num_features), name="input"
     )
 
     x = inputs
 
     # CNN Blocks
-    for i, (filters, kernel_size) in enumerate(zip(
-        config.cnn_filters, config.cnn_kernel_sizes
-    )):
+    for i, (filters, kernel_size) in enumerate(
+        zip(config.cnn_filters, config.cnn_kernel_sizes)
+    ):
         x = layers.Conv1D(
             filters=filters,
             kernel_size=kernel_size,
-            padding='same',
+            padding="same",
             kernel_regularizer=regularizers.l2(config.l2_weight),
-            name=f'conv1d_{i}'
+            name=f"conv1d_{i}",
         )(x)
 
         if config.use_batch_norm:
-            x = layers.BatchNormalization(name=f'bn_{i}')(x)
+            x = layers.BatchNormalization(name=f"bn_{i}")(x)
 
-        x = layers.Activation(config.cnn_activation, name=f'activation_{i}')(x)
+        x = layers.Activation(config.cnn_activation, name=f"activation_{i}")(x)
 
         # Pool every other layer
         if i % 2 == 1:
             x = layers.MaxPooling1D(
-                pool_size=config.cnn_pooling_size,
-                name=f'maxpool_{i}'
+                pool_size=config.cnn_pooling_size, name=f"maxpool_{i}"
             )(x)
 
     # Attention Layer
@@ -259,12 +253,12 @@ def create_cnn_lstm_model(config: ModelConfig) -> Model:
             num_heads=config.attention_heads,
             key_dim=config.attention_key_dim,
             dropout=config.attention_dropout,
-            name='attention'
+            name="attention",
         )(x)
 
     # LSTM Layers
     for i, units in enumerate(config.lstm_units):
-        return_sequences = (i < len(config.lstm_units) - 1)
+        return_sequences = i < len(config.lstm_units) - 1
 
         x = layers.Bidirectional(
             layers.LSTM(
@@ -274,7 +268,7 @@ def create_cnn_lstm_model(config: ModelConfig) -> Model:
                 recurrent_dropout=config.lstm_recurrent_dropout,
                 kernel_regularizer=regularizers.l2(config.l2_weight),
             ),
-            name=f'bilstm_{i}'
+            name=f"bilstm_{i}",
         )(x)
 
     # Dense Layers
@@ -283,22 +277,21 @@ def create_cnn_lstm_model(config: ModelConfig) -> Model:
             units,
             activation=config.dense_activation,
             kernel_regularizer=regularizers.l2(config.l2_weight),
-            name=f'dense_{i}'
+            name=f"dense_{i}",
         )(x)
-        x = layers.Dropout(config.dense_dropout, name=f'dropout_{i}')(x)
+        x = layers.Dropout(config.dense_dropout, name=f"dropout_{i}")(x)
 
     # Output Layer - produces forecast_horizon x num_quantiles
     # First expand to full forecast horizon
     x = layers.Dense(
         config.forecast_horizon * config.num_quantiles,
         kernel_regularizer=regularizers.l2(config.l2_weight),
-        name='output_dense'
+        name="output_dense",
     )(x)
 
     # Reshape to (batch, forecast_horizon, num_quantiles)
     outputs = layers.Reshape(
-        (config.forecast_horizon, config.num_quantiles),
-        name='output'
+        (config.forecast_horizon, config.num_quantiles), name="output"
     )(x)
 
     # Create model
@@ -318,11 +311,7 @@ class ElectricityPriceForecaster:
     - Performance evaluation
     """
 
-    def __init__(
-        self,
-        config: ModelConfig = None,
-        model_path: Optional[str] = None
-    ):
+    def __init__(self, config: ModelConfig = None, model_path: Optional[str] = None):
         """
         Initialize the forecaster.
 
@@ -350,13 +339,13 @@ class ElectricityPriceForecaster:
         quantiles = [
             (1 - self.config.confidence_level) / 2,  # Lower bound
             0.5,  # Median
-            (1 + self.config.confidence_level) / 2   # Upper bound
+            (1 + self.config.confidence_level) / 2,  # Upper bound
         ]
 
         self.model.compile(
             optimizer=Adam(learning_rate=self.config.learning_rate),
             loss=QuantileLoss(quantiles=quantiles),
-            metrics=['mae']
+            metrics=["mae"],
         )
 
         logger.info(f"Model built with {self.model.count_params():,} parameters")
@@ -368,9 +357,9 @@ class ElectricityPriceForecaster:
         y_train: np.ndarray,
         X_val: Optional[np.ndarray] = None,
         y_val: Optional[np.ndarray] = None,
-        checkpoint_dir: str = 'checkpoints',
-        log_dir: str = 'logs',
-        verbose: int = 1
+        checkpoint_dir: str = "checkpoints",
+        log_dir: str = "logs",
+        verbose: int = 1,
     ) -> Dict:
         """
         Train the model.
@@ -405,39 +394,30 @@ class ElectricityPriceForecaster:
         # Setup callbacks
         callbacks = [
             EarlyStopping(
-                monitor='val_loss',
-                patience=20,
-                restore_best_weights=True,
-                verbose=1
+                monitor="val_loss", patience=20, restore_best_weights=True, verbose=1
             ),
             ReduceLROnPlateau(
-                monitor='val_loss',
-                factor=0.5,
-                patience=10,
-                min_lr=1e-6,
-                verbose=1
+                monitor="val_loss", factor=0.5, patience=10, min_lr=1e-6, verbose=1
             ),
             ModelCheckpoint(
-                filepath=os.path.join(checkpoint_dir, 'best_model.keras'),
-                monitor='val_loss',
+                filepath=os.path.join(checkpoint_dir, "best_model.keras"),
+                monitor="val_loss",
                 save_best_only=True,
-                verbose=1
+                verbose=1,
             ),
-            TensorBoard(
-                log_dir=log_dir,
-                histogram_freq=1
-            ),
-            MAPECallback(validation_data=(X_val, y_val))
+            TensorBoard(log_dir=log_dir, histogram_freq=1),
+            MAPECallback(validation_data=(X_val, y_val)),
         ]
 
         # Train
         self.history = self.model.fit(
-            X_train, y_train,
+            X_train,
+            y_train,
             validation_data=(X_val, y_val),
             epochs=self.config.epochs,
             batch_size=self.config.batch_size,
             callbacks=callbacks,
-            verbose=verbose
+            verbose=verbose,
         )
 
         self.is_fitted = True
@@ -445,16 +425,14 @@ class ElectricityPriceForecaster:
 
         # Return training history
         return {
-            'loss': self.history.history['loss'],
-            'val_loss': self.history.history['val_loss'],
-            'mae': self.history.history['mae'],
-            'val_mae': self.history.history['val_mae']
+            "loss": self.history.history["loss"],
+            "val_loss": self.history.history["val_loss"],
+            "mae": self.history.history["mae"],
+            "val_mae": self.history.history["val_mae"],
         }
 
     def predict(
-        self,
-        X: np.ndarray,
-        return_confidence: bool = True
+        self, X: np.ndarray, return_confidence: bool = True
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """
         Generate predictions with optional confidence intervals.
@@ -481,10 +459,7 @@ class ElectricityPriceForecaster:
         else:
             return predictions[:, :, 1]  # Return median forecast
 
-    def predict_single(
-        self,
-        X: np.ndarray
-    ) -> Dict[str, np.ndarray]:
+    def predict_single(self, X: np.ndarray) -> Dict[str, np.ndarray]:
         """
         Generate single prediction with full metadata.
 
@@ -500,18 +475,14 @@ class ElectricityPriceForecaster:
         forecast, lower, upper = self.predict(X, return_confidence=True)
 
         return {
-            'forecast': forecast[0],
-            'lower_bound': lower[0],
-            'upper_bound': upper[0],
-            'confidence_level': self.config.confidence_level,
-            'forecast_horizon': self.config.forecast_horizon
+            "forecast": forecast[0],
+            "lower_bound": lower[0],
+            "upper_bound": upper[0],
+            "confidence_level": self.config.confidence_level,
+            "forecast_horizon": self.config.forecast_horizon,
         }
 
-    def evaluate(
-        self,
-        X_test: np.ndarray,
-        y_test: np.ndarray
-    ) -> Dict[str, float]:
+    def evaluate(self, X_test: np.ndarray, y_test: np.ndarray) -> Dict[str, float]:
         """
         Evaluate model performance.
 
@@ -542,15 +513,17 @@ class ElectricityPriceForecaster:
         coverage = np.mean(in_interval)
 
         metrics = {
-            'mae': float(mae),
-            'rmse': float(rmse),
-            'mape': float(mape),
-            'direction_accuracy': float(direction_accuracy),
-            'coverage': float(coverage),
-            'expected_coverage': float(self.config.confidence_level)
+            "mae": float(mae),
+            "rmse": float(rmse),
+            "mape": float(mape),
+            "direction_accuracy": float(direction_accuracy),
+            "coverage": float(coverage),
+            "expected_coverage": float(self.config.confidence_level),
         }
 
-        logger.info(f"Evaluation results: MAPE={mape:.2f}%, MAE={mae:.4f}, RMSE={rmse:.4f}")
+        logger.info(
+            f"Evaluation results: MAPE={mape:.2f}%, MAE={mae:.4f}, RMSE={rmse:.4f}"
+        )
 
         return metrics
 
@@ -564,12 +537,12 @@ class ElectricityPriceForecaster:
         os.makedirs(path, exist_ok=True)
 
         # Save model
-        model_path = os.path.join(path, 'model.keras')
+        model_path = os.path.join(path, "model.keras")
         self.model.save(model_path)
 
         # Save config
-        config_path = os.path.join(path, 'config.json')
-        with open(config_path, 'w') as f:
+        config_path = os.path.join(path, "config.json")
+        with open(config_path, "w") as f:
             json.dump(asdict(self.config), f, indent=2)
 
         logger.info(f"Model saved to {path}")
@@ -582,22 +555,19 @@ class ElectricityPriceForecaster:
             path: Directory path to load model from
         """
         # Load config
-        config_path = os.path.join(path, 'config.json')
+        config_path = os.path.join(path, "config.json")
         if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config_dict = json.load(f)
             self.config = ModelConfig(**config_dict)
 
         # Load model
-        model_path = os.path.join(path, 'model.keras')
+        model_path = os.path.join(path, "model.keras")
         custom_objects = {
-            'AttentionLayer': AttentionLayer,
-            'QuantileLoss': QuantileLoss
+            "AttentionLayer": AttentionLayer,
+            "QuantileLoss": QuantileLoss,
         }
-        self.model = keras.models.load_model(
-            model_path,
-            custom_objects=custom_objects
-        )
+        self.model = keras.models.load_model(model_path, custom_objects=custom_objects)
 
         self.is_fitted = True
         logger.info(f"Model loaded from {path}")
@@ -656,7 +626,7 @@ def test_model():
         num_features=num_features,
         forecast_horizon=forecast_horizon,
         epochs=5,  # Quick test
-        batch_size=32
+        batch_size=32,
     )
 
     forecaster = ElectricityPriceForecaster(config=config)
@@ -664,10 +634,11 @@ def test_model():
     # Train
     print("\nTraining model...")
     history = forecaster.fit(
-        X_train, y_train,
-        checkpoint_dir='/tmp/checkpoints',
-        log_dir='/tmp/logs',
-        verbose=1
+        X_train,
+        y_train,
+        checkpoint_dir="/tmp/checkpoints",
+        log_dir="/tmp/logs",
+        verbose=1,
     )
 
     # Evaluate
@@ -688,10 +659,10 @@ def test_model():
 
     # Save and reload
     print("\nTesting save/load...")
-    forecaster.save('/tmp/test_model')
+    forecaster.save("/tmp/test_model")
 
     # Load model
-    loaded_forecaster = ElectricityPriceForecaster(model_path='/tmp/test_model')
+    loaded_forecaster = ElectricityPriceForecaster(model_path="/tmp/test_model")
     loaded_metrics = loaded_forecaster.evaluate(X_test, y_test)
     print(f"Loaded model metrics: {loaded_metrics}")
 

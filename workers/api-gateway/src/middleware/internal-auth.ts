@@ -55,7 +55,7 @@ export async function validateInternalAuth(
  * Uses crypto.subtle.timingSafeEqual when available (Cloudflare Workers runtime).
  * Falls back to a constant-time XOR accumulator for Node.js test environments.
  */
-async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder();
   const aBytes = encoder.encode(a);
   const bBytes = encoder.encode(b);

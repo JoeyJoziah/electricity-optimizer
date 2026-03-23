@@ -20,6 +20,7 @@ pytestmark = pytest.mark.slow
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_db_session():
     """Return a mock async DB session."""
     session = AsyncMock()
@@ -34,6 +35,7 @@ def _mock_db_session():
 def _get_test_client():
     """Create an httpx.AsyncClient wired to the ASGI app."""
     from main import app
+
     transport = httpx.ASGITransport(app=app)
     return httpx.AsyncClient(transport=transport, base_url="http://test")
 
@@ -46,7 +48,6 @@ def _get_test_client():
 class TestConcurrentHealth:
     """Verify health endpoint handles many concurrent requests."""
 
-    @pytest.mark.asyncio
     async def test_concurrent_health_checks(self):
         """50 concurrent GET /health should all return 200 in <2s."""
         async with _get_test_client() as client:
@@ -60,7 +61,6 @@ class TestConcurrentHealth:
         )
         assert elapsed < 2.0, f"50 health checks took {elapsed:.2f}s (limit 2s)"
 
-    @pytest.mark.asyncio
     async def test_concurrent_docs_disabled(self):
         """30 concurrent GET /docs should all return 404 (disabled)."""
         async with _get_test_client() as client:
@@ -83,35 +83,28 @@ class TestConcurrentPriceEndpoints:
         ):
             yield
 
-    @pytest.mark.asyncio
     async def test_concurrent_price_current(self):
         """20 concurrent GET /api/v1/prices/current should all respond."""
         async with _get_test_client() as client:
             start = time.monotonic()
             tasks = [
-                client.get("/api/v1/prices/current", params={"region": "us_ct"})
-                for _ in range(20)
+                client.get("/api/v1/prices/current", params={"region": "us_ct"}) for _ in range(20)
             ]
             responses = await asyncio.gather(*tasks)
             elapsed = time.monotonic() - start
 
         # All should return a valid HTTP status (not 500)
         server_errors = [r for r in responses if r.status_code >= 500]
-        assert len(server_errors) == 0, (
-            f"{len(server_errors)} server errors out of 20 requests"
-        )
+        assert len(server_errors) == 0, f"{len(server_errors)} server errors out of 20 requests"
         assert elapsed < 3.0, f"20 price requests took {elapsed:.2f}s (limit 3s)"
 
-    @pytest.mark.asyncio
     async def test_concurrent_mixed_endpoints(self):
         """Mix of different endpoints concurrently."""
         async with _get_test_client() as client:
             tasks = []
             for _ in range(10):
                 tasks.append(client.get("/health"))
-                tasks.append(
-                    client.get("/api/v1/prices/current", params={"region": "us_ct"})
-                )
+                tasks.append(client.get("/api/v1/prices/current", params={"region": "us_ct"}))
             responses = await asyncio.gather(*tasks)
 
         server_errors = [r for r in responses if r.status_code >= 500]
@@ -123,7 +116,6 @@ class TestConcurrentPriceEndpoints:
 class TestLatencyBudget:
     """Verify individual endpoint latency stays within budget."""
 
-    @pytest.mark.asyncio
     async def test_health_latency_p99(self):
         """P99 latency for /health should be <100ms."""
         async with _get_test_client() as client:
@@ -135,9 +127,8 @@ class TestLatencyBudget:
 
         latencies.sort()
         p99 = latencies[98]  # 99th percentile
-        assert p99 < 0.1, f"Health P99 latency {p99*1000:.1f}ms exceeds 100ms budget"
+        assert p99 < 0.1, f"Health P99 latency {p99 * 1000:.1f}ms exceeds 100ms budget"
 
-    @pytest.mark.asyncio
     async def test_startup_time(self):
         """App startup (import + first request) should be <3s."""
         start = time.monotonic()
@@ -152,7 +143,6 @@ class TestLatencyBudget:
 class TestConnectionStress:
     """Verify the app doesn't leak resources under rapid open/close."""
 
-    @pytest.mark.asyncio
     async def test_rapid_sequential_requests(self):
         """200 rapid sequential requests should not degrade."""
         async with _get_test_client() as client:
@@ -165,7 +155,6 @@ class TestConnectionStress:
         # 200 sequential requests in <5s
         assert elapsed < 5.0, f"200 sequential requests took {elapsed:.2f}s (limit 5s)"
 
-    @pytest.mark.asyncio
     async def test_burst_then_steady(self):
         """Burst of 50, then steady 50 requests should all succeed."""
         async with _get_test_client() as client:

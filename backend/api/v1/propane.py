@@ -5,8 +5,6 @@ Public endpoints for propane prices, history, comparison, and timing advice.
 No dealer directory (Decision D12: no propane dealer API).
 """
 
-from typing import Optional
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +19,7 @@ router = APIRouter(prefix="/rates/propane")
 
 @router.get("", tags=["Propane"])
 async def get_propane_prices(
-    state: Optional[str] = Query(None, description="2-letter state code"),
+    state: str | None = Query(None, description="2-letter state code"),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get current propane prices, optionally filtered by state."""

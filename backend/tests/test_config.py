@@ -149,6 +149,8 @@ class TestSettings:
                 "BETTER_AUTH_SECRET": "b" * 64,
                 "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
                 "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
+                "OAUTH_STATE_SECRET": "c" * 64,
+                "ML_MODEL_SIGNING_KEY": "d" * 64,
             },
         ):
             settings = Settings()
@@ -273,6 +275,8 @@ class TestJWTSecretValidation:
             "BETTER_AUTH_SECRET": "b" * 64,
             "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
             "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
+            "OAUTH_STATE_SECRET": "c" * 64,
+            "ML_MODEL_SIGNING_KEY": "d" * 64,
         }
         # Explicitly ensure JWT_SECRET is NOT in env
         env.pop("JWT_SECRET", None)
@@ -345,6 +349,8 @@ class TestJWTSecretValidation:
             "BETTER_AUTH_SECRET": "b" * 64,
             "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
             "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
+            "OAUTH_STATE_SECRET": "c" * 64,
+            "ML_MODEL_SIGNING_KEY": "d" * 64,
         }
         with (
             patch.dict(os.environ, env, clear=True),
@@ -367,6 +373,8 @@ class TestJWTSecretValidation:
             "BETTER_AUTH_SECRET": "b" * 64,
             "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
             "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
+            "OAUTH_STATE_SECRET": "c" * 64,
+            "ML_MODEL_SIGNING_KEY": "d" * 64,
         }
         with (
             patch.dict(os.environ, env, clear=True),
@@ -388,6 +396,8 @@ class TestJWTSecretValidation:
             "BETTER_AUTH_SECRET": "c" * 64,
             "STRIPE_SECRET_KEY": "sk_test_placeholder_for_unit_tests",
             "RESEND_API_KEY": "re_test_placeholder_for_unit_tests",
+            "OAUTH_STATE_SECRET": "d" * 64,
+            "ML_MODEL_SIGNING_KEY": "e" * 64,
         }
         with patch.dict(os.environ, env, clear=True):
             settings = Settings()
@@ -412,7 +422,6 @@ class TestDatabaseManager:
         assert db_manager.timescale_pool is None  # Not initialized yet
         assert db_manager.redis_client is None  # Not initialized yet
 
-    @pytest.mark.asyncio
     async def test_get_redis_returns_none_if_not_initialized(self):
         """Test get_redis_client returns None if not initialized"""
         from config.database import DatabaseManager

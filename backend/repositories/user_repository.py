@@ -5,17 +5,18 @@ Data access layer for user data.
 Uses raw SQL queries to avoid ORM-model mismatch with Pydantic models.
 """
 
+import builtins
 import json
-from datetime import datetime, timezone
-from typing import Optional, List, Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.user import User, UserPreferences
+from repositories.base import MAX_PAGE_SIZE, BaseRepository, RepositoryError
 
 logger = structlog.get_logger(__name__)
 
@@ -29,14 +30,16 @@ _USER_COLUMNS = """
     average_daily_kwh, household_size,
     current_supplier_id::text,
     utility_types, annual_usage_kwh,
-    onboarding_completed
+    onboarding_completed,
+    consent_given, data_processing_agreed,
+    consent_date, last_login
 """
 
 
 def _row_to_user(row) -> User:
     """Convert a SQLAlchemy Row mapping to a User Pydantic model."""
-    data: Dict[str, Any] = {}
-    for key in row.keys():
+    data: dict[str, Any] = {}
+    for key in row:
         val = row[key]
         # Convert UUID to string if needed
         if key in ("id", "current_supplier_id") and val is not None:
@@ -45,6 +48,17 @@ def _row_to_user(row) -> User:
     # Map DB columns to Pydantic fields, providing defaults for columns
     # that may not exist in the DB (added in migration 002 which may
     # not have been applied to all environments)
+
+    # P1-5: utility_types is stored as comma-separated TEXT in the DB but the
+    # Pydantic model expects list[str] | None.  Split the string on read.
+    raw_utility_types = data.get("utility_types")
+    if isinstance(raw_utility_types, str) and raw_utility_types:
+        parsed_utility_types = [t.strip() for t in raw_utility_types.split(",") if t.strip()]
+    elif isinstance(raw_utility_types, list):
+        parsed_utility_types = raw_utility_types
+    else:
+        parsed_utility_types = None
+
     return User(
         id=data.get("id", str(uuid4())),
         email=data.get("email", ""),
@@ -62,13 +76,13 @@ def _row_to_user(row) -> User:
         average_daily_kwh=data.get("average_daily_kwh"),
         annual_usage_kwh=data.get("annual_usage_kwh"),
         household_size=data.get("household_size"),
-        utility_types=data.get("utility_types"),
+        utility_types=parsed_utility_types,
         onboarding_completed=data.get("onboarding_completed", False),
         consent_given=data.get("consent_given", False),
         consent_date=data.get("consent_date"),
         data_processing_agreed=data.get("data_processing_agreed", False),
-        created_at=data.get("created_at", datetime.now(timezone.utc)),
-        updated_at=data.get("updated_at", datetime.now(timezone.utc)),
+        created_at=data.get("created_at", datetime.now(UTC)),
+        updated_at=data.get("updated_at", datetime.now(UTC)),
         last_login=data.get("last_login"),
     )
 
@@ -93,7 +107,7 @@ class UserRepository(BaseRepository[User]):
         self._db = db_session
         self._cache = cache
 
-    async def get_by_id(self, id: str) -> Optional[User]:
+    async def get_by_id(self, id: str) -> User | None:
         """Get a user by ID."""
         try:
             result = await self._db.execute(
@@ -106,7 +120,7 @@ class UserRepository(BaseRepository[User]):
         except Exception as e:
             raise RepositoryError(f"Failed to get user by ID: {str(e)}", e)
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> User | None:
         """Get a user by email address."""
         try:
             result = await self._db.execute(
@@ -123,7 +137,7 @@ class UserRepository(BaseRepository[User]):
         """Create a new user."""
         try:
             entity.email = entity.email.lower()
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             entity.created_at = now
             entity.updated_at = now
 
@@ -135,6 +149,7 @@ class UserRepository(BaseRepository[User]):
                         subscription_tier, stripe_customer_id,
                         email_verified, current_tariff,
                         average_daily_kwh, household_size,
+                        consent_given, data_processing_agreed, consent_date,
                         created_at, updated_at
                     ) VALUES (
                         :id, :email, :name, :region, :preferences::jsonb,
@@ -142,6 +157,7 @@ class UserRepository(BaseRepository[User]):
                         :subscription_tier, :stripe_customer_id,
                         :email_verified, :current_tariff,
                         :average_daily_kwh, :household_size,
+                        :consent_given, :data_processing_agreed, :consent_date,
                         :created_at, :updated_at
                     )
                     RETURNING {_USER_COLUMNS}
@@ -159,8 +175,13 @@ class UserRepository(BaseRepository[User]):
                     "stripe_customer_id": entity.stripe_customer_id,
                     "email_verified": entity.email_verified,
                     "current_tariff": entity.current_tariff,
-                    "average_daily_kwh": float(entity.average_daily_kwh) if entity.average_daily_kwh is not None else None,
+                    "average_daily_kwh": float(entity.average_daily_kwh)
+                    if entity.average_daily_kwh is not None
+                    else None,
                     "household_size": entity.household_size,
+                    "consent_given": entity.consent_given,
+                    "data_processing_agreed": entity.data_processing_agreed,
+                    "consent_date": now if entity.consent_given else entity.consent_date,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -174,18 +195,30 @@ class UserRepository(BaseRepository[User]):
             raise RepositoryError(f"Failed to create user: {str(e)}", e)
 
     # Columns allowed in dynamic UPDATE SET clause (prevents SQL injection via field names)
-    _UPDATABLE_COLUMNS = frozenset({
-        "email", "name", "region", "preferences",
-        "current_supplier", "is_active", "is_verified",
-        "subscription_tier", "stripe_customer_id",
-        "email_verified", "current_tariff",
-        "average_daily_kwh", "household_size",
-        "current_supplier_id", "utility_types",
-        "annual_usage_kwh", "onboarding_completed",
-        "updated_at",
-    })
+    _UPDATABLE_COLUMNS = frozenset(
+        {
+            "email",
+            "name",
+            "region",
+            "preferences",
+            "current_supplier",
+            "is_active",
+            "is_verified",
+            "subscription_tier",
+            "stripe_customer_id",
+            "email_verified",
+            "current_tariff",
+            "average_daily_kwh",
+            "household_size",
+            "current_supplier_id",
+            "utility_types",
+            "annual_usage_kwh",
+            "onboarding_completed",
+            "updated_at",
+        }
+    )
 
-    async def update(self, id: str, entity: User) -> Optional[User]:
+    async def update(self, id: str, entity: User) -> User | None:
         """Update an existing user."""
         try:
             # Build dynamic SET clause from entity fields
@@ -193,7 +226,7 @@ class UserRepository(BaseRepository[User]):
             # Never update id or created_at
             updates.pop("id", None)
             updates.pop("created_at", None)
-            updates["updated_at"] = datetime.now(timezone.utc)
+            updates["updated_at"] = datetime.now(UTC)
             # Only allow known columns
             updates = {k: v for k, v in updates.items() if k in self._UPDATABLE_COLUMNS}
 
@@ -201,7 +234,7 @@ class UserRepository(BaseRepository[User]):
                 return await self.get_by_id(id)
 
             set_clauses = []
-            params: Dict[str, Any] = {"user_id": id}
+            params: dict[str, Any] = {"user_id": id}
             for field, value in updates.items():
                 param_name = f"p_{field}"
                 if field == "preferences":
@@ -245,17 +278,13 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete user: {str(e)}", e)
 
-    async def list(
-        self,
-        page: int = 1,
-        page_size: int = 10,
-        **filters: Any
-    ) -> List[User]:
+    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> list[User]:
         """List users with pagination."""
         try:
+            page_size = max(1, min(MAX_PAGE_SIZE, page_size))
             offset = (page - 1) * page_size
             conditions = []
-            params: Dict[str, Any] = {"limit": page_size, "offset": offset}
+            params: dict[str, Any] = {"limit": page_size, "offset": offset}
 
             if "region" in filters:
                 conditions.append("region = :region")
@@ -285,7 +314,7 @@ class UserRepository(BaseRepository[User]):
         """Count users matching filters."""
         try:
             conditions = []
-            params: Dict[str, Any] = {}
+            params: dict[str, Any] = {}
 
             if "region" in filters:
                 conditions.append("region = :region")
@@ -309,14 +338,9 @@ class UserRepository(BaseRepository[User]):
     # User-specific methods
     # ==========================================================================
 
-    async def update_preferences(
-        self,
-        user_id: str,
-        preferences: UserPreferences
-    ) -> Optional[User]:
+    async def update_preferences(self, user_id: str, preferences: UserPreferences) -> User | None:
         """Update user preferences."""
         try:
-            import json
             result = await self._db.execute(
                 text(f"""
                     UPDATE users
@@ -376,10 +400,7 @@ class UserRepository(BaseRepository[User]):
             raise RepositoryError(f"Failed to verify email: {str(e)}", e)
 
     async def record_consent(
-        self,
-        user_id: str,
-        consent_given: bool = True,
-        data_processing_agreed: bool = True
+        self, user_id: str, consent_given: bool = True, data_processing_agreed: bool = True
     ) -> bool:
         """Record user's GDPR consent (direct UPDATE, no SELECT)."""
         try:
@@ -406,7 +427,7 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to record consent: {str(e)}", e)
 
-    async def get_by_stripe_customer_id(self, customer_id: str) -> Optional[User]:
+    async def get_by_stripe_customer_id(self, customer_id: str) -> User | None:
         """Look up user by their Stripe customer ID."""
         try:
             result = await self._db.execute(
@@ -423,10 +444,8 @@ class UserRepository(BaseRepository[User]):
             raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e)
 
     async def get_users_by_region(
-        self,
-        region: str,
-        active_only: bool = True
-    ) -> List[User]:
+        self, region: str, active_only: bool = True
+    ) -> builtins.list[User]:
         """Get users in a region (with LIMIT for safety)."""
         try:
             conditions = ["region = :region"]

@@ -10,10 +10,10 @@ GET /public/rates/{state}/{utility_type}  — rate summary for a state + utility
 GET /public/rates/states                  — list of states with available data
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/public/rates", tags=["Public Rates"])
 @router.get("/states", summary="States with available rate data")
 async def get_available_states(
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return list of states that have rate data for any utility type."""
     if db is None:
         return {"states": []}
@@ -66,7 +66,7 @@ async def get_rate_summary(
     state: str,
     utility_type: str,
     db: AsyncSession = Depends(get_db_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return rate summary for a state + utility type.
 
     Used by ISR pages for `/rates/[state]/[utility-type]`.
@@ -86,7 +86,7 @@ async def get_rate_summary(
         raise HTTPException(status_code=404, detail="Unknown utility type")
 
 
-async def _electricity_summary(db: AsyncSession, state: str) -> Dict[str, Any]:
+async def _electricity_summary(db: AsyncSession, state: str) -> dict[str, Any]:
     result = await db.execute(
         text("""
             SELECT supplier, price_per_kwh, rate_type, updated_at
@@ -123,7 +123,7 @@ async def _electricity_summary(db: AsyncSession, state: str) -> Dict[str, Any]:
     }
 
 
-async def _gas_summary(db: AsyncSession, state: str) -> Dict[str, Any]:
+async def _gas_summary(db: AsyncSession, state: str) -> dict[str, Any]:
     result = await db.execute(
         text("""
             SELECT supplier, price, source, fetched_at
@@ -160,7 +160,7 @@ async def _gas_summary(db: AsyncSession, state: str) -> Dict[str, Any]:
     }
 
 
-async def _heating_oil_summary(db: AsyncSession, state: str) -> Dict[str, Any]:
+async def _heating_oil_summary(db: AsyncSession, state: str) -> dict[str, Any]:
     result = await db.execute(
         text("""
             SELECT state, price_per_gallon, source, period_date, fetched_at

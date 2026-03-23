@@ -5,17 +5,15 @@ Provides endpoints for user profile and preference management.
 Preferences are persisted to the users table via UserRepository.
 """
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, SessionData
+from api.dependencies import SessionData, get_current_user
 from config.database import get_timescale_session
-from repositories.user_repository import UserRepository
 from models.user import UserPreferences
-
-import structlog
+from repositories.user_repository import UserRepository
 
 logger = structlog.get_logger()
 
@@ -24,15 +22,17 @@ router = APIRouter(tags=["User"])
 
 class GeocodeRequest(BaseModel):
     """Geocode request body"""
+
     address: str
 
 
 class UserPreferencesUpdate(BaseModel):
     """User preferences update request (partial update)"""
-    notification_enabled: Optional[bool] = None
-    auto_switch_enabled: Optional[bool] = None
-    green_energy_only: Optional[bool] = None
-    region: Optional[str] = None
+
+    notification_enabled: bool | None = None
+    auto_switch_enabled: bool | None = None
+    green_energy_only: bool | None = None
+    region: str | None = None
 
 
 @router.get("/preferences")
@@ -52,7 +52,9 @@ async def get_preferences(
 
     # Merge stored dict with UserPreferences defaults
     stored = user.preferences or {}
-    prefs = UserPreferences(**{k: v for k, v in stored.items() if k in UserPreferences.model_fields})
+    prefs = UserPreferences(
+        **{k: v for k, v in stored.items() if k in UserPreferences.model_fields}
+    )
 
     return {
         "user_id": current_user.user_id,

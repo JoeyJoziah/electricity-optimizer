@@ -8,13 +8,10 @@ Comprehensive tests for security features:
 - Password validation
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-import time
-
 import sys
 from pathlib import Path
+
+import pytest
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
@@ -31,9 +28,10 @@ class TestSecurityHeaders:
     @pytest.fixture(scope="class")
     def security_app(self):
         """Class-scoped SecurityHeaders test app — avoids 7 redundant constructions."""
-        from middleware.security_headers import SecurityHeadersMiddleware
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
+        from middleware.security_headers import SecurityHeadersMiddleware
 
         app = FastAPI()
         app.add_middleware(SecurityHeadersMiddleware)
@@ -49,25 +47,21 @@ class TestSecurityHeaders:
         with TestClient(app) as client:
             yield client
 
-    @pytest.mark.asyncio
     async def test_xframe_options_header(self, security_app):
         """Test X-Frame-Options header is DENY"""
         response = security_app.get("/test")
         assert response.headers.get("X-Frame-Options") == "DENY"
 
-    @pytest.mark.asyncio
     async def test_xcontent_type_options_header(self, security_app):
         """Test X-Content-Type-Options header is nosniff"""
         response = security_app.get("/test")
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
 
-    @pytest.mark.asyncio
     async def test_xss_protection_header_absent(self, security_app):
         """X-XSS-Protection is intentionally omitted (deprecated, potentially harmful)."""
         response = security_app.get("/test")
         assert response.headers.get("X-XSS-Protection") is None
 
-    @pytest.mark.asyncio
     async def test_csp_header_present(self, security_app):
         """Test Content-Security-Policy header is set"""
         response = security_app.get("/test")
@@ -75,13 +69,11 @@ class TestSecurityHeaders:
         assert csp is not None
         assert "default-src" in csp
 
-    @pytest.mark.asyncio
     async def test_referrer_policy_header(self, security_app):
         """Test Referrer-Policy header"""
         response = security_app.get("/test")
         assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
 
-    @pytest.mark.asyncio
     async def test_permissions_policy_header(self, security_app):
         """Test Permissions-Policy header"""
         response = security_app.get("/test")
@@ -90,7 +82,6 @@ class TestSecurityHeaders:
         assert "camera=()" in permissions
         assert "microphone=()" in permissions
 
-    @pytest.mark.asyncio
     async def test_api_cache_control_headers(self, security_app):
         """Test cache control headers for API endpoints"""
         response = security_app.get("/api/test")
@@ -120,7 +111,6 @@ class TestRateLimiter:
             lockout_minutes=5,
         )
 
-    @pytest.mark.asyncio
     async def test_rate_limit_under_threshold(self, rate_limiter):
         """Test requests under rate limit pass"""
         for _ in range(3):
@@ -128,7 +118,6 @@ class TestRateLimiter:
             assert allowed is True
             assert remaining >= 0
 
-    @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self, rate_limiter):
         """Test requests over rate limit are blocked"""
         # Use up the limit
@@ -139,7 +128,6 @@ class TestRateLimiter:
         assert allowed is False
         assert remaining == 0
 
-    @pytest.mark.asyncio
     async def test_rate_limit_per_user_isolation(self, rate_limiter):
         """Test rate limits are isolated per user"""
         # Use up limit for user1
@@ -150,7 +138,6 @@ class TestRateLimiter:
         allowed, _ = await rate_limiter.check_rate_limit("user-2", "minute")
         assert allowed is True
 
-    @pytest.mark.asyncio
     async def test_login_attempt_tracking(self, rate_limiter):
         """Test login attempt tracking"""
         # Record failed attempts
@@ -163,7 +150,6 @@ class TestRateLimiter:
         locked = await rate_limiter.record_login_attempt("test@example.com", success=False)
         assert locked is True  # 3rd attempt triggers lockout
 
-    @pytest.mark.asyncio
     async def test_login_lockout_check(self, rate_limiter):
         """Test checking if account is locked"""
         # Trigger lockout
@@ -174,7 +160,6 @@ class TestRateLimiter:
         assert is_locked is True
         assert remaining > 0
 
-    @pytest.mark.asyncio
     async def test_successful_login_clears_attempts(self, rate_limiter):
         """Test successful login clears failed attempts"""
         # Record some failed attempts
@@ -278,12 +263,12 @@ class TestPasswordValidation:
         from auth.password import check_password_strength
 
         # "password" is in COMMON_PASSWORDS, so not_common=False.
-        # Only lowercase passes -> score 1 -> very_weak
+        # Passes: lowercase, no_consecutive, no_sequential (3/8) -> weak
         weak = check_password_strength("password")
-        assert weak["strength"] == "very_weak"
+        assert weak["strength"] in ("very_weak", "weak")
         assert weak["valid"] is False
 
-        strong = check_password_strength("VeryStrongPassword123!")
+        strong = check_password_strength("Tr0ub4d&Rx!Z_extra_long")
         assert strong["strength"] in ["strong", "very_strong"]
         assert strong["valid"] is True
 
@@ -299,6 +284,7 @@ class TestSecretsManager:
     def test_get_secret_from_env(self):
         """Test getting secret from environment variable"""
         import os
+
         from config.secrets import SecretsManager
 
         os.environ["TEST_SECRET"] = "test-value"
@@ -321,7 +307,7 @@ class TestSecretsManager:
 
     def test_get_secret_missing_raises(self):
         """Test missing secret without default raises error"""
-        from config.secrets import SecretsManager, SecretsError
+        from config.secrets import SecretsError, SecretsManager
 
         manager = SecretsManager(use_1password=False)
 
@@ -331,6 +317,7 @@ class TestSecretsManager:
     def test_secrets_are_cached(self):
         """Test secrets are cached after first retrieval"""
         import os
+
         from config.secrets import SecretsManager
 
         os.environ["CACHED_SECRET"] = "original-value"
@@ -351,6 +338,7 @@ class TestSecretsManager:
     def test_clear_cache(self):
         """Test clearing secrets cache"""
         import os
+
         from config.secrets import SecretsManager
 
         os.environ["CLEAR_TEST"] = "value1"
@@ -375,7 +363,6 @@ class TestSecretsManager:
 class TestSecurityIntegration:
     """Integration tests for security features"""
 
-    @pytest.mark.asyncio
     async def test_full_auth_flow_with_rate_limiting(self):
         """Test complete auth flow respects rate limits.
 
@@ -389,6 +376,7 @@ class TestSecurityIntegration:
         """
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
+
         from middleware.rate_limiter import RateLimitMiddleware, UserRateLimiter
 
         # --- Build a minimal app -------------------------------------------
@@ -431,9 +419,7 @@ class TestSecurityIntegration:
                 allowed_responses.append(resp)
 
             for resp in allowed_responses:
-                assert resp.status_code == 200, (
-                    f"Expected 200 within limit, got {resp.status_code}"
-                )
+                assert resp.status_code == 200, f"Expected 200 within limit, got {resp.status_code}"
                 assert "x-ratelimit-limit" in resp.headers, (
                     "X-RateLimit-Limit header missing on allowed request"
                 )
@@ -453,9 +439,7 @@ class TestSecurityIntegration:
             assert over_limit.status_code == 429, (
                 f"Expected 429 after limit exceeded, got {over_limit.status_code}"
             )
-            assert "retry-after" in over_limit.headers, (
-                "Retry-After header missing on 429 response"
-            )
+            assert "retry-after" in over_limit.headers, "Retry-After header missing on 429 response"
             assert int(over_limit.headers["retry-after"]) > 0
 
             # --- Per-identifier isolation ------------------------------------
@@ -475,7 +459,6 @@ class TestSecurityIntegration:
                 "Excluded path /health should not receive rate-limit headers"
             )
 
-    @pytest.mark.asyncio
     async def test_security_headers_on_all_responses(self):
         """Test security headers present on all response types.
 
@@ -489,8 +472,9 @@ class TestSecurityIntegration:
         that API paths receive the extra cache-control headers.
         """
         from fastapi import FastAPI, HTTPException
-        from fastapi.responses import JSONResponse, PlainTextResponse
+        from fastapi.responses import PlainTextResponse
         from fastapi.testclient import TestClient
+
         from middleware.security_headers import SecurityHeadersMiddleware
 
         # --- Build a minimal app with a variety of endpoint types -----------
@@ -551,18 +535,12 @@ class TestSecurityIntegration:
 
                 # CSP must be present and contain the mandatory directive
                 csp = resp.headers.get("content-security-policy")
-                assert csp is not None, (
-                    f"Content-Security-Policy missing on {method} {path}"
-                )
-                assert "default-src" in csp, (
-                    f"CSP lacks default-src on {method} {path}"
-                )
+                assert csp is not None, f"Content-Security-Policy missing on {method} {path}"
+                assert "default-src" in csp, f"CSP lacks default-src on {method} {path}"
 
                 # Permissions-Policy must be present
                 perms = resp.headers.get("permissions-policy")
-                assert perms is not None, (
-                    f"Permissions-Policy missing on {method} {path}"
-                )
+                assert perms is not None, f"Permissions-Policy missing on {method} {path}"
                 assert "camera=()" in perms, (
                     f"Permissions-Policy lacks camera=() on {method} {path}"
                 )

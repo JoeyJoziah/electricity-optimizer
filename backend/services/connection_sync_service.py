@@ -35,8 +35,7 @@ Design principles
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import structlog
@@ -44,8 +43,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.utilityapi import UtilityAPIClient, UtilityAPIError
-from utils.encryption import encrypt_field, decrypt_field
 from lib.tracing import traced
+from utils.encryption import decrypt_field
 
 logger = structlog.get_logger(__name__)
 
@@ -67,7 +66,7 @@ class ConnectionSyncService:
     def __init__(
         self,
         db: AsyncSession,
-        utilityapi_client: Optional[UtilityAPIClient] = None,
+        utilityapi_client: UtilityAPIClient | None = None,
     ):
         """
         Args:
@@ -104,7 +103,7 @@ class ConnectionSyncService:
             log = logger.bind(connection_id=connection_id)
             log.info("sync_connection_start")
 
-            synced_at = datetime.now(timezone.utc)
+            synced_at = datetime.now(UTC)
 
             # ---- 1. Load connection row ----------------------------------------
             conn = await self._fetch_connection(connection_id)
@@ -186,7 +185,7 @@ class ConnectionSyncService:
                 }
 
             # ---- 4. Determine the date to fetch bills from ----------------------
-            last_sync_at: Optional[datetime] = conn.get("last_sync_at")
+            last_sync_at: datetime | None = conn.get("last_sync_at")
 
             # ---- 5. Fetch bills and extract rates -------------------------------
             new_rates: list[dict] = []
@@ -236,7 +235,11 @@ class ConnectionSyncService:
                 error=combined_error,
                 synced_at=synced_at,
             )
-            await self._db.commit()
+            try:
+                await self._db.commit()
+            except Exception:
+                await self._db.rollback()
+                raise
 
             log.info(
                 "sync_connection_complete",
@@ -319,7 +322,7 @@ class ConnectionSyncService:
     # Public: get sync status for one connection
     # ------------------------------------------------------------------
 
-    async def get_sync_status(self, connection_id: str) -> Optional[dict]:
+    async def get_sync_status(self, connection_id: str) -> dict | None:
         """
         Return the current sync status for a connection without triggering a sync.
 
@@ -364,10 +367,10 @@ class ConnectionSyncService:
         if row is None:
             return None
 
-        last_sync_at: Optional[datetime] = row.get("last_sync_at")
+        last_sync_at: datetime | None = row.get("last_sync_at")
         freq: int = int(row.get("sync_frequency_hours") or _DEFAULT_SYNC_FREQUENCY_HOURS)
 
-        next_sync_at: Optional[datetime] = None
+        next_sync_at: datetime | None = None
         if last_sync_at is not None:
             from datetime import timedelta
 
@@ -385,7 +388,7 @@ class ConnectionSyncService:
     # Private helpers
     # ------------------------------------------------------------------
 
-    async def _fetch_connection(self, connection_id: str) -> Optional[dict]:
+    async def _fetch_connection(self, connection_id: str) -> dict | None:
         """Load a connection row with all sync-related columns."""
         result = await self._db.execute(
             text("""
@@ -420,9 +423,7 @@ class ConnectionSyncService:
         placeholders = []
         params: dict = {}
         for i, rate_data in enumerate(rate_records):
-            placeholders.append(
-                f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})"
-            )
+            placeholders.append(f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})")
             params[f"id{i}"] = str(uuid4())
             params[f"cid{i}"] = connection_id
             params[f"rate{i}"] = rate_data["rate_per_kwh"]
@@ -440,9 +441,7 @@ class ConnectionSyncService:
             params,
         )
 
-    async def _insert_extracted_rate(
-        self, connection_id: str, rate_data: dict
-    ) -> None:
+    async def _insert_extracted_rate(self, connection_id: str, rate_data: dict) -> None:
         """Insert a single rate row into ``connection_extracted_rates``.
 
         Prefer ``_batch_insert_extracted_rates`` when inserting multiple rows.
@@ -454,7 +453,7 @@ class ConnectionSyncService:
         connection_id: str,
         *,
         success: bool,
-        error: Optional[str],
+        error: str | None,
         synced_at: datetime,
     ) -> None:
         """

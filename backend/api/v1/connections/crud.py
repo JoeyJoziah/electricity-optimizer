@@ -8,16 +8,16 @@ Routes (mounted under the /connections prefix in router.py):
   PATCH  /{connection_id}      — update connection label / settings
 """
 
-from typing import List, Optional
+import uuid
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_db_session, SessionData
+from api.dependencies import SessionData, get_db_session
+from api.v1.connections.common import require_paid_tier
 from models.connections import (
     ConnectionListResponse,
     ConnectionResponse,
@@ -25,7 +25,6 @@ from models.connections import (
     DeleteConnectionResponse,
     UpdateConnectionRequest,
 )
-from api.v1.connections.common import require_paid_tier
 
 logger = structlog.get_logger(__name__)
 
@@ -185,7 +184,7 @@ async def create_direct_connection(
     summary="Get connection",
 )
 async def get_connection(
-    connection_id: str,
+    connection_id: uuid.UUID,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> ConnectionResponse:
@@ -225,7 +224,7 @@ async def get_connection(
     summary="Delete connection",
 )
 async def delete_connection(
-    connection_id: str,
+    connection_id: uuid.UUID,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> DeleteConnectionResponse:
@@ -254,7 +253,7 @@ async def delete_connection(
 
     return DeleteConnectionResponse(
         message="Connection deleted",
-        connection_id=connection_id,
+        connection_id=str(connection_id),
     )
 
 
@@ -268,7 +267,7 @@ async def delete_connection(
     summary="Update connection",
 )
 async def update_connection(
-    connection_id: str,
+    connection_id: uuid.UUID,
     payload: UpdateConnectionRequest,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
@@ -283,7 +282,7 @@ async def update_connection(
         raise HTTPException(status_code=404, detail="Connection not found")
 
     updates = []
-    params: dict = {"cid": connection_id}
+    params: dict = {"cid": connection_id, "uid": current_user.user_id}
     if payload.label is not None:
         updates.append("label = :label")
         params["label"] = payload.label
@@ -293,8 +292,10 @@ async def update_connection(
 
     updates.append("updated_at = NOW()")
     await db.execute(
-        text(f"UPDATE user_connections SET {', '.join(updates)} WHERE id = :cid"),
+        text(
+            f"UPDATE user_connections SET {', '.join(updates)} WHERE id = :cid AND user_id = :uid"
+        ),
         params,
     )
     await db.commit()
-    return {"connection_id": connection_id, "updated": True}
+    return {"connection_id": str(connection_id), "updated": True}

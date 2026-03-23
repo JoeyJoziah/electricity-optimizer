@@ -5,9 +5,7 @@ Monitors data freshness, detects anomalies, and tracks source reliability
 across all utility data sources.
 """
 
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import text
@@ -17,10 +15,10 @@ logger = structlog.get_logger(__name__)
 
 # Expected freshness windows per utility type (in hours)
 FRESHNESS_THRESHOLDS: dict[str, int] = {
-    "electricity": 1,       # 1 hour
-    "natural_gas": 168,     # 7 days
-    "heating_oil": 168,     # 7 days
-    "community_solar": 720, # 30 days
+    "electricity": 1,  # 1 hour
+    "natural_gas": 168,  # 7 days
+    "heating_oil": 168,  # 7 days
+    "community_solar": 720,  # 30 days
 }
 
 # Alert when data exceeds 2x the expected freshness window
@@ -63,7 +61,7 @@ class DataQualityService:
             """)
         )
         rows = result.mappings().all()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         report = []
 
         for r in rows:
@@ -74,23 +72,27 @@ class DataQualityService:
             if last_updated:
                 # Ensure timezone-aware
                 if last_updated.tzinfo is None:
-                    last_updated = last_updated.replace(tzinfo=timezone.utc)
+                    last_updated = last_updated.replace(tzinfo=UTC)
                 hours_since = (now - last_updated).total_seconds() / 3600
             else:
                 hours_since = float("inf")
 
             is_stale = hours_since > (threshold_hours * FRESHNESS_ALERT_MULTIPLIER)
 
-            report.append({
-                "utility_type": utility_type,
-                "region": r["region"],
-                "last_updated": last_updated.isoformat() if last_updated else None,
-                "record_count": r["record_count"],
-                "threshold_hours": threshold_hours,
-                "alert_threshold_hours": threshold_hours * FRESHNESS_ALERT_MULTIPLIER,
-                "hours_since_update": round(hours_since, 1) if hours_since != float("inf") else None,
-                "is_stale": is_stale,
-            })
+            report.append(
+                {
+                    "utility_type": utility_type,
+                    "region": r["region"],
+                    "last_updated": last_updated.isoformat() if last_updated else None,
+                    "record_count": r["record_count"],
+                    "threshold_hours": threshold_hours,
+                    "alert_threshold_hours": threshold_hours * FRESHNESS_ALERT_MULTIPLIER,
+                    "hours_since_update": round(hours_since, 1)
+                    if hours_since != float("inf")
+                    else None,
+                    "is_stale": is_stale,
+                }
+            )
 
         return report
 
@@ -101,7 +103,7 @@ class DataQualityService:
         Flags rates that deviate more than ANOMALY_STD_THRESHOLD standard deviations
         from the rolling average within the lookback period.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+        cutoff = datetime.now(UTC) - timedelta(days=lookback_days)
 
         result = await self._db.execute(
             text("""
@@ -159,7 +161,7 @@ class DataQualityService:
         Falls back to counting non-null rates in electricity_prices if
         scrape_results doesn't exist.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=window_hours)
 
         # Try scrape_results table first (tracks explicit success/failure)
         try:
@@ -186,7 +188,9 @@ class DataQualityService:
                     "successes": r["successes"],
                     "failures": r["failures"],
                     "failure_rate": round(r["failures"] / r["total"], 3) if r["total"] > 0 else 0,
-                    "is_degraded": (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD if r["total"] > 0 else False,
+                    "is_degraded": (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD
+                    if r["total"] > 0
+                    else False,
                     "last_attempt": r["last_attempt"].isoformat() if r["last_attempt"] else None,
                 }
                 for r in rows

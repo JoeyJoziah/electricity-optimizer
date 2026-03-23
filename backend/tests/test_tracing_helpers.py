@@ -21,7 +21,6 @@ os.environ.setdefault("ENVIRONMENT", "test")
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -89,7 +88,6 @@ def _install_recording_provider():
 class TestTracedAsyncContextManager:
     """traced() should work as an async context manager that creates spans."""
 
-    @pytest.mark.asyncio
     async def test_creates_span_with_operation_name(self):
         """traced() creates a span named after the operation."""
         exporter = _install_recording_provider()
@@ -102,7 +100,6 @@ class TestTracedAsyncContextManager:
         assert len(exporter.spans) == 1
         assert exporter.spans[0].name == "ml.predict"
 
-    @pytest.mark.asyncio
     async def test_sets_custom_attributes(self):
         """traced() accepts attributes dict and sets them on the span."""
         exporter = _install_recording_provider()
@@ -116,13 +113,13 @@ class TestTracedAsyncContextManager:
         assert span.attributes["price.region"] == "NY"
         assert span.attributes["price.source"] == "eia"
 
-    @pytest.mark.asyncio
     async def test_records_exception_and_sets_error_status(self):
         """On exception, traced() records the exception and sets ERROR status."""
         exporter = _install_recording_provider()
 
-        from lib.tracing import traced
         from opentelemetry.trace import StatusCode
+
+        from lib.tracing import traced
 
         with pytest.raises(ValueError, match="boom"):
             async with traced("failing.op"):
@@ -135,7 +132,6 @@ class TestTracedAsyncContextManager:
         events = span.events
         assert any(e.name == "exception" for e in events)
 
-    @pytest.mark.asyncio
     async def test_reraises_original_exception(self):
         """traced() must re-raise the original exception, not wrap it."""
         _install_recording_provider()
@@ -146,13 +142,13 @@ class TestTracedAsyncContextManager:
             async with traced("reraise.test"):
                 raise RuntimeError("original")
 
-    @pytest.mark.asyncio
     async def test_span_has_ok_status_on_success(self):
         """On success, span status should be OK (or UNSET)."""
         exporter = _install_recording_provider()
 
-        from lib.tracing import traced
         from opentelemetry.trace import StatusCode
+
+        from lib.tracing import traced
 
         async with traced("success.op"):
             pass
@@ -160,7 +156,6 @@ class TestTracedAsyncContextManager:
         span = exporter.spans[0]
         assert span.status.status_code in (StatusCode.OK, StatusCode.UNSET)
 
-    @pytest.mark.asyncio
     async def test_yields_span_object(self):
         """traced() yields the active span so callers can add attributes dynamically."""
         exporter = _install_recording_provider()
@@ -197,12 +192,12 @@ class TestTracedSyncContextManager:
         """Exception recording works in sync mode too."""
         exporter = _install_recording_provider()
 
-        from lib.tracing import traced
         from opentelemetry.trace import StatusCode
 
-        with pytest.raises(TypeError, match="bad type"):
-            with traced("sync.fail"):
-                raise TypeError("bad type")
+        from lib.tracing import traced
+
+        with pytest.raises(TypeError, match="bad type"), traced("sync.fail"):
+            raise TypeError("bad type")
 
         span = exporter.spans[0]
         assert span.status.status_code == StatusCode.ERROR
@@ -216,7 +211,6 @@ class TestTracedSyncContextManager:
 class TestTracedZeroCost:
     """When OTEL is disabled (no-op tracer), traced() must not crash or add overhead."""
 
-    @pytest.mark.asyncio
     async def test_noop_tracer_does_not_crash(self):
         """traced() works with the default no-op tracer (no TracerProvider set)."""
         # Do NOT install a recording provider — use the default no-op.
@@ -233,7 +227,6 @@ class TestTracedZeroCost:
         with traced("noop.sync"):
             pass
 
-    @pytest.mark.asyncio
     async def test_noop_tracer_exception_passthrough(self):
         """Exceptions pass through even with no-op tracer."""
         from lib.tracing import traced
@@ -251,7 +244,6 @@ class TestTracedZeroCost:
 class TestTracedCustomTracer:
     """traced() should accept an optional tracer_name parameter."""
 
-    @pytest.mark.asyncio
     async def test_custom_tracer_name(self):
         """A custom tracer_name is passed to get_tracer()."""
         _install_recording_provider()
@@ -262,7 +254,6 @@ class TestTracedCustomTracer:
             pass
         # Should not raise — tracer_name is accepted.
 
-    @pytest.mark.asyncio
     async def test_default_tracer_name(self):
         """Without tracer_name, a sensible default is used."""
         _install_recording_provider()

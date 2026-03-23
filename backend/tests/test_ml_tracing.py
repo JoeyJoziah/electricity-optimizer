@@ -82,7 +82,6 @@ def _install_recording_provider():
 class TestLearningServiceTracing:
     """LearningService methods should create spans with ML attributes."""
 
-    @pytest.mark.asyncio
     async def test_compute_rolling_accuracy_creates_span(self):
         """compute_rolling_accuracy() should create a 'ml.compute_accuracy' span."""
         exporter = _install_recording_provider()
@@ -101,7 +100,6 @@ class TestLearningServiceTracing:
         span = ml_spans[0]
         assert span.attributes.get("ml.region") == "NY"
 
-    @pytest.mark.asyncio
     async def test_update_ensemble_weights_creates_span(self):
         """update_ensemble_weights() should create a 'ml.update_weights' span."""
         exporter = _install_recording_provider()
@@ -133,16 +131,13 @@ class TestLearningServiceTracing:
 class TestObservationServiceTracing:
     """ObservationService methods should create spans with observation attributes."""
 
-    @pytest.mark.asyncio
     async def test_record_forecast_creates_span(self):
         """record_forecast() should create a 'ml.record_forecast' span."""
         exporter = _install_recording_provider()
 
         mock_db = AsyncMock()
         # Patch the repository to avoid DB calls
-        with patch(
-            "services.observation_service.ForecastObservationRepository"
-        ) as MockRepo:
+        with patch("services.observation_service.ForecastObservationRepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.insert_forecasts = AsyncMock(return_value=5)
             MockRepo.return_value = mock_repo
@@ -157,15 +152,12 @@ class TestObservationServiceTracing:
         span = ml_spans[0]
         assert span.attributes.get("ml.region") == "TX"
 
-    @pytest.mark.asyncio
     async def test_observe_actuals_batch_creates_span(self):
         """observe_actuals_batch() should create a 'ml.observe_actuals' span."""
         exporter = _install_recording_provider()
 
         mock_db = AsyncMock()
-        with patch(
-            "services.observation_service.ForecastObservationRepository"
-        ) as MockRepo:
+        with patch("services.observation_service.ForecastObservationRepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.backfill_actuals = AsyncMock(return_value=10)
             MockRepo.return_value = mock_repo
@@ -189,7 +181,6 @@ class TestObservationServiceTracing:
 class TestModelVersionServiceTracing:
     """ModelVersionService methods should create spans with versioning attributes."""
 
-    @pytest.mark.asyncio
     async def test_create_version_creates_span(self):
         """create_version() should create a 'ml.create_version' span."""
         exporter = _install_recording_provider()
@@ -225,7 +216,6 @@ class TestModelVersionServiceTracing:
         span = ml_spans[0]
         assert span.attributes.get("ml.model_name") == "ensemble"
 
-    @pytest.mark.asyncio
     async def test_promote_version_creates_span(self):
         """promote_version() should create a 'ml.promote_version' span."""
         exporter = _install_recording_provider()

@@ -15,6 +15,7 @@ import sys
 import time
 import importlib.util
 
+
 # Direct module loading to bypass ml/__init__.py (which has TensorFlow dependency)
 def load_module_direct(module_name, file_path):
     """Load a module directly from file path."""
@@ -24,38 +25,29 @@ def load_module_direct(module_name, file_path):
     spec.loader.exec_module(module)
     return module
 
+
 # Load optimization modules directly (relative to this file's location)
-BASE = os.path.join(os.path.dirname(__file__), '..', 'optimization')
+BASE = os.path.join(os.path.dirname(__file__), "..", "optimization")
 BASE = os.path.abspath(BASE)
 
 appliance_models = load_module_direct(
-    'ml.optimization.appliance_models',
-    f'{BASE}/appliance_models.py'
+    "ml.optimization.appliance_models", f"{BASE}/appliance_models.py"
 )
 
 constraints = load_module_direct(
-    'ml.optimization.constraints',
-    f'{BASE}/constraints.py'
+    "ml.optimization.constraints", f"{BASE}/constraints.py"
 )
 
-objective = load_module_direct(
-    'ml.optimization.objective',
-    f'{BASE}/objective.py'
-)
+objective = load_module_direct("ml.optimization.objective", f"{BASE}/objective.py")
 
 load_shifter = load_module_direct(
-    'ml.optimization.load_shifter',
-    f'{BASE}/load_shifter.py'
+    "ml.optimization.load_shifter", f"{BASE}/load_shifter.py"
 )
 
-scheduler = load_module_direct(
-    'ml.optimization.scheduler',
-    f'{BASE}/scheduler.py'
-)
+scheduler = load_module_direct("ml.optimization.scheduler", f"{BASE}/scheduler.py")
 
 visualization = load_module_direct(
-    'ml.optimization.visualization',
-    f'{BASE}/visualization.py'
+    "ml.optimization.visualization", f"{BASE}/visualization.py"
 )
 
 import numpy as np
@@ -211,13 +203,13 @@ def test_15_percent_savings_tou():
             name="Dishwasher",
             appliance_type=ApplianceType.DISHWASHER,
             earliest_start=17,  # Available during peak
-            latest_end=8,        # Can run overnight
+            latest_end=8,  # Can run overnight
         ),
         Appliance(
             name="EV Charger",
             appliance_type=ApplianceType.EV_CHARGER,
             earliest_start=18,  # Arrives during peak
-            latest_end=7,        # Must be ready by morning
+            latest_end=7,  # Must be ready by morning
         ),
         Appliance(
             name="Water Heater",
@@ -242,12 +234,12 @@ def test_15_percent_savings_tou():
 
     print(f"Status: {result.status}")
     print(f"Solve time: {elapsed:.3f}s")
-    print(f"\nCost Analysis:")
+    print("\nCost Analysis:")
     print(f"  Baseline cost: ${result.baseline_cost:.2f}")
     print(f"  Optimized cost: ${result.total_cost:.2f}")
     print(f"  Savings: ${result.savings_amount:.2f} ({result.savings_percent:.1f}%)")
 
-    print(f"\nSchedule Summary:")
+    print("\nSchedule Summary:")
     for schedule in result.schedules:
         periods = [
             f"{schedule._slot_to_time(s)}-{schedule._slot_to_time(e)}"
@@ -392,7 +384,7 @@ def test_power_limit_constraint():
     power_profile = result.get_power_profile(96)
     max_power = np.max(power_profile)
 
-    print(f"Max power allowed: 5.0 kW")
+    print("Max power allowed: 5.0 kW")
     print(f"Max power used: {max_power:.2f} kW")
 
     assert max_power <= 5.01, f"Power limit exceeded: {max_power:.2f} kW"
@@ -442,9 +434,7 @@ def test_multiple_scenarios():
     avg_savings = np.mean(savings_list)
     print(f"\nAverage savings: {avg_savings:.1f}%")
 
-    assert avg_savings >= 15.0, (
-        f"Average savings {avg_savings:.1f}% below 15% target"
-    )
+    assert avg_savings >= 15.0, f"Average savings {avg_savings:.1f}% below 15% target"
 
     print(f"[PASSED] Average savings {avg_savings:.1f}% >= 15%")
     return savings_list
@@ -467,8 +457,8 @@ def test_visualization():
     text_output = visualizer.generate_text_schedule(result)
 
     # Print first 40 lines
-    lines = text_output.split('\n')
-    print('\n'.join(lines[:40]))
+    lines = text_output.split("\n")
+    print("\n".join(lines[:40]))
     print(f"... ({len(lines)} lines total)")
 
     assert "OPTIMIZED APPLIANCE SCHEDULE" in text_output

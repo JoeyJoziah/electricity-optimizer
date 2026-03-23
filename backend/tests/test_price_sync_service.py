@@ -17,12 +17,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # =============================================================================
 # HELPERS
@@ -34,7 +33,7 @@ def _make_price_data(region_value: str = "us_ct", price: float = 0.28):
     kwh = MagicMock()
     kwh.supplier = "Eversource Energy"
     kwh.price = Decimal(str(price))
-    kwh.timestamp = datetime(2026, 2, 24, 10, 0, tzinfo=timezone.utc)
+    kwh.timestamp = datetime(2026, 2, 24, 10, 0, tzinfo=UTC)
     kwh.currency = "USD"
     kwh.is_peak = False
     kwh.carbon_intensity = 180.5
@@ -81,7 +80,6 @@ def mock_db():
 class TestSyncPrices:
     """Tests for services.price_sync_service.sync_prices"""
 
-    @pytest.mark.asyncio
     async def test_sync_prices_success(self, mock_db):
         """Full sync: 3 regions → 3 Price objects inserted, status=refreshed."""
         region_ct = _make_region_mock("us_ct")
@@ -117,7 +115,6 @@ class TestSyncPrices:
         assert len(result["regions_covered"]) == 3
         assert result["errors"] is None
 
-    @pytest.mark.asyncio
     async def test_sync_prices_default_regions(self, mock_db):
         """When regions=None, DEFAULT_REGIONS is passed to compare_prices."""
         mock_pricing_svc = _make_async_pricing_service({})
@@ -128,13 +125,12 @@ class TestSyncPrices:
                 return_value=mock_pricing_svc,
             ),
         ):
-            from services.price_sync_service import sync_prices, DEFAULT_REGIONS
+            from services.price_sync_service import DEFAULT_REGIONS, sync_prices
 
             await sync_prices(mock_db, regions=None)
 
         mock_pricing_svc.compare_prices.assert_awaited_once_with(DEFAULT_REGIONS)
 
-    @pytest.mark.asyncio
     async def test_sync_prices_custom_regions(self, mock_db):
         """Custom regions list is forwarded verbatim to compare_prices."""
         mock_pricing_svc = _make_async_pricing_service({})
@@ -155,7 +151,6 @@ class TestSyncPrices:
 
         mock_pricing_svc.compare_prices.assert_awaited_once_with(custom)
 
-    @pytest.mark.asyncio
     async def test_sync_prices_rate_limit_error(self, mock_db):
         """RateLimitError is caught — status=error, error message captured."""
         from integrations.pricing_apis.base import RateLimitError
@@ -188,7 +183,6 @@ class TestSyncPrices:
         assert result["errors"] is not None
         assert any("Rate limited" in e for e in result["errors"])
 
-    @pytest.mark.asyncio
     async def test_sync_prices_api_error(self, mock_db):
         """APIError is caught — status=error, error message captured."""
         from integrations.pricing_apis.base import APIError
@@ -217,15 +211,12 @@ class TestSyncPrices:
         assert result["errors"] is not None
         assert any("API error" in e for e in result["errors"])
 
-    @pytest.mark.asyncio
     async def test_sync_prices_unexpected_error(self, mock_db):
         """Generic Exception is caught — status=error, error recorded."""
         mock_pricing_svc = AsyncMock()
         mock_pricing_svc.__aenter__ = AsyncMock(return_value=mock_pricing_svc)
         mock_pricing_svc.__aexit__ = AsyncMock(return_value=False)
-        mock_pricing_svc.compare_prices = AsyncMock(
-            side_effect=RuntimeError("Connection reset")
-        )
+        mock_pricing_svc.compare_prices = AsyncMock(side_effect=RuntimeError("Connection reset"))
 
         mock_logger = MagicMock()
 
@@ -244,7 +235,6 @@ class TestSyncPrices:
         assert result["errors"] is not None
         assert any("Unexpected error" in e for e in result["errors"])
 
-    @pytest.mark.asyncio
     async def test_sync_prices_empty_comparison(self, mock_db):
         """Empty comparison dict → no prices stored, status=empty."""
         mock_pricing_svc = _make_async_pricing_service({})
@@ -261,7 +251,6 @@ class TestSyncPrices:
         assert result["synced_records"] == 0
         assert result["regions_covered"] == []
 
-    @pytest.mark.asyncio
     async def test_sync_prices_no_session(self):
         """When session is None, DB write is skipped even if prices are available."""
         region_ct = _make_region_mock("us_ct")

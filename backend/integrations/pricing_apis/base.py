@@ -9,15 +9,15 @@ Provides common functionality for all pricing API integrations including:
 - Data model definitions
 """
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from enum import Enum
-from typing import Any, Optional, TypeVar, Generic
 import asyncio
 import hashlib
 import json
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from decimal import Decimal
+from enum import StrEnum
+from typing import TypeVar
 
 import httpx
 import structlog
@@ -34,17 +34,15 @@ T = TypeVar("T")
 
 
 # PriceUnit imported from canonical source in models.utility
-from models.utility import PriceUnit  # noqa: E402
-
-
 # Import unified Region as PricingRegion for backward compatibility.
 # The canonical definition lives in models.region; all new code should
 # import from there.  Existing pricing-API code continues to work via
 # this alias.
 from models.region import Region as PricingRegion  # noqa: E402
+from models.utility import PriceUnit  # noqa: E402
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     """Circuit breaker states"""
 
     CLOSED = "closed"  # Normal operation
@@ -63,9 +61,9 @@ class APIError(Exception):
     def __init__(
         self,
         message: str,
-        status_code: Optional[int] = None,
-        response_body: Optional[str] = None,
-        api_name: Optional[str] = None,
+        status_code: int | None = None,
+        response_body: str | None = None,
+        api_name: str | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -88,7 +86,7 @@ class RateLimitError(APIError):
     def __init__(
         self,
         message: str = "Rate limit exceeded",
-        retry_after: Optional[int] = None,
+        retry_after: int | None = None,
         **kwargs,
     ):
         super().__init__(message, **kwargs)
@@ -136,20 +134,20 @@ class PriceData:
     currency: str
 
     # Optional metadata
-    supplier: Optional[str] = None
-    tariff_name: Optional[str] = None
-    source_api: Optional[str] = None
+    supplier: str | None = None
+    tariff_name: str | None = None
+    source_api: str | None = None
 
     # Price breakdown (if available)
-    energy_cost: Optional[Decimal] = None
-    network_cost: Optional[Decimal] = None
-    taxes: Optional[Decimal] = None
-    levies: Optional[Decimal] = None
+    energy_cost: Decimal | None = None
+    network_cost: Decimal | None = None
+    taxes: Decimal | None = None
+    levies: Decimal | None = None
 
     # Additional context
-    is_peak: Optional[bool] = None
-    is_renewable: Optional[bool] = None
-    carbon_intensity: Optional[float] = None  # gCO2/kWh
+    is_peak: bool | None = None
+    is_renewable: bool | None = None
+    carbon_intensity: float | None = None  # gCO2/kWh
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization"""
@@ -233,12 +231,12 @@ class ForecastData:
     prices: list[PriceData] = field(default_factory=list)
 
     # Forecast metadata
-    model_version: Optional[str] = None
-    confidence_level: Optional[float] = None  # 0.0 to 1.0
+    model_version: str | None = None
+    confidence_level: float | None = None  # 0.0 to 1.0
 
     # Statistical bounds (if available)
-    lower_bound: Optional[list[Decimal]] = None
-    upper_bound: Optional[list[Decimal]] = None
+    lower_bound: list[Decimal] | None = None
+    upper_bound: list[Decimal] | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization"""
@@ -265,8 +263,12 @@ class ForecastData:
             prices=[PriceData.from_dict(p) for p in data.get("prices", [])],
             model_version=data.get("model_version"),
             confidence_level=data.get("confidence_level"),
-            lower_bound=[Decimal(b) for b in data["lower_bound"]] if data.get("lower_bound") else None,
-            upper_bound=[Decimal(b) for b in data["upper_bound"]] if data.get("upper_bound") else None,
+            lower_bound=[Decimal(b) for b in data["lower_bound"]]
+            if data.get("lower_bound")
+            else None,
+            upper_bound=[Decimal(b) for b in data["upper_bound"]]
+            if data.get("upper_bound")
+            else None,
         )
 
 
@@ -299,13 +301,13 @@ class CircuitBreaker:
     - HALF_OPEN: Testing if service recovered
     """
 
-    def __init__(self, name: str, config: Optional[CircuitBreakerConfig] = None):
+    def __init__(self, name: str, config: CircuitBreakerConfig | None = None):
         self.name = name
         self.config = config or CircuitBreakerConfig()
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: Optional[datetime] = None
+        self._last_failure_time: datetime | None = None
         self._half_open_calls = 0
         self._lock = asyncio.Lock()
 
@@ -313,7 +315,7 @@ class CircuitBreaker:
     def state(self) -> CircuitState:
         """Get current circuit state, checking for timeout transition"""
         if self._state == CircuitState.OPEN and self._last_failure_time:
-            elapsed = (datetime.now(timezone.utc) - self._last_failure_time).total_seconds()
+            elapsed = (datetime.now(UTC) - self._last_failure_time).total_seconds()
             if elapsed >= self.config.timeout_seconds:
                 return CircuitState.HALF_OPEN
         return self._state
@@ -354,12 +356,13 @@ class CircuitBreaker:
         """Record a failed call"""
         async with self._lock:
             self._failure_count += 1
-            self._last_failure_time = datetime.now(timezone.utc)
+            self._last_failure_time = datetime.now(UTC)
 
             current = self.state
-            if current == CircuitState.HALF_OPEN:
-                self._transition_to_open()
-            elif self._failure_count >= self.config.failure_threshold:
+            if (
+                current == CircuitState.HALF_OPEN
+                or self._failure_count >= self.config.failure_threshold
+            ):
                 self._transition_to_open()
 
     def _transition_to_open(self) -> None:
@@ -414,8 +417,7 @@ class RetryConfig:
         import random
 
         delay = min(
-            self.base_delay_seconds * (self.exponential_base ** attempt),
-            self.max_delay_seconds
+            self.base_delay_seconds * (self.exponential_base**attempt), self.max_delay_seconds
         )
 
         if self.jitter:
@@ -447,8 +449,8 @@ class BasePricingClient(ABC):
         base_url: str,
         client_name: str,
         timeout: float = 30.0,
-        retry_config: Optional[RetryConfig] = None,
-        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
+        retry_config: RetryConfig | None = None,
+        circuit_breaker_config: CircuitBreakerConfig | None = None,
     ):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
@@ -463,7 +465,7 @@ class BasePricingClient(ABC):
         )
 
         # HTTP client (lazy initialization)
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
         # Request deduplication
         self._pending_requests: dict[str, asyncio.Task] = {}
@@ -502,7 +504,7 @@ class BasePricingClient(ABC):
         """Async context manager exit"""
         await self.close()
 
-    def _generate_cache_key(self, endpoint: str, params: Optional[dict] = None) -> str:
+    def _generate_cache_key(self, endpoint: str, params: dict | None = None) -> str:
         """Generate a cache key for request deduplication"""
         key_data = {
             "client": self.client_name,
@@ -516,8 +518,8 @@ class BasePricingClient(ABC):
         self,
         method: str,
         endpoint: str,
-        params: Optional[dict] = None,
-        json_body: Optional[dict] = None,
+        params: dict | None = None,
+        json_body: dict | None = None,
     ) -> httpx.Response:
         """
         Execute HTTP request with retry logic and circuit breaker.
@@ -529,7 +531,7 @@ class BasePricingClient(ABC):
                 api_name=self.client_name,
             )
 
-        last_exception: Optional[Exception] = None
+        last_exception: Exception | None = None
 
         for attempt in range(self.retry_config.max_retries + 1):
             try:
@@ -665,8 +667,8 @@ class BasePricingClient(ABC):
         self,
         method: str,
         endpoint: str,
-        params: Optional[dict] = None,
-        json_body: Optional[dict] = None,
+        params: dict | None = None,
+        json_body: dict | None = None,
     ) -> httpx.Response:
         """
         Execute request with deduplication to prevent duplicate concurrent requests.
@@ -699,7 +701,7 @@ class BasePricingClient(ABC):
     async def get(
         self,
         endpoint: str,
-        params: Optional[dict] = None,
+        params: dict | None = None,
         deduplicate: bool = True,
     ) -> httpx.Response:
         """Make GET request"""
@@ -710,8 +712,8 @@ class BasePricingClient(ABC):
     async def post(
         self,
         endpoint: str,
-        json_body: Optional[dict] = None,
-        params: Optional[dict] = None,
+        json_body: dict | None = None,
+        params: dict | None = None,
     ) -> httpx.Response:
         """Make POST request"""
         return await self._execute_with_retry("POST", endpoint, params, json_body)

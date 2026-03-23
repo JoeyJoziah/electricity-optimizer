@@ -23,7 +23,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Shared filesystem paths
@@ -43,17 +43,34 @@ OAUTH_STATE_TIMEOUT_SECONDS = 600  # 10 minutes
 
 
 def _get_hmac_key() -> bytes:
-    """Return the HMAC signing key derived from INTERNAL_API_KEY.
+    """Return the HMAC signing key for OAuth callback state parameters.
 
-    Reads ``settings.internal_api_key`` through the package namespace so that
+    Prefers ``settings.oauth_state_secret`` (dedicated key) but falls back to
+    ``settings.internal_api_key`` for backward compatibility during the
+    transition period (dev environments that haven't set OAUTH_STATE_SECRET yet).
+
+    Reads settings through the package namespace so that
     ``patch("api.v1.connections.settings")`` in tests takes effect.
     """
     import api.v1.connections as _pkg
+
     _settings = _pkg.settings
-    key = _settings.internal_api_key
+
+    # Prefer the dedicated OAuth state secret.
+    # Use getattr + isinstance guard so that MagicMock auto-attributes in tests
+    # (which are truthy but not strings) fall through to the fallback branch.
+    _oauth_secret = getattr(_settings, "oauth_state_secret", None)
+    key = _oauth_secret if isinstance(_oauth_secret, str) and _oauth_secret else None
+
+    # Fall back to internal_api_key for backward compat (dev/test only —
+    # production validator in settings.py enforces OAUTH_STATE_SECRET).
+    if not key:
+        key = _settings.internal_api_key
+
     if not key:
         raise RuntimeError(
-            "INTERNAL_API_KEY must be configured to sign callback state parameters."
+            "OAUTH_STATE_SECRET (or INTERNAL_API_KEY as fallback) must be "
+            "configured to sign callback state parameters."
         )
     return key.encode("utf-8")
 
@@ -63,8 +80,9 @@ def sign_callback_state(connection_id: str, user_id: str) -> str:
     Produce a signed state value: ``{connection_id}:{user_id}:{timestamp}:{hex_hmac}``.
 
     The HMAC is computed over ``{connection_id}:{user_id}:{timestamp}`` using
-    INTERNAL_API_KEY as the key with SHA-256.  The callback endpoint verifies
-    this signature and the user_id before trusting the connection_id.
+    OAUTH_STATE_SECRET (or INTERNAL_API_KEY as fallback) with SHA-256.  The
+    callback endpoint verifies this signature and the user_id before trusting
+    the connection_id.
     """
     timestamp = str(int(time.time()))
     key = _get_hmac_key()
@@ -77,7 +95,9 @@ def verify_callback_state(state: str) -> tuple:
     """
     Verify a signed state value and return ``(connection_id, user_id)``.
 
-    Raises HTTPException(400) if the state is malformed or the HMAC is invalid.
+    Raises HTTPException(400) if the state is malformed, the HMAC is invalid,
+    or the embedded timestamp is expired (older than OAUTH_STATE_TIMEOUT_SECONDS)
+    or in the future.
     """
     parts = state.split(":")
     if len(parts) != 4:
@@ -86,18 +106,32 @@ def verify_callback_state(state: str) -> tuple:
             detail="Invalid callback state: expected 4 colon-separated parts.",
         )
 
-    connection_id, user_id, timestamp, received_sig = parts
+    connection_id, user_id, timestamp_str, received_sig = parts
 
     key = _get_hmac_key()
-    payload = f"{connection_id}:{user_id}:{timestamp}"
-    expected_sig = hmac.HMAC(
-        key, payload.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
+    payload = f"{connection_id}:{user_id}:{timestamp_str}"
+    expected_sig = hmac.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(received_sig, expected_sig):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid callback state: HMAC verification failed.",
+        )
+
+    # Enforce timestamp expiry to prevent replay attacks
+    try:
+        state_time = int(timestamp_str)
+    except (ValueError, OverflowError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid callback state: malformed timestamp.",
+        )
+
+    age = int(time.time()) - state_time
+    if age > OAUTH_STATE_TIMEOUT_SECONDS or age < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid callback state: token expired or has future timestamp.",
         )
 
     return connection_id, user_id

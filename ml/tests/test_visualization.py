@@ -18,9 +18,8 @@ exercised via the mock to avoid displaying plots.
 """
 
 import os
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
@@ -269,7 +268,7 @@ class TestGenerateTextSchedule:
 class TestPlotScheduleGantt:
     @pytest.mark.skipif(not MATPLOTLIB_AVAILABLE, reason="matplotlib not installed")
     def test_returns_figure_when_matplotlib_available(self, visualizer, result):
-        import matplotlib.pyplot as plt
+
         with patch("matplotlib.pyplot.subplots") as mock_subplots:
             fig_mock = MagicMock()
             ax_mock = MagicMock()
@@ -292,8 +291,10 @@ class TestPlotScheduleGantt:
             assert "matplotlib" in captured.out.lower() or captured.out == ""
 
     @pytest.mark.skipif(not MATPLOTLIB_AVAILABLE, reason="matplotlib not installed")
-    def test_with_price_profile_adds_second_axis(self, visualizer, result, price_profile):
-        import matplotlib.pyplot as plt
+    def test_with_price_profile_adds_second_axis(
+        self, visualizer, result, price_profile
+    ):
+
         with patch("matplotlib.pyplot.subplots") as mock_subplots:
             fig_mock = MagicMock()
             ax1_mock = MagicMock()
@@ -301,12 +302,14 @@ class TestPlotScheduleGantt:
             ax1_mock.twinx.return_value = ax2_mock
             mock_subplots.return_value = (fig_mock, ax1_mock)
             with patch("matplotlib.pyplot.tight_layout"):
-                visualizer.plot_schedule_gantt(result, price_profile=price_profile, show_prices=True)
+                visualizer.plot_schedule_gantt(
+                    result, price_profile=price_profile, show_prices=True
+                )
             ax1_mock.twinx.assert_called_once()
 
     @pytest.mark.skipif(not MATPLOTLIB_AVAILABLE, reason="matplotlib not installed")
     def test_save_path_calls_savefig(self, visualizer, result, tmp_path):
-        import matplotlib.pyplot as plt
+
         save_path = str(tmp_path / "gantt.png")
         with patch("matplotlib.pyplot.subplots") as mock_subplots:
             fig_mock = MagicMock()
@@ -369,12 +372,18 @@ class TestPlotCostBreakdown:
             ax1_mock = MagicMock()
             ax2_mock = MagicMock()
             ax1_mock.pie.return_value = ([MagicMock()], [MagicMock()], [MagicMock()])
-            ax2_mock.bar.return_value = [MagicMock(get_x=MagicMock(return_value=0),
-                                                    get_width=MagicMock(return_value=0.5),
-                                                    get_height=MagicMock(return_value=1.0)),
-                                         MagicMock(get_x=MagicMock(return_value=1),
-                                                   get_width=MagicMock(return_value=0.5),
-                                                   get_height=MagicMock(return_value=0.8))]
+            ax2_mock.bar.return_value = [
+                MagicMock(
+                    get_x=MagicMock(return_value=0),
+                    get_width=MagicMock(return_value=0.5),
+                    get_height=MagicMock(return_value=1.0),
+                ),
+                MagicMock(
+                    get_x=MagicMock(return_value=1),
+                    get_width=MagicMock(return_value=0.5),
+                    get_height=MagicMock(return_value=0.8),
+                ),
+            ]
             mock_subplots.return_value = (fig_mock, (ax1_mock, ax2_mock))
             with patch("matplotlib.pyplot.tight_layout"):
                 fig = visualizer.plot_cost_breakdown(result)
@@ -404,13 +413,14 @@ class TestPlotInteractiveSchedule:
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="plotly not installed")
     def test_returns_figure_when_plotly_available(self, visualizer, result):
-        from unittest.mock import patch as _patch
-        import plotly.graph_objects as go
+
         fig = visualizer.plot_interactive_schedule(result)
         assert fig is not None
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="plotly not installed")
-    def test_adds_price_trace_when_profile_provided(self, visualizer, result, price_profile):
+    def test_adds_price_trace_when_profile_provided(
+        self, visualizer, result, price_profile
+    ):
         fig = visualizer.plot_interactive_schedule(result, price_profile=price_profile)
         # Figure should have more traces than without price profile
         fig_no_price = visualizer.plot_interactive_schedule(result)
@@ -423,33 +433,53 @@ class TestPlotInteractiveSchedule:
 
 
 class TestSaveAllVisualizations:
-    def test_always_saves_text_schedule(self, visualizer, result, price_profile, tmp_path):
+    def test_always_saves_text_schedule(
+        self, visualizer, result, price_profile, tmp_path
+    ):
         """Text schedule should be saved regardless of library availability."""
-        with patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False), \
-             patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False):
-            saved = visualizer.save_all_visualizations(result, price_profile, str(tmp_path))
+        with (
+            patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False),
+            patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False),
+        ):
+            saved = visualizer.save_all_visualizations(
+                result, price_profile, str(tmp_path)
+            )
         text_files = [f for f in saved if f.endswith(".txt")]
         assert len(text_files) == 1
         assert os.path.isfile(text_files[0])
 
-    def test_text_file_has_schedule_content(self, visualizer, result, price_profile, tmp_path):
-        with patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False), \
-             patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False):
-            saved = visualizer.save_all_visualizations(result, price_profile, str(tmp_path))
+    def test_text_file_has_schedule_content(
+        self, visualizer, result, price_profile, tmp_path
+    ):
+        with (
+            patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False),
+            patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False),
+        ):
+            saved = visualizer.save_all_visualizations(
+                result, price_profile, str(tmp_path)
+            )
         txt = next(f for f in saved if f.endswith(".txt"))
         content = Path(txt).read_text()
         assert "OPTIMIZED APPLIANCE SCHEDULE" in content
 
-    def test_creates_output_directory(self, visualizer, result, price_profile, tmp_path):
+    def test_creates_output_directory(
+        self, visualizer, result, price_profile, tmp_path
+    ):
         new_dir = str(tmp_path / "new_subdir")
-        with patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False), \
-             patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False):
+        with (
+            patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False),
+            patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False),
+        ):
             visualizer.save_all_visualizations(result, price_profile, new_dir)
         assert os.path.isdir(new_dir)
 
-    def test_prefix_applied_to_filenames(self, visualizer, result, price_profile, tmp_path):
-        with patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False), \
-             patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False):
+    def test_prefix_applied_to_filenames(
+        self, visualizer, result, price_profile, tmp_path
+    ):
+        with (
+            patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False),
+            patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False),
+        ):
             saved = visualizer.save_all_visualizations(
                 result, price_profile, str(tmp_path), prefix="myrun"
             )
@@ -457,32 +487,46 @@ class TestSaveAllVisualizations:
             assert os.path.basename(path).startswith("myrun")
 
     def test_returns_list_of_strings(self, visualizer, result, price_profile, tmp_path):
-        with patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False), \
-             patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False):
-            saved = visualizer.save_all_visualizations(result, price_profile, str(tmp_path))
+        with (
+            patch("ml.optimization.visualization.MATPLOTLIB_AVAILABLE", False),
+            patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False),
+        ):
+            saved = visualizer.save_all_visualizations(
+                result, price_profile, str(tmp_path)
+            )
         assert isinstance(saved, list)
         assert all(isinstance(p, str) for p in saved)
 
     @pytest.mark.skipif(not MATPLOTLIB_AVAILABLE, reason="matplotlib not installed")
-    def test_matplotlib_files_saved_when_available(self, visualizer, result, price_profile, tmp_path):
-        import matplotlib.pyplot as plt
-        with patch("matplotlib.pyplot.subplots") as mock_subplots, \
-             patch("matplotlib.pyplot.tight_layout"), \
-             patch("matplotlib.pyplot.close"), \
-             patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False):
+    def test_matplotlib_files_saved_when_available(
+        self, visualizer, result, price_profile, tmp_path
+    ):
+
+        with (
+            patch("matplotlib.pyplot.subplots") as mock_subplots,
+            patch("matplotlib.pyplot.tight_layout"),
+            patch("matplotlib.pyplot.close"),
+            patch("ml.optimization.visualization.PLOTLY_AVAILABLE", False),
+        ):
             fig_mock = MagicMock()
             ax_mock = MagicMock()
             ax_mock.pie.return_value = ([MagicMock()], [MagicMock()], [MagicMock()])
             ax_mock.bar.return_value = [
-                MagicMock(get_x=MagicMock(return_value=0),
-                          get_width=MagicMock(return_value=0.5),
-                          get_height=MagicMock(return_value=1.0)),
-                MagicMock(get_x=MagicMock(return_value=1),
-                          get_width=MagicMock(return_value=0.5),
-                          get_height=MagicMock(return_value=0.8)),
+                MagicMock(
+                    get_x=MagicMock(return_value=0),
+                    get_width=MagicMock(return_value=0.5),
+                    get_height=MagicMock(return_value=1.0),
+                ),
+                MagicMock(
+                    get_x=MagicMock(return_value=1),
+                    get_width=MagicMock(return_value=0.5),
+                    get_height=MagicMock(return_value=0.8),
+                ),
             ]
             mock_subplots.return_value = (fig_mock, (ax_mock, ax_mock))
-            saved = visualizer.save_all_visualizations(result, price_profile, str(tmp_path))
+            saved = visualizer.save_all_visualizations(
+                result, price_profile, str(tmp_path)
+            )
         png_files = [f for f in saved if f.endswith(".png")]
         assert len(png_files) >= 1
 

@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Star, Leaf, X, Check, Zap } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils/format'
-import type { Supplier } from '@/types'
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Star, Leaf, X, Check, Zap } from "lucide-react";
+import { formatCurrency } from "@/lib/utils/format";
+import type { Supplier } from "@/types";
 
 interface SetSupplierDialogProps {
-  suppliers: Supplier[]
-  onSelect: (supplier: Supplier) => void
-  onCancel: () => void
-  isLoading?: boolean
+  suppliers: Supplier[];
+  onSelect: (supplier: Supplier) => void;
+  onCancel: () => void;
+  isLoading?: boolean;
 }
 
 export const SetSupplierDialog: React.FC<SetSupplierDialogProps> = ({
@@ -20,7 +20,7 @@ export const SetSupplierDialog: React.FC<SetSupplierDialogProps> = ({
   onCancel,
   isLoading = false,
 }) => {
-  const [selected, setSelected] = useState<Supplier | null>(null)
+  const [selected, setSelected] = useState<Supplier | null>(null);
 
   return (
     <div className="space-y-6">
@@ -30,28 +30,33 @@ export const SetSupplierDialog: React.FC<SetSupplierDialogProps> = ({
             Select Your Supplier
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Choose your current electricity supplier to get personalized recommendations
+            Choose your current electricity supplier to get personalized
+            recommendations
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
+        <Button variant="ghost" size="sm" onClick={onCancel} aria-label="Close">
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="max-h-[400px] space-y-2 overflow-y-auto">
+      <div
+        className="max-h-[400px] space-y-2 overflow-y-auto"
+        role="listbox"
+        aria-label="Available suppliers"
+      >
         {suppliers.map((supplier) => (
           <div
             key={supplier.id}
             className={`flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors ${
               selected?.id === supplier.id
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                ? "border-primary-500 bg-primary-50"
+                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
             }`}
             onClick={() => setSelected(supplier)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                setSelected(supplier)
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelected(supplier);
               }
             }}
             role="option"
@@ -103,5 +108,5 @@ export const SetSupplierDialog: React.FC<SetSupplierDialogProps> = ({
         </Button>
       </div>
     </div>
-  )
-}
+  );
+};

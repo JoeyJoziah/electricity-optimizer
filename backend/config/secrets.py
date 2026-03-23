@@ -12,19 +12,18 @@ Uses 1Password CLI (op) for secure secrets management in production.
 import os
 import subprocess
 import time
-from typing import Optional, Dict, Tuple
 from functools import lru_cache
 
 import structlog
 
 from config.settings import settings
 
-
 logger = structlog.get_logger()
 
 
 class SecretsError(Exception):
     """Exception raised when secret retrieval fails"""
+
     pass
 
 
@@ -115,7 +114,7 @@ class SecretsManager:
         else:
             self.use_1password = use_1password
 
-        self._cache: Dict[str, Tuple[str, float]] = {}  # name -> (value, timestamp)
+        self._cache: dict[str, tuple[str, float]] = {}  # name -> (value, timestamp)
 
         if self.use_1password:
             logger.info("secrets_manager_using_1password")
@@ -134,7 +133,7 @@ class SecretsManager:
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
 
-    def get_secret(self, name: str, default: Optional[str] = None) -> Optional[str]:
+    def get_secret(self, name: str, default: str | None = None) -> str | None:
         """
         Get a secret value.
 
@@ -172,7 +171,7 @@ class SecretsManager:
         self._cache[name] = (value, time.monotonic())
         return value
 
-    def _get_from_1password(self, name: str) -> Optional[str]:
+    def _get_from_1password(self, name: str) -> str | None:
         """Get secret from 1Password"""
         if name not in self.SECRET_MAPPINGS:
             logger.warning("secret_not_mapped", name=name)
@@ -183,7 +182,8 @@ class SecretsManager:
         try:
             result = subprocess.run(
                 [
-                    "op", "read",
+                    "op",
+                    "read",
                     f"op://{self.OP_VAULT}/{item_field}",
                 ],
                 capture_output=True,
@@ -210,7 +210,7 @@ class SecretsManager:
             logger.error("1password_error", name=name, error=str(e))
             return None
 
-    def _get_from_env(self, name: str) -> Optional[str]:
+    def _get_from_env(self, name: str) -> str | None:
         """Get secret from environment variable"""
         env_name = name.upper()
         value = os.environ.get(env_name)
@@ -235,7 +235,7 @@ class SecretsManager:
 # Convenience functions
 
 
-def get_secret(name: str, default: Optional[str] = None) -> Optional[str]:
+def get_secret(name: str, default: str | None = None) -> str | None:
     """
     Get a secret value.
 
@@ -281,6 +281,6 @@ def get_database_url() -> str:
     return require_secret("database_url")
 
 
-def get_redis_password() -> Optional[str]:
+def get_redis_password() -> str | None:
     """Get Redis password (optional)"""
     return get_secret("redis_password")

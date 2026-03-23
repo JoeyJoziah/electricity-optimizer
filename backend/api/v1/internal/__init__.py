@@ -15,12 +15,12 @@ from api.dependencies import verify_api_key
 from .alerts import router as alerts_router
 from .billing import router as billing_router
 from .data_pipeline import router as data_pipeline_router
+from .data_quality import router as data_quality_router
 from .email_scan import router as email_scan_router
 from .ml import router as ml_router
 from .operations import router as operations_router
 from .portal_scan import router as portal_scan_router
 from .sync import router as sync_router
-from .data_quality import router as data_quality_router
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 router.include_router(ml_router)

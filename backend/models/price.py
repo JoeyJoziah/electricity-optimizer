@@ -5,23 +5,23 @@ Pydantic models for energy price data with validation.
 Supports electricity, natural gas, heating oil, propane, and community solar.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from enum import Enum
-from typing import Optional, List
+from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from models.region import Region
-from models.utility import UtilityType, PriceUnit
+from models.utility import PriceUnit, UtilityType
 
 # Backward-compatible alias
 PriceRegion = Region
 
 
-class EnergySource(str, Enum):
+class EnergySource(StrEnum):
     """Energy source types"""
+
     RENEWABLE = "renewable"
     FOSSIL = "fossil"
     NUCLEAR = "nuclear"
@@ -37,9 +37,7 @@ class Price(BaseModel):
     """
 
     model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str},
-        use_enum_values=True
+        from_attributes=True, json_encoders={Decimal: str}, use_enum_values=True
     )
 
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -54,20 +52,20 @@ class Price(BaseModel):
 
     # Optional fields
     unit: PriceUnit = Field(default=PriceUnit.KWH)
-    is_peak: Optional[bool] = None
-    carbon_intensity: Optional[float] = Field(default=None, ge=0)
-    energy_source: Optional[EnergySource] = None
-    tariff_name: Optional[str] = None
+    is_peak: bool | None = None
+    carbon_intensity: float | None = Field(default=None, ge=0)
+    energy_source: EnergySource | None = None
+    tariff_name: str | None = None
 
     # Price breakdown (optional)
-    energy_cost: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    network_cost: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    taxes: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    levies: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    energy_cost: Decimal | None = Field(default=None, ge=Decimal("0"))
+    network_cost: Decimal | None = Field(default=None, ge=Decimal("0"))
+    taxes: Decimal | None = Field(default=None, ge=Decimal("0"))
+    levies: Decimal | None = Field(default=None, ge=Decimal("0"))
 
     # Metadata
-    source_api: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    source_api: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("currency")
     @classmethod
@@ -82,7 +80,7 @@ class Price(BaseModel):
     def validate_timestamp_has_timezone(cls, v: datetime) -> datetime:
         """Ensure timestamp has timezone info"""
         if v.tzinfo is None:
-            return v.replace(tzinfo=timezone.utc)
+            return v.replace(tzinfo=UTC)
         return v
 
     def convert_to_kwh(self) -> "Price":
@@ -106,28 +104,26 @@ class PriceForecast(BaseModel):
     """
 
     model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str},
-        use_enum_values=True
+        from_attributes=True, json_encoders={Decimal: str}, use_enum_values=True
     )
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     region: PriceRegion
     generated_at: datetime
     horizon_hours: int = Field(..., ge=1, le=168)  # Max 1 week
-    prices: List[Price] = Field(default_factory=list)
+    prices: list[Price] = Field(default_factory=list)
     confidence: float = Field(..., ge=0.0, le=1.0)
 
     # Model metadata
-    model_version: Optional[str] = None
-    source_api: Optional[str] = None
+    model_version: str | None = None
+    source_api: str | None = None
 
     @field_validator("generated_at")
     @classmethod
     def validate_generated_at_has_timezone(cls, v: datetime) -> datetime:
         """Ensure generated_at has timezone info"""
         if v.tzinfo is None:
-            return v.replace(tzinfo=timezone.utc)
+            return v.replace(tzinfo=UTC)
         return v
 
 
@@ -139,10 +135,7 @@ class PriceForecast(BaseModel):
 class PriceResponse(BaseModel):
     """Response schema for single price"""
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str}
-    )
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
     ticker: str
     current_price: Decimal
@@ -152,15 +145,15 @@ class PriceResponse(BaseModel):
     updated_at: datetime
 
     # Optional details
-    is_peak: Optional[bool] = None
-    carbon_intensity: Optional[float] = None
-    price_change_24h: Optional[Decimal] = None
+    is_peak: bool | None = None
+    carbon_intensity: float | None = None
+    price_change_24h: Decimal | None = None
 
 
 class PriceListResponse(BaseModel):
     """Response schema for paginated price list"""
 
-    prices: List[PriceResponse]
+    prices: list[PriceResponse]
     total: int
     page: int
     page_size: int
@@ -175,14 +168,14 @@ class PriceHistoryResponse(BaseModel):
     """Response schema for price history with pagination metadata"""
 
     region: str
-    supplier: Optional[str] = None
+    supplier: str | None = None
     start_date: datetime
     end_date: datetime
-    prices: List[Price]
-    average_price: Optional[Decimal] = None
-    min_price: Optional[Decimal] = None
-    max_price: Optional[Decimal] = None
-    source: Optional[str] = None
+    prices: list[Price]
+    average_price: Decimal | None = None
+    min_price: Decimal | None = None
+    max_price: Decimal | None = None
+    source: str | None = None
 
     # Pagination metadata
     total: int = 0
@@ -199,7 +192,7 @@ class PriceForecastResponse(BaseModel):
     generated_at: datetime
     horizon_hours: int
     confidence: float
-    source: Optional[str] = None
+    source: str | None = None
 
 
 class PriceComparisonResponse(BaseModel):
@@ -207,8 +200,8 @@ class PriceComparisonResponse(BaseModel):
 
     region: str
     timestamp: datetime
-    suppliers: List[PriceResponse]
+    suppliers: list[PriceResponse]
     cheapest_supplier: str
     cheapest_price: Decimal
     average_price: Decimal
-    source: Optional[str] = None
+    source: str | None = None

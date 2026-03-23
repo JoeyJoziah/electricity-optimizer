@@ -21,7 +21,7 @@ contracts and error paths.
 """
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 import numpy as np
 import pytest
 import pulp
@@ -129,7 +129,9 @@ class TestMILPOptimizerInit:
 
 
 class TestCreateVariables:
-    def test_creates_variable_per_slot_per_appliance(self, config, dishwasher, flat_prices):
+    def test_creates_variable_per_slot_per_appliance(
+        self, config, dishwasher, flat_prices
+    ):
         opt = MILPOptimizer(config)
         opt.appliances = [dishwasher]
         opt.price_profile = flat_prices
@@ -170,7 +172,9 @@ class TestCreateVariables:
 
         assert "Continuous" in opt.start_variables
 
-    def test_non_continuous_appliance_no_start_variable(self, config, ev_charger, flat_prices):
+    def test_non_continuous_appliance_no_start_variable(
+        self, config, ev_charger, flat_prices
+    ):
         assert not ev_charger.must_be_continuous
         opt = MILPOptimizer(config)
         opt.appliances = [ev_charger]
@@ -180,7 +184,9 @@ class TestCreateVariables:
 
         assert ev_charger.name not in opt.start_variables
 
-    def test_variables_created_for_multiple_appliances(self, config, dishwasher, ev_charger, flat_prices):
+    def test_variables_created_for_multiple_appliances(
+        self, config, dishwasher, ev_charger, flat_prices
+    ):
         opt = MILPOptimizer(config)
         opt.appliances = [dishwasher, ev_charger]
         opt.price_profile = flat_prices
@@ -264,13 +270,17 @@ class TestSolve:
         opt._solve()
         assert opt._solve_time >= 0.0
 
-    def test_solver_exception_captured_gracefully(self, config, dishwasher, flat_prices):
+    def test_solver_exception_captured_gracefully(
+        self, config, dishwasher, flat_prices
+    ):
         opt = MILPOptimizer(config)
         opt.appliances = [dishwasher]
         opt.price_profile = flat_prices
         opt._build_problem()
 
-        with patch.object(opt.problem, "solve", side_effect=RuntimeError("solver crashed")):
+        with patch.object(
+            opt.problem, "solve", side_effect=RuntimeError("solver crashed")
+        ):
             status = opt._solve()
         assert "error" in status.lower()
 
@@ -290,7 +300,9 @@ class TestExtractSolution:
         schedules = opt._extract_solution()
         assert len(schedules) == 1
 
-    def test_scheduled_slots_count_matches_duration(self, config, dishwasher, flat_prices):
+    def test_scheduled_slots_count_matches_duration(
+        self, config, dishwasher, flat_prices
+    ):
         opt = MILPOptimizer(config)
         opt.appliances = [dishwasher]
         opt.price_profile = flat_prices
@@ -350,7 +362,7 @@ class TestValidateSolution:
         # Manually corrupt the schedule
         bad_schedule = ApplianceSchedule(
             appliance=dishwasher,
-            scheduled_slots=[0],          # Only 1 slot, should be duration_slots
+            scheduled_slots=[0],  # Only 1 slot, should be duration_slots
             cost=0.1,
             energy_kwh=0.1,
         )
@@ -374,12 +386,16 @@ class TestValidateSolution:
         # Manually place schedule outside window
         bad_schedule = ApplianceSchedule(
             appliance=restricted,
-            scheduled_slots=list(range(0, restricted.duration_slots)),  # slots 0-3: before 10 AM
+            scheduled_slots=list(
+                range(0, restricted.duration_slots)
+            ),  # slots 0-3: before 10 AM
             cost=0.1,
             energy_kwh=1.0,
         )
         errors = opt._validate_solution([bad_schedule])
-        assert any("invalid slot" in e.lower() or "outside valid" in e.lower() for e in errors), errors
+        assert any(
+            "invalid slot" in e.lower() or "outside valid" in e.lower() for e in errors
+        ), errors
 
     def test_non_continuous_gap_flagged(self, config, flat_prices):
         continuous_app = Appliance(
@@ -396,7 +412,9 @@ class TestValidateSolution:
 
         # Build a schedule with a gap
         n_slots = continuous_app.duration_slots
-        gapped_slots = list(range(0, n_slots // 2)) + list(range(n_slots, n_slots + n_slots // 2))
+        gapped_slots = list(range(0, n_slots // 2)) + list(
+            range(n_slots, n_slots + n_slots // 2)
+        )
         bad_schedule = ApplianceSchedule(
             appliance=continuous_app,
             scheduled_slots=gapped_slots,
@@ -404,7 +422,9 @@ class TestValidateSolution:
             energy_kwh=1.0,
         )
         errors = opt._validate_solution([bad_schedule])
-        assert any("continuous" in e.lower() or "non-continuous" in e.lower() for e in errors), errors
+        assert any(
+            "continuous" in e.lower() or "non-continuous" in e.lower() for e in errors
+        ), errors
 
     def test_power_limit_violation_detected(self, flat_prices):
         """When two appliances overlap and exceed max_total_power_kw, error is added."""
@@ -421,11 +441,17 @@ class TestValidateSolution:
         opt._build_problem()
 
         # Both in slot 0 → total 4 kW > limit 2 kW
-        s1 = ApplianceSchedule(appliance=app1, scheduled_slots=[0], cost=0.1, energy_kwh=0.5)
-        s2 = ApplianceSchedule(appliance=app2, scheduled_slots=[0], cost=0.1, energy_kwh=0.5)
+        s1 = ApplianceSchedule(
+            appliance=app1, scheduled_slots=[0], cost=0.1, energy_kwh=0.5
+        )
+        s2 = ApplianceSchedule(
+            appliance=app2, scheduled_slots=[0], cost=0.1, energy_kwh=0.5
+        )
 
         errors = opt._validate_solution([s1, s2])
-        assert any("power limit" in e.lower() or "exceeded" in e.lower() for e in errors), errors
+        assert any(
+            "power limit" in e.lower() or "exceeded" in e.lower() for e in errors
+        ), errors
 
 
 # =============================================================================
@@ -434,7 +460,9 @@ class TestValidateSolution:
 
 
 class TestOptimize:
-    def test_basic_optimization_returns_schedule_result(self, config, dishwasher, flat_prices):
+    def test_basic_optimization_returns_schedule_result(
+        self, config, dishwasher, flat_prices
+    ):
         opt = MILPOptimizer(config)
         result = opt.optimize([dishwasher], flat_prices)
         assert isinstance(result, ScheduleResult)
@@ -445,7 +473,9 @@ class TestOptimize:
         assert result.is_feasible
         assert len(result.schedules) == 1
 
-    def test_correct_appliance_duration_satisfied(self, config, dishwasher, flat_prices):
+    def test_correct_appliance_duration_satisfied(
+        self, config, dishwasher, flat_prices
+    ):
         opt = MILPOptimizer(config)
         result = opt.optimize([dishwasher], flat_prices)
         assert len(result.schedules[0].scheduled_slots) == dishwasher.duration_slots
@@ -472,8 +502,8 @@ class TestOptimize:
         app = Appliance(
             name="Dishwasher",
             appliance_type=ApplianceType.DISHWASHER,
-            earliest_start=16,   # Can start during peak (4 PM)
-            latest_end=8,        # Must finish by 8 AM
+            earliest_start=16,  # Can start during peak (4 PM)
+            latest_end=8,  # Must finish by 8 AM
         )
         opt = MILPOptimizer(config)
         result = opt.optimize([app], tou_prices)
@@ -533,7 +563,9 @@ class TestOptimize:
         result = opt.optimize([impossible], prices)
         assert np.isinf(result.total_cost)
 
-    def test_multiple_appliances_all_scheduled(self, config, dishwasher, ev_charger, flat_prices):
+    def test_multiple_appliances_all_scheduled(
+        self, config, dishwasher, ev_charger, flat_prices
+    ):
         opt = MILPOptimizer(config)
         result = opt.optimize([dishwasher, ev_charger], flat_prices)
         assert result.is_feasible
@@ -549,7 +581,9 @@ class TestOptimize:
         result = opt.optimize([dishwasher], flat_prices)
         assert result.peak_power_kw >= 0.0
 
-    def test_total_energy_matches_appliance_energy(self, config, dishwasher, flat_prices):
+    def test_total_energy_matches_appliance_energy(
+        self, config, dishwasher, flat_prices
+    ):
         opt = MILPOptimizer(config)
         result = opt.optimize([dishwasher], flat_prices)
         expected = dishwasher.power_kw * dishwasher.duration_hours
@@ -571,19 +605,31 @@ class TestOptimize:
         assert result.is_feasible
 
     def test_with_dependencies(self, config, flat_prices):
-        washer = Appliance(name="Washer", appliance_type=ApplianceType.WASHING_MACHINE,
-                           earliest_start=0, latest_end=24)
-        dryer = Appliance(name="Dryer", appliance_type=ApplianceType.DRYER,
-                          earliest_start=0, latest_end=24)
+        washer = Appliance(
+            name="Washer",
+            appliance_type=ApplianceType.WASHING_MACHINE,
+            earliest_start=0,
+            latest_end=24,
+        )
+        dryer = Appliance(
+            name="Dryer",
+            appliance_type=ApplianceType.DRYER,
+            earliest_start=0,
+            latest_end=24,
+        )
         opt = MILPOptimizer(config)
-        result = opt.optimize([washer, dryer], flat_prices, dependencies=[("Washer", "Dryer")])
+        result = opt.optimize(
+            [washer, dryer], flat_prices, dependencies=[("Washer", "Dryer")]
+        )
         assert result.is_feasible
 
     def test_with_mutual_exclusions(self, config, flat_prices):
         app1 = Appliance(name="App1", power_kw=3.0, duration_hours=1.0)
         app2 = Appliance(name="App2", power_kw=3.0, duration_hours=1.0)
         opt = MILPOptimizer(config)
-        result = opt.optimize([app1, app2], flat_prices, mutual_exclusions=[("App1", "App2")])
+        result = opt.optimize(
+            [app1, app2], flat_prices, mutual_exclusions=[("App1", "App2")]
+        )
         assert result.is_feasible
 
 
@@ -708,7 +754,7 @@ class TestConvenienceFunctions:
 
     def test_quick_optimize_uses_len_prices_as_time_slots(self):
         appliances = [Appliance(name="App", power_kw=1.0, duration_hours=0.5)]
-        prices = [0.10] * 48   # 48 slots instead of default 96
+        prices = [0.10] * 48  # 48 slots instead of default 96
         result = quick_optimize(appliances, prices)
         assert isinstance(result, ScheduleResult)
 
@@ -739,7 +785,9 @@ class TestEdgeCases:
         assert result.is_feasible
         assert len(result.schedules[0].scheduled_slots) == 96
 
-    def test_solve_time_under_10_seconds_for_simple_problem(self, config, dishwasher, flat_prices):
+    def test_solve_time_under_10_seconds_for_simple_problem(
+        self, config, dishwasher, flat_prices
+    ):
         opt = MILPOptimizer(config)
         start = time.time()
         opt.optimize([dishwasher], flat_prices)

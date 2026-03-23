@@ -5,19 +5,19 @@ Pydantic models for energy supplier data with validation.
 Supports multi-utility types and multi-region suppliers.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from enum import Enum
-from typing import Optional, List
+from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, HttpUrl, EmailStr, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from models.utility import UtilityType
 
 
-class TariffType(str, Enum):
+class TariffType(StrEnum):
     """Types of electricity tariffs"""
+
     FIXED = "fixed"
     VARIABLE = "variable"
     TIME_OF_USE = "time_of_use"
@@ -26,8 +26,9 @@ class TariffType(str, Enum):
     AGILE = "agile"
 
 
-class ContractLength(str, Enum):
+class ContractLength(StrEnum):
     """Contract length options"""
+
     MONTHLY = "monthly"
     ANNUAL = "annual"
     TWO_YEAR = "two_year"
@@ -40,11 +41,11 @@ class SupplierContact(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(default=None, max_length=50)
-    website: Optional[str] = None
-    support_hours: Optional[str] = None
-    address: Optional[str] = None
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=50)
+    website: str | None = None
+    support_hours: str | None = None
+    address: str | None = None
 
 
 class Tariff(BaseModel):
@@ -55,9 +56,7 @@ class Tariff(BaseModel):
     """
 
     model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str},
-        use_enum_values=True
+        from_attributes=True, json_encoders={Decimal: str}, use_enum_values=True
     )
 
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -72,31 +71,31 @@ class Tariff(BaseModel):
     standing_charge: Decimal = Field(..., ge=Decimal("0"))
 
     # Time-of-use rates (optional)
-    peak_rate: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    off_peak_rate: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    peak_hours_start: Optional[int] = Field(default=None, ge=0, le=23)
-    peak_hours_end: Optional[int] = Field(default=None, ge=0, le=23)
+    peak_rate: Decimal | None = Field(default=None, ge=Decimal("0"))
+    off_peak_rate: Decimal | None = Field(default=None, ge=Decimal("0"))
+    peak_hours_start: int | None = Field(default=None, ge=0, le=23)
+    peak_hours_end: int | None = Field(default=None, ge=0, le=23)
 
     # Contract details
     contract_length: ContractLength = ContractLength.ROLLING
-    exit_fee: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    minimum_usage: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    exit_fee: Decimal | None = Field(default=None, ge=Decimal("0"))
+    minimum_usage: Decimal | None = Field(default=None, ge=Decimal("0"))
 
     # Green energy
     green_energy_percentage: int = Field(default=0, ge=0, le=100)
-    renewable_sources: List[str] = Field(default_factory=list)
+    renewable_sources: list[str] = Field(default_factory=list)
 
     # Availability
     is_available: bool = True
-    available_regions: List[str] = Field(default_factory=list)
-    available_from: Optional[datetime] = None
-    available_until: Optional[datetime] = None
+    available_regions: list[str] = Field(default_factory=list)
+    available_from: datetime | None = None
+    available_until: datetime | None = None
 
     # Metadata
-    description: Optional[str] = None
-    terms_url: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    description: str | None = None
+    terms_url: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Supplier(BaseModel):
@@ -106,43 +105,40 @@ class Supplier(BaseModel):
     Represents an energy supplier/provider.
     """
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        use_enum_values=True
-    )
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(..., min_length=1, max_length=200)
-    regions: List[str] = Field(..., min_length=1)
-    tariff_types: List[str] = Field(..., min_length=1)
-    utility_types: List[UtilityType] = Field(default_factory=lambda: [UtilityType.ELECTRICITY])
+    regions: list[str] = Field(..., min_length=1)
+    tariff_types: list[str] = Field(..., min_length=1)
+    utility_types: list[UtilityType] = Field(default_factory=lambda: [UtilityType.ELECTRICITY])
 
     # API integration
     api_available: bool = False
-    api_name: Optional[str] = None
+    api_name: str | None = None
 
     # Contact info
-    contact: Optional[SupplierContact] = None
+    contact: SupplierContact | None = None
 
     # Rating and reviews
-    rating: Optional[float] = Field(default=None, ge=0, le=5)
-    review_count: Optional[int] = Field(default=None, ge=0)
+    rating: float | None = Field(default=None, ge=0, le=5)
+    review_count: int | None = Field(default=None, ge=0)
 
     # Green credentials
     green_energy_provider: bool = False
     carbon_neutral: bool = False
-    average_renewable_percentage: Optional[int] = Field(default=None, ge=0, le=100)
+    average_renewable_percentage: int | None = Field(default=None, ge=0, le=100)
 
     # Business info
-    established_year: Optional[int] = Field(default=None, ge=1900)
-    customer_count: Optional[int] = Field(default=None, ge=0)
+    established_year: int | None = Field(default=None, ge=1900)
+    customer_count: int | None = Field(default=None, ge=0)
 
     # Metadata
-    logo_url: Optional[str] = None
-    description: Optional[str] = None
+    logo_url: str | None = None
+    description: str | None = None
     is_active: bool = True
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("name")
     @classmethod
@@ -154,7 +150,7 @@ class Supplier(BaseModel):
 
     @field_validator("regions")
     @classmethod
-    def validate_regions_not_empty(cls, v: List[str]) -> List[str]:
+    def validate_regions_not_empty(cls, v: list[str]) -> list[str]:
         """Ensure at least one region is specified"""
         if not v:
             raise ValueError("At least one region must be specified")
@@ -173,10 +169,10 @@ class SupplierResponse(BaseModel):
 
     id: str
     name: str
-    regions: List[str]
-    tariff_types: List[str]
+    regions: list[str]
+    tariff_types: list[str]
     api_available: bool
-    rating: Optional[float] = None
+    rating: float | None = None
     green_energy_provider: bool
     is_active: bool
 
@@ -188,24 +184,24 @@ class SupplierDetailResponse(BaseModel):
 
     id: str
     name: str
-    regions: List[str]
-    tariff_types: List[str]
+    regions: list[str]
+    tariff_types: list[str]
     api_available: bool
-    contact: Optional[SupplierContact] = None
-    rating: Optional[float] = None
-    review_count: Optional[int] = None
+    contact: SupplierContact | None = None
+    rating: float | None = None
+    review_count: int | None = None
     green_energy_provider: bool
     carbon_neutral: bool
-    average_renewable_percentage: Optional[int] = None
-    description: Optional[str] = None
-    logo_url: Optional[str] = None
+    average_renewable_percentage: int | None = None
+    description: str | None = None
+    logo_url: str | None = None
     is_active: bool
 
 
 class SupplierListResponse(BaseModel):
     """Response schema for supplier list"""
 
-    suppliers: List[SupplierResponse]
+    suppliers: list[SupplierResponse]
     total: int
     page: int
     page_size: int
@@ -214,10 +210,7 @@ class SupplierListResponse(BaseModel):
 class TariffResponse(BaseModel):
     """Response schema for tariff"""
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={Decimal: str}
-    )
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
     id: str
     supplier_id: str
@@ -235,5 +228,5 @@ class TariffListResponse(BaseModel):
 
     supplier_id: str
     supplier_name: str
-    tariffs: List[TariffResponse]
+    tariffs: list[TariffResponse]
     total: int

@@ -49,6 +49,7 @@ backend/.env
 .env.test.local
 .env.production.local
 .env.production
+.env.staging
 
 # Secrets & API Keys
 *.pem
@@ -123,7 +124,10 @@ Thumbs.db
 .claude-flow/
 .swarm/
 .loki/
+.mcp.json
+.mcp.json.bak.*
 .mcp.backup_*.json
+.composio.lock
 
 # Claude Code local settings (contains auto-approved permission patterns — may embed secrets)
 .claude/settings.local.json

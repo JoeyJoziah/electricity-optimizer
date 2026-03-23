@@ -14,15 +14,14 @@ POST   /community/posts/{id}/report  — flag post for review
 GET    /community/stats              — aggregated community stats
 """
 
-from typing import Optional
+import uuid
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
-
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from services.community_service import CommunityService
 
 logger = structlog.get_logger(__name__)
@@ -36,8 +35,13 @@ router = APIRouter(prefix="/community", tags=["Community"])
 
 VALID_POST_TYPES = {"tip", "rate_report", "discussion", "review"}
 VALID_UTILITY_TYPES = {
-    "electricity", "natural_gas", "heating_oil", "propane",
-    "community_solar", "water", "general",
+    "electricity",
+    "natural_gas",
+    "heating_oil",
+    "propane",
+    "community_solar",
+    "water",
+    "general",
 }
 
 
@@ -49,23 +53,23 @@ class CreatePostRequest(BaseModel):
     utility_type: str = Field(description="Utility type")
     region: str = Field(description="Region code (e.g. 'us_ct')")
     post_type: str = Field(description="One of: tip, rate_report, discussion, review")
-    rate_per_unit: Optional[float] = Field(default=None)
-    rate_unit: Optional[str] = Field(default=None, max_length=10)
-    supplier_name: Optional[str] = Field(default=None, max_length=200)
+    rate_per_unit: float | None = Field(default=None)
+    rate_unit: str | None = Field(default=None, max_length=10)
+    supplier_name: str | None = Field(default=None, max_length=200)
 
 
 class EditPostRequest(BaseModel):
     """Body for PUT /community/posts/{post_id}."""
 
-    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    body: Optional[str] = Field(default=None, min_length=1, max_length=5000)
-    supplier_name: Optional[str] = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    body: str | None = Field(default=None, min_length=1, max_length=5000)
+    supplier_name: str | None = Field(default=None, max_length=200)
 
 
 class ReportRequest(BaseModel):
     """Body for POST /community/posts/{id}/report."""
 
-    reason: Optional[str] = Field(default=None, max_length=500)
+    reason: str | None = Field(default=None, max_length=500)
 
 
 # =============================================================================
@@ -149,7 +153,7 @@ async def list_posts(
 
 @router.put("/posts/{post_id}")
 async def edit_post(
-    post_id: str,
+    post_id: uuid.UUID,
     payload: EditPostRequest,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -167,7 +171,7 @@ async def edit_post(
     result = await service.edit_and_resubmit(
         db=db,
         user_id=current_user.user_id,
-        post_id=post_id,
+        post_id=str(post_id),
         data=data,
         agent_service=None,  # Moderation auto-clears if no agent available
     )
@@ -181,7 +185,7 @@ async def edit_post(
 
 @router.post("/posts/{post_id}/vote")
 async def toggle_vote(
-    post_id: str,
+    post_id: uuid.UUID,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -191,7 +195,7 @@ async def toggle_vote(
     return await service.toggle_vote(
         db=db,
         user_id=current_user.user_id,
-        post_id=post_id,
+        post_id=str(post_id),
     )
 
 
@@ -202,7 +206,7 @@ async def toggle_vote(
 
 @router.post("/posts/{post_id}/report")
 async def report_post(
-    post_id: str,
+    post_id: uuid.UUID,
     payload: ReportRequest = ReportRequest(),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -212,7 +216,7 @@ async def report_post(
     await service.report_post(
         db=db,
         user_id=current_user.user_id,
-        post_id=post_id,
+        post_id=str(post_id),
         reason=payload.reason,
     )
     return {"status": "reported"}

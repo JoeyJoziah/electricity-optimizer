@@ -6,19 +6,19 @@ internal Price model, and persisting them via the PriceRepository.
 Called by the /prices/refresh endpoint and the GitHub Actions price-sync workflow.
 """
 
-import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from integrations.pricing_apis.base import APIError, RateLimitError
+from integrations.pricing_apis.service import create_pricing_service_from_settings
 from models.price import Price
 from models.region import Region as PricingRegion
-from integrations.pricing_apis.service import create_pricing_service_from_settings
-from integrations.pricing_apis.base import APIError, RateLimitError
 from repositories.price_repository import PriceRepository
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 DEFAULT_REGIONS = [
     # Deregulated electricity states (highest priority — users can switch suppliers)
@@ -53,8 +53,8 @@ DEFAULT_REGIONS = [
 
 async def sync_prices(
     session: AsyncSession,
-    regions: Optional[List[PricingRegion]] = None,
-) -> Dict[str, Any]:
+    regions: list[PricingRegion] | None = None,
+) -> dict[str, Any]:
     """
     Fetch prices from external APIs and store in the database.
 
@@ -67,9 +67,9 @@ async def sync_prices(
     """
     target_regions = regions or DEFAULT_REGIONS
     synced_count = 0
-    regions_covered: List[str] = []
-    errors: List[str] = []
-    prices_to_store: List[Price] = []
+    regions_covered: list[str] = []
+    errors: list[str] = []
+    prices_to_store: list[Price] = []
 
     pricing_service = create_pricing_service_from_settings()
 
@@ -87,16 +87,18 @@ async def sync_prices(
                 kwh_price = price_data.convert_to_kwh()
                 db_region = region.value
 
-                prices_to_store.append(Price(
-                    region=db_region,
-                    supplier=kwh_price.supplier or "Unknown",
-                    price_per_kwh=kwh_price.price,
-                    timestamp=kwh_price.timestamp,
-                    currency=kwh_price.currency,
-                    is_peak=kwh_price.is_peak,
-                    carbon_intensity=kwh_price.carbon_intensity,
-                    source_api=kwh_price.source_api,
-                ))
+                prices_to_store.append(
+                    Price(
+                        region=db_region,
+                        supplier=kwh_price.supplier or "Unknown",
+                        price_per_kwh=kwh_price.price,
+                        timestamp=kwh_price.timestamp,
+                        currency=kwh_price.currency,
+                        is_peak=kwh_price.is_peak,
+                        carbon_intensity=kwh_price.carbon_intensity,
+                        source_api=kwh_price.source_api,
+                    )
+                )
                 regions_covered.append(region.value)
 
             if prices_to_store and not session:
@@ -137,5 +139,5 @@ async def sync_prices(
         "regions_covered": regions_covered,
         "alerts_sent": 0,
         "errors": errors if errors else None,
-        "triggered_at": datetime.now(timezone.utc).isoformat(),
+        "triggered_at": datetime.now(UTC).isoformat(),
     }

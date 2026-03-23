@@ -101,9 +101,7 @@ class UtilityDiscoveryService:
         return results
 
     @classmethod
-    def get_completion_status(
-        cls, state_code: str, tracked_types: list[str]
-    ) -> dict:
+    def get_completion_status(cls, state_code: str, tracked_types: list[str]) -> dict:
         """
         Calculate utility tracking completion for a user.
 

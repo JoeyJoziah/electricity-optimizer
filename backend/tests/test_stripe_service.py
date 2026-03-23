@@ -96,7 +96,6 @@ def test_stripe_service_ensure_configured_raises_when_not_configured():
 # =============================================================================
 
 
-@pytest.mark.asyncio
 async def test_create_checkout_session_success(stripe_service, mock_checkout_session):
     """Test successful checkout session creation."""
     with patch("stripe.checkout.Session.create", return_value=mock_checkout_session):
@@ -113,7 +112,6 @@ async def test_create_checkout_session_success(stripe_service, mock_checkout_ses
         assert result["customer_id"] == "cus_test_456"
 
 
-@pytest.mark.asyncio
 async def test_create_checkout_session_with_existing_customer(
     stripe_service, mock_checkout_session
 ):
@@ -134,7 +132,6 @@ async def test_create_checkout_session_with_existing_customer(
         assert "customer_email" not in call_kwargs
 
 
-@pytest.mark.asyncio
 async def test_create_checkout_session_invalid_tier(stripe_service):
     """Test checkout session with invalid tier raises error."""
     with pytest.raises(ValueError, match="Invalid tier"):
@@ -147,7 +144,6 @@ async def test_create_checkout_session_invalid_tier(stripe_service):
         )
 
 
-@pytest.mark.asyncio
 async def test_create_checkout_session_missing_price_id(stripe_service):
     """Test checkout session with missing price ID raises error."""
     with (
@@ -163,7 +159,6 @@ async def test_create_checkout_session_missing_price_id(stripe_service):
         )
 
 
-@pytest.mark.asyncio
 async def test_create_checkout_session_stripe_error(stripe_service):
     """Test checkout session handles Stripe API errors."""
     with (
@@ -182,7 +177,6 @@ async def test_create_checkout_session_stripe_error(stripe_service):
         )
 
 
-@pytest.mark.asyncio
 async def test_create_checkout_session_not_configured():
     """Test checkout session fails when Stripe not configured."""
     with patch.object(settings, "stripe_secret_key", None):
@@ -202,7 +196,6 @@ async def test_create_checkout_session_not_configured():
 # =============================================================================
 
 
-@pytest.mark.asyncio
 async def test_create_portal_session_success(stripe_service, mock_portal_session):
     """Test successful portal session creation."""
     with patch("stripe.billing_portal.Session.create", return_value=mock_portal_session):
@@ -214,7 +207,6 @@ async def test_create_portal_session_success(stripe_service, mock_portal_session
         assert result["url"] == "https://billing.stripe.com/p/session/bps_test_789"
 
 
-@pytest.mark.asyncio
 async def test_create_portal_session_stripe_error(stripe_service):
     """Test portal session handles Stripe API errors."""
     with (
@@ -235,7 +227,6 @@ async def test_create_portal_session_stripe_error(stripe_service):
 # =============================================================================
 
 
-@pytest.mark.asyncio
 async def test_get_subscription_status_active(stripe_service, mock_subscription):
     """Test getting active subscription status."""
     with patch("stripe.Subscription.list", return_value=Mock(data=[mock_subscription])):
@@ -247,7 +238,6 @@ async def test_get_subscription_status_active(stripe_service, mock_subscription)
         assert isinstance(result["current_period_end"], datetime)
 
 
-@pytest.mark.asyncio
 async def test_get_subscription_status_no_subscription(stripe_service):
     """Test getting status when no subscription exists."""
     with patch("stripe.Subscription.list", return_value=Mock(data=[])):
@@ -256,7 +246,6 @@ async def test_get_subscription_status_no_subscription(stripe_service):
         assert result is None
 
 
-@pytest.mark.asyncio
 async def test_get_subscription_status_stripe_error(stripe_service):
     """Test subscription status handles Stripe API errors."""
     with (
@@ -274,7 +263,6 @@ async def test_get_subscription_status_stripe_error(stripe_service):
 # =============================================================================
 
 
-@pytest.mark.asyncio
 async def test_cancel_subscription_at_period_end(stripe_service, mock_subscription):
     """Test canceling subscription at period end."""
     mock_subscription.cancel_at_period_end = True
@@ -289,7 +277,6 @@ async def test_cancel_subscription_at_period_end(stripe_service, mock_subscripti
         assert result["cancel_at_period_end"] is True
 
 
-@pytest.mark.asyncio
 async def test_cancel_subscription_immediately(stripe_service, mock_subscription):
     """Test canceling subscription immediately."""
     mock_subscription.status = "canceled"
@@ -348,7 +335,6 @@ def test_verify_webhook_signature_no_secret():
             )
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_checkout_completed(stripe_service):
     """Test handling checkout.session.completed webhook."""
     event = {
@@ -374,7 +360,6 @@ async def test_handle_webhook_checkout_completed(stripe_service):
     assert result["customer_id"] == "cus_test_456"
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_subscription_updated(stripe_service):
     """Test handling customer.subscription.updated webhook."""
     event = {
@@ -401,7 +386,6 @@ async def test_handle_webhook_subscription_updated(stripe_service):
     assert result["status"] == "active"
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_subscription_deleted(stripe_service):
     """Test handling customer.subscription.deleted webhook."""
     event = {
@@ -425,7 +409,6 @@ async def test_handle_webhook_subscription_deleted(stripe_service):
     assert result["tier"] == "free"
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_payment_failed(stripe_service):
     """Test handling invoice.payment_failed webhook."""
     event = {
@@ -446,7 +429,6 @@ async def test_handle_webhook_payment_failed(stripe_service):
     assert result["customer_id"] == "cus_test_456"
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_unhandled_event(stripe_service):
     """Test handling unknown webhook event type."""
     event = {
@@ -498,7 +480,6 @@ def _make_user(user_id: str = "user_123", customer_id: str = "cus_test_456") -> 
     return user
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_payment_failed_resolves_user_by_customer_id():
     """payment_failed: user_id missing → resolved via get_by_stripe_customer_id."""
     user = _make_user()
@@ -520,7 +501,6 @@ async def test_apply_webhook_action_payment_failed_resolves_user_by_customer_id(
     user_repo.get_by_stripe_customer_id.assert_awaited_once_with("cus_test_456")
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_payment_failed_customer_not_found():
     """payment_failed: unknown customer_id → returns False without error."""
     user_repo = AsyncMock()
@@ -540,7 +520,6 @@ async def test_apply_webhook_action_payment_failed_customer_not_found():
     user_repo.get_by_stripe_customer_id.assert_awaited_once_with("cus_unknown")
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_payment_failed_no_customer_id():
     """payment_failed: no customer_id at all → returns False immediately."""
     user_repo = AsyncMock()
@@ -560,7 +539,6 @@ async def test_apply_webhook_action_payment_failed_no_customer_id():
     user_repo.get_by_stripe_customer_id.assert_not_awaited()
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_not_handled():
     """Unhandled events → returns False immediately."""
     user_repo = AsyncMock()
@@ -571,7 +549,6 @@ async def test_apply_webhook_action_not_handled():
     assert applied is False
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_activate_subscription():
     """activate_subscription: sets tier and customer_id on user."""
     user = _make_user()
@@ -596,7 +573,6 @@ async def test_apply_webhook_action_activate_subscription():
     user_repo.update.assert_awaited_once()
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_user_not_found():
     """When user_id is present but user is missing from DB → returns False."""
     user_repo = AsyncMock()
@@ -620,7 +596,6 @@ async def test_apply_webhook_action_user_not_found():
 # =============================================================================
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_activate_invalidates_tier_cache():
     """activate_subscription: tier cache is invalidated after DB update."""
     user = _make_user()
@@ -644,7 +619,6 @@ async def test_apply_webhook_action_activate_invalidates_tier_cache():
     mock_invalidate.assert_awaited_once_with("user_123")
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_update_invalidates_tier_cache():
     """update_subscription: tier cache is invalidated after DB update."""
     user = _make_user()
@@ -668,7 +642,6 @@ async def test_apply_webhook_action_update_invalidates_tier_cache():
     mock_invalidate.assert_awaited_once_with("user_123")
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_deactivate_invalidates_tier_cache():
     """deactivate_subscription: tier cache is invalidated and user downgraded to free."""
     user = _make_user()
@@ -692,7 +665,6 @@ async def test_apply_webhook_action_deactivate_invalidates_tier_cache():
     mock_invalidate.assert_awaited_once_with("user_123")
 
 
-@pytest.mark.asyncio
 async def test_apply_webhook_action_payment_failed_does_not_invalidate_cache():
     """payment_failed: tier cache is NOT invalidated (no tier change occurs)."""
     user = _make_user()
@@ -723,7 +695,6 @@ async def test_apply_webhook_action_payment_failed_does_not_invalidate_cache():
 # =============================================================================
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_payment_failed_amount_is_decimal(stripe_service):
     """invoice.payment_failed: amount_due converted from cents to Decimal dollars."""
     event = {
@@ -748,7 +719,6 @@ async def test_handle_webhook_payment_failed_amount_is_decimal(stripe_service):
     assert result["amount_due"] == Decimal("4.99")
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_payment_failed_large_amount_no_float_error(stripe_service):
     """Large cent amounts (e.g. $14.99) convert exactly with Decimal."""
     event = {
@@ -771,7 +741,6 @@ async def test_handle_webhook_payment_failed_large_amount_no_float_error(stripe_
     assert isinstance(result["amount_due"], Decimal)
 
 
-@pytest.mark.asyncio
 async def test_handle_webhook_payment_failed_zero_amount(stripe_service):
     """Zero amount_due is left as 0 (falsy guard prevents conversion)."""
     event = {

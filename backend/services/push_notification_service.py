@@ -6,7 +6,6 @@ Free tier: Unlimited mobile push, 10K web push/send, 10K emails/month. No card.
 
 import httpx
 import structlog
-from typing import Optional
 
 from config.settings import get_settings
 
@@ -30,7 +29,7 @@ class PushNotificationService:
         user_id: str,
         title: str,
         message: str,
-        data: Optional[dict] = None,
+        data: dict | None = None,
     ) -> bool:
         """Send push notification via OneSignal REST API.
 

@@ -16,11 +16,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 
 # =============================================================================
 # HELPERS
@@ -74,24 +73,23 @@ def repo(mock_session):
 class TestInsertForecasts:
     """Tests for ForecastObservationRepository.insert_forecasts"""
 
-    @pytest.mark.asyncio
     async def test_insert_forecasts_batch(self, repo, mock_session):
         """Insert multiple forecasts — should return row count and call execute once."""
         predictions = [
             {
-                "timestamp": datetime(2026, 2, 24, 10, 0, tzinfo=timezone.utc),
+                "timestamp": datetime(2026, 2, 24, 10, 0, tzinfo=UTC),
                 "predicted_price": 0.28,
                 "confidence_lower": 0.24,
                 "confidence_upper": 0.32,
             },
             {
-                "timestamp": datetime(2026, 2, 24, 11, 0, tzinfo=timezone.utc),
+                "timestamp": datetime(2026, 2, 24, 11, 0, tzinfo=UTC),
                 "predicted_price": 0.30,
                 "confidence_lower": 0.26,
                 "confidence_upper": 0.34,
             },
             {
-                "timestamp": datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc),
+                "timestamp": datetime(2026, 2, 24, 12, 0, tzinfo=UTC),
                 "predicted_price": 0.25,
             },
         ]
@@ -107,7 +105,6 @@ class TestInsertForecasts:
         mock_session.execute.assert_awaited_once()
         mock_session.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_insert_forecasts_empty_list(self, repo, mock_session):
         """Empty predictions list — short-circuits and returns 0 without DB calls."""
         count = await repo.insert_forecasts(
@@ -120,7 +117,6 @@ class TestInsertForecasts:
         mock_session.execute.assert_not_awaited()
         mock_session.commit.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_insert_forecasts_with_string_timestamps(self, repo, mock_session):
         """ISO string timestamps are parsed to datetime and hour extracted correctly."""
         predictions = [
@@ -139,13 +135,16 @@ class TestInsertForecasts:
         assert count == 1
         # Verify the row passed to execute has forecast_hour=14
         call_args = mock_session.execute.call_args
-        rows = call_args[0][1]  # second positional arg is the flat params dict (keys use numeric suffix: forecast_hour0, etc.)
+        rows = call_args[
+            0
+        ][
+            1
+        ]  # second positional arg is the flat params dict (keys use numeric suffix: forecast_hour0, etc.)
         assert rows["forecast_hour0"] == 14
 
-    @pytest.mark.asyncio
     async def test_insert_forecasts_with_datetime_timestamps(self, repo, mock_session):
         """datetime objects are handled directly — hour extracted without parsing."""
-        ts = datetime(2026, 2, 24, 9, 0, tzinfo=timezone.utc)
+        ts = datetime(2026, 2, 24, 9, 0, tzinfo=UTC)
         predictions = [
             {
                 "timestamp": ts,
@@ -177,7 +176,6 @@ class TestInsertForecasts:
 class TestBackfillActuals:
     """Tests for ForecastObservationRepository.backfill_actuals"""
 
-    @pytest.mark.asyncio
     async def test_backfill_actuals_with_region(self, repo, mock_session):
         """Backfill with region filter — passes region param to query."""
         mock_session.execute.return_value = _make_result(rowcount=5)
@@ -192,7 +190,6 @@ class TestBackfillActuals:
         params = call_args[0][1]
         assert params.get("region") == "us_ct"
 
-    @pytest.mark.asyncio
     async def test_backfill_actuals_all_regions(self, repo, mock_session):
         """Backfill without region — uses LIMIT to prevent unbounded memory usage."""
         mock_session.execute.return_value = _make_result(rowcount=12)
@@ -216,7 +213,6 @@ class TestBackfillActuals:
 class TestInsertRecommendation:
     """Tests for ForecastObservationRepository.insert_recommendation"""
 
-    @pytest.mark.asyncio
     async def test_insert_recommendation(self, repo, mock_session):
         """Insert recommendation — returns a valid UUID string."""
         outcome_id = await repo.insert_recommendation(
@@ -230,7 +226,6 @@ class TestInsertRecommendation:
         mock_session.execute.assert_awaited_once()
         mock_session.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_insert_recommendation_serializes_data(self, repo, mock_session):
         """recommendation_data is JSON-serialized before being stored."""
         rec_data = {"supplier": "United Illuminating", "potential_savings": 8.75}
@@ -259,7 +254,6 @@ class TestInsertRecommendation:
 class TestUpdateRecommendationResponse:
     """Tests for ForecastObservationRepository.update_recommendation_response"""
 
-    @pytest.mark.asyncio
     async def test_update_recommendation_response_accepted(self, repo, mock_session):
         """Accepted=True with no savings — returns True when rowcount=1."""
         mock_session.execute.return_value = _make_result(rowcount=1)
@@ -275,7 +269,6 @@ class TestUpdateRecommendationResponse:
         assert params["accepted"] is True
         assert params["actual_savings"] is None
 
-    @pytest.mark.asyncio
     async def test_update_recommendation_response_rejected(self, repo, mock_session):
         """Accepted=False with actual_savings — returns True and passes savings."""
         mock_session.execute.return_value = _make_result(rowcount=1)
@@ -291,10 +284,7 @@ class TestUpdateRecommendationResponse:
         assert params["accepted"] is False
         assert params["actual_savings"] == 0.0
 
-    @pytest.mark.asyncio
-    async def test_update_recommendation_response_already_responded(
-        self, repo, mock_session
-    ):
+    async def test_update_recommendation_response_already_responded(self, repo, mock_session):
         """When rowcount=0 (already responded), returns False (idempotency guard)."""
         mock_session.execute.return_value = _make_result(rowcount=0)
 
@@ -315,7 +305,6 @@ class TestUpdateRecommendationResponse:
 class TestGetAccuracyMetrics:
     """Tests for ForecastObservationRepository.get_accuracy_metrics"""
 
-    @pytest.mark.asyncio
     async def test_get_accuracy_metrics(self, repo, mock_session):
         """Normal case — returns dict with total, mape, rmse, coverage."""
         row = _row(total=50, mape=4.25, rmse=0.012345, coverage=87.5)
@@ -328,7 +317,6 @@ class TestGetAccuracyMetrics:
         assert metrics["rmse"] == 0.012345
         assert metrics["coverage"] == 87.5
 
-    @pytest.mark.asyncio
     async def test_get_accuracy_metrics_no_data(self, repo, mock_session):
         """When total=0 (no observed rows), returns dict with None metric values."""
         row = _row(total=0, mape=None, rmse=None, coverage=None)
@@ -355,7 +343,6 @@ class TestGetAccuracyByVersion:
     Python.  A single db.execute call must return pre-aggregated results.
     """
 
-    @pytest.mark.asyncio
     async def test_empty_result_returns_empty_list(self, repo, mock_session):
         """Should return [] when no observed rows exist for the region/window."""
         mock_session.execute.return_value = _make_result(fetchall_value=[])
@@ -365,7 +352,6 @@ class TestGetAccuracyByVersion:
         assert result == []
         mock_session.execute.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_single_version_returned(self, repo, mock_session):
         """Single model version row is mapped to the expected dict shape."""
         rows = [
@@ -383,7 +369,6 @@ class TestGetAccuracyByVersion:
         assert entry["rmse"] == 0.012345
         assert entry["coverage"] == 88.5
 
-    @pytest.mark.asyncio
     async def test_multiple_versions_ordered_by_mape(self, repo, mock_session):
         """Results come back in ascending MAPE order (best model first)."""
         rows = [
@@ -401,7 +386,6 @@ class TestGetAccuracyByVersion:
         assert result[1]["model_version"] == "v2.0"
         assert result[2]["model_version"] == "v1.9"
 
-    @pytest.mark.asyncio
     async def test_mape_rounded_to_two_decimals(self, repo, mock_session):
         """MAPE values are rounded to 2 decimal places on return."""
         rows = [
@@ -415,7 +399,6 @@ class TestGetAccuracyByVersion:
         assert result[0]["rmse"] == 0.012346
         assert result[0]["coverage"] == 90.1
 
-    @pytest.mark.asyncio
     async def test_null_mape_returned_as_none(self, repo, mock_session):
         """NULL mape from DB (no actual prices yet) maps to None in the dict."""
         rows = [
@@ -429,7 +412,6 @@ class TestGetAccuracyByVersion:
         assert result[0]["rmse"] is None
         assert result[0]["coverage"] is None
 
-    @pytest.mark.asyncio
     async def test_coverage_computed_per_version(self, repo, mock_session):
         """Coverage (confidence interval hit rate) is included per model version."""
         rows = [
@@ -443,7 +425,6 @@ class TestGetAccuracyByVersion:
         assert result[0]["coverage"] == 92.5
         assert result[1]["coverage"] == 75.0
 
-    @pytest.mark.asyncio
     async def test_passes_lowercased_region_and_days(self, repo, mock_session):
         """Region is lowercased and days is passed as a named parameter."""
         mock_session.execute.return_value = _make_result(fetchall_value=[])
@@ -454,7 +435,6 @@ class TestGetAccuracyByVersion:
         assert params["region"] == "us_ct"
         assert params["days"] == 30
 
-    @pytest.mark.asyncio
     async def test_single_db_call_no_in_memory_aggregation(self, repo, mock_session):
         """Aggregation is done in SQL — exactly one execute call is made."""
         mock_session.execute.return_value = _make_result(fetchall_value=[])

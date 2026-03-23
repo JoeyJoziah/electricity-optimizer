@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * Forgot Password Page
@@ -7,62 +7,65 @@
  * Intentionally does not reveal whether the email exists (security best practice).
  */
 
-import React, { useState } from 'react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { authClient } from '@/lib/auth/client'
+import React, { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { authClient } from "@/lib/auth/client";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+const isValidEmail = (email: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [emailError, setEmailError] = useState<string | null>(null)
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const handleEmailChange = (value: string) => {
-    setEmail(value)
-    if (emailError) setEmailError(null)
-  }
+    setEmail(value);
+    if (emailError) setEmailError(null);
+  };
 
   const handleEmailBlur = () => {
     if (email && !isValidEmail(email)) {
-      setEmailError('Please enter a valid email address')
+      setEmailError("Please enter a valid email address");
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setEmailError(null)
+    e.preventDefault();
+    setError("");
+    setEmailError(null);
 
     if (email && !isValidEmail(email)) {
-      setEmailError('Please enter a valid email address')
-      return
+      setEmailError("Please enter a valid email address");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
       // Better Auth client method: requestPasswordReset
       // Maps to POST /api/auth/request-password-reset
       await authClient.requestPasswordReset({
         email,
-        redirectTo: '/auth/reset-password',
-      })
-      setSubmitted(true)
+        redirectTo: "/auth/reset-password",
+      });
+      setSubmitted(true);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : 'Failed to send reset email. Please try again.'
-      setError(message)
+        err instanceof Error
+          ? err.message
+          : "Failed to send reset email. Please try again.";
+      setError(message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (submitted) {
     return (
@@ -84,10 +87,12 @@ export default function ForgotPasswordPage() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Check your email</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Check your email
+            </h2>
             <p className="mt-2 text-sm text-gray-600">
-              If an account exists for <strong>{email}</strong>, we&apos;ve sent password reset
-              instructions.
+              If an account exists for <strong>{email}</strong>, we&apos;ve sent
+              password reset instructions.
             </p>
             <Link
               href="/auth/login"
@@ -98,7 +103,7 @@ export default function ForgotPasswordPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -109,8 +114,8 @@ export default function ForgotPasswordPage() {
             <CardTitle as="h2">Reset your password</CardTitle>
           </CardHeader>
           <p className="mb-6 text-sm text-gray-600">
-            Enter the email address associated with your account and we&apos;ll send you a link to
-            reset your password.
+            Enter the email address associated with your account and we&apos;ll
+            send you a link to reset your password.
           </p>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -129,14 +134,29 @@ export default function ForgotPasswordPage() {
               />
               {error && (
                 <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg flex items-center gap-2">
-                  <svg className="w-4 h-4 text-danger-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-4 h-4 text-danger-500 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <p className="text-sm text-danger-600">{error}</p>
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={loading} loading={loading}>
-                {loading ? 'Sending...' : 'Send reset link'}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading}
+                loading={loading}
+              >
+                {loading ? "Sending..." : "Send reset link"}
               </Button>
               <p className="text-center text-sm text-gray-500">
                 <Link
@@ -151,5 +171,5 @@ export default function ForgotPasswordPage() {
         </div>
       </Card>
     </div>
-  )
+  );
 }

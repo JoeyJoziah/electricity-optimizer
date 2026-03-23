@@ -4,12 +4,12 @@ User Data Models
 Pydantic models for user data with validation.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from models.region import Region
 
@@ -25,20 +25,22 @@ class UserPreferences(BaseModel):
     notification_enabled: bool = True
     email_notifications: bool = True
     push_notifications: bool = False
-    notification_frequency: str = Field(default="daily", pattern=r"^(immediate|hourly|daily|weekly)$")
+    notification_frequency: str = Field(
+        default="daily", pattern=r"^(immediate|hourly|daily|weekly)$"
+    )
 
     # Cost preferences
-    cost_threshold: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    budget_limit_daily: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    budget_limit_monthly: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    cost_threshold: Decimal | None = Field(default=None, ge=Decimal("0"))
+    budget_limit_daily: Decimal | None = Field(default=None, ge=Decimal("0"))
+    budget_limit_monthly: Decimal | None = Field(default=None, ge=Decimal("0"))
 
     # Automation preferences
     auto_switch_enabled: bool = False
-    auto_switch_threshold: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    auto_switch_threshold: Decimal | None = Field(default=None, ge=Decimal("0"))
 
     # Supplier preferences
-    preferred_suppliers: List[str] = Field(default_factory=list)
-    excluded_suppliers: List[str] = Field(default_factory=list)
+    preferred_suppliers: list[str] = Field(default_factory=list)
+    excluded_suppliers: list[str] = Field(default_factory=list)
 
     # Energy preferences
     green_energy_only: bool = False
@@ -46,12 +48,12 @@ class UserPreferences(BaseModel):
 
     # Time-of-use preferences
     peak_avoidance_enabled: bool = False
-    preferred_usage_hours: List[int] = Field(default_factory=list)
+    preferred_usage_hours: list[int] = Field(default_factory=list)
 
     # Price alert preferences
     price_alert_enabled: bool = False
-    price_alert_below: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    price_alert_above: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
+    price_alert_below: Decimal | None = Field(default=None, ge=Decimal("0"))
+    price_alert_above: Decimal | None = Field(default=None, ge=Decimal("0"))
     alert_optimal_windows: bool = True
 
 
@@ -65,7 +67,7 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=200)
-    region: Optional[str] = Field(default=None, min_length=2, max_length=50)
+    region: str | None = Field(default=None, min_length=2, max_length=50)
 
     # Account status
     is_active: bool = True
@@ -74,38 +76,38 @@ class User(BaseModel):
 
     # Subscription (Stripe integration)
     subscription_tier: str = Field(default="free", pattern=r"^(free|pro|business)$")
-    stripe_customer_id: Optional[str] = None
+    stripe_customer_id: str | None = None
 
     # Preferences
-    preferences: Dict[str, Any] = Field(default_factory=dict)
+    preferences: dict[str, Any] = Field(default_factory=dict)
 
     # Current supplier info
-    current_supplier: Optional[str] = None
-    current_supplier_id: Optional[str] = None
-    current_tariff: Optional[str] = None
+    current_supplier: str | None = None
+    current_supplier_id: str | None = None
+    current_tariff: str | None = None
 
     # Usage data
-    average_daily_kwh: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    annual_usage_kwh: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    household_size: Optional[int] = Field(default=None, ge=1)
-    utility_types: Optional[List[str]] = None
+    average_daily_kwh: Decimal | None = Field(default=None, ge=Decimal("0"))
+    annual_usage_kwh: Decimal | None = Field(default=None, ge=Decimal("0"))
+    household_size: int | None = Field(default=None, ge=1)
+    utility_types: list[str] | None = None
 
     # Onboarding
     onboarding_completed: bool = False
 
     # GDPR compliance
     consent_given: bool = False
-    consent_date: Optional[datetime] = None
+    consent_date: datetime | None = None
     data_processing_agreed: bool = False
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    last_login: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_login: datetime | None = None
 
     @field_validator("region")
     @classmethod
-    def validate_region(cls, v: Optional[str]) -> Optional[str]:
+    def validate_region(cls, v: str | None) -> str | None:
         """Ensure region is a valid Region enum value (lowercase)."""
         if v is None:
             return v
@@ -121,10 +123,10 @@ class User(BaseModel):
 
     @field_validator("created_at", "updated_at", "last_login", "consent_date")
     @classmethod
-    def validate_timestamp_has_timezone(cls, v: Optional[datetime]) -> Optional[datetime]:
+    def validate_timestamp_has_timezone(cls, v: datetime | None) -> datetime | None:
         """Ensure timestamps have timezone info"""
         if v is not None and v.tzinfo is None:
-            return v.replace(tzinfo=timezone.utc)
+            return v.replace(tzinfo=UTC)
         return v
 
 
@@ -159,9 +161,9 @@ class UserCreate(BaseModel):
     )
 
     # Optional fields
-    current_supplier: Optional[str] = None
-    average_daily_kwh: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    household_size: Optional[int] = Field(default=None, ge=1)
+    current_supplier: str | None = None
+    average_daily_kwh: Decimal | None = Field(default=None, ge=Decimal("0"))
+    household_size: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def require_gdpr_consent(self) -> "UserCreate":
@@ -188,12 +190,12 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for updating user data"""
 
-    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    region: Optional[str] = Field(default=None, min_length=2, max_length=50)
-    current_supplier: Optional[str] = None
-    current_tariff: Optional[str] = None
-    average_daily_kwh: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    household_size: Optional[int] = Field(default=None, ge=1)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    region: str | None = Field(default=None, min_length=2, max_length=50)
+    current_supplier: str | None = None
+    current_tariff: str | None = None
+    average_daily_kwh: Decimal | None = Field(default=None, ge=Decimal("0"))
+    household_size: int | None = Field(default=None, ge=1)
 
 
 class UserResponse(BaseModel):
@@ -204,11 +206,11 @@ class UserResponse(BaseModel):
     id: str
     email: EmailStr
     name: str
-    region: Optional[str] = None
+    region: str | None = None
     is_active: bool
     is_verified: bool
-    current_supplier: Optional[str] = None
-    current_tariff: Optional[str] = None
+    current_supplier: str | None = None
+    current_tariff: str | None = None
     created_at: datetime
 
 

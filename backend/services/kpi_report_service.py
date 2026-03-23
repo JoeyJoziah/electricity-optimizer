@@ -5,11 +5,13 @@ Aggregates key business metrics for the nightly KPI report:
 active users, subscription breakdown, MRR, data freshness, etc.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from config.settings import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -26,7 +28,7 @@ class KPIReportService:
     def __init__(self, db: AsyncSession):
         self._db = db
 
-    async def aggregate_metrics(self) -> Dict[str, Any]:
+    async def aggregate_metrics(self) -> dict[str, Any]:
         """
         Collect all KPI metrics in a single DB round-trip.
 
@@ -90,7 +92,7 @@ class KPIReportService:
             "weather_freshness_hours": round(float(weather), 1) if weather is not None else None,
         }
 
-    async def _connection_status_breakdown(self) -> Dict[str, int]:
+    async def _connection_status_breakdown(self) -> dict[str, int]:
         result = await self._db.execute(
             text("""
                 SELECT status, COUNT(*) AS cnt
@@ -101,7 +103,7 @@ class KPIReportService:
         rows = result.mappings().all()
         return {row["status"]: row["cnt"] for row in rows}
 
-    async def _subscription_breakdown(self) -> Dict[str, int]:
+    async def _subscription_breakdown(self) -> dict[str, int]:
         result = await self._db.execute(
             text("""
                 SELECT COALESCE(subscription_tier, 'free') AS tier, COUNT(*) AS cnt
@@ -114,8 +116,11 @@ class KPIReportService:
         return {row["tier"]: row["cnt"] for row in rows}
 
     @staticmethod
-    def _calculate_mrr(subscriptions: Dict[str, int]) -> float:
+    def _calculate_mrr(subscriptions: dict[str, int]) -> float:
         pro_count = subscriptions.get("pro", 0)
         business_count = subscriptions.get("business", 0)
-        return round(pro_count * 4.99 + business_count * 14.99, 2)
-
+        return round(
+            pro_count * settings.stripe_mrr_price_pro
+            + business_count * settings.stripe_mrr_price_business,
+            2,
+        )

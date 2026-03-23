@@ -162,9 +162,7 @@ class Appliance:
         if self.duration_hours <= 0:
             raise ValueError(f"Duration must be positive, got {self.duration_hours}")
         if not 0 <= self.earliest_start <= 23:
-            raise ValueError(
-                f"Earliest start must be 0-23, got {self.earliest_start}"
-            )
+            raise ValueError(f"Earliest start must be 0-23, got {self.earliest_start}")
         if not 0 <= self.latest_end <= 24:
             raise ValueError(f"Latest end must be 0-24, got {self.latest_end}")
         if self.must_be_continuous and self.can_be_interrupted:
@@ -382,14 +380,10 @@ class PriceProfile:
             Total cost in currency units
         """
         energy_per_slot = power_kw * self.slot_duration_hours
-        return sum(
-            self.get_slot_price(slot) * energy_per_slot for slot in slots
-        )
+        return sum(self.get_slot_price(slot) * energy_per_slot for slot in slots)
 
     @classmethod
-    def create_flat_rate(
-        cls, rate: float, num_slots: int = 96
-    ) -> "PriceProfile":
+    def create_flat_rate(cls, rate: float, num_slots: int = 96) -> "PriceProfile":
         """Create a flat-rate price profile.
 
         Args:

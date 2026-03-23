@@ -30,9 +30,7 @@ os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 import pytest
 import numpy as np
 import pandas as pd
-from typing import Tuple, Optional
-from datetime import datetime, timedelta
-import tempfile
+from typing import Tuple
 import sys
 
 # Add parent directory to path for imports
@@ -58,9 +56,9 @@ def sample_price_data() -> pd.DataFrame:
     n_hours = 2000  # 83 days - enough for backtesting
 
     dates = pd.date_range(
-        start='2024-01-01',
+        start="2024-01-01",
         periods=n_hours,
-        freq='h'  # Use lowercase 'h' to avoid deprecation warning
+        freq="h",  # Use lowercase 'h' to avoid deprecation warning
     )
 
     hours = np.arange(n_hours)
@@ -78,7 +76,7 @@ def sample_price_data() -> pd.DataFrame:
     price = 50 + daily_pattern + weekly_pattern + noise
     price = np.maximum(price, 5)  # Minimum price
 
-    return pd.DataFrame({'price': price}, index=dates)
+    return pd.DataFrame({"price": price}, index=dates)
 
 
 @pytest.fixture
@@ -90,11 +88,7 @@ def extended_price_data() -> pd.DataFrame:
     np.random.seed(42)
     n_hours = 4320  # 6 months
 
-    dates = pd.date_range(
-        start='2024-01-01',
-        periods=n_hours,
-        freq='h'
-    )
+    dates = pd.date_range(start="2024-01-01", periods=n_hours, freq="h")
 
     hours = np.arange(n_hours)
 
@@ -117,7 +111,7 @@ def extended_price_data() -> pd.DataFrame:
     price = 50 + daily_pattern + weekly_pattern + seasonal_pattern + trend + noise
     price = np.maximum(price, 1)
 
-    return pd.DataFrame({'price': price}, index=dates)
+    return pd.DataFrame({"price": price}, index=dates)
 
 
 @pytest.fixture
@@ -172,6 +166,7 @@ def minimal_model_config():
     """Minimal model configuration for fast testing."""
     try:
         from ml.models.price_forecaster import ModelConfig
+
         return ModelConfig(
             sequence_length=168,
             num_features=10,
@@ -181,7 +176,7 @@ def minimal_model_config():
             dense_units=[16, 8],
             epochs=2,
             batch_size=16,
-            use_attention=False  # Faster without attention
+            use_attention=False,  # Faster without attention
         )
     except ImportError:
         pytest.skip("TensorFlow not installed")
@@ -192,6 +187,7 @@ def full_model_config():
     """Full model configuration for accuracy tests."""
     try:
         from ml.models.price_forecaster import ModelConfig
+
         return ModelConfig(
             sequence_length=168,
             num_features=15,
@@ -201,7 +197,7 @@ def full_model_config():
             dense_units=[64, 32],
             epochs=50,
             batch_size=32,
-            use_attention=True
+            use_attention=True,
         )
     except ImportError:
         pytest.skip("TensorFlow not installed")
@@ -221,9 +217,9 @@ def feature_engine():
         from data.feature_engineering import ElectricityPriceFeatureEngine
 
     return ElectricityPriceFeatureEngine(
-        country='GB',  # Use ISO 3166-1 alpha-2 code; 'GB' is canonical for Great Britain
+        country="GB",  # Use ISO 3166-1 alpha-2 code; 'GB' is canonical for Great Britain
         lookback_hours=168,
-        forecast_hours=24
+        forecast_hours=24,
     )
 
 
@@ -236,9 +232,7 @@ def feature_engine_de():
         from data.feature_engineering import ElectricityPriceFeatureEngine
 
     return ElectricityPriceFeatureEngine(
-        country='DE',
-        lookback_hours=168,
-        forecast_hours=24
+        country="DE", lookback_hours=168, forecast_hours=24
     )
 
 
@@ -256,7 +250,7 @@ class MockForecaster:
 
     def fit(self, X, y, **kwargs):
         self.is_fitted = True
-        return {'loss': [0.1, 0.08, 0.06], 'val_loss': [0.12, 0.1, 0.08]}
+        return {"loss": [0.1, 0.08, 0.06], "val_loss": [0.12, 0.1, 0.08]}
 
     def predict(self, X, return_confidence: bool = True):
         n_samples = len(X)
@@ -270,16 +264,16 @@ class MockForecaster:
 
     def evaluate(self, X, y):
         return {
-            'mape': 8.5,
-            'rmse': 4.2,
-            'mae': 3.1,
-            'direction_accuracy': 0.65,
-            'coverage': 0.92
+            "mape": 8.5,
+            "rmse": 4.2,
+            "mae": 3.1,
+            "direction_accuracy": 0.65,
+            "coverage": 0.92,
         }
 
     def save(self, path):
         os.makedirs(path, exist_ok=True)
-        np.save(os.path.join(path, 'mock_model.npy'), np.array([1]))
+        np.save(os.path.join(path, "mock_model.npy"), np.array([1]))
 
     @classmethod
     def load(cls, path):
@@ -367,20 +361,20 @@ def sample_appliances():
                 name="Dishwasher",
                 appliance_type=ApplianceType.DISHWASHER,
                 earliest_start=18,
-                latest_end=8
+                latest_end=8,
             ),
             Appliance(
                 name="EV Charger",
                 appliance_type=ApplianceType.EV_CHARGER,
                 earliest_start=21,
-                latest_end=7
+                latest_end=7,
             ),
             Appliance(
                 name="Washing Machine",
                 appliance_type=ApplianceType.WASHING_MACHINE,
                 earliest_start=8,
-                latest_end=20
-            )
+                latest_end=20,
+            ),
         ]
     except ImportError:
         pytest.skip("Appliance models not available")
@@ -396,12 +390,8 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
-    config.addinivalue_line(
-        "markers", "gpu: marks tests that require GPU"
-    )
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
+    config.addinivalue_line("markers", "gpu: marks tests that require GPU")
     config.addinivalue_line(
         "markers", "requires_tf: marks tests that require TensorFlow"
     )
@@ -424,6 +414,7 @@ def pytest_collection_modifyitems(config, items):
     # ---------------------------------------------------------------------------
     try:
         import tensorflow as tf
+
         # Guard against MagicMock injected into sys.modules by other test files
         # (e.g. test_hyperparameter_tuning.py).  A real tensorflow is a module.
         has_tf = isinstance(tf, _types.ModuleType)
@@ -431,7 +422,7 @@ def pytest_collection_modifyitems(config, items):
         if has_tf:
             try:
                 # With CUDA_VISIBLE_DEVICES=-1 this returns [] on CPU-only runners
-                gpus = tf.config.list_physical_devices('GPU')
+                gpus = tf.config.list_physical_devices("GPU")
                 has_gpu = len(gpus) > 0
             except Exception:
                 # Swallow any residual CUDA init errors — treat as no GPU

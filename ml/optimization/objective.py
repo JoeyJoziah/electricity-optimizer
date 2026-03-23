@@ -11,9 +11,8 @@ secondary objectives for:
 - Schedule stability (minimize changes from baseline)
 """
 
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Tuple
 import pulp
-import numpy as np
 
 from ml.optimization.appliance_models import (
     Appliance,
@@ -112,8 +111,7 @@ class ObjectiveBuilder:
         # Add constraints: peak_var >= power at each slot
         for t in range(self.config.time_slots):
             power_at_t = pulp.lpSum(
-                app.power_kw * all_variables[app.name].get(t, 0)
-                for app in appliances
+                app.power_kw * all_variables[app.name].get(t, 0) for app in appliances
             )
             self.problem += peak_var >= power_at_t, f"peak_power_t{t}"
 
@@ -242,14 +240,15 @@ class ObjectiveBuilder:
         """
         # Calculate total energy
         total_energy = sum(app.energy_kwh for app in appliances)
-        avg_power = total_energy / (self.config.time_slots * self.config.slot_duration_hours)
+        avg_power = total_energy / (
+            self.config.time_slots * self.config.slot_duration_hours
+        )
 
         # Penalize deviation from average
         deviation_terms = []
         for t in range(self.config.time_slots):
             power_at_t = pulp.lpSum(
-                app.power_kw * all_variables[app.name].get(t, 0)
-                for app in appliances
+                app.power_kw * all_variables[app.name].get(t, 0) for app in appliances
             )
 
             # Use auxiliary variable for absolute deviation
@@ -424,8 +423,7 @@ def calculate_optimal_cost(
         # Get cheapest slots within valid window
         valid_slots = appliance.get_valid_slots(config.time_slots)
         slot_prices = [
-            (slot, price_profile.get_slot_price(slot))
-            for slot in valid_slots
+            (slot, price_profile.get_slot_price(slot)) for slot in valid_slots
         ]
         slot_prices.sort(key=lambda x: x[1])
 

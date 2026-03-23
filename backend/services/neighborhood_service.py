@@ -6,7 +6,7 @@ Returns null fields when fewer than MIN_USERS_FOR_COMPARISON users in region.
 """
 
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import text
@@ -27,40 +27,17 @@ class NeighborhoodService:
         user_id: str,
         region: str,
         utility_type: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get neighborhood comparison for a user's rate.
 
         Returns null fields when < MIN_USERS_FOR_COMPARISON users in region.
         Otherwise returns percentile, cheapest supplier, and potential savings.
+
+        Merges the count check and comparison into a single CTE query to
+        avoid two sequential DB round-trips (19-P2-7).
         """
-        # Count users in region with this utility type
-        count_sql = text("""
-            SELECT COUNT(DISTINCT user_id) FROM user_savings
-            WHERE region = :region
-              AND utility_type = :utility_type
-              AND created_at >= NOW() - INTERVAL '30 days'
-        """)
-        count_result = await db.execute(
-            count_sql, {"region": region, "utility_type": utility_type}
-        )
-        user_count = count_result.scalar()
-
-        if user_count < MIN_USERS_FOR_COMPARISON:
-            return {
-                "region": region,
-                "utility_type": utility_type,
-                "user_count": user_count,
-                "percentile": None,
-                "user_rate": None,
-                "cheapest_supplier": None,
-                "cheapest_rate": None,
-                "avg_rate": None,
-                "potential_savings": None,
-            }
-
-        # Get user's rate, percentile, cheapest supplier, and average
-        comparison_sql = text("""
+        combined_sql = text("""
             WITH user_rates AS (
                 SELECT
                     us.user_id,
@@ -72,6 +49,9 @@ class NeighborhoodService:
                   AND us.utility_type = :utility_type
                   AND us.created_at >= NOW() - INTERVAL '30 days'
                 GROUP BY us.user_id
+            ),
+            stats AS (
+                SELECT COUNT(*) AS user_count FROM user_rates
             ),
             ranked AS (
                 SELECT
@@ -89,22 +69,25 @@ class NeighborhoodService:
                 LIMIT 1
             )
             SELECT
+                s.user_count,
                 r.avg_rate AS user_rate,
                 r.percentile,
                 c.supplier_name AS cheapest_supplier,
                 c.avg_rate AS cheapest_rate,
                 (SELECT AVG(avg_rate) FROM user_rates) AS avg_rate
-            FROM ranked r
-            CROSS JOIN cheapest c
-            WHERE r.user_id = :user_id
+            FROM stats s
+            LEFT JOIN ranked r ON r.user_id = :user_id
+            LEFT JOIN cheapest c ON TRUE
         """)
         result = await db.execute(
-            comparison_sql,
+            combined_sql,
             {"region": region, "utility_type": utility_type, "user_id": user_id},
         )
         row = result.mappings().fetchone()
 
-        if not row:
+        user_count = row["user_count"] if row else 0
+
+        if not row or user_count < MIN_USERS_FOR_COMPARISON or row["user_rate"] is None:
             return {
                 "region": region,
                 "utility_type": utility_type,
@@ -118,7 +101,9 @@ class NeighborhoodService:
             }
 
         user_rate = Decimal(str(row["user_rate"]))
-        cheapest_rate = Decimal(str(row["cheapest_rate"]))
+        cheapest_rate = (
+            Decimal(str(row["cheapest_rate"])) if row["cheapest_rate"] is not None else user_rate
+        )
         potential_savings = max(Decimal("0"), user_rate - cheapest_rate)
 
         return {
@@ -129,6 +114,6 @@ class NeighborhoodService:
             "user_rate": user_rate,
             "cheapest_supplier": row["cheapest_supplier"],
             "cheapest_rate": cheapest_rate,
-            "avg_rate": Decimal(str(row["avg_rate"])),
+            "avg_rate": Decimal(str(row["avg_rate"])) if row["avg_rate"] is not None else user_rate,
             "potential_savings": potential_savings,
         }

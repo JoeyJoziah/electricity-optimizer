@@ -9,12 +9,11 @@ users to link utility accounts via three mechanisms:
   - manual_upload: manual file upload stub (e.g., PDF bill)
 """
 
-from datetime import datetime, timezone
-from typing import Optional, List, Literal
+from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Enums (expressed as Literal types to stay Pydantic-native)
@@ -35,13 +34,14 @@ class CreateDirectConnectionRequest(BaseModel):
 
     supplier_id: UUID
     account_number: str = Field(..., min_length=4, max_length=30)
-    meter_number: Optional[str] = Field(default=None, max_length=30)
+    meter_number: str | None = Field(default=None, max_length=30)
     consent_given: bool
 
     @field_validator("account_number")
     @classmethod
     def validate_account_number(cls, v: str) -> str:
         import re
+
         if not re.match(r"^[A-Za-z0-9\-\s]{4,30}$", v):
             raise ValueError(
                 "Account number must be 4-30 alphanumeric characters, hyphens, or spaces"
@@ -73,7 +73,7 @@ class CreateEmailConnectionRequest(BaseModel):
 class CreateUploadConnectionRequest(BaseModel):
     """Request to register a manual-upload connection stub."""
 
-    label: Optional[str] = Field(default=None, max_length=100)
+    label: str | None = Field(default=None, max_length=100)
     consent_given: bool
 
     @field_validator("consent_given")
@@ -95,25 +95,23 @@ class ConnectionResponse(BaseModel):
     id: str
     user_id: str
     connection_type: ConnectionType
-    supplier_id: Optional[str] = None
-    supplier_name: Optional[str] = None
+    supplier_id: str | None = None
+    supplier_name: str | None = None
     status: ConnectionStatus = "active"
-    account_number_masked: Optional[str] = None
-    meter_number_masked: Optional[str] = None
-    email_provider: Optional[str] = None
-    label: Optional[str] = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    last_sync_at: Optional[datetime] = None
-    last_sync_error: Optional[str] = None
-    current_rate: Optional[float] = None
+    account_number_masked: str | None = None
+    meter_number_masked: str | None = None
+    email_provider: str | None = None
+    label: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_sync_at: datetime | None = None
+    last_sync_error: str | None = None
+    current_rate: float | None = None
 
 
 class UpdateConnectionRequest(BaseModel):
     """Request body for PATCH /connections/{connection_id}."""
 
-    label: Optional[str] = Field(default=None, max_length=100)
+    label: str | None = Field(default=None, max_length=100)
 
 
 class EmailConnectionInitResponse(BaseModel):
@@ -127,7 +125,7 @@ class EmailConnectionInitResponse(BaseModel):
 class ConnectionListResponse(BaseModel):
     """Paginated list of connections for the authenticated user."""
 
-    connections: List[ConnectionResponse]
+    connections: list[ConnectionResponse]
     total: int
 
 
@@ -146,13 +144,13 @@ class ExtractedRateResponse(BaseModel):
     rate_per_kwh: float
     effective_date: datetime
     source: str  # e.g. "bill_parse", "api_pull"
-    raw_label: Optional[str] = None
+    raw_label: str | None = None
 
 
 class ExtractedRateListResponse(BaseModel):
     """Paginated list of extracted rates for a connection."""
 
-    rates: List[ExtractedRateResponse]
+    rates: list[ExtractedRateResponse]
     total: int
     page: int
     page_size: int
@@ -175,22 +173,20 @@ class BillUploadResponse(BaseModel):
     file_type: str
     file_size_bytes: int
     parse_status: ParseStatus = "pending"
-    detected_supplier: Optional[str] = None
-    detected_rate_per_kwh: Optional[float] = None
-    detected_billing_period_start: Optional[str] = None
-    detected_billing_period_end: Optional[str] = None
-    detected_total_kwh: Optional[float] = None
-    detected_total_amount: Optional[float] = None
-    parse_error: Optional[str] = None
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    detected_supplier: str | None = None
+    detected_rate_per_kwh: float | None = None
+    detected_billing_period_start: str | None = None
+    detected_billing_period_end: str | None = None
+    detected_total_kwh: float | None = None
+    detected_total_amount: float | None = None
+    parse_error: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class BillUploadListResponse(BaseModel):
     """List of bill uploads for a connection."""
 
-    uploads: List[BillUploadResponse]
+    uploads: list[BillUploadResponse]
     total: int
 
 
@@ -207,9 +203,9 @@ class SyncStatusResponse(BaseModel):
     """
 
     connection_id: str
-    last_sync_at: Optional[datetime] = None
-    last_sync_error: Optional[str] = None
-    next_sync_at: Optional[datetime] = None
+    last_sync_at: datetime | None = None
+    last_sync_error: str | None = None
+    next_sync_at: datetime | None = None
     sync_frequency_hours: int = 24
 
 
@@ -223,7 +219,7 @@ class SyncResultResponse(BaseModel):
     connection_id: str
     success: bool
     new_rates_found: int = 0
-    error: Optional[str] = None
+    error: str | None = None
     synced_at: datetime
 
 
@@ -254,7 +250,7 @@ class CreatePortalConnectionRequest(BaseModel):
     supplier_id: UUID
     portal_username: str = Field(..., min_length=1, max_length=255)
     portal_password: str = Field(..., min_length=1, max_length=255)
-    portal_login_url: Optional[str] = Field(default=None, max_length=1000)
+    portal_login_url: str | None = Field(default=None, max_length=1000)
     consent_given: bool
 
     @field_validator("consent_given")
@@ -271,9 +267,9 @@ class PortalConnectionResponse(BaseModel):
     connection_id: str
     supplier_id: str
     portal_username: str
-    portal_login_url: Optional[str] = None
+    portal_login_url: str | None = None
     portal_scrape_status: str = "pending"
-    portal_last_scraped_at: Optional[datetime] = None
+    portal_last_scraped_at: datetime | None = None
 
 
 class PortalScrapeResponse(BaseModel):
@@ -282,8 +278,8 @@ class PortalScrapeResponse(BaseModel):
     connection_id: str
     status: str  # 'success', 'failed', 'in_progress'
     rates_extracted: int = 0
-    error: Optional[str] = None
-    scraped_at: Optional[datetime] = None
+    error: str | None = None
+    scraped_at: datetime | None = None
 
 
 class EmailScanResponse(BaseModel):
@@ -299,4 +295,4 @@ class EmailScanResponse(BaseModel):
     utility_bills_found: int
     rates_extracted: int = 0
     attachments_parsed: int = 0
-    bills: List[dict] = Field(default_factory=list)
+    bills: list[dict] = Field(default_factory=list)

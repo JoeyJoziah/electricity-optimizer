@@ -14,15 +14,15 @@ Tests use function-scoped TestClient to avoid rate-limiter state accumulation.
 
 from __future__ import annotations
 
-import pytest
-from datetime import date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -79,10 +79,12 @@ class _MockDB:
             return self._handle_aggregate(params)
         if "DISTINCT DATE(" in sql:
             return self._handle_streak(params)
-        if "COUNT(*)" in sql:
-            return self._handle_count(params)
+        # Paginated query with COUNT(*) OVER() window function — check
+        # LIMIT/OFFSET BEFORE plain COUNT(*) to avoid misrouting (19-P1-7)
         if "LIMIT" in sql and "OFFSET" in sql:
             return self._handle_paginated(params)
+        if "COUNT(*)" in sql:
+            return self._handle_count(params)
         # Fallback — empty result
         return self._empty_result()
 
@@ -101,7 +103,7 @@ class _MockDB:
     # ------------------------------------------------------------------
 
     def _handle_insert(self, params: dict) -> MagicMock:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         row = {
             "id": params.get("id", str(uuid4())),
             "user_id": params["user_id"],
@@ -128,21 +130,13 @@ class _MockDB:
         if region:
             user_rows = [r for r in user_rows if r.get("region") == region]
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=30)
 
         total = sum(float(r["amount"]) for r in user_rows)
-        weekly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= week_ago
-        )
-        monthly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= month_ago
-        )
+        weekly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago)
+        monthly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago)
         currency = user_rows[0]["currency"] if user_rows else "USD"
 
         agg = {
@@ -164,21 +158,13 @@ class _MockDB:
         if region:
             user_rows = [r for r in user_rows if r.get("region") == region]
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=30)
 
         total = sum(float(r["amount"]) for r in user_rows)
-        weekly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= week_ago
-        )
-        monthly = sum(
-            float(r["amount"])
-            for r in user_rows
-            if r["created_at"] >= month_ago
-        )
+        weekly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago)
+        monthly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago)
         currency = user_rows[0]["currency"] if user_rows else "USD"
 
         # Compute streak (consecutive days ending today)
@@ -242,12 +228,14 @@ class _MockDB:
         limit = params.get("limit", 20)
         offset = params.get("offset", 0)
 
-        user_rows = [
-            r for r in self._rows if str(r["user_id"]) == str(uid)
-        ]
+        user_rows = [r for r in self._rows if str(r["user_id"]) == str(uid)]
         # Sort newest first (matches ORDER BY created_at DESC)
         user_rows = sorted(user_rows, key=lambda r: r["created_at"], reverse=True)
-        page_rows = user_rows[offset: offset + limit]
+        total_count = len(user_rows)
+        page_rows = user_rows[offset : offset + limit]
+        # Add total_count to each row (COUNT(*) OVER() window function, 19-P1-7)
+        for row in page_rows:
+            row["total_count"] = total_count
         return self._mapping_all(page_rows)
 
     # ------------------------------------------------------------------
@@ -301,7 +289,7 @@ class _MockDB:
         days_ago: int = 0,
     ) -> dict:
         """Add a savings row directly to the in-memory store."""
-        now = datetime.now(tz=timezone.utc) - timedelta(days=days_ago)
+        now = datetime.now(tz=UTC) - timedelta(days=days_ago)
         row = {
             "id": str(uuid4()),
             "user_id": user_id,
@@ -363,7 +351,7 @@ def unauth_client():
 
 def _period():
     """Return (period_start, period_end) ISO strings suitable for record_savings."""
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     return (now - timedelta(days=30)).isoformat(), now.isoformat()
 
 

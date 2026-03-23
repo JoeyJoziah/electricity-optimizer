@@ -33,3 +33,11 @@ jobs:
           name: zap-baseline-report
           path: report_html.html
           retention-days: 30
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "OWASP ZAP Baseline Scan"
+          severity: warning

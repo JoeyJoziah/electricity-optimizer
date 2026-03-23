@@ -10,8 +10,6 @@ import os
 # in the rate limiter (avoids cross-test state leakage via Redis)
 os.environ.setdefault("ENVIRONMENT", "test")
 
-import asyncio
-
 # Add backend directory to path for imports
 import sys
 from datetime import UTC, datetime
@@ -24,19 +22,6 @@ import pytest
 
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
-
-
-# =============================================================================
-# ASYNC CONFIGURATION
-# =============================================================================
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 # =============================================================================
@@ -177,7 +162,7 @@ def flatpeak_forecast_response():
     """Sample Flatpeak forecast API response"""
     from datetime import timedelta
 
-    base_time = datetime.now(UTC)
+    base_time = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
 
     return {
         "data": {
@@ -504,6 +489,10 @@ def mock_sqlalchemy_select(monkeypatch):
                 "onboarding_completed",
                 "subscription_tier",
                 "stripe_customer_id",
+                "consent_given",
+                "data_processing_agreed",
+                "consent_date",
+                "last_login",
             ],
         },
         "models.supplier": {

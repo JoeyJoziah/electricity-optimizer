@@ -26,8 +26,7 @@ Span naming convention: ``{service}.{operation}``
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager, contextmanager
-from typing import Any, Dict, Optional
+from typing import Any
 
 from observability import get_tracer
 
@@ -42,8 +41,8 @@ class traced:
         self,
         operation: str,
         *,
-        attributes: Optional[Dict[str, Any]] = None,
-        tracer_name: Optional[str] = None,
+        attributes: dict[str, Any] | None = None,
+        tracer_name: str | None = None,
     ) -> None:
         self._operation = operation
         self._attributes = attributes or {}

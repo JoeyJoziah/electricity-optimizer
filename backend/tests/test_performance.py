@@ -8,14 +8,13 @@ Validates that performance optimizations are working:
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from models.price import Price, PriceRegion
-
+from models.price import PriceRegion
 
 # =============================================================================
 # Phase 1: Query count verification for get_daily_recommendations
@@ -36,7 +35,7 @@ class TestRecommendationQueryCount:
 
     @pytest.fixture
     def mock_prices(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return [
             MagicMock(
                 supplier="NextEra Energy",
@@ -57,7 +56,7 @@ class TestRecommendationQueryCount:
 
     @pytest.fixture
     def mock_windows(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return [
             {
                 "start": now,
@@ -67,10 +66,7 @@ class TestRecommendationQueryCount:
             }
         ]
 
-    @pytest.mark.asyncio
-    async def test_daily_recommendations_max_3_queries(
-        self, mock_user, mock_prices, mock_windows
-    ):
+    async def test_daily_recommendations_max_3_queries(self, mock_user, mock_prices, mock_windows):
         """get_daily_recommendations should make at most 3 service/repo calls."""
         from services.recommendation_service import RecommendationService
 
@@ -106,7 +102,6 @@ class TestRecommendationQueryCount:
         assert result["switching_recommendation"] is not None
         assert len(result["usage_recommendations"]) == 3  # 3 appliances
 
-    @pytest.mark.asyncio
     async def test_daily_recommendations_no_user_returns_early(self):
         """If user not found, should make only 1 call (the user lookup)."""
         from services.recommendation_service import RecommendationService
@@ -124,10 +119,7 @@ class TestRecommendationQueryCount:
         assert result["switching_recommendation"] is None
         assert result["usage_recommendations"] == []
 
-    @pytest.mark.asyncio
-    async def test_individual_methods_still_work(
-        self, mock_user, mock_prices, mock_windows
-    ):
+    async def test_individual_methods_still_work(self, mock_user, mock_prices, mock_windows):
         """Public methods get_switching_recommendation and get_usage_recommendation
         still work independently (they fetch their own data)."""
         from services.recommendation_service import RecommendationService
@@ -171,10 +163,7 @@ class TestAnalyticsCaching:
     def mock_repo(self):
         repo = AsyncMock()
         repo.get_hourly_price_averages = AsyncMock(
-            return_value=[
-                {"hour": h, "avg_price": Decimal("0.20"), "count": 10}
-                for h in range(24)
-            ]
+            return_value=[{"hour": h, "avg_price": Decimal("0.20"), "count": 10} for h in range(24)]
         )
         repo.get_supplier_price_stats = AsyncMock(
             return_value=[
@@ -191,7 +180,6 @@ class TestAnalyticsCaching:
         repo.get_historical_prices = AsyncMock(return_value=[])
         return repo
 
-    @pytest.mark.asyncio
     async def test_peak_hours_caches_result(self, mock_repo, mock_cache):
         """get_peak_hours_analysis should cache its result."""
         from services.analytics_service import AnalyticsService
@@ -202,15 +190,16 @@ class TestAnalyticsCaching:
         # Should have called cache.set for lock + data + lock release
         # Find the data caching call (the one with ex=900)
         data_calls = [
-            c for c in mock_cache.set.call_args_list
+            c
+            for c in mock_cache.set.call_args_list
             if c.kwargs.get("ex") == 900 or (len(c.args) > 1 and c.kwargs.get("ex") == 900)
         ]
         assert len(data_calls) == 1
 
-    @pytest.mark.asyncio
     async def test_peak_hours_returns_cached_on_hit(self, mock_repo, mock_cache):
         """get_peak_hours_analysis should return cached data on cache hit."""
         import json
+
         from services.analytics_service import AnalyticsService
 
         cached_data = {
@@ -231,7 +220,6 @@ class TestAnalyticsCaching:
         # Should have returned the cached data
         assert result["peak_hours"] == [17, 18, 19]
 
-    @pytest.mark.asyncio
     async def test_supplier_comparison_caches_with_1hr_ttl(self, mock_repo, mock_cache):
         """get_supplier_comparison_analytics should cache with 1 hour TTL."""
         from services.analytics_service import AnalyticsService
@@ -240,34 +228,28 @@ class TestAnalyticsCaching:
         await service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
 
         # Find the data caching call (the one with ex=3600)
-        data_calls = [
-            c for c in mock_cache.set.call_args_list
-            if c.kwargs.get("ex") == 3600
-        ]
+        data_calls = [c for c in mock_cache.set.call_args_list if c.kwargs.get("ex") == 3600]
         assert len(data_calls) == 1
 
-    @pytest.mark.asyncio
     async def test_price_trend_caches_result(self, mock_repo, mock_cache):
         """get_price_trend should cache its result with 15 min TTL."""
         from services.analytics_service import AnalyticsService
 
-        mock_repo.get_price_trend_aggregates = AsyncMock(return_value={
-            "first_third_avg": Decimal("0.20"),
-            "last_third_avg": Decimal("0.24"),
-            "total_count": 10,
-        })
+        mock_repo.get_price_trend_aggregates = AsyncMock(
+            return_value={
+                "first_third_avg": Decimal("0.20"),
+                "last_third_avg": Decimal("0.24"),
+                "total_count": 10,
+            }
+        )
 
         service = AnalyticsService(mock_repo, cache=mock_cache)
         await service.get_price_trend(PriceRegion.US_CT, days=7)
 
         # Find the data caching call (the one with ex=900)
-        data_calls = [
-            c for c in mock_cache.set.call_args_list
-            if c.kwargs.get("ex") == 900
-        ]
+        data_calls = [c for c in mock_cache.set.call_args_list if c.kwargs.get("ex") == 900]
         assert len(data_calls) == 1
 
-    @pytest.mark.asyncio
     async def test_no_cache_still_works(self, mock_repo):
         """Analytics should work without a cache (cache=None)."""
         from services.analytics_service import AnalyticsService
@@ -295,9 +277,9 @@ class TestStripeNonBlocking:
             with patch.object(settings, "stripe_price_pro", "price_pro_test"):
                 with patch.object(settings, "stripe_price_business", "price_biz_test"):
                     from services.stripe_service import StripeService
+
                     yield StripeService()
 
-    @pytest.mark.asyncio
     async def test_checkout_uses_to_thread(self, stripe_service):
         """create_checkout_session should use asyncio.to_thread."""
         mock_session = MagicMock(
@@ -320,7 +302,6 @@ class TestStripeNonBlocking:
             mock_to_thread.assert_called_once()
             assert result["id"] == "cs_test_123"
 
-    @pytest.mark.asyncio
     async def test_portal_uses_to_thread(self, stripe_service):
         """create_customer_portal_session should use asyncio.to_thread."""
         mock_session = MagicMock(
@@ -339,13 +320,12 @@ class TestStripeNonBlocking:
             mock_to_thread.assert_called_once()
             assert "url" in result
 
-    @pytest.mark.asyncio
     async def test_subscription_list_uses_to_thread(self, stripe_service):
         """get_subscription_status should use asyncio.to_thread."""
         mock_sub = MagicMock(
             id="sub_test",
             status="active",
-            current_period_end=int(datetime.now(timezone.utc).timestamp()) + 86400,
+            current_period_end=int(datetime.now(UTC).timestamp()) + 86400,
             cancel_at_period_end=False,
             metadata={"tier": "pro", "user_id": "user_1"},
         )
@@ -359,49 +339,41 @@ class TestStripeNonBlocking:
             mock_to_thread.assert_called_once()
             assert result["tier"] == "pro"
 
-    @pytest.mark.asyncio
     async def test_cancel_uses_to_thread(self, stripe_service):
         """cancel_subscription should use asyncio.to_thread."""
         mock_sub = MagicMock(
             status="canceled",
             cancel_at_period_end=False,
-            canceled_at=int(datetime.now(timezone.utc).timestamp()),
+            canceled_at=int(datetime.now(UTC).timestamp()),
         )
 
         with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
             mock_to_thread.return_value = mock_sub
 
-            result = await stripe_service.cancel_subscription(
-                "sub_test", cancel_immediately=True
-            )
+            result = await stripe_service.cancel_subscription("sub_test", cancel_immediately=True)
 
             mock_to_thread.assert_called_once()
             assert result["status"] == "canceled"
 
-    @pytest.mark.asyncio
     async def test_modify_uses_to_thread(self, stripe_service):
         """cancel_subscription with cancel_immediately=False should use to_thread for modify."""
         mock_sub = MagicMock(
             status="active",
             cancel_at_period_end=True,
             canceled_at=None,
-            current_period_end=int(datetime.now(timezone.utc).timestamp()) + 86400,
+            current_period_end=int(datetime.now(UTC).timestamp()) + 86400,
         )
 
         with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
             mock_to_thread.return_value = mock_sub
 
-            result = await stripe_service.cancel_subscription(
-                "sub_test", cancel_immediately=False
-            )
+            result = await stripe_service.cancel_subscription("sub_test", cancel_immediately=False)
 
             mock_to_thread.assert_called_once()
             assert result["cancel_at_period_end"] is True
 
-    @pytest.mark.asyncio
     async def test_stripe_does_not_block_event_loop(self, stripe_service):
         """Verify that a slow Stripe call doesn't block the event loop."""
-        import time
 
         async def slow_stripe_call(*args, **kwargs):
             # Simulate a 200ms Stripe API call in a thread
@@ -444,17 +416,13 @@ class TestStripeNonBlocking:
 class TestSQLAggregation:
     """Verify analytics service uses new SQL aggregation repo methods."""
 
-    @pytest.mark.asyncio
     async def test_peak_hours_uses_sql_aggregation(self):
         """get_peak_hours_analysis should call get_hourly_price_averages, not get_historical_prices."""
         from services.analytics_service import AnalyticsService
 
         repo = AsyncMock()
         repo.get_hourly_price_averages = AsyncMock(
-            return_value=[
-                {"hour": h, "avg_price": Decimal("0.20"), "count": 10}
-                for h in range(24)
-            ]
+            return_value=[{"hour": h, "avg_price": Decimal("0.20"), "count": 10} for h in range(24)]
         )
 
         service = AnalyticsService(repo)
@@ -463,7 +431,6 @@ class TestSQLAggregation:
         repo.get_hourly_price_averages.assert_called_once()
         repo.get_historical_prices.assert_not_called()
 
-    @pytest.mark.asyncio
     async def test_supplier_comparison_uses_sql_aggregation(self):
         """get_supplier_comparison_analytics should call get_supplier_price_stats, not get_historical_prices."""
         from services.analytics_service import AnalyticsService
@@ -507,6 +474,7 @@ class TestLearningServiceSQLAggregation:
     @pytest.fixture
     def mock_obs(self):
         from unittest.mock import AsyncMock
+
         obs = AsyncMock()
         obs.get_forecast_accuracy = AsyncMock(
             return_value={"total": 0, "mape": None, "rmse": None, "coverage": None}
@@ -522,7 +490,6 @@ class TestLearningServiceSQLAggregation:
         vs.async_prune = AsyncMock(return_value=0)
         return vs
 
-    @pytest.mark.asyncio
     async def test_update_weights_uses_single_aggregated_call(self, mock_obs, mock_vs):
         """update_ensemble_weights must call get_model_accuracy_by_version once
         and receive pre-aggregated dicts — no raw row iteration in the service."""
@@ -548,7 +515,6 @@ class TestLearningServiceSQLAggregation:
         # Best model (lower MAPE) gets higher weight.
         assert weights["v2.1"] > weights["v2.0"]
 
-    @pytest.mark.asyncio
     async def test_coverage_field_present_in_stats(self, mock_obs, mock_vs):
         """Pre-aggregated stats include coverage so callers can use it without
         a second query.  The field must survive the service pass-through."""
@@ -570,7 +536,6 @@ class TestLearningServiceSQLAggregation:
         stats = await mock_obs.get_model_accuracy_by_version("US", 7)
         assert stats[0]["coverage"] == 88.5
 
-    @pytest.mark.asyncio
     async def test_full_cycle_passes_days_to_aggregation_call(self, mock_obs, mock_vs):
         """run_full_cycle must forward the days param to the aggregation call."""
         from services.learning_service import LearningService
@@ -611,9 +576,17 @@ class TestConditionalVectorLookup:
         """Mock vector store with 15 recommendation vectors (above threshold)."""
         vs = MagicMock()
         vs.get_stats = MagicMock(return_value={"total_vectors": 15})
-        vs.search = MagicMock(return_value=[
-            {"similarity": 0.95, "confidence": 0.9, "id": "vec-1", "domain": "recommendation", "metadata": {}}
-        ])
+        vs.search = MagicMock(
+            return_value=[
+                {
+                    "similarity": 0.95,
+                    "confidence": 0.9,
+                    "id": "vec-1",
+                    "domain": "recommendation",
+                    "metadata": {},
+                }
+            ]
+        )
         return vs
 
     @pytest.fixture
@@ -647,6 +620,7 @@ class TestConditionalVectorLookup:
 
         with patch("services.vector_store.price_curve_to_vector") as mock_ptv:
             import numpy as np
+
             mock_ptv.return_value = np.zeros(24, dtype=np.float32)
 
             service = RecommendationService(
@@ -712,6 +686,7 @@ class TestConditionalVectorLookup:
 
         with patch("services.vector_store.price_curve_to_vector") as mock_ptv:
             import numpy as np
+
             mock_ptv.return_value = np.zeros(24, dtype=np.float32)
 
             service = RecommendationService(
@@ -744,19 +719,20 @@ class TestForecastObservationBatchInsert:
     @pytest.fixture
     def repo(self, db):
         from repositories.forecast_observation_repository import ForecastObservationRepository
+
         return ForecastObservationRepository(db)
 
     def _make_predictions(self, count: int) -> list:
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         return [
             {
-                "timestamp": datetime(2026, 2, 23, h % 24, 0, tzinfo=timezone.utc),
+                "timestamp": datetime(2026, 2, 23, h % 24, 0, tzinfo=UTC),
                 "predicted_price": 0.10 + (h % 24) * 0.01,
             }
             for h in range(count)
         ]
 
-    @pytest.mark.asyncio
     async def test_20_predictions_single_execute(self, repo, db):
         """Exactly 20 predictions should produce exactly 1 execute call."""
         preds = self._make_predictions(20)
@@ -765,7 +741,6 @@ class TestForecastObservationBatchInsert:
         assert db.execute.await_count == 1
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_21_predictions_two_execute_calls(self, repo, db):
         """21 predictions (20 + 1) should produce exactly 2 execute calls."""
         preds = self._make_predictions(21)
@@ -773,7 +748,6 @@ class TestForecastObservationBatchInsert:
         assert result == 21
         assert db.execute.await_count == 2
 
-    @pytest.mark.asyncio
     async def test_40_predictions_two_execute_calls(self, repo, db):
         """40 predictions (2 full chunks) should produce exactly 2 execute calls."""
         preds = self._make_predictions(40)
@@ -781,14 +755,12 @@ class TestForecastObservationBatchInsert:
         assert result == 40
         assert db.execute.await_count == 2
 
-    @pytest.mark.asyncio
     async def test_single_commit_regardless_of_chunks(self, repo, db):
         """Only one COMMIT should be issued regardless of how many chunks are used."""
         preds = self._make_predictions(45)
         await repo.insert_forecasts("fc-45", "US", preds)
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_params_use_indexed_keys(self, repo, db):
         """Params dict must use index-suffixed keys (id0, forecast_id0, ...)."""
         preds = self._make_predictions(3)
@@ -801,8 +773,8 @@ class TestForecastObservationBatchInsert:
             assert f"forecast_hour{i}" in params
             assert f"predicted_price{i}" in params
 
-    @pytest.mark.asyncio
     async def test_batch_size_constant(self, repo):
         """_INSERT_BATCH_SIZE should be 20."""
         from repositories.forecast_observation_repository import ForecastObservationRepository
+
         assert ForecastObservationRepository._INSERT_BATCH_SIZE == 20

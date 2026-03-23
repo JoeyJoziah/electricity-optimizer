@@ -1,5 +1,10 @@
 # Multi-stage build for ML service
 # Optimized for TensorFlow/PyTorch workloads
+#
+# NOTE: ML uses Python 3.11 while backend uses 3.12.
+# Rationale: Some ML libraries (TensorFlow, PyTorch) have better community support
+# and binary availability on 3.11. If upgrading to 3.12, verify that all binary
+# wheels for tensorflow, torch, and optional dependencies are available.
 
 FROM python:3.11-slim@sha256:16cb75beff0e104520a4bc4e98b08987b6978b82e37b81b87d786504e17579e7 as base
 

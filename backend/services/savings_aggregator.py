@@ -6,7 +6,7 @@ computes rank percentile via PERCENT_RANK(), and respects enabled_utilities filt
 """
 
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import text
@@ -22,10 +22,13 @@ class SavingsAggregator:
         self,
         db: AsyncSession,
         user_id: str,
-        enabled_utilities: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        enabled_utilities: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Get combined monthly savings across all (or selected) utilities.
+
+        Merges the per-utility breakdown and rank percentile into a single
+        CTE query to avoid two sequential DB round-trips (19-P2-8).
 
         Returns:
             {
@@ -34,9 +37,8 @@ class SavingsAggregator:
                 savings_rank_pct: float | None,
             }
         """
-        # Per-utility monthly savings
         utility_filter = ""
-        params: Dict[str, Any] = {"user_id": user_id}
+        params: dict[str, Any] = {"user_id": user_id}
 
         if enabled_utilities:
             placeholders = ", ".join(f":ut_{i}" for i in range(len(enabled_utilities)))
@@ -44,55 +46,64 @@ class SavingsAggregator:
             for i, ut in enumerate(enabled_utilities):
                 params[f"ut_{i}"] = ut
 
-        savings_sql = text(f"""
+        # Combined query: breakdown + rank percentile in one round-trip
+        combined_sql = text(f"""
+            WITH user_breakdown AS (
+                SELECT
+                    us.utility_type,
+                    COALESCE(SUM(us.amount), 0) AS monthly_savings
+                FROM user_savings us
+                WHERE us.user_id = :user_id
+                  AND us.created_at >= NOW() - INTERVAL '30 days'
+                  {utility_filter}
+                GROUP BY us.utility_type
+                ORDER BY us.utility_type
+            ),
+            all_user_totals AS (
+                SELECT user_id, SUM(amount) AS total_savings
+                FROM user_savings
+                WHERE created_at >= NOW() - INTERVAL '30 days'
+                GROUP BY user_id
+            ),
+            ranked AS (
+                SELECT
+                    user_id,
+                    PERCENT_RANK() OVER (ORDER BY total_savings) AS pct
+                FROM all_user_totals
+            )
             SELECT
-                us.utility_type,
-                COALESCE(SUM(us.amount), 0) AS monthly_savings
-            FROM user_savings us
-            WHERE us.user_id = :user_id
-              AND us.created_at >= NOW() - INTERVAL '30 days'
-              {utility_filter}
-            GROUP BY us.utility_type
-            ORDER BY us.utility_type
+                ub.utility_type,
+                ub.monthly_savings,
+                r.pct AS savings_rank_pct
+            FROM user_breakdown ub
+            LEFT JOIN ranked r ON r.user_id = :user_id
         """)
-        result = await db.execute(savings_sql, params)
+        result = await db.execute(combined_sql, params)
         rows = result.mappings().fetchall()
 
-        breakdown = [
-            {
-                "utility_type": row["utility_type"],
-                "monthly_savings": Decimal(str(row["monthly_savings"])),
-            }
-            for row in rows
-        ]
-
-        total = sum(item["monthly_savings"] for item in breakdown)
-
-        if not breakdown:
+        if not rows:
             return {
                 "total_monthly_savings": Decimal("0"),
                 "breakdown": [],
                 "savings_rank_pct": None,
             }
 
-        # Rank percentile among all users
-        rank_sql = text("""
-            SELECT PERCENT_RANK() OVER (
-                ORDER BY total_savings
-            ) AS pct
-            FROM (
-                SELECT user_id, SUM(amount) AS total_savings
-                FROM user_savings
-                WHERE created_at >= NOW() - INTERVAL '30 days'
-                GROUP BY user_id
-            ) sub
-            WHERE user_id = :user_id
-        """)
-        rank_result = await db.execute(rank_sql, {"user_id": user_id})
-        rank_pct = rank_result.scalar()
+        breakdown = []
+        rank_pct = None
+        for row in rows:
+            breakdown.append(
+                {
+                    "utility_type": row["utility_type"],
+                    "monthly_savings": Decimal(str(row["monthly_savings"])),
+                }
+            )
+            if rank_pct is None and row["savings_rank_pct"] is not None:
+                rank_pct = float(row["savings_rank_pct"])
+
+        total = sum(item["monthly_savings"] for item in breakdown)
 
         return {
             "total_monthly_savings": total,
             "breakdown": breakdown,
-            "savings_rank_pct": float(rank_pct) if rank_pct is not None else None,
+            "savings_rank_pct": rank_pct,
         }

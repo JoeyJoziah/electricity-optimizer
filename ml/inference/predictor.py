@@ -30,6 +30,7 @@ fallback is clearly documented as approximate and emits a WARNING log.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import os
 from datetime import datetime
@@ -38,6 +39,8 @@ from typing import Dict, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import yaml
+
+from ml.utils.integrity import verify_model_integrity
 
 logger = logging.getLogger(__name__)
 
@@ -111,36 +114,82 @@ class PricePredictor:
             return "cnn_lstm"
         elif os.path.exists(os.path.join(self.model_path, "model.json")):
             return "xgboost"
-        elif os.path.exists(os.path.join(self.model_path, "model.txt")):
+        elif os.path.exists(
+            os.path.join(self.model_path, "lgb_model_0.pkl")
+        ) or os.path.exists(os.path.join(self.model_path, "model.txt")):
             return "lightgbm"
         else:
             raise ValueError(f"Cannot infer model type from {self.model_path}")
 
     @staticmethod
-    def _verify_hash(file_path: str, metadata_hashes: dict) -> bool:
-        """Verify a file's SHA-256 hash against the manifest in metadata.yaml.
+    def _get_signing_key() -> Optional[bytes]:
+        """Return the HMAC signing key from the environment, or None if unset.
 
-        Returns True if the hash matches or no manifest is available
-        (backward-compatible). Raises ValueError on mismatch.
+        The key is read from the ML_MODEL_SIGNING_KEY environment variable.
+        If unset, integrity checks fall back to plain SHA-256 (backward-compat)
+        with a WARNING — this is insecure because an attacker who controls the
+        model file can recompute the hash and update metadata.yaml.
+
+        Set ML_MODEL_SIGNING_KEY to a 32+ byte random hex string in production.
+        """
+        raw = os.environ.get("ML_MODEL_SIGNING_KEY", "")
+        if not raw:
+            return None
+        try:
+            return bytes.fromhex(raw)
+        except ValueError:
+            # Accept raw bytes (non-hex) for backward compatibility
+            return raw.encode()
+
+    @staticmethod
+    def _verify_hash(file_path: str, metadata_hashes: dict) -> bool:
+        """Verify a file's integrity against the manifest in metadata.yaml.
+
+        When ML_MODEL_SIGNING_KEY is set, uses HMAC-SHA256 with the secret key
+        so that an attacker who controls the model file cannot forge a valid
+        signature by recomputing the hash.  Without the key, falls back to
+        plain SHA-256 (backward-compatible) with a security WARNING.
+
+        Returns True if verification passes. Raises ValueError on mismatch.
         """
         basename = os.path.basename(file_path)
         expected = metadata_hashes.get(basename)
         if expected is None:
-            # No hash recorded — allow loading but log a warning
-            logger.warning("model_hash_missing: %s", basename)
+            # No hash/MAC recorded — allow loading but log a warning
+            logger.warning("model_integrity_missing: %s", basename)
             return True
 
-        sha = hashlib.sha256()
+        # Read the file contents once
+        content = bytearray()
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(1 << 20), b""):
-                sha.update(chunk)
-        actual = sha.hexdigest()
-        if actual != expected:
-            raise ValueError(
-                f"Model file hash mismatch for {basename}: "
-                f"expected {expected[:16]}…, got {actual[:16]}…"
+                content.extend(chunk)
+
+        signing_key = PricePredictor._get_signing_key()
+        if signing_key:
+            # HMAC-SHA256: key-dependent MAC — cannot be forged without the key
+            actual = hmac.new(signing_key, bytes(content), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(actual, expected):
+                raise ValueError(
+                    f"Model file HMAC mismatch for {basename}: "
+                    f"expected {expected[:16]}…, got {actual[:16]}…"
+                )
+            logger.info("model_hmac_verified: %s", basename)
+        else:
+            # Fallback: plain SHA-256 (bypassable — set ML_MODEL_SIGNING_KEY)
+            logger.warning(
+                "model_signing_key_missing: using plain SHA-256 for %s. "
+                "Set ML_MODEL_SIGNING_KEY for tamper-evident verification.",
+                basename,
             )
-        logger.info("model_hash_verified: %s", basename)
+            sha = hashlib.sha256(bytes(content))
+            actual = sha.hexdigest()
+            if not hmac.compare_digest(actual, expected):
+                raise ValueError(
+                    f"Model file hash mismatch for {basename}: "
+                    f"expected {expected[:16]}…, got {actual[:16]}…"
+                )
+            logger.info("model_hash_verified: %s", basename)
         return True
 
     def _load_model(self):
@@ -158,7 +207,8 @@ class PricePredictor:
         if self.model_type == "cnn_lstm":
             import torch
 
-            # Load model architecture config
+            # Load model architecture config (required to reconstruct the model
+            # before loading state_dict weights).
             config_path = os.path.join(self.model_path, "config.yaml")
             if os.path.exists(config_path):
                 with open(config_path) as f:
@@ -168,14 +218,43 @@ class PricePredictor:
             # weights_only=True restricts unpickling to safe tensor/storage
             # primitives only, preventing arbitrary code execution from
             # malicious .pt files (CVE class: unsafe pickle deserialization).
-            # If the model was saved as a full nn.Module (legacy pickle format)
-            # rather than a state-dict, torch will raise a RuntimeError here —
-            # that is intentional fail-closed behaviour; re-save with
-            # torch.save(model.state_dict(), path) + model.load_state_dict().
-            # See also: safetensors library as a drop-in alternative.
+            # The .pt file must contain a state_dict (OrderedDict of tensors),
+            # NOT a full nn.Module object saved via torch.save(model) — the
+            # trainer's save() method uses torch.save(model.state_dict(), path)
+            # to guarantee this.
             model_file = os.path.join(self.model_path, "model.pt")
             self._verify_hash(model_file, hashes)
-            self.model = torch.load(model_file, map_location="cpu", weights_only=True)
+            state_dict = torch.load(model_file, map_location="cpu", weights_only=True)
+
+            # Rebuild the model architecture from config, then load weights.
+            # This is required because state_dict loading needs an instantiated
+            # nn.Module before weights can be applied.
+            if self.config is not None:
+                from ml.training.cnn_lstm_trainer import CNNLSTMTrainer
+
+                trainer = CNNLSTMTrainer(self.config, {})
+                # Infer n_features and sequence_length from the saved config
+                n_features = self.config.get("input", {}).get("n_features", 19)
+                sequence_length = self.config.get("input", {}).get(
+                    "sequence_length", 168
+                )
+                trainer._build_model(n_features, sequence_length)
+                trainer.model.load_state_dict(state_dict)
+                self.model = trainer.model
+            else:
+                # config.yaml is required to reconstruct the CNN-LSTM architecture
+                # before loading the state_dict.  Without it we cannot safely
+                # deserialise the model — the legacy unsafe full-module load path
+                # (which allowed arbitrary pickle execution) has been removed
+                # (CVE class: unsafe pickle deserialization, [13-P0-1]).
+                # Re-save the model using CNNLSTMTrainer.save() which writes
+                # both config.yaml and a state_dict .pt file.
+                raise ValueError(
+                    f"config.yaml not found in {self.model_path}. "
+                    "Re-save the model with CNNLSTMTrainer.save() to produce "
+                    "a config.yaml alongside the state_dict .pt file. "
+                    "The unsafe legacy full-module load path has been removed."
+                )
             self.model.eval()
 
         elif self.model_type == "xgboost":
@@ -186,15 +265,42 @@ class PricePredictor:
             self.model.load_model(model_file)
 
         elif self.model_type == "lightgbm":
+            import joblib
             import lightgbm as lgb
 
-            model_file = os.path.join(self.model_path, "model.txt")
-            self.model = lgb.Booster(model_file=model_file)
+            # Prefer the sklearn-wrapped LGBMRegressor (joblib .pkl) saved by
+            # LightGBMForecaster.save() so that predict() has consistent feature
+            # type expectations.  Fall back to loading a raw lgb.Booster from
+            # the legacy .txt format for backward compatibility with models
+            # saved before this fix.
+            pkl_file = os.path.join(self.model_path, "lgb_model_0.pkl")
+            txt_file = os.path.join(self.model_path, "model.txt")
+            if os.path.exists(pkl_file):
+                # Load the first step's wrapped model; full multi-step loading
+                # is handled by LightGBMForecaster.load() for ensemble use.
+                # Verify HMAC integrity before joblib deserialization.
+                verify_model_integrity(pkl_file)
+                self.model = joblib.load(pkl_file)
+            elif os.path.exists(txt_file):
+                logger.warning(
+                    "lightgbm_legacy_format: loading raw Booster from .txt; "
+                    "re-save with LightGBMForecaster.save() for type consistency."
+                )
+                self.model = lgb.Booster(model_file=txt_file)
+            else:
+                raise FileNotFoundError(
+                    f"No LightGBM model file found in {self.model_path}"
+                )
 
-        # Load scaler if exists — verify hash before joblib deserialization
+        # Load scaler if exists.
+        # Two-layer integrity check:
+        #   1. _verify_hash: metadata.yaml HMAC/SHA-256 (legacy, backward-compat)
+        #   2. verify_model_integrity: companion .sig file HMAC (new, mandatory
+        #      for all artifacts saved by CNNLSTMTrainer.save() or later)
         scaler_path = os.path.join(self.model_path, "scaler.pkl")
         if os.path.exists(scaler_path):
             self._verify_hash(scaler_path, hashes)
+            verify_model_integrity(scaler_path)
             import joblib
 
             self.scaler = joblib.load(scaler_path)

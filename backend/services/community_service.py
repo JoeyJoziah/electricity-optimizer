@@ -8,7 +8,6 @@ Vote and report counts are derived via COUNT(*), not stored columns.
 XSS sanitization via nh3 (Rust-based).
 """
 
-import asyncio
 from typing import Any
 
 import nh3
@@ -51,6 +50,8 @@ class CommunityService:
         3. INSERT with is_pending_moderation=true
         4. Fire moderation (async, with 30s timeout)
         """
+        import asyncio
+
         # 1. Rate limit check
         rate_sql = text("""
             SELECT COUNT(*) FROM community_posts
@@ -90,9 +91,13 @@ class CommunityService:
             "rate_unit": data.get("rate_unit"),
             "supplier_name": clean_supplier,
         }
-        result = await db.execute(insert_sql, params)
-        post = dict(result.mappings().fetchone())
-        await db.commit()
+        try:
+            result = await db.execute(insert_sql, params)
+            post = dict(result.mappings().fetchone())
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
         # 4. Fire moderation with timeout (fail-closed: post remains pending on timeout)
         post_id = post["id"]
@@ -148,18 +153,35 @@ class CommunityService:
                 raise
 
         # Apply classification result
-        if classification == "flagged":
-            await db.execute(
-                text("""
-                    UPDATE community_posts
-                    SET is_hidden = true,
-                        is_pending_moderation = false,
-                        hidden_reason = 'flagged_by_ai'
-                    WHERE id = :post_id
-                """),
-                {"post_id": post_id},
-            )
-        else:
+        try:
+            if classification == "flagged":
+                await db.execute(
+                    text("""
+                        UPDATE community_posts
+                        SET is_hidden = true,
+                            is_pending_moderation = false,
+                            hidden_reason = 'flagged_by_ai'
+                        WHERE id = :post_id
+                    """),
+                    {"post_id": post_id},
+                )
+            else:
+                await db.execute(
+                    text("""
+                        UPDATE community_posts
+                        SET is_pending_moderation = false
+                        WHERE id = :post_id
+                    """),
+                    {"post_id": post_id},
+                )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+
+    async def _clear_pending_moderation(self, db: AsyncSession, post_id: str) -> None:
+        """Clear is_pending_moderation after timeout (fail-safe release)."""
+        try:
             await db.execute(
                 text("""
                     UPDATE community_posts
@@ -168,19 +190,10 @@ class CommunityService:
                 """),
                 {"post_id": post_id},
             )
-        await db.commit()
-
-    async def _clear_pending_moderation(self, db: AsyncSession, post_id: str) -> None:
-        """Clear is_pending_moderation after timeout (fail-safe release)."""
-        await db.execute(
-            text("""
-                UPDATE community_posts
-                SET is_pending_moderation = false
-                WHERE id = :post_id
-            """),
-            {"post_id": post_id},
-        )
-        await db.commit()
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
     # ------------------------------------------------------------------
     # list_posts
@@ -294,9 +307,13 @@ class CommunityService:
                 COALESCE((SELECT action FROM result), 'noop') AS action,
                 (SELECT COUNT(*) FROM community_votes WHERE post_id = :post_id) AS upvote_count
         """)
-        result = await db.execute(toggle_sql, {"user_id": user_id, "post_id": post_id})
-        row = result.mappings().fetchone()
-        await db.commit()
+        try:
+            result = await db.execute(toggle_sql, {"user_id": user_id, "post_id": post_id})
+            row = result.mappings().fetchone()
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
         voted = row["action"] == "inserted"
         return {"voted": voted, "upvote_count": row["upvote_count"]}
@@ -347,16 +364,20 @@ class CommunityService:
               AND (SELECT total FROM cnt) >= :threshold
               AND is_hidden = false
         """)
-        await db.execute(
-            report_sql,
-            {
-                "user_id": user_id,
-                "post_id": post_id,
-                "reason": reason,
-                "threshold": REPORT_HIDE_THRESHOLD,
-            },
-        )
-        await db.commit()
+        try:
+            await db.execute(
+                report_sql,
+                {
+                    "user_id": user_id,
+                    "post_id": post_id,
+                    "reason": reason,
+                    "threshold": REPORT_HIDE_THRESHOLD,
+                },
+            )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
     # ------------------------------------------------------------------
     # moderate_post
@@ -399,27 +420,31 @@ class CommunityService:
                 await self._clear_pending_moderation(db, post_id)
                 return
 
-        if classification == "flagged":
-            await db.execute(
-                text("""
-                    UPDATE community_posts
-                    SET is_hidden = true,
-                        is_pending_moderation = false,
-                        hidden_reason = 'flagged_by_ai'
-                    WHERE id = :post_id
-                """),
-                {"post_id": post_id},
-            )
-        else:
-            await db.execute(
-                text("""
-                    UPDATE community_posts
-                    SET is_pending_moderation = false
-                    WHERE id = :post_id
-                """),
-                {"post_id": post_id},
-            )
-        await db.commit()
+        try:
+            if classification == "flagged":
+                await db.execute(
+                    text("""
+                        UPDATE community_posts
+                        SET is_hidden = true,
+                            is_pending_moderation = false,
+                            hidden_reason = 'flagged_by_ai'
+                        WHERE id = :post_id
+                    """),
+                    {"post_id": post_id},
+                )
+            else:
+                await db.execute(
+                    text("""
+                        UPDATE community_posts
+                        SET is_pending_moderation = false
+                        WHERE id = :post_id
+                    """),
+                    {"post_id": post_id},
+                )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
     # ------------------------------------------------------------------
     # retroactive_moderate
@@ -432,7 +457,7 @@ class CommunityService:
     ) -> int:
         """
         Re-check posts that timed out during moderation.
-        Uses parallel AI calls (Semaphore-limited) for throughput.
+        Uses sequential AI calls to avoid asyncio.gather with shared AsyncSession.
         Returns count of posts re-moderated.
         """
         # Find posts that were auto-unhidden after timeout
@@ -450,42 +475,38 @@ class CommunityService:
         if not posts:
             return 0
 
-        # Parallel AI classification with concurrency limit.
-        # Each coroutine returns the post ID if flagged, or None otherwise.
-        # Collecting results via asyncio.gather return values avoids the race
-        # condition of concurrent appends to a shared mutable list.
-        sem = asyncio.Semaphore(5)
-
-        async def classify_post(post) -> str | None:
-            """Return post ID if flagged, None otherwise."""
-            async with sem:
-                content = f"{post['title']}\n\n{post['body']}"
-                try:
-                    classification = await agent_service.classify_content(content)
-                    if classification == "flagged":
-                        return str(post["id"])
-                except Exception as exc:
-                    logger.warning(
-                        "retroactive_moderation_failed",
-                        post_id=str(post["id"]),
-                        error=str(exc),
-                    )
-                return None
-
-        results = await asyncio.gather(*(classify_post(p) for p in posts))
-        flagged_ids = [post_id for post_id in results if post_id is not None]
+        # Sequential AI classification to avoid asyncio.gather with shared
+        # AsyncSession (known corruption pattern: "asyncio.gather + shared
+        # AsyncSession = corruption; use sequential loops instead").
+        flagged_ids: list[str] = []
+        for post in posts:
+            content = f"{post['title']}\n\n{post['body']}"
+            try:
+                classification = await agent_service.classify_content(content)
+                if classification == "flagged":
+                    flagged_ids.append(str(post["id"]))
+            except Exception as exc:
+                logger.warning(
+                    "retroactive_moderation_failed",
+                    post_id=str(post["id"]),
+                    error=str(exc),
+                )
 
         # Batch update all flagged posts in a single query
         if flagged_ids:
-            await db.execute(
-                text("""
-                    UPDATE community_posts
-                    SET is_hidden = true, hidden_reason = 'flagged_by_ai_retroactive'
-                    WHERE id = ANY(:ids)
-                """),
-                {"ids": flagged_ids},
-            )
-            await db.commit()
+            try:
+                await db.execute(
+                    text("""
+                        UPDATE community_posts
+                        SET is_hidden = true, hidden_reason = 'flagged_by_ai_retroactive'
+                        WHERE id = ANY(:ids)
+                    """),
+                    {"ids": flagged_ids},
+                )
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
 
         return len(posts)
 
@@ -505,6 +526,8 @@ class CommunityService:
         Allow the author to edit a flagged post and resubmit for moderation.
         Only the original author can edit. Re-sanitizes and re-triggers moderation.
         """
+        import asyncio
+
         # Verify ownership and flagged status
         select_sql = text("""
             SELECT * FROM community_posts
@@ -531,11 +554,15 @@ class CommunityService:
             WHERE id = :post_id
             RETURNING *
         """)
-        update_result = await db.execute(
-            update_sql, {"title": clean_title, "body": clean_body, "post_id": post_id}
-        )
-        updated = dict(update_result.mappings().fetchone())
-        await db.commit()
+        try:
+            update_result = await db.execute(
+                update_sql, {"title": clean_title, "body": clean_body, "post_id": post_id}
+            )
+            updated = dict(update_result.mappings().fetchone())
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
         # Re-trigger moderation — fail-closed: post stays pending on timeout/error
         try:

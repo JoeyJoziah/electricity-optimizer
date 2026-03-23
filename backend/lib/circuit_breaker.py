@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import asyncio
 import time
-from enum import Enum
-from typing import Any, Coroutine, TypeVar
+from collections.abc import Coroutine
+from enum import StrEnum
+from typing import Any, TypeVar
 
 import structlog
 
@@ -28,7 +29,7 @@ logger = structlog.get_logger(__name__)
 T = TypeVar("T")
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -125,9 +126,7 @@ class CircuitBreaker:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
             current = self.state
-            if current == CircuitState.HALF_OPEN:
-                self._transition_to_open()
-            elif self._failure_count >= self.failure_threshold:
+            if current == CircuitState.HALF_OPEN or self._failure_count >= self.failure_threshold:
                 self._transition_to_open()
 
     async def reset(self) -> None:

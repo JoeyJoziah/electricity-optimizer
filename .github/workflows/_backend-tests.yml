@@ -62,8 +62,8 @@ jobs:
       - name: Dependency audit (pip-audit)
         run: |
           pip install pip-audit
-          pip-audit --strict --desc || {
-            echo "::error::pip-audit found known vulnerabilities"
+          pip-audit -r backend/requirements.txt --strict --desc || {
+            echo "::error::pip-audit found known vulnerabilities in production dependencies"
             exit 1
           }
 

@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.price import Price, PriceRegion
 from models.utility import UtilityType
-from repositories.base import BaseRepository, RepositoryError
+from repositories.base import MAX_PAGE_SIZE, BaseRepository, RepositoryError
 
 # Columns that exist in the electricity_prices table
 _PRICE_COLUMNS = (
@@ -193,7 +193,10 @@ class PriceRepository(BaseRepository[Price]):
 
     async def update(self, id: str, entity: Price) -> Price | None:
         """
-        Update an existing price record.
+        Update an existing price record using UPDATE ... RETURNING.
+
+        This avoids the read-then-write race condition by performing the
+        existence check and update atomically in a single statement.
 
         Args:
             id: Price record ID
@@ -203,12 +206,8 @@ class PriceRepository(BaseRepository[Price]):
             Updated price if found, None otherwise
         """
         try:
-            existing = await self.get_by_id(id)
-            if not existing:
-                return None
-
-            await self._db.execute(
-                text("""
+            result = await self._db.execute(
+                text(f"""
                     UPDATE electricity_prices SET
                         region = :region, supplier = :supplier,
                         price_per_kwh = :price_per_kwh, currency = :currency,
@@ -216,6 +215,7 @@ class PriceRepository(BaseRepository[Price]):
                         source_api = :source_api, carbon_intensity = :carbon_intensity,
                         utility_type = :utility_type
                     WHERE id = :id
+                    RETURNING {_PRICE_COLUMNS}
                 """),
                 {
                     "id": id,
@@ -236,12 +236,16 @@ class PriceRepository(BaseRepository[Price]):
             )
             await self._db.commit()
 
+            row = result.mappings().first()
+            if not row:
+                return None
+
             # Invalidate cache
             cache_key = self._cache_key("id", id)
             if self._cache:
                 await self._cache.delete(cache_key)
 
-            return await self.get_by_id(id)
+            return _row_to_price(row)
 
         except Exception as e:
             await self._db.rollback()
@@ -289,6 +293,7 @@ class PriceRepository(BaseRepository[Price]):
             List of prices
         """
         try:
+            page_size = max(1, min(MAX_PAGE_SIZE, page_size))
             offset = (page - 1) * page_size
 
             sql = f"SELECT {_PRICE_COLUMNS} FROM electricity_prices WHERE 1=1"
@@ -447,6 +452,54 @@ class PriceRepository(BaseRepository[Price]):
 
         except Exception as e:
             raise RepositoryError(f"Failed to get current prices: {str(e)}", e)
+
+    async def get_cheapest_price(
+        self,
+        region: PriceRegion,
+        utility_type: UtilityType = UtilityType.ELECTRICITY,
+    ) -> Price | None:
+        """
+        Get the single cheapest current price for a region.
+
+        Uses ORDER BY ... LIMIT 1 in SQL to avoid transferring all rows (19-P2-1).
+
+        Args:
+            region: Price region
+            utility_type: Type of utility (defaults to electricity)
+
+        Returns:
+            Cheapest price if found, None otherwise
+        """
+        try:
+            region_val = region.value if hasattr(region, "value") else region
+            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+
+            cache_key = self._cache_key("cheapest", region_val, ut_val)
+            cached = await self._get_from_cache(cache_key)
+            if cached:
+                return Price(**cached)
+
+            result = await self._db.execute(
+                text(f"""
+                    SELECT {_PRICE_COLUMNS}
+                    FROM electricity_prices
+                    WHERE region = :region AND utility_type = :utility_type
+                    ORDER BY price_per_kwh ASC
+                    LIMIT 1
+                """),
+                {"region": region_val, "utility_type": ut_val},
+            )
+            row = result.mappings().first()
+
+            if row:
+                price = _row_to_price(row)
+                await self._set_in_cache(cache_key, price.model_dump(), ttl=60)
+                return price
+
+            return None
+
+        except Exception as e:
+            raise RepositoryError(f"Failed to get cheapest price: {str(e)}", e)
 
     async def get_latest_by_supplier(self, region: PriceRegion, supplier: str) -> Price | None:
         """

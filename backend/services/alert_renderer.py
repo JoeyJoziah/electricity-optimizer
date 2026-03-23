@@ -82,21 +82,21 @@ class AlertRenderer:
             # Fallback to plain HTML if template not found
             return self.render_fallback_alert(alert, threshold.currency)
 
-    def render_fallback_alert(self, alert: "PriceAlert", currency: str) -> str:
+    def render_fallback_alert(self, alert: "PriceAlert", _currency: str) -> str:
         """Render a minimal inline-HTML email body when the template is missing."""
         if alert.alert_type == "optimal_window":
             return f"""
             <h2>Optimal Usage Window Detected</h2>
             <p>Average price: <strong>${alert.current_price}/kWh</strong></p>
-            <p>Window: {alert.optimal_window_start.strftime('%I:%M %p') if alert.optimal_window_start else 'N/A'}
-            - {alert.optimal_window_end.strftime('%I:%M %p') if alert.optimal_window_end else 'N/A'}</p>
-            {f'<p>Estimated savings: ${alert.estimated_savings}/kWh vs average</p>' if alert.estimated_savings else ''}
+            <p>Window: {alert.optimal_window_start.strftime("%I:%M %p") if alert.optimal_window_start else "N/A"}
+            - {alert.optimal_window_end.strftime("%I:%M %p") if alert.optimal_window_end else "N/A"}</p>
+            {f"<p>Estimated savings: ${alert.estimated_savings}/kWh vs average</p>" if alert.estimated_savings else ""}
             <p>Region: {alert.region} | Supplier: {alert.supplier}</p>
             """
         return f"""
-        <h2>{'Price Drop Alert' if alert.alert_type == 'price_drop' else 'Price Spike Warning'}</h2>
+        <h2>{"Price Drop Alert" if alert.alert_type == "price_drop" else "Price Spike Warning"}</h2>
         <p>Current price: <strong>${alert.current_price}/kWh</strong></p>
         <p>Your threshold: ${alert.threshold}/kWh</p>
         <p>Region: {alert.region} | Supplier: {alert.supplier}</p>
-        <p>Time: {alert.timestamp.strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+        <p>Time: {alert.timestamp.strftime("%B %d, %Y at %I:%M %p UTC")}</p>
         """

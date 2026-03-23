@@ -5,16 +5,15 @@ Verifies freshness monitoring, anomaly detection, source reliability,
 and duplicate detection.
 """
 
-import pytest
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
 from services.data_quality_service import (
-    DataQualityService,
-    FRESHNESS_THRESHOLDS,
-    FRESHNESS_ALERT_MULTIPLIER,
     ANOMALY_STD_THRESHOLD,
+    FRESHNESS_ALERT_MULTIPLIER,
+    FRESHNESS_THRESHOLDS,
     SOURCE_FAILURE_ALERT_THRESHOLD,
+    DataQualityService,
 )
 
 
@@ -41,46 +40,34 @@ class TestCheckRateAnomaly:
     """Test static anomaly detection method."""
 
     def test_normal_rate_is_not_anomaly(self):
-        result = DataQualityService.check_rate_anomaly(
-            rate=0.12, avg_rate=0.11, std_rate=0.02
-        )
+        result = DataQualityService.check_rate_anomaly(rate=0.12, avg_rate=0.11, std_rate=0.02)
         assert result["is_anomaly"] is False
         assert result["z_score"] == 0.5
 
     def test_extreme_rate_is_anomaly(self):
         # $100/kWh when average is $0.12 with std $0.02 → z = 4990
-        result = DataQualityService.check_rate_anomaly(
-            rate=100.0, avg_rate=0.12, std_rate=0.02
-        )
+        result = DataQualityService.check_rate_anomaly(rate=100.0, avg_rate=0.12, std_rate=0.02)
         assert result["is_anomaly"] is True
         assert result["z_score"] > ANOMALY_STD_THRESHOLD
 
     def test_borderline_rate_not_anomaly(self):
         # z_score = 2.9 (below 3.0 threshold)
-        result = DataQualityService.check_rate_anomaly(
-            rate=0.178, avg_rate=0.12, std_rate=0.02
-        )
+        result = DataQualityService.check_rate_anomaly(rate=0.178, avg_rate=0.12, std_rate=0.02)
         assert result["is_anomaly"] is False
         assert result["z_score"] < ANOMALY_STD_THRESHOLD
 
     def test_exactly_at_threshold(self):
         # z_score = 3.0 — not anomaly (> 3.0 required)
-        result = DataQualityService.check_rate_anomaly(
-            rate=0.18, avg_rate=0.12, std_rate=0.02
-        )
+        result = DataQualityService.check_rate_anomaly(rate=0.18, avg_rate=0.12, std_rate=0.02)
         assert result["is_anomaly"] is False  # exactly at threshold, not exceeding
 
     def test_zero_std_is_not_anomaly(self):
-        result = DataQualityService.check_rate_anomaly(
-            rate=0.15, avg_rate=0.12, std_rate=0.0
-        )
+        result = DataQualityService.check_rate_anomaly(rate=0.15, avg_rate=0.12, std_rate=0.0)
         assert result["is_anomaly"] is False
         assert result["z_score"] == 0.0
 
     def test_negative_std_is_not_anomaly(self):
-        result = DataQualityService.check_rate_anomaly(
-            rate=0.15, avg_rate=0.12, std_rate=-0.01
-        )
+        result = DataQualityService.check_rate_anomaly(rate=0.15, avg_rate=0.12, std_rate=-0.01)
         assert result["is_anomaly"] is False
 
 
@@ -88,57 +75,36 @@ class TestCheckDuplicate:
     """Test duplicate detection."""
 
     def test_exact_duplicate_detected(self):
-        existing = [
-            {"region": "us_ny", "utility_type": "electricity", "rate": 0.12}
-        ]
-        assert DataQualityService.check_duplicate(
-            existing, 0.12, "us_ny", "electricity"
-        ) is True
+        existing = [{"region": "us_ny", "utility_type": "electricity", "rate": 0.12}]
+        assert DataQualityService.check_duplicate(existing, 0.12, "us_ny", "electricity") is True
 
     def test_near_duplicate_within_tolerance(self):
-        existing = [
-            {"region": "us_ny", "utility_type": "electricity", "rate": 0.12}
-        ]
-        assert DataQualityService.check_duplicate(
-            existing, 0.120005, "us_ny", "electricity"
-        ) is True
+        existing = [{"region": "us_ny", "utility_type": "electricity", "rate": 0.12}]
+        assert (
+            DataQualityService.check_duplicate(existing, 0.120005, "us_ny", "electricity") is True
+        )
 
     def test_different_rate_not_duplicate(self):
-        existing = [
-            {"region": "us_ny", "utility_type": "electricity", "rate": 0.12}
-        ]
-        assert DataQualityService.check_duplicate(
-            existing, 0.15, "us_ny", "electricity"
-        ) is False
+        existing = [{"region": "us_ny", "utility_type": "electricity", "rate": 0.12}]
+        assert DataQualityService.check_duplicate(existing, 0.15, "us_ny", "electricity") is False
 
     def test_different_region_not_duplicate(self):
-        existing = [
-            {"region": "us_ny", "utility_type": "electricity", "rate": 0.12}
-        ]
-        assert DataQualityService.check_duplicate(
-            existing, 0.12, "us_tx", "electricity"
-        ) is False
+        existing = [{"region": "us_ny", "utility_type": "electricity", "rate": 0.12}]
+        assert DataQualityService.check_duplicate(existing, 0.12, "us_tx", "electricity") is False
 
     def test_different_utility_type_not_duplicate(self):
-        existing = [
-            {"region": "us_ny", "utility_type": "electricity", "rate": 0.12}
-        ]
-        assert DataQualityService.check_duplicate(
-            existing, 0.12, "us_ny", "natural_gas"
-        ) is False
+        existing = [{"region": "us_ny", "utility_type": "electricity", "rate": 0.12}]
+        assert DataQualityService.check_duplicate(existing, 0.12, "us_ny", "natural_gas") is False
 
     def test_empty_existing_not_duplicate(self):
-        assert DataQualityService.check_duplicate(
-            [], 0.12, "us_ny", "electricity"
-        ) is False
+        assert DataQualityService.check_duplicate([], 0.12, "us_ny", "electricity") is False
 
 
 class TestFreshnessReport:
     """Test freshness report with mocked DB."""
 
-    @pytest.mark.asyncio
     async def test_returns_freshness_entries(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_db = AsyncMock()
 
         # Mock DB result
@@ -176,9 +142,8 @@ class TestFreshnessReport:
         assert gas["is_stale"] is False
         assert gas["threshold_hours"] == 168
 
-    @pytest.mark.asyncio
     async def test_stale_data_flagged(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_db = AsyncMock()
 
         mock_result = MagicMock()
@@ -197,7 +162,6 @@ class TestFreshnessReport:
 
         assert report[0]["is_stale"] is True
 
-    @pytest.mark.asyncio
     async def test_empty_db_returns_empty(self):
         mock_db = AsyncMock()
         mock_result = MagicMock()
@@ -213,7 +177,6 @@ class TestFreshnessReport:
 class TestSourceReliability:
     """Test source reliability scoring."""
 
-    @pytest.mark.asyncio
     async def test_healthy_source(self):
         mock_db = AsyncMock()
         mock_result = MagicMock()
@@ -223,7 +186,7 @@ class TestSourceReliability:
                 "total": 100,
                 "successes": 95,
                 "failures": 5,
-                "last_attempt": datetime.now(timezone.utc),
+                "last_attempt": datetime.now(UTC),
             },
         ]
         mock_db.execute.return_value = mock_result
@@ -236,7 +199,6 @@ class TestSourceReliability:
         assert sources[0]["failure_rate"] == 0.05
         assert sources[0]["is_degraded"] is False
 
-    @pytest.mark.asyncio
     async def test_degraded_source(self):
         mock_db = AsyncMock()
         mock_result = MagicMock()
@@ -246,7 +208,7 @@ class TestSourceReliability:
                 "total": 10,
                 "successes": 7,
                 "failures": 3,
-                "last_attempt": datetime.now(timezone.utc),
+                "last_attempt": datetime.now(UTC),
             },
         ]
         mock_db.execute.return_value = mock_result

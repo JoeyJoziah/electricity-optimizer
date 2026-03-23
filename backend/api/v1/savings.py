@@ -8,14 +8,12 @@ GET /savings/history   — paginated list of individual savings records
 GET /savings/combined  — combined savings across all utility types
 """
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, require_tier, SessionData
-from services.savings_service import SavingsService
+from api.dependencies import SessionData, get_current_user, get_db_session, require_tier
 from services.savings_aggregator import SavingsAggregator
+from services.savings_service import SavingsService
 
 router = APIRouter(prefix="/savings", tags=["Savings"])
 
@@ -27,7 +25,7 @@ router = APIRouter(prefix="/savings", tags=["Savings"])
 
 @router.get("/summary")
 async def get_savings_summary(
-    region: Optional[str] = Query(default=None, description="Filter by region code (e.g. US_CT)"),
+    region: str | None = Query(default=None, description="Filter by region code (e.g. US_CT)"),
     current_user: SessionData = Depends(require_tier("pro")),
     db: AsyncSession = Depends(get_db_session),
 ):

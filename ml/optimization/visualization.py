@@ -9,14 +9,14 @@ including:
 - Cost breakdown charts
 """
 
-from typing import List, Optional, Dict, Any, Tuple
-from io import BytesIO
+from typing import List, Optional, Any, Tuple
 import numpy as np
 
 try:
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
     from matplotlib.colors import LinearSegmentedColormap
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -24,6 +24,7 @@ except ImportError:
 try:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
+
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
@@ -294,7 +295,7 @@ class ScheduleVisualizer:
             costs,
             labels=names,
             colors=colors,
-            autopct=lambda pct: f"${pct/100*sum(costs):.2f}\n({pct:.1f}%)",
+            autopct=lambda pct: f"${pct / 100 * sum(costs):.2f}\n({pct:.1f}%)",
             startangle=90,
         )
         ax1.set_title("Cost by Appliance", fontweight="bold")
@@ -458,7 +459,9 @@ class ScheduleVisualizer:
         lines.append("COST SUMMARY:")
         lines.append(f"  Baseline Cost:  ${result.baseline_cost:>8.2f}")
         lines.append(f"  Optimized Cost: ${result.total_cost:>8.2f}")
-        lines.append(f"  Savings:        ${result.savings_amount:>8.2f} ({result.savings_percent:.1f}%)")
+        lines.append(
+            f"  Savings:        ${result.savings_amount:>8.2f} ({result.savings_percent:.1f}%)"
+        )
         lines.append("")
         lines.append(f"Total Energy: {result.total_energy_kwh:.2f} kWh")
         lines.append(f"Peak Power:   {result.peak_power_kw:.2f} kW")
@@ -550,18 +553,14 @@ class ScheduleVisualizer:
 
         # Gantt chart
         gantt_path = output_path / f"{prefix}_gantt.png"
-        self.plot_schedule_gantt(
-            result, price_profile, save_path=str(gantt_path)
-        )
+        self.plot_schedule_gantt(result, price_profile, save_path=str(gantt_path))
         if MATPLOTLIB_AVAILABLE:
             saved_files.append(str(gantt_path))
             plt.close()
 
         # Power profile
         power_path = output_path / f"{prefix}_power.png"
-        self.plot_power_profile(
-            result, price_profile, save_path=str(power_path)
-        )
+        self.plot_power_profile(result, price_profile, save_path=str(power_path))
         if MATPLOTLIB_AVAILABLE:
             saved_files.append(str(power_path))
             plt.close()

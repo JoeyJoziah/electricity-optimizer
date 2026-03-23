@@ -10,24 +10,23 @@ Supported Regions:
 - 40+ countries including major global economies
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
 from .base import (
+    APIError,
     BasePricingClient,
+    CircuitBreakerConfig,
     PriceData,
     PriceForecast,
-    PricingRegion,
     PriceUnit,
-    APIError,
+    PricingRegion,
     RetryConfig,
-    CircuitBreakerConfig,
 )
-from .rate_limiter import RateLimiter, create_api_rate_limiter
 from .cache import PricingCache
+from .rate_limiter import RateLimiter, create_api_rate_limiter
 
 logger = structlog.get_logger(__name__)
 
@@ -98,7 +97,7 @@ class IEAClient(BasePricingClient):
 
     Example usage:
         ```python
-        async with IEAClient(api_key="your-bearer-token") as client:
+        async with IEAClient(api_key="<REDACTED>") as client:
             # Get current average price
             price = await client.get_current_price(PricingRegion.UK)
             print(f"Average price: {price.price} {price.currency}/{price.unit}")
@@ -117,10 +116,10 @@ class IEAClient(BasePricingClient):
         self,
         api_key: str,
         timeout: float = 30.0,
-        retry_config: Optional[RetryConfig] = None,
-        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
-        rate_limiter: Optional[RateLimiter] = None,
-        cache: Optional[PricingCache] = None,
+        retry_config: RetryConfig | None = None,
+        circuit_breaker_config: CircuitBreakerConfig | None = None,
+        rate_limiter: RateLimiter | None = None,
+        cache: PricingCache | None = None,
         default_sector: str = SECTOR_HOUSEHOLD,
     ):
         """
@@ -213,9 +212,9 @@ class IEAClient(BasePricingClient):
                 timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             except (ValueError, AttributeError):
                 # May be a period like "2024-Q1" or "2024"
-                timestamp = datetime.now(timezone.utc)
+                timestamp = datetime.now(UTC)
         else:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         return PriceData(
             region=region,
@@ -356,7 +355,7 @@ class IEAClient(BasePricingClient):
         # Generate simple forecast based on current price
         # Real implementation would use historical data and ML models
         prices = []
-        base_time = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        base_time = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
 
         for hour_offset in range(hours):
             forecast_time = base_time + timedelta(hours=hour_offset)
@@ -400,7 +399,7 @@ class IEAClient(BasePricingClient):
 
         result = PriceForecast(
             region=region,
-            forecast_generated_at=datetime.now(timezone.utc),
+            forecast_generated_at=datetime.now(UTC),
             forecast_horizon_hours=hours,
             source_api="iea",
             prices=prices,
@@ -422,8 +421,8 @@ class IEAClient(BasePricingClient):
     async def get_price_statistics(
         self,
         region: PricingRegion,
-        year: Optional[int] = None,
-        sector: Optional[str] = None,
+        year: int | None = None,
+        sector: str | None = None,
     ) -> dict:
         """
         Get price statistics for a region.
@@ -468,8 +467,8 @@ class IEAClient(BasePricingClient):
         self,
         region: PricingRegion,
         start_year: int,
-        end_year: Optional[int] = None,
-        sector: Optional[str] = None,
+        end_year: int | None = None,
+        sector: str | None = None,
     ) -> list[PriceData]:
         """
         Get historical price data for a region.
@@ -522,7 +521,7 @@ class IEAClient(BasePricingClient):
     async def get_country_comparison(
         self,
         regions: list[PricingRegion],
-        sector: Optional[str] = None,
+        _sector: str | None = None,
     ) -> dict[PricingRegion, PriceData]:
         """
         Get price comparison across multiple regions.
@@ -565,7 +564,7 @@ class IEAClient(BasePricingClient):
     async def get_renewable_share(
         self,
         region: PricingRegion,
-        year: Optional[int] = None,
+        year: int | None = None,
     ) -> dict:
         """
         Get renewable energy share in electricity generation.

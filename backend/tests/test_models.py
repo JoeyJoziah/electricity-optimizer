@@ -9,11 +9,11 @@ Tests for:
 RED phase: These tests should FAIL initially until models are implemented.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pydantic import ValidationError
 
+import pytest
+from pydantic import ValidationError
 
 # =============================================================================
 # PRICE MODEL TESTS
@@ -32,8 +32,8 @@ class TestPriceModel:
             region=PriceRegion.US_CT,
             supplier="Eversource Energy",
             price_per_kwh=Decimal("0.26"),
-            timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            timestamp=datetime.now(UTC),
+            currency="USD",
         )
 
         assert price.region == PriceRegion.US_CT
@@ -51,8 +51,8 @@ class TestPriceModel:
                 region=PriceRegion.US_CT,
                 supplier="Test Supplier",
                 price_per_kwh=Decimal("-0.10"),  # Invalid negative price
-                timestamp=datetime.now(timezone.utc),
-                currency="USD"
+                timestamp=datetime.now(UTC),
+                currency="USD",
             )
 
         assert "price_per_kwh" in str(exc_info.value)
@@ -67,8 +67,8 @@ class TestPriceModel:
             region=PriceRegion.US_CT,
             supplier="Test Supplier",
             price_per_kwh=Decimal("0.00"),
-            timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            timestamp=datetime.now(UTC),
+            currency="USD",
         )
 
         assert price.price_per_kwh == Decimal("0.00")
@@ -83,13 +83,13 @@ class TestPriceModel:
                 region=PriceRegion.US_CT,
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
-                timestamp=datetime.now(timezone.utc),
-                currency="INVALID"  # Should be 3-letter code
+                timestamp=datetime.now(UTC),
+                currency="INVALID",  # Should be 3-letter code
             )
 
     def test_price_model_validates_region_enum(self):
         """Test Price model validates region is a valid enum"""
-        from models.price import Price, PriceRegion
+        from models.price import Price
 
         with pytest.raises(ValidationError):
             Price(
@@ -97,8 +97,8 @@ class TestPriceModel:
                 region="INVALID_REGION",  # Invalid region
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
-                timestamp=datetime.now(timezone.utc),
-                currency="USD"
+                timestamp=datetime.now(UTC),
+                currency="USD",
             )
 
     def test_price_model_auto_generates_id(self):
@@ -109,8 +109,8 @@ class TestPriceModel:
             region=PriceRegion.US_CT,
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
-            timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            timestamp=datetime.now(UTC),
+            currency="USD",
         )
 
         assert price.id is not None
@@ -124,8 +124,8 @@ class TestPriceModel:
             region=PriceRegion.US_CT,
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
-            timestamp=datetime.now(timezone.utc),
-            currency="USD"
+            timestamp=datetime.now(UTC),
+            currency="USD",
         )
 
         assert price.is_peak is None
@@ -136,14 +136,14 @@ class TestPriceModel:
         """Test Price model can be serialized to dict"""
         from models.price import Price, PriceRegion
 
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         price = Price(
             id="price_123",
             region=PriceRegion.US_CT,
             supplier="Test",
             price_per_kwh=Decimal("0.25"),
             timestamp=timestamp,
-            currency="USD"
+            currency="USD",
         )
 
         data = price.model_dump()
@@ -178,16 +178,16 @@ class TestPriceForecastModel:
 
     def test_forecast_creation(self):
         """Test PriceForecast model creation"""
-        from models.price import PriceForecast, Price, PriceRegion
+        from models.price import Price, PriceForecast, PriceRegion
 
-        base_time = datetime.now(timezone.utc)
+        base_time = datetime.now(UTC)
         prices = [
             Price(
                 region=PriceRegion.US_CT,
                 supplier="Test",
                 price_per_kwh=Decimal("0.25"),
                 timestamp=base_time + timedelta(hours=i),
-                currency="USD"
+                currency="USD",
             )
             for i in range(24)
         ]
@@ -197,7 +197,7 @@ class TestPriceForecastModel:
             generated_at=base_time,
             horizon_hours=24,
             prices=prices,
-            confidence=0.85
+            confidence=0.85,
         )
 
         assert len(forecast.prices) == 24
@@ -211,10 +211,10 @@ class TestPriceForecastModel:
         with pytest.raises(ValidationError):
             PriceForecast(
                 region=PriceRegion.US_CT,
-                generated_at=datetime.now(timezone.utc),
+                generated_at=datetime.now(UTC),
                 horizon_hours=24,
                 prices=[],
-                confidence=1.5  # Invalid - must be <= 1.0
+                confidence=1.5,  # Invalid - must be <= 1.0
             )
 
 
@@ -230,12 +230,7 @@ class TestUserModel:
         """Test User model can be created with valid data"""
         from models.user import User
 
-        user = User(
-            id="user_123",
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(id="user_123", email="test@example.com", name="Test User", region="us_ct")
 
         assert user.email == "test@example.com"
         assert user.name == "Test User"
@@ -250,18 +245,14 @@ class TestUserModel:
                 id="user_123",
                 email="invalid-email",  # Invalid email format
                 name="Test User",
-                region="us_ct"
+                region="us_ct",
             )
 
     def test_user_model_auto_generates_id(self):
         """Test User model auto-generates UUID if not provided"""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(email="test@example.com", name="Test User", region="us_ct")
 
         assert user.id is not None
 
@@ -269,11 +260,7 @@ class TestUserModel:
         """Test User model has default empty preferences"""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(email="test@example.com", name="Test User", region="us_ct")
 
         assert user.preferences is not None
         assert isinstance(user.preferences, dict)
@@ -282,11 +269,7 @@ class TestUserModel:
         """Test User model has created_at timestamp"""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="us_ct"
-        )
+        user = User(email="test@example.com", name="Test User", region="us_ct")
 
         assert user.created_at is not None
         assert isinstance(user.created_at, datetime)
@@ -296,54 +279,34 @@ class TestUserModel:
         from models.user import User
 
         with pytest.raises(ValidationError, match="Invalid region"):
-            User(
-                email="test@example.com",
-                name="Test User",
-                region="invalid_region"
-            )
+            User(email="test@example.com", name="Test User", region="invalid_region")
 
     def test_user_model_accepts_valid_us_region(self):
         """Test User model accepts valid US state region."""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="us_ny"
-        )
+        user = User(email="test@example.com", name="Test User", region="us_ny")
         assert user.region == "us_ny"
 
     def test_user_model_accepts_valid_international_region(self):
         """Test User model accepts valid international region."""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="uk"
-        )
+        user = User(email="test@example.com", name="Test User", region="uk")
         assert user.region == "uk"
 
     def test_user_model_region_case_insensitive(self):
         """Test User model normalizes region to lowercase."""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region="US_CT"
-        )
+        user = User(email="test@example.com", name="Test User", region="US_CT")
         assert user.region == "us_ct"
 
     def test_user_model_region_none_is_valid(self):
         """Test User model allows None region."""
         from models.user import User
 
-        user = User(
-            email="test@example.com",
-            name="Test User",
-            region=None
-        )
+        user = User(email="test@example.com", name="Test User", region=None)
         assert user.region is None
 
 
@@ -358,7 +321,7 @@ class TestUserPreferencesModel:
             preferred_suppliers=["Eversource Energy", "United Illuminating"],
             notification_enabled=True,
             cost_threshold=Decimal("0.30"),
-            auto_switch_enabled=False
+            auto_switch_enabled=False,
         )
 
         assert len(prefs.preferred_suppliers) == 2
@@ -392,7 +355,7 @@ class TestSupplierModel:
             name="Eversource Energy",
             regions=["us_ct"],
             tariff_types=["variable", "fixed"],
-            api_available=True
+            api_available=True,
         )
 
         assert supplier.name == "Eversource Energy"
@@ -408,7 +371,7 @@ class TestSupplierModel:
                 id="supplier_123",
                 name="",  # Empty name should fail
                 regions=["us_ct"],
-                tariff_types=["variable"]
+                tariff_types=["variable"],
             )
 
     def test_supplier_model_validates_regions_not_empty(self):
@@ -420,7 +383,7 @@ class TestSupplierModel:
                 id="supplier_123",
                 name="Test Supplier",
                 regions=[],  # Empty regions should fail
-                tariff_types=["variable"]
+                tariff_types=["variable"],
             )
 
     def test_supplier_model_contact_info(self):
@@ -430,14 +393,11 @@ class TestSupplierModel:
         contact = SupplierContact(
             email="support@eversource.com",
             phone="+1 800 286 2000",
-            website="https://eversource.com"
+            website="https://eversource.com",
         )
 
         supplier = Supplier(
-            name="Eversource Energy",
-            regions=["us_ct"],
-            tariff_types=["variable"],
-            contact=contact
+            name="Eversource Energy", regions=["us_ct"], tariff_types=["variable"], contact=contact
         )
 
         assert supplier.contact.email == "support@eversource.com"
@@ -458,7 +418,7 @@ class TestTariffModel:
             base_rate=Decimal("0.10"),
             unit_rate=Decimal("0.25"),
             standing_charge=Decimal("0.40"),
-            green_energy_percentage=100
+            green_energy_percentage=100,
         )
 
         assert tariff.name == "Standard Service"
@@ -476,7 +436,7 @@ class TestTariffModel:
                 type=TariffType.FIXED,
                 base_rate=Decimal("-0.10"),  # Invalid negative rate
                 unit_rate=Decimal("0.25"),
-                standing_charge=Decimal("0.40")
+                standing_charge=Decimal("0.40"),
             )
 
 
@@ -498,7 +458,7 @@ class TestAPISchemas:
             currency="USD",
             region="us_ct",
             supplier="Eversource Energy",
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(UTC),
         )
 
         assert response.ticker == "ELEC-US-CT"
@@ -515,16 +475,11 @@ class TestAPISchemas:
                 currency="USD",
                 region="us_ct",
                 supplier="Test",
-                updated_at=datetime.now(timezone.utc)
+                updated_at=datetime.now(UTC),
             )
         ]
 
-        response = PriceListResponse(
-            prices=prices,
-            total=100,
-            page=1,
-            page_size=10
-        )
+        response = PriceListResponse(prices=prices, total=100, page=1, page_size=10)
 
         assert len(response.prices) == 1
         assert response.total == 100
@@ -545,14 +500,14 @@ class TestUserCreateGdprConsent:
     a ValidationError so the FastAPI layer returns HTTP 422.
     """
 
-    _VALID_BASE = dict(
-        email="user@example.com",
-        name="Test User",
-        region="us_ct",
-        password="SecurePass1!",
-        consent_given=True,
-        data_processing_agreed=True,
-    )
+    _VALID_BASE = {
+        "email": "user@example.com",
+        "name": "Test User",
+        "region": "us_ct",
+        "password": "SecurePass1!",
+        "consent_given": True,
+        "data_processing_agreed": True,
+    }
 
     def test_user_create_valid_with_both_consents(self):
         """UserCreate succeeds when both consent fields are True."""
@@ -564,8 +519,9 @@ class TestUserCreateGdprConsent:
 
     def test_user_create_fails_when_consent_given_is_false(self):
         """consent_given=False must raise ValidationError."""
-        from models.user import UserCreate
         from pydantic import ValidationError
+
+        from models.user import UserCreate
 
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**{**self._VALID_BASE, "consent_given": False})
@@ -576,8 +532,9 @@ class TestUserCreateGdprConsent:
 
     def test_user_create_fails_when_data_processing_agreed_is_false(self):
         """data_processing_agreed=False must raise ValidationError."""
-        from models.user import UserCreate
         from pydantic import ValidationError
+
+        from models.user import UserCreate
 
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**{**self._VALID_BASE, "data_processing_agreed": False})
@@ -588,8 +545,9 @@ class TestUserCreateGdprConsent:
 
     def test_user_create_fails_when_consent_given_is_missing(self):
         """Omitting consent_given must raise ValidationError (field is required)."""
-        from models.user import UserCreate
         from pydantic import ValidationError
+
+        from models.user import UserCreate
 
         payload = {k: v for k, v in self._VALID_BASE.items() if k != "consent_given"}
         with pytest.raises(ValidationError) as exc_info:
@@ -601,8 +559,9 @@ class TestUserCreateGdprConsent:
 
     def test_user_create_fails_when_data_processing_agreed_is_missing(self):
         """Omitting data_processing_agreed must raise ValidationError."""
-        from models.user import UserCreate
         from pydantic import ValidationError
+
+        from models.user import UserCreate
 
         payload = {k: v for k, v in self._VALID_BASE.items() if k != "data_processing_agreed"}
         with pytest.raises(ValidationError) as exc_info:
@@ -614,11 +573,13 @@ class TestUserCreateGdprConsent:
 
     def test_user_create_fails_when_both_consents_missing(self):
         """Omitting both consent fields must raise ValidationError listing both."""
-        from models.user import UserCreate
         from pydantic import ValidationError
 
+        from models.user import UserCreate
+
         payload = {
-            k: v for k, v in self._VALID_BASE.items()
+            k: v
+            for k, v in self._VALID_BASE.items()
             if k not in ("consent_given", "data_processing_agreed")
         }
         with pytest.raises(ValidationError) as exc_info:
@@ -631,16 +592,20 @@ class TestUserCreateGdprConsent:
 
     def test_user_create_fails_when_both_consents_false(self):
         """Both consent fields False must raise ValidationError."""
-        from models.user import UserCreate
         from pydantic import ValidationError
 
+        from models.user import UserCreate
+
         with pytest.raises(ValidationError):
-            UserCreate(**{**self._VALID_BASE, "consent_given": False, "data_processing_agreed": False})
+            UserCreate(
+                **{**self._VALID_BASE, "consent_given": False, "data_processing_agreed": False}
+            )
 
     def test_user_create_error_message_mentions_gdpr(self):
         """ValidationError messages should reference GDPR to aid debugging."""
-        from models.user import UserCreate
         from pydantic import ValidationError
+
+        from models.user import UserCreate
 
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**{**self._VALID_BASE, "consent_given": False})
@@ -660,8 +625,9 @@ class TestUserCreateGdprConsent:
 
     def test_user_create_preserves_other_required_field_validation(self):
         """Consent validation does not suppress other field errors (e.g. short password)."""
-        from models.user import UserCreate
         from pydantic import ValidationError
+
+        from models.user import UserCreate
 
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**{**self._VALID_BASE, "password": "short"})

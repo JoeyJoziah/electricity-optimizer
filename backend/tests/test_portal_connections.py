@@ -15,13 +15,11 @@ Auth is injected by overriding ``require_paid_tier`` in dependency_overrides.
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Stable test IDs
@@ -92,7 +90,7 @@ def client():
 @pytest.fixture(autouse=True)
 def _clean_overrides():
     """Clear dependency_overrides and rate limiter after every test."""
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -103,9 +101,9 @@ def _clean_overrides():
 
 def _install_auth(user_id: str = TEST_USER_ID):
     """Override require_paid_tier and get_db_session; return the db mock."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id)
     db = _mock_db()
@@ -262,9 +260,9 @@ class TestCreatePortalConnection:
 
     def test_create_portal_connection_requires_paid_tier(self, client):
         """Free-tier user must be rejected with 403."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         # Remove the pro override so real require_paid_tier runs
         app.dependency_overrides.pop(require_paid_tier, None)
@@ -316,13 +314,13 @@ class TestTriggerPortalScrape:
             username_b64 = base64.b64encode(b"\x00" * 40).decode("ascii")
 
         return (
-            connection_id,          # id
-            user_id,                # user_id
-            TEST_SUPPLIER_ID,       # supplier_id
-            username_b64,           # portal_username (encrypted+base64)
-            encrypted_b64,          # portal_password_encrypted
+            connection_id,  # id
+            user_id,  # user_id
+            TEST_SUPPLIER_ID,  # supplier_id
+            username_b64,  # portal_username (encrypted+base64)
+            encrypted_b64,  # portal_password_encrypted
             "https://duke-energy.com/sign-in",  # portal_login_url
-            "pending",              # portal_scrape_status
+            "pending",  # portal_scrape_status
         )
 
     def test_trigger_scrape_success(self, client):
@@ -332,9 +330,9 @@ class TestTriggerPortalScrape:
         conn_row = self._conn_row_tuple()
         db.execute = AsyncMock(
             side_effect=[
-                _fetchone_result(conn_row),   # connection lookup
-                AsyncMock(),                  # INSERT rate
-                AsyncMock(),                  # UPDATE status
+                _fetchone_result(conn_row),  # connection lookup
+                AsyncMock(),  # INSERT rate
+                AsyncMock(),  # UPDATE status
             ]
         )
 
@@ -493,9 +491,9 @@ class TestTriggerPortalScrape:
 
     def test_trigger_scrape_requires_paid_tier(self, client):
         """Free-tier user cannot trigger a scrape."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         app.dependency_overrides.pop(require_paid_tier, None)
 

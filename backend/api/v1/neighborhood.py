@@ -9,7 +9,7 @@ GET /neighborhood/compare  — user rate percentile and cheapest alternative
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_db_session, SessionData
+from api.dependencies import SessionData, get_current_user, get_db_session
 from models.utility import UtilityType
 from services.neighborhood_service import NeighborhoodService
 

@@ -91,7 +91,6 @@ def sample_rate_report_data():
 
 
 class TestCreatePost:
-    @pytest.mark.asyncio
     async def test_create_post_success(
         self, service, mock_db, mock_agent_service, sample_post_data
     ):
@@ -133,7 +132,6 @@ class TestCreatePost:
         assert post["is_pending_moderation"] is True
         assert post["user_id"] == user_id
 
-    @pytest.mark.asyncio
     async def test_create_post_sanitizes_xss(self, service, mock_db, mock_agent_service):
         """<script> and onerror must be stripped from title/body by nh3 BEFORE the INSERT.
 
@@ -201,7 +199,6 @@ class TestCreatePost:
         assert sanitized_title == nh3.clean(xss_title)
         assert sanitized_body == nh3.clean(xss_body)
 
-    @pytest.mark.asyncio
     async def test_create_post_triggers_moderation(
         self, service, mock_db, mock_agent_service, sample_post_data
     ):
@@ -236,7 +233,6 @@ class TestCreatePost:
 
         mock_agent_service.classify_content.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_create_post_fail_closed(
         self, service, mock_db, mock_agent_service, sample_post_data
     ):
@@ -273,7 +269,6 @@ class TestCreatePost:
         # Fail-closed: post is pending until moderation completes
         assert post["is_pending_moderation"] is True
 
-    @pytest.mark.asyncio
     async def test_create_post_timeout_leaves_post_pending(
         self, service, mock_db, sample_post_data
     ):
@@ -328,7 +323,6 @@ class TestCreatePost:
             "_clear_pending_moderation must not be called (fail-closed)."
         )
 
-    @pytest.mark.asyncio
     async def test_edit_and_resubmit_timeout_leaves_post_pending(
         self, service, mock_db, mock_agent_service
     ):
@@ -393,7 +387,6 @@ class TestCreatePost:
 
 
 class TestListPosts:
-    @pytest.mark.asyncio
     async def test_list_posts_paginated(self, service, mock_db):
         """list_posts returns paginated results, excluding hidden and pending."""
         rows = [
@@ -435,7 +428,6 @@ class TestListPosts:
         # Window function means _total_count is stripped from items
         assert "_total_count" not in result["items"][0]
 
-    @pytest.mark.asyncio
     async def test_list_posts_filters_by_region_and_utility(self, service, mock_db):
         """list_posts should filter by region and utility_type."""
         list_result = MagicMock()
@@ -452,7 +444,6 @@ class TestListPosts:
         # Single query with window function
         assert mock_db.execute.call_count == 1
 
-    @pytest.mark.asyncio
     async def test_list_posts_empty_page(self, service, mock_db):
         """Empty result returns empty list, not error."""
         list_result = MagicMock()
@@ -474,7 +465,6 @@ class TestListPosts:
 
 
 class TestToggleVote:
-    @pytest.mark.asyncio
     async def test_vote_toggle_add(self, service, mock_db):
         """First vote on a post adds it (atomic INSERT ON CONFLICT)."""
         user_id = str(uuid4())
@@ -491,7 +481,6 @@ class TestToggleVote:
         assert result["voted"] is True
         assert result["upvote_count"] == 1
 
-    @pytest.mark.asyncio
     async def test_vote_toggle_remove(self, service, mock_db):
         """Second vote on same post removes it (atomic DELETE)."""
         user_id = str(uuid4())
@@ -508,7 +497,6 @@ class TestToggleVote:
         assert result["voted"] is False
         assert result["upvote_count"] == 0
 
-    @pytest.mark.asyncio
     async def test_vote_count_derived(self, service, mock_db):
         """Upvote count is derived via COUNT(*) on community_votes, not stored."""
         post_id = str(uuid4())
@@ -528,7 +516,6 @@ class TestToggleVote:
 
 
 class TestReportPost:
-    @pytest.mark.asyncio
     async def test_report_post_deduplicates(self, service, mock_db):
         """Same user reporting twice is idempotent (INSERT ON CONFLICT DO NOTHING)."""
         user_id = str(uuid4())
@@ -549,7 +536,6 @@ class TestReportPost:
         await service.report_post(mock_db, user_id, post_id, reason="spam")
         assert mock_db.execute.call_count == 1
 
-    @pytest.mark.asyncio
     async def test_report_post_hides_at_threshold(self, service, mock_db):
         """5 unique reports should hide the post (via CTE conditional UPDATE)."""
         user_id = str(uuid4())
@@ -564,7 +550,6 @@ class TestReportPost:
         assert mock_db.execute.call_count == 1
         mock_db.commit.assert_called()
 
-    @pytest.mark.asyncio
     async def test_report_post_different_users_required(self, service, mock_db):
         """Verifies threshold needs different users, not repeated reports from same user."""
         post_id = str(uuid4())
@@ -595,7 +580,6 @@ class TestModeratePost:
         update_result = MagicMock()
         mock_db.execute = AsyncMock(side_effect=[select_result, update_result])
 
-    @pytest.mark.asyncio
     async def test_moderation_hides_flagged_post(self, service, mock_db, mock_agent_service):
         """Groq returns 'flagged' → post should be hidden."""
         post_id = str(uuid4())
@@ -609,7 +593,6 @@ class TestModeratePost:
         assert mock_db.execute.call_count >= 2  # SELECT + UPDATE
         mock_db.commit.assert_called()
 
-    @pytest.mark.asyncio
     async def test_moderation_groq_fallback_to_gemini(self, service, mock_db):
         """Groq 429 → falls back to Gemini."""
         post_id = str(uuid4())
@@ -627,7 +610,6 @@ class TestModeratePost:
         mock_agent.classify_content_groq.assert_called_once()
         mock_agent.classify_content_gemini.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_moderation_both_fail_timeout_unhides(self, service, mock_db):
         """Both AI providers fail → is_pending_moderation cleared."""
         post_id = str(uuid4())
@@ -656,7 +638,6 @@ class TestModeratePost:
 
 
 class TestRetroactiveModeration:
-    @pytest.mark.asyncio
     async def test_retroactive_remoderation(self, service, mock_db, mock_agent_service):
         """Recovered service re-checks posts that timed out during moderation."""
         # Return 2 posts that timed out (is_pending_moderation=false but no classification)
@@ -677,7 +658,6 @@ class TestRetroactiveModeration:
         # Both posts classified in parallel via asyncio.gather
         assert mock_agent_service.classify_content.call_count == 2
 
-    @pytest.mark.asyncio
     async def test_retroactive_moderate_gather_collects_flagged_ids(self, service, mock_db):
         """flagged_ids are collected from asyncio.gather return values, not from
         concurrent appends to a shared list (race-condition-free).
@@ -722,7 +702,6 @@ class TestRetroactiveModeration:
             "the safe post must not be included."
         )
 
-    @pytest.mark.asyncio
     async def test_retroactive_moderate_no_posts_returns_zero(self, service, mock_db):
         """Returns 0 immediately when there are no timed-out posts to re-check."""
         select_result = MagicMock()
@@ -741,7 +720,6 @@ class TestRetroactiveModeration:
 
 
 class TestEditAndResubmit:
-    @pytest.mark.asyncio
     async def test_flagged_post_edit_resubmit(self, service, mock_db, mock_agent_service):
         """Author can edit a flagged post and resubmit for moderation."""
         user_id = str(uuid4())
@@ -799,7 +777,6 @@ class TestEditAndResubmit:
 
 
 class TestCommunityStats:
-    @pytest.mark.asyncio
     async def test_community_stats(self, service, mock_db):
         """get_stats returns total_users, avg_savings_pct, top_tip with attribution."""
         stats_result = MagicMock()
@@ -836,7 +813,6 @@ class TestCommunityStats:
 
 
 class TestRateLimiting:
-    @pytest.mark.asyncio
     async def test_rate_limit_posts(self, service, mock_db, mock_agent_service, sample_post_data):
         """11th post in an hour should raise a rate limit error."""
         user_id = str(uuid4())

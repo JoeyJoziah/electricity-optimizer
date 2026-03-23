@@ -58,14 +58,30 @@ class SecurityHeadersMiddleware:
                 "frame-ancestors 'none'"
             )
         else:
-            # Strict for production
+            # Strict for production — connect-src restricted to known services only.
+            # Wildcard "https:" was too permissive and allowed exfiltration to any
+            # HTTPS endpoint.  Each domain here maps to a specific integration:
+            #   api.rateshift.app  — CF Worker edge (backend itself)
+            #   rateshift.app      — Frontend (Vercel)
+            #   *.neondb.tech      — Neon PostgreSQL
+            #   *.sentry.io        — Error tracking
+            #   *.grafana.net      — Observability / tracing (OTLP)
+            #   *.onesignal.com    — Push notifications
+            #   *.stripe.com       — Payment processing
             return (
                 "default-src 'self'; "
                 "script-src 'self'; "
                 "style-src 'self'; "
                 "img-src 'self' data: https:; "
                 "font-src 'self'; "
-                "connect-src 'self' https:; "
+                "connect-src 'self' "
+                "https://api.rateshift.app "
+                "https://rateshift.app "
+                "https://*.neondb.tech "
+                "https://*.sentry.io "
+                "https://*.grafana.net "
+                "https://*.onesignal.com "
+                "https://*.stripe.com; "
                 "frame-ancestors 'none'; "
                 "form-action 'self'; "
                 "base-uri 'self'"
@@ -119,9 +135,7 @@ class SecurityHeadersMiddleware:
 
                 # Cache-Control: Prevent caching of sensitive data
                 if is_api_path:
-                    headers["Cache-Control"] = (
-                        "no-store, no-cache, must-revalidate, private"
-                    )
+                    headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
                     headers["Pragma"] = "no-cache"
                     headers["Expires"] = "0"
 

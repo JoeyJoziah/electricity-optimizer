@@ -10,16 +10,8 @@ Tests for:
 """
 
 import pytest
-from fastapi.testclient import TestClient
 import time
 from concurrent.futures import ThreadPoolExecutor
-
-
-@pytest.fixture
-def client():
-    """Create test client."""
-    from main import app
-    return TestClient(app)
 
 
 @pytest.fixture
@@ -41,8 +33,7 @@ class TestRateLimitEnforcement:
             responses.append(response.status_code)
 
         # At some point, should get 429 Too Many Requests
-        assert 429 in responses, \
-            "Rate limiting should kick in after many requests"
+        assert 429 in responses, "Rate limiting should kick in after many requests"
 
     def test_rate_limiting_on_auth_endpoint(self, client):
         """Auth endpoints should have stricter rate limits."""
@@ -52,14 +43,15 @@ class TestRateLimitEnforcement:
         for i in range(20):
             response = client.post(
                 "/api/v1/auth/signin",
-                json={"email": f"test{i}@example.com", "password": "test"}
+                json={"email": f"test{i}@example.com", "password": "test"},
             )
             responses.append(response.status_code)
 
         # Should see rate limiting after a few attempts
         rate_limited = sum(1 for r in responses if r == 429)
-        assert rate_limited > 0 or all(r in [401, 422] for r in responses), \
+        assert rate_limited > 0 or all(r in [401, 422] for r in responses), (
             "Auth endpoint should be rate limited"
+        )
 
     def test_rate_limit_resets_after_window(self, client):
         """Rate limit should reset after the time window."""
@@ -93,8 +85,11 @@ class TestRateLimitHeaders:
         ]
 
         # At least some rate limit headers should be present
-        present_headers = [h for h in expected_headers if h.lower() in
-                          [k.lower() for k in response.headers.keys()]]
+        present_headers = [
+            h
+            for h in expected_headers
+            if h.lower() in [k.lower() for k in response.headers.keys()]
+        ]
 
         # Note: This is optional based on implementation
         # assert len(present_headers) > 0, "Rate limit headers should be present"
@@ -111,8 +106,9 @@ class TestRateLimitHeaders:
 
         if len(responses) >= 2:
             # Each subsequent request should have fewer remaining
-            assert responses == sorted(responses, reverse=True), \
+            assert responses == sorted(responses, reverse=True), (
                 "Rate limit remaining should decrease"
+            )
 
 
 class TestPerUserRateLimiting:
@@ -125,16 +121,10 @@ class TestPerUserRateLimiting:
 
         # Hit limit for user 1
         for _ in range(100):
-            client.get(
-                "/api/v1/prices/current?region=UK",
-                headers=user1_headers
-            )
+            client.get("/api/v1/prices/current?region=UK", headers=user1_headers)
 
         # User 2 should still be able to make requests
-        response = client.get(
-            "/api/v1/prices/current?region=UK",
-            headers=user2_headers
-        )
+        response = client.get("/api/v1/prices/current?region=UK", headers=user2_headers)
 
         # User 2 should not be affected by user 1's rate limit
         # (assuming per-user rate limiting)
@@ -159,8 +149,7 @@ class TestRateLimitBypass:
             responses = []
             for _ in range(150):
                 response = client.get(
-                    "/api/v1/prices/current?region=UK",
-                    headers=headers
+                    "/api/v1/prices/current?region=UK", headers=headers
                 )
                 responses.append(response.status_code)
 
@@ -189,6 +178,7 @@ class TestConcurrentRequests:
 
     def test_concurrent_requests_rate_limited(self, client):
         """Concurrent requests should respect rate limits."""
+
         def make_request():
             return client.get("/api/v1/prices/current?region=UK")
 
@@ -221,8 +211,9 @@ class TestRetryAfterHeader:
                 retry_after = response.headers.get("Retry-After")
                 if retry_after:
                     # Should be a number of seconds
-                    assert retry_after.isdigit() or retry_after.replace(".", "").isdigit(), \
-                        "Retry-After should be numeric"
+                    assert (
+                        retry_after.isdigit() or retry_after.replace(".", "").isdigit()
+                    ), "Retry-After should be numeric"
                 break
 
 
@@ -235,8 +226,7 @@ class TestEndpointSpecificLimits:
         standard_responses = []
         for _ in range(50):
             response = client.get(
-                "/api/v1/prices/current?region=UK",
-                headers=auth_headers
+                "/api/v1/prices/current?region=UK", headers=auth_headers
             )
             standard_responses.append(response.status_code)
 
@@ -246,7 +236,7 @@ class TestEndpointSpecificLimits:
             response = client.post(
                 "/api/v1/compliance/data-delete",
                 json={"confirm_email": "test@example.com"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             sensitive_responses.append(response.status_code)
 
@@ -261,8 +251,9 @@ class TestEndpointSpecificLimits:
             responses.append(response.status_code)
 
         # Health should always return 200
-        assert all(s == 200 for s in responses), \
+        assert all(s == 200 for s in responses), (
             "Health endpoint should not be rate limited"
+        )
 
 
 if __name__ == "__main__":

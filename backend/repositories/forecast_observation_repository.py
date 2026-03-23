@@ -6,15 +6,15 @@ Extracted from ObservationService to separate SQL from business logic.
 """
 
 import json
-import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class ForecastObservationRepository:
@@ -31,8 +31,8 @@ class ForecastObservationRepository:
         self,
         forecast_id: str,
         region: str,
-        predictions: List[Dict[str, Any]],
-        model_version: Optional[str] = None,
+        predictions: list[dict[str, Any]],
+        model_version: str | None = None,
     ) -> int:
         """Batch-INSERT forecast predictions in chunks of _INSERT_BATCH_SIZE.
 
@@ -50,50 +50,56 @@ class ForecastObservationRepository:
                 ts = datetime.fromisoformat(ts)
             hour = ts.hour if ts else 0
 
-            rows.append({
-                "id": str(uuid4()),
-                "forecast_id": forecast_id,
-                "region": region.lower(),
-                "forecast_hour": hour,
-                "predicted_price": pred["predicted_price"],
-                "confidence_lower": pred.get("confidence_lower"),
-                "confidence_upper": pred.get("confidence_upper"),
-                "model_version": model_version,
-            })
-
-        # Insert in explicit multi-row VALUE chunks to minimise round-trips.
-        for chunk_start in range(0, len(rows), self._INSERT_BATCH_SIZE):
-            chunk = rows[chunk_start : chunk_start + self._INSERT_BATCH_SIZE]
-
-            # Build (:id0,:forecast_id0,...), (:id1,:forecast_id1,...) list.
-            placeholders = []
-            params: Dict[str, Any] = {}
-            for i, row in enumerate(chunk):
-                placeholders.append(
-                    f"(:id{i}, :forecast_id{i}, :region{i}, :forecast_hour{i},"
-                    f" :predicted_price{i}, :confidence_lower{i},"
-                    f" :confidence_upper{i}, :model_version{i})"
-                )
-                params[f"id{i}"] = row["id"]
-                params[f"forecast_id{i}"] = row["forecast_id"]
-                params[f"region{i}"] = row["region"]
-                params[f"forecast_hour{i}"] = row["forecast_hour"]
-                params[f"predicted_price{i}"] = row["predicted_price"]
-                params[f"confidence_lower{i}"] = row["confidence_lower"]
-                params[f"confidence_upper{i}"] = row["confidence_upper"]
-                params[f"model_version{i}"] = row["model_version"]
-
-            await self._db.execute(
-                text(
-                    "INSERT INTO forecast_observations"
-                    "    (id, forecast_id, region, forecast_hour, predicted_price,"
-                    "     confidence_lower, confidence_upper, model_version)"
-                    f" VALUES {', '.join(placeholders)}"
-                ),
-                params,
+            rows.append(
+                {
+                    "id": str(uuid4()),
+                    "forecast_id": forecast_id,
+                    "region": region.lower(),
+                    "forecast_hour": hour,
+                    "predicted_price": pred["predicted_price"],
+                    "confidence_lower": pred.get("confidence_lower"),
+                    "confidence_upper": pred.get("confidence_upper"),
+                    "model_version": model_version,
+                }
             )
 
-        await self._db.commit()
+        try:
+            # Insert in explicit multi-row VALUE chunks to minimise round-trips.
+            for chunk_start in range(0, len(rows), self._INSERT_BATCH_SIZE):
+                chunk = rows[chunk_start : chunk_start + self._INSERT_BATCH_SIZE]
+
+                # Build (:id0,:forecast_id0,...), (:id1,:forecast_id1,...) list.
+                placeholders = []
+                params: dict[str, Any] = {}
+                for i, row in enumerate(chunk):
+                    placeholders.append(
+                        f"(:id{i}, :forecast_id{i}, :region{i}, :forecast_hour{i},"
+                        f" :predicted_price{i}, :confidence_lower{i},"
+                        f" :confidence_upper{i}, :model_version{i})"
+                    )
+                    params[f"id{i}"] = row["id"]
+                    params[f"forecast_id{i}"] = row["forecast_id"]
+                    params[f"region{i}"] = row["region"]
+                    params[f"forecast_hour{i}"] = row["forecast_hour"]
+                    params[f"predicted_price{i}"] = row["predicted_price"]
+                    params[f"confidence_lower{i}"] = row["confidence_lower"]
+                    params[f"confidence_upper{i}"] = row["confidence_upper"]
+                    params[f"model_version{i}"] = row["model_version"]
+
+                await self._db.execute(
+                    text(
+                        "INSERT INTO forecast_observations"
+                        "    (id, forecast_id, region, forecast_hour, predicted_price,"
+                        "     confidence_lower, confidence_upper, model_version)"
+                        f" VALUES {', '.join(placeholders)}"
+                    ),
+                    params,
+                )
+
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         return len(rows)
 
     # Maximum number of forecast rows to backfill in a single call when no
@@ -101,7 +107,7 @@ class ForecastObservationRepository:
     # forecast_observations table has millions of unobserved rows.
     _BACKFILL_LIMIT = 10_000
 
-    async def backfill_actuals(self, region: Optional[str] = None) -> int:
+    async def backfill_actuals(self, region: str | None = None) -> int:
         """Match unobserved forecasts to actual prices.
 
         When *region* is ``None`` the UPDATE is capped at ``_BACKFILL_LIMIT``
@@ -123,7 +129,7 @@ class ForecastObservationRepository:
                   AND ep.timestamp <= fo.created_at + INTERVAL '25 hours'
                   AND fo.region = :region
             """)
-            params: Dict[str, Any] = {"region": region}
+            params: dict[str, Any] = {"region": region}
         else:
             # Without a region filter, limit the UPDATE to _BACKFILL_LIMIT
             # rows using a CTE that selects the eligible forecast_observation
@@ -150,21 +156,24 @@ class ForecastObservationRepository:
             """)
             params = {"backfill_limit": self._BACKFILL_LIMIT}
             logger.warning(
-                "No region filter supplied; capping backfill at LIMIT=%d to prevent unbounded memory usage",
-                self._BACKFILL_LIMIT,
+                "No region filter supplied; capping backfill to prevent unbounded memory usage",
+                limit=self._BACKFILL_LIMIT,
             )
 
-        result = await self._db.execute(query, params)
-        await self._db.commit()
+        try:
+            result = await self._db.execute(query, params)
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
 
         count = result.rowcount
         if not region and count >= self._BACKFILL_LIMIT:
             logger.warning(
-                "Backfill hit the row limit (count=%d, limit=%d); "
-                "there may be more unobserved rows. "
+                "Backfill hit the row limit; there may be more unobserved rows. "
                 "Consider calling again or supplying a region filter.",
-                count,
-                self._BACKFILL_LIMIT,
+                count=count,
+                limit=self._BACKFILL_LIMIT,
             )
 
         return count
@@ -173,7 +182,7 @@ class ForecastObservationRepository:
         self,
         user_id: str,
         recommendation_type: str,
-        recommendation_data: Dict[str, Any],
+        recommendation_data: dict[str, Any],
     ) -> str:
         """Record a recommendation served to a user. Returns the outcome ID."""
         outcome_id = str(uuid4())
@@ -184,20 +193,27 @@ class ForecastObservationRepository:
                 (:id, :user_id, :recommendation_type, :recommendation_data)
         """)
 
-        await self._db.execute(query, {
-            "id": outcome_id,
-            "user_id": user_id,
-            "recommendation_type": recommendation_type,
-            "recommendation_data": json.dumps(recommendation_data, default=str),
-        })
-        await self._db.commit()
+        try:
+            await self._db.execute(
+                query,
+                {
+                    "id": outcome_id,
+                    "user_id": user_id,
+                    "recommendation_type": recommendation_type,
+                    "recommendation_data": json.dumps(recommendation_data, default=str),
+                },
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         return outcome_id
 
     async def update_recommendation_response(
         self,
         outcome_id: str,
         accepted: bool,
-        actual_savings: Optional[float] = None,
+        actual_savings: float | None = None,
     ) -> bool:
         """Update a recommendation outcome with user response."""
         query = text("""
@@ -209,17 +225,22 @@ class ForecastObservationRepository:
               AND responded_at IS NULL
         """)
 
-        result = await self._db.execute(query, {
-            "outcome_id": outcome_id,
-            "accepted": accepted,
-            "actual_savings": actual_savings,
-        })
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                query,
+                {
+                    "outcome_id": outcome_id,
+                    "accepted": accepted,
+                    "actual_savings": actual_savings,
+                },
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         return result.rowcount > 0
 
-    async def get_accuracy_metrics(
-        self, region: str, days: int = 7
-    ) -> Dict[str, Any]:
+    async def get_accuracy_metrics(self, region: str, days: int = 7) -> dict[str, Any]:
         """Compute accuracy metrics for observed forecasts."""
         query = text("""
             SELECT
@@ -249,9 +270,7 @@ class ForecastObservationRepository:
             "coverage": round(float(row.coverage), 1) if row.coverage else None,
         }
 
-    async def get_hourly_bias(
-        self, region: str, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    async def get_hourly_bias(self, region: str, days: int = 7) -> list[dict[str, Any]]:
         """Compute per-hour bias (predicted - actual)."""
         query = text("""
             SELECT
@@ -276,9 +295,7 @@ class ForecastObservationRepository:
             for row in result.fetchall()
         ]
 
-    async def get_accuracy_by_version(
-        self, region: str, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    async def get_accuracy_by_version(self, region: str, days: int = 7) -> list[dict[str, Any]]:
         """Compute accuracy breakdown by model_version using SQL GROUP BY.
 
         All aggregation (MAPE, RMSE, coverage) is performed in the database,

@@ -1,54 +1,21 @@
-# Builder stage
-FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b as builder
-
-WORKDIR /app/backend
-
-# Install system dependencies required for building Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install dependencies to /install prefix
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-
-# Runtime stage
-FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b
-
-WORKDIR /app/backend
-
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser
-
-# Copy Python dependencies from builder into system Python path
-COPY --from=builder /install /usr/local
-
-# Copy application code
-COPY backend/ .
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
-
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app/backend
-
-# Switch to non-root user
-USER appuser
-
-# Health check (uses same default port as CMD)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-10000}/health || exit 1
-
-# Expose port (Render injects PORT env var, default 10000)
-EXPOSE ${PORT:-10000}
-
-# Run uvicorn (Render sets PORT=10000 at runtime)
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1 --timeout-graceful-shutdown 30"]
+# ===========================================================================
+# DEPRECATED — Do not use this Dockerfile directly.
+#
+# The canonical production Dockerfile for the backend is:
+#
+#     backend/Dockerfile
+#
+# Render (render.yaml) and CI (ci.yml) both reference backend/Dockerfile
+# with dockerContext: ./backend. This root Dockerfile previously existed as
+# an alternative single-stage build but diverged from backend/Dockerfile
+# (1 worker vs 2, different health-check start-period, etc.), creating
+# operational ambiguity.
+#
+# For local development:
+#     docker compose up              (uses backend/Dockerfile target=development)
+#
+# For production builds:
+#     docker build -f backend/Dockerfile -t rateshift-backend ./backend --target production
+#
+# See: .audit-2026-03-23/20-infra-deploy.md P0-01
+# ===========================================================================

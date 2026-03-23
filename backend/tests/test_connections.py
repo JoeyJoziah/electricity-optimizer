@@ -11,20 +11,21 @@ Coverage:
   - Delete connection (success, not found, wrong user)
   - Get rates (empty, all, current)
   - Pydantic model validation + serialisation
+  - Callback state timestamp expiry (replay attack prevention)
+  - IDOR protection on PATCH endpoint
 
-All async tests are decorated with ``@pytest.mark.asyncio``.
 Database calls are fully mocked via ``AsyncMock``; no real Postgres connection
 is used.  Auth is injected by overriding ``get_current_user`` and
 ``get_db_session`` in ``app.dependency_overrides``.
 """
 
-import pytest
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Stable test IDs
@@ -147,7 +148,7 @@ def _clean_overrides():
     in-memory rate limiter store so no test is throttled by a prior test's
     requests.  Mirrors the conftest.py ``reset_rate_limiter`` fixture.
     """
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     # Reset BEFORE the test (pick up any state left by previous tests)
     _app_rate_limiter.reset()
@@ -171,9 +172,9 @@ def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
     performs its own DB query; overriding it avoids the need for every test
     to mock two separate execute() calls just for the tier check.
     """
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id, tier=tier)
     db = _mock_db()
@@ -196,9 +197,9 @@ def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
 
 def _remove_auth():
     """Remove all auth-related overrides."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     app.dependency_overrides.pop(get_current_user, None)
     app.dependency_overrides.pop(get_db_session, None)
@@ -224,9 +225,9 @@ class TestPaidTierGate:
 
     def test_connections_requires_paid_tier_free_user(self, client):
         """Free-tier user must be rejected with 403."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         # Remove any pro override so require_paid_tier runs the real logic
         app.dependency_overrides.pop(require_paid_tier, None)
@@ -259,9 +260,9 @@ class TestPaidTierGate:
 
     def test_connections_rejects_null_tier(self, client):
         """User with no subscription_tier row must be rejected with 403."""
-        from main import app
         from api.dependencies import get_current_user, get_db_session
         from api.v1.connections import require_paid_tier
+        from main import app
 
         app.dependency_overrides.pop(require_paid_tier, None)
 
@@ -298,7 +299,7 @@ class TestListConnections:
 
     def test_list_connections_returns_all(self, client):
         """Multiple connections are returned correctly."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rows = [
             {
                 "id": str(uuid4()),
@@ -380,14 +381,14 @@ class TestCreateDirectConnection:
         no_dup_result = _empty_mapping_result()
         insert_result = MagicMock()
 
-        db.execute = AsyncMock(
-            side_effect=[supplier_result, no_dup_result, insert_result]
-        )
+        db.execute = AsyncMock(side_effect=[supplier_result, no_dup_result, insert_result])
 
         # encrypt_field / mask_account_number are imported locally inside the
         # route handler, so we patch at the source module level.
-        with patch("utils.encryption.encrypt_field", return_value=b"encrypted"), \
-             patch("utils.encryption.mask_account_number", return_value="******5678"):
+        with (
+            patch("utils.encryption.encrypt_field", return_value=b"encrypted"),
+            patch("utils.encryption.mask_account_number", return_value="******5678"),
+        ):
             response = client.post(
                 f"{BASE}/direct",
                 json={
@@ -451,8 +452,10 @@ class TestCreateDirectConnection:
 
         db.execute = AsyncMock(side_effect=[supplier_result, dup_result])
 
-        with patch("utils.encryption.encrypt_field", return_value=b"encrypted"), \
-             patch("utils.encryption.mask_account_number", return_value="******1234"):
+        with (
+            patch("utils.encryption.encrypt_field", return_value=b"encrypted"),
+            patch("utils.encryption.mask_account_number", return_value="******1234"),
+        ):
             response = client.post(
                 f"{BASE}/direct",
                 json={
@@ -475,8 +478,10 @@ class TestCreateDirectConnection:
         db.execute = AsyncMock(side_effect=[supplier_result, no_dup, insert_result])
 
         # Patch at source module so the locally-imported name is intercepted.
-        with patch("utils.encryption.encrypt_field") as mock_encrypt, \
-             patch("utils.encryption.mask_account_number", return_value="******9999"):
+        with (
+            patch("utils.encryption.encrypt_field") as mock_encrypt,
+            patch("utils.encryption.mask_account_number", return_value="******9999"),
+        ):
             mock_encrypt.return_value = b"super-encrypted"
 
             client.post(
@@ -658,7 +663,7 @@ class TestGetConnection:
     """Tests for GET /connections/{connection_id}."""
 
     def _connection_row(self, user_id=TEST_USER_ID):
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         return {
             "id": TEST_CONNECTION_ID,
             "user_id": user_id,
@@ -822,7 +827,7 @@ class TestGetRates:
         """Multiple extracted rates are returned with pagination metadata."""
         db = _install_auth()
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rate_rows = [
             {
                 "id": str(uuid4()),
@@ -881,7 +886,7 @@ class TestGetRates:
         """Requesting page 2 is reflected in the response metadata."""
         db = _install_auth()
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rate_row = {
             "id": str(uuid4()),
             "connection_id": TEST_CONNECTION_ID,
@@ -896,9 +901,7 @@ class TestGetRates:
         data_result = _mapping_result([rate_row])
         db.execute = AsyncMock(side_effect=[count_result, data_result])
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=2&page_size=20"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page=2&page_size=20")
 
         assert response.status_code == 200
         data = response.json()
@@ -911,7 +914,7 @@ class TestGetRates:
         """page_size parameter is respected and reflected in the response."""
         db = _install_auth()
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rows = [
             {
                 "id": str(uuid4()),
@@ -928,9 +931,7 @@ class TestGetRates:
         data_result = _mapping_result(rows)
         db.execute = AsyncMock(side_effect=[count_result, data_result])
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=1&page_size=5"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page=1&page_size=5")
 
         assert response.status_code == 200
         data = response.json()
@@ -943,9 +944,7 @@ class TestGetRates:
         """page_size above 100 is rejected with 422."""
         _install_auth()
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page_size=101"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page_size=101")
 
         assert response.status_code == 422
 
@@ -953,9 +952,7 @@ class TestGetRates:
         """page=0 is rejected with 422."""
         _install_auth()
 
-        response = client.get(
-            f"{BASE}/{TEST_CONNECTION_ID}/rates?page=0"
-        )
+        response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/rates?page=0")
 
         assert response.status_code == 422
 
@@ -963,7 +960,7 @@ class TestGetRates:
         """GET .../rates/current returns only the most recent rate in a single JOIN."""
         db = _install_auth()
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rate_row_data = {
             "id": str(uuid4()),
             "connection_id": TEST_CONNECTION_ID,
@@ -1055,7 +1052,7 @@ class TestModelValidation:
         """ConnectionResponse serializes to JSON without error."""
         from models.connections import ConnectionResponse
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         conn = ConnectionResponse(
             id=str(uuid4()),
             user_id=TEST_USER_ID,
@@ -1075,7 +1072,7 @@ class TestModelValidation:
         """ExtractedRateResponse serializes to JSON without error."""
         from models.connections import ExtractedRateResponse
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rate = ExtractedRateResponse(
             id=str(uuid4()),
             connection_id=TEST_CONNECTION_ID,
@@ -1089,3 +1086,181 @@ class TestModelValidation:
         assert dumped["source"] == "bill_parse"
         assert dumped["raw_label"] == "Standard Rate"
         assert dumped["connection_id"] == TEST_CONNECTION_ID
+
+
+# ===========================================================================
+# 10. Callback State Timestamp Expiry (Task 0.1)
+# ===========================================================================
+
+
+class TestCallbackStateTimestampExpiry:
+    """Verify that verify_callback_state rejects expired state tokens."""
+
+    def test_valid_state_accepted(self):
+        """A freshly signed state should be accepted."""
+        with patch("api.v1.connections.settings") as mock_settings:
+            mock_settings.internal_api_key = "test-signing-key-1234"
+
+            from api.v1.connections.common import sign_callback_state, verify_callback_state
+
+            state = sign_callback_state("conn-123", "user-456")
+            connection_id, user_id = verify_callback_state(state)
+
+            assert connection_id == "conn-123"
+            assert user_id == "user-456"
+
+    def test_expired_state_rejected(self):
+        """A state token older than 10 minutes must be rejected with 400."""
+        import hashlib
+        import hmac as hmac_mod
+
+        from fastapi import HTTPException
+
+        with patch("api.v1.connections.settings") as mock_settings:
+            mock_settings.internal_api_key = "test-signing-key-1234"
+
+            from api.v1.connections.common import OAUTH_STATE_TIMEOUT_SECONDS, verify_callback_state
+
+            # Forge a state with a timestamp 15 minutes in the past
+            connection_id = "conn-old"
+            user_id = "user-old"
+            old_timestamp = str(int(time.time()) - OAUTH_STATE_TIMEOUT_SECONDS - 300)
+            key = mock_settings.internal_api_key.encode("utf-8")
+            payload = f"{connection_id}:{user_id}:{old_timestamp}"
+            sig = hmac_mod.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            expired_state = f"{payload}:{sig}"
+
+            with pytest.raises(HTTPException) as exc_info:
+                verify_callback_state(expired_state)
+
+            assert exc_info.value.status_code == 400
+            assert "expired" in exc_info.value.detail.lower()
+
+    def test_future_timestamp_rejected(self):
+        """A state token with a timestamp in the future must be rejected."""
+        import hashlib
+        import hmac as hmac_mod
+
+        from fastapi import HTTPException
+
+        with patch("api.v1.connections.settings") as mock_settings:
+            mock_settings.internal_api_key = "test-signing-key-1234"
+
+            from api.v1.connections.common import verify_callback_state
+
+            connection_id = "conn-future"
+            user_id = "user-future"
+            future_timestamp = str(int(time.time()) + 3600)  # 1 hour in the future
+            key = mock_settings.internal_api_key.encode("utf-8")
+            payload = f"{connection_id}:{user_id}:{future_timestamp}"
+            sig = hmac_mod.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            future_state = f"{payload}:{sig}"
+
+            with pytest.raises(HTTPException) as exc_info:
+                verify_callback_state(future_state)
+
+            assert exc_info.value.status_code == 400
+
+    def test_invalid_timestamp_rejected(self):
+        """A state token with a non-numeric timestamp must be rejected."""
+        import hashlib
+        import hmac as hmac_mod
+
+        from fastapi import HTTPException
+
+        with patch("api.v1.connections.settings") as mock_settings:
+            mock_settings.internal_api_key = "test-signing-key-1234"
+
+            from api.v1.connections.common import verify_callback_state
+
+            connection_id = "conn-bad"
+            user_id = "user-bad"
+            bad_timestamp = "not-a-number"
+            key = mock_settings.internal_api_key.encode("utf-8")
+            payload = f"{connection_id}:{user_id}:{bad_timestamp}"
+            sig = hmac_mod.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            bad_state = f"{payload}:{sig}"
+
+            with pytest.raises(HTTPException) as exc_info:
+                verify_callback_state(bad_state)
+
+            assert exc_info.value.status_code == 400
+
+
+# ===========================================================================
+# 11. IDOR Protection on PATCH Endpoint (Task 0.4)
+# ===========================================================================
+
+
+class TestPatchConnectionIDOR:
+    """Verify that PATCH /connections/{id} enforces user ownership."""
+
+    def test_user_cannot_patch_other_users_connection(self, client):
+        """User A cannot PATCH user B's connection -- must return 404."""
+        # Install auth as TEST_USER_ID (user A)
+        db = _install_auth(user_id=TEST_USER_ID)
+
+        # The ownership check query returns None (connection belongs to user B,
+        # filtered out by WHERE user_id = :uid)
+        ownership_result = MagicMock()
+        ownership_result.fetchone.return_value = None
+        db.execute = AsyncMock(return_value=ownership_result)
+
+        other_connection_id = str(uuid4())
+        response = client.patch(
+            f"{BASE}/{other_connection_id}",
+            json={"label": "Hacked label"},
+        )
+
+        assert response.status_code == 404
+
+    def test_user_can_patch_own_connection(self, client):
+        """Owner can successfully PATCH their own connection's label."""
+        db = _install_auth(user_id=TEST_USER_ID)
+
+        # Ownership check returns a row (connection belongs to this user)
+        ownership_row = MagicMock()
+        ownership_result = MagicMock()
+        ownership_result.fetchone.return_value = ownership_row
+
+        # UPDATE succeeds
+        update_result = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[ownership_result, update_result])
+
+        response = client.patch(
+            f"{BASE}/{TEST_CONNECTION_ID}",
+            json={"label": "My New Label"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["connection_id"] == TEST_CONNECTION_ID
+        assert data["updated"] is True
+
+    def test_patch_update_includes_user_id_in_where(self, client):
+        """The UPDATE query must include user_id in its WHERE clause."""
+        db = _install_auth(user_id=TEST_USER_ID)
+
+        # Ownership check returns a row
+        ownership_row = MagicMock()
+        ownership_result = MagicMock()
+        ownership_result.fetchone.return_value = ownership_row
+
+        # UPDATE succeeds
+        update_result = MagicMock()
+
+        db.execute = AsyncMock(side_effect=[ownership_result, update_result])
+
+        client.patch(
+            f"{BASE}/{TEST_CONNECTION_ID}",
+            json={"label": "My Label"},
+        )
+
+        # The second execute call is the UPDATE -- verify it includes uid param
+        assert db.execute.call_count == 2
+        update_call = db.execute.call_args_list[1]
+        update_params = update_call[0][1] if len(update_call[0]) > 1 else {}
+        # The UPDATE should include the user_id parameter
+        assert "uid" in update_params, "UPDATE query must include user_id parameter"
+        assert update_params["uid"] == TEST_USER_ID

@@ -5,23 +5,21 @@ Endpoints for supplier selection and account linking.
 All endpoints require authentication and filter by the authenticated user's ID.
 """
 
-from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-
-from api.dependencies import get_current_user, get_db_session, SessionData
-from models.user_supplier import (
-    SetSupplierRequest,
-    LinkAccountRequest,
-    UserSupplierResponse,
-    LinkedAccountResponse,
-)
-from utils.encryption import encrypt_field, decrypt_field, mask_account_number
-
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.dependencies import SessionData, get_current_user, get_db_session
+from models.user_supplier import (
+    LinkAccountRequest,
+    LinkedAccountResponse,
+    SetSupplierRequest,
+    UserSupplierResponse,
+)
+from utils.encryption import decrypt_field, encrypt_field, mask_account_number
 
 logger = structlog.get_logger()
 
@@ -32,7 +30,8 @@ router = APIRouter(tags=["User Supplier"])
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_supplier_by_id(db: AsyncSession, supplier_id: str) -> Optional[dict]:
+
+async def _get_supplier_by_id(db: AsyncSession, supplier_id: str) -> dict | None:
     """Fetch a supplier from supplier_registry by ID."""
     result = await db.execute(
         text("""
@@ -63,6 +62,7 @@ async def _ensure_user_exists(db: AsyncSession, user_id: str) -> None:
 # ---------------------------------------------------------------------------
 # PUT /user/supplier — Set current supplier
 # ---------------------------------------------------------------------------
+
 
 @router.put("/supplier", response_model=UserSupplierResponse)
 async def set_current_supplier(
@@ -140,6 +140,7 @@ async def set_current_supplier(
 # GET /user/supplier — Get current supplier
 # ---------------------------------------------------------------------------
 
+
 @router.get("/supplier")
 async def get_current_supplier(
     current_user: SessionData = Depends(get_current_user),
@@ -178,6 +179,7 @@ async def get_current_supplier(
 # DELETE /user/supplier — Remove current supplier
 # ---------------------------------------------------------------------------
 
+
 @router.delete("/supplier")
 async def remove_current_supplier(
     current_user: SessionData = Depends(get_current_user),
@@ -204,6 +206,7 @@ async def remove_current_supplier(
 # ---------------------------------------------------------------------------
 # POST /user/supplier/link — Link utility account
 # ---------------------------------------------------------------------------
+
 
 @router.post("/supplier/link", response_model=LinkedAccountResponse)
 async def link_supplier_account(
@@ -292,6 +295,7 @@ async def link_supplier_account(
 # GET /user/supplier/accounts — Get linked accounts (masked)
 # ---------------------------------------------------------------------------
 
+
 @router.get("/supplier/accounts")
 async def get_linked_accounts(
     current_user: SessionData = Depends(get_current_user),
@@ -351,6 +355,7 @@ async def get_linked_accounts(
 # ---------------------------------------------------------------------------
 # DELETE /user/supplier/accounts/{supplier_id} — Unlink specific account
 # ---------------------------------------------------------------------------
+
 
 @router.delete("/supplier/accounts/{supplier_id}")
 async def unlink_supplier_account(

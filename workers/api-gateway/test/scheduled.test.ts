@@ -126,21 +126,17 @@ describe("handleScheduled", () => {
       );
     });
 
-    it("should use empty string for missing INTERNAL_API_KEY", async () => {
-      mockFetch.mockResolvedValueOnce(new Response("{}", { status: 200 }));
-
+    it("should abort without fetch when INTERNAL_API_KEY is undefined (fail-closed)", async () => {
       const env = createMockEnv();
       delete env.INTERNAL_API_KEY;
 
       await handleScheduled(createMockController(), env, createMockCtx());
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            "X-API-Key": "",
-          }),
-        })
+      // Should NOT make any fetch calls
+      expect(mockFetch).not.toHaveBeenCalled();
+      // Should log an error explaining the abort
+      expect(console.error).toHaveBeenCalledWith(
+        "check-alerts: INTERNAL_API_KEY not configured — aborting scheduled task"
       );
     });
   });

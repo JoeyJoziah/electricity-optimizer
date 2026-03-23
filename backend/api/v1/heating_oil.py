@@ -4,8 +4,6 @@ Heating Oil API Endpoints
 Public endpoints for heating oil prices, history, and dealer directory.
 """
 
-from typing import Optional
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +18,7 @@ router = APIRouter(prefix="/rates/heating-oil")
 
 @router.get("", tags=["Heating Oil"])
 async def get_heating_oil_prices(
-    state: Optional[str] = Query(None, description="2-letter state code"),
+    state: str | None = Query(None, description="2-letter state code"),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get current heating oil prices, optionally filtered by state."""

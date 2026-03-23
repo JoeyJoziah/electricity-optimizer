@@ -10,10 +10,9 @@ Covers:
 - auto_promote: promotes challenger when threshold met; returns None otherwise.
 """
 
-import pytest
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # =============================================================================
 # Helpers / fixtures
@@ -58,6 +57,7 @@ def mock_db():
 @pytest.fixture
 def service(mock_db):
     from services.ab_test_service import ABTestService
+
     return ABTestService(mock_db)
 
 
@@ -91,7 +91,6 @@ def _side_effect_fetchones(mock_db, rows_sequence):
 class TestAssignUser:
     """Tests for ABTestService.assign_user"""
 
-    @pytest.mark.asyncio
     async def test_returns_existing_assignment_without_new_insert(self, service, mock_db):
         """If a persistent assignment exists it should be returned immediately."""
         _mock_fetchone(mock_db, _make_assignment_row("v2.0"))
@@ -103,7 +102,6 @@ class TestAssignUser:
         assert mock_db.execute.call_count == 1
         mock_db.commit.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_creates_new_assignment_when_none_exists(self, service, mock_db):
         """If no assignment exists, one should be created via hashing and persisted."""
         _side_effect_fetchones(mock_db, [None, None])
@@ -113,7 +111,6 @@ class TestAssignUser:
         assert result in ("v1.0", "v2.0")
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_same_user_always_gets_same_version(self, mock_db):
         """
         Multiple calls for the same user_id should return the same version
@@ -139,7 +136,6 @@ class TestAssignUser:
             result = await svc.assign_user(user_id, version_a, version_b, salt=salt)
             assert result == expected
 
-    @pytest.mark.asyncio
     async def test_raises_for_invalid_split_ratio_zero(self, service, mock_db):
         """split_ratio=0.0 should raise ValueError before any DB call."""
         with pytest.raises(ValueError, match="split_ratio"):
@@ -147,13 +143,11 @@ class TestAssignUser:
 
         mock_db.execute.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_raises_for_invalid_split_ratio_one(self, service, mock_db):
         """split_ratio=1.0 should raise ValueError before any DB call."""
         with pytest.raises(ValueError, match="split_ratio"):
             await service.assign_user("u1", "v1.0", "v2.0", split_ratio=1.0)
 
-    @pytest.mark.asyncio
     async def test_rollback_on_insert_failure(self, service, mock_db):
         """Should rollback and re-raise if the INSERT fails."""
         no_existing = MagicMock()
@@ -165,7 +159,6 @@ class TestAssignUser:
 
         mock_db.rollback.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_insert_uses_on_conflict_do_nothing(self, service, mock_db):
         """INSERT must include ON CONFLICT (user_id) DO NOTHING for idempotency."""
         _side_effect_fetchones(mock_db, [None, None])
@@ -177,7 +170,6 @@ class TestAssignUser:
         assert "ON CONFLICT" in insert_sql.upper()
         assert "DO NOTHING" in insert_sql.upper()
 
-    @pytest.mark.asyncio
     async def test_split_ratio_90_routes_most_to_version_a(self, service, mock_db):
         """With split_ratio=0.9, approximately 90% of users should be assigned v1.0."""
         from services.ab_test_service import _hash_user_to_bucket
@@ -193,9 +185,7 @@ class TestAssignUser:
                 version_a_count += 1
 
         ratio = version_a_count / total
-        assert ratio >= 0.70, (
-            f"Expected >= 70% assigned to v1.0 with 0.9 split, got {ratio:.2%}"
-        )
+        assert ratio >= 0.70, f"Expected >= 70% assigned to v1.0 with 0.9 split, got {ratio:.2%}"
 
 
 # =============================================================================
@@ -206,7 +196,6 @@ class TestAssignUser:
 class TestGetAssignment:
     """Tests for ABTestService.get_assignment"""
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_no_assignment(self, service, mock_db):
         """Should return None when no record exists."""
         _mock_fetchone(mock_db, None)
@@ -215,7 +204,6 @@ class TestGetAssignment:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_model_version_string(self, service, mock_db):
         """Should return the model_version string from the DB row."""
         _mock_fetchone(mock_db, _make_assignment_row("v3.0"))
@@ -224,7 +212,6 @@ class TestGetAssignment:
 
         assert result == "v3.0"
 
-    @pytest.mark.asyncio
     async def test_query_filters_by_user_id(self, service, mock_db):
         """Query params must include the correct user_id."""
         _mock_fetchone(mock_db, None)
@@ -243,23 +230,19 @@ class TestGetAssignment:
 class TestRecordPrediction:
     """Tests for ABTestService.record_prediction"""
 
-    @pytest.mark.asyncio
     async def test_returns_uuid_string(self, service, mock_db):
         """Should return a valid UUID string for the new prediction record."""
         import re
+
         result = await service.record_prediction("u1", "v1.0", "NY", 0.15)
-        uuid_re = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-        )
+        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
         assert uuid_re.match(result), f"Expected UUID, got: {result!r}"
 
-    @pytest.mark.asyncio
     async def test_commits_after_insert(self, service, mock_db):
         """Should commit once after both the INSERT and the UPDATE."""
         await service.record_prediction("u1", "v1.0", "CA", 0.12)
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_insert_params_include_required_fields(self, service, mock_db):
         """INSERT params must include user_id, model_version, region, predicted_value."""
         await service.record_prediction("user-abc", "v2.0", "TX", 0.20)
@@ -271,7 +254,6 @@ class TestRecordPrediction:
         assert insert_params["region"] == "TX"
         assert insert_params["predicted_value"] == pytest.approx(0.20)
 
-    @pytest.mark.asyncio
     async def test_error_pct_computed_when_actual_provided(self, service, mock_db):
         """When actual_value is provided, error_pct should be populated."""
         await service.record_prediction("u1", "v1.0", "NY", 0.10, actual_value=0.08)
@@ -281,7 +263,6 @@ class TestRecordPrediction:
         assert insert_params["error_pct"] == pytest.approx(25.0)
         assert insert_params["actual_value"] == pytest.approx(0.08)
 
-    @pytest.mark.asyncio
     async def test_error_pct_is_none_when_actual_not_provided(self, service, mock_db):
         """error_pct should be None when no actual_value is given."""
         await service.record_prediction("u1", "v1.0", "NY", 0.10)
@@ -290,7 +271,6 @@ class TestRecordPrediction:
         assert insert_params["error_pct"] is None
         assert insert_params["actual_value"] is None
 
-    @pytest.mark.asyncio
     async def test_updates_last_prediction_at(self, service, mock_db):
         """Should issue a second execute to UPDATE last_prediction_at."""
         await service.record_prediction("u-active", "v1.0", "MA", 0.11)
@@ -301,7 +281,6 @@ class TestRecordPrediction:
         assert update_params["user_id"] == "u-active"
         assert "ts" in update_params
 
-    @pytest.mark.asyncio
     async def test_rollback_on_failure(self, service, mock_db):
         """Should rollback and re-raise on DB error."""
         mock_db.execute.side_effect = Exception("db error")
@@ -320,7 +299,6 @@ class TestRecordPrediction:
 class TestUpdateActual:
     """Tests for ABTestService.update_actual"""
 
-    @pytest.mark.asyncio
     async def test_returns_false_when_prediction_not_found(self, service, mock_db):
         """Should return False when the prediction_id does not exist."""
         _mock_fetchone(mock_db, None)
@@ -330,7 +308,6 @@ class TestUpdateActual:
         assert result is False
         mock_db.commit.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_returns_true_on_success(self, service, mock_db):
         """Should return True when the row is found and updated."""
         _side_effect_fetchones(mock_db, [_make_prediction_row(0.15), None])
@@ -339,7 +316,6 @@ class TestUpdateActual:
 
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_computes_error_pct_correctly(self, service, mock_db):
         """error_pct = |predicted - actual| / |actual| * 100."""
         _side_effect_fetchones(mock_db, [_make_prediction_row(0.20), None])
@@ -351,7 +327,6 @@ class TestUpdateActual:
         assert update_params["error_pct"] == pytest.approx(25.0)
         assert update_params["actual_value"] == pytest.approx(0.16)
 
-    @pytest.mark.asyncio
     async def test_commits_after_update(self, service, mock_db):
         """Should commit once after the UPDATE."""
         _side_effect_fetchones(mock_db, [_make_prediction_row(0.10), None])
@@ -360,7 +335,6 @@ class TestUpdateActual:
 
         mock_db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_rollback_on_update_failure(self, service, mock_db):
         """Should rollback and re-raise if the UPDATE fails."""
         found_row = _make_prediction_row(0.10)
@@ -373,7 +347,6 @@ class TestUpdateActual:
 
         mock_db.rollback.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_error_pct_none_when_actual_is_zero(self, service, mock_db):
         """Should not divide by zero — error_pct must be None when actual=0."""
         _side_effect_fetchones(mock_db, [_make_prediction_row(0.10), None])
@@ -392,7 +365,6 @@ class TestUpdateActual:
 class TestGetSplitMetrics:
     """Tests for ABTestService.get_split_metrics"""
 
-    @pytest.mark.asyncio
     async def test_returns_empty_list_when_no_data(self, service, mock_db):
         """Should return [] when there are no predictions."""
         _mock_fetchall(mock_db, [])
@@ -401,7 +373,6 @@ class TestGetSplitMetrics:
 
         assert result == []
 
-    @pytest.mark.asyncio
     async def test_returns_metrics_per_version(self, service, mock_db):
         """Should return a list with one entry per model_version."""
         rows = [
@@ -420,7 +391,6 @@ class TestGetSplitMetrics:
         assert v1["count"] == 200
         assert v2["observed"] == 175
 
-    @pytest.mark.asyncio
     async def test_mape_is_none_when_no_observed(self, service, mock_db):
         """If mape is NULL in DB (no observed rows), it should be None in result."""
         row = _make_metrics_row("v1.0", mape=None, mae=None, total_count=50, observed_count=0)
@@ -431,7 +401,6 @@ class TestGetSplitMetrics:
         assert result[0]["mape"] is None
         assert result[0]["mae"] is None
 
-    @pytest.mark.asyncio
     async def test_metrics_dict_has_required_keys(self, service, mock_db):
         """Each metrics entry must include model_version, mape, mae, count, observed."""
         row = _make_metrics_row("v1.0", mape=4.5, mae=0.009, total_count=100, observed_count=90)
@@ -459,7 +428,6 @@ class TestAutoPromote:
         """Configure mock_db.execute to return the given rows from fetchall."""
         _mock_fetchall(mock_db, metrics_rows)
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_version_a_missing(self, service, mock_db):
         """Should return None when version_a has no metrics."""
         rows = [
@@ -471,7 +439,6 @@ class TestAutoPromote:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_version_b_missing(self, service, mock_db):
         """Should return None when version_b has no metrics."""
         rows = [
@@ -483,7 +450,6 @@ class TestAutoPromote:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_challenger_insufficient_observations(self, service, mock_db):
         """Should return None when version_b has fewer than min_predictions observations."""
         rows = [
@@ -496,7 +462,6 @@ class TestAutoPromote:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_challenger_when_improvement_exceeds_threshold(self, service, mock_db):
         """Should return version_b when it beats version_a by > threshold."""
         # version_b MAPE is 4.0 vs version_a MAPE 5.0 → improvement = 0.20 > 0.05
@@ -510,7 +475,6 @@ class TestAutoPromote:
 
         assert result == "v2.0"
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_improvement_below_threshold(self, service, mock_db):
         """Should return None when challenger improvement is below threshold."""
         # version_b MAPE is 4.96 vs version_a 5.0 → improvement = 0.008 < 0.05
@@ -524,7 +488,6 @@ class TestAutoPromote:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_mape_is_none_for_either(self, service, mock_db):
         """Should return None when either version's MAPE is None (no observed data)."""
         rows = [
@@ -537,7 +500,6 @@ class TestAutoPromote:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_custom_threshold_respected(self, service, mock_db):
         """A custom threshold=0.25 should require a larger improvement to promote."""
         # improvement = (5.0 - 4.0) / 5.0 = 0.20, which is < 0.25
@@ -551,7 +513,6 @@ class TestAutoPromote:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_custom_min_predictions_respected(self, service, mock_db):
         """Custom min_predictions=200 should block promotion when observed=150."""
         rows = [
@@ -593,9 +554,7 @@ class TestHashDeterminism:
         from services.ab_test_service import _hash_user_to_bucket
 
         uid = "collision-test-user"
-        buckets = {
-            _hash_user_to_bucket(uid, f"salt-{i}") for i in range(10)
-        }
+        buckets = {_hash_user_to_bucket(uid, f"salt-{i}") for i in range(10)}
         # With 10 different salts, we expect at least 2 distinct bucket values
         # (probabilistically extremely likely)
         assert len(buckets) > 1

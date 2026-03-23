@@ -5,14 +5,13 @@ Business tier gated. Provides CSV/JSON export of rate history
 per utility type with date range filtering.
 """
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
 from api.dependencies import get_db_session, require_tier
-from services.rate_export_service import RateExportService, EXPORT_CONFIGS
+from services.rate_export_service import EXPORT_CONFIGS, RateExportService
 
 router = APIRouter(prefix="/export")
 
@@ -25,9 +24,9 @@ router = APIRouter(prefix="/export")
 async def export_rates(
     utility_type: str = Query(..., description="Utility type to export"),
     format: str = Query("json", regex="^(json|csv)$", description="Export format"),
-    state: Optional[str] = Query(None, description="State code filter"),
-    start_date: Optional[datetime] = Query(None, description="Start date (ISO format)"),
-    end_date: Optional[datetime] = Query(None, description="End date (ISO format)"),
+    state: str | None = Query(None, description="State code filter"),
+    start_date: datetime | None = Query(None, description="Start date (ISO format)"),
+    end_date: datetime | None = Query(None, description="End date (ISO format)"),
     _user=Depends(require_tier("business")),
     db=Depends(get_db_session),
 ):

@@ -7,14 +7,19 @@ Tests cover:
 - GET /daily - all daily recommendations (requires auth)
 """
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user, get_db_session, get_recommendation_service, SessionData
+from api.dependencies import (
+    SessionData,
+    get_current_user,
+    get_db_session,
+    get_recommendation_service,
+)
 
 
 def _tier_db_mock(tier: str = "pro"):
@@ -111,17 +116,19 @@ class TestSwitchingRecommendation:
         """When service returns a recommendation, response includes it."""
         from services.recommendation_service import SwitchingRecommendation
 
-        mock_recommendation_service.get_switching_recommendation.return_value = SwitchingRecommendation(
-            user_id="test-user-123",
-            current_supplier="Eversource Energy",
-            recommended_supplier="NextEra Energy",
-            current_price=Decimal("0.28"),
-            recommended_price=Decimal("0.22"),
-            potential_savings=Decimal("0.06"),
-            savings_percentage=Decimal("21.4"),
-            confidence=0.85,
-            reasons=["Save up to 21.4% on electricity costs"],
-            generated_at=datetime(2026, 2, 23, 12, 0, tzinfo=timezone.utc),
+        mock_recommendation_service.get_switching_recommendation.return_value = (
+            SwitchingRecommendation(
+                user_id="test-user-123",
+                current_supplier="Eversource Energy",
+                recommended_supplier="NextEra Energy",
+                current_price=Decimal("0.28"),
+                recommended_price=Decimal("0.22"),
+                potential_savings=Decimal("0.06"),
+                savings_percentage=Decimal("21.4"),
+                confidence=0.85,
+                reasons=["Save up to 21.4% on electricity costs"],
+                generated_at=datetime(2026, 2, 23, 12, 0, tzinfo=UTC),
+            )
         )
 
         response = auth_client.get("/api/v1/recommendations/switching")
@@ -229,7 +236,7 @@ class TestUsageRecommendation:
             "estimated_cost": Decimal("0.72"),
             "cost_vs_peak": Decimal("0.45"),
             "reasons": ["Running during off-peak hours saves significantly"],
-            "generated_at": datetime(2026, 2, 23, 12, 0, tzinfo=timezone.utc),
+            "generated_at": datetime(2026, 2, 23, 12, 0, tzinfo=UTC),
         }
 
         response = auth_client.get(

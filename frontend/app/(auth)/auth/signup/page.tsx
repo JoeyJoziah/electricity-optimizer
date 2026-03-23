@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
 /**
- * Login Page
+ * Signup Page
  */
 
-import { LoginForm } from '@/components/auth/LoginForm'
+import { SignupForm } from "@/components/auth/SignupForm";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default function SignupPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -16,11 +16,11 @@ export default function LoginPage() {
           RateShift
         </h1>
         <p className="text-center text-gray-600 mb-8">
-          AI-powered electricity rate optimization
+          Create your account to start saving
         </p>
       </div>
 
-      <LoginForm />
+      <SignupForm />
     </div>
-  )
+  );
 }

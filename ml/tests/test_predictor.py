@@ -583,7 +583,12 @@ class TestPricePredictorInit:
         mock_xgb = MagicMock(XGBRegressor=MagicMock(return_value=mock_xgb_model))
         mock_joblib = MagicMock(load=MagicMock(return_value=mock_scaler))
 
-        with patch.dict("sys.modules", {"xgboost": mock_xgb, "joblib": mock_joblib}):
+        # Patch integrity checks so this unit test stays focused on scaler
+        # loading behaviour rather than HMAC signing (covered by TestModelIntegrityUtils).
+        with (
+            patch.dict("sys.modules", {"xgboost": mock_xgb, "joblib": mock_joblib}),
+            patch("ml.inference.predictor.verify_model_integrity"),
+        ):
             from ml.inference.predictor import PricePredictor
 
             p = PricePredictor(str(tmp_path), model_type="xgboost")

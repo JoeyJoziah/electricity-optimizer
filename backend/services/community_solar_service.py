@@ -5,14 +5,11 @@ Manages community solar program discovery, savings estimation,
 and enrollment status for the community solar marketplace.
 """
 
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Optional
+from decimal import ROUND_HALF_UP, Decimal
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-
-from models.region import COMMUNITY_SOLAR_STATES
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -32,7 +29,7 @@ class CommunitySolarService:
     async def get_programs(
         self,
         state: str,
-        enrollment_status: Optional[str] = None,
+        enrollment_status: str | None = None,
         limit: int = 20,
     ) -> list[dict]:
         """
@@ -85,7 +82,7 @@ class CommunitySolarService:
             for r in rows
         ]
 
-    async def get_program_by_id(self, program_id: str) -> Optional[dict]:
+    async def get_program_by_id(self, program_id: str) -> dict | None:
         """Get a specific community solar program by ID."""
         result = await self._db.execute(
             text("""
@@ -138,12 +135,8 @@ class CommunitySolarService:
         monthly_savings = (monthly_bill * savings_rate).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
-        annual_savings = (monthly_savings * 12).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        five_year_savings = (annual_savings * 5).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        annual_savings = (monthly_savings * 12).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        five_year_savings = (annual_savings * 5).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         new_monthly_bill = (monthly_bill - monthly_savings).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )

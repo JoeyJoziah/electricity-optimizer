@@ -29,10 +29,11 @@ export const ROUTES: RouteConfig[] = [
     requireApiKey: true,
   },
 
-  // Price refresh — triggers cache invalidation
+  // Price refresh — triggers cache invalidation (internal-only, API key required)
   {
     pattern: /^\/api\/v1\/prices\/refresh$/,
-    rateLimit: "strict",
+    rateLimit: "internal",
+    requireApiKey: true,
   },
 
   // Current prices — short cache, vary on region + utility type
@@ -126,3 +127,22 @@ export const PRICE_CACHE_PATTERNS = [
   "rsgw:/api/v1/prices/history",
   "rsgw:/api/v1/prices/analytics",
 ];
+
+/**
+ * Valid region values for cache key validation.
+ * Mirrors backend Region enum (50 US states + DC + international).
+ * Used by buildCacheKey to reject arbitrary region values from polluting KV.
+ */
+export const VALID_REGIONS: Set<string> = new Set([
+  // US States + DC
+  "us_al", "us_ak", "us_az", "us_ar", "us_ca", "us_co", "us_ct", "us_de",
+  "us_dc", "us_fl", "us_ga", "us_hi", "us_id", "us_il", "us_in", "us_ia",
+  "us_ks", "us_ky", "us_la", "us_me", "us_md", "us_ma", "us_mi", "us_mn",
+  "us_ms", "us_mo", "us_mt", "us_ne", "us_nv", "us_nh", "us_nj", "us_nm",
+  "us_ny", "us_nc", "us_nd", "us_oh", "us_ok", "us_or", "us_pa", "us_ri",
+  "us_sc", "us_sd", "us_tn", "us_tx", "us_ut", "us_vt", "us_va", "us_wa",
+  "us_wv", "us_wi", "us_wy",
+  // International
+  "uk", "de", "fr", "es", "it", "nl", "be", "at", "ch", "se", "no", "dk",
+  "fi", "ie", "pt", "au", "nz", "ca", "jp",
+]);

@@ -1,24 +1,20 @@
 """
 Rate Limiting Middleware
 
-Provides per-user and per-IP rate limiting using Redis-backed sliding window.
+Provides per-IP rate limiting using Redis-backed sliding window.
+User-level rate limiting is handled at the endpoint/service layer.
 """
 
-import hashlib
 import json
 import time
-from typing import Optional
-from datetime import datetime, timezone
-
-from fastapi import HTTPException, status
-from starlette.datastructures import MutableHeaders
-from starlette.types import ASGIApp, Receive, Scope, Send
-from redis import asyncio as aioredis
 
 import structlog
+from fastapi import HTTPException, status
+from redis import asyncio as aioredis
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from config.settings import settings
-
 
 logger = structlog.get_logger()
 
@@ -90,7 +86,7 @@ class UserRateLimiter:
 
     def __init__(
         self,
-        redis_client: Optional[aioredis.Redis] = None,
+        redis_client: aioredis.Redis | None = None,
         requests_per_minute: int = None,
         requests_per_hour: int = None,
         login_attempts: int = 5,
@@ -165,11 +161,11 @@ class UserRateLimiter:
 
         request_count = await self.redis.eval(
             _SLIDING_WINDOW_LUA,
-            1,          # number of KEYS
-            key,        # KEYS[1]
-            now,        # ARGV[1]
-            window,     # ARGV[2]
-            limit,      # ARGV[3]
+            1,  # number of KEYS
+            key,  # KEYS[1]
+            now,  # ARGV[1]
+            window,  # ARGV[2]
+            limit,  # ARGV[3]
         )
         request_count = int(request_count)
 
@@ -230,12 +226,20 @@ class UserRateLimiter:
 
         minute_count_raw, hour_count_raw = await _asyncio.gather(
             self.redis.eval(
-                _SLIDING_WINDOW_LUA, 1,
-                minute_key, now, 60, self.requests_per_minute,
+                _SLIDING_WINDOW_LUA,
+                1,
+                minute_key,
+                now,
+                60,
+                self.requests_per_minute,
             ),
             self.redis.eval(
-                _SLIDING_WINDOW_LUA, 1,
-                hour_key, now, 3600, self.requests_per_hour,
+                _SLIDING_WINDOW_LUA,
+                1,
+                hour_key,
+                now,
+                3600,
+                self.requests_per_hour,
             ),
         )
 
@@ -284,7 +288,8 @@ class UserRateLimiter:
         # Periodic sweep: cap total keys to prevent unbounded growth during Redis outage
         if len(self._memory_store) > 10_000:
             stale_keys = [
-                k for k, v in self._memory_store.items()
+                k
+                for k, v in self._memory_store.items()
                 if isinstance(v, list) and (not v or v[-1] < window_start)
             ]
             for k in stale_keys:
@@ -380,16 +385,17 @@ class UserRateLimiter:
 
 class RateLimitMiddleware:
     """
-    Pure ASGI middleware for rate limiting.
+    Pure ASGI middleware for IP-based rate limiting.
 
-    Applies per-user and per-IP rate limits to all requests.
+    Applies per-IP rate limits to all requests.  User-level rate limiting
+    is handled at the endpoint/service layer (not in this middleware).
     """
 
     def __init__(
         self,
         app: ASGIApp,
-        rate_limiter: Optional[UserRateLimiter] = None,
-        exclude_paths: Optional[list] = None,
+        rate_limiter: UserRateLimiter | None = None,
+        exclude_paths: list | None = None,
     ):
         """
         Initialize rate limit middleware.
@@ -402,6 +408,12 @@ class RateLimitMiddleware:
         self.app = app
         self.rate_limiter = rate_limiter or UserRateLimiter()
         self.exclude_paths = exclude_paths or ["/health", "/metrics"]
+
+    # Stricter per-IP rate limit for the Stripe webhook endpoint.
+    # Stripe sends at most a handful of events per minute; 30/min is generous
+    # while limiting payload flooding from unauthenticated sources.
+    WEBHOOK_RATE_LIMIT_PER_MINUTE = 30
+    WEBHOOK_PATHS = ("/api/v1/billing/webhook",)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Apply rate limiting to request."""
@@ -416,8 +428,28 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Get identifier (user ID from token or IP address)
+        # Get IP-based identifier for rate limiting
         identifier = self._get_identifier(scope)
+
+        # Apply stricter per-IP rate limit on webhook endpoints
+        if any(path == wp for wp in self.WEBHOOK_PATHS):
+            webhook_key = f"ratelimit:webhook:{identifier}"
+            if self.rate_limiter.redis:
+                webhook_ok, _ = await self.rate_limiter._check_redis(
+                    webhook_key, self.WEBHOOK_RATE_LIMIT_PER_MINUTE, 60
+                )
+            else:
+                webhook_ok, _ = self.rate_limiter._check_memory(
+                    webhook_key, self.WEBHOOK_RATE_LIMIT_PER_MINUTE, 60
+                )
+            if not webhook_ok:
+                logger.warning(
+                    "webhook_rate_limit_exceeded",
+                    path=path,
+                    identifier=identifier,
+                )
+                await self._send_429(send, retry_after=60)
+                return
 
         # Check both minute and hour limits in a single round-trip
         minute_ok, remaining, hour_ok = await self.rate_limiter.check_rate_limits_combined(
@@ -454,41 +486,54 @@ class RateLimitMiddleware:
         body = json.dumps(
             {"detail": f"Rate limit exceeded. Retry after {retry_after} seconds."}
         ).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 429,
-            "headers": [
-                [b"content-type", b"application/json"],
-                [b"content-length", str(len(body)).encode()],
-                [b"retry-after", str(retry_after).encode()],
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 429,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(body)).encode()],
+                    [b"retry-after", str(retry_after).encode()],
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
 
     def _get_identifier(self, scope: Scope) -> str:
-        """Get identifier for rate limiting (user ID or IP) from raw ASGI scope."""
+        """Get IP-based identifier for rate limiting from raw ASGI scope.
+
+        Rate limiting at the middleware level is ALWAYS IP-based.  User-level
+        rate limiting (by authenticated user ID) is handled at the endpoint
+        level — for example, the AI agent query limits in agent_service.py
+        use INSERT ... ON CONFLICT atomic counters keyed by user_id.
+
+        Using Bearer tokens as rate-limit keys is intentionally avoided
+        because an attacker can rotate tokens to obtain fresh rate-limit
+        windows, effectively bypassing the limit.
+
+        In production, ``CF-Connecting-IP`` is the only trusted client IP
+        header because it is set by Cloudflare and cannot be spoofed by the
+        client.  ``X-Forwarded-For`` is accepted only in non-production
+        environments (dev/test/staging) where requests may bypass the CF
+        Worker edge layer.
+        """
         # Headers in ASGI scope are list[tuple[bytes, bytes]]
         headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
-        for header_name, header_value in headers:
-            if header_name == b"authorization":
-                auth = header_value.decode("latin-1")
-                if auth.startswith("Bearer "):
-                    token_hash = hashlib.sha256(auth[7:].encode()).hexdigest()[:16]
-                    return f"user:{token_hash}"
-                break
 
-        # Prefer Cloudflare's real client IP (behind CF Worker edge layer)
+        # 1. Prefer Cloudflare's real client IP (most reliable behind CF Worker edge layer)
         for header_name, header_value in headers:
             if header_name == b"cf-connecting-ip":
                 return f"ip:{header_value.decode('ascii')}"
 
-        # Fallback: X-Forwarded-For (first entry = original client)
-        for header_name, header_value in headers:
-            if header_name == b"x-forwarded-for":
-                real_ip = header_value.decode("ascii").split(",")[0].strip()
-                return f"ip:{real_ip}"
+        # 2. In production, X-Forwarded-For is spoofable if the request
+        #    bypassed the CF Worker.  Only trust it in non-production envs.
+        if not settings.is_production:
+            for header_name, header_value in headers:
+                if header_name == b"x-forwarded-for":
+                    real_ip = header_value.decode("ascii").split(",")[0].strip()
+                    return f"ip:{real_ip}"
 
-        # Last resort: ASGI client tuple (reverse proxy IP if behind LB)
+        # 3. Last resort: ASGI client tuple (reverse proxy IP if behind LB)
         client = scope.get("client")
         if client:
             return f"ip:{client[0]}"
@@ -497,7 +542,7 @@ class RateLimitMiddleware:
 
 
 # Global rate limiter instance (initialized with app)
-rate_limiter: Optional[UserRateLimiter] = None
+rate_limiter: UserRateLimiter | None = None
 
 
 async def get_rate_limiter(redis: aioredis.Redis = None) -> UserRateLimiter:

@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * Email Verification Page
@@ -10,82 +10,90 @@
  * The `email` query param (optional) is used to pre-fill the resend form.
  */
 
-import React, { useState, useEffect, useRef, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { authClient } from '@/lib/auth/client'
+import React, { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth/client";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 function VerifyEmailContent() {
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token')
-  const emailParam = searchParams.get('email') || ''
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  const emailParam = searchParams.get("email") || "";
 
-  const [verifying, setVerifying] = useState(!!token)
-  const [verified, setVerified] = useState(false)
-  const [verifyError, setVerifyError] = useState('')
-  const [resending, setResending] = useState(false)
-  const [resent, setResent] = useState(false)
-  const [resendError, setResendError] = useState('')
-  const [resendEmail, setResendEmail] = useState(emailParam)
+  const [verifying, setVerifying] = useState(!!token);
+  const [verified, setVerified] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [resendError, setResendError] = useState("");
+  const [resendEmail, setResendEmail] = useState(emailParam);
 
   // Verify the token automatically on mount (only once)
-  const verifiedRef = useRef(false)
+  const verifiedRef = useRef(false);
   useEffect(() => {
-    if (!token || verifiedRef.current) return
-    verifiedRef.current = true
+    if (!token || verifiedRef.current) return;
+    verifiedRef.current = true;
 
     const verify = async () => {
       try {
         // Better Auth verifyEmail is a GET with query params
         // Maps to GET /api/auth/verify-email?token=...
         // Returns { data, error } instead of throwing
-        const result = await authClient.verifyEmail({ query: { token } })
+        const result = await authClient.verifyEmail({ query: { token } });
         if (result?.error) {
-          console.error('[VerifyEmail] verifyEmail error:', result.error)
-          setVerifyError(result.error.message || 'Verification failed. The link may have expired.')
+          console.error("[VerifyEmail] verifyEmail error:", result.error);
+          setVerifyError(
+            result.error.message ||
+              "Verification failed. The link may have expired.",
+          );
         } else {
-          setVerified(true)
+          setVerified(true);
         }
       } catch (err: unknown) {
         const message =
           err instanceof Error
             ? err.message
-            : 'Verification failed. The link may have expired.'
-        setVerifyError(message)
+            : "Verification failed. The link may have expired.";
+        setVerifyError(message);
       } finally {
-        setVerifying(false)
+        setVerifying(false);
       }
-    }
+    };
 
-    verify()
-  }, [token])
+    verify();
+  }, [token]);
 
   const handleResend = async () => {
-    if (!resendEmail) return
-    setResending(true)
-    setResendError('')
+    if (!resendEmail) return;
+    setResending(true);
+    setResendError("");
     try {
       // Maps to POST /api/auth/send-verification-email
       // Better Auth returns { data, error } instead of throwing
-      const result = await authClient.sendVerificationEmail({ email: resendEmail })
+      const result = await authClient.sendVerificationEmail({
+        email: resendEmail,
+      });
       if (result?.error) {
-        console.error('[VerifyEmail] sendVerificationEmail error:', result.error)
-        setResendError('Unable to send verification email. Please try again.')
+        console.error(
+          "[VerifyEmail] sendVerificationEmail error:",
+          result.error,
+        );
+        setResendError("Unable to send verification email. Please try again.");
       } else {
-        setResent(true)
+        setResent(true);
       }
     } catch (err) {
-      console.error('[VerifyEmail] sendVerificationEmail exception:', err)
-      setResendError('Unable to send verification email. Please try again.')
+      console.error("[VerifyEmail] sendVerificationEmail exception:", err);
+      setResendError("Unable to send verification email. Please try again.");
     } finally {
-      setResending(false)
+      setResending(false);
     }
-  }
+  };
 
   // Token present: show verification state
   if (token) {
@@ -95,12 +103,16 @@ function VerifyEmailContent() {
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
               <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-primary-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Verifying your email...</h2>
-              <p className="mt-2 text-sm text-gray-600">Please wait a moment.</p>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Verifying your email...
+              </h2>
+              <p className="mt-2 text-sm text-gray-600">
+                Please wait a moment.
+              </p>
             </CardContent>
           </Card>
         </div>
-      )
+      );
     }
 
     if (verified) {
@@ -123,7 +135,9 @@ function VerifyEmailContent() {
                   />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Email verified</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Email verified
+              </h2>
               <p className="mt-2 text-sm text-gray-600">
                 Your email has been verified successfully. You can now sign in.
               </p>
@@ -136,7 +150,7 @@ function VerifyEmailContent() {
             </CardContent>
           </Card>
         </div>
-      )
+      );
     }
 
     // Verification failed
@@ -159,7 +173,9 @@ function VerifyEmailContent() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Verification failed</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Verification failed
+            </h2>
             <p className="mt-2 text-sm text-gray-600">{verifyError}</p>
             <div className="mt-4 space-y-2">
               <Link
@@ -178,7 +194,7 @@ function VerifyEmailContent() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   // No token: show "check your email" screen with resend option
@@ -202,11 +218,13 @@ function VerifyEmailContent() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Check your email</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Check your email
+            </h2>
             <p className="mt-2 text-sm text-gray-600">
-              We&apos;ve sent a verification link to{' '}
-              <strong>{emailParam || 'your email'}</strong>. Click the link to verify your
-              account.
+              We&apos;ve sent a verification link to{" "}
+              <strong>{emailParam || "your email"}</strong>. Click the link to
+              verify your account.
             </p>
 
             <div className="mt-6 space-y-3">
@@ -236,7 +254,7 @@ function VerifyEmailContent() {
                     loading={resending}
                     className="w-full"
                   >
-                    {resending ? 'Sending...' : 'Resend verification email'}
+                    {resending ? "Sending..." : "Resend verification email"}
                   </Button>
                 </>
               ) : (
@@ -258,7 +276,7 @@ function VerifyEmailContent() {
         </div>
       </Card>
     </div>
-  )
+  );
 }
 
 export default function VerifyEmailPage() {
@@ -276,5 +294,5 @@ export default function VerifyEmailPage() {
     >
       <VerifyEmailContent />
     </Suspense>
-  )
+  );
 }

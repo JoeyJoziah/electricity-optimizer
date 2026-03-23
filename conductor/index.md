@@ -32,6 +32,10 @@ Navigation hub for project context and feature development.
 
 - [ ] [Verification & Integration Quality Gates](tracks/verification-gates_20260318/) — Pre-commit, pre-push, conductor verification, API contract checks (5 phases, 17 tasks)
 
+- [ ] [Audit Remediation 2026-03-19](tracks/audit-remediation_20260319/) — 514 findings from 20-agent audit, 66 tasks across 10 sprints (secrets, webhooks, DB schema, auth, async, API, ML, frontend, deps, tests)
+
+- [ ] [Audit Remediation 2026-03-23](tracks/audit-remediation_20260323/) — ~560 findings from 20-agent audit, 75 tasks across 9 sprints (security, auth, test quality, backend services, frontend a11y, database, deps, infra)
+
 <!-- Auto-populated by /conductor:new-track -->
 
 ## Getting Started

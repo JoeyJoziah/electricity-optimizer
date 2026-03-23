@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-18 (Audit remediation 59/59 COMPLETE — CF Worker 3 cron triggers. Backend 2,686 tests, Frontend 2,039 tests (154 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 611 = ~7,031 total. 53 migrations (053: notification_dedup_index). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. GHA estimated ~1,843 min/mo.)
+> Last validated: 2026-03-23 (Audit remediation 75/75 COMPLETE — 4 audit tracks total. CF Worker 3 cron triggers. Backend 2,976 tests, Frontend 2,039 tests (154 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,386 total. 61 migrations (061: schema_integrity_fixes). 53 tables (44 public + 9 neon_auth). 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -132,7 +132,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 11. **Community**: `/community` page with posts, voting, reporting. AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. nh3 XSS sanitization. Report threshold: 5 unique reporters auto-hides. Rate limit: 10 posts/hour. Community backend: `community_service.py`, `savings_aggregator.py`, `neighborhood_service.py`. Migration 049: 3 tables (community_posts, community_votes, community_reports). Migration 050: optimized partial indexes. Migration 051: GDPR CASCADE fixes for community + notifications FKs
 12. **Tier cache**: 30s TTL (in-memory + Redis). Stripe webhook events update DB directly; cache self-heals within 30s. `require_tier()` gates 7+ endpoints
 13. **Rate limiter Lua script**: Redis `:seq` counter keys now have TTL matching the main key (previously leaked without expiry)
-14. **OAuth credentials**: GitHub OAuth COMPLETE (App ID 3466397, Client ID `Ov23liuYEgAM1Ay8tSWg`, stored in 1Password `xfucwotbnak4smvc6y4gad34eq` + Render + Vercel). Google OAuth IN PROGRESS (GCP project `project-aa7b3d1e-97ac-4437-b55`, Client ID `268675977965-o21ia1l01f9bv37ivq34bbvno9qvb3pf.apps.googleusercontent.com`, **secret pending manual Download JSON**). Render env var gaps: GOOGLE_CLIENT_ID/SECRET (placeholder), UTILITYAPI_KEY (missing), GMAIL_CLIENT_ID/SECRET (missing), OUTLOOK_CLIENT_ID/SECRET (missing)
+14. **OAuth credentials**: GitHub OAuth COMPLETE (stored in 1Password "RateShift" vault + Render + Vercel). Google OAuth IN PROGRESS (**secret pending manual Download JSON**). Render env var gaps: GOOGLE_CLIENT_ID/SECRET (placeholder), UTILITYAPI_KEY (missing), GMAIL_CLIENT_ID/SECRET (missing), OUTLOOK_CLIENT_ID/SECRET (missing)
 15. **Browser automation limitations**: Chrome blocks programmatic file downloads (non-user-gesture). GCP new Auth Platform permanently hashes secrets after creation dialog — ALWAYS Download JSON before dismissing
 
 ## Cron Jobs & Maintenance

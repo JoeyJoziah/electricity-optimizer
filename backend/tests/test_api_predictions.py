@@ -8,19 +8,19 @@ Tests cover:
 - GET /predict/model-info - ML model info
 """
 
-import pytest
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def predictions_client():
     """Create a TestClient with mocked database dependencies."""
-    from main import app
+    from api.dependencies import SessionData, get_current_user
     from config.database import get_redis, get_timescale_session
-    from api.dependencies import get_current_user, SessionData
+    from main import app
 
     mock_user = SessionData(user_id="test-user-id", email="test@example.com")
 
@@ -128,7 +128,9 @@ class TestPredictPrice:
         assert response.json()["predictions"][0]["currency"] == "USD"
 
     @patch("routers.predictions._load_model", return_value=None)
-    def test_predict_price_predictions_have_confidence_bounds(self, _mock_model, predictions_client):
+    def test_predict_price_predictions_have_confidence_bounds(
+        self, _mock_model, predictions_client
+    ):
         """Each prediction should include confidence_lower and confidence_upper."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
@@ -202,8 +204,8 @@ class TestSavingsEstimate:
     @patch("routers.predictions._load_model", return_value=None)
     def test_savings_estimate_success(self, _mock_model, predictions_client):
         """Valid savings request should return cost comparison."""
-        future_start = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-        future_end = (datetime.now(timezone.utc) + timedelta(hours=10)).isoformat()
+        future_start = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+        future_end = (datetime.now(UTC) + timedelta(hours=10)).isoformat()
 
         response = predictions_client.post(
             "/api/v1/ml/predict/savings",
@@ -273,16 +275,18 @@ class TestModelInfo:
 
     def test_model_info_with_redis(self):
         """When redis has model version, it should be returned."""
-        from main import app
+        from api.dependencies import SessionData, get_current_user
         from config.database import get_redis
-        from api.dependencies import get_current_user, SessionData
+        from main import app
 
         mock_redis = AsyncMock()
-        mock_redis.get = AsyncMock(side_effect=lambda key: {
-            "model:latest_version": "v2.3.1",
-            "model:recent_mape": "4.5",
-            "model:last_updated": "2026-02-22T10:00:00Z",
-        }.get(key))
+        mock_redis.get = AsyncMock(
+            side_effect=lambda key: {
+                "model:latest_version": "v2.3.1",
+                "model:recent_mape": "4.5",
+                "model:last_updated": "2026-02-22T10:00:00Z",
+            }.get(key)
+        )
 
         mock_user = SessionData(user_id="test-user-id", email="test@example.com")
         app.dependency_overrides[get_redis] = lambda: mock_redis
@@ -298,3 +302,126 @@ class TestModelInfo:
 
         app.dependency_overrides.pop(get_redis, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+# =============================================================================
+# Error sanitization — exception text must NEVER reach the client
+# =============================================================================
+
+
+class TestPredictionErrorSanitization:
+    """Verify that internal exception details are never leaked to HTTP clients.
+
+    Each endpoint wraps generation logic in a broad ``except Exception`` block.
+    When that handler fires the response must:
+    - Return HTTP 500
+    - Return a *generic* ``detail`` string (not the raw exception message)
+    - Specifically NOT contain any substring from the underlying exception
+    """
+
+    @patch(
+        "routers.predictions.generate_price_forecast",
+        side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
+    )
+    def test_predict_price_error_does_not_leak_exception(self, _mock_gen, predictions_client):
+        """500 on /predict/price must not include raw exception text in the response body."""
+        response = predictions_client.post(
+            "/api/v1/ml/predict/price",
+            json={"region": "us_ct", "hours_ahead": 6},
+        )
+        assert response.status_code == 500
+        body = response.text
+        assert "DATABASE_URL" not in body
+        assert "postgresql://" not in body
+        assert "secret" not in body
+        # Must contain a generic message instead
+        data = response.json()
+        assert "detail" in data
+        assert isinstance(data["detail"], str)
+        assert len(data["detail"]) > 0
+
+    @patch(
+        "routers.predictions.generate_price_forecast",
+        side_effect=Exception("AES-256-GCM key derivation failed: invalid padding"),
+    )
+    def test_predict_price_error_does_not_leak_crypto_details(self, _mock_gen, predictions_client):
+        """Crypto exception details must not appear in the 500 response."""
+        response = predictions_client.post(
+            "/api/v1/ml/predict/price",
+            json={"region": "us_ct", "hours_ahead": 6},
+        )
+        assert response.status_code == 500
+        body = response.text
+        assert "AES-256-GCM" not in body
+        assert "invalid padding" not in body
+
+    @patch(
+        "routers.predictions.generate_price_forecast",
+        side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
+    )
+    def test_predict_optimal_times_error_does_not_leak_exception(
+        self, _mock_gen, predictions_client
+    ):
+        """500 on /predict/optimal-times must not include raw exception text."""
+        response = predictions_client.post(
+            "/api/v1/ml/predict/optimal-times",
+            json={"region": "us_ct", "duration_hours": 2.0},
+        )
+        assert response.status_code == 500
+        body = response.text
+        assert "DATABASE_URL" not in body
+        assert "postgresql://" not in body
+
+    @patch(
+        "routers.predictions.generate_price_forecast",
+        side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
+    )
+    def test_predict_savings_error_does_not_leak_exception(self, _mock_gen, predictions_client):
+        """500 on /predict/savings must not include raw exception text."""
+        from datetime import UTC, datetime, timedelta
+
+        future_start = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+        future_end = (datetime.now(UTC) + timedelta(hours=10)).isoformat()
+
+        response = predictions_client.post(
+            "/api/v1/ml/predict/savings",
+            json={
+                "region": "uk",
+                "appliances": [
+                    {
+                        "name": "Washer",
+                        "power_kw": 1.0,
+                        "duration_hours": 1.0,
+                        "earliest_start": future_start,
+                        "latest_end": future_end,
+                        "continuous": True,
+                    }
+                ],
+            },
+        )
+        assert response.status_code == 500
+        body = response.text
+        assert "DATABASE_URL" not in body
+        assert "postgresql://" not in body
+
+    @patch(
+        "routers.predictions.generate_price_forecast",
+        side_effect=Exception("internal db error with secret_key=sk_live_abc123"),
+    )
+    def test_predict_price_error_detail_is_generic_message(self, _mock_gen, predictions_client):
+        """The detail field must be a generic human-readable message, not the raw error."""
+        response = predictions_client.post(
+            "/api/v1/ml/predict/price",
+            json={"region": "us_ct", "hours_ahead": 6},
+        )
+        assert response.status_code == 500
+        data = response.json()
+        # Must NOT echo back the exception string
+        assert "sk_live_abc123" not in data["detail"]
+        assert "secret_key" not in data["detail"]
+        # Generic wording expected (case-insensitive)
+        detail_lower = data["detail"].lower()
+        assert any(
+            phrase in detail_lower
+            for phrase in ["see server logs", "internal server error", "prediction failed"]
+        )

@@ -6,8 +6,6 @@ benchmarking. Monitoring only — no "switch" CTA (Decision D4: water is
 a geographic monopoly).
 """
 
-from typing import Optional
-
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,7 +87,8 @@ class WaterRateService:
     # ------------------------------------------------------------------
 
     async def get_rates(
-        self, state: Optional[str] = None,
+        self,
+        state: str | None = None,
     ) -> list[dict]:
         """Get water rates, optionally filtered by state."""
         if state:
@@ -118,8 +117,10 @@ class WaterRateService:
         return [self._format_rate(r) for r in rows]
 
     async def get_rate_by_municipality(
-        self, municipality: str, state: str,
-    ) -> Optional[dict]:
+        self,
+        municipality: str,
+        state: str,
+    ) -> dict | None:
         """Get water rate for a specific municipality."""
         result = await self.db.execute(
             text("""
@@ -139,7 +140,9 @@ class WaterRateService:
     # ------------------------------------------------------------------
 
     def calculate_monthly_cost(
-        self, rate: dict, usage_gallons: int,
+        self,
+        rate: dict,
+        usage_gallons: int,
     ) -> dict:
         """Calculate monthly water cost using tiered pricing.
 
@@ -181,12 +184,14 @@ class WaterRateService:
             charge = gallons_in_tier * rate_per_gallon
             tier_charges += charge
 
-            breakdown.append({
-                "tier": i + 1,
-                "gallons": gallons_in_tier,
-                "rate_per_gallon": rate_per_gallon,
-                "charge": round(charge, 2),
-            })
+            breakdown.append(
+                {
+                    "tier": i + 1,
+                    "gallons": gallons_in_tier,
+                    "rate_per_gallon": rate_per_gallon,
+                    "charge": round(charge, 2),
+                }
+            )
 
             remaining -= gallons_in_tier
             if limit is not None:
@@ -234,11 +239,13 @@ class WaterRateService:
             cost = self.calculate_monthly_cost(rate, AVG_MONTHLY_GALLONS)
             total = cost["total_monthly"]
             costs.append(total)
-            rate_details.append({
-                "municipality": rate["municipality"],
-                "monthly_cost": total,
-                "base_charge": float(rate["base_charge"]),
-            })
+            rate_details.append(
+                {
+                    "municipality": rate["municipality"],
+                    "monthly_cost": total,
+                    "base_charge": float(rate["base_charge"]),
+                }
+            )
 
         avg_cost = sum(costs) / len(costs) if costs else 0
 
@@ -270,34 +277,38 @@ class WaterRateService:
 
         Returns the ID of the upserted record.
         """
-        result = await self.db.execute(
-            text("""
-                INSERT INTO water_rates
-                    (municipality, state, rate_tiers, base_charge, unit,
-                     effective_date, source_url)
-                VALUES (:municipality, :state, :rate_tiers::jsonb, :base_charge,
-                        :unit, :effective_date, :source_url)
-                ON CONFLICT (municipality, state) DO UPDATE
-                    SET rate_tiers = EXCLUDED.rate_tiers,
-                        base_charge = EXCLUDED.base_charge,
-                        unit = EXCLUDED.unit,
-                        effective_date = EXCLUDED.effective_date,
-                        source_url = EXCLUDED.source_url,
-                        updated_at = NOW()
-                RETURNING id
-            """),
-            {
-                "municipality": rate_data["municipality"],
-                "state": rate_data["state"].upper(),
-                "rate_tiers": rate_data.get("rate_tiers", "[]"),
-                "base_charge": rate_data.get("base_charge", 0),
-                "unit": rate_data.get("unit", "gallon"),
-                "effective_date": rate_data.get("effective_date"),
-                "source_url": rate_data.get("source_url"),
-            },
-        )
-        row = result.fetchone()
-        await self.db.commit()
+        try:
+            result = await self.db.execute(
+                text("""
+                    INSERT INTO water_rates
+                        (municipality, state, rate_tiers, base_charge, unit,
+                         effective_date, source_url)
+                    VALUES (:municipality, :state, :rate_tiers::jsonb, :base_charge,
+                            :unit, :effective_date, :source_url)
+                    ON CONFLICT (municipality, state) DO UPDATE
+                        SET rate_tiers = EXCLUDED.rate_tiers,
+                            base_charge = EXCLUDED.base_charge,
+                            unit = EXCLUDED.unit,
+                            effective_date = EXCLUDED.effective_date,
+                            source_url = EXCLUDED.source_url,
+                            updated_at = NOW()
+                    RETURNING id
+                """),
+                {
+                    "municipality": rate_data["municipality"],
+                    "state": rate_data["state"].upper(),
+                    "rate_tiers": rate_data.get("rate_tiers", "[]"),
+                    "base_charge": rate_data.get("base_charge", 0),
+                    "unit": rate_data.get("unit", "gallon"),
+                    "effective_date": rate_data.get("effective_date"),
+                    "source_url": rate_data.get("source_url"),
+                },
+            )
+            row = result.fetchone()
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
         return str(row[0]) if row else ""
 
     # ------------------------------------------------------------------
@@ -318,7 +329,5 @@ class WaterRateService:
                 row["effective_date"].isoformat() if row["effective_date"] else None
             ),
             "source_url": row["source_url"],
-            "updated_at": (
-                row["updated_at"].isoformat() if row["updated_at"] else None
-            ),
+            "updated_at": (row["updated_at"].isoformat() if row["updated_at"] else None),
         }

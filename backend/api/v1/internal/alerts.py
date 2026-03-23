@@ -37,12 +37,12 @@ async def check_alerts(
 
     Protected by the router-level X-API-Key dependency.
     """
+    from repositories.price_repository import PriceRepository
     from services.alert_service import AlertService, AlertThreshold
-    from services.notification_dispatcher import NotificationDispatcher, NotificationChannel
+    from services.email_service import EmailService
+    from services.notification_dispatcher import NotificationDispatcher
     from services.notification_service import NotificationService
     from services.push_notification_service import PushNotificationService
-    from services.email_service import EmailService
-    from repositories.price_repository import PriceRepository
 
     if db is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
@@ -118,9 +118,7 @@ async def check_alerts(
         # 5. Deduplication — batch check cooldown windows (single query per
         #    frequency tier instead of one query per triggered pair)
         # ------------------------------------------------------------------
-        in_cooldown = await service._batch_should_send_alerts(
-            triggered_pairs, freq_by_user, db
-        )
+        in_cooldown = await service._batch_should_send_alerts(triggered_pairs, freq_by_user, db)
         for threshold, alert in triggered_pairs:
             key = (threshold.user_id, alert.alert_type, alert.region)
             if key not in in_cooldown:
@@ -180,4 +178,6 @@ async def check_alerts(
 
     except Exception as exc:
         logger.error("check_alerts_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="Alert check failed. See server logs for details.")
+        raise HTTPException(
+            status_code=500, detail="Alert check failed. See server logs for details."
+        )

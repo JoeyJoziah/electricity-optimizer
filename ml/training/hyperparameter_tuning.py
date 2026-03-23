@@ -14,9 +14,8 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple, Callable
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 import numpy as np
-import pandas as pd
 from datetime import datetime
 
 # ML frameworks
@@ -24,14 +23,14 @@ import optuna
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
 from sklearn.model_selection import ParameterGrid, ParameterSampler
-from scipy.stats import uniform, randint
+from scipy.stats import uniform
 
 # TensorFlow
-import tensorflow as tf
 from tensorflow import keras
 
 # Local imports
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent))
 
 logger = logging.getLogger(__name__)
@@ -57,9 +56,11 @@ class HyperparameterSpace:
     dense_dropout: List[float] = field(default_factory=lambda: [0.0, 0.1, 0.2])
 
     # Training parameters
-    learning_rate: List[float] = field(default_factory=lambda: [0.0001, 0.0005, 0.001, 0.005])
+    learning_rate: List[float] = field(
+        default_factory=lambda: [0.0001, 0.0005, 0.001, 0.005]
+    )
     batch_size: List[int] = field(default_factory=lambda: [16, 32, 64])
-    optimizer: List[str] = field(default_factory=lambda: ['adam', 'rmsprop'])
+    optimizer: List[str] = field(default_factory=lambda: ["adam", "rmsprop"])
 
     # Feature engineering
     lookback_hours: List[int] = field(default_factory=lambda: [72, 168, 336])
@@ -67,23 +68,38 @@ class HyperparameterSpace:
     def to_optuna_space(self, trial: optuna.Trial) -> Dict[str, Any]:
         """Convert to Optuna trial suggestions"""
         return {
-            'cnn_filters': trial.suggest_categorical('cnn_filters', self.cnn_filters),
-            'cnn_kernel_size': trial.suggest_categorical('cnn_kernel_size', self.cnn_kernel_size),
-            'cnn_layers': trial.suggest_int('cnn_layers', min(self.cnn_layers), max(self.cnn_layers)),
-
-            'lstm_units': trial.suggest_categorical('lstm_units', self.lstm_units),
-            'lstm_layers': trial.suggest_int('lstm_layers', min(self.lstm_layers), max(self.lstm_layers)),
-            'lstm_dropout': trial.suggest_float('lstm_dropout', min(self.lstm_dropout), max(self.lstm_dropout)),
-
-            'dense_units': trial.suggest_categorical('dense_units', self.dense_units),
-            'dense_layers': trial.suggest_int('dense_layers', min(self.dense_layers), max(self.dense_layers)),
-            'dense_dropout': trial.suggest_float('dense_dropout', min(self.dense_dropout), max(self.dense_dropout)),
-
-            'learning_rate': trial.suggest_loguniform('learning_rate', min(self.learning_rate), max(self.learning_rate)),
-            'batch_size': trial.suggest_categorical('batch_size', self.batch_size),
-            'optimizer': trial.suggest_categorical('optimizer', self.optimizer),
-
-            'lookback_hours': trial.suggest_categorical('lookback_hours', self.lookback_hours)
+            "cnn_filters": trial.suggest_categorical("cnn_filters", self.cnn_filters),
+            "cnn_kernel_size": trial.suggest_categorical(
+                "cnn_kernel_size", self.cnn_kernel_size
+            ),
+            "cnn_layers": trial.suggest_int(
+                "cnn_layers", min(self.cnn_layers), max(self.cnn_layers)
+            ),
+            "lstm_units": trial.suggest_categorical("lstm_units", self.lstm_units),
+            "lstm_layers": trial.suggest_int(
+                "lstm_layers", min(self.lstm_layers), max(self.lstm_layers)
+            ),
+            "lstm_dropout": trial.suggest_float(
+                "lstm_dropout", min(self.lstm_dropout), max(self.lstm_dropout)
+            ),
+            "dense_units": trial.suggest_categorical("dense_units", self.dense_units),
+            "dense_layers": trial.suggest_int(
+                "dense_layers", min(self.dense_layers), max(self.dense_layers)
+            ),
+            "dense_dropout": trial.suggest_float(
+                "dense_dropout", min(self.dense_dropout), max(self.dense_dropout)
+            ),
+            "learning_rate": trial.suggest_float(
+                "learning_rate",
+                min(self.learning_rate),
+                max(self.learning_rate),
+                log=True,
+            ),
+            "batch_size": trial.suggest_categorical("batch_size", self.batch_size),
+            "optimizer": trial.suggest_categorical("optimizer", self.optimizer),
+            "lookback_hours": trial.suggest_categorical(
+                "lookback_hours", self.lookback_hours
+            ),
         }
 
 
@@ -105,11 +121,11 @@ class HyperparameterTuner:
         y_train: np.ndarray,
         X_val: np.ndarray,
         y_val: np.ndarray,
-        metric: str = 'val_loss',
-        direction: str = 'minimize',
+        metric: str = "val_loss",
+        direction: str = "minimize",
         n_epochs: int = 50,
         early_stopping_patience: int = 10,
-        results_dir: Path = Path('results/tuning')
+        results_dir: Path = Path("results/tuning"),
     ):
         """
         Initialize hyperparameter tuner
@@ -144,8 +160,7 @@ class HyperparameterTuner:
         self.results: List[Dict[str, Any]] = []
 
     def grid_search(
-        self,
-        max_trials: Optional[int] = None
+        self, max_trials: Optional[int] = None
     ) -> Tuple[Dict[str, Any], float]:
         """
         Grid search over hyperparameter space
@@ -161,19 +176,19 @@ class HyperparameterTuner:
 
         # Create parameter grid
         param_grid = {
-            'cnn_filters': self.search_space.cnn_filters,
-            'cnn_kernel_size': self.search_space.cnn_kernel_size,
-            'cnn_layers': self.search_space.cnn_layers,
-            'lstm_units': self.search_space.lstm_units,
-            'lstm_layers': self.search_space.lstm_layers,
-            'lstm_dropout': self.search_space.lstm_dropout,
-            'dense_units': self.search_space.dense_units,
-            'dense_layers': self.search_space.dense_layers,
-            'dense_dropout': self.search_space.dense_dropout,
-            'learning_rate': self.search_space.learning_rate,
-            'batch_size': self.search_space.batch_size,
-            'optimizer': self.search_space.optimizer,
-            'lookback_hours': self.search_space.lookback_hours
+            "cnn_filters": self.search_space.cnn_filters,
+            "cnn_kernel_size": self.search_space.cnn_kernel_size,
+            "cnn_layers": self.search_space.cnn_layers,
+            "lstm_units": self.search_space.lstm_units,
+            "lstm_layers": self.search_space.lstm_layers,
+            "lstm_dropout": self.search_space.lstm_dropout,
+            "dense_units": self.search_space.dense_units,
+            "dense_layers": self.search_space.dense_layers,
+            "dense_dropout": self.search_space.dense_dropout,
+            "learning_rate": self.search_space.learning_rate,
+            "batch_size": self.search_space.batch_size,
+            "optimizer": self.search_space.optimizer,
+            "lookback_hours": self.search_space.lookback_hours,
         }
 
         grid = list(ParameterGrid(param_grid))
@@ -185,7 +200,7 @@ class HyperparameterTuner:
 
         logger.info(f"Grid search: {len(grid)} combinations to try")
 
-        best_score = float('inf') if self.direction == 'minimize' else float('-inf')
+        best_score = float("inf") if self.direction == "minimize" else float("-inf")
         best_params = None
 
         for i, params in enumerate(grid, 1):
@@ -194,12 +209,14 @@ class HyperparameterTuner:
             try:
                 score, history = self._evaluate_params(params)
 
-                self.results.append({
-                    'trial': i,
-                    'params': params,
-                    'score': score,
-                    'search_method': 'grid_search'
-                })
+                self.results.append(
+                    {
+                        "trial": i,
+                        "params": params,
+                        "score": score,
+                        "search_method": "grid_search",
+                    }
+                )
 
                 if self._is_better(score, best_score):
                     best_score = score
@@ -213,10 +230,7 @@ class HyperparameterTuner:
 
         return best_params, best_score
 
-    def random_search(
-        self,
-        n_trials: int = 50
-    ) -> Tuple[Dict[str, Any], float]:
+    def random_search(self, n_trials: int = 50) -> Tuple[Dict[str, Any], float]:
         """
         Random search over hyperparameter space
 
@@ -231,28 +245,34 @@ class HyperparameterTuner:
 
         # Define distributions for sampling
         param_distributions = {
-            'cnn_filters': self.search_space.cnn_filters,
-            'cnn_kernel_size': self.search_space.cnn_kernel_size,
-            'cnn_layers': self.search_space.cnn_layers,
-            'lstm_units': self.search_space.lstm_units,
-            'lstm_layers': self.search_space.lstm_layers,
-            'lstm_dropout': uniform(min(self.search_space.lstm_dropout), max(self.search_space.lstm_dropout)),
-            'dense_units': self.search_space.dense_units,
-            'dense_layers': self.search_space.dense_layers,
-            'dense_dropout': uniform(min(self.search_space.dense_dropout), max(self.search_space.dense_dropout)),
-            'learning_rate': uniform(min(self.search_space.learning_rate), max(self.search_space.learning_rate)),
-            'batch_size': self.search_space.batch_size,
-            'optimizer': self.search_space.optimizer,
-            'lookback_hours': self.search_space.lookback_hours
+            "cnn_filters": self.search_space.cnn_filters,
+            "cnn_kernel_size": self.search_space.cnn_kernel_size,
+            "cnn_layers": self.search_space.cnn_layers,
+            "lstm_units": self.search_space.lstm_units,
+            "lstm_layers": self.search_space.lstm_layers,
+            "lstm_dropout": uniform(
+                min(self.search_space.lstm_dropout), max(self.search_space.lstm_dropout)
+            ),
+            "dense_units": self.search_space.dense_units,
+            "dense_layers": self.search_space.dense_layers,
+            "dense_dropout": uniform(
+                min(self.search_space.dense_dropout),
+                max(self.search_space.dense_dropout),
+            ),
+            "learning_rate": uniform(
+                min(self.search_space.learning_rate),
+                max(self.search_space.learning_rate),
+            ),
+            "batch_size": self.search_space.batch_size,
+            "optimizer": self.search_space.optimizer,
+            "lookback_hours": self.search_space.lookback_hours,
         }
 
         sampler = ParameterSampler(
-            param_distributions,
-            n_iter=n_trials,
-            random_state=42
+            param_distributions, n_iter=n_trials, random_state=42
         )
 
-        best_score = float('inf') if self.direction == 'minimize' else float('-inf')
+        best_score = float("inf") if self.direction == "minimize" else float("-inf")
         best_params = None
 
         for i, params in enumerate(sampler, 1):
@@ -261,12 +281,14 @@ class HyperparameterTuner:
             try:
                 score, history = self._evaluate_params(params)
 
-                self.results.append({
-                    'trial': i,
-                    'params': params,
-                    'score': score,
-                    'search_method': 'random_search'
-                })
+                self.results.append(
+                    {
+                        "trial": i,
+                        "params": params,
+                        "score": score,
+                        "search_method": "random_search",
+                    }
+                )
 
                 if self._is_better(score, best_score):
                     best_score = score
@@ -284,7 +306,7 @@ class HyperparameterTuner:
         self,
         n_trials: int = 100,
         n_startup_trials: int = 10,
-        study_name: Optional[str] = None
+        study_name: Optional[str] = None,
     ) -> Tuple[Dict[str, Any], float]:
         """
         Bayesian optimization using Optuna
@@ -301,14 +323,16 @@ class HyperparameterTuner:
         logger.info(f"Starting Bayesian optimization with {n_trials} trials...")
 
         if study_name is None:
-            study_name = f"electricity_price_forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            study_name = (
+                f"electricity_price_forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
 
         # Create Optuna study
         study = optuna.create_study(
             direction=self.direction,
             study_name=study_name,
             sampler=TPESampler(n_startup_trials=n_startup_trials),
-            pruner=MedianPruner(n_startup_trials=n_startup_trials, n_warmup_steps=5)
+            pruner=MedianPruner(n_startup_trials=n_startup_trials, n_warmup_steps=5),
         )
 
         def objective(trial: optuna.Trial) -> float:
@@ -318,12 +342,14 @@ class HyperparameterTuner:
             try:
                 score, history = self._evaluate_params(params)
 
-                self.results.append({
-                    'trial': trial.number,
-                    'params': params,
-                    'score': score,
-                    'search_method': 'bayesian_optimization'
-                })
+                self.results.append(
+                    {
+                        "trial": trial.number,
+                        "params": params,
+                        "score": score,
+                        "search_method": "bayesian_optimization",
+                    }
+                )
 
                 return score
 
@@ -333,10 +359,7 @@ class HyperparameterTuner:
 
         # Optimize
         study.optimize(
-            objective,
-            n_trials=n_trials,
-            catch=(Exception,),
-            show_progress_bar=True
+            objective, n_trials=n_trials, catch=(Exception,), show_progress_bar=True
         )
 
         # Get best results
@@ -350,6 +373,7 @@ class HyperparameterTuner:
         # Save Optuna study (joblib — optuna.save_study removed in v4)
         study_path = self.results_dir / f"{study_name}.pkl"
         import joblib
+
         joblib.dump(study, str(study_path))
 
         self._save_results()
@@ -357,8 +381,7 @@ class HyperparameterTuner:
         return best_params, best_score
 
     def _evaluate_params(
-        self,
-        params: Dict[str, Any]
+        self, params: Dict[str, Any]
     ) -> Tuple[float, Dict[str, List[float]]]:
         """
         Evaluate a set of hyperparameters
@@ -379,7 +402,7 @@ class HyperparameterTuner:
                 monitor=self.metric,
                 patience=self.early_stopping_patience,
                 restore_best_weights=True,
-                verbose=0
+                verbose=0,
             )
         ]
 
@@ -389,33 +412,36 @@ class HyperparameterTuner:
             self.y_train,
             validation_data=(self.X_val, self.y_val),
             epochs=self.n_epochs,
-            batch_size=params.get('batch_size', 32),
+            batch_size=params.get("batch_size", 32),
             callbacks=callbacks,
-            verbose=0
+            verbose=0,
         )
 
         # Get best validation score
         if self.metric in history.history:
             scores = history.history[self.metric]
-            score = min(scores) if self.direction == 'minimize' else max(scores)
+            score = min(scores) if self.direction == "minimize" else max(scores)
         else:
             # Fallback to final validation loss
-            score = history.history['val_loss'][-1]
+            score = history.history["val_loss"][-1]
 
         return score, history.history
 
     def _is_better(self, score: float, best_score: float) -> bool:
         """Check if score is better than best_score"""
-        if self.direction == 'minimize':
+        if self.direction == "minimize":
             return score < best_score
         else:
             return score > best_score
 
     def _save_results(self):
         """Save tuning results to disk"""
-        results_path = self.results_dir / f"tuning_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        results_path = (
+            self.results_dir
+            / f"tuning_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
 
-        with open(results_path, 'w') as f:
+        with open(results_path, "w") as f:
             json.dump(self.results, f, indent=2)
 
         logger.info(f"Results saved to {results_path}")
@@ -436,7 +462,7 @@ class BayesianOptimizer:
         X_val: np.ndarray,
         y_val: np.ndarray,
         n_trials: int = 50,
-        search_space: Optional[HyperparameterSpace] = None
+        search_space: Optional[HyperparameterSpace] = None,
     ) -> Tuple[Dict[str, Any], float]:
         """
         Run Bayesian optimization with default settings
@@ -461,7 +487,7 @@ class BayesianOptimizer:
             X_train=X_train,
             y_train=y_train,
             X_val=X_val,
-            y_val=y_val
+            y_val=y_val,
         )
 
         return tuner.bayesian_optimization(n_trials=n_trials)
@@ -472,9 +498,9 @@ def tune_price_forecaster(
     y_train: np.ndarray,
     X_val: np.ndarray,
     y_val: np.ndarray,
-    method: str = 'bayesian',
+    method: str = "bayesian",
     n_trials: int = 50,
-    search_space: Optional[HyperparameterSpace] = None
+    search_space: Optional[HyperparameterSpace] = None,
 ) -> Tuple[Dict[str, Any], float]:
     """
     Convenience function for tuning price forecaster
@@ -490,8 +516,35 @@ def tune_price_forecaster(
         best_params: Best hyperparameters
         best_score: Best validation score
     """
-    # Import model builder
-    from models.price_forecaster import build_model_from_params
+    # Import model builder — create_cnn_lstm_model accepts a ModelConfig and
+    # returns a compiled Keras model, matching the signature expected by
+    # HyperparameterTuner.model_builder (callable that accepts params dict).
+    # We wrap it to translate the flat hyperparameter dict into a ModelConfig.
+    from ml.models.price_forecaster import create_cnn_lstm_model, ModelConfig
+
+    def build_model_from_params(params: dict):
+        """Build a CNN-LSTM Keras model from a flat hyperparameter dict."""
+        config = ModelConfig(
+            cnn_filters=[params.get("cnn_filters", 64)] * params.get("cnn_layers", 2),
+            cnn_kernel_sizes=[params.get("cnn_kernel_size", 3)]
+            * params.get("cnn_layers", 2),
+            lstm_units=[params.get("lstm_units", 64)] * params.get("lstm_layers", 2),
+            lstm_dropout=params.get("lstm_dropout", 0.2),
+            dense_units=[params.get("dense_units", 32)] * params.get("dense_layers", 1),
+            dense_dropout=params.get("dense_dropout", 0.1),
+            learning_rate=params.get("learning_rate", 0.001),
+            batch_size=params.get("batch_size", 32),
+        )
+        model = create_cnn_lstm_model(config)
+        from tensorflow.keras.optimizers import Adam
+        from ml.models.price_forecaster import QuantileLoss
+
+        model.compile(
+            optimizer=Adam(learning_rate=config.learning_rate),
+            loss=QuantileLoss(),
+            metrics=["mae"],
+        )
+        return model
 
     if search_space is None:
         search_space = HyperparameterSpace()
@@ -502,29 +555,32 @@ def tune_price_forecaster(
         X_train=X_train,
         y_train=y_train,
         X_val=X_val,
-        y_val=y_val
+        y_val=y_val,
     )
 
-    if method == 'grid':
+    if method == "grid":
         return tuner.grid_search(max_trials=n_trials)
-    elif method == 'random':
+    elif method == "random":
         return tuner.random_search(n_trials=n_trials)
-    elif method == 'bayesian':
+    elif method == "bayesian":
         return tuner.bayesian_optimization(n_trials=n_trials)
     else:
-        raise ValueError(f"Unknown method: {method}. Use 'grid', 'random', or 'bayesian'")
+        raise ValueError(
+            f"Unknown method: {method}. Use 'grid', 'random', or 'bayesian'"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage
     import sys
-    sys.path.append('..')
+
+    sys.path.append("..")
 
     from data.feature_engineering import ElectricityPriceFeatureEngine
     from training.train_forecaster import load_training_data, prepare_datasets
 
     # Load data
-    df = load_training_data('data/raw/electricity_prices.csv')
+    df = load_training_data("data/raw/electricity_prices.csv")
 
     # Feature engineering
     feature_engine = ElectricityPriceFeatureEngine()
@@ -532,17 +588,12 @@ if __name__ == '__main__':
 
     # Prepare datasets
     X_train, y_train, X_val, y_val, X_test, y_test = prepare_datasets(
-        df_features,
-        lookback_hours=168,
-        forecast_horizon=24
+        df_features, lookback_hours=168, forecast_horizon=24
     )
 
     # Tune with Bayesian optimization
     best_params, best_score = tune_price_forecaster(
-        X_train, y_train,
-        X_val, y_val,
-        method='bayesian',
-        n_trials=50
+        X_train, y_train, X_val, y_val, method="bayesian", n_trials=50
     )
 
     print(f"\nBest params: {best_params}")

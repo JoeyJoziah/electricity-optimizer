@@ -12,13 +12,14 @@ Tests cover:
 
 import os
 import tempfile
-import pytest
+
 import numpy as np
+import pytest
 
 from services.vector_store import (
     VectorStore,
-    price_curve_to_vector,
     appliance_config_to_vector,
+    price_curve_to_vector,
 )
 
 

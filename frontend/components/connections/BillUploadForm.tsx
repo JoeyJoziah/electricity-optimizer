@@ -1,272 +1,325 @@
-'use client'
+"use client";
 
-import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { API_ORIGIN } from '@/lib/config/env'
-import { Upload, AlertCircle } from 'lucide-react'
-import { ACCEPTED_TYPES, MAX_FILE_SIZE, formatFileSize } from './BillUploadTypes'
-import type { BillUploadFormProps, ParseResult } from './BillUploadTypes'
-import { BillUploadDropZone } from './BillUploadDropZone'
-import { BillUploadFilePreview } from './BillUploadFilePreview'
-import { BillUploadProgressBar, BillUploadProcessingStatus } from './BillUploadProgress'
-import { BillUploadSuccess, BillUploadFailure } from './BillUploadResults'
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { API_ORIGIN } from "@/lib/config/env";
+import { Upload, AlertCircle } from "lucide-react";
+import {
+  ACCEPTED_TYPES,
+  MAX_FILE_SIZE,
+  formatFileSize,
+} from "./BillUploadTypes";
+import type { BillUploadFormProps, ParseResult } from "./BillUploadTypes";
+import { BillUploadDropZone } from "./BillUploadDropZone";
+import { BillUploadFilePreview } from "./BillUploadFilePreview";
+import {
+  BillUploadProgressBar,
+  BillUploadProcessingStatus,
+} from "./BillUploadProgress";
+import { BillUploadSuccess, BillUploadFailure } from "./BillUploadResults";
 
-export type { BillUploadFormProps }
+export type { BillUploadFormProps };
 
 export function BillUploadForm({
   connectionId,
   onUploadComplete,
   onComplete,
 }: BillUploadFormProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [dragActive, setDragActive] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null)
-  const [pollCount, setPollCount] = useState(0)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+  const [pollCount, setPollCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Clean up polling on unmount
+  // Clean up polling and in-flight requests on unmount
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
+        clearInterval(pollIntervalRef.current);
       }
-    }
-  }, [])
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const validateFile = useCallback((file: File): string | null => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      return 'Unsupported file type. Please upload a PDF, PNG, or JPG file.'
+      return "Unsupported file type. Please upload a PDF, PNG, or JPG file.";
     }
     if (file.size > MAX_FILE_SIZE) {
-      return `File is too large (${formatFileSize(file.size)}). Maximum size is 10 MB.`
+      return `File is too large (${formatFileSize(file.size)}). Maximum size is 10 MB.`;
     }
-    return null
-  }, [])
+    return null;
+  }, []);
 
   const handleFileSelect = useCallback(
     (file: File) => {
-      const validationError = validateFile(file)
+      const validationError = validateFile(file);
       if (validationError) {
-        setError(validationError)
-        setSelectedFile(null)
-        return
+        setError(validationError);
+        setSelectedFile(null);
+        return;
       }
-      setError(null)
-      setSelectedFile(file)
+      setError(null);
+      setSelectedFile(file);
       // Reset any previous upload state
-      setParseResult(null)
-      setUploadProgress(0)
+      setParseResult(null);
+      setUploadProgress(0);
     },
-    [validateFile]
-  )
+    [validateFile],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      e.preventDefault()
-      setDragActive(false)
-      const file = e.dataTransfer.files[0]
+      e.preventDefault();
+      setDragActive(false);
+      const file = e.dataTransfer.files[0];
       if (file) {
-        handleFileSelect(file)
+        handleFileSelect(file);
       }
     },
-    [handleFileSelect]
-  )
+    [handleFileSelect],
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragActive(true)
-  }, [])
+    e.preventDefault();
+    setDragActive(true);
+  }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragActive(false)
-  }, [])
+    e.preventDefault();
+    setDragActive(false);
+  }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
+      const file = e.target.files?.[0];
       if (file) {
-        handleFileSelect(file)
+        handleFileSelect(file);
       }
     },
-    [handleFileSelect]
-  )
+    [handleFileSelect],
+  );
 
   const pollParseStatus = useCallback(
     async (uploadId: string) => {
-      let attempts = 0
-      const maxAttempts = 60 // 2 minutes at 2-second intervals
+      let attempts = 0;
+      const maxAttempts = 60; // 2 minutes at 2-second intervals
+
+      // Abort any previous polling requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       pollIntervalRef.current = setInterval(async () => {
-        attempts++
-        setPollCount(attempts)
+        // If aborted, stop polling immediately
+        if (controller.signal.aborted) {
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+          }
+          return;
+        }
+
+        attempts++;
+        setPollCount(attempts);
 
         if (attempts >= maxAttempts) {
           if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current)
+            clearInterval(pollIntervalRef.current);
           }
-          setParseResult({
-            status: 'failed',
-            extracted_data: null,
-            error_message:
-              'Processing timed out. The bill may be taking longer than expected. Please try again.',
-          })
-          return
+          if (!controller.signal.aborted) {
+            setParseResult({
+              status: "failed",
+              extracted_data: null,
+              error_message:
+                "Processing timed out. The bill may be taking longer than expected. Please try again.",
+            });
+          }
+          return;
         }
 
         try {
           const res = await fetch(
             `${API_ORIGIN}/api/v1/connections/${connectionId}/uploads/${uploadId}`,
-            { credentials: 'include' }
-          )
+            {
+              credentials: "include",
+              signal: controller.signal,
+            },
+          );
+
+          // Guard against state updates after abort
+          if (controller.signal.aborted) return;
 
           if (res.ok) {
-            const raw = await res.json()
+            const raw = await res.json();
             // Map backend BillUploadResponse fields to frontend ParseResult
             const data: ParseResult = {
-              status: raw.parse_status || raw.status || 'pending',
-              extracted_data: (raw.detected_rate_per_kwh != null || raw.detected_supplier != null) ? {
-                rate_per_kwh: raw.detected_rate_per_kwh ?? null,
-                supplier_name: raw.detected_supplier ?? null,
-                period_start: raw.detected_billing_period_start ?? null,
-                period_end: raw.detected_billing_period_end ?? null,
-                usage_kwh: raw.detected_total_kwh ?? null,
-                amount: raw.detected_total_amount ?? null,
-                currency: 'USD',
-              } : null,
+              status: raw.parse_status || raw.status || "pending",
+              extracted_data:
+                raw.detected_rate_per_kwh != null ||
+                raw.detected_supplier != null
+                  ? {
+                      rate_per_kwh: raw.detected_rate_per_kwh ?? null,
+                      supplier_name: raw.detected_supplier ?? null,
+                      period_start: raw.detected_billing_period_start ?? null,
+                      period_end: raw.detected_billing_period_end ?? null,
+                      usage_kwh: raw.detected_total_kwh ?? null,
+                      amount: raw.detected_total_amount ?? null,
+                      currency: "USD",
+                    }
+                  : null,
               error_message: raw.parse_error ?? raw.error_message ?? null,
-            }
-            setParseResult(data)
+            };
 
-            if (data.status === 'complete' || data.status === 'failed') {
-              if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current)
-              }
-              if (data.status === 'complete') {
-                onUploadComplete()
+            if (!controller.signal.aborted) {
+              setParseResult(data);
+
+              if (data.status === "complete" || data.status === "failed") {
+                if (pollIntervalRef.current) {
+                  clearInterval(pollIntervalRef.current);
+                }
+                if (data.status === "complete") {
+                  onUploadComplete();
+                }
               }
             }
           }
-        } catch {
-          // Silently retry on network errors during polling
+        } catch (err) {
+          // Silently ignore AbortError — expected on unmount/cancellation
+          if (err instanceof DOMException && err.name === "AbortError") {
+            return;
+          }
+          // Silently retry on other network errors during polling
         }
-      }, 2000)
+      }, 2000);
     },
-    [connectionId, onUploadComplete]
-  )
+    [connectionId, onUploadComplete],
+  );
 
   const handleUpload = useCallback(async () => {
     if (!selectedFile) {
-      setError('Please select a file first')
-      return
+      setError("Please select a file first");
+      return;
     }
 
     try {
-      setUploading(true)
-      setError(null)
-      setUploadProgress(0)
-      setParseResult(null)
+      setUploading(true);
+      setError(null);
+      setUploadProgress(0);
+      setParseResult(null);
 
-      const formData = new FormData()
-      formData.append('file', selectedFile)
+      const formData = new FormData();
+      formData.append("file", selectedFile);
 
       // Use XMLHttpRequest for upload progress tracking
-      const uploadResult = await new Promise<{ id: string; upload_id?: string }>(
-        (resolve, reject) => {
-          const xhr = new XMLHttpRequest()
+      const uploadResult = await new Promise<{
+        id: string;
+        upload_id?: string;
+      }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-          xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100)
-              setUploadProgress(pct)
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(pct);
+          }
+        });
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch {
+              reject(new Error("Invalid response from server"));
             }
-          })
-
-          xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                resolve(JSON.parse(xhr.responseText))
-              } catch {
-                reject(new Error('Invalid response from server'))
-              }
-            } else if (xhr.status === 403) {
-              reject(new Error('__UPGRADE__'))
-            } else {
-              try {
-                const errData = JSON.parse(xhr.responseText)
-                reject(new Error(errData.detail || 'Upload failed'))
-              } catch {
-                reject(new Error('Upload failed. Please try again.'))
-              }
+          } else if (xhr.status === 403) {
+            reject(new Error("__UPGRADE__"));
+          } else {
+            try {
+              const errData = JSON.parse(xhr.responseText);
+              reject(new Error(errData.detail || "Upload failed"));
+            } catch {
+              reject(new Error("Upload failed. Please try again."));
             }
-          })
+          }
+        });
 
-          xhr.addEventListener('error', () => {
-            reject(new Error('Network error. Please check your connection.'))
-          })
+        xhr.addEventListener("error", () => {
+          reject(new Error("Network error. Please check your connection."));
+        });
 
-          xhr.addEventListener('abort', () => {
-            reject(new Error('Upload was cancelled.'))
-          })
+        xhr.addEventListener("abort", () => {
+          reject(new Error("Upload was cancelled."));
+        });
 
-          xhr.open(
-            'POST',
-            `${API_ORIGIN}/api/v1/connections/${connectionId}/upload`
-          )
-          xhr.withCredentials = true
-          xhr.send(formData)
-        }
-      )
+        xhr.open(
+          "POST",
+          `${API_ORIGIN}/api/v1/connections/${connectionId}/upload`,
+        );
+        xhr.withCredentials = true;
+        xhr.send(formData);
+      });
 
       // Upload complete, start polling for parse status
-      setUploadProgress(100)
-      setParseResult({ status: 'pending', extracted_data: null, error_message: null })
-      pollParseStatus(uploadResult.upload_id || uploadResult.id)
+      setUploadProgress(100);
+      setParseResult({
+        status: "pending",
+        extracted_data: null,
+        error_message: null,
+      });
+      pollParseStatus(uploadResult.upload_id || uploadResult.id);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Upload failed. Please try again.'
-      if (message === '__UPGRADE__') {
+        err instanceof Error ? err.message : "Upload failed. Please try again.";
+      if (message === "__UPGRADE__") {
         setError(
-          'Bill upload is available on Pro and Business plans. Please upgrade to continue.'
-        )
+          "Bill upload is available on Pro and Business plans. Please upgrade to continue.",
+        );
       } else {
-        setError(message)
+        setError(message);
       }
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }, [selectedFile, connectionId, pollParseStatus])
+  }, [selectedFile, connectionId, pollParseStatus]);
 
   const clearFile = () => {
-    setSelectedFile(null)
-    setError(null)
-    setParseResult(null)
-    setUploadProgress(0)
+    setSelectedFile(null);
+    setError(null);
+    setParseResult(null);
+    setUploadProgress(0);
     if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current)
+      clearInterval(pollIntervalRef.current);
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = "";
     }
-  }
+  };
 
   const handleRetry = () => {
-    setParseResult(null)
-    setUploadProgress(0)
-    setError(null)
-    handleUpload()
-  }
+    setParseResult(null);
+    setUploadProgress(0);
+    setError(null);
+    handleUpload();
+  };
 
   // Parse result states
   const isProcessing =
-    parseResult?.status === 'pending' || parseResult?.status === 'processing'
-  const isComplete = parseResult?.status === 'complete'
-  const isFailed = parseResult?.status === 'failed'
+    parseResult?.status === "pending" || parseResult?.status === "processing";
+  const isComplete = parseResult?.status === "complete";
+  const isFailed = parseResult?.status === "failed";
 
   return (
     <Card padding="lg">
@@ -362,5 +415,5 @@ export function BillUploadForm({
         )}
       </div>
     </Card>
-  )
+  );
 }

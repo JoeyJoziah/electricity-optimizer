@@ -48,9 +48,8 @@ All primary keys are UUID strings.
 
 import hashlib
 import json
-import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -58,7 +57,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-
 from models.model_version import (
     ABAssignment,
     ABOutcome,
@@ -75,7 +73,7 @@ logger = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _parse_json(value: Any) -> Dict[str, Any]:
+def _parse_json(value: Any) -> dict[str, Any]:
     """
     Normalise a JSONB column value that may arrive as either a pre-parsed
     dict (asyncpg) or a raw JSON string (psycopg2 / test mocks).
@@ -155,9 +153,9 @@ class ModelVersionService:
     async def create_version(
         self,
         model_name: str,
-        config: Dict[str, Any],
-        metrics: Dict[str, Any],
-        version_tag: Optional[str] = None,
+        config: dict[str, Any],
+        metrics: dict[str, Any],
+        version_tag: str | None = None,
     ) -> ModelVersion:
         """
         Persist a new model version record and return it.
@@ -181,12 +179,12 @@ class ModelVersionService:
     async def _create_version_inner(
         self,
         model_name: str,
-        config: Dict[str, Any],
-        metrics: Dict[str, Any],
-        version_tag: Optional[str] = None,
+        config: dict[str, Any],
+        metrics: dict[str, Any],
+        version_tag: str | None = None,
     ) -> ModelVersion:
         new_id = str(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tag = version_tag or now.strftime("v%Y%m%d_%H%M%S")
 
         try:
@@ -236,7 +234,7 @@ class ModelVersionService:
             promoted_at=None,
         )
 
-    async def get_active_version(self, model_name: str) -> Optional[ModelVersion]:
+    async def get_active_version(self, model_name: str) -> ModelVersion | None:
         """
         Return the currently active version for *model_name*, or None.
 
@@ -261,7 +259,7 @@ class ModelVersionService:
             return None
         return _row_to_model_version(row)
 
-    async def get_version_by_id(self, version_id: str) -> Optional[ModelVersion]:
+    async def get_version_by_id(self, version_id: str) -> ModelVersion | None:
         """Return a single ModelVersion by its UUID, or None if not found."""
         result = await self._db.execute(
             text(
@@ -300,7 +298,7 @@ class ModelVersionService:
             return await self._promote_version_inner(version_id)
 
     async def _promote_version_inner(self, version_id: str) -> ModelVersion:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Fetch target
         result = await self._db.execute(
@@ -372,7 +370,7 @@ class ModelVersionService:
         self,
         model_name: str,
         limit: int = 10,
-    ) -> List[ModelVersion]:
+    ) -> list[ModelVersion]:
         """
         Return up to *limit* recent versions for *model_name*, newest first.
 
@@ -426,11 +424,11 @@ class ModelVersionService:
 
         # Build metric comparison dict for all keys present in either version
         all_keys = set(ver_a.metrics.keys()) | set(ver_b.metrics.keys())
-        comparison: Dict[str, Dict[str, Any]] = {}
+        comparison: dict[str, dict[str, Any]] = {}
         for key in sorted(all_keys):
             a_val = ver_a.metrics.get(key)
             b_val = ver_b.metrics.get(key)
-            entry: Dict[str, Any] = {"version_a": a_val, "version_b": b_val}
+            entry: dict[str, Any] = {"version_a": a_val, "version_b": b_val}
             if isinstance(a_val, (int, float)) and isinstance(b_val, (int, float)):
                 entry["delta"] = b_val - a_val
             else:
@@ -517,12 +515,11 @@ class ModelVersionService:
                 raise ValueError(f"Model version not found: {vid!r}")
             if ver.model_name != model_name:
                 raise ValueError(
-                    f"Version {vid!r} belongs to model {ver.model_name!r}, "
-                    f"not {model_name!r}"
+                    f"Version {vid!r} belongs to model {ver.model_name!r}, not {model_name!r}"
                 )
 
         new_id = str(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         try:
             await self._db.execute(
@@ -577,7 +574,7 @@ class ModelVersionService:
         self,
         model_name: str,
         user_id: str,
-    ) -> Optional[ABAssignment]:
+    ) -> ABAssignment | None:
         """
         Deterministically assign a user to a bucket (A or B) for the active
         A/B test of *model_name*.
@@ -605,7 +602,7 @@ class ModelVersionService:
             return None
 
         # Deterministic hash: stable across Python processes
-        hash_input = f"{test.id}:{user_id}".encode("utf-8")
+        hash_input = f"{test.id}:{user_id}".encode()
         hash_int = int(hashlib.sha256(hash_input).hexdigest(), 16)
         bucket_pct = hash_int % 100  # 0–99
 
@@ -647,7 +644,7 @@ class ModelVersionService:
             The ABOutcome that was inserted (or the deduped representation).
         """
         new_id = str(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         try:
             await self._db.execute(
@@ -698,7 +695,7 @@ class ModelVersionService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _get_running_test(self, model_name: str) -> Optional[ABTest]:
+    async def _get_running_test(self, model_name: str) -> ABTest | None:
         """Return the currently running A/B test for model_name, or None."""
         result = await self._db.execute(
             text(

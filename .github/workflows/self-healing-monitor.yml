@@ -40,14 +40,13 @@ jobs:
           - { file: "kpi-report.yml", name: "Nightly KPI Report", severity: "info" }
           - { file: "price-sync.yml", name: "Sync Electricity Prices", severity: "warning" }
           - { file: "observe-forecasts.yml", name: "Observe Forecast Actuals", severity: "info" }
-          - { file: "nightly-learning.yml", name: "Nightly Learning Cycle", severity: "info" }
           - { file: "data-retention.yml", name: "Weekly Data Retention Cleanup", severity: "warning" }
           - { file: "data-health-check.yml", name: "Data Health Check", severity: "warning" }
           - { file: "e2e-tests.yml", name: "E2E Tests", severity: "warning" }
           - { file: "deploy-worker.yml", name: "Deploy Cloudflare Worker", severity: "critical" }
-          - { file: "scan-emails.yml", name: "Scan Email Connections", severity: "warning" }
           - { file: "scrape-portals.yml", name: "Scrape Utility Portals", severity: "warning" }
           - { file: "fetch-heating-oil.yml", name: "Fetch Petroleum Prices", severity: "warning" }
+          - { file: "fetch-gas-rates.yml", name: "Fetch Gas Rates", severity: "warning" }
           - { file: "daily-data-pipeline.yml", name: "Daily Data Pipeline", severity: "warning" }
           - { file: "db-backup.yml", name: "Database Backup", severity: "critical" }
 
@@ -181,14 +180,13 @@ jobs:
               *"KPI Report"*) WORKFLOW_FILE="kpi-report.yml" ;;
               *"Sync Electricity"*) WORKFLOW_FILE="price-sync.yml" ;;
               *"Observe Forecast"*) WORKFLOW_FILE="observe-forecasts.yml" ;;
-              *"Nightly Learning"*) WORKFLOW_FILE="nightly-learning.yml" ;;
               *"Data Retention"*) WORKFLOW_FILE="data-retention.yml" ;;
               *"Data Health"*) WORKFLOW_FILE="data-health-check.yml" ;;
               *"E2E"*) WORKFLOW_FILE="e2e-tests.yml" ;;
               *"Cloudflare Worker"*) WORKFLOW_FILE="deploy-worker.yml" ;;
-              *"Scan Email"*) WORKFLOW_FILE="scan-emails.yml" ;;
               *"Scrape Utility Portal"*|*"Portal"*) WORKFLOW_FILE="scrape-portals.yml" ;;
               *"Petroleum"*|*"Heating Oil"*) WORKFLOW_FILE="fetch-heating-oil.yml" ;;
+              *"Fetch Gas"*|*"Gas Rates"*) WORKFLOW_FILE="fetch-gas-rates.yml" ;;
               *"Daily Data Pipeline"*) WORKFLOW_FILE="daily-data-pipeline.yml" ;;
               *"Database Backup"*) WORKFLOW_FILE="db-backup.yml" ;;
               *) echo "Unknown workflow in issue #$ISSUE_NUM: $ISSUE_TITLE"; continue ;;

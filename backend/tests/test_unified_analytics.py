@@ -18,14 +18,12 @@ All DB calls are mocked; no real Postgres connection is required.
 Auth is injected by overriding get_current_user / require_paid_tier.
 """
 
-import math
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Stable test IDs
@@ -103,7 +101,7 @@ def _session_data(user_id: str = TEST_USER_ID, tier: str = "pro"):
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +119,7 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _clean_overrides():
-    from main import app, _app_rate_limiter
+    from main import _app_rate_limiter, app
 
     _app_rate_limiter.reset()
     yield
@@ -132,9 +130,9 @@ def _clean_overrides():
 
 def _install_auth(tier: str = "pro", user_id: str = TEST_USER_ID):
     """Install auth + DB overrides; return the mock DB so callers can configure it."""
-    from main import app
     from api.dependencies import get_current_user, get_db_session
     from api.v1.connections import require_paid_tier
+    from main import app
 
     session = _session_data(user_id=user_id, tier=tier)
     db = _mock_db()
@@ -171,17 +169,18 @@ class TestRateHistoryMultiSource:
         days_ago: int = 0,
         connection_id: str = TEST_CONNECTION_ID,
     ) -> _DictRow:
-        return _DictRow({
-            "rate_per_kwh": rate,
-            "supplier_name": "TestSupplier",
-            "effective_date": _now() - timedelta(days=days_ago),
-            "source": source,
-            "connection_id": connection_id,
-            "connection_type": "direct",
-            "label": "Home",
-        })
+        return _DictRow(
+            {
+                "rate_per_kwh": rate,
+                "supplier_name": "TestSupplier",
+                "effective_date": _now() - timedelta(days=days_ago),
+                "source": source,
+                "connection_id": connection_id,
+                "connection_type": "direct",
+                "label": "Home",
+            }
+        )
 
-    @pytest.mark.asyncio
     async def test_history_returns_email_scan_rates(self):
         """Rates with source='email_scan' appear in the history output."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -199,7 +198,6 @@ class TestRateHistoryMultiSource:
         assert output["data_points"][0]["source"] == "email_scan"
         assert output["data_points"][0]["rate"] == pytest.approx(0.1800, abs=1e-6)
 
-    @pytest.mark.asyncio
     async def test_history_returns_email_attachment_rates(self):
         """Rates with source='email_attachment' appear in the history output."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -216,7 +214,6 @@ class TestRateHistoryMultiSource:
         assert output["total"] == 1
         assert output["data_points"][0]["source"] == "email_attachment"
 
-    @pytest.mark.asyncio
     async def test_history_returns_api_pull_rates(self):
         """Rates with source='api_pull' appear in the history output."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -233,7 +230,6 @@ class TestRateHistoryMultiSource:
         assert output["total"] == 1
         assert output["data_points"][0]["source"] == "api_pull"
 
-    @pytest.mark.asyncio
     async def test_history_returns_bill_parse_rates(self):
         """Rates with source='bill_parse' appear in the history output."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -250,7 +246,6 @@ class TestRateHistoryMultiSource:
         assert output["total"] == 1
         assert output["data_points"][0]["source"] == "bill_parse"
 
-    @pytest.mark.asyncio
     async def test_history_returns_all_sources_in_mixed_batch(self):
         """All four source types coexist correctly in a single result set."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -273,7 +268,6 @@ class TestRateHistoryMultiSource:
         found_sources = {dp["source"] for dp in output["data_points"]}
         assert found_sources == {"email_scan", "email_attachment", "api_pull", "bill_parse"}
 
-    @pytest.mark.asyncio
     async def test_history_sources_are_not_normalised(self):
         """Source strings are preserved verbatim — no remapping or normalisation."""
         from services.connection_analytics_service import ConnectionAnalyticsService
@@ -292,15 +286,18 @@ class TestRateHistoryMultiSource:
                 f"Source '{source}' was altered during history serialisation"
             )
 
-    @pytest.mark.asyncio
     async def test_history_multiple_connections_multi_source(self):
         """Multi-source rates across two connections are returned without filtering."""
         from services.connection_analytics_service import ConnectionAnalyticsService
 
         db = _mock_db()
         rows = [
-            self._make_rate_row("bill_parse", rate=0.22, days_ago=5, connection_id=TEST_CONNECTION_ID),
-            self._make_rate_row("api_pull", rate=0.18, days_ago=3, connection_id=TEST_CONNECTION_ID_2),
+            self._make_rate_row(
+                "bill_parse", rate=0.22, days_ago=5, connection_id=TEST_CONNECTION_ID
+            ),
+            self._make_rate_row(
+                "api_pull", rate=0.18, days_ago=3, connection_id=TEST_CONNECTION_ID_2
+            ),
         ]
         result = MagicMock()
         result.mappings.return_value.all.return_value = rows
@@ -324,24 +321,27 @@ class TestRateComparisonMultiSource:
     """Verify get_rate_comparison handles rate rows originating from any source."""
 
     def _make_rate_region_row(self, source: str, rate: float = 0.2500) -> _DictRow:
-        return _DictRow({
-            "rate_per_kwh": rate,
-            "supplier_name": "MultiSourceSupplier",
-            "effective_date": _now(),
-            "connection_id": TEST_CONNECTION_ID,
-            "connection_type": "direct",
-            "user_region": "US_NY",
-        })
+        return _DictRow(
+            {
+                "rate_per_kwh": rate,
+                "supplier_name": "MultiSourceSupplier",
+                "effective_date": _now(),
+                "connection_id": TEST_CONNECTION_ID,
+                "connection_type": "direct",
+                "user_region": "US_NY",
+            }
+        )
 
     def _make_market_row(self) -> _DictRow:
-        return _DictRow({
-            "avg_price": 0.2000,
-            "min_price": 0.1500,
-            "max_price": 0.2800,
-            "sample_count": 25,
-        })
+        return _DictRow(
+            {
+                "avg_price": 0.2000,
+                "min_price": 0.1500,
+                "max_price": 0.2800,
+                "sample_count": 25,
+            }
+        )
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize("source", ALL_SOURCES)
     async def test_comparison_returns_has_data_for_each_source(self, source: str):
         """Comparison always returns has_data=True regardless of rate source."""
@@ -360,9 +360,7 @@ class TestRateComparisonMultiSource:
         svc = ConnectionAnalyticsService(db)
         result = await svc.get_rate_comparison(TEST_USER_ID)
 
-        assert result["has_data"] is True, (
-            f"Expected has_data=True for source='{source}'"
-        )
+        assert result["has_data"] is True, f"Expected has_data=True for source='{source}'"
         assert result["user_rate"] == pytest.approx(0.2500, abs=1e-6)
 
 
@@ -381,14 +379,16 @@ class TestGetRatesEndpointMultiSource:
         days_ago: int = 0,
         rate_id: str | None = None,
     ) -> _DictRow:
-        return _DictRow({
-            "id": rate_id or str(uuid4()),
-            "connection_id": TEST_CONNECTION_ID,
-            "rate_per_kwh": rate,
-            "effective_date": _now() - timedelta(days=days_ago),
-            "source": source,
-            "raw_label": None,
-        })
+        return _DictRow(
+            {
+                "id": rate_id or str(uuid4()),
+                "connection_id": TEST_CONNECTION_ID,
+                "rate_per_kwh": rate,
+                "effective_date": _now() - timedelta(days=days_ago),
+                "source": source,
+                "raw_label": None,
+            }
+        )
 
     def test_get_rates_returns_email_scan_source(self, client):
         """API returns rates with source='email_scan'."""
@@ -514,9 +514,7 @@ class TestGetRatesEndpointMultiSource:
         body = response.json()
         for rate in body["rates"]:
             assert "source" in rate, "source field missing from rate response"
-            assert rate["source"] in ALL_SOURCES, (
-                f"Unexpected source value '{rate['source']}'"
-            )
+            assert rate["source"] in ALL_SOURCES, f"Unexpected source value '{rate['source']}'"
 
     def test_get_rates_pagination_works_with_multi_source_data(self, client):
         """Pagination metadata is correct with a multi-source dataset of 4 rates."""
@@ -555,14 +553,16 @@ class TestGetCurrentRateMultiSource:
     """Tests for GET /connections/{id}/rates/current with various source types."""
 
     def _make_rate_row(self, source: str, rate: float = 0.2000) -> _DictRow:
-        return _DictRow({
-            "id": str(uuid4()),
-            "connection_id": TEST_CONNECTION_ID,
-            "rate_per_kwh": rate,
-            "effective_date": _now(),
-            "source": source,
-            "raw_label": None,
-        })
+        return _DictRow(
+            {
+                "id": str(uuid4()),
+                "connection_id": TEST_CONNECTION_ID,
+                "rate_per_kwh": rate,
+                "effective_date": _now(),
+                "source": source,
+                "raw_label": None,
+            }
+        )
 
     @pytest.mark.parametrize("source", ALL_SOURCES)
     def test_current_rate_returns_correct_source(self, source: str, client):
@@ -580,9 +580,7 @@ class TestGetCurrentRateMultiSource:
         assert response.status_code == 200
         body = response.json()
         assert body is not None
-        assert body["source"] == source, (
-            f"Expected source='{source}', got '{body['source']}'"
-        )
+        assert body["source"] == source, f"Expected source='{source}', got '{body['source']}'"
 
     def test_current_rate_prefers_most_recent_regardless_of_source(self, client):
         """The current-rate endpoint returns the latest row, whatever its source."""

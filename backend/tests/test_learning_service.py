@@ -13,9 +13,8 @@ Covers all public methods:
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import numpy as np
-
+import pytest
 
 # =============================================================================
 # SHARED FIXTURES
@@ -26,9 +25,14 @@ import numpy as np
 def mock_obs():
     """Mock ObservationService with all async methods."""
     obs = AsyncMock()
-    obs.get_forecast_accuracy = AsyncMock(return_value={
-        "total": 0, "mape": None, "rmse": None, "coverage": None,
-    })
+    obs.get_forecast_accuracy = AsyncMock(
+        return_value={
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
+        }
+    )
     obs.get_hourly_bias = AsyncMock(return_value=[])
     obs.get_model_accuracy_by_version = AsyncMock(return_value=[])
     return obs
@@ -58,6 +62,7 @@ def mock_redis():
 def service(mock_obs, mock_vs, mock_redis):
     """LearningService with all mocked dependencies."""
     from services.learning_service import LearningService
+
     return LearningService(
         observation_service=mock_obs,
         vector_store=mock_vs,
@@ -69,6 +74,7 @@ def service(mock_obs, mock_vs, mock_redis):
 def service_no_redis(mock_obs, mock_vs):
     """LearningService without Redis."""
     from services.learning_service import LearningService
+
     return LearningService(
         observation_service=mock_obs,
         vector_store=mock_vs,
@@ -84,11 +90,13 @@ def service_no_redis(mock_obs, mock_vs):
 class TestComputeRollingAccuracy:
     """Tests for LearningService.compute_rolling_accuracy"""
 
-    @pytest.mark.asyncio
     async def test_delegates_to_observation_service(self, service, mock_obs):
         """Should call get_forecast_accuracy with correct args and return result."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 50, "mape": 3.5, "rmse": 0.012, "coverage": 88.0,
+            "total": 50,
+            "mape": 3.5,
+            "rmse": 0.012,
+            "coverage": 88.0,
         }
 
         result = await service.compute_rolling_accuracy("US", days=14)
@@ -97,7 +105,6 @@ class TestComputeRollingAccuracy:
         assert result["total"] == 50
         assert result["mape"] == 3.5
 
-    @pytest.mark.asyncio
     async def test_default_days(self, service, mock_obs):
         """Should default to 7 days."""
         await service.compute_rolling_accuracy("US")
@@ -112,7 +119,6 @@ class TestComputeRollingAccuracy:
 class TestDetectBias:
     """Tests for LearningService.detect_bias"""
 
-    @pytest.mark.asyncio
     async def test_delegates_to_observation_service(self, service, mock_obs):
         """Should call get_hourly_bias with correct args."""
         mock_obs.get_hourly_bias.return_value = [
@@ -134,7 +140,6 @@ class TestDetectBias:
 class TestUpdateEnsembleWeights:
     """Tests for LearningService.update_ensemble_weights"""
 
-    @pytest.mark.asyncio
     async def test_no_model_stats_returns_none(self, service, mock_obs):
         """Should return None when no model stats available."""
         mock_obs.get_model_accuracy_by_version.return_value = []
@@ -143,7 +148,6 @@ class TestUpdateEnsembleWeights:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_single_model_gets_clamped_weight(self, service, mock_obs, mock_redis):
         """A single model should get weight=1.0 (full share after clamping+normalization)."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -158,7 +162,6 @@ class TestUpdateEnsembleWeights:
         # Re-normalized: 0.8/0.8 = 1.0
         assert result["v2.1"] == 1.0
 
-    @pytest.mark.asyncio
     async def test_two_models_inverse_mape_weighting(self, service, mock_obs, mock_redis):
         """Two models: lower MAPE should get higher weight."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -178,7 +181,6 @@ class TestUpdateEnsembleWeights:
         total = sum(result.values())
         assert abs(total - 1.0) < 0.01
 
-    @pytest.mark.asyncio
     async def test_three_models_with_clamping(self, service, mock_obs, mock_redis):
         """Three models where one dominates -- clamping should kick in."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -202,7 +204,6 @@ class TestUpdateEnsembleWeights:
         total = sum(result.values())
         assert abs(total - 1.0) < 0.01
 
-    @pytest.mark.asyncio
     async def test_zero_mape_treated_as_perfect(self, service, mock_obs, mock_redis):
         """Model with mape=0 (or None) gets inverse_error=1.0 (default)."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -219,7 +220,6 @@ class TestUpdateEnsembleWeights:
         # re-normalized
         assert result["v2.1"] > result["v2.0"]
 
-    @pytest.mark.asyncio
     async def test_none_mape_treated_as_default(self, service, mock_obs, mock_redis):
         """Model with mape=None gets inverse_error=1.0."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -231,7 +231,6 @@ class TestUpdateEnsembleWeights:
         assert result is not None
         assert result["v2.1"] == 1.0  # single model normalizes to 1.0
 
-    @pytest.mark.asyncio
     async def test_redis_write_on_success(self, service, mock_obs, mock_redis):
         """Should write weights to Redis in the expected format."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -247,7 +246,6 @@ class TestUpdateEnsembleWeights:
         assert "v2.1" in payload
         assert "weight" in payload["v2.1"]
 
-    @pytest.mark.asyncio
     async def test_no_redis_still_returns_weights(self, service_no_redis, mock_obs):
         """Should return weights even when Redis is None."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -259,7 +257,6 @@ class TestUpdateEnsembleWeights:
         assert result is not None
         assert "v2.1" in result
 
-    @pytest.mark.asyncio
     async def test_redis_error_does_not_raise(self, service, mock_obs, mock_redis):
         """Redis failure should be logged but not propagate."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -274,7 +271,6 @@ class TestUpdateEnsembleWeights:
         assert result is not None
         mock_logger.warning.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_weights_are_rounded_to_four_decimals(self, service, mock_obs, mock_redis):
         """All weight values should be rounded to 4 decimal places."""
         mock_obs.get_model_accuracy_by_version.return_value = [
@@ -297,7 +293,6 @@ class TestUpdateEnsembleWeights:
 class TestStoreBiasCorrection:
     """Tests for LearningService.store_bias_correction"""
 
-    @pytest.mark.asyncio
     async def test_empty_bias_returns_none(self, service, mock_obs):
         """Should return None when no bias data is available."""
         mock_obs.get_hourly_bias.return_value = []
@@ -306,7 +301,6 @@ class TestStoreBiasCorrection:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_stores_vector_in_vector_store(self, service, mock_obs, mock_vs):
         """Should insert a 24-dim vector into the vector store."""
         mock_obs.get_hourly_bias.return_value = [
@@ -329,7 +323,6 @@ class TestStoreBiasCorrection:
         assert isinstance(meta["raw_bias"], list)
         assert len(meta["raw_bias"]) == 24
 
-    @pytest.mark.asyncio
     async def test_bias_vector_has_correct_hours(self, service, mock_obs, mock_vs):
         """Bias values should be placed at the correct hour index."""
         mock_obs.get_hourly_bias.return_value = [
@@ -347,7 +340,6 @@ class TestStoreBiasCorrection:
         assert raw_bias[0] == pytest.approx(0.0, abs=1e-6)
         assert raw_bias[12] == pytest.approx(0.0, abs=1e-6)
 
-    @pytest.mark.asyncio
     async def test_vector_is_numpy_24_dim(self, service, mock_obs, mock_vs):
         """The vector passed to insert should be a numpy array of dimension 24."""
         mock_obs.get_hourly_bias.return_value = [
@@ -361,7 +353,6 @@ class TestStoreBiasCorrection:
         assert isinstance(vector, np.ndarray)
         assert vector.shape == (24,)
 
-    @pytest.mark.asyncio
     async def test_out_of_range_hours_ignored(self, service, mock_obs, mock_vs):
         """Hours outside 0-23 should be silently ignored."""
         mock_obs.get_hourly_bias.return_value = [
@@ -377,7 +368,9 @@ class TestStoreBiasCorrection:
         # Only hour 12 should have a non-zero value
         assert raw_bias[12] == pytest.approx(0.01, abs=1e-6)
         # All others should be zero (including that nothing was set for -1 or 24)
-        assert sum(abs(v) for i, v in enumerate(raw_bias) if i != 12) == pytest.approx(0.0, abs=1e-6)
+        assert sum(abs(v) for i, v in enumerate(raw_bias) if i != 12) == pytest.approx(
+            0.0, abs=1e-6
+        )
 
 
 # =============================================================================
@@ -388,7 +381,6 @@ class TestStoreBiasCorrection:
 class TestPruneStalePatterns:
     """Tests for LearningService.prune_stale_patterns"""
 
-    @pytest.mark.asyncio
     async def test_delegates_to_vector_store(self, service, mock_vs):
         """Should call vector_store.prune with correct args."""
         mock_vs.async_prune.return_value = 5
@@ -398,7 +390,6 @@ class TestPruneStalePatterns:
         mock_vs.async_prune.assert_called_once_with(0.5, 2)
         assert result == 5
 
-    @pytest.mark.asyncio
     async def test_default_params(self, service, mock_vs):
         """Should use default min_confidence=0.3 and min_usage=0."""
         mock_vs.async_prune.return_value = 0
@@ -407,7 +398,6 @@ class TestPruneStalePatterns:
 
         mock_vs.async_prune.assert_called_once_with(0.3, 0)
 
-    @pytest.mark.asyncio
     async def test_zero_pruned(self, service, mock_vs):
         """Should return 0 when nothing is pruned."""
         mock_vs.async_prune.return_value = 0
@@ -425,11 +415,13 @@ class TestPruneStalePatterns:
 class TestRunFullCycle:
     """Tests for LearningService.run_full_cycle"""
 
-    @pytest.mark.asyncio
     async def test_default_regions_is_us(self, service, mock_obs, mock_vs):
         """Should default to ['US'] when no regions specified."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -439,11 +431,13 @@ class TestRunFullCycle:
         assert len(result["regions_processed"]) == 1
         assert result["regions_processed"][0]["region"] == "US"
 
-    @pytest.mark.asyncio
     async def test_multi_region_loop(self, service, mock_obs, mock_vs):
         """Should process each region in the list."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 10, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
+            "total": 10,
+            "mape": 5.0,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -456,11 +450,13 @@ class TestRunFullCycle:
         # get_forecast_accuracy called 3 times
         assert mock_obs.get_forecast_accuracy.await_count == 3
 
-    @pytest.mark.asyncio
     async def test_weights_updated_populated(self, service, mock_obs, mock_vs, mock_redis):
         """Should populate weights_updated when model stats available."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 100, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
+            "total": 100,
+            "mape": 5.0,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = [
             {"model_version": "v2.1", "mape": 5.0, "count": 50},
@@ -472,11 +468,13 @@ class TestRunFullCycle:
         assert "US" in result["weights_updated"]
         assert "v2.1" in result["weights_updated"]["US"]
 
-    @pytest.mark.asyncio
     async def test_bias_corrections_populated(self, service, mock_obs, mock_vs):
         """Should populate bias_corrections when bias data available."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 50, "mape": 5.0, "rmse": 0.01, "coverage": 90.0,
+            "total": 50,
+            "mape": 5.0,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = [
@@ -488,11 +486,13 @@ class TestRunFullCycle:
         assert "US" in result["bias_corrections"]
         assert result["bias_corrections"]["US"] == "vec-123"
 
-    @pytest.mark.asyncio
     async def test_pruning_happens_once(self, service, mock_obs, mock_vs):
         """Pruning should happen once, not per-region."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -503,11 +503,13 @@ class TestRunFullCycle:
         mock_vs.async_prune.assert_called_once()
         assert result["pruned"] == 3
 
-    @pytest.mark.asyncio
     async def test_redis_mape_update(self, service, mock_obs, mock_vs, mock_redis):
         """Should store primary region's MAPE in Redis."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 100, "mape": 4.5, "rmse": 0.01, "coverage": 90.0,
+            "total": 100,
+            "mape": 4.5,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -520,11 +522,13 @@ class TestRunFullCycle:
         assert len(mape_calls) == 1
         assert mape_calls[0][0][1] == "4.5"
 
-    @pytest.mark.asyncio
     async def test_redis_mape_skipped_when_none(self, service, mock_obs, mock_vs, mock_redis):
         """Should NOT write MAPE to Redis when accuracy returns None."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -536,11 +540,13 @@ class TestRunFullCycle:
         mape_calls = [c for c in calls if c[0][0] == "model:recent_mape"]
         assert len(mape_calls) == 0
 
-    @pytest.mark.asyncio
     async def test_redis_mape_error_does_not_raise(self, service, mock_obs, mock_vs, mock_redis):
         """Redis failure during MAPE store should not crash the cycle."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 100, "mape": 4.5, "rmse": 0.01, "coverage": 90.0,
+            "total": 100,
+            "mape": 4.5,
+            "rmse": 0.01,
+            "coverage": 90.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -552,11 +558,13 @@ class TestRunFullCycle:
 
         assert len(result["regions_processed"]) == 1
 
-    @pytest.mark.asyncio
     async def test_no_redis_still_completes(self, service_no_redis, mock_obs, mock_vs):
         """Full cycle should complete even without Redis."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 50, "mape": 3.0, "rmse": 0.005, "coverage": 95.0,
+            "total": 50,
+            "mape": 3.0,
+            "rmse": 0.005,
+            "coverage": 95.0,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -566,11 +574,13 @@ class TestRunFullCycle:
         assert len(result["regions_processed"]) == 1
         assert result["regions_processed"][0]["accuracy"]["mape"] == 3.0
 
-    @pytest.mark.asyncio
     async def test_full_cycle_summary_structure(self, service, mock_obs, mock_vs):
         """Result dict should have all expected keys."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []
@@ -582,11 +592,13 @@ class TestRunFullCycle:
         assert "bias_corrections" in result
         assert "pruned" in result
 
-    @pytest.mark.asyncio
     async def test_full_cycle_custom_days(self, service, mock_obs, mock_vs):
         """Should pass days parameter through to all sub-calls."""
         mock_obs.get_forecast_accuracy.return_value = {
-            "total": 0, "mape": None, "rmse": None, "coverage": None,
+            "total": 0,
+            "mape": None,
+            "rmse": None,
+            "coverage": None,
         }
         mock_obs.get_model_accuracy_by_version.return_value = []
         mock_obs.get_hourly_bias.return_value = []

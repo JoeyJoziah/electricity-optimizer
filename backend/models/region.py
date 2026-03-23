@@ -5,10 +5,10 @@ Single source of truth for all supported pricing regions.
 Replaces the duplicate PricingRegion (base.py) and PriceRegion (price.py) enums.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Region(str, Enum):
+class Region(StrEnum):
     """
     Supported pricing regions.
 
@@ -127,34 +127,113 @@ PriceRegion.MA = Region.US_MA  # type: ignore[attr-defined]
 
 # States with deregulated electricity
 DEREGULATED_ELECTRICITY_STATES: set[str] = {
-    "CT", "TX", "OH", "PA", "IL", "NY", "NJ", "MA", "MD", "RI",
-    "NH", "ME", "DE", "MI", "VA", "DC", "OR", "MT",
+    "CT",
+    "TX",
+    "OH",
+    "PA",
+    "IL",
+    "NY",
+    "NJ",
+    "MA",
+    "MD",
+    "RI",
+    "NH",
+    "ME",
+    "DE",
+    "MI",
+    "VA",
+    "DC",
+    "OR",
+    "MT",
 }
 
 # States with deregulated natural gas
 DEREGULATED_GAS_STATES: set[str] = {
-    "CT", "OH", "PA", "IL", "NY", "NJ", "MA", "MD", "RI", "DE",
-    "MI", "DC", "GA", "IN", "KY", "FL",
+    "CT",
+    "OH",
+    "PA",
+    "IL",
+    "NY",
+    "NJ",
+    "MA",
+    "MD",
+    "RI",
+    "DE",
+    "MI",
+    "DC",
+    "GA",
+    "IN",
+    "KY",
+    "FL",
 }
 
 # States with significant heating oil markets
 HEATING_OIL_STATES: set[str] = {
-    "CT", "MA", "NY", "NJ", "PA", "ME", "NH", "VT", "RI",
+    "CT",
+    "MA",
+    "NY",
+    "NJ",
+    "PA",
+    "ME",
+    "NH",
+    "VT",
+    "RI",
 }
 
 # States with significant propane markets (EIA weekly survey states)
 PROPANE_STATES: set[str] = {
-    "CT", "MA", "NY", "NJ", "PA", "ME", "NH", "VT",
+    "CT",
+    "MA",
+    "NY",
+    "NJ",
+    "PA",
+    "ME",
+    "NH",
+    "VT",
 }
 
 # States with Community Choice Aggregation (CCA) programs
 CCA_STATES: set[str] = {
-    "CA", "MA", "NY", "NJ", "IL", "OH", "NH", "VA", "RI", "CO",
+    "CA",
+    "MA",
+    "NY",
+    "NJ",
+    "IL",
+    "OH",
+    "NH",
+    "VA",
+    "RI",
+    "CO",
 }
 
 # States with community solar programs
 COMMUNITY_SOLAR_STATES: set[str] = {
-    "CT", "NY", "MA", "IL", "MN", "FL", "NJ", "MD", "ME",
-    "CO", "CA", "OR", "HI", "SC", "NM", "AZ", "VA", "DE",
-    "VT", "RI", "WI", "NV", "UT", "WA", "DC", "NC", "OH", "PA",
+    "CT",
+    "NY",
+    "MA",
+    "IL",
+    "MN",
+    "FL",
+    "NJ",
+    "MD",
+    "ME",
+    "CO",
+    "CA",
+    "OR",
+    "HI",
+    "SC",
+    "NM",
+    "AZ",
+    "VA",
+    "DE",
+    "VT",
+    "RI",
+    "WI",
+    "NV",
+    "UT",
+    "WA",
+    "DC",
+    "NC",
+    "OH",
+    "PA",
 }

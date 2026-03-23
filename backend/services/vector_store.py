@@ -7,20 +7,19 @@ optimization caching, and recommendation learning.
 Uses numpy for vector operations and sqlite3 for persistence.
 """
 
-import os
-import json
-import sqlite3
 import hashlib
-import logging
+import json
+import os
+import sqlite3
 import threading
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Tuple
 from collections import OrderedDict
-from pathlib import Path
+from datetime import UTC, datetime
+from typing import Any
 
 import numpy as np
+import structlog
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class VectorStore:
@@ -41,7 +40,7 @@ class VectorStore:
         self._cache_size = cache_size
         self._dimension = dimension
         self._lock = threading.Lock()
-        self._cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+        self._cache: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._init_db()
 
     def _init_db(self) -> None:
@@ -92,7 +91,7 @@ class VectorStore:
         content = f"{domain}:{vector.tobytes().hex()}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def _update_cache(self, key: str, value: Dict[str, Any]) -> None:
+    def _update_cache(self, key: str, value: dict[str, Any]) -> None:
         """Update LRU cache with eviction."""
         with self._lock:
             if key in self._cache:
@@ -105,9 +104,9 @@ class VectorStore:
         self,
         domain: str,
         vector: np.ndarray,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         confidence: float = 1.0,
-        vector_id: Optional[str] = None,
+        vector_id: str | None = None,
     ) -> str:
         """
         Insert a vector with metadata into the store.
@@ -130,7 +129,7 @@ class VectorStore:
                 vector = vector[: self._dimension]
 
         vec_id = vector_id or self._generate_id(domain, vector)
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         meta_json = json.dumps(metadata or {})
 
         with sqlite3.connect(self._db_path) as conn:
@@ -160,10 +159,10 @@ class VectorStore:
     def search(
         self,
         query_vector: np.ndarray,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         k: int = 5,
         min_similarity: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find similar vectors using cosine similarity.
 
@@ -214,7 +213,7 @@ class VectorStore:
 
         # Update usage counts for returned results
         if results:
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             with sqlite3.connect(self._db_path) as conn:
                 for r in results[:k]:
                     conn.execute(
@@ -252,7 +251,7 @@ class VectorStore:
                 )
             conn.commit()
 
-    def get_stats(self, domain: Optional[str] = None) -> Dict[str, Any]:
+    def get_stats(self, domain: str | None = None) -> dict[str, Any]:
         """Get vector store statistics."""
         with sqlite3.connect(self._db_path) as conn:
             if domain:
@@ -273,7 +272,7 @@ class VectorStore:
         return {
             "total_vectors": total,
             "avg_confidence": round(avg_conf or 0, 4),
-            "domains": {d: c for d, c in domains},
+            "domains": dict(domains),
             "cache_size": len(self._cache),
             "dimension": self._dimension,
         }
@@ -292,7 +291,7 @@ class VectorStore:
 # --- Domain-specific helpers ---
 
 
-def price_curve_to_vector(prices: List[float], target_dim: int = 24) -> np.ndarray:
+def price_curve_to_vector(prices: list[float], target_dim: int = 24) -> np.ndarray:
     """
     Convert a price curve (any length) into a normalized vector.
     Resamples to target_dim points and normalizes.
@@ -315,7 +314,7 @@ def price_curve_to_vector(prices: List[float], target_dim: int = 24) -> np.ndarr
 
 
 def appliance_config_to_vector(
-    appliances: List[Dict[str, Any]], target_dim: int = 24
+    appliances: list[dict[str, Any]], target_dim: int = 24
 ) -> np.ndarray:
     """
     Convert appliance configuration into a vector for similarity matching.

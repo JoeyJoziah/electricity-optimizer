@@ -77,8 +77,28 @@ describe("getSecurityHeaders", () => {
     expect(headers["X-Content-Type-Options"]).toBe("nosniff");
     expect(headers["X-Frame-Options"]).toBe("DENY");
     expect(headers["Strict-Transport-Security"]).toContain("max-age=");
+    expect(headers["Strict-Transport-Security"]).toContain("preload");
     expect(headers["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
     expect(headers["X-Request-ID"]).toBe("test-id-123");
     expect(headers["X-Edge-Colo"]).toBe("EWR");
+  });
+
+  it("includes Permissions-Policy header", () => {
+    const headers = getSecurityHeaders("test-id", "EWR");
+    expect(headers["Permissions-Policy"]).toBeDefined();
+    expect(headers["Permissions-Policy"]).toContain("camera=()");
+    expect(headers["Permissions-Policy"]).toContain("microphone=()");
+  });
+
+  it("includes Content-Security-Policy header", () => {
+    const headers = getSecurityHeaders("test-id", "EWR");
+    expect(headers["Content-Security-Policy"]).toBeDefined();
+    expect(headers["Content-Security-Policy"]).toContain("default-src");
+    expect(headers["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+  });
+
+  it("sets X-XSS-Protection to 0 (modern best practice)", () => {
+    const headers = getSecurityHeaders("test-id", "EWR");
+    expect(headers["X-XSS-Protection"]).toBe("0");
   });
 });

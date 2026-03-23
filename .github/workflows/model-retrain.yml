@@ -1,8 +1,11 @@
 name: Weekly Model Retraining
 
 on:
-  schedule:
-    - cron: "0 5 * * 0"  # Sunday 5:00 AM UTC (avoids 2am data pipeline cluster)
+  # Schedule disabled — this workflow validates the training pipeline but does
+  # not perform actual retraining (no DATABASE_URL, no model artifact upload).
+  # Re-enable the cron once real retraining is implemented.
+  # schedule:
+  #   - cron: "0 5 * * 0"
   workflow_dispatch:
 
 permissions: {}

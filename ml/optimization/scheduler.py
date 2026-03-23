@@ -15,13 +15,12 @@ Features:
 import json
 from typing import List, Dict, Optional, Any, Tuple, Union
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 import numpy as np
 
 from ml.optimization.appliance_models import (
     Appliance,
     ApplianceType,
-    ApplianceSchedule,
     ScheduleResult,
     PriceProfile,
     OptimizationConfig,
@@ -146,8 +145,7 @@ class ApplianceScheduler:
 
         if window not in windows:
             raise ValueError(
-                f"Unknown time window '{window}'. "
-                f"Valid options: {list(windows.keys())}"
+                f"Unknown time window '{window}'. Valid options: {list(windows.keys())}"
             )
 
         return windows[window]
@@ -190,7 +188,9 @@ class ApplianceScheduler:
         self.mutual_exclusions.append((appliance1, appliance2))
         return self
 
-    def set_price_profile(self, prices: Union[List[float], np.ndarray]) -> "ApplianceScheduler":
+    def set_price_profile(
+        self, prices: Union[List[float], np.ndarray]
+    ) -> "ApplianceScheduler":
         """Set a custom price profile.
 
         Args:
@@ -413,14 +413,16 @@ class ApplianceScheduler:
                 end_time = schedule._slot_to_time(end)
                 periods.append(f"{start_time}-{end_time}")
 
-            schedule_list.append({
-                "appliance": schedule.appliance.name,
-                "type": schedule.appliance.appliance_type.value,
-                "power_kw": schedule.appliance.power_kw,
-                "run_periods": periods,
-                "cost": round(schedule.cost, 2),
-                "energy_kwh": round(schedule.energy_kwh, 2),
-            })
+            schedule_list.append(
+                {
+                    "appliance": schedule.appliance.name,
+                    "type": schedule.appliance.appliance_type.value,
+                    "power_kw": schedule.appliance.power_kw,
+                    "run_periods": periods,
+                    "cost": round(schedule.cost, 2),
+                    "energy_kwh": round(schedule.energy_kwh, 2),
+                }
+            )
 
         return {
             "status": result.status,

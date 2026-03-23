@@ -5,36 +5,33 @@ CRUD endpoints for electricity price data: current, history, forecast, compare, 
 Analytics and SSE streaming live in prices_analytics.py and prices_sse.py respectively.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional, List
-import numpy as np
 
+import numpy as np
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-
-from models.price import (
-    Price,
-    PriceRegion,
-    PriceResponse,
-    PriceHistoryResponse,
-    PriceForecastResponse,
-    PriceForecast,
-    PriceComparisonResponse,
-)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.price_service import PriceService
 from api.dependencies import (
+    SessionData,
     get_price_service,
     require_tier,
     verify_api_key,
-    SessionData,
 )
 from config.database import get_timescale_session
 from config.settings import get_settings
-
-import structlog
+from models.price import (
+    Price,
+    PriceComparisonResponse,
+    PriceForecast,
+    PriceForecastResponse,
+    PriceHistoryResponse,
+    PriceRegion,
+    PriceResponse,
+)
+from services.price_service import PriceService
 
 logger = structlog.get_logger(__name__)
 settings = get_settings()
@@ -42,23 +39,25 @@ settings = get_settings()
 router = APIRouter(tags=["Prices"])
 
 
-def _generate_mock_prices(region: str, count: int = 24) -> List[Price]:
+def _generate_mock_prices(region: str, count: int = 24) -> list[Price]:
     """Generate mock price data for development without DB"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     prices = []
     for i in range(count):
         ts = now - timedelta(hours=count - i)
         hour = ts.hour
         base = round(0.22 + 0.06 * np.sin((hour - 6) * np.pi / 12), 4)
-        prices.append(Price(
-            region=region,
-            supplier="Eversource Energy",
-            price_per_kwh=Decimal(str(base)),
-            timestamp=ts,
-            currency="USD",
-            is_peak=7 <= hour <= 19,
-            carbon_intensity=round(150 + 50 * np.sin((hour - 6) * np.pi / 12), 1),
-        ))
+        prices.append(
+            Price(
+                region=region,
+                supplier="Eversource Energy",
+                price_per_kwh=Decimal(str(base)),
+                timestamp=ts,
+                currency="USD",
+                is_peak=7 <= hour <= 19,
+                carbon_intensity=round(150 + 50 * np.sin((hour - 6) * np.pi / 12), 1),
+            )
+        )
     return prices
 
 
@@ -69,11 +68,12 @@ def _generate_mock_prices(region: str, count: int = 24) -> List[Price]:
 
 class CurrentPriceResponse(BaseModel):
     """Response for current price endpoint"""
-    price: Optional[PriceResponse] = None
-    prices: Optional[List[PriceResponse]] = None
+
+    price: PriceResponse | None = None
+    prices: list[PriceResponse] | None = None
     region: str
     timestamp: datetime
-    source: Optional[str] = None
+    source: str | None = None
 
 
 # =============================================================================
@@ -88,11 +88,11 @@ class CurrentPriceResponse(BaseModel):
     responses={
         200: {"description": "Current prices retrieved successfully"},
         422: {"description": "Invalid region parameter"},
-    }
+    },
 )
 async def get_current_prices(
     region: PriceRegion = Query(..., description="Price region (e.g., uk, germany)"),
-    supplier: Optional[str] = Query(None, description="Filter by specific supplier"),
+    supplier: str | None = Query(None, description="Filter by specific supplier"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of prices"),
     price_service: PriceService = Depends(get_price_service),
 ):
@@ -108,7 +108,7 @@ async def get_current_prices(
             if not price:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No price found for supplier '{supplier}' in region '{region.value}'"
+                    detail=f"No price found for supplier '{supplier}' in region '{region.value}'",
                 )
 
             return CurrentPriceResponse(
@@ -123,7 +123,7 @@ async def get_current_prices(
                     carbon_intensity=price.carbon_intensity,
                 ),
                 region=region.value,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 source="live",
             )
 
@@ -146,7 +146,7 @@ async def get_current_prices(
         return CurrentPriceResponse(
             prices=price_responses,
             region=region.value,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source="live",
         )
     except HTTPException:
@@ -174,7 +174,7 @@ async def get_current_prices(
                 for p in mock[-3:]
             ],
             region=region.value,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source="fallback",
         )
 
@@ -187,16 +187,28 @@ async def get_current_prices(
         200: {"description": "Historical prices retrieved successfully"},
         400: {"description": "start_date must be before end_date"},
         422: {"description": "Invalid parameters"},
-    }
+    },
 )
 async def get_price_history(
     region: PriceRegion = Query(..., description="Price region"),
-    days: int = Query(7, ge=1, le=365, description="Number of days of history (ignored when start_date/end_date provided)"),
-    supplier: Optional[str] = Query(None, description="Filter by supplier name"),
-    start_date: Optional[datetime] = Query(None, description="Filter by start date (ISO 8601, inclusive)"),
-    end_date: Optional[datetime] = Query(None, description="Filter by end date (ISO 8601, inclusive)"),
+    days: int = Query(
+        7,
+        ge=1,
+        le=365,
+        description="Number of days of history (ignored when start_date/end_date provided)",
+    ),
+    supplier: str | None = Query(None, description="Filter by supplier name"),
+    start_date: datetime | None = Query(
+        None, description="Filter by start date (ISO 8601, inclusive)"
+    ),
+    end_date: datetime | None = Query(None, description="Filter by end date (ISO 8601, inclusive)"),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
-    page_size: int = Query(24, ge=1, le=100, description="Records per page (1–100, default 24 = one day of hourly data)"),
+    page_size: int = Query(
+        24,
+        ge=1,
+        le=100,
+        description="Records per page (1–100, default 24 = one day of hourly data)",
+    ),
     price_service: PriceService = Depends(get_price_service),
 ):
     """
@@ -220,10 +232,16 @@ async def get_price_history(
     # Resolve the effective date window
     if start_date is not None or end_date is not None:
         # Explicit date range — ensure UTC and validate ordering
-        resolved_end = (end_date.replace(tzinfo=timezone.utc) if end_date.tzinfo is None else end_date) \
-            if end_date is not None else datetime.now(timezone.utc)
-        resolved_start = (start_date.replace(tzinfo=timezone.utc) if start_date.tzinfo is None else start_date) \
-            if start_date is not None else resolved_end - timedelta(days=days)
+        resolved_end = (
+            (end_date.replace(tzinfo=UTC) if end_date.tzinfo is None else end_date)
+            if end_date is not None
+            else datetime.now(UTC)
+        )
+        resolved_start = (
+            (start_date.replace(tzinfo=UTC) if start_date.tzinfo is None else start_date)
+            if start_date is not None
+            else resolved_end - timedelta(days=days)
+        )
 
         if resolved_start >= resolved_end:
             raise HTTPException(
@@ -231,7 +249,7 @@ async def get_price_history(
                 detail="start_date must be before end_date",
             )
     else:
-        resolved_end = datetime.now(timezone.utc)
+        resolved_end = datetime.now(UTC)
         resolved_start = resolved_end - timedelta(days=days)
 
     try:
@@ -294,7 +312,7 @@ async def get_price_history(
         total_mock = len(mock_all)
         pages_mock = max(1, (total_mock + page_size - 1) // page_size)
         offset = (page - 1) * page_size
-        mock_page = mock_all[offset: offset + page_size]
+        mock_page = mock_all[offset : offset + page_size]
 
         avg = sum(float(p.price_per_kwh) for p in mock_all) / len(mock_all)
         return PriceHistoryResponse(
@@ -321,12 +339,12 @@ async def get_price_history(
     responses={
         200: {"description": "Forecast retrieved successfully"},
         404: {"description": "No forecast available"},
-    }
+    },
 )
 async def get_price_forecast(
     region: PriceRegion = Query(..., description="Price region"),
     hours: int = Query(24, ge=1, le=168, description="Forecast horizon in hours"),
-    supplier: Optional[str] = Query(None, description="Filter by supplier"),
+    supplier: str | None = Query(None, description="Filter by supplier"),
     current_user: SessionData = Depends(require_tier("pro")),
     price_service: PriceService = Depends(get_price_service),
 ):
@@ -341,7 +359,7 @@ async def get_price_forecast(
         if not forecast:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No forecast available for region '{region.value}'"
+                detail=f"No forecast available for region '{region.value}'",
             )
 
         return PriceForecastResponse(
@@ -361,7 +379,7 @@ async def get_price_forecast(
                 status_code=503,
                 detail="Price service temporarily unavailable",
             )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock = _generate_mock_prices(region.value, hours)
         forecast = PriceForecast(
             region=region,
@@ -388,7 +406,7 @@ async def get_price_forecast(
     responses={
         200: {"description": "Comparison retrieved successfully"},
         404: {"description": "No prices available for comparison"},
-    }
+    },
 )
 async def compare_prices(
     region: PriceRegion = Query(..., description="Price region"),
@@ -424,7 +442,7 @@ async def compare_prices(
 
         return PriceComparisonResponse(
             region=region.value,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             suppliers=price_responses,
             cheapest_supplier=prices[0].supplier,
             cheapest_price=prices[0].price_per_kwh,
@@ -438,7 +456,7 @@ async def compare_prices(
                 status_code=503,
                 detail="Price service temporarily unavailable",
             )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_suppliers = [
             ("Eversource Energy", Decimal("0.2600")),
             ("United Illuminating (UI)", Decimal("0.2850")),
@@ -472,7 +490,7 @@ async def compare_prices(
     responses={
         200: {"description": "Price sync triggered successfully"},
         503: {"description": "Price sync failed — no data retrieved"},
-    }
+    },
 )
 async def refresh_prices(
     _api_key: bool = Depends(verify_api_key),
@@ -486,8 +504,9 @@ async def refresh_prices(
 
     Returns HTTP 503 on failure so retry-curl will retry with backoff.
     """
-    from services.price_sync_service import sync_prices
     from fastapi.responses import JSONResponse
+
+    from services.price_sync_service import sync_prices
 
     logger.info("price_refresh_triggered")
     result = await sync_prices(session)

@@ -1,15 +1,14 @@
 """Tests for Community Solar Service and API endpoints."""
 
 import uuid
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.community_solar_service import CommunitySolarService
 from models.region import COMMUNITY_SOLAR_STATES
-
+from services.community_solar_service import CommunitySolarService
 
 # ---------------------------------------------------------------------------
 # Unit tests: CommunitySolarService.calculate_savings (pure logic, no DB)
@@ -91,10 +90,9 @@ class TestCommunitySolarServiceDB:
     def service(self, mock_db):
         return CommunitySolarService(mock_db)
 
-    @pytest.mark.asyncio
     async def test_get_programs_returns_list(self, service, mock_db):
         program_id = uuid.uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_row = {
             "id": program_id,
             "state": "NY",
@@ -123,7 +121,6 @@ class TestCommunitySolarServiceDB:
         assert programs[0]["savings_percent"] == "10.00"
         assert programs[0]["enrollment_status"] == "open"
 
-    @pytest.mark.asyncio
     async def test_get_programs_empty_state(self, service, mock_db):
         mock_result = MagicMock()
         mock_result.mappings.return_value.all.return_value = []
@@ -132,10 +129,9 @@ class TestCommunitySolarServiceDB:
         programs = await service.get_programs(state="WY")
         assert programs == []
 
-    @pytest.mark.asyncio
     async def test_get_program_by_id_found(self, service, mock_db):
         program_id = uuid.uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_row = {
             "id": program_id,
             "state": "MA",
@@ -163,7 +159,6 @@ class TestCommunitySolarServiceDB:
         assert program["program_name"] == "MA Solar"
         assert program["savings_percent"] == "15.00"
 
-    @pytest.mark.asyncio
     async def test_get_program_by_id_not_found(self, service, mock_db):
         mock_result = MagicMock()
         mock_result.mappings.return_value.first.return_value = None
@@ -172,7 +167,6 @@ class TestCommunitySolarServiceDB:
         program = await service.get_program_by_id(str(uuid.uuid4()))
         assert program is None
 
-    @pytest.mark.asyncio
     async def test_get_state_program_count(self, service, mock_db):
         mock_result = MagicMock()
         mock_result.mappings.return_value.all.return_value = [
@@ -230,7 +224,6 @@ class TestCommunitySolarAPIValidation:
         assert result["monthly_savings"] == "7.50"
         assert result["annual_savings"] == "90.00"
 
-    @pytest.mark.asyncio
     async def test_get_programs_passes_enrollment_filter(self):
         """Verify enrollment_status filter is applied in query."""
         mock_db = AsyncMock()

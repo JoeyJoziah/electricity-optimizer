@@ -41,10 +41,8 @@ auto_promote(version_a, version_b, threshold=0.05, min_predictions=100)
 """
 
 import hashlib
-import json
-import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -73,7 +71,7 @@ def _hash_user_to_bucket(user_id: str, salt: str = "ab_split") -> int:
     Returns:
         Integer in range [0, 99].
     """
-    hash_input = f"{salt}:{user_id}".encode("utf-8")
+    hash_input = f"{salt}:{user_id}".encode()
     hash_int = int(hashlib.sha256(hash_input).hexdigest(), 16)
     return hash_int % 100
 
@@ -149,9 +147,7 @@ class ABTestService:
             The assigned model version string (either version_a or version_b).
         """
         if not (0.0 < split_ratio < 1.0):
-            raise ValueError(
-                f"split_ratio must be strictly between 0.0 and 1.0, got {split_ratio}"
-            )
+            raise ValueError(f"split_ratio must be strictly between 0.0 and 1.0, got {split_ratio}")
 
         # Check for an existing persistent assignment first
         existing = await self.get_assignment(user_id)
@@ -165,7 +161,7 @@ class ABTestService:
 
         # Persist
         new_id = str(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         try:
             await self._db.execute(
                 text(
@@ -198,7 +194,7 @@ class ABTestService:
         )
         return assigned_version
 
-    async def get_assignment(self, user_id: str) -> Optional[str]:
+    async def get_assignment(self, user_id: str) -> str | None:
         """
         Return the persisted model_version for a user, or None.
 
@@ -209,11 +205,7 @@ class ABTestService:
             model_version string if a record exists, otherwise None.
         """
         result = await self._db.execute(
-            text(
-                "SELECT model_version"
-                "  FROM model_ab_assignments"
-                " WHERE user_id = :user_id"
-            ),
+            text("SELECT model_version  FROM model_ab_assignments WHERE user_id = :user_id"),
             {"user_id": user_id},
         )
         row = result.fetchone()
@@ -231,7 +223,7 @@ class ABTestService:
         model_version: str,
         region: str,
         predicted_value: float,
-        actual_value: Optional[float] = None,
+        actual_value: float | None = None,
     ) -> str:
         """
         Persist a prediction event for accuracy tracking.
@@ -253,9 +245,9 @@ class ABTestService:
             UUID string of the newly created prediction record.
         """
         new_id = str(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
-        error_pct: Optional[float] = None
+        error_pct: float | None = None
         if actual_value is not None and actual_value != 0.0:
             error_pct = abs(predicted_value - actual_value) / abs(actual_value) * 100.0
 
@@ -327,11 +319,7 @@ class ABTestService:
         """
         # Fetch the predicted_value so we can compute error_pct
         result = await self._db.execute(
-            text(
-                "SELECT predicted_value"
-                "  FROM model_predictions"
-                " WHERE id = :prediction_id"
-            ),
+            text("SELECT predicted_value  FROM model_predictions WHERE id = :prediction_id"),
             {"prediction_id": prediction_id},
         )
         row = result.fetchone()
@@ -340,7 +328,7 @@ class ABTestService:
             return False
 
         predicted = float(row.predicted_value)
-        error_pct: Optional[float] = None
+        error_pct: float | None = None
         if actual_value != 0.0:
             error_pct = abs(predicted - actual_value) / abs(actual_value) * 100.0
 
@@ -374,7 +362,7 @@ class ABTestService:
     # Metrics
     # ------------------------------------------------------------------
 
-    async def get_split_metrics(self) -> List[Dict[str, Any]]:
+    async def get_split_metrics(self) -> list[dict[str, Any]]:
         """
         Return accuracy metrics grouped by model_version.
 
@@ -427,7 +415,7 @@ class ABTestService:
         version_b: str,
         threshold: float = 0.05,
         min_predictions: int = 100,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Return the winning version if version_b outperforms version_a.
 

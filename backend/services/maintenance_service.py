@@ -29,34 +29,46 @@ class MaintenanceService:
     async def cleanup_activity_logs(self, retention_days: int = 365):
         """Delete activity logs older than retention period."""
         cutoff = datetime.now(UTC) - timedelta(days=retention_days)
-        result = await self._db.execute(
-            text("DELETE FROM activity_logs WHERE created_at < :cutoff"),
-            {"cutoff": cutoff},
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("DELETE FROM activity_logs WHERE created_at < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         count = result.rowcount
         logger.info("activity_logs_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}
 
     async def cleanup_old_prices(self, retention_days: int = 365):
         """Call the PL/pgSQL cleanup_old_prices function."""
-        result = await self._db.execute(
-            text("SELECT cleanup_old_prices(:days)"),
-            {"days": retention_days},
-        )
-        deleted = result.scalar() or 0
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("SELECT cleanup_old_prices(:days)"),
+                {"days": retention_days},
+            )
+            deleted = result.scalar() or 0
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         logger.info("old_prices_cleaned", deleted=deleted, retention_days=retention_days)
         return {"deleted": deleted, "retention_days": retention_days}
 
     async def cleanup_old_observations(self, retention_days: int = 90):
         """Call the PL/pgSQL cleanup_old_observations function."""
-        result = await self._db.execute(
-            text("SELECT cleanup_old_observations(:days)"),
-            {"days": retention_days},
-        )
-        deleted = result.scalar() or 0
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("SELECT cleanup_old_observations(:days)"),
+                {"days": retention_days},
+            )
+            deleted = result.scalar() or 0
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         logger.info("old_observations_cleaned", deleted=deleted, retention_days=retention_days)
         return {"deleted": deleted, "retention_days": retention_days}
 
@@ -76,18 +88,22 @@ class MaintenanceService:
 
         # Delete extracted rates first (FK dependency)
         upload_ids = [str(r[0]) for r in old_uploads]
-        if upload_ids:
-            await self._db.execute(
-                text("DELETE FROM connection_extracted_rates WHERE bill_upload_id = ANY(:ids)"),
-                {"ids": upload_ids},
-            )
+        try:
+            if upload_ids:
+                await self._db.execute(
+                    text("DELETE FROM connection_extracted_rates WHERE bill_upload_id = ANY(:ids)"),
+                    {"ids": upload_ids},
+                )
 
-        # Delete upload records
-        await self._db.execute(
-            text("DELETE FROM bill_uploads WHERE created_at < :cutoff"),
-            {"cutoff": cutoff},
-        )
-        await self._db.commit()
+            # Delete upload records
+            await self._db.execute(
+                text("DELETE FROM bill_uploads WHERE created_at < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
 
         # Clean up files (best-effort — failures are non-fatal)
         for row in old_uploads:
@@ -105,11 +121,15 @@ class MaintenanceService:
     async def cleanup_weather_cache(self, retention_days: int = 30):
         """Delete weather cache entries older than retention period."""
         cutoff = datetime.now(UTC) - timedelta(days=retention_days)
-        result = await self._db.execute(
-            text("DELETE FROM weather_cache WHERE fetched_at < :cutoff"),
-            {"cutoff": cutoff},
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("DELETE FROM weather_cache WHERE fetched_at < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         count = result.rowcount
         logger.info("weather_cache_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}
@@ -117,11 +137,15 @@ class MaintenanceService:
     async def cleanup_scraped_rates(self, retention_days: int = 90):
         """Delete scraped rate entries older than retention period."""
         cutoff = datetime.now(UTC) - timedelta(days=retention_days)
-        result = await self._db.execute(
-            text("DELETE FROM scraped_rates WHERE fetched_at < :cutoff"),
-            {"cutoff": cutoff},
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("DELETE FROM scraped_rates WHERE fetched_at < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         count = result.rowcount
         logger.info("scraped_rates_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}
@@ -129,11 +153,15 @@ class MaintenanceService:
     async def cleanup_market_intelligence(self, retention_days: int = 180):
         """Delete market intelligence entries older than retention period."""
         cutoff = datetime.now(UTC) - timedelta(days=retention_days)
-        result = await self._db.execute(
-            text("DELETE FROM market_intelligence WHERE fetched_at < :cutoff"),
-            {"cutoff": cutoff},
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("DELETE FROM market_intelligence WHERE fetched_at < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         count = result.rowcount
         logger.info("market_intelligence_cleaned", deleted=count, retention_days=retention_days)
         return {"deleted": count, "retention_days": retention_days}
@@ -146,11 +174,15 @@ class MaintenanceService:
         the table small.
         """
         cutoff = datetime.now(UTC) - timedelta(hours=retention_hours)
-        result = await self._db.execute(
-            text("DELETE FROM stripe_processed_events WHERE processed_at < :cutoff"),
-            {"cutoff": cutoff},
-        )
-        await self._db.commit()
+        try:
+            result = await self._db.execute(
+                text("DELETE FROM stripe_processed_events WHERE processed_at < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            await self._db.commit()
+        except Exception:
+            await self._db.rollback()
+            raise
         count = result.rowcount
         logger.info(
             "stripe_processed_events_cleaned",

@@ -5,15 +5,14 @@ Public endpoints for natural gas price data: current rates, history,
 deregulated states, and supplier comparison.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, get_current_user, SessionData
+from api.dependencies import get_db_session
 from models.region import DEREGULATED_GAS_STATES
-from models.utility import UtilityType, UNIT_LABELS, PriceUnit
+from models.utility import UNIT_LABELS, PriceUnit
 from services.gas_rate_service import GasRateService
 
 router = APIRouter(tags=["Gas Rates"])
@@ -60,7 +59,7 @@ async def get_gas_price_history(
 ):
     """Get gas price history for a region."""
     service = GasRateService(db=db)
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=days)
 
     prices = await service.get_gas_price_history(

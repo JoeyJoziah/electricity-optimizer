@@ -10,14 +10,13 @@ Covers:
 - handle_payment_failure full flow / dedup blocks
 """
 
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
-from services.dunning_service import DunningService, DUNNING_COOLDOWN_HOURS
-
+from services.dunning_service import DUNNING_COOLDOWN_HOURS, DunningService
 
 # =============================================================================
 # Fixtures
@@ -68,8 +67,6 @@ def dunning(mock_db, mock_email_service):
 
 
 class TestRecordPaymentFailure:
-
-    @pytest.mark.asyncio
     async def test_creates_row(self, dunning, mock_db):
         """record_payment_failure should INSERT a row (commit managed by orchestrator)."""
         row = MagicMock()
@@ -85,14 +82,23 @@ class TestRecordPaymentFailure:
             "email_sent": False,
             "email_sent_at": None,
             "escalation_action": None,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }[key]
         row.keys = lambda: [
-            "id", "user_id", "stripe_invoice_id", "stripe_customer_id",
-            "retry_count", "retry_type", "amount_owed", "currency",
-            "email_sent", "email_sent_at", "escalation_action",
-            "created_at", "updated_at",
+            "id",
+            "user_id",
+            "stripe_invoice_id",
+            "stripe_customer_id",
+            "retry_count",
+            "retry_type",
+            "amount_owed",
+            "currency",
+            "email_sent",
+            "email_sent_at",
+            "escalation_action",
+            "created_at",
+            "updated_at",
         ]
 
         # get_retry_count returns 0 (first failure)
@@ -121,8 +127,6 @@ class TestRecordPaymentFailure:
 
 
 class TestGetRetryCount:
-
-    @pytest.mark.asyncio
     async def test_returns_count(self, dunning, mock_db):
         """Should return the count for a known invoice."""
         result = MagicMock()
@@ -132,7 +136,6 @@ class TestGetRetryCount:
         count = await dunning.get_retry_count("inv_123")
         assert count == 3
 
-    @pytest.mark.asyncio
     async def test_returns_zero_for_unknown(self, dunning, mock_db):
         """Should return 0 for an invoice with no retries."""
         result = MagicMock()
@@ -149,8 +152,6 @@ class TestGetRetryCount:
 
 
 class TestShouldSendDunning:
-
-    @pytest.mark.asyncio
     async def test_true_when_no_recent_email(self, dunning, mock_db):
         """Should return True when no email was sent in the cooldown window."""
         result = MagicMock()
@@ -160,11 +161,10 @@ class TestShouldSendDunning:
         should_send = await dunning.should_send_dunning("user-1", "inv_123")
         assert should_send is True
 
-    @pytest.mark.asyncio
     async def test_false_when_recent_email_exists(self, dunning, mock_db):
         """Should return False when an email was sent within cooldown."""
         recent = MagicMock()
-        recent.email_sent_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent.email_sent_at = datetime.now(UTC) - timedelta(hours=1)
         result = MagicMock()
         result.first.return_value = recent
         mock_db.execute = AsyncMock(return_value=result)
@@ -179,8 +179,6 @@ class TestShouldSendDunning:
 
 
 class TestSendDunningEmail:
-
-    @pytest.mark.asyncio
     async def test_soft_template_when_under_3(self, dunning, mock_email_service):
         """retry_count < 3 should use dunning_soft.html template."""
         result = await dunning.send_dunning_email(
@@ -195,7 +193,6 @@ class TestSendDunningEmail:
         template_arg = mock_email_service.render_template.call_args[0][0]
         assert template_arg == "dunning_soft.html"
 
-    @pytest.mark.asyncio
     async def test_final_template_when_3_or_more(self, dunning, mock_email_service):
         """retry_count >= 3 should use dunning_final.html template."""
         result = await dunning.send_dunning_email(
@@ -209,7 +206,6 @@ class TestSendDunningEmail:
         template_arg = mock_email_service.render_template.call_args[0][0]
         assert template_arg == "dunning_final.html"
 
-    @pytest.mark.asyncio
     async def test_returns_false_on_email_failure(self, dunning, mock_email_service):
         """Should return False when email send fails."""
         mock_email_service.send = AsyncMock(return_value=False)
@@ -229,15 +225,12 @@ class TestSendDunningEmail:
 
 
 class TestEscalateIfNeeded:
-
-    @pytest.mark.asyncio
     async def test_downgrades_after_3_failures(self, dunning, mock_user_repo):
         """User on paid tier should be downgraded after 3 failures."""
         action = await dunning.escalate_if_needed("user-1", 3, mock_user_repo)
         assert action == "downgraded_to_free"
         mock_user_repo.update.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_no_op_if_already_free(self, dunning, mock_user_repo):
         """Already-free users should not be modified."""
         user = mock_user_repo.get_by_id.return_value
@@ -247,7 +240,6 @@ class TestEscalateIfNeeded:
         assert action is None
         mock_user_repo.update.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_no_escalation_under_3(self, dunning, mock_user_repo):
         """retry_count < 3 should not trigger escalation."""
         action = await dunning.escalate_if_needed("user-1", 2, mock_user_repo)
@@ -260,8 +252,6 @@ class TestEscalateIfNeeded:
 
 
 class TestHandlePaymentFailure:
-
-    @pytest.mark.asyncio
     async def test_full_flow(self, mock_db, mock_email_service, mock_user_repo):
         """Full flow: record → check cooldown → send email → no escalation (first failure)."""
         # Mock get_retry_count → 0
@@ -308,7 +298,6 @@ class TestHandlePaymentFailure:
         assert result["email_sent"] is True
         assert result["escalation_action"] is None
 
-    @pytest.mark.asyncio
     async def test_dedup_blocks_email(self, mock_db, mock_email_service, mock_user_repo):
         """When cooldown is active, email should not be sent."""
         count_result = MagicMock()
@@ -328,9 +317,7 @@ class TestHandlePaymentFailure:
         cooldown_result = MagicMock()
         cooldown_result.first.return_value = cooldown_row
 
-        mock_db.execute = AsyncMock(
-            side_effect=[count_result, insert_result, cooldown_result]
-        )
+        mock_db.execute = AsyncMock(side_effect=[count_result, insert_result, cooldown_result])
 
         dunning = DunningService(mock_db, email_service=mock_email_service)
         result = await dunning.handle_payment_failure(
@@ -368,7 +355,6 @@ class TestDunningServiceWithDispatcher:
         dispatcher.send = AsyncMock(return_value=send_return)
         return dispatcher
 
-    @pytest.mark.asyncio
     async def test_dispatcher_called_when_user_id_provided(self, mock_db, mock_email_service):
         """When a dispatcher and user_id are supplied, dispatcher.send() should be called."""
         dispatcher = self._make_dispatcher()
@@ -387,7 +373,6 @@ class TestDunningServiceWithDispatcher:
         # Direct email service should NOT be called
         mock_email_service.send.assert_not_awaited()
 
-    @pytest.mark.asyncio
     async def test_dispatcher_uses_email_and_push_channels(self, mock_db, mock_email_service):
         """The dispatcher call should include EMAIL and PUSH channels."""
         from services.notification_dispatcher import NotificationChannel
@@ -408,7 +393,6 @@ class TestDunningServiceWithDispatcher:
         assert NotificationChannel.EMAIL in channels
         assert NotificationChannel.PUSH in channels
 
-    @pytest.mark.asyncio
     async def test_dispatcher_dedup_skip_returns_true(self, mock_db, mock_email_service):
         """When the dispatcher deduplicates a dunning send, the method should return True."""
         dispatcher = self._make_dispatcher(skipped=True)
@@ -426,8 +410,9 @@ class TestDunningServiceWithDispatcher:
         assert result is True
         mock_email_service.send.assert_not_awaited()
 
-    @pytest.mark.asyncio
-    async def test_dispatcher_failure_falls_back_to_email_service(self, mock_db, mock_email_service):
+    async def test_dispatcher_failure_falls_back_to_email_service(
+        self, mock_db, mock_email_service
+    ):
         """When the dispatcher raises, DunningService should fall back to direct email."""
         dispatcher = MagicMock()
         dispatcher.send = AsyncMock(side_effect=Exception("Dispatcher down"))
@@ -445,7 +430,6 @@ class TestDunningServiceWithDispatcher:
         assert result is True
         mock_email_service.send.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_no_dispatcher_path_unchanged(self, dunning, mock_email_service):
         """Without a dispatcher, the legacy email path should still work."""
         result = await dunning.send_dunning_email(
@@ -459,7 +443,6 @@ class TestDunningServiceWithDispatcher:
         assert result is True
         mock_email_service.send.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_dispatcher_skipped_when_no_user_id(self, mock_db, mock_email_service):
         """Dispatcher should be skipped when user_id is not provided (legacy callers)."""
         dispatcher = self._make_dispatcher()
@@ -478,8 +461,9 @@ class TestDunningServiceWithDispatcher:
         dispatcher.send.assert_not_awaited()
         mock_email_service.send.assert_awaited_once()
 
-    @pytest.mark.asyncio
-    async def test_dispatcher_dedup_key_includes_user_and_template(self, mock_db, mock_email_service):
+    async def test_dispatcher_dedup_key_includes_user_and_template(
+        self, mock_db, mock_email_service
+    ):
         """The dedup_key should embed user_id and the template name."""
         dispatcher = self._make_dispatcher()
         svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
@@ -497,7 +481,6 @@ class TestDunningServiceWithDispatcher:
         assert "user-42" in dedup_key
         assert "dunning_soft.html" in dedup_key
 
-    @pytest.mark.asyncio
     async def test_dispatcher_cooldown_is_24_hours(self, mock_db, mock_email_service):
         """The dispatcher cooldown_seconds should match DUNNING_COOLDOWN_HOURS * 3600."""
         dispatcher = self._make_dispatcher()

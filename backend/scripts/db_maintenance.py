@@ -10,9 +10,8 @@ Usage:
 
 import asyncio
 import os
-import ssl
 import sys
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import asyncpg
 
@@ -25,6 +24,14 @@ def clean_database_url(raw_url: str) -> str:
     params.pop("channel_binding", None)
     clean_query = urlencode({k: v[0] for k, v in params.items()})
     return urlunparse(parsed._replace(query=clean_query))
+
+
+def _parse_delete_count(command_tag: str) -> int:
+    """Extract row count from asyncpg execute() command tag (e.g. 'DELETE 42')."""
+    parts = command_tag.split()
+    if len(parts) >= 2 and parts[-1].isdigit():
+        return int(parts[-1])
+    return 0
 
 
 async def run_maintenance():
@@ -54,20 +61,35 @@ async def run_maintenance():
         print(f"cleanup_old_observations(90): deleted {obs_result} rows")
 
         # Cache table retention (Wave 0 — prevent Neon storage overflow)
-        weather_result = await conn.fetchval(
+        # P1-9: Use execute() instead of fetchval() for DELETE statements.
+        # fetchval() returns None when zero rows are deleted; execute()
+        # returns the command tag (e.g. "DELETE 42") which we parse.
+        weather_tag = await conn.execute(
             "DELETE FROM weather_cache WHERE fetched_at < now() - interval '30 days'"
         )
-        print(f"weather_cache retention (30d): deleted {weather_result} rows")
+        print(f"weather_cache retention (30d): deleted {_parse_delete_count(weather_tag)} rows")
 
-        scraped_result = await conn.fetchval(
+        scraped_tag = await conn.execute(
             "DELETE FROM scraped_rates WHERE fetched_at < now() - interval '90 days'"
         )
-        print(f"scraped_rates retention (90d): deleted {scraped_result} rows")
+        print(f"scraped_rates retention (90d): deleted {_parse_delete_count(scraped_tag)} rows")
 
-        market_result = await conn.fetchval(
+        market_tag = await conn.execute(
             "DELETE FROM market_intelligence WHERE fetched_at < now() - interval '180 days'"
         )
-        print(f"market_intelligence retention (180d): deleted {market_result} rows")
+        print(
+            f"market_intelligence retention (180d): deleted {_parse_delete_count(market_tag)} rows"
+        )
+
+        # P1-8: rate_change_alerts retention — 90 days.
+        # The idx_rate_change_alerts_recent index on (detected_at DESC)
+        # supports efficient range scans for this deletion.
+        rate_alerts_tag = await conn.execute(
+            "DELETE FROM rate_change_alerts WHERE detected_at < now() - interval '90 days'"
+        )
+        print(
+            f"rate_change_alerts retention (90d): deleted {_parse_delete_count(rate_alerts_tag)} rows"
+        )
 
         print("Database maintenance completed successfully.")
     finally:

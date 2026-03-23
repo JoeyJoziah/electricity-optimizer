@@ -16,9 +16,7 @@ Coverage:
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-import pytest
-
-from services.push_notification_service import PushNotificationService, ONESIGNAL_API_URL
+from services.push_notification_service import ONESIGNAL_API_URL, PushNotificationService
 
 # =============================================================================
 # Fixtures
@@ -89,7 +87,6 @@ class TestIsConfigured:
 
 
 class TestSendPush:
-    @pytest.mark.asyncio
     async def test_returns_true_on_success(self):
         svc = PushNotificationService(settings=_configured_settings())
         mock_client = AsyncMock()
@@ -97,7 +94,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Test",
@@ -106,7 +105,6 @@ class TestSendPush:
 
         assert result is True
 
-    @pytest.mark.asyncio
     async def test_returns_false_when_not_configured(self):
         svc = PushNotificationService(settings=_unconfigured_settings())
         with patch("services.push_notification_service.httpx.AsyncClient") as mock_cls:
@@ -120,7 +118,6 @@ class TestSendPush:
 
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_returns_false_on_http_4xx(self):
         svc = PushNotificationService(settings=_configured_settings())
         mock_client = AsyncMock()
@@ -128,7 +125,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Test",
@@ -137,7 +136,6 @@ class TestSendPush:
 
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_returns_false_on_network_exception(self):
         svc = PushNotificationService(settings=_configured_settings())
         mock_client = AsyncMock()
@@ -145,7 +143,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Test",
@@ -154,7 +154,6 @@ class TestSendPush:
 
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_request_payload_matches_onesignal_spec(self):
         svc = PushNotificationService(settings=_configured_settings())
         mock_client = AsyncMock()
@@ -164,7 +163,9 @@ class TestSendPush:
 
         custom_data = {"type": "price_alert", "region": "CT"}
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="Price Alert",
@@ -174,7 +175,11 @@ class TestSendPush:
 
         mock_client.post.assert_awaited_once()
         call_kwargs = mock_client.post.call_args
-        url_arg = call_kwargs.args[0] if call_kwargs.args else call_kwargs.kwargs.get("url", call_kwargs.args[0] if call_kwargs.args else None)
+        url_arg = (
+            call_kwargs.args[0]
+            if call_kwargs.args
+            else call_kwargs.kwargs.get("url", call_kwargs.args[0] if call_kwargs.args else None)
+        )
         # Verify the URL is the OneSignal endpoint
         assert ONESIGNAL_API_URL in str(call_kwargs)
 
@@ -185,7 +190,6 @@ class TestSendPush:
         assert json_body["contents"]["en"] == "Price dropped!"
         assert json_body["data"] == custom_data
 
-    @pytest.mark.asyncio
     async def test_authorization_header_uses_rest_key(self):
         svc = PushNotificationService(settings=_configured_settings())
         mock_client = AsyncMock()
@@ -193,7 +197,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="T",
@@ -204,7 +210,6 @@ class TestSendPush:
         headers = call_kwargs.kwargs.get("headers", {})
         assert headers.get("Authorization") == f"Basic {_REST_KEY}"
 
-    @pytest.mark.asyncio
     async def test_data_defaults_to_empty_dict(self):
         svc = PushNotificationService(settings=_configured_settings())
         mock_client = AsyncMock()
@@ -212,7 +217,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="T",
@@ -223,7 +230,6 @@ class TestSendPush:
         json_body = mock_client.post.call_args.kwargs.get("json", {})
         assert json_body["data"] == {}
 
-    @pytest.mark.asyncio
     async def test_returns_false_on_500(self):
         svc = PushNotificationService(settings=_configured_settings())
         mock_client = AsyncMock()
@@ -231,7 +237,9 @@ class TestSendPush:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.push_notification_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.push_notification_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.send_push(
                 user_id=TEST_USER_ID,
                 title="T",
@@ -247,7 +255,6 @@ class TestSendPush:
 
 
 class TestSendPriceAlert:
-    @pytest.mark.asyncio
     async def test_delegates_to_send_push(self):
         svc = PushNotificationService(settings=_configured_settings())
         with patch.object(svc, "send_push", new_callable=AsyncMock) as mock_send:
@@ -265,7 +272,6 @@ class TestSendPriceAlert:
         assert call_kwargs["user_id"] == TEST_USER_ID
         assert call_kwargs["title"] == "Price Alert"
 
-    @pytest.mark.asyncio
     async def test_message_includes_region_and_price(self):
         svc = PushNotificationService(settings=_configured_settings())
         with patch.object(svc, "send_push", new_callable=AsyncMock) as mock_send:
@@ -282,7 +288,6 @@ class TestSendPriceAlert:
         assert "0.0750" in message
         assert "0.0800" in message
 
-    @pytest.mark.asyncio
     async def test_data_includes_type_and_region(self):
         svc = PushNotificationService(settings=_configured_settings())
         with patch.object(svc, "send_push", new_callable=AsyncMock) as mock_send:
@@ -298,7 +303,6 @@ class TestSendPriceAlert:
         assert data.get("type") == "price_alert"
         assert data.get("region") == "NY"
 
-    @pytest.mark.asyncio
     async def test_propagates_false_on_failure(self):
         svc = PushNotificationService(settings=_configured_settings())
         with patch.object(svc, "send_push", new_callable=AsyncMock) as mock_send:

@@ -43,6 +43,15 @@ export async function handleScheduled(
     return;
   }
 
+  // Fail-closed: abort if INTERNAL_API_KEY is not configured rather than
+  // sending unauthenticated requests to internal endpoints.
+  if (!env.INTERNAL_API_KEY) {
+    console.error(
+      `${route.name}: INTERNAL_API_KEY not configured — aborting scheduled task`
+    );
+    return;
+  }
+
   const originUrl = `${env.ORIGIN_URL}${route.endpoint}`;
   console.log(`${route.name}: triggering ${route.method} ${route.endpoint}`);
 
@@ -51,7 +60,7 @@ export async function handleScheduled(
       method: route.method,
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": env.INTERNAL_API_KEY ?? "",
+        "X-API-Key": env.INTERNAL_API_KEY!,
       },
       body: route.method === "POST" ? "{}" : undefined,
     });

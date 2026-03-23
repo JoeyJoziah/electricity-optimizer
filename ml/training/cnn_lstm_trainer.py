@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from ml.utils.integrity import sign_model
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +53,13 @@ class CNNLSTMTrainer:
         self.scaler = None
         self.history = None
 
+        # Per-horizon empirical residual quantiles computed on the validation
+        # set after training.  Shape (horizon,) each, or None if train() has
+        # not been called yet.  Used to construct statistically grounded
+        # prediction intervals instead of the ±10 % fabricated bounds.
+        self._val_q5_residual: Optional[np.ndarray] = None
+        self._val_q95_residual: Optional[np.ndarray] = None
+
     def prepare_sequences(
         self,
         df: pd.DataFrame,
@@ -75,7 +84,6 @@ class CNNLSTMTrainer:
                 X: (n_samples, sequence_length, n_features)
                 y: (n_samples, forecast_horizon, n_outputs)
         """
-        import torch
         from sklearn.preprocessing import StandardScaler
 
         logger.info(f"Preparing sequences with length {sequence_length}")
@@ -84,35 +92,77 @@ class CNNLSTMTrainer:
         features = df[feature_columns].values.astype(np.float32)
         target = df[target_column].values.astype(np.float32)
 
-        # Scale features
-        self.scaler = StandardScaler()
-        features_scaled = self.scaler.fit_transform(features)
-
         # Get forecast horizon from config
         forecast_horizon = self.config.get("output", {}).get("forecast_horizon", 24)
+
+        # Determine train split index to avoid data leakage:
+        # the scaler must be fit ONLY on training data so that validation
+        # statistics do not leak into the scaled representations used for
+        # sequence creation.  We use the same 85 % split that train() uses.
+        n_total = len(features)
+        n_sequences = max(0, n_total - sequence_length - forecast_horizon + 1)
+        n_val_seq = int(n_sequences * 0.15)
+        n_train_seq = n_sequences - n_val_seq
+
+        # The last training sequence ends at index (n_train_seq - 1) + sequence_length.
+        # Everything up to that index (exclusive of forecast targets) is "train data".
+        train_end_idx = n_train_seq + sequence_length if n_train_seq > 0 else n_total
+
+        # Fit scaler exclusively on training rows, then transform all rows.
+        self.scaler = StandardScaler()
+        self.scaler.fit(features[:train_end_idx])
+        features_scaled = self.scaler.transform(features)
+
+        # Determine interval strategy once, before the sequence loop, to avoid
+        # emitting a warning on every iteration.
+        use_empirical_bounds = (
+            self._val_q5_residual is not None and self._val_q95_residual is not None
+        )
+        if not use_empirical_bounds:
+            logger.warning(
+                "cnn_lstm_trainer: residual quantiles not available; "
+                "using ±10%% fallback bounds. Call train() first or "
+                "provide pre-computed residuals via _val_q5_residual / "
+                "_val_q95_residual to get empirically grounded intervals."
+            )
 
         # Create sequences
         X_list = []
         y_list = []
 
-        for i in range(len(features_scaled) - sequence_length - forecast_horizon + 1):
+        for i in range(n_sequences):
             X_list.append(features_scaled[i : i + sequence_length])
 
             # Target: next forecast_horizon values
-            y_values = target[i + sequence_length : i + sequence_length + forecast_horizon]
+            y_values = target[
+                i + sequence_length : i + sequence_length + forecast_horizon
+            ]
 
-            # Create point estimate (target) and bounds (simple uncertainty)
-            # In production, would use quantile regression or similar
+            # Create point estimate and empirical bounds.
+            # When validation residual quantiles are available (set by
+            # train() after fitting), use them so that the baked-in bounds
+            # are statistically derived rather than fabricated.
+            # Falls back to ±10 % if residuals are not yet computed (e.g.
+            # on the very first call before train() has run).
             y_point = y_values
-            y_lower = y_values * 0.9  # Simple 10% lower bound
-            y_upper = y_values * 1.1  # Simple 10% upper bound
+            horizon_len = len(y_values)
+            if use_empirical_bounds:
+                q5 = self._val_q5_residual[:horizon_len]
+                q95 = self._val_q95_residual[:horizon_len]
+                y_lower = y_point + q5  # q5 is typically negative
+                y_upper = y_point + q95  # q95 is typically positive
+            else:
+                y_lower = y_point * 0.9
+                y_upper = y_point * 1.1
 
             y_list.append(np.stack([y_point, y_lower, y_upper], axis=-1))
 
         X = np.array(X_list, dtype=np.float32)
         y = np.array(y_list, dtype=np.float32)
 
-        logger.info(f"Created {len(X)} sequences, X shape: {X.shape}, y shape: {y.shape}")
+        logger.info(
+            f"Created {len(X)} sequences, X shape: {X.shape}, y shape: {y.shape}"
+        )
 
         return X, y
 
@@ -122,7 +172,6 @@ class CNNLSTMTrainer:
         sequence_length: int,
     ):
         """Build the CNN-LSTM model architecture."""
-        import torch
         import torch.nn as nn
 
         class CNNLSTMModel(nn.Module):
@@ -148,12 +197,21 @@ class CNNLSTMTrainer:
                 in_channels = n_features
 
                 for filters, kernel_size in zip(cnn_filters, kernel_sizes):
-                    self.conv_layers.append(nn.Sequential(
-                        nn.Conv1d(in_channels, filters, kernel_size, padding=kernel_size // 2),
-                        nn.BatchNorm1d(filters) if cnn_config.get("batch_norm", True) else nn.Identity(),
-                        nn.ReLU(),
-                        nn.MaxPool1d(2),
-                    ))
+                    self.conv_layers.append(
+                        nn.Sequential(
+                            nn.Conv1d(
+                                in_channels,
+                                filters,
+                                kernel_size,
+                                padding=kernel_size // 2,
+                            ),
+                            nn.BatchNorm1d(filters)
+                            if cnn_config.get("batch_norm", True)
+                            else nn.Identity(),
+                            nn.ReLU(),
+                            nn.MaxPool1d(2),
+                        )
+                    )
                     in_channels = filters
                     sequence_length = sequence_length // 2
 
@@ -195,11 +253,13 @@ class CNNLSTMTrainer:
                 dense_input = lstm_units[-1] * 2
 
                 for units in dense_units:
-                    self.dense_layers.append(nn.Sequential(
-                        nn.Linear(dense_input, units),
-                        nn.ReLU(),
-                        nn.Dropout(dense_dropout),
-                    ))
+                    self.dense_layers.append(
+                        nn.Sequential(
+                            nn.Linear(dense_input, units),
+                            nn.ReLU(),
+                            nn.Dropout(dense_dropout),
+                        )
+                    )
                     dense_input = units
 
                 # Output layer
@@ -288,7 +348,10 @@ class CNNLSTMTrainer:
         # Create data loaders
         batch_size = self.training_config.get("batch_size", 32)
         train_dataset = TensorDataset(X_train_t, y_train_t)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        # shuffle=False preserves temporal ordering required for time series;
+        # shuffling would allow future information to bleed into earlier batches
+        # when combined with stateful optimizers and gradient accumulation.
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
         # Build model
         n_features = X_train.shape[2]
@@ -300,7 +363,10 @@ class CNNLSTMTrainer:
         optimizer = torch.optim.Adam(
             self.model.parameters(),
             lr=optimizer_config.get("learning_rate", 0.001),
-            betas=(optimizer_config.get("beta_1", 0.9), optimizer_config.get("beta_2", 0.999)),
+            betas=(
+                optimizer_config.get("beta_1", 0.9),
+                optimizer_config.get("beta_2", 0.999),
+            ),
         )
 
         loss_fn = nn.MSELoss()
@@ -353,7 +419,10 @@ class CNNLSTMTrainer:
                 # Calculate MAPE on point estimates
                 point_pred = val_output[:, :, 0].numpy()
                 point_actual = y_val_t[:, :, 0].numpy()
-                val_mape = np.mean(np.abs((point_actual - point_pred) / (point_actual + 1e-8))) * 100
+                val_mape = (
+                    np.mean(np.abs((point_actual - point_pred) / (point_actual + 1e-8)))
+                    * 100
+                )
 
             # Update history
             self.history["loss"].append(train_loss)
@@ -374,7 +443,9 @@ class CNNLSTMTrainer:
             # Early stopping check
             if val_loss < best_val_loss - min_delta:
                 best_val_loss = val_loss
-                best_weights = {k: v.clone() for k, v in self.model.state_dict().items()}
+                best_weights = {
+                    k: v.clone() for k, v in self.model.state_dict().items()
+                }
                 patience_counter = 0
             else:
                 patience_counter += 1
@@ -385,6 +456,39 @@ class CNNLSTMTrainer:
         # Restore best weights
         if best_weights and early_config.get("restore_best_weights", True):
             self.model.load_state_dict(best_weights)
+
+        # Compute empirical prediction intervals from validation residuals.
+        # Residuals = actual - predicted on the validation set (signed, per
+        # horizon step).  Storing the 5th and 95th percentiles lets callers
+        # build intervals that are grounded in actual model error rather than
+        # the fabricated ±10 % magnitude fallback.
+        try:
+            self.model.eval()
+            with torch.no_grad():
+                val_output = self.model(X_val_t)
+                # Extract point predictions: column 0 when output is 3-D
+                if hasattr(val_output, "dim") and val_output.dim() == 3:
+                    val_point = val_output.numpy()[:, :, 0]  # (n_val, horizon)
+                else:
+                    val_point = val_output.numpy()  # (n_val, horizon)
+                val_actuals = y_val_t[:, :, 0].numpy()  # (n_val, horizon)
+
+            residuals = val_actuals - val_point  # positive → under-predicted
+            self._val_q5_residual = np.percentile(residuals, 5, axis=0)
+            self._val_q95_residual = np.percentile(residuals, 95, axis=0)
+            logger.info(
+                "val_residual_quantiles computed: q5_mean=%.4f q95_mean=%.4f",
+                float(self._val_q5_residual.mean()),
+                float(self._val_q95_residual.mean()),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to compute validation residual quantiles: %s. "
+                "Interval bounds will fall back to ±10 %%.",
+                exc,
+            )
+            self._val_q5_residual = None
+            self._val_q95_residual = None
 
         # Final metrics
         final_metrics = {
@@ -405,12 +509,23 @@ class CNNLSTMTrainer:
 
         os.makedirs(path, exist_ok=True)
 
-        # Save model
-        torch.save(self.model, os.path.join(path, "model.pt"))
+        # Save model weights only (state_dict) so that torch.load with
+        # weights_only=True works in the predictor.  Saving the full nn.Module
+        # object via torch.save(model) uses pickle and is incompatible with
+        # weights_only=True loading — it also creates a remote code execution
+        # risk if the .pt file is tampered with.
+        torch.save(self.model.state_dict(), os.path.join(path, "model.pt"))
 
-        # Save scaler
+        # Save scaler and sign immediately so that the predictor can verify
+        # integrity before joblib.load() — prevents tampered pickle RCE.
+        # Guard with os.path.exists so that tests that mock joblib.dump
+        # (which skip the actual file write) do not trigger a spurious
+        # FileNotFoundError from sign_model.
         if self.scaler:
-            joblib.dump(self.scaler, os.path.join(path, "scaler.pkl"))
+            scaler_path = os.path.join(path, "scaler.pkl")
+            joblib.dump(self.scaler, scaler_path)
+            if os.path.exists(scaler_path):
+                sign_model(scaler_path)
 
         # Save config
         with open(os.path.join(path, "config.yaml"), "w") as f:
@@ -420,8 +535,11 @@ class CNNLSTMTrainer:
         with open(os.path.join(path, "training_config.yaml"), "w") as f:
             yaml.dump(self.training_config, f)
 
-        # Save metadata
-        metadata = {
+        # Save metadata, including empirical residual quantiles when available.
+        # Storing the validation-set percentile offsets lets PricePredictor
+        # bootstrap conformal-style intervals without requiring a separate
+        # post-training calibration step.
+        metadata: Dict[str, Any] = {
             "trained_at": datetime.utcnow().isoformat(),
             "metrics": {
                 "val_loss": min(self.history["val_loss"]),
@@ -429,6 +547,11 @@ class CNNLSTMTrainer:
             },
             "epochs_trained": len(self.history["loss"]),
         }
+        if self._val_q5_residual is not None and self._val_q95_residual is not None:
+            metadata["val_residual_quantiles"] = {
+                "q5": self._val_q5_residual.tolist(),
+                "q95": self._val_q95_residual.tolist(),
+            }
         with open(os.path.join(path, "metadata.yaml"), "w") as f:
             yaml.dump(metadata, f)
 

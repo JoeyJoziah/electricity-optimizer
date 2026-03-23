@@ -5,25 +5,26 @@ Pydantic models for community posts, votes, and reports.
 Supports crowdsourcing, tips, discussions, and rate reports.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class PostType(str, Enum):
+class PostType(StrEnum):
     """Types of community posts."""
+
     TIP = "tip"
     RATE_REPORT = "rate_report"
     DISCUSSION = "discussion"
     REVIEW = "review"
 
 
-class CommunityUtilityType(str, Enum):
+class CommunityUtilityType(StrEnum):
     """Utility types for community posts (includes 'general')."""
+
     ELECTRICITY = "electricity"
     NATURAL_GAS = "natural_gas"
     HEATING_OIL = "heating_oil"
@@ -45,14 +46,14 @@ class CommunityPost(BaseModel):
     post_type: str = Field(..., max_length=20)
     title: str = Field(..., min_length=3, max_length=200)
     body: str = Field(..., min_length=10, max_length=5000)
-    rate_per_unit: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    rate_unit: Optional[str] = Field(default=None, max_length=10)
-    supplier_name: Optional[str] = Field(default=None, max_length=200)
+    rate_per_unit: Decimal | None = Field(default=None, ge=Decimal("0"))
+    rate_unit: str | None = Field(default=None, max_length=10)
+    supplier_name: str | None = Field(default=None, max_length=200)
     is_hidden: bool = False
     is_pending_moderation: bool = True
-    hidden_reason: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    hidden_reason: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Derived fields (not stored in DB — computed via COUNT queries)
     upvote_count: int = 0
@@ -70,8 +71,13 @@ class CommunityPost(BaseModel):
     @classmethod
     def validate_utility_type(cls, v: str) -> str:
         valid = {
-            "electricity", "natural_gas", "heating_oil", "propane",
-            "community_solar", "water", "general",
+            "electricity",
+            "natural_gas",
+            "heating_oil",
+            "propane",
+            "community_solar",
+            "water",
+            "general",
         }
         if v not in valid:
             raise ValueError(f"utility_type must be one of {valid}")
@@ -86,9 +92,9 @@ class CommunityPostCreate(BaseModel):
     region: str = Field(..., min_length=2, max_length=50)
     utility_type: str = Field(..., max_length=30)
     post_type: str = Field(..., max_length=20)
-    rate_per_unit: Optional[Decimal] = Field(default=None, ge=Decimal("0"))
-    rate_unit: Optional[str] = Field(default=None, max_length=10)
-    supplier_name: Optional[str] = Field(default=None, max_length=200)
+    rate_per_unit: Decimal | None = Field(default=None, ge=Decimal("0"))
+    rate_unit: str | None = Field(default=None, max_length=10)
+    supplier_name: str | None = Field(default=None, max_length=200)
 
     @field_validator("post_type")
     @classmethod
@@ -102,8 +108,13 @@ class CommunityPostCreate(BaseModel):
     @classmethod
     def validate_utility_type(cls, v: str) -> str:
         valid = {
-            "electricity", "natural_gas", "heating_oil", "propane",
-            "community_solar", "water", "general",
+            "electricity",
+            "natural_gas",
+            "heating_oil",
+            "propane",
+            "community_solar",
+            "water",
+            "general",
         }
         if v not in valid:
             raise ValueError(f"utility_type must be one of {valid}")
@@ -113,8 +124,8 @@ class CommunityPostCreate(BaseModel):
 class CommunityPostUpdate(BaseModel):
     """Schema for editing/resubmitting a flagged post."""
 
-    title: Optional[str] = Field(default=None, min_length=3, max_length=200)
-    body: Optional[str] = Field(default=None, min_length=10, max_length=5000)
+    title: str | None = Field(default=None, min_length=3, max_length=200)
+    body: str | None = Field(default=None, min_length=10, max_length=5000)
 
 
 class CommunityPostResponse(BaseModel):
@@ -129,9 +140,9 @@ class CommunityPostResponse(BaseModel):
     post_type: str
     title: str
     body: str
-    rate_per_unit: Optional[Decimal] = None
-    rate_unit: Optional[str] = None
-    supplier_name: Optional[str] = None
+    rate_per_unit: Decimal | None = None
+    rate_unit: str | None = None
+    supplier_name: str | None = None
     is_hidden: bool
     is_pending_moderation: bool
     upvote_count: int = 0
@@ -147,7 +158,7 @@ class CommunityVote(BaseModel):
 
     user_id: str
     post_id: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class CommunityReport(BaseModel):
@@ -157,18 +168,18 @@ class CommunityReport(BaseModel):
 
     user_id: str
     post_id: str
-    reason: Optional[str] = Field(default=None, max_length=500)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    reason: str | None = Field(default=None, max_length=500)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class CommunityStatsResponse(BaseModel):
     """Aggregated community stats for social proof."""
 
     total_users: int = 0
-    avg_savings_pct: Optional[float] = None
-    top_tip: Optional[CommunityPostResponse] = None
+    avg_savings_pct: float | None = None
+    top_tip: CommunityPostResponse | None = None
     region: str
-    reporting_since: Optional[datetime] = None
+    reporting_since: datetime | None = None
 
 
 class PaginatedPostsResponse(BaseModel):

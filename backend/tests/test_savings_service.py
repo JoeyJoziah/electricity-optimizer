@@ -20,14 +20,13 @@ Run with:
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from services.savings_service import SavingsService
-
 
 # =============================================================================
 # HELPERS
@@ -84,7 +83,7 @@ def _make_agg_row(
 
 
 def _now():
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def _make_savings_row(
@@ -134,7 +133,6 @@ class TestGetSavingsSummary:
     def service(self, db):
         return SavingsService(db)
 
-    @pytest.mark.asyncio
     async def test_no_records_returns_all_zeros(self, service, db):
         """A user with no savings records should get all-zero totals and streak 0."""
         agg_row = _make_agg_row(total=0, weekly=0, monthly=0, currency="USD")
@@ -148,7 +146,6 @@ class TestGetSavingsSummary:
         assert result["streak_days"] == 0
         assert result["currency"] == "USD"
 
-    @pytest.mark.asyncio
     async def test_no_records_skips_streak_query(self, service, db):
         """When total is 0 the streak SQL should never be executed."""
         agg_row = _make_agg_row(total=0)
@@ -159,7 +156,6 @@ class TestGetSavingsSummary:
         # Only the aggregate query should be issued
         assert db.execute.await_count == 1
 
-    @pytest.mark.asyncio
     async def test_with_data_returns_correct_totals(self, service, db):
         """User with savings should receive correct aggregated float values."""
         agg_row = _make_agg_row(
@@ -175,7 +171,6 @@ class TestGetSavingsSummary:
         assert result["streak_days"] == 2
         assert result["currency"] == "USD"
 
-    @pytest.mark.asyncio
     async def test_region_filter_passed_to_db(self, service, db):
         """When region is provided it should be forwarded to the CTE query."""
         agg_row = _make_agg_row(total=10.0)
@@ -186,7 +181,6 @@ class TestGetSavingsSummary:
         params = db.execute.call_args_list[0][0][1]
         assert params.get("region") == "US_CT"
 
-    @pytest.mark.asyncio
     async def test_no_region_filter_omits_region_param(self, service, db):
         """Without region, the SQL params should NOT include a 'region' key."""
         agg_row = _make_agg_row(total=5.0)
@@ -197,7 +191,6 @@ class TestGetSavingsSummary:
         first_params = db.execute.call_args_list[0][0][1]
         assert "region" not in first_params
 
-    @pytest.mark.asyncio
     async def test_currency_null_defaults_to_usd(self, service, db):
         """When the DB returns NULL for currency, it should default to 'USD'."""
         agg_row = _make_agg_row(total=0, currency=None)
@@ -207,7 +200,6 @@ class TestGetSavingsSummary:
 
         assert result["currency"] == "USD"
 
-    @pytest.mark.asyncio
     async def test_currency_empty_string_defaults_to_usd(self, service, db):
         """When the DB returns an empty string for currency, it should be 'USD'."""
         agg_row = _make_agg_row(total=0, currency="")
@@ -217,7 +209,6 @@ class TestGetSavingsSummary:
 
         assert result["currency"] == "USD"
 
-    @pytest.mark.asyncio
     async def test_currency_gbp_preserved(self, service, db):
         """Non-USD currency codes returned from the DB should be preserved."""
         agg_row = _make_agg_row(total=0, currency="GBP")
@@ -227,7 +218,6 @@ class TestGetSavingsSummary:
 
         assert result["currency"] == "GBP"
 
-    @pytest.mark.asyncio
     async def test_agg_row_none_returns_zeros(self, service, db):
         """When the aggregate query returns no row at all, everything is 0."""
         result_mock = _make_mapping_first(None)
@@ -240,7 +230,6 @@ class TestGetSavingsSummary:
         assert result["monthly"] == 0.0
         assert result["streak_days"] == 0
 
-    @pytest.mark.asyncio
     async def test_single_cte_query_issued(self, service, db):
         """Exactly one CTE query should be issued (agg + streak combined)."""
         agg_row = _make_agg_row(total=1.0, streak_days=0)
@@ -250,7 +239,6 @@ class TestGetSavingsSummary:
 
         assert db.execute.await_count == 1
 
-    @pytest.mark.asyncio
     async def test_streak_zero_when_today_missing(self, service, db):
         """If the most recent record is from yesterday (not today), streak = 0."""
         agg_row = _make_agg_row(total=50.0, streak_days=0)
@@ -260,7 +248,6 @@ class TestGetSavingsSummary:
 
         assert result["streak_days"] == 0
 
-    @pytest.mark.asyncio
     async def test_streak_five_consecutive_days(self, service, db):
         """Five consecutive days ending today should produce streak_days = 5."""
         agg_row = _make_agg_row(total=100.0, streak_days=5)
@@ -277,7 +264,11 @@ class TestGetSavingsSummary:
 
 
 class TestGetSavingsHistory:
-    """Tests for SavingsService.get_savings_history"""
+    """Tests for SavingsService.get_savings_history
+
+    The service now issues a single query with COUNT(*) OVER() AS total_count
+    window function instead of separate COUNT + paginated queries (19-P1-7).
+    """
 
     @pytest.fixture
     def db(self):
@@ -289,15 +280,9 @@ class TestGetSavingsHistory:
     def service(self, db):
         return SavingsService(db)
 
-    @pytest.mark.asyncio
     async def test_empty_user_returns_empty_items(self, service, db):
         """A user with no records should get an empty items list."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(0),         # COUNT
-                _make_mapping_all([]),   # paginated rows
-            ]
-        )
+        db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
         result = await service.get_savings_history(user_id="user-new")
 
@@ -307,16 +292,10 @@ class TestGetSavingsHistory:
         assert result["page_size"] == 20
         assert result["pages"] == 1  # at least 1 even when empty
 
-    @pytest.mark.asyncio
     async def test_returns_items_with_correct_shape(self, service, db):
         """Items should be serialised dicts with all expected keys."""
-        row = _make_savings_row(user_id="user-x", amount=12.50)
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(1),
-                _make_mapping_all([row]),
-            ]
-        )
+        row = {**_make_savings_row(user_id="user-x", amount=12.50), "total_count": 1}
+        db.execute = AsyncMock(return_value=_make_mapping_all([row]))
 
         result = await service.get_savings_history(user_id="user-x")
 
@@ -334,143 +313,94 @@ class TestGetSavingsHistory:
         assert "created_at" in item
         assert item["amount"] == pytest.approx(12.50)
 
-    @pytest.mark.asyncio
     async def test_pagination_defaults_to_page_1_size_20(self, service, db):
         """Default call should use page=1, page_size=20 in the query params."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(0),
-                _make_mapping_all([]),
-            ]
-        )
+        db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
         result = await service.get_savings_history(user_id="user-1")
 
         assert result["page"] == 1
         assert result["page_size"] == 20
 
-        # Verify offset=0 and limit=20 were passed to the paginated query
-        paginated_call = db.execute.call_args_list[1]
+        # Verify offset=0 and limit=20 were passed to the single combined query
+        paginated_call = db.execute.call_args_list[0]
         params = paginated_call[0][1]
         assert params["limit"] == 20
         assert params["offset"] == 0
 
-    @pytest.mark.asyncio
     async def test_page_2_calculates_correct_offset(self, service, db):
         """Page 2 with page_size=10 should produce offset=10."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(25),
-                _make_mapping_all([]),
-            ]
-        )
+        db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
         result = await service.get_savings_history(user_id="user-2", page=2, page_size=10)
 
         assert result["page"] == 2
         assert result["page_size"] == 10
 
-        paginated_call = db.execute.call_args_list[1]
+        paginated_call = db.execute.call_args_list[0]
         params = paginated_call[0][1]
         assert params["limit"] == 10
         assert params["offset"] == 10
 
-    @pytest.mark.asyncio
     async def test_pages_ceiling_calculated_correctly(self, service, db):
         """ceil(25 / 10) = 3 total pages."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(25),
-                _make_mapping_all([]),
-            ]
-        )
+        # Provide one row with total_count=25 (window function returns full count)
+        row = {**_make_savings_row(), "total_count": 25}
+        db.execute = AsyncMock(return_value=_make_mapping_all([row]))
 
         result = await service.get_savings_history(user_id="user-3", page_size=10)
 
         assert result["total"] == 25
         assert result["pages"] == 3
 
-    @pytest.mark.asyncio
     async def test_pages_exact_divisor(self, service, db):
         """20 records / 10 per page = exactly 2 pages."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(20),
-                _make_mapping_all([]),
-            ]
-        )
+        row = {**_make_savings_row(), "total_count": 20}
+        db.execute = AsyncMock(return_value=_make_mapping_all([row]))
 
         result = await service.get_savings_history(user_id="user-4", page_size=10)
 
         assert result["pages"] == 2
 
-    @pytest.mark.asyncio
     async def test_page_below_1_clamped_to_1(self, service, db):
         """page=0 (or negative) should be clamped to page=1."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(0),
-                _make_mapping_all([]),
-            ]
-        )
+        db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
         result = await service.get_savings_history(user_id="user-5", page=0)
 
         assert result["page"] == 1
 
-    @pytest.mark.asyncio
     async def test_page_size_below_1_clamped_to_1(self, service, db):
         """page_size=0 should be clamped to 1."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(0),
-                _make_mapping_all([]),
-            ]
-        )
+        db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
         result = await service.get_savings_history(user_id="user-6", page_size=0)
 
         assert result["page_size"] == 1
 
-    @pytest.mark.asyncio
     async def test_page_size_above_100_clamped_to_100(self, service, db):
         """page_size=9999 should be clamped to 100."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(0),
-                _make_mapping_all([]),
-            ]
-        )
+        db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
         result = await service.get_savings_history(user_id="user-7", page_size=9999)
 
         assert result["page_size"] == 100
 
-    @pytest.mark.asyncio
-    async def test_scalar_none_treated_as_zero_total(self, service, db):
-        """COUNT returning None should be treated as total=0."""
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(None),
-                _make_mapping_all([]),
-            ]
-        )
+    async def test_empty_rows_treated_as_zero_total(self, service, db):
+        """Empty result set should be treated as total=0."""
+        db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
         result = await service.get_savings_history(user_id="user-8")
 
         assert result["total"] == 0
         assert result["pages"] == 1
 
-    @pytest.mark.asyncio
     async def test_multiple_items_serialised(self, service, db):
         """Multiple rows should all appear as serialised dicts."""
-        rows = [_make_savings_row(user_id="u", amount=float(i)) for i in range(5)]
-        db.execute = AsyncMock(
-            side_effect=[
-                _make_scalar(5),
-                _make_mapping_all(rows),
-            ]
-        )
+        rows = [
+            {**_make_savings_row(user_id="u", amount=float(i)), "total_count": 5} for i in range(5)
+        ]
+        db.execute = AsyncMock(return_value=_make_mapping_all(rows))
 
         result = await service.get_savings_history(user_id="u")
 
@@ -497,7 +427,6 @@ class TestRecordSavings:
     def service(self, db):
         return SavingsService(db)
 
-    @pytest.mark.asyncio
     async def test_happy_path_returns_record_dict(self, service, db):
         """Successful insert should return a complete record dict."""
         now = _now()
@@ -526,7 +455,6 @@ class TestRecordSavings:
         assert result["currency"] == "USD"
         assert result["region"] == "US_CT"
 
-    @pytest.mark.asyncio
     async def test_commit_called_after_insert(self, service, db):
         """The DB session should be committed exactly once after the INSERT."""
         now = _now()
@@ -542,7 +470,6 @@ class TestRecordSavings:
 
         db.commit.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_uuid_id_passed_to_insert(self, service, db):
         """A freshly generated UUID should be sent as the :id parameter."""
         now = _now()
@@ -566,7 +493,6 @@ class TestRecordSavings:
         parsed = uuid.UUID(captured_params["id"])
         assert str(parsed) == captured_params["id"]
 
-    @pytest.mark.asyncio
     async def test_optional_params_passed_correctly(self, service, db):
         """Optional region, description, and currency should be forwarded to the query."""
         now = _now()
@@ -593,7 +519,6 @@ class TestRecordSavings:
         assert captured_params["description"] == "Switched to cheaper supplier"
         assert captured_params["currency"] == "GBP"
 
-    @pytest.mark.asyncio
     async def test_optional_params_default_to_none_and_usd(self, service, db):
         """Omitting optional params should use None for region/description and USD for currency."""
         now = _now()
@@ -617,7 +542,6 @@ class TestRecordSavings:
         assert captured_params["description"] is None
         assert captured_params["currency"] == "USD"
 
-    @pytest.mark.asyncio
     async def test_period_datetimes_forwarded_to_insert(self, service, db):
         """period_start and period_end should be passed verbatim to the INSERT."""
         now = _now()
@@ -642,7 +566,6 @@ class TestRecordSavings:
         assert captured_params["period_start"] == start
         assert captured_params["period_end"] == end
 
-    @pytest.mark.asyncio
     async def test_zero_amount_records_and_returns(self, service, db):
         """Zero-dollar savings should be accepted and returned as 0.0."""
         now = _now()
@@ -659,7 +582,6 @@ class TestRecordSavings:
 
         assert result["amount"] == 0.0
 
-    @pytest.mark.asyncio
     async def test_unique_ids_across_two_calls(self, service, db):
         """Two consecutive record_savings calls should generate distinct UUIDs."""
         now = _now()
@@ -683,15 +605,14 @@ class TestRecordSavings:
         assert len(ids_seen) == 2
         assert ids_seen[0] != ids_seen[1]
 
-    @pytest.mark.asyncio
     async def test_savings_types_all_accepted(self, service, db):
         """All documented savings_type values should be forwarded without error."""
         now = _now()
         for savings_type in ("switching", "usage", "alert"):
             captured = {}
 
-            async def capture_execute(stmt, params=None, _t=savings_type):
-                captured.update(params or {})
+            async def capture_execute(stmt, params=None, _t=savings_type, _c=captured):
+                _c.update(params or {})
                 return _make_mapping_first(_make_savings_row(savings_type=_t))
 
             db.execute = capture_execute
@@ -772,7 +693,7 @@ class TestRowToRecord:
 
     def test_datetime_fields_isoformat(self):
         """Datetime fields should be serialised with .isoformat()."""
-        dt = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
         row = _make_savings_row(period_start=dt, period_end=dt, created_at=dt)
         record = SavingsService._row_to_record(row)
 
@@ -814,7 +735,7 @@ class TestComputeStreak:
     """Unit tests for SavingsService._compute_streak (static helper)."""
 
     def _today(self) -> date:
-        return datetime.now(tz=timezone.utc).date()
+        return datetime.now(tz=UTC).date()
 
     def _day(self, days_ago: int) -> date:
         return self._today() - timedelta(days=days_ago)
@@ -865,7 +786,7 @@ class TestComputeStreak:
 
     def test_datetime_objects_coerced_to_date(self):
         """Row elements that are datetime objects (not date) should be handled correctly."""
-        today_dt = datetime.now(tz=timezone.utc)
+        today_dt = datetime.now(tz=UTC)
         yesterday_dt = today_dt - timedelta(days=1)
         rows = [(today_dt,), (yesterday_dt,)]
         assert SavingsService._compute_streak(rows) == 2

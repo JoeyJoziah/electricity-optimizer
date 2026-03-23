@@ -147,6 +147,14 @@ class Settings(BaseSettings):
     stripe_price_business: str | None = Field(
         default=None, validation_alias="STRIPE_PRICE_BUSINESS"
     )
+    # MRR calculation constants — externalized so pricing can be updated without
+    # code changes (set STRIPE_MRR_PRICE_PRO / STRIPE_MRR_PRICE_BUSINESS on Render).
+    # These are the amounts billed in USD cents (4.99 and 14.99 dollars respectively)
+    # used only for KPI report MRR estimation; they do NOT affect Stripe billing.
+    stripe_mrr_price_pro: float = Field(default=4.99, validation_alias="STRIPE_MRR_PRICE_PRO")
+    stripe_mrr_price_business: float = Field(
+        default=14.99, validation_alias="STRIPE_MRR_PRICE_BUSINESS"
+    )
 
     # Billing redirect domain allowlist — stored as str to avoid pydantic-settings
     # JSON-parse failures on comma-separated env var values. Parsed by the property.
@@ -171,6 +179,21 @@ class Settings(BaseSettings):
 
     # Field-level encryption (AES-256-GCM for account numbers etc.)
     field_encryption_key: str | None = Field(default=None, validation_alias="FIELD_ENCRYPTION_KEY")
+    # Previous encryption key for seamless key rotation (decryption-only fallback).
+    # Set this to the old key when rotating FIELD_ENCRYPTION_KEY to a new value.
+    field_encryption_key_previous: str | None = Field(
+        default=None, validation_alias="FIELD_ENCRYPTION_KEY_PREVIOUS"
+    )
+
+    # OAuth state HMAC signing — dedicated secret so compromise of INTERNAL_API_KEY
+    # does not allow forging OAuth callback state tokens (and vice-versa).
+    # Falls back to INTERNAL_API_KEY in dev if unset; MUST be set in production.
+    oauth_state_secret: str | None = Field(default=None, validation_alias="OAUTH_STATE_SECRET")
+
+    # ML model integrity signing key — centralised here so production validators
+    # apply.  The ML package falls back to os.environ when backend settings are
+    # not importable (e.g. standalone ML training environments).
+    ml_model_signing_key: str | None = Field(default=None, validation_alias="ML_MODEL_SIGNING_KEY")
 
     # GitHub Webhook
     github_webhook_secret: str | None = Field(
@@ -288,6 +311,9 @@ class Settings(BaseSettings):
             "my-secret",
             "development",
             "placeholder",
+            "test_jwt_secret_key_change_in_production",
+            "test_secret_key_for_ci_minimum_32_chars",
+            "generate_a_secure_random_string_at_least_32_chars",
         ]
         # In production or staging, JWT_SECRET must be explicitly set
         jwt_from_env = os.environ.get("JWT_SECRET")
@@ -340,6 +366,43 @@ class Settings(BaseSettings):
                 )
             if len(v) < 32:
                 raise ValueError("INTERNAL_API_KEY must be at least 32 characters in production.")
+        return v
+
+    @field_validator("oauth_state_secret")
+    @classmethod
+    def validate_oauth_state_secret(cls, v: str | None) -> str | None:
+        """Ensure OAuth state signing secret is present and strong in production.
+
+        This secret is used to HMAC-sign OAuth callback state parameters.  It
+        MUST be distinct from INTERNAL_API_KEY so that compromise of one does
+        not affect the other.
+        """
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production":
+            if not v:
+                raise ValueError(
+                    "CRITICAL: OAUTH_STATE_SECRET must be set in production. "
+                    'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+                )
+            if len(v) < 32:
+                raise ValueError("OAUTH_STATE_SECRET must be at least 32 characters in production.")
+        return v
+
+    @field_validator("ml_model_signing_key")
+    @classmethod
+    def validate_ml_model_signing_key(cls, v: str | None) -> str | None:
+        """Ensure ML model signing key is present in production."""
+        env = os.environ.get("ENVIRONMENT", "development")
+        if env == "production":
+            if not v:
+                raise ValueError(
+                    "CRITICAL: ML_MODEL_SIGNING_KEY must be set in production. "
+                    'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+                )
+            if len(v) < 32:
+                raise ValueError(
+                    "ML_MODEL_SIGNING_KEY must be at least 32 characters in production."
+                )
         return v
 
     @field_validator("stripe_secret_key")
@@ -398,6 +461,24 @@ class Settings(BaseSettings):
             raise ValueError(
                 "INTERNAL_API_KEY must differ from JWT_SECRET to maintain "
                 "separation of concerns between user auth and service auth."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_oauth_state_secret_differs_from_api_key(self) -> "Settings":
+        """Ensure OAUTH_STATE_SECRET and INTERNAL_API_KEY are not identical.
+
+        The whole point of a dedicated OAuth state secret is key isolation —
+        re-using the same value defeats the purpose.
+        """
+        if (
+            self.oauth_state_secret
+            and self.internal_api_key
+            and self.oauth_state_secret == self.internal_api_key
+        ):
+            raise ValueError(
+                "OAUTH_STATE_SECRET must differ from INTERNAL_API_KEY to maintain "
+                "key isolation between service auth and OAuth state signing."
             )
         return self
 

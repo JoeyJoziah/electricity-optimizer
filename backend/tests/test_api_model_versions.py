@@ -8,12 +8,11 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -45,7 +44,7 @@ def _make_version_model(
         config=config or {},
         metrics=metrics or {"mape": 5.0},
         is_active=is_active,
-        created_at=created_at or datetime(2026, 3, 10, tzinfo=timezone.utc),
+        created_at=created_at or datetime(2026, 3, 10, tzinfo=UTC),
         promoted_at=promoted_at,
     )
 
@@ -62,8 +61,8 @@ def api_client():
     - API key auth bypassed
     - DB session stubbed (execute returns empty result by default)
     """
-    from main import app
     from api.dependencies import get_db_session, verify_api_key
+    from main import app
 
     db_session = AsyncMock()
     db_session.execute = AsyncMock(return_value=MagicMock(fetchall=lambda: []))
@@ -201,7 +200,7 @@ class TestCompareModelVersions:
 
     def test_returns_200_with_comparison_result(self, api_client):
         """Should return 200 with metric deltas when both versions exist."""
-        from models.model_version import VersionComparisonResult, ModelVersionResponse
+        from models.model_version import ModelVersionResponse, VersionComparisonResult
 
         client, db = api_client
 
@@ -212,7 +211,7 @@ class TestCompareModelVersions:
             config={},
             metrics={"mape": 5.0, "rmse": 0.02},
             is_active=False,
-            created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 3, 1, tzinfo=UTC),
             promoted_at=None,
         )
         ver_b = ModelVersionResponse(
@@ -222,8 +221,8 @@ class TestCompareModelVersions:
             config={},
             metrics={"mape": 4.0, "rmse": 0.015},
             is_active=True,
-            created_at=datetime(2026, 3, 10, tzinfo=timezone.utc),
-            promoted_at=datetime(2026, 3, 10, tzinfo=timezone.utc),
+            created_at=datetime(2026, 3, 10, tzinfo=UTC),
+            promoted_at=datetime(2026, 3, 10, tzinfo=UTC),
         )
         comparison_result = VersionComparisonResult(
             version_a=ver_a,
@@ -292,7 +291,7 @@ class TestCompareModelVersions:
 
     def test_returns_comparison_with_metric_comparison_key(self, api_client):
         """Response must include a metric_comparison dict."""
-        from models.model_version import VersionComparisonResult, ModelVersionResponse
+        from models.model_version import ModelVersionResponse, VersionComparisonResult
 
         client, db = api_client
 
@@ -303,7 +302,7 @@ class TestCompareModelVersions:
             config={},
             metrics={},
             is_active=False,
-            created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 3, 1, tzinfo=UTC),
             promoted_at=None,
         )
         ver_b = ModelVersionResponse(
@@ -313,7 +312,7 @@ class TestCompareModelVersions:
             config={},
             metrics={},
             is_active=True,
-            created_at=datetime(2026, 3, 10, tzinfo=timezone.utc),
+            created_at=datetime(2026, 3, 10, tzinfo=UTC),
             promoted_at=None,
         )
         comparison_result = VersionComparisonResult(

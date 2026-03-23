@@ -5,13 +5,11 @@ Verifies detection by zip code and municipality, rate comparison,
 opt-out info retrieval, program listing, and state checks.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from services.cca_service import CCAService
 from models.region import CCA_STATES
-
+from services.cca_service import CCAService
 
 CCA_ROW = {
     "id": uuid4(),
@@ -49,7 +47,6 @@ def _mock_db_empty():
 class TestDetectCCA:
     """Test CCA detection by zip code and municipality."""
 
-    @pytest.mark.asyncio
     async def test_detect_by_zip_code(self):
         mock_db = _mock_db_with_row(CCA_ROW)
         service = CCAService(mock_db)
@@ -59,7 +56,6 @@ class TestDetectCCA:
         assert result["program_name"] == "San Jose Clean Energy"
         assert result["state"] == "CA"
 
-    @pytest.mark.asyncio
     async def test_detect_by_municipality(self):
         # First call (zip) returns None, second call (municipality) returns row
         mock_db = AsyncMock()
@@ -71,13 +67,14 @@ class TestDetectCCA:
 
         service = CCAService(mock_db)
         result = await service.detect_cca(
-            zip_code="00000", state="CA", municipality="San Jose",
+            zip_code="00000",
+            state="CA",
+            municipality="San Jose",
         )
 
         assert result is not None
         assert result["municipality"] == "San Jose"
 
-    @pytest.mark.asyncio
     async def test_detect_not_found(self):
         mock_db = _mock_db_empty()
         service = CCAService(mock_db)
@@ -85,7 +82,6 @@ class TestDetectCCA:
 
         assert result is None
 
-    @pytest.mark.asyncio
     async def test_detect_by_state_municipality_only(self):
         mock_db = _mock_db_with_row(CCA_ROW)
         service = CCAService(mock_db)
@@ -98,12 +94,12 @@ class TestDetectCCA:
 class TestCompareCCARate:
     """Test CCA rate comparison."""
 
-    @pytest.mark.asyncio
     async def test_cheaper_cca(self):
         mock_db = _mock_db_with_row(CCA_ROW)
         service = CCAService(mock_db)
         result = await service.compare_cca_rate(
-            cca_id=str(CCA_ROW["id"]), default_rate=0.20,
+            cca_id=str(CCA_ROW["id"]),
+            default_rate=0.20,
         )
 
         assert result["is_cheaper"] is True
@@ -112,23 +108,23 @@ class TestCompareCCARate:
         assert result["savings_per_kwh"] == 0.01
         assert result["estimated_monthly_savings"] == 9.0  # 0.01 * 900
 
-    @pytest.mark.asyncio
     async def test_not_found(self):
         mock_db = _mock_db_empty()
         service = CCAService(mock_db)
         result = await service.compare_cca_rate(
-            cca_id=str(uuid4()), default_rate=0.20,
+            cca_id=str(uuid4()),
+            default_rate=0.20,
         )
 
         assert "error" in result
 
-    @pytest.mark.asyncio
     async def test_more_expensive_cca(self):
         expensive_row = dict(CCA_ROW, rate_vs_default_pct=3.00)
         mock_db = _mock_db_with_row(expensive_row)
         service = CCAService(mock_db)
         result = await service.compare_cca_rate(
-            cca_id=str(CCA_ROW["id"]), default_rate=0.20,
+            cca_id=str(CCA_ROW["id"]),
+            default_rate=0.20,
         )
 
         assert result["is_cheaper"] is False
@@ -138,7 +134,6 @@ class TestCompareCCARate:
 class TestGetCCAInfo:
     """Test CCA info retrieval."""
 
-    @pytest.mark.asyncio
     async def test_returns_full_info(self):
         mock_db = _mock_db_with_row(CCA_ROW)
         service = CCAService(mock_db)
@@ -150,7 +145,6 @@ class TestGetCCAInfo:
         assert info["generation_mix"]["solar"] == 40
         assert "zip_codes" in info
 
-    @pytest.mark.asyncio
     async def test_not_found(self):
         mock_db = _mock_db_empty()
         service = CCAService(mock_db)
@@ -162,7 +156,6 @@ class TestGetCCAInfo:
 class TestListPrograms:
     """Test listing CCA programs."""
 
-    @pytest.mark.asyncio
     async def test_list_all(self):
         mock_db = _mock_db_with_row(CCA_ROW)
         service = CCAService(mock_db)
@@ -171,7 +164,6 @@ class TestListPrograms:
         assert len(programs) == 1
         assert programs[0]["state"] == "CA"
 
-    @pytest.mark.asyncio
     async def test_list_by_state(self):
         mock_db = _mock_db_with_row(CCA_ROW)
         service = CCAService(mock_db)
@@ -179,7 +171,6 @@ class TestListPrograms:
 
         assert len(programs) == 1
 
-    @pytest.mark.asyncio
     async def test_list_empty(self):
         mock_db = _mock_db_empty()
         service = CCAService(mock_db)
@@ -205,4 +196,4 @@ class TestIsCCAState:
 
     def test_all_ten_states(self):
         expected = {"CA", "MA", "NY", "NJ", "IL", "OH", "NH", "VA", "RI", "CO"}
-        assert CCA_STATES == expected
+        assert expected == CCA_STATES

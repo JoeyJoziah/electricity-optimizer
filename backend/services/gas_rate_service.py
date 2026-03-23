@@ -7,19 +7,17 @@ utility_type=NATURAL_GAS (multi-utility since migration 006).
 """
 
 import asyncio
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Optional
+from datetime import datetime
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from integrations.pricing_apis.base import APIError, PricingRegion
 from integrations.pricing_apis.eia import EIAClient
-from integrations.pricing_apis.base import PricingRegion, APIError
 from models.price import Price
-from models.utility import UtilityType, PriceUnit
 from models.region import DEREGULATED_GAS_STATES
+from models.utility import PriceUnit, UtilityType
 from repositories.price_repository import PriceRepository
 
 logger = structlog.get_logger(__name__)
@@ -33,14 +31,14 @@ class GasRateService:
     then stores them in `electricity_prices` with utility_type=NATURAL_GAS.
     """
 
-    def __init__(self, db: AsyncSession, eia_client: Optional[EIAClient] = None):
+    def __init__(self, db: AsyncSession, eia_client: EIAClient | None = None):
         self._db = db
         self._eia_client = eia_client
         self._price_repo = PriceRepository(db)
 
     async def fetch_gas_rates(
         self,
-        states: Optional[list[str]] = None,
+        states: list[str] | None = None,
         concurrency: int = 5,
     ) -> dict:
         """
@@ -59,9 +57,15 @@ class GasRateService:
 
         target_states = states or sorted(DEREGULATED_GAS_STATES)
         semaphore = asyncio.Semaphore(concurrency)
-        results = {"fetched": 0, "stored": 0, "errors": 0, "details": []}
 
-        async def fetch_state(state_code: str):
+        async def fetch_state(state_code: str) -> dict:
+            """Fetch a single state's gas rate and return a result dict.
+
+            Returns a per-state result dict rather than mutating a shared
+            container, eliminating the race condition that arises when
+            multiple coroutines concurrently write to the same dict under
+            asyncio.gather.
+            """
             async with semaphore:
                 try:
                     region = PricingRegion(f"us_{state_code.lower()}")
@@ -80,42 +84,45 @@ class GasRateService:
                     )
 
                     await self._price_repo.create(price)
-                    results["fetched"] += 1
-                    results["stored"] += 1
-                    results["details"].append({
-                        "state": state_code,
-                        "price_therm": str(price_data.price),
-                        "status": "ok",
-                    })
                     logger.info(
                         "gas_rate_fetched",
                         state=state_code,
                         price_therm=str(price_data.price),
                     )
+                    return {
+                        "ok": True,
+                        "state": state_code,
+                        "price_therm": str(price_data.price),
+                        "status": "ok",
+                    }
                 except APIError as e:
-                    results["errors"] += 1
-                    results["details"].append({
-                        "state": state_code,
-                        "status": "error",
-                        "error": str(e),
-                    })
                     logger.warning("gas_rate_fetch_failed", state=state_code, error=str(e))
+                    return {"ok": False, "state": state_code, "status": "error", "error": str(e)}
                 except Exception as e:
-                    results["errors"] += 1
-                    results["details"].append({
-                        "state": state_code,
-                        "status": "error",
-                        "error": str(e),
-                    })
                     logger.error("gas_rate_fetch_unexpected", state=state_code, error=str(e))
+                    return {"ok": False, "state": state_code, "status": "error", "error": str(e)}
 
-        await asyncio.gather(*[fetch_state(s) for s in target_states])
+        # Collect return values from gather instead of mutating a shared dict.
+        # This avoids the race condition where concurrent coroutines increment
+        # counters or append to a list without synchronisation.
+        state_results: list[dict] = await asyncio.gather(*[fetch_state(s) for s in target_states])
+
+        fetched = sum(1 for r in state_results if r["ok"])
+        errors = sum(1 for r in state_results if not r["ok"])
+        details = [{k: v for k, v in r.items() if k != "ok"} for r in state_results]
+
+        results = {
+            "fetched": fetched,
+            "stored": fetched,
+            "errors": errors,
+            "details": details,
+        }
 
         logger.info(
             "gas_rate_fetch_complete",
-            fetched=results["fetched"],
-            stored=results["stored"],
-            errors=results["errors"],
+            fetched=fetched,
+            stored=fetched,
+            errors=errors,
             total_states=len(target_states),
         )
         return results

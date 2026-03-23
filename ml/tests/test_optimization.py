@@ -18,22 +18,14 @@ Key Validation:
 import pytest
 import numpy as np
 import time
-from typing import List, Tuple
 
 from ml.optimization.appliance_models import (
     Appliance,
     ApplianceType,
     ApplianceSchedule,
-    ScheduleResult,
     PriceProfile,
     OptimizationConfig,
     PriorityLevel,
-)
-from ml.optimization.constraints import ConstraintBuilder, build_all_constraints
-from ml.optimization.objective import (
-    build_objective,
-    calculate_baseline_cost,
-    calculate_optimal_cost,
 )
 from ml.optimization.load_shifter import MILPOptimizer, quick_optimize
 from ml.optimization.scheduler import (
@@ -406,7 +398,9 @@ class TestConstraints:
         # Check continuity
         for i in range(len(sorted_slots) - 1):
             diff = sorted_slots[i + 1] - sorted_slots[i]
-            assert diff == 1, f"Gap found between slots {sorted_slots[i]} and {sorted_slots[i+1]}"
+            assert diff == 1, (
+                f"Gap found between slots {sorted_slots[i]} and {sorted_slots[i + 1]}"
+            )
 
     def test_interruptible_appliance(self, basic_config):
         """Test that interruptible appliances can have gaps."""
@@ -592,13 +586,13 @@ class TestSavingsValidation:
                 name="Dishwasher",
                 appliance_type=ApplianceType.DISHWASHER,
                 earliest_start=17,  # Can start during peak
-                latest_end=8,        # Can run overnight
+                latest_end=8,  # Can run overnight
             ),
             Appliance(
                 name="EV Charger",
                 appliance_type=ApplianceType.EV_CHARGER,
                 earliest_start=18,  # Comes home during peak
-                latest_end=7,        # Must be done by morning
+                latest_end=7,  # Must be done by morning
             ),
             Appliance(
                 name="Water Heater",
@@ -672,7 +666,7 @@ class TestSavingsValidation:
         """Test savings with extreme price variations."""
         # Create profile with very cheap night rates
         prices = np.full(96, 0.30)  # Default high price
-        prices[0:24] = 0.05   # 12 AM - 6 AM very cheap
+        prices[0:24] = 0.05  # 12 AM - 6 AM very cheap
         prices[84:96] = 0.05  # 9 PM - 12 AM very cheap
 
         profile = PriceProfile(prices=prices)
@@ -892,7 +886,7 @@ class TestEdgeCases:
             power_kw=1.0,
             duration_hours=2.0,  # 8 slots needed
             earliest_start=10,
-            latest_end=12,       # 8 slots available
+            latest_end=12,  # 8 slots available
             must_be_continuous=True,
             can_be_interrupted=False,  # Explicitly set to avoid conflict
         )
@@ -931,7 +925,8 @@ class TestEdgeCases:
         evening_peak_slots = set(range(68, 84))  # 5-9 PM
 
         peak_usage = sum(
-            1 for s in schedule.scheduled_slots
+            1
+            for s in schedule.scheduled_slots
             if s in morning_peak_slots or s in evening_peak_slots
         )
 
@@ -1041,8 +1036,10 @@ class TestPerformance:
         assert stats["num_variables"] > 0
         assert stats["num_constraints"] > 0
 
-        print(f"\nProblem size: {stats['num_variables']} variables, "
-              f"{stats['num_constraints']} constraints")
+        print(
+            f"\nProblem size: {stats['num_variables']} variables, "
+            f"{stats['num_constraints']} constraints"
+        )
 
 
 # =============================================================================
@@ -1059,25 +1056,31 @@ class TestIntegration:
         scheduler = ApplianceScheduler()
 
         # Add appliances
-        scheduler.add_appliance(Appliance(
-            name="Dishwasher",
-            appliance_type=ApplianceType.DISHWASHER,
-            earliest_start=18,
-            latest_end=8,
-        ))
-        scheduler.add_appliance(Appliance(
-            name="EV Charger",
-            appliance_type=ApplianceType.EV_CHARGER,
-            earliest_start=20,
-            latest_end=7,
-            priority=PriorityLevel.HIGH,
-        ))
-        scheduler.add_appliance(Appliance(
-            name="Water Heater",
-            appliance_type=ApplianceType.WATER_HEATER,
-            earliest_start=0,
-            latest_end=24,
-        ))
+        scheduler.add_appliance(
+            Appliance(
+                name="Dishwasher",
+                appliance_type=ApplianceType.DISHWASHER,
+                earliest_start=18,
+                latest_end=8,
+            )
+        )
+        scheduler.add_appliance(
+            Appliance(
+                name="EV Charger",
+                appliance_type=ApplianceType.EV_CHARGER,
+                earliest_start=20,
+                latest_end=7,
+                priority=PriorityLevel.HIGH,
+            )
+        )
+        scheduler.add_appliance(
+            Appliance(
+                name="Water Heater",
+                appliance_type=ApplianceType.WATER_HEATER,
+                earliest_start=0,
+                latest_end=24,
+            )
+        )
 
         # Set TOU pricing
         scheduler.set_time_of_use_prices(

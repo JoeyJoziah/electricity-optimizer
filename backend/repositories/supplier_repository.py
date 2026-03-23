@@ -25,12 +25,12 @@ Cache invalidation is explicit via clear_registry_cache().
 """
 
 import json
-from typing import Optional, Any
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import RepositoryError
+from repositories.base import MAX_PAGE_SIZE, RepositoryError
 
 # 1-hour TTL for all supplier-registry caches.
 _SUPPLIER_CACHE_TTL = 3600
@@ -39,7 +39,7 @@ _SUPPLIER_CACHE_TTL = 3600
 class _RemovedSupplierRepository:
     """Stub so that any stale import of SupplierRepository raises a clear error."""
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *_args: Any, **_kwargs: Any):
         raise ImportError(
             "SupplierRepository has been removed (S4-11 audit remediation). "
             "Use SupplierRegistryRepository instead."
@@ -89,7 +89,7 @@ class SupplierRegistryRepository:
     # Internal cache helpers
     # ------------------------------------------------------------------
 
-    async def _cache_get(self, key: str) -> Optional[Any]:
+    async def _cache_get(self, key: str) -> Any | None:
         if not self._cache:
             return None
         try:
@@ -127,8 +127,8 @@ class SupplierRegistryRepository:
 
     async def list_suppliers(
         self,
-        region: Optional[str] = None,
-        utility_type: Optional[str] = None,
+        region: str | None = None,
+        utility_type: str | None = None,
         green_only: bool = False,
         active_only: bool = True,
         page: int = 1,
@@ -144,6 +144,8 @@ class SupplierRegistryRepository:
         Returns:
             Tuple of (list of supplier dicts, total count)
         """
+        page_size = max(1, min(MAX_PAGE_SIZE, page_size))
+
         # Build a deterministic, safe cache key from query parameters.
         cache_key = (
             f"supplier_registry:list"
@@ -223,7 +225,7 @@ class SupplierRegistryRepository:
         except Exception as e:
             raise RepositoryError(f"Failed to list suppliers: {str(e)}", e)
 
-    async def get_by_id(self, supplier_id: str) -> Optional[dict]:
+    async def get_by_id(self, supplier_id: str) -> dict | None:
         """
         Get a single supplier by its UUID.
 
@@ -287,7 +289,7 @@ class StateRegulationRepository:
     def __init__(self, db_session: AsyncSession):
         self._db = db_session
 
-    async def get_by_state(self, state_code: str) -> Optional[dict]:
+    async def get_by_state(self, state_code: str) -> dict | None:
         """Get regulation info for a US state."""
         try:
             result = await self._db.execute(
@@ -301,10 +303,10 @@ class StateRegulationRepository:
 
     async def list_deregulated(
         self,
-        electricity: Optional[bool] = None,
-        gas: Optional[bool] = None,
-        oil: Optional[bool] = None,
-        community_solar: Optional[bool] = None,
+        electricity: bool | None = None,
+        gas: bool | None = None,
+        oil: bool | None = None,
+        community_solar: bool | None = None,
     ) -> list[dict]:
         """List states matching deregulation criteria."""
         try:

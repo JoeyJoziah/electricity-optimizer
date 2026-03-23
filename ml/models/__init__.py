@@ -21,11 +21,11 @@ from .ensemble import (
 )
 
 __all__ = [
-    'ElectricityPriceForecaster',
-    'AttentionLayer',
-    'QuantileLoss',
-    'create_cnn_lstm_model',
-    'EnsembleForecaster',
-    'XGBoostForecaster',
-    'LightGBMForecaster',
+    "ElectricityPriceForecaster",
+    "AttentionLayer",
+    "QuantileLoss",
+    "create_cnn_lstm_model",
+    "EnsembleForecaster",
+    "XGBoostForecaster",
+    "LightGBMForecaster",
 ]

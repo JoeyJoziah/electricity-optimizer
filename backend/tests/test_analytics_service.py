@@ -123,7 +123,6 @@ def cached_service(mock_repo, mock_cache):
 class TestCalculateAveragePrice:
     """Tests for AnalyticsService.calculate_average_price"""
 
-    @pytest.mark.asyncio
     async def test_calculate_average_price(self, service, mock_repo):
         """Average price delegates to SQL and returns expected Decimal."""
         from models.price import PriceRegion
@@ -142,7 +141,6 @@ class TestCalculateAveragePrice:
 
         assert avg == Decimal("0.2500")
 
-    @pytest.mark.asyncio
     async def test_calculate_average_price_no_data(self, service, mock_repo):
         """Returns Decimal('0') when repository returns no prices."""
         from models.price import PriceRegion
@@ -170,7 +168,6 @@ class TestCalculateAveragePrice:
 class TestCalculateVolatility:
     """Tests for AnalyticsService.calculate_volatility"""
 
-    @pytest.mark.asyncio
     async def test_calculate_volatility(self, service, mock_repo):
         """Standard deviation delegates to SQL STDDEV_SAMP and is non-zero."""
         from models.price import PriceRegion
@@ -190,7 +187,6 @@ class TestCalculateVolatility:
         assert vol > Decimal("0")
         assert vol == Decimal("0.0800")
 
-    @pytest.mark.asyncio
     async def test_calculate_volatility_single_price(self, service, mock_repo):
         """Single price point — count < 2 guard returns Decimal('0')."""
         from models.price import PriceRegion
@@ -218,7 +214,6 @@ class TestCalculateVolatility:
 class TestGetPriceTrend:
     """Tests for AnalyticsService.get_price_trend"""
 
-    @pytest.mark.asyncio
     async def test_get_price_trend_increasing(self, service, mock_repo):
         """When last-third avg > first-third avg by >5%, direction='increasing'."""
         from models.price import PriceRegion
@@ -235,7 +230,6 @@ class TestGetPriceTrend:
         assert result["direction"] == "increasing"
         assert result["change_percent"] > Decimal("5")
 
-    @pytest.mark.asyncio
     async def test_get_price_trend_decreasing(self, service, mock_repo):
         """When last-third avg < first-third avg by >5%, direction='decreasing'."""
         from models.price import PriceRegion
@@ -251,7 +245,6 @@ class TestGetPriceTrend:
         assert result["direction"] == "decreasing"
         assert result["change_percent"] < Decimal("-5")
 
-    @pytest.mark.asyncio
     async def test_get_price_trend_stable(self, service, mock_repo):
         """When change is within ±5%, direction='stable'."""
         from models.price import PriceRegion
@@ -266,7 +259,6 @@ class TestGetPriceTrend:
 
         assert result["direction"] == "stable"
 
-    @pytest.mark.asyncio
     async def test_get_price_trend_insufficient_data(self, service, mock_repo):
         """When fewer than 2 data points, return stable with zeros."""
         from models.price import PriceRegion
@@ -282,7 +274,6 @@ class TestGetPriceTrend:
         assert result["direction"] == "stable"
         assert result["data_points"] == 0
 
-    @pytest.mark.asyncio
     async def test_get_price_trend_cached(self, cached_service, mock_repo, mock_cache):
         """Cache hit returns stored data without touching the repository."""
         from models.price import PriceRegion
@@ -313,7 +304,6 @@ class TestGetPriceTrend:
 class TestGetPeakHoursAnalysis:
     """Tests for AnalyticsService.get_peak_hours_analysis"""
 
-    @pytest.mark.asyncio
     async def test_get_peak_hours_analysis(self, service, mock_repo):
         """Normal case returns peak_hours, off_peak_hours, average_by_hour."""
         from models.price import PriceRegion
@@ -358,7 +348,6 @@ class TestGetPeakHoursAnalysis:
         assert 17 in result["peak_hours"]
         assert 3 in result["off_peak_hours"]
 
-    @pytest.mark.asyncio
     async def test_get_peak_hours_analysis_no_data(self, service, mock_repo):
         """Empty hourly rows → returns minimal dict with empty lists."""
         from models.price import PriceRegion
@@ -380,7 +369,6 @@ class TestGetPeakHoursAnalysis:
 class TestGetSupplierComparisonAnalytics:
     """Tests for AnalyticsService.get_supplier_comparison_analytics"""
 
-    @pytest.mark.asyncio
     async def test_get_supplier_comparison_analytics(self, service, mock_repo):
         """Normal case builds supplier stats and identifies cheapest/most_stable."""
         from models.price import PriceRegion
@@ -400,7 +388,6 @@ class TestGetSupplierComparisonAnalytics:
         # Lowest volatility is United Illuminating (0.02)
         assert result["most_stable"] == "United Illuminating"
 
-    @pytest.mark.asyncio
     async def test_get_supplier_comparison_cached(self, cached_service, mock_repo, mock_cache):
         """Cache hit returns stored payload without querying repository."""
         from models.price import PriceRegion
@@ -447,7 +434,6 @@ class TestAcquireCacheLock:
     Redis outage, causing a thundering herd.
     """
 
-    @pytest.mark.asyncio
     async def test_lock_acquired_when_redis_returns_truthy(self, mock_repo, mock_cache):
         """SET NX returns truthy → lock acquired (True)."""
         from services.analytics_service import AnalyticsService
@@ -458,7 +444,6 @@ class TestAcquireCacheLock:
         acquired = await svc._acquire_cache_lock("test:key")
         assert acquired is True
 
-    @pytest.mark.asyncio
     async def test_lock_not_acquired_when_redis_returns_falsy(self, mock_repo, mock_cache):
         """SET NX returns falsy (lock already held) → returns False."""
         from services.analytics_service import AnalyticsService
@@ -469,7 +454,6 @@ class TestAcquireCacheLock:
         acquired = await svc._acquire_cache_lock("test:key")
         assert acquired is False
 
-    @pytest.mark.asyncio
     async def test_lock_fail_closed_on_redis_exception(self, mock_repo, mock_cache):
         """Redis error → returns False (fail-closed, NOT fail-open).
 
@@ -488,7 +472,6 @@ class TestAcquireCacheLock:
             "to prevent concurrent requests from stampeding the database."
         )
 
-    @pytest.mark.asyncio
     async def test_lock_returns_true_when_no_cache_configured(self, mock_repo):
         """Without a cache the lock is trivially acquired (single process)."""
         from services.analytics_service import AnalyticsService

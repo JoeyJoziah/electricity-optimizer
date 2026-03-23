@@ -1,37 +1,37 @@
-import Link from 'next/link'
-import { US_STATES, UTILITY_TYPES, stateToSlug } from '@/lib/config/seo'
+import Link from "next/link";
+import { US_STATES, UTILITY_TYPES, stateToSlug } from "@/lib/config/seo";
 
 interface Breadcrumb {
-  name: string
-  url: string
+  name: string;
+  url: string;
 }
 
 interface SupplierEntry {
-  supplier: string
-  price: number | null
-  rate_type?: string
-  source?: string
-  updated_at?: string | null
+  supplier: string;
+  price: number | null;
+  rate_type?: string;
+  source?: string;
+  updated_at?: string | null;
 }
 
 interface RateData {
-  state: string
-  utility_type: string
-  unit: string
-  average_price: number | null
-  suppliers?: SupplierEntry[]
-  prices?: { price: number | null; period_date?: string | null }[]
-  count: number
+  state: string;
+  utility_type: string;
+  unit: string;
+  average_price: number | null;
+  suppliers?: SupplierEntry[];
+  prices?: { price: number | null; period_date?: string | null }[];
+  count: number;
 }
 
 interface RatePageContentProps {
-  stateCode: string
-  stateName: string
-  utilityKey: string
-  utilityLabel: string
-  unit: string
-  rateData: RateData | null
-  breadcrumbs: Breadcrumb[]
+  stateCode: string;
+  stateName: string;
+  utilityKey: string;
+  utilityLabel: string;
+  unit: string;
+  rateData: RateData | null;
+  breadcrumbs: Breadcrumb[];
 }
 
 export function RatePageContent({
@@ -46,7 +46,10 @@ export function RatePageContent({
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
       {/* Breadcrumbs */}
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted-foreground">
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-6 text-sm text-muted-foreground"
+      >
         {breadcrumbs.map((b, i) => (
           <span key={b.url}>
             {i > 0 && <span className="mx-1">/</span>}
@@ -65,20 +68,25 @@ export function RatePageContent({
         {utilityLabel} Rates in {stateName}
       </h1>
       <p className="mt-2 text-muted-foreground">
-        Compare current {utilityLabel.toLowerCase()} rates and find the best deal in{' '}
-        {stateName}.
+        Compare current {utilityLabel.toLowerCase()} rates and find the best
+        deal in {stateName}.
       </p>
 
       {/* Average price card */}
       {rateData?.average_price != null && (
         <div className="mt-6 rounded-lg border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Average {utilityLabel} Rate</p>
+          <p className="text-sm text-muted-foreground">
+            Average {utilityLabel} Rate
+          </p>
           <p className="text-4xl font-bold">
             ${rateData.average_price.toFixed(4)}
-            <span className="text-lg font-normal text-muted-foreground">/{unit}</span>
+            <span className="text-lg font-normal text-muted-foreground">
+              /{unit}
+            </span>
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Based on {rateData.count} data point{rateData.count !== 1 ? 's' : ''}
+            Based on {rateData.count} data point
+            {rateData.count !== 1 ? "s" : ""}
           </p>
         </div>
       )}
@@ -97,16 +105,16 @@ export function RatePageContent({
                 </tr>
               </thead>
               <tbody>
-                {rateData.suppliers.map((s, i) => (
-                  <tr key={i} className="border-b">
+                {rateData.suppliers.map((s) => (
+                  <tr key={s.supplier} className="border-b">
                     <td className="py-2 pr-4">{s.supplier}</td>
                     <td className="py-2 pr-4">
-                      {s.price != null ? `$${s.price.toFixed(4)}` : 'N/A'}
+                      {s.price != null ? `$${s.price.toFixed(4)}` : "N/A"}
                     </td>
                     <td className="py-2 text-muted-foreground">
                       {s.updated_at
                         ? new Date(s.updated_at).toLocaleDateString()
-                        : 'N/A'}
+                        : "N/A"}
                     </td>
                   </tr>
                 ))}
@@ -120,7 +128,8 @@ export function RatePageContent({
       {!rateData && (
         <div className="mt-8 rounded-lg border p-6 text-center">
           <p className="text-muted-foreground">
-            No {utilityLabel.toLowerCase()} rate data available for {stateName} yet.
+            No {utilityLabel.toLowerCase()} rate data available for {stateName}{" "}
+            yet.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Check back soon — we update rates regularly.
@@ -130,7 +139,9 @@ export function RatePageContent({
 
       {/* Cross-links to other utilities */}
       <section className="mt-8">
-        <h2 className="text-xl font-semibold">Other Utility Rates in {stateName}</h2>
+        <h2 className="text-xl font-semibold">
+          Other Utility Rates in {stateName}
+        </h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {Object.entries(UTILITY_TYPES)
             .filter(([key]) => key !== utilityKey)
@@ -183,5 +194,5 @@ export function RatePageContent({
         </Link>
       </section>
     </main>
-  )
+  );
 }

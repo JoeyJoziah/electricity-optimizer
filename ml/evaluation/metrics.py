@@ -10,7 +10,7 @@ Provides comprehensive evaluation metrics for time series forecasting:
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, Optional, Any
 from dataclasses import dataclass, asdict
 import logging
 
@@ -71,29 +71,35 @@ class ForecastMetrics:
         ]
 
         if self.coverage_90 is not None:
-            lines.extend([
-                "",
-                "Probabilistic Metrics:",
-                f"  90% Interval Coverage: {self.coverage_90:.2f}%",
-                f"  95% Interval Coverage: {self.coverage_95:.2f}%",
-                f"  90% Interval Score:    {self.interval_score_90:.4f}",
-                f"  95% Interval Score:    {self.interval_score_95:.4f}",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "Probabilistic Metrics:",
+                    f"  90% Interval Coverage: {self.coverage_90:.2f}%",
+                    f"  95% Interval Coverage: {self.coverage_95:.2f}%",
+                    f"  90% Interval Score:    {self.interval_score_90:.4f}",
+                    f"  95% Interval Score:    {self.interval_score_95:.4f}",
+                ]
+            )
 
         if self.cost_of_error is not None:
-            lines.extend([
-                "",
-                "Business Metrics:",
-                f"  Cost of Error:           ${self.cost_of_error:.2f}",
-                f"  Savings Impact:          {self.optimization_savings_impact:.2f}%",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "Business Metrics:",
+                    f"  Cost of Error:           ${self.cost_of_error:.2f}",
+                    f"  Savings Impact:          {self.optimization_savings_impact:.2f}%",
+                ]
+            )
 
-        lines.extend([
-            "",
-            f"Sample Size: {self.n_samples}",
-            f"Forecast Horizon: {self.forecast_horizon}h",
-            "=" * 60
-        ])
+        lines.extend(
+            [
+                "",
+                f"Sample Size: {self.n_samples}",
+                f"Forecast Horizon: {self.forecast_horizon}h",
+                "=" * 60,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -133,8 +139,7 @@ def mean_absolute_percentage_error(y_true: np.ndarray, y_pred: np.ndarray) -> fl
 
 
 def symmetric_mean_absolute_percentage_error(
-    y_true: np.ndarray,
-    y_pred: np.ndarray
+    y_true: np.ndarray, y_pred: np.ndarray
 ) -> float:
     """
     Symmetric MAPE (sMAPE) in percentage
@@ -172,9 +177,7 @@ def r2_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def direction_accuracy(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    threshold: float = 0.0
+    y_true: np.ndarray, y_pred: np.ndarray, threshold: float = 0.0
 ) -> float:
     """
     Direction Accuracy - Percentage of correct directional predictions
@@ -210,9 +213,7 @@ def direction_accuracy(
 
 
 def weighted_direction_accuracy(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    threshold: float = 0.0
+    y_true: np.ndarray, y_pred: np.ndarray, threshold: float = 0.0
 ) -> float:
     """
     Weighted Direction Accuracy
@@ -247,9 +248,7 @@ def weighted_direction_accuracy(
 
 
 def prediction_interval_coverage(
-    y_true: np.ndarray,
-    y_lower: np.ndarray,
-    y_upper: np.ndarray
+    y_true: np.ndarray, y_lower: np.ndarray, y_upper: np.ndarray
 ) -> float:
     """
     Prediction Interval Coverage
@@ -269,10 +268,7 @@ def prediction_interval_coverage(
 
 
 def interval_score(
-    y_true: np.ndarray,
-    y_lower: np.ndarray,
-    y_upper: np.ndarray,
-    alpha: float = 0.1
+    y_true: np.ndarray, y_lower: np.ndarray, y_upper: np.ndarray, alpha: float = 0.1
 ) -> float:
     """
     Interval Score (Gneiting & Raftery, 2007)
@@ -306,7 +302,7 @@ def cost_of_prediction_error(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     consumption_kwh: float = 10.0,
-    cost_multiplier: float = 1.0
+    cost_multiplier: float = 1.0,
 ) -> float:
     """
     Calculate financial cost of prediction errors
@@ -336,9 +332,7 @@ def cost_of_prediction_error(
 
 
 def optimization_savings_impact(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    consumption_kwh: float = 10.0
+    y_true: np.ndarray, y_pred: np.ndarray, consumption_kwh: float = 10.0
 ) -> float:
     """
     Estimate impact of forecast errors on optimization savings
@@ -355,10 +349,10 @@ def optimization_savings_impact(
         Percentage reduction in savings (0-100)
     """
     # Optimal cost with perfect foresight (use cheapest hours)
-    optimal_cost = np.sum(np.sort(y_true)[:len(y_true) // 2]) * consumption_kwh
+    optimal_cost = np.sum(np.sort(y_true)[: len(y_true) // 2]) * consumption_kwh
 
     # Cost using predictions (use hours predicted to be cheap)
-    predicted_cheap_indices = np.argsort(y_pred)[:len(y_pred) // 2]
+    predicted_cheap_indices = np.argsort(y_pred)[: len(y_pred) // 2]
     predicted_cost = np.sum(y_true[predicted_cheap_indices]) * consumption_kwh
 
     # Baseline cost (use all hours equally)
@@ -385,7 +379,7 @@ def calculate_all_metrics(
     y_lower: Optional[np.ndarray] = None,
     y_upper: Optional[np.ndarray] = None,
     consumption_kwh: float = 10.0,
-    forecast_horizon: int = 24
+    forecast_horizon: int = 24,
 ) -> ForecastMetrics:
     """
     Calculate comprehensive forecast metrics
@@ -452,7 +446,7 @@ def calculate_all_metrics(
         cost_of_error=cost_error,
         optimization_savings_impact=savings_impact,
         n_samples=len(y_true),
-        forecast_horizon=forecast_horizon
+        forecast_horizon=forecast_horizon,
     )
 
 
@@ -461,7 +455,7 @@ def evaluate_forecast(
     y_pred: np.ndarray,
     y_lower: Optional[np.ndarray] = None,
     y_upper: Optional[np.ndarray] = None,
-    verbose: bool = True
+    verbose: bool = True,
 ) -> ForecastMetrics:
     """
     Evaluate forecast and optionally print results
@@ -477,10 +471,7 @@ def evaluate_forecast(
         ForecastMetrics object
     """
     metrics = calculate_all_metrics(
-        y_true=y_true,
-        y_pred=y_pred,
-        y_lower=y_lower,
-        y_upper=y_upper
+        y_true=y_true, y_pred=y_pred, y_lower=y_lower, y_upper=y_upper
     )
 
     if verbose:
@@ -490,9 +481,7 @@ def evaluate_forecast(
 
 
 def compare_models(
-    y_true: np.ndarray,
-    predictions: Dict[str, np.ndarray],
-    metric: str = 'mape'
+    y_true: np.ndarray, predictions: Dict[str, np.ndarray], metric: str = "mape"
 ) -> pd.DataFrame:
     """
     Compare multiple models on various metrics
@@ -510,21 +499,23 @@ def compare_models(
     for model_name, y_pred in predictions.items():
         metrics = calculate_all_metrics(y_true, y_pred)
 
-        results.append({
-            'model': model_name,
-            'mae': metrics.mae,
-            'rmse': metrics.rmse,
-            'mape': metrics.mape,
-            'smape': metrics.smape,
-            'r2': metrics.r2_score,
-            'dir_acc': metrics.direction_accuracy,
-            'weighted_dir_acc': metrics.weighted_direction_accuracy
-        })
+        results.append(
+            {
+                "model": model_name,
+                "mae": metrics.mae,
+                "rmse": metrics.rmse,
+                "mape": metrics.mape,
+                "smape": metrics.smape,
+                "r2": metrics.r2_score,
+                "dir_acc": metrics.direction_accuracy,
+                "weighted_dir_acc": metrics.weighted_direction_accuracy,
+            }
+        )
 
     df = pd.DataFrame(results)
 
     # Sort by primary metric (lower is better for most metrics)
-    if metric in ['r2', 'dir_acc', 'weighted_dir_acc']:
+    if metric in ["r2", "dir_acc", "weighted_dir_acc"]:
         df = df.sort_values(metric, ascending=False)
     else:
         df = df.sort_values(metric, ascending=True)
@@ -532,14 +523,39 @@ def compare_models(
     return df
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage
     np.random.seed(42)
 
     # Simulate actual prices (24 hours)
-    y_true = np.array([0.20, 0.18, 0.16, 0.15, 0.14, 0.13, 0.12, 0.11,
-                       0.15, 0.20, 0.25, 0.30, 0.32, 0.35, 0.38, 0.40,
-                       0.39, 0.37, 0.35, 0.33, 0.30, 0.27, 0.24, 0.22])
+    y_true = np.array(
+        [
+            0.20,
+            0.18,
+            0.16,
+            0.15,
+            0.14,
+            0.13,
+            0.12,
+            0.11,
+            0.15,
+            0.20,
+            0.25,
+            0.30,
+            0.32,
+            0.35,
+            0.38,
+            0.40,
+            0.39,
+            0.37,
+            0.35,
+            0.33,
+            0.30,
+            0.27,
+            0.24,
+            0.22,
+        ]
+    )
 
     # Simulate predictions (with some error)
     y_pred = y_true + np.random.normal(0, 0.02, len(y_true))
@@ -554,11 +570,7 @@ if __name__ == '__main__':
     print("=" * 60 + "\n")
 
     metrics = evaluate_forecast(
-        y_true=y_true,
-        y_pred=y_pred,
-        y_lower=y_lower,
-        y_upper=y_upper,
-        verbose=True
+        y_true=y_true, y_pred=y_pred, y_lower=y_lower, y_upper=y_upper, verbose=True
     )
 
     # Compare multiple models
@@ -567,10 +579,10 @@ if __name__ == '__main__':
     print("=" * 60 + "\n")
 
     predictions = {
-        'CNN-LSTM': y_pred,
-        'XGBoost': y_true + np.random.normal(0, 0.03, len(y_true)),
-        'ARIMA': y_true + np.random.normal(0, 0.04, len(y_true))
+        "CNN-LSTM": y_pred,
+        "XGBoost": y_true + np.random.normal(0, 0.03, len(y_true)),
+        "ARIMA": y_true + np.random.normal(0, 0.04, len(y_true)),
     }
 
-    comparison = compare_models(y_true, predictions, metric='mape')
+    comparison = compare_models(y_true, predictions, metric="mape")
     print(comparison.to_string(index=False))

@@ -1,9 +1,10 @@
 """Tests for the AlertRenderer service."""
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import MagicMock
+
+import pytest
 
 from services.alert_renderer import AlertRenderer
 from services.alert_service import AlertThreshold, PriceAlert
@@ -26,10 +27,12 @@ def _make_alert(
         threshold=Decimal(str(threshold)) if threshold is not None else None,
         region=region,
         supplier=supplier,
-        timestamp=timestamp or datetime(2024, 6, 15, 14, 30, tzinfo=timezone.utc),
+        timestamp=timestamp or datetime(2024, 6, 15, 14, 30, tzinfo=UTC),
         optimal_window_start=optimal_window_start,
         optimal_window_end=optimal_window_end,
-        estimated_savings=Decimal(str(estimated_savings)) if estimated_savings is not None else None,
+        estimated_savings=Decimal(str(estimated_savings))
+        if estimated_savings is not None
+        else None,
     )
 
 
@@ -61,7 +64,7 @@ class TestGetAlertSubject:
         assert "0.45" in subject
 
     def test_optimal_window_subject_with_start_time(self):
-        start = datetime(2024, 6, 15, 22, 0, tzinfo=timezone.utc)
+        start = datetime(2024, 6, 15, 22, 0, tzinfo=UTC)
         alert = _make_alert(alert_type="optimal_window", optimal_window_start=start)
         subject = self.renderer.get_alert_subject(alert)
         assert "Optimal Usage Window" in subject
@@ -108,7 +111,7 @@ class TestRenderAlertEmail:
 
     def test_template_receives_formatted_timestamp(self):
         self.email_svc.render_template.return_value = "<html></html>"
-        ts = datetime(2024, 6, 15, 14, 30, tzinfo=timezone.utc)
+        ts = datetime(2024, 6, 15, 14, 30, tzinfo=UTC)
         alert = _make_alert(timestamp=ts)
         self.renderer.render_alert_email(self.threshold, alert)
         call_kwargs = self.email_svc.render_template.call_args[1]
@@ -124,8 +127,8 @@ class TestRenderAlertEmail:
 
     def test_template_receives_formatted_optimal_times_when_set(self):
         self.email_svc.render_template.return_value = "<html></html>"
-        start = datetime(2024, 6, 15, 22, 0, tzinfo=timezone.utc)
-        end = datetime(2024, 6, 16, 0, 0, tzinfo=timezone.utc)
+        start = datetime(2024, 6, 15, 22, 0, tzinfo=UTC)
+        end = datetime(2024, 6, 16, 0, 0, tzinfo=UTC)
         alert = _make_alert(
             alert_type="optimal_window",
             optimal_window_start=start,
@@ -165,8 +168,8 @@ class TestRenderFallbackAlert:
         assert "0.45" in html
 
     def test_optimal_window_fallback_shows_times(self):
-        start = datetime(2024, 6, 15, 22, 0, tzinfo=timezone.utc)
-        end = datetime(2024, 6, 16, 0, 0, tzinfo=timezone.utc)
+        start = datetime(2024, 6, 15, 22, 0, tzinfo=UTC)
+        end = datetime(2024, 6, 16, 0, 0, tzinfo=UTC)
         alert = _make_alert(
             alert_type="optimal_window",
             optimal_window_start=start,

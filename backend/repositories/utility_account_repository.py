@@ -5,20 +5,18 @@ Data access layer for user utility accounts.
 Uses raw SQL with text() since UtilityAccount is a Pydantic model, not SQLAlchemy ORM.
 """
 
+import builtins
 import json
-from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from repositories.base import BaseRepository, RepositoryError, NotFoundError
 from models.utility_account import UtilityAccount
-
+from repositories.base import MAX_PAGE_SIZE, BaseRepository, RepositoryError
 
 _COLUMNS = (
-    "id, user_id, utility_type, region, provider_name, "
-    "is_primary, metadata, created_at, updated_at"
+    "id, user_id, utility_type, region, provider_name, is_primary, metadata, created_at, updated_at"
 )
 
 
@@ -43,7 +41,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
     def __init__(self, db_session: AsyncSession):
         self._db = db_session
 
-    async def get_by_id(self, id: str) -> Optional[UtilityAccount]:
+    async def get_by_id(self, id: str) -> UtilityAccount | None:
         """Get a utility account by ID."""
         try:
             result = await self._db.execute(
@@ -85,7 +83,7 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to create utility account: {e}", e)
 
-    async def update(self, id: str, entity: UtilityAccount) -> Optional[UtilityAccount]:
+    async def update(self, id: str, entity: UtilityAccount) -> UtilityAccount | None:
         """Update an existing utility account."""
         try:
             result = await self._db.execute(
@@ -129,9 +127,10 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
         page: int = 1,
         page_size: int = 10,
         **filters: Any,
-    ) -> List[UtilityAccount]:
+    ) -> list[UtilityAccount]:
         """List utility accounts with pagination and optional filters."""
         try:
+            page_size = max(1, min(MAX_PAGE_SIZE, page_size))
             offset = (page - 1) * page_size
             where_clauses = []
             params: dict = {"limit": page_size, "offset": offset}
@@ -182,14 +181,12 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
         except Exception as e:
             raise RepositoryError(f"Failed to count utility accounts: {e}", e)
 
-    async def get_by_user(self, user_id: str) -> List[UtilityAccount]:
+    async def get_by_user(self, user_id: str) -> builtins.list[UtilityAccount]:
         """Get all utility accounts for a user."""
         return await self.list(page=1, page_size=100, user_id=user_id)
 
     async def get_by_user_and_type(
         self, user_id: str, utility_type: str
-    ) -> List[UtilityAccount]:
+    ) -> builtins.list[UtilityAccount]:
         """Get utility accounts for a user filtered by utility type."""
-        return await self.list(
-            page=1, page_size=100, user_id=user_id, utility_type=utility_type
-        )
+        return await self.list(page=1, page_size=100, user_id=user_id, utility_type=utility_type)

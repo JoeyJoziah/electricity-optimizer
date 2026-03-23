@@ -1,14 +1,13 @@
 """Tests for the Geocoding Service (OWM + Nominatim)."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
 from services.geocoding_service import (
-    GeocodingService,
     _STATE_NAME_TO_ABBR,
     _US_STATES,
+    GeocodingService,
 )
 
 
@@ -24,23 +23,27 @@ def _owm_response(name="Los Angeles", lat=34.05, lon=-118.24, state="California"
 
 
 def _nominatim_response(
-    lat="34.0522", lon="-118.2437", display_name="Los Angeles, CA, USA",
-    country_code="us", iso_code="US-CA",
+    lat="34.0522",
+    lon="-118.2437",
+    display_name="Los Angeles, CA, USA",
+    country_code="us",
+    iso_code="US-CA",
 ):
     """Build a mock Nominatim search JSON response."""
-    return [{
-        "lat": lat,
-        "lon": lon,
-        "display_name": display_name,
-        "address": {
-            "country_code": country_code,
-            "ISO3166-2-lvl4": iso_code,
-        },
-    }]
+    return [
+        {
+            "lat": lat,
+            "lon": lon,
+            "display_name": display_name,
+            "address": {
+                "country_code": country_code,
+                "ISO3166-2-lvl4": iso_code,
+            },
+        }
+    ]
 
 
 class TestGeocodeViaOWM:
-    @pytest.mark.asyncio
     async def test_geocode_via_owm_success(self):
         """OWM returns valid result with lat/lng/state."""
         mock_resp = MagicMock()
@@ -62,7 +65,6 @@ class TestGeocodeViaOWM:
         assert result["state"] == "CA"
         assert "Los Angeles" in result["formatted_address"]
 
-    @pytest.mark.asyncio
     async def test_owm_empty_response_falls_back(self):
         """OWM returns empty list, Nominatim is tried."""
         mock_resp_owm = MagicMock()
@@ -87,7 +89,6 @@ class TestGeocodeViaOWM:
 
 
 class TestGeocodeNominatimFallback:
-    @pytest.mark.asyncio
     async def test_geocode_falls_back_to_nominatim(self):
         """OWM raises an error, Nominatim succeeds."""
         mock_client_owm = AsyncMock()
@@ -107,7 +108,9 @@ class TestGeocodeNominatimFallback:
         mock_client_nom.__aexit__ = AsyncMock(return_value=False)
 
         clients = iter([mock_client_owm, mock_client_nom])
-        with patch("services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)
+        ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("Los Angeles, CA")
 
@@ -116,7 +119,6 @@ class TestGeocodeNominatimFallback:
         assert result["lng"] == -118.2437
         assert result["state"] == "CA"
 
-    @pytest.mark.asyncio
     async def test_no_owm_key_falls_back_to_nominatim(self):
         """When OWM key is None, skip OWM and use Nominatim directly."""
         mock_resp = MagicMock()
@@ -135,7 +137,6 @@ class TestGeocodeNominatimFallback:
         assert result is not None
         assert result["state"] == "CA"
 
-    @pytest.mark.asyncio
     async def test_owm_timeout_falls_back(self):
         """OWM times out, Nominatim is used instead."""
         mock_client_owm = AsyncMock()
@@ -153,7 +154,9 @@ class TestGeocodeNominatimFallback:
         mock_client_nom.__aexit__ = AsyncMock(return_value=False)
 
         clients = iter([mock_client_owm, mock_client_nom])
-        with patch("services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)
+        ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("New York, NY")
 
@@ -161,7 +164,6 @@ class TestGeocodeNominatimFallback:
 
 
 class TestBothProvidersFail:
-    @pytest.mark.asyncio
     async def test_geocode_both_fail_returns_none(self):
         """Both OWM and Nominatim fail — returns None."""
         mock_client = AsyncMock()
@@ -177,7 +179,6 @@ class TestBothProvidersFail:
 
 
 class TestAddressToRegion:
-    @pytest.mark.asyncio
     async def test_address_to_region_returns_state_abbr(self):
         """address_to_region returns 2-letter abbreviation for US address."""
         mock_resp = MagicMock()
@@ -195,13 +196,10 @@ class TestAddressToRegion:
 
         assert region == "NY"
 
-    @pytest.mark.asyncio
     async def test_address_to_region_non_us_returns_none(self):
         """Non-US address (no matching state) returns None."""
         mock_resp = MagicMock()
-        mock_resp.json.return_value = _owm_response(
-            name="London", state="England", country="GB"
-        )
+        mock_resp.json.return_value = _owm_response(name="London", state="England", country="GB")
         mock_resp.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
@@ -217,7 +215,6 @@ class TestAddressToRegion:
 
 
 class TestNominatimUserAgent:
-    @pytest.mark.asyncio
     async def test_nominatim_user_agent_header(self):
         """Nominatim requests include User-Agent: RateShift/1.0."""
         mock_resp = MagicMock()

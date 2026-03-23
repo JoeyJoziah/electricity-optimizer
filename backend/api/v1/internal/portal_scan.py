@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import structlog
@@ -121,8 +121,8 @@ async def scrape_all_portals(
         conn_id = str(rows[i][0])
         if isinstance(res, Exception):
             failed += 1
-            errors.append(f"{conn_id}: {res}")
-            logger.error("scrape_portals_task_exception", connection_id=conn_id, error=str(res))
+            errors.append(f"{conn_id}: Portal scrape task failed. See server logs for details.")
+            logger.exception("scrape_portals_task_exception", connection_id=conn_id, error=str(res))
         elif res.get("success"):
             succeeded += 1
         else:
@@ -175,12 +175,12 @@ async def _scrape_one(
         portal_password = decrypt_field(base64.b64decode(portal_password_encrypted))
         portal_username = decrypt_field(base64.b64decode(portal_username_enc))
     except Exception as exc:
-        log.error("portal_decrypt_error", error=str(exc))
-        await _update_status(db, connection_id, "error", datetime.now(timezone.utc))
+        log.exception("portal_decrypt_error", error=str(exc))
+        await _update_status(db, connection_id, "error", datetime.now(UTC))
         return {
             "success": False,
             "rates_extracted": 0,
-            "error": f"Credential decrypt failed: {exc}",
+            "error": "Credential decryption failed. See server logs for details.",
         }
 
     async with sem:
@@ -194,14 +194,14 @@ async def _scrape_one(
                     supplier_id=supplier_id,
                 )
         except Exception as exc:
-            log.error("portal_scrape_exception", error=str(exc))
+            log.exception("portal_scrape_exception", error=str(exc))
             scrape_result = {
                 "success": False,
                 "rates": [],
-                "error": str(exc),
+                "error": "Portal scrape failed. See server logs for details.",
             }
 
-    scraped_at = datetime.now(timezone.utc)
+    scraped_at = datetime.now(UTC)
     rates = scrape_result.get("rates", [])
     rates_extracted = len(rates)
     new_status = "active" if scrape_result["success"] else "error"

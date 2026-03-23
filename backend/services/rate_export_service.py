@@ -7,8 +7,7 @@ Business tier only.
 
 import csv
 import io
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import text
@@ -74,9 +73,9 @@ class RateExportService:
         self,
         utility_type: str,
         format: str = "json",
-        state: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        state: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict:
         """
         Export historical rate data.
@@ -98,7 +97,7 @@ class RateExportService:
             }
 
         config = EXPORT_CONFIGS[utility_type]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if not end_date:
             end_date = now
@@ -143,7 +142,7 @@ class RateExportService:
     async def _fetch_data(
         self,
         config: dict,
-        state: Optional[str],
+        state: str | None,
         start_date: datetime,
         end_date: datetime,
     ) -> list:
@@ -172,9 +171,9 @@ class RateExportService:
         result = await self.db.execute(
             text(f"""
                 SELECT {cols}
-                FROM {config['table']}
+                FROM {config["table"]}
                 WHERE {where}
-                ORDER BY {config['time_col']} ASC
+                ORDER BY {config["time_col"]} ASC
                 LIMIT 10000
             """),
             params,
@@ -189,10 +188,12 @@ class RateExportService:
         writer.writerow(columns)
 
         for row in rows:
-            writer.writerow([
-                row[col].isoformat() if hasattr(row[col], 'isoformat') else str(row[col])
-                for col in columns
-            ])
+            writer.writerow(
+                [
+                    row[col].isoformat() if hasattr(row[col], "isoformat") else str(row[col])
+                    for col in columns
+                ]
+            )
 
         return output.getvalue()
 
@@ -204,9 +205,9 @@ class RateExportService:
             item = {}
             for col in columns:
                 val = row[col]
-                if hasattr(val, 'isoformat'):
+                if hasattr(val, "isoformat"):
                     item[col] = val.isoformat()
-                elif hasattr(val, '__float__'):
+                elif hasattr(val, "__float__"):
                     item[col] = float(val)
                 else:
                     item[col] = str(val) if val is not None else None

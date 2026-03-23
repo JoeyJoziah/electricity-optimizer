@@ -20,6 +20,10 @@ export async function proxyToOrigin(
   headers.set("X-Request-ID", requestId);
   headers.set("X-Forwarded-Host", url.hostname);
   headers.set("X-Forwarded-Proto", "https");
+  // Explicitly set Host to the origin hostname to prevent SSRF via
+  // Host header manipulation. The client-supplied Host header must not
+  // reach the origin — the origin should only see its own hostname.
+  headers.set("Host", originUrl.hostname);
   // Remove CF-specific headers that shouldn't reach origin
   headers.delete("cf-connecting-ip");
   headers.delete("cf-ipcountry");

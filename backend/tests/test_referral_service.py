@@ -9,11 +9,11 @@ Tests cover:
 - API: auth, validation, responses
 """
 
-import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -23,11 +23,12 @@ USER_ID = "test-user-123"
 OTHER_USER_ID = "other-user-456"
 REFERRAL_CODE = "AB12CD34"
 
-NOW = datetime(2026, 3, 11, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 3, 11, 12, 0, 0, tzinfo=UTC)
 
 
 def _make_session_data(user_id=USER_ID, email="test@example.com"):
     from auth.neon_auth import SessionData
+
     return SessionData(user_id=user_id, email=email, name="Test User", email_verified=True)
 
 
@@ -62,10 +63,10 @@ def _referral_row(
 # Unit Tests: ReferralService
 # ---------------------------------------------------------------------------
 
+
 class TestReferralServiceUnit:
     """Unit tests for ReferralService methods."""
 
-    @pytest.mark.asyncio
     async def test_generate_code_format(self):
         """Generated code is 8 chars alphanumeric."""
         from services.referral_service import ReferralService
@@ -78,7 +79,6 @@ class TestReferralServiceUnit:
         assert code.isalnum()
         assert code == code.upper()
 
-    @pytest.mark.asyncio
     async def test_generate_code_stores_in_db(self):
         """generate_code() INSERTs and commits."""
         from services.referral_service import ReferralService
@@ -91,7 +91,6 @@ class TestReferralServiceUnit:
         db.execute.assert_called_once()
         db.commit.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_get_or_create_returns_existing(self):
         """If user already has a pending code, return it."""
         from services.referral_service import ReferralService
@@ -105,7 +104,6 @@ class TestReferralServiceUnit:
         code = await svc.get_or_create_code(USER_ID)
         assert code == REFERRAL_CODE
 
-    @pytest.mark.asyncio
     async def test_apply_referral_success(self):
         """Valid code + different user = success."""
         from services.referral_service import ReferralService
@@ -125,10 +123,9 @@ class TestReferralServiceUnit:
         result = await svc.apply_referral(OTHER_USER_ID, REFERRAL_CODE)
         assert result["referee_id"] == OTHER_USER_ID
 
-    @pytest.mark.asyncio
     async def test_apply_referral_self_referral_blocked(self):
         """Cannot use your own referral code."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
@@ -139,10 +136,9 @@ class TestReferralServiceUnit:
         with pytest.raises(ReferralError, match="Cannot use your own referral code"):
             await svc.apply_referral(USER_ID, REFERRAL_CODE)
 
-    @pytest.mark.asyncio
     async def test_apply_referral_nonexistent_code(self):
         """Nonexistent code raises error."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
@@ -153,35 +149,36 @@ class TestReferralServiceUnit:
         with pytest.raises(ReferralError, match="Invalid referral code"):
             await svc.apply_referral(OTHER_USER_ID, "BADCODE1")
 
-    @pytest.mark.asyncio
     async def test_apply_referral_already_used(self):
         """Already-completed code raises error."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
-        lookup_result.mappings.return_value.first.return_value = _referral_row(status_val="completed")
+        lookup_result.mappings.return_value.first.return_value = _referral_row(
+            status_val="completed"
+        )
         db.execute.return_value = lookup_result
 
         svc = ReferralService(db)
         with pytest.raises(ReferralError, match="already used or expired"):
             await svc.apply_referral(OTHER_USER_ID, REFERRAL_CODE)
 
-    @pytest.mark.asyncio
     async def test_apply_referral_already_claimed(self):
         """Code with referee_id already set raises error."""
-        from services.referral_service import ReferralService, ReferralError
+        from services.referral_service import ReferralError, ReferralService
 
         db = _mock_db()
         lookup_result = MagicMock()
-        lookup_result.mappings.return_value.first.return_value = _referral_row(referee_id="someone-else")
+        lookup_result.mappings.return_value.first.return_value = _referral_row(
+            referee_id="someone-else"
+        )
         db.execute.return_value = lookup_result
 
         svc = ReferralService(db)
         with pytest.raises(ReferralError, match="already claimed"):
             await svc.apply_referral(OTHER_USER_ID, REFERRAL_CODE)
 
-    @pytest.mark.asyncio
     async def test_complete_referral(self):
         """Completing a referral sets status, reward, completed_at."""
         from services.referral_service import ReferralService
@@ -201,7 +198,6 @@ class TestReferralServiceUnit:
         assert result_data["reward_applied"] is True
         assert result_data["completed_at"] is not None
 
-    @pytest.mark.asyncio
     async def test_get_stats(self):
         """Stats aggregation returns correct counts."""
         from services.referral_service import ReferralService
@@ -228,17 +224,19 @@ class TestReferralServiceUnit:
 # API Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def client():
     from main import app
+
     with TestClient(app) as c:
         yield c
 
 
 @pytest.fixture(autouse=True)
 def _override_deps(request):
-    from main import app
     from api.dependencies import get_current_user, get_db_session
+    from main import app
 
     db = _mock_db()
     session_data = _make_session_data()

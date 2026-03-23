@@ -13,17 +13,17 @@ this correctly as long as the rates router is included before the generic
 CRUD wildcard router.
 """
 
-
 import math
-from typing import List, Optional
+import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, SessionData
-from models.connections import ExtractedRateResponse, ExtractedRateListResponse
+from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
+from models.connections import ExtractedRateListResponse, ExtractedRateResponse
 
 router = APIRouter()
 
@@ -39,7 +39,7 @@ router = APIRouter()
     summary="Get extracted rates for a connection",
 )
 async def get_rates(
-    connection_id: str,
+    connection_id: uuid.UUID,
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(20, ge=1, le=100, description="Records per page (1-100, default 20)"),
     current_user: SessionData = Depends(require_paid_tier),
@@ -128,10 +128,10 @@ async def get_rates(
     summary="Get the most recent extracted rate for a connection",
 )
 async def get_current_rate(
-    connection_id: str,
+    connection_id: uuid.UUID,
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
-) -> Optional[ExtractedRateResponse]:
+) -> ExtractedRateResponse | None:
     """Return the single most recent rate extracted for this connection.
 
     Ownership verification and rate fetch are combined into a single JOIN query.

@@ -13,7 +13,7 @@ GET /health/integrations   — deep integration status (DB, Redis, all API keys)
 """
 
 import time
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends
@@ -45,7 +45,7 @@ def _configured(value: Any) -> str:
     return "configured" if value else "not_configured"
 
 
-async def _check_database(db: AsyncSession) -> Dict[str, Any]:
+async def _check_database(db: AsyncSession) -> dict[str, Any]:
     """Verify DB connectivity with a lightweight SELECT 1 and measure latency."""
     start = time.monotonic()
     try:
@@ -60,7 +60,7 @@ async def _check_database(db: AsyncSession) -> Dict[str, Any]:
         return {"status": "unhealthy", "error": str(exc), "latency_ms": latency_ms}
 
 
-async def _check_redis() -> Dict[str, Any]:
+async def _check_redis() -> dict[str, Any]:
     """Verify Redis connectivity with a PING and measure latency."""
     start = time.monotonic()
     try:
@@ -76,7 +76,7 @@ async def _check_redis() -> Dict[str, Any]:
         return {"status": "unhealthy", "error": str(exc), "latency_ms": latency_ms}
 
 
-def _check_external_apis() -> Dict[str, Dict[str, str]]:
+def _check_external_apis() -> dict[str, dict[str, str]]:
     """
     Check whether external API keys are present in config.
 
@@ -91,14 +91,10 @@ def _check_external_apis() -> Dict[str, Dict[str, str]]:
         "utilityapi": {"status": _configured(settings.utilityapi_key)},
         "resend": {"status": _configured(settings.resend_api_key)},
         "gmail_oauth": {
-            "status": _configured(
-                settings.gmail_client_id and settings.gmail_client_secret
-            )
+            "status": _configured(settings.gmail_client_id and settings.gmail_client_secret)
         },
         "outlook_oauth": {
-            "status": _configured(
-                settings.outlook_client_id and settings.outlook_client_secret
-            )
+            "status": _configured(settings.outlook_client_id and settings.outlook_client_secret)
         },
         "field_encryption": {"status": _configured(settings.field_encryption_key)},
         "internal_api_key": {"status": _configured(settings.internal_api_key)},
@@ -136,7 +132,7 @@ async def health_check():
 @router.get("/ready", tags=["Health"], summary="Readiness check")
 async def readiness_check():
     """Readiness check — verify all dependencies are available."""
-    checks: Dict[str, bool] = {
+    checks: dict[str, bool] = {
         "database": False,
         "redis": False,
     }
@@ -212,7 +208,7 @@ async def check_integrations(
     HTTP 200 is returned when all *live* checks pass (database + redis).
     HTTP 503 is returned if any *live* check fails.
     """
-    checks: Dict[str, Any] = {}
+    checks: dict[str, Any] = {}
 
     checks["database"] = await _check_database(db)
     checks["redis"] = await _check_redis()
@@ -220,9 +216,7 @@ async def check_integrations(
 
     live_statuses = [checks["database"]["status"], checks["redis"]["status"]]
     overall = (
-        "healthy"
-        if all(s in ("healthy", "not_configured") for s in live_statuses)
-        else "degraded"
+        "healthy" if all(s in ("healthy", "not_configured") for s in live_statuses) else "degraded"
     )
 
     http_status = 200 if overall == "healthy" else 503

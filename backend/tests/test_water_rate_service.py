@@ -2,15 +2,14 @@
 Tests for WaterRateService — rates, tier calculator, benchmarking, tips, upsert.
 """
 
-import pytest
-from datetime import datetime, date, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from services.water_rate_service import (
     WaterRateService,
-    AVG_MONTHLY_GALLONS,
-    CONSERVATION_TIPS,
 )
 
 
@@ -44,7 +43,7 @@ SAMPLE_RATE_ROW = {
     "unit": "gallon",
     "effective_date": date(2026, 1, 1),
     "source_url": "https://www1.nyc.gov/water-rates",
-    "updated_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
+    "updated_at": datetime(2026, 3, 1, tzinfo=UTC),
 }
 
 SAMPLE_RATE_ROW_2 = {
@@ -59,7 +58,7 @@ SAMPLE_RATE_ROW_2 = {
     "unit": "gallon",
     "effective_date": date(2026, 1, 1),
     "source_url": "https://buffalo.gov/water",
-    "updated_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
+    "updated_at": datetime(2026, 3, 1, tzinfo=UTC),
 }
 
 
@@ -79,8 +78,8 @@ def service(mock_db):
 # get_rates
 # ------------------------------------------------------------------
 
+
 class TestGetRates:
-    @pytest.mark.asyncio
     async def test_returns_all_rates(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_rows([SAMPLE_RATE_ROW, SAMPLE_RATE_ROW_2])
 
@@ -90,7 +89,6 @@ class TestGetRates:
         assert rates[0]["state"] == "NY"
         assert rates[0]["base_charge"] == 15.50
 
-    @pytest.mark.asyncio
     async def test_filters_by_state(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_rows([SAMPLE_RATE_ROW])
 
@@ -98,7 +96,6 @@ class TestGetRates:
         assert len(rates) == 1
         assert rates[0]["state"] == "NY"
 
-    @pytest.mark.asyncio
     async def test_empty_result(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_rows([])
         rates = await service.get_rates("ZZ")
@@ -109,8 +106,8 @@ class TestGetRates:
 # get_rate_by_municipality
 # ------------------------------------------------------------------
 
+
 class TestGetRateByMunicipality:
-    @pytest.mark.asyncio
     async def test_finds_municipality(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_rows([SAMPLE_RATE_ROW])
 
@@ -119,7 +116,6 @@ class TestGetRateByMunicipality:
         assert rate["municipality"] == "New York"
         assert len(rate["rate_tiers"]) == 3
 
-    @pytest.mark.asyncio
     async def test_returns_none_when_not_found(self, service, mock_db):
         mock_result = MagicMock()
         mock_mappings = MagicMock()
@@ -134,6 +130,7 @@ class TestGetRateByMunicipality:
 # ------------------------------------------------------------------
 # calculate_monthly_cost (tier calculator)
 # ------------------------------------------------------------------
+
 
 class TestCalculateMonthlyCost:
     def test_basic_tiered_calculation(self, service):
@@ -229,8 +226,8 @@ class TestCalculateMonthlyCost:
 # get_benchmark
 # ------------------------------------------------------------------
 
+
 class TestGetBenchmark:
-    @pytest.mark.asyncio
     async def test_returns_benchmark_with_rates(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_rows([SAMPLE_RATE_ROW, SAMPLE_RATE_ROW_2])
 
@@ -244,7 +241,6 @@ class TestGetBenchmark:
         # Rates should be sorted by monthly_cost
         assert benchmark["rates"][0]["monthly_cost"] <= benchmark["rates"][1]["monthly_cost"]
 
-    @pytest.mark.asyncio
     async def test_no_data_returns_empty(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_rows([])
 
@@ -257,6 +253,7 @@ class TestGetBenchmark:
 # ------------------------------------------------------------------
 # get_conservation_tips
 # ------------------------------------------------------------------
+
 
 class TestConservationTips:
     def test_returns_tips(self):
@@ -277,19 +274,21 @@ class TestConservationTips:
 # upsert_rate
 # ------------------------------------------------------------------
 
+
 class TestUpsertRate:
-    @pytest.mark.asyncio
     async def test_upserts_rate(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_fetchone(("uuid-new",))
 
-        rate_id = await service.upsert_rate({
-            "municipality": "Austin",
-            "state": "TX",
-            "rate_tiers": '[{"limit_gallons": 3000, "rate_per_gallon": 0.005}]',
-            "base_charge": 12.00,
-            "effective_date": "2026-01-01",
-            "source_url": "https://austintexas.gov/water",
-        })
+        rate_id = await service.upsert_rate(
+            {
+                "municipality": "Austin",
+                "state": "TX",
+                "rate_tiers": '[{"limit_gallons": 3000, "rate_per_gallon": 0.005}]',
+                "base_charge": 12.00,
+                "effective_date": "2026-01-01",
+                "source_url": "https://austintexas.gov/water",
+            }
+        )
         assert rate_id == "uuid-new"
         mock_db.commit.assert_called_once()
 
@@ -297,6 +296,7 @@ class TestUpsertRate:
 # ------------------------------------------------------------------
 # _format_rate
 # ------------------------------------------------------------------
+
 
 class TestFormatRate:
     def test_formats_row_correctly(self):

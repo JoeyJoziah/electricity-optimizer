@@ -8,14 +8,13 @@ All queries use parameterised ``text()`` statements and the async SQLAlchemy
 session pattern established across this codebase.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import structlog
 
 logger = structlog.get_logger()
 
@@ -33,8 +32,8 @@ class SavingsService:
     async def get_savings_summary(
         self,
         user_id: str,
-        region: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        region: str | None = None,
+    ) -> dict[str, Any]:
         """
         Return aggregated savings totals for a user.
 
@@ -55,7 +54,7 @@ class SavingsService:
         Returns:
             Dict with keys total, weekly, monthly, streak_days, currency.
         """
-        base_params: Dict[str, Any] = {"user_id": user_id}
+        base_params: dict[str, Any] = {"user_id": user_id}
         region_clause = ""
         if region:
             region_clause = " AND region = :region"
@@ -136,7 +135,7 @@ class SavingsService:
         user_id: str,
         page: int = 1,
         page_size: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Return a paginated list of savings records for a user.
 
@@ -153,18 +152,13 @@ class SavingsService:
         page_size = max(1, min(100, page_size))  # clamp between 1 and 100
         offset = (page - 1) * page_size
 
-        # Total count for this user
-        count_result = await self.db.execute(
-            text("SELECT COUNT(*) FROM user_savings WHERE user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        total = count_result.scalar() or 0
-
-        # Paginated records
+        # Single query with COUNT(*) OVER() window function — saves one DB
+        # round-trip vs the previous separate COUNT + SELECT pattern (19-P1-7).
         rows_result = await self.db.execute(
             text("""
                 SELECT id, user_id, savings_type, amount, currency,
-                       description, region, period_start, period_end, created_at
+                       description, region, period_start, period_end, created_at,
+                       COUNT(*) OVER() AS total_count
                 FROM user_savings
                 WHERE user_id = :user_id
                 ORDER BY created_at DESC
@@ -174,6 +168,7 @@ class SavingsService:
         )
         rows = rows_result.mappings().all()
 
+        total = rows[0]["total_count"] if rows else 0
         items = [self._row_to_record(row) for row in rows]
         pages = max(1, (total + page_size - 1) // page_size)
 
@@ -196,10 +191,10 @@ class SavingsService:
         amount: float,
         period_start: datetime,
         period_end: datetime,
-        region: Optional[str] = None,
-        description: Optional[str] = None,
+        region: str | None = None,
+        description: str | None = None,
         currency: str = "USD",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Insert a new savings record and return it.
 
@@ -218,30 +213,34 @@ class SavingsService:
         """
         record_id = str(uuid4())
 
-        result = await self.db.execute(
-            text("""
-                INSERT INTO user_savings
-                    (id, user_id, savings_type, amount, currency,
-                     description, region, period_start, period_end)
-                VALUES
-                    (:id, :user_id, :savings_type, :amount, :currency,
-                     :description, :region, :period_start, :period_end)
-                RETURNING id, user_id, savings_type, amount, currency,
-                          description, region, period_start, period_end, created_at
-            """),
-            {
-                "id": record_id,
-                "user_id": user_id,
-                "savings_type": savings_type,
-                "amount": amount,
-                "currency": currency,
-                "description": description,
-                "region": region,
-                "period_start": period_start,
-                "period_end": period_end,
-            },
-        )
-        await self.db.commit()
+        try:
+            result = await self.db.execute(
+                text("""
+                    INSERT INTO user_savings
+                        (id, user_id, savings_type, amount, currency,
+                         description, region, period_start, period_end)
+                    VALUES
+                        (:id, :user_id, :savings_type, :amount, :currency,
+                         :description, :region, :period_start, :period_end)
+                    RETURNING id, user_id, savings_type, amount, currency,
+                              description, region, period_start, period_end, created_at
+                """),
+                {
+                    "id": record_id,
+                    "user_id": user_id,
+                    "savings_type": savings_type,
+                    "amount": amount,
+                    "currency": currency,
+                    "description": description,
+                    "region": region,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                },
+            )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
         row = result.mappings().first()
 
         logger.info(
@@ -259,7 +258,7 @@ class SavingsService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _row_to_record(row) -> Dict[str, Any]:
+    def _row_to_record(row) -> dict[str, Any]:
         """Convert a SQLAlchemy row mapping to a plain dict."""
         return {
             "id": str(row["id"]),
@@ -286,7 +285,7 @@ class SavingsService:
         if not day_rows:
             return 0
 
-        today = datetime.now(tz=timezone.utc).date()
+        today = datetime.now(tz=UTC).date()
         streak = 0
 
         for i, row in enumerate(day_rows):

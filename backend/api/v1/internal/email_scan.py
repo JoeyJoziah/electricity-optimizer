@@ -9,8 +9,7 @@ email provider rate limits.
 """
 
 import asyncio
-import base64
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -105,15 +104,15 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
         log = logger.bind(connection_id=conn_id, provider=provider)
 
         try:
-            from utils.encryption import decrypt_field
             from services.email_scanner_service import (
+                extract_rates_from_email,
                 scan_gmail_inbox,
                 scan_outlook_inbox,
-                extract_rates_from_email,
             )
+            from utils.encryption import decrypt_field
 
             # ----------------------------------------------------------------
-            # Decrypt access token
+            # Decrypt access token — raw BYTEA column (migration 059)
             # ----------------------------------------------------------------
             raw_access = conn["oauth_access_token"]
             if not raw_access:
@@ -125,7 +124,7 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                     "skipped": True,
                 }
 
-            enc_access = base64.b64decode(raw_access)
+            enc_access = bytes(raw_access)
             access_token = decrypt_field(enc_access)
 
             # ----------------------------------------------------------------
@@ -135,8 +134,8 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
             if expires_at is not None:
                 # Ensure timezone-aware comparison
                 if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-                if expires_at < datetime.now(timezone.utc):
+                    expires_at = expires_at.replace(tzinfo=UTC)
+                if expires_at < datetime.now(UTC):
                     raw_refresh = conn["oauth_refresh_token"]
                     if not raw_refresh:
                         log.warning("scan_emails_token_expired_no_refresh")
@@ -147,11 +146,12 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                             "skipped": True,
                         }
                     from services.email_oauth_service import (
+                        encrypt_tokens,
                         refresh_gmail_token,
                         refresh_outlook_token,
-                        encrypt_tokens,
                     )
-                    enc_refresh = base64.b64decode(raw_refresh)
+
+                    enc_refresh = bytes(raw_refresh)
                     try:
                         if provider == "gmail":
                             new_tokens = await refresh_gmail_token(enc_refresh)
@@ -174,12 +174,8 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                             """),
                             {
                                 "cid": conn_id,
-                                "access": base64.b64encode(new_enc_access).decode(),
-                                "refresh": (
-                                    base64.b64encode(new_enc_refresh).decode()
-                                    if new_enc_refresh
-                                    else None
-                                ),
+                                "access": new_enc_access,
+                                "refresh": new_enc_refresh,
                                 "expires": new_tokens.get("expires_in", 3600),
                             },
                         )
@@ -227,13 +223,15 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                     if not extracted:
                         continue
 
-                    rate_rows.append({
-                        "cid": conn_id,
-                        "source": f"email:{email_result.email_id}",
-                        "rate": extracted.get("rate_per_kwh"),
-                        "date": email_result.date.date() if email_result.date else None,
-                        "raw": str(extracted),
-                    })
+                    rate_rows.append(
+                        {
+                            "cid": conn_id,
+                            "source": f"email:{email_result.email_id}",
+                            "rate": extracted.get("rate_per_kwh"),
+                            "date": email_result.date.date() if email_result.date else None,
+                            "raw": str(extracted),
+                        }
+                    )
                     log.debug(
                         "scan_emails_rate_extracted",
                         email_id=email_result.email_id,
@@ -285,7 +283,7 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                 "connection_id": conn_id,
                 "emails_found": 0,
                 "rates_extracted": 0,
-                "error": str(exc),
+                "error": "Connection scan failed. See server logs for details.",
             }
 
     # 2. Run connections sequentially to avoid shared AsyncSession corruption.
@@ -299,9 +297,7 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
     total_emails = sum(r.get("emails_found", 0) for r in results)
     total_rates = sum(r.get("rates_extracted", 0) for r in results)
     errors = [
-        {"connection_id": r["connection_id"], "error": r["error"]}
-        for r in results
-        if "error" in r
+        {"connection_id": r["connection_id"], "error": r["error"]} for r in results if "error" in r
     ]
 
     logger.info(

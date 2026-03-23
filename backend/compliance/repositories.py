@@ -5,11 +5,9 @@ Data access layer for GDPR compliance data including consent records
 and deletion logs.
 """
 
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
-from uuid import uuid4
+from datetime import datetime
 
-from sqlalchemy import Column, ForeignKey, String, Boolean, DateTime, JSON, text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,41 +15,52 @@ from sqlalchemy.orm import Mapped, mapped_column
 from config.database import Base
 from models.consent import ConsentRecord, DeletionLog
 
-
 # =============================================================================
 # SQLAlchemy ORM Models
 # =============================================================================
 
 
 class ConsentRecordORM(Base):
-    """SQLAlchemy ORM model for consent records"""
+    """SQLAlchemy ORM model for consent records.
+
+    user_id is nullable because migration 023 changed the live schema FK from
+    ON DELETE CASCADE to ON DELETE SET NULL — preserving consent audit records
+    (GDPR legal evidence) even after the user account is erased.  The ORM
+    declaration is aligned here to match the live database constraint.
+    """
 
     __tablename__ = "consent_records"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
     )
     purpose: Mapped[str] = mapped_column(String(50), nullable=False)
     consent_given: Mapped[bool] = mapped_column(Boolean, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=False)
     user_agent: Mapped[str] = mapped_column(String(500), nullable=False)
-    consent_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    withdrawal_timestamp: Mapped[Optional[datetime]] = mapped_column(
+    consent_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    withdrawal_timestamp: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    metadata_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class DeletionLogORM(Base):
-    """SQLAlchemy ORM model for deletion audit logs"""
+    """SQLAlchemy ORM model for deletion audit logs.
+
+    user_id is nullable to support GDPR Article 17 (Right to Erasure): when a
+    user row is deleted the FK ON DELETE SET NULL fires, preserving the audit
+    log entry with user_id = NULL.  Making the column NOT NULL would cause a
+    FK violation the moment the parent user row is deleted.
+    """
 
     __tablename__ = "deletion_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=False
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
     )
     deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     deleted_by: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -59,8 +68,8 @@ class DeletionLogORM(Base):
     ip_address: Mapped[str] = mapped_column(String(45), nullable=False)
     user_agent: Mapped[str] = mapped_column(String(500), nullable=False)
     data_categories_deleted: Mapped[list] = mapped_column(JSON, nullable=False)
-    legal_basis: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    metadata_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    legal_basis: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 # =============================================================================
@@ -112,7 +121,7 @@ class ConsentRepository:
 
         return consent
 
-    async def get_by_id(self, consent_id: str) -> Optional[ConsentRecord]:
+    async def get_by_id(self, consent_id: str) -> ConsentRecord | None:
         """
         Get consent record by ID.
 
@@ -131,7 +140,7 @@ class ConsentRepository:
             return self._to_model(orm_record)
         return None
 
-    async def get_by_user_id(self, user_id: str) -> List[ConsentRecord]:
+    async def get_by_user_id(self, user_id: str) -> list[ConsentRecord]:
         """
         Get all consent records for a user.
 
@@ -154,7 +163,7 @@ class ConsentRepository:
         self,
         user_id: str,
         purpose: str,
-    ) -> List[ConsentRecord]:
+    ) -> list[ConsentRecord]:
         """
         Get consent records for a user and specific purpose.
 
@@ -167,10 +176,7 @@ class ConsentRepository:
         """
         result = await self.session.execute(
             select(ConsentRecordORM)
-            .where(
-                ConsentRecordORM.user_id == user_id,
-                ConsentRecordORM.purpose == purpose
-            )
+            .where(ConsentRecordORM.user_id == user_id, ConsentRecordORM.purpose == purpose)
             .order_by(ConsentRecordORM.timestamp.desc())
         )
         orm_records = result.scalars().all()
@@ -180,8 +186,8 @@ class ConsentRepository:
     async def get_latest_by_user_and_purpose(
         self,
         user_id: str,
-        purpose: Optional[str] = None,
-    ) -> Dict[str, bool]:
+        purpose: str | None = None,
+    ) -> dict[str, bool]:
         """
         Get latest consent status for each purpose.
 
@@ -203,9 +209,7 @@ class ConsentRepository:
                 "WHERE user_id = :uid AND purpose = :purpose "
                 "ORDER BY purpose, timestamp DESC"
             )
-            result = await self.session.execute(
-                query, {"uid": user_id, "purpose": purpose}
-            )
+            result = await self.session.execute(query, {"uid": user_id, "purpose": purpose})
         else:
             query = text(
                 "SELECT DISTINCT ON (purpose) purpose, consent_given "
@@ -233,8 +237,7 @@ class ConsentRepository:
             Number of records deleted
         """
         result = await self.session.execute(
-            text("DELETE FROM consent_records WHERE user_id = :user_id"),
-            {"user_id": user_id}
+            text("DELETE FROM consent_records WHERE user_id = :user_id"), {"user_id": user_id}
         )
 
         return result.rowcount
@@ -304,7 +307,7 @@ class DeletionLogRepository:
 
         return deletion_log
 
-    async def get_by_user_id(self, user_id: str) -> List[DeletionLog]:
+    async def get_by_user_id(self, user_id: str) -> list[DeletionLog]:
         """
         Get all deletion logs for a user.
 

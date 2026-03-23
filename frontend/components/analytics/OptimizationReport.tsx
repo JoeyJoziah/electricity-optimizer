@@ -1,22 +1,22 @@
-'use client'
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useOptimizationReport } from '@/lib/hooks/useReports'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useOptimizationReport } from "@/lib/hooks/useReports";
 
 const UTILITY_LABELS: Record<string, string> = {
-  electricity: 'Electricity',
-  natural_gas: 'Natural Gas',
-  heating_oil: 'Heating Oil',
-  propane: 'Propane',
-  water: 'Water',
-}
+  electricity: "Electricity",
+  natural_gas: "Natural Gas",
+  heating_oil: "Heating Oil",
+  propane: "Propane",
+  water: "Water",
+};
 
 interface OptimizationReportProps {
-  state?: string
+  state?: string;
 }
 
 export function OptimizationReport({ state }: OptimizationReportProps) {
-  const { data: report, isLoading, error } = useOptimizationReport(state)
+  const { data: report, isLoading, error } = useOptimizationReport(state);
 
   if (!state) {
     return (
@@ -25,10 +25,12 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
           <CardTitle className="text-lg">Spend Optimization</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500">Select a state to view your optimization report.</p>
+          <p className="text-sm text-gray-500">
+            Select a state to view your optimization report.
+          </p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -48,7 +50,7 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
 
         {error && (
           <div className="rounded-md bg-danger-50 p-3 text-sm text-danger-700">
-            {error instanceof Error ? error.message : 'Failed to load report'}
+            {error instanceof Error ? error.message : "Failed to load report"}
           </div>
         )}
 
@@ -92,7 +94,7 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
                         {UTILITY_LABELS[u.utility_type] || u.utility_type}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {u.current_rate.toFixed(4)} {u.unit} &middot;{' '}
+                        {u.current_rate.toFixed(4)} {u.unit} &middot;{" "}
                         {u.monthly_consumption} {u.consumption_unit}/mo
                       </p>
                     </div>
@@ -111,9 +113,9 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
                   Top Savings Opportunities
                 </h3>
                 <div className="space-y-2">
-                  {report.savings_opportunities.map((opp, i) => (
+                  {report.savings_opportunities.map((opp) => (
                     <div
-                      key={i}
+                      key={`${opp.utility_type}-${opp.action}-${opp.difficulty}`}
                       className="rounded-md border border-success-200 bg-success-50 p-3"
                     >
                       <div className="flex items-center justify-between">
@@ -125,9 +127,9 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
                         </p>
                       </div>
                       <p className="text-xs text-success-600 mt-1">
-                        {UTILITY_LABELS[opp.utility_type]} &middot;{' '}
-                        ${opp.annual_savings.toFixed(2)}/yr &middot;{' '}
-                        Difficulty: {opp.difficulty}
+                        {UTILITY_LABELS[opp.utility_type]} &middot; $
+                        {opp.annual_savings.toFixed(2)}/yr &middot; Difficulty:{" "}
+                        {opp.difficulty}
                       </p>
                     </div>
                   ))}
@@ -138,5 +140,5 @@ export function OptimizationReport({ state }: OptimizationReportProps) {
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

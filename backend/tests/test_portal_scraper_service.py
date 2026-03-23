@@ -32,16 +32,14 @@ no real network calls are made.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from services.portal_scraper_service import (
-    PortalScraperService,
     SUPPORTED_UTILITIES,
-    _extract_rates_from_html,
+    PortalScraperService,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -71,7 +69,6 @@ def _async_mock_response(text: str, status_code: int = 200) -> AsyncMock:
 class TestScrapeKnownUtility:
     """Tests for PortalScraperService.scrape_portal() with a known supplier."""
 
-    @pytest.mark.asyncio
     async def test_known_utility_success(self):
         """Happy path: login succeeds, billing page contains a rate."""
         client = AsyncMock()
@@ -82,7 +79,7 @@ class TestScrapeKnownUtility:
 
         client.get = AsyncMock(
             side_effect=[
-                _mock_response(login_html),    # GET login page
+                _mock_response(login_html),  # GET login page
                 _mock_response(billing_html),  # GET billing page
             ]
         )
@@ -100,7 +97,6 @@ class TestScrapeKnownUtility:
         assert isinstance(result["rates"], list)
         assert result["error"] is None
 
-    @pytest.mark.asyncio
     async def test_known_utility_login_failure(self):
         """Login page returned after POST (invalid credentials indicator)."""
         client = AsyncMock()
@@ -127,7 +123,6 @@ class TestScrapeKnownUtility:
         assert result["error"] is not None
         assert "credentials" in result["error"].lower() or "login failed" in result["error"].lower()
 
-    @pytest.mark.asyncio
     async def test_known_utility_http_error(self):
         """HTTP exception during POST → graceful failure dict."""
         import httpx
@@ -148,7 +143,6 @@ class TestScrapeKnownUtility:
         assert result["success"] is False
         assert result["error"] is not None
 
-    @pytest.mark.asyncio
     async def test_known_utility_billing_page_fallback(self):
         """When billing page GET fails, falls back to post-login page HTML."""
         import httpx
@@ -161,8 +155,8 @@ class TestScrapeKnownUtility:
 
         client.get = AsyncMock(
             side_effect=[
-                _mock_response(login_html),      # GET login page
-                httpx.ConnectError("Timeout"),   # GET billing page (fails)
+                _mock_response(login_html),  # GET login page
+                httpx.ConnectError("Timeout"),  # GET billing page (fails)
             ]
         )
         client.post = AsyncMock(return_value=_mock_response(post_html))
@@ -188,7 +182,6 @@ class TestScrapeKnownUtility:
 class TestScrapeGenericUtility:
     """Tests for PortalScraperService._scrape_generic() via scrape_portal()."""
 
-    @pytest.mark.asyncio
     async def test_generic_scrape_rates_found(self):
         """Generic scrape: rate regex matches → success=True."""
         client = AsyncMock()
@@ -211,7 +204,6 @@ class TestScrapeGenericUtility:
         assert "rates" in result
         assert "error" in result
 
-    @pytest.mark.asyncio
     async def test_generic_scrape_no_rates(self):
         """Generic scrape: no rate in HTML → success=False, error message set."""
         client = AsyncMock()
@@ -233,7 +225,6 @@ class TestScrapeGenericUtility:
         assert result["success"] is False
         assert result["error"] is not None
 
-    @pytest.mark.asyncio
     async def test_generic_scrape_http_error(self):
         """Generic scrape: HTTP error → graceful failure."""
         import httpx
@@ -252,7 +243,6 @@ class TestScrapeGenericUtility:
         assert result["success"] is False
         assert result["error"] is not None
 
-    @pytest.mark.asyncio
     async def test_unexpected_exception_caught(self):
         """Exception during scrape is caught and a graceful error dict is returned."""
         client = AsyncMock()
@@ -282,16 +272,12 @@ class TestExtractHiddenFields:
     """Unit tests for PortalScraperService._extract_hidden_fields()."""
 
     def test_standard_name_value_order(self):
-        html = (
-            '<input type="hidden" name="csrf_token" value="abc123">'
-        )
+        html = '<input type="hidden" name="csrf_token" value="abc123">'
         fields = PortalScraperService._extract_hidden_fields(html)
         assert fields == {"csrf_token": "abc123"}
 
     def test_alternate_value_name_order(self):
-        html = (
-            "<input type='hidden' value='xyz789' name='__RequestVerificationToken'>"
-        )
+        html = "<input type='hidden' value='xyz789' name='__RequestVerificationToken'>"
         fields = PortalScraperService._extract_hidden_fields(html)
         assert fields == {"__RequestVerificationToken": "xyz789"}
 
@@ -411,7 +397,6 @@ class TestSupportedUtilitiesRegistry:
 class TestContextManager:
     """Test PortalScraperService.__aenter__ / __aexit__."""
 
-    @pytest.mark.asyncio
     async def test_aenter_returns_self(self):
         import httpx
 
@@ -421,7 +406,6 @@ class TestContextManager:
         assert entered is svc
         await svc.__aexit__(None, None, None)
 
-    @pytest.mark.asyncio
     async def test_close_when_owns_client(self):
         """When the service owns the client, close() must call aclose()."""
         svc = PortalScraperService()
@@ -434,7 +418,6 @@ class TestContextManager:
         mock_client.aclose.assert_called_once()
         assert svc._client is None
 
-    @pytest.mark.asyncio
     async def test_close_when_not_owns_client(self):
         """When the client was injected, close() must NOT call aclose()."""
         mock_client = AsyncMock()

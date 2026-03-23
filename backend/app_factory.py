@@ -14,6 +14,7 @@ create_app() -> tuple[FastAPI, UserRateLimiter]
 
 import asyncio
 import json
+import re
 import time
 from contextlib import asynccontextmanager
 
@@ -40,11 +41,77 @@ logger = structlog.get_logger()
 # by tests and workers without duplicating the setup call.
 # ---------------------------------------------------------------------------
 
+# Compiled once at module load time so every log event reuses the same
+# objects.  Previously these were compiled inside the processor function on
+# each call, which was wasteful under high log throughput.
+#
+# Combined into a single alternation regex so _scrub() calls re.sub() once
+# per string value instead of once per pattern (19-P2-2).
+_SANITIZER_PATTERN: re.Pattern[str] = re.compile(
+    r"|".join(
+        [
+            # DB / Redis connection strings that include a password segment
+            r"(postgresql|postgres|redis)://[^@\s]*@",
+            # Stripe keys (live AND test -- test keys still grant API access)
+            r"\b(sk_live_|rk_live_|sk_test_|rk_test_)\w+",
+            # Resend API keys (re_ followed by 10+ alphanumeric chars)
+            r"\bre_[A-Za-z0-9]{10,}\b",
+            # Groq API keys
+            r"\bgsk_[A-Za-z0-9]{10,}\b",
+            # Google / Gemini API keys
+            r"\bAIza[A-Za-z0-9_-]{30,}\b",
+            # Bearer tokens (OAuth, JWT, etc.)
+            r"Bearer\s+[A-Za-z0-9._~+/=-]{10,}",
+            # Authorization header values (catch-all for other auth schemes)
+            r"Authorization:\s*.+",
+        ]
+    ),
+    re.IGNORECASE,
+)
+
+
+def _sanitize_log_record(logger: object, method: str, event_dict: dict) -> dict:
+    """Structlog processor: redact sensitive values from log events.
+
+    Patterns redacted (see ``_COMPILED_SANITIZER_PATTERNS``):
+
+    - PostgreSQL/Redis connection strings (contain passwords)
+    - Stripe API keys (live **and** test -- test keys still grant API access)
+    - Resend API keys (``re_`` prefix)
+    - Groq API keys (``gsk_`` prefix)
+    - Google/Gemini API keys (``AIza`` prefix)
+    - Bearer tokens in Authorization headers
+    - Generic Authorization header values
+
+    The processor inspects every string value in the event dict (including the
+    event message and all keyword arguments) and replaces matching substrings
+    with a ``[REDACTED]`` placeholder so that credentials never appear in
+    Cloudflare Worker logs, Grafana Cloud, or local stdout.
+    """
+
+    def _scrub(value: str) -> str:
+        return _SANITIZER_PATTERN.sub("[REDACTED]", value)
+
+    # Mutate event_dict in place to avoid allocating a new dict per log
+    # event (19-P3-2).
+    for key in event_dict:
+        value = event_dict[key]
+        if isinstance(value, str):
+            event_dict[key] = _scrub(value)
+        elif isinstance(value, (list, tuple)):
+            # Sanitize string items inside lists/tuples (e.g. error args)
+            event_dict[key] = type(value)(
+                _scrub(item) if isinstance(item, str) else item for item in value
+            )
+    return event_dict
+
+
 if settings.is_production:
     _log_processors = [
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
+        _sanitize_log_record,
         structlog.processors.format_exc_info,
         structlog.processors.JSONRenderer(),
     ]
@@ -55,6 +122,7 @@ else:
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso"),
+        _sanitize_log_record,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
@@ -482,8 +550,14 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
 
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
-        """Handle unexpected errors."""
-        logger.error(
+        """Handle unexpected errors.
+
+        IMPORTANT: Always returns a generic message regardless of environment.
+        Raw exception strings (which may contain DATABASE_URL, API keys, or
+        other secrets) are NEVER forwarded to the HTTP client.  Full exception
+        details are logged server-side and captured in Sentry where configured.
+        """
+        logger.exception(
             "unexpected_error",
             error=str(exc),
             path=request.url.path,
@@ -499,14 +573,9 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
             except Exception:
                 pass
 
-        if settings.environment in ("production", "staging"):
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"detail": "Internal server error"},
-            )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": str(exc)},
+            content={"detail": "Internal server error. See server logs."},
         )
 
     # ------------------------------------------------------------------

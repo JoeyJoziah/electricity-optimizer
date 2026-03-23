@@ -5,8 +5,6 @@ Verifies correct utility type discovery and completion tracking
 per US state based on deregulation and availability sets.
 """
 
-import pytest
-
 from services.utility_discovery_service import UtilityDiscoveryService
 
 
@@ -135,7 +133,8 @@ class TestCompletionStatus:
     def test_ignores_invalid_tracked_types(self):
         """Tracked types not available in the state are ignored."""
         result = UtilityDiscoveryService.get_completion_status(
-            "AL", ["electricity", "heating_oil"]  # AL doesn't have heating oil
+            "AL",
+            ["electricity", "heating_oil"],  # AL doesn't have heating oil
         )
 
         assert result["tracked"] == 1  # only electricity counts

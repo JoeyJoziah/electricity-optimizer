@@ -13,12 +13,9 @@ Tests cover:
 """
 
 import json
-import sqlite3
-from unittest.mock import MagicMock, patch, PropertyMock, call
+from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
-
 
 # =============================================================================
 # CONSTRUCTION
@@ -37,6 +34,7 @@ class TestConstruction:
 
         with patch("services.hnsw_vector_store.HNSWVectorStore._build_index") as mock_build:
             from services.hnsw_vector_store import HNSWVectorStore
+
             store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
 
             mock_build.assert_called_once()
@@ -54,6 +52,7 @@ class TestConstruction:
 
         with patch("services.hnsw_vector_store.HNSWVectorStore._build_index") as mock_build:
             from services.hnsw_vector_store import HNSWVectorStore
+
             store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
 
             mock_build.assert_not_called()
@@ -66,6 +65,7 @@ class TestConstruction:
         mock_vs_cls.return_value = MagicMock()
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore(
             db_path="/tmp/custom.db",
             dimension=128,
@@ -87,6 +87,7 @@ class TestConstruction:
         mock_vs_cls.return_value = MagicMock()
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore(db_path="/tmp/test.db")
 
         assert store._label_to_id == {}
@@ -129,13 +130,12 @@ class TestBuildIndex:
         mock_hnswlib.Index.return_value = mock_index
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
 
         # HNSW index should have been initialized
         mock_hnswlib.Index.assert_called_with(space="cosine", dim=24)
-        mock_index.init_index.assert_called_once_with(
-            max_elements=10000, ef_construction=200, M=16
-        )
+        mock_index.init_index.assert_called_once_with(max_elements=10000, ef_construction=200, M=16)
         mock_index.set_ef.assert_called_once_with(50)
 
         # Two vectors should have been added
@@ -165,6 +165,7 @@ class TestBuildIndex:
         mock_hnswlib.Index.return_value = mock_index
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
 
         # Index created but add_items never called
@@ -200,6 +201,7 @@ class TestBuildIndex:
         mock_hnswlib.Index.return_value = mock_index
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
 
         # Only one vector should be in the maps
@@ -212,7 +214,9 @@ class TestBuildIndex:
     @patch("services.hnsw_vector_store.hnswlib")
     @patch("services.hnsw_vector_store.VectorStore")
     @patch("services.hnsw_vector_store.HNSW_AVAILABLE", True)
-    def test_build_index_failure_sets_index_none(self, mock_vs_cls, mock_hnswlib, mock_sqlite, mock_logger):
+    def test_build_index_failure_sets_index_none(
+        self, mock_vs_cls, mock_hnswlib, mock_sqlite, mock_logger
+    ):
         """If build fails, _index should be set to None (graceful degradation)."""
         mock_store = MagicMock()
         mock_store._db_path = "/tmp/test.db"
@@ -222,6 +226,7 @@ class TestBuildIndex:
         mock_hnswlib.Index.side_effect = RuntimeError("HNSW init failed")
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
 
         assert store._index is None
@@ -243,6 +248,7 @@ class TestInsert:
         mock_vs_cls.return_value = mock_store
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = mock_store
         store._dimension = 24
@@ -510,8 +516,8 @@ class TestSearch:
         # First result in domain "target", second in "other"
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
-            ("vec-match", "target", '{}', 0.9),
-            ("vec-other", "other", '{}', 0.8),
+            ("vec-match", "target", "{}", 0.9),
+            ("vec-other", "other", "{}", 0.8),
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -541,7 +547,7 @@ class TestSearch:
         # Only "close" passes min_similarity=0.9 (dist 0.05 -> sim 0.95)
         # "far" is filtered before batch lookup (dist 0.5 -> sim 0.5 < 0.9)
         mock_conn.execute.return_value.fetchall.return_value = [
-            ("close", "test", '{}', 0.9),
+            ("close", "test", "{}", 0.9),
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -568,7 +574,7 @@ class TestSearch:
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
-            (f"vec-{i}", "test", '{}', 0.9) for i in range(5)
+            (f"vec-{i}", "test", "{}", 0.9) for i in range(5)
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -607,7 +613,8 @@ class TestSearch:
 
         # Check that UPDATE was called for usage_count
         update_calls = [
-            c for c in mock_conn.execute.call_args_list
+            c
+            for c in mock_conn.execute.call_args_list
             if "UPDATE vectors SET usage_count" in str(c)
         ]
         assert len(update_calls) >= 1
@@ -628,7 +635,7 @@ class TestSearch:
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
-            ("known-vec", "test", '{}', 0.9),
+            ("known-vec", "test", "{}", 0.9),
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -696,7 +703,7 @@ class TestSearch:
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
-            ("vec-1", "test", '{}', 0.9),
+            ("vec-1", "test", "{}", 0.9),
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -720,7 +727,7 @@ class TestSearch:
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
-            ("vec-1", "test", '{}', 0.9),
+            ("vec-1", "test", "{}", 0.9),
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -746,8 +753,8 @@ class TestSearch:
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
-            ("v0", "test", '{}', 0.9),
-            ("v1", "test", '{}', 0.8),
+            ("v0", "test", "{}", 0.9),
+            ("v1", "test", "{}", 0.8),
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -756,7 +763,9 @@ class TestSearch:
         store.search(query, k=10, min_similarity=0.5)
 
         # fetch_k should be min(10*3, 2) = 2
-        knn_call_k = mock_index.knn_query.call_args[1].get("k") or mock_index.knn_query.call_args[0][1]
+        knn_call_k = (
+            mock_index.knn_query.call_args[1].get("k") or mock_index.knn_query.call_args[0][1]
+        )
         assert knn_call_k == 2
 
     @patch("services.hnsw_vector_store.sqlite3")
@@ -774,7 +783,7 @@ class TestSearch:
         store._label_to_id = {0: "vec-1"}
 
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = ("test", '{}', 0.5)
+        mock_conn.execute.return_value.fetchone.return_value = ("test", "{}", 0.5)
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -785,7 +794,8 @@ class TestSearch:
         # commit for usage update should not be called (no results to update)
         # (Note: the connect for metadata lookup may still happen)
         update_calls = [
-            c for c in mock_conn.execute.call_args_list
+            c
+            for c in mock_conn.execute.call_args_list
             if "UPDATE vectors SET usage_count" in str(c)
         ]
         assert len(update_calls) == 0
@@ -802,6 +812,7 @@ class TestRecordOutcome:
     def test_record_outcome_delegates_to_store(self):
         """record_outcome should delegate directly to the underlying VectorStore."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
 
@@ -811,6 +822,7 @@ class TestRecordOutcome:
     def test_record_outcome_failure(self):
         """record_outcome with success=False should be passed through."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
 
@@ -830,6 +842,7 @@ class TestGetStats:
     def test_get_stats_with_hnsw_index(self):
         """Should include HNSW count and max_elements when index is present."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.get_stats.return_value = {
@@ -856,6 +869,7 @@ class TestGetStats:
     def test_get_stats_without_hnsw(self):
         """Without HNSW, stats should not include hnsw_count."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.get_stats.return_value = {
@@ -877,6 +891,7 @@ class TestGetStats:
     def test_get_stats_with_domain_filter(self):
         """Domain filter should be passed through to the underlying store."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.get_stats.return_value = {"total_vectors": 5}
@@ -899,6 +914,7 @@ class TestPrune:
     def test_prune_rebuilds_hnsw_when_vectors_removed(self):
         """After pruning vectors, HNSW index should be rebuilt."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.prune.return_value = 3
@@ -921,6 +937,7 @@ class TestPrune:
     def test_prune_skips_rebuild_when_nothing_removed(self):
         """If prune returns 0, HNSW index should not be rebuilt."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.prune.return_value = 0
@@ -941,6 +958,7 @@ class TestPrune:
     def test_prune_skips_rebuild_when_hnsw_unavailable(self):
         """When HNSW is not available, prune should not try to rebuild."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.prune.return_value = 5
@@ -958,6 +976,7 @@ class TestPrune:
     def test_prune_default_parameters(self):
         """Default parameters should be min_confidence=0.3, min_usage=0."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.prune.return_value = 0
@@ -986,6 +1005,7 @@ class TestSingleton:
         mock_hnsw_cls.return_value = mock_instance
 
         from services.hnsw_vector_store import get_vector_store_singleton
+
         result = get_vector_store_singleton()
 
         mock_hnsw_cls.assert_called_once()
@@ -1042,6 +1062,7 @@ class TestEdgeCases:
     def test_insert_then_search_without_hnsw(self, mock_vs_cls):
         """Full insert-search cycle without HNSW should work via brute-force."""
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         mock_store = MagicMock()
         mock_store.insert.return_value = "test-id"
@@ -1072,6 +1093,7 @@ class TestEdgeCases:
         )
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store._db_path = "/tmp/test.db"
@@ -1081,12 +1103,14 @@ class TestEdgeCases:
         store._id_to_label = {"meta-vec": 0}
         store._next_label = 1
 
-        complex_meta = json.dumps({
-            "region": "US_CT",
-            "hour": 14,
-            "prices": [0.1, 0.2, 0.3],
-            "nested": {"key": "value"},
-        })
+        complex_meta = json.dumps(
+            {
+                "region": "US_CT",
+                "hour": 14,
+                "prices": [0.1, 0.2, 0.3],
+                "nested": {"key": "value"},
+            }
+        )
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
@@ -1110,6 +1134,7 @@ class TestEdgeCases:
         mock_index.get_max_elements.return_value = 100
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.insert.return_value = "id-1"
@@ -1137,6 +1162,7 @@ class TestEdgeCases:
         )
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store._db_path = "/tmp/test.db"
@@ -1147,7 +1173,7 @@ class TestEdgeCases:
         store._next_label = 1
 
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = ("test", '{}', 0.5)
+        mock_conn.execute.return_value.fetchone.return_value = ("test", "{}", 0.5)
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1168,6 +1194,7 @@ class TestEdgeCases:
         )
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store._db_path = "/tmp/test.db"
@@ -1179,9 +1206,9 @@ class TestEdgeCases:
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchall.return_value = [
-            ("v0", "price_pattern", '{}', 0.9),
-            ("v1", "recommendation", '{}', 0.8),
-            ("v2", "bias_correction", '{}', 0.7),
+            ("v0", "price_pattern", "{}", 0.9),
+            ("v1", "recommendation", "{}", 0.8),
+            ("v2", "bias_correction", "{}", 0.7),
         ]
         mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -1200,6 +1227,7 @@ class TestEdgeCases:
         mock_index.get_max_elements.return_value = 100
 
         from services.hnsw_vector_store import HNSWVectorStore
+
         store = HNSWVectorStore.__new__(HNSWVectorStore)
         store._store = MagicMock()
         store._store.insert.return_value = "id-none-meta"

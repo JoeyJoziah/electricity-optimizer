@@ -7,10 +7,11 @@ using weighted averaging for improved accuracy and robustness.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -50,13 +51,19 @@ class EnsemblePredictor:
     Uses weighted averaging of predictions with configurable weights.
     Provides improved uncertainty estimation by combining model outputs.
 
+    Weights are loaded lazily on first use so that constructing an
+    ``EnsemblePredictor`` never blocks on Redis or PostgreSQL I/O.  This
+    avoids holding a worker thread (or stalling an event loop) during startup
+    when the cache/DB may not yet be warm.
+
     Args:
         model_path: Path to ensemble model directory containing:
                    - cnn_lstm/
                    - xgboost/
                    - lightgbm/
                    - metadata.yaml
-        weights: Optional dict of model weights. If None, uses metadata.
+        weights: Optional dict of model weights.  If supplied, these weights
+                 are used directly and the lazy-load path is skipped entirely.
 
     Example:
         ensemble = EnsemblePredictor("/path/to/ensemble")
@@ -80,12 +87,72 @@ class EnsemblePredictor:
         weights: Optional[Dict[str, Dict]] = None,
     ):
         self.model_path = model_path
-        self.weights = weights or self._load_weights()
         self.predictors: Dict[str, PricePredictor] = {}
         self.version = None
 
+        # ``_weights`` is None until ``weights`` property is first accessed.
+        # Callers may pass explicit weights to skip the lazy-load path entirely
+        # (e.g. in tests or when weights are already known).
+        self._weights: Optional[Dict[str, Dict]] = weights
+
         self._load_models()
         self._load_metadata()
+
+    # ------------------------------------------------------------------
+    # Async construction helper
+    # ------------------------------------------------------------------
+
+    @classmethod
+    async def load_async(
+        cls,
+        model_path: str,
+        weights: Optional[Dict[str, Dict]] = None,
+    ) -> "EnsemblePredictor":
+        """Construct an EnsemblePredictor without blocking the event loop.
+
+        ``__init__`` calls ``_load_models()`` which invokes ``PricePredictor``
+        constructors that may perform blocking I/O (``joblib.load``,
+        ``torch.load``, file reads).  Calling ``EnsemblePredictor(...)``
+        directly from an ``async`` function would block the uvicorn worker
+        thread for the duration of model loading.
+
+        This classmethod offloads the entire construction to a thread pool via
+        ``asyncio.to_thread`` so the event loop stays unblocked.
+
+        Args:
+            model_path: Path to ensemble model directory.
+            weights: Optional explicit weights dict (skips Redis/DB lazy load).
+
+        Returns:
+            A fully initialised ``EnsemblePredictor`` instance.
+
+        Example::
+
+            predictor = await EnsemblePredictor.load_async("/path/to/ensemble")
+            result = await asyncio.to_thread(predictor.predict, df, horizon=24)
+        """
+        return await asyncio.to_thread(cls, model_path, weights)
+
+    # ------------------------------------------------------------------
+    # Lazy weight loading
+    # ------------------------------------------------------------------
+
+    @property
+    def weights(self) -> Dict[str, Dict]:
+        """Return ensemble weights, loading from Redis/DB on first access.
+
+        The first call to this property triggers blocking I/O (Redis then
+        PostgreSQL fallback).  All subsequent calls return the cached result.
+        Lazy loading means the constructor never blocks, which is safe in
+        both sync (Gunicorn) and async (uvicorn / event-loop) contexts.
+        """
+        if self._weights is None:
+            self._weights = self._load_weights()
+        return self._weights
+
+    @weights.setter
+    def weights(self, value: Dict[str, Dict]) -> None:
+        self._weights = value
 
     def _load_weights(self) -> Dict[str, Dict]:
         """Load weights from Redis, PostgreSQL (fallback), metadata file, or defaults.
@@ -103,7 +170,9 @@ class EnsemblePredictor:
                 logger.info("ensemble_weights_loaded_from_redis")
                 return redis_weights
         except Exception as e:
-            logger.warning(f"Failed to load model weights from Redis: {e}, trying PostgreSQL")
+            logger.warning(
+                "Failed to load model weights from Redis: %s, trying PostgreSQL", e
+            )
 
         # 2. Try PostgreSQL (durable fallback that survives restarts)
         try:
@@ -112,7 +181,9 @@ class EnsemblePredictor:
                 logger.info("ensemble_weights_loaded_from_db")
                 return db_weights
         except Exception as e:
-            logger.warning(f"Failed to load model weights from DB: {e}, using file/defaults")
+            logger.warning(
+                "Failed to load model weights from DB: %s, using file/defaults", e
+            )
 
         return self._load_weights_from_file()
 
@@ -162,14 +233,15 @@ class EnsemblePredictor:
             finally:
                 conn.close()
         except Exception as e:
-            logger.warning(f"Failed to load model weights from DB: {e}")
+            logger.warning("Failed to load model weights from DB: %s", e)
         return None
 
     @staticmethod
     def _load_weights_from_redis() -> Optional[Dict[str, Dict]]:
-        """Try to load ensemble weights from Redis (sync, for startup)."""
+        """Try to load ensemble weights from Redis (sync, for on-demand access)."""
         try:
             import redis as _redis
+
             r = _redis.from_url(
                 os.environ.get("REDIS_URL", "redis://localhost:6379"),
                 decode_responses=True,
@@ -177,9 +249,12 @@ class EnsemblePredictor:
             cached = r.get("model:ensemble_weights")
             if cached:
                 import json as _json
+
                 return _json.loads(cached)
         except Exception as e:
-            logger.warning(f"Failed to load model weights from Redis: {e}, using defaults")
+            logger.warning(
+                "Failed to load model weights from Redis: %s, using defaults", e
+            )
         return None
 
     def _load_weights_from_file(self) -> Dict[str, Dict]:
@@ -206,16 +281,16 @@ class EnsemblePredictor:
                         model_path=model_dir,
                         model_type=model_type,
                     )
-                    logger.info(f"Loaded {model_type} component")
+                    logger.info("Loaded %s component", model_type)
                 except Exception as e:
-                    logger.warning(f"Failed to load {model_type}: {e}")
+                    logger.warning("Failed to load %s: %s", model_type, e)
             else:
-                logger.warning(f"Model directory not found: {model_dir}")
+                logger.warning("Model directory not found: %s", model_dir)
 
         if not self.predictors:
             raise ValueError("No models could be loaded for ensemble")
 
-        logger.info(f"Loaded {len(self.predictors)} ensemble components")
+        logger.info("Loaded %d ensemble components", len(self.predictors))
 
     def _load_metadata(self):
         """Load ensemble metadata."""
@@ -267,6 +342,9 @@ class EnsemblePredictor:
         component_predictions = {}
         total_weight = 0
 
+        # Accessing self.weights triggers lazy load on first call only
+        current_weights = self.weights
+
         # Get predictions from each component
         for model_type, predictor in self.predictors.items():
             try:
@@ -276,9 +354,9 @@ class EnsemblePredictor:
                     confidence_level=confidence_level,
                 )
                 component_predictions[model_type] = preds
-                total_weight += self.weights.get(model_type, {}).get("weight", 0)
+                total_weight += current_weights.get(model_type, {}).get("weight", 0)
             except Exception as e:
-                logger.warning(f"Prediction failed for {model_type}: {e}")
+                logger.warning("Prediction failed for %s: %s", model_type, e)
 
         if not component_predictions:
             raise ValueError("All component predictions failed")
@@ -287,12 +365,11 @@ class EnsemblePredictor:
         if total_weight == 0:
             total_weight = len(component_predictions)
             normalized_weights = {
-                k: 1.0 / total_weight
-                for k in component_predictions.keys()
+                k: 1.0 / total_weight for k in component_predictions.keys()
             }
         else:
             normalized_weights = {
-                k: self.weights.get(k, {}).get("weight", 0) / total_weight
+                k: current_weights.get(k, {}).get("weight", 0) / total_weight
                 for k in component_predictions.keys()
             }
 
@@ -307,10 +384,9 @@ class EnsemblePredictor:
         # 2. Average of individual model uncertainties
 
         # Model variance (epistemic uncertainty)
-        point_stack = np.stack([
-            preds["point"][:horizon]
-            for preds in component_predictions.values()
-        ])
+        point_stack = np.stack(
+            [preds["point"][:horizon] for preds in component_predictions.values()]
+        )
         model_variance = np.var(point_stack, axis=0)
 
         # Average individual uncertainty (aleatoric uncertainty)
@@ -352,16 +428,16 @@ class EnsemblePredictor:
 
     def get_model_weights(self) -> Dict[str, float]:
         """Get normalized model weights."""
+        current_weights = self.weights
         total = sum(
-            self.weights.get(k, {}).get("weight", 0)
-            for k in self.predictors.keys()
+            current_weights.get(k, {}).get("weight", 0) for k in self.predictors.keys()
         )
 
         if total == 0:
             return {k: 1.0 / len(self.predictors) for k in self.predictors.keys()}
 
         return {
-            k: self.weights.get(k, {}).get("weight", 0) / total
+            k: current_weights.get(k, {}).get("weight", 0) / total
             for k in self.predictors.keys()
         }
 

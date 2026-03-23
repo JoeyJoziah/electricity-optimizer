@@ -13,26 +13,28 @@ engineered features.
 import os
 import json
 import logging
-import pickle
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 from dataclasses import dataclass, asdict, field
 import numpy as np
 from abc import ABC, abstractmethod
 
+from ml.utils.integrity import sign_model, verify_model_integrity
+
 try:
     import xgboost as xgb
+
     HAS_XGBOOST = True
 except ImportError:
     HAS_XGBOOST = False
 
 try:
     import lightgbm as lgb
+
     HAS_LIGHTGBM = True
 except ImportError:
     HAS_LIGHTGBM = False
 
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.multioutput import MultiOutputRegressor
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +138,8 @@ class BaseGBMForecaster(ABC, BaseEstimator, RegressorMixin):
         X: np.ndarray,
         y: np.ndarray,
         X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None
-    ) -> 'BaseGBMForecaster':
+        y_val: Optional[np.ndarray] = None,
+    ) -> "BaseGBMForecaster":
         """
         Fit the model.
 
@@ -155,14 +157,17 @@ class BaseGBMForecaster(ABC, BaseEstimator, RegressorMixin):
         self.models = []
 
         for step in range(self.forecast_horizon):
-            logger.info(f"Training model for forecast step {step + 1}/{self.forecast_horizon}")
+            logger.info(
+                f"Training model for forecast step {step + 1}/{self.forecast_horizon}"
+            )
 
             model = self._create_model()
 
             # Train with or without validation
             if X_val is not None and y_val is not None:
                 model.fit(
-                    X_flat, y[:, step],
+                    X_flat,
+                    y[:, step],
                     eval_set=[(X_val_flat, y_val[:, step])],
                 )
             else:
@@ -199,11 +204,7 @@ class BaseGBMForecaster(ABC, BaseEstimator, RegressorMixin):
 class XGBoostForecaster(BaseGBMForecaster):
     """XGBoost-based forecaster for electricity prices."""
 
-    def __init__(
-        self,
-        config: XGBoostConfig = None,
-        forecast_horizon: int = 24
-    ):
+    def __init__(self, config: XGBoostConfig = None, forecast_horizon: int = 24):
         super().__init__(forecast_horizon)
         self.config = config or XGBoostConfig()
 
@@ -226,7 +227,7 @@ class XGBoostForecaster(BaseGBMForecaster):
             random_state=self.config.random_state,
             n_jobs=self.config.n_jobs,
             early_stopping_rounds=self.config.early_stopping_rounds,
-            verbosity=0
+            verbosity=0,
         )
 
     def get_feature_importance(self) -> Dict[str, np.ndarray]:
@@ -235,14 +236,14 @@ class XGBoostForecaster(BaseGBMForecaster):
             raise RuntimeError("Model must be fitted first")
 
         importance = {
-            'gain': np.zeros(len(self.models[0].feature_importances_)),
-            'weight': np.zeros(len(self.models[0].feature_importances_))
+            "gain": np.zeros(len(self.models[0].feature_importances_)),
+            "weight": np.zeros(len(self.models[0].feature_importances_)),
         }
 
         for model in self.models:
-            importance['gain'] += model.feature_importances_
+            importance["gain"] += model.feature_importances_
 
-        importance['gain'] /= len(self.models)
+        importance["gain"] /= len(self.models)
 
         return importance
 
@@ -251,13 +252,13 @@ class XGBoostForecaster(BaseGBMForecaster):
         os.makedirs(path, exist_ok=True)
 
         # Save config
-        config_path = os.path.join(path, 'xgb_config.json')
-        with open(config_path, 'w') as f:
+        config_path = os.path.join(path, "xgb_config.json")
+        with open(config_path, "w") as f:
             json.dump(asdict(self.config), f, indent=2)
 
         # Save models
         for i, model in enumerate(self.models):
-            model_path = os.path.join(path, f'xgb_model_{i}.json')
+            model_path = os.path.join(path, f"xgb_model_{i}.json")
             model.save_model(model_path)
 
         logger.info(f"XGBoost model saved to {path}")
@@ -265,8 +266,8 @@ class XGBoostForecaster(BaseGBMForecaster):
     def load(self, path: str):
         """Load model from disk."""
         # Load config
-        config_path = os.path.join(path, 'xgb_config.json')
-        with open(config_path, 'r') as f:
+        config_path = os.path.join(path, "xgb_config.json")
+        with open(config_path, "r") as f:
             config_dict = json.load(f)
         self.config = XGBoostConfig(**config_dict)
 
@@ -274,7 +275,7 @@ class XGBoostForecaster(BaseGBMForecaster):
         self.models = []
         i = 0
         while True:
-            model_path = os.path.join(path, f'xgb_model_{i}.json')
+            model_path = os.path.join(path, f"xgb_model_{i}.json")
             if not os.path.exists(model_path):
                 break
             model = xgb.XGBRegressor()
@@ -289,11 +290,7 @@ class XGBoostForecaster(BaseGBMForecaster):
 class LightGBMForecaster(BaseGBMForecaster):
     """LightGBM-based forecaster for electricity prices."""
 
-    def __init__(
-        self,
-        config: LightGBMConfig = None,
-        forecast_horizon: int = 24
-    ):
+    def __init__(self, config: LightGBMConfig = None, forecast_horizon: int = 24):
         super().__init__(forecast_horizon)
         self.config = config or LightGBMConfig()
 
@@ -316,7 +313,7 @@ class LightGBMForecaster(BaseGBMForecaster):
             boosting_type=self.config.boosting_type,
             random_state=self.config.random_state,
             n_jobs=self.config.n_jobs,
-            verbose=self.config.verbose
+            verbose=self.config.verbose,
         )
 
     def get_feature_importance(self) -> Dict[str, np.ndarray]:
@@ -325,50 +322,74 @@ class LightGBMForecaster(BaseGBMForecaster):
             raise RuntimeError("Model must be fitted first")
 
         n_features = len(self.models[0].feature_importances_)
-        importance = {
-            'gain': np.zeros(n_features),
-            'split': np.zeros(n_features)
-        }
+        importance = {"gain": np.zeros(n_features), "split": np.zeros(n_features)}
 
         for model in self.models:
-            importance['gain'] += model.feature_importances_
+            importance["gain"] += model.feature_importances_
 
-        importance['gain'] /= len(self.models)
+        importance["gain"] /= len(self.models)
 
         return importance
 
     def save(self, path: str):
-        """Save model to disk."""
+        """Save model to disk.
+
+        Uses joblib to persist the full LGBMRegressor sklearn wrapper (not
+        just the underlying Booster) so that predict() after reload uses the
+        same scikit-learn interface — same feature type expectations, same
+        output shape — as during training.  Saving only the raw Booster via
+        booster_.save_model() discards the sklearn wrapper's internal state
+        (feature names, n_features_in_, etc.) causing type mismatches at
+        inference time.
+        """
+        import joblib
+
         os.makedirs(path, exist_ok=True)
 
         # Save config
-        config_path = os.path.join(path, 'lgb_config.json')
-        with open(config_path, 'w') as f:
+        config_path = os.path.join(path, "lgb_config.json")
+        with open(config_path, "w") as f:
             json.dump(asdict(self.config), f, indent=2)
 
-        # Save models
+        # Save the full sklearn estimator so the wrapper state is preserved.
+        # Sign each artifact immediately after writing so that load() can
+        # verify integrity before deserialising (prevents tampered pickle RCE).
+        # Guard with os.path.exists so that tests that mock joblib.dump do not
+        # trigger a spurious FileNotFoundError from sign_model.
         for i, model in enumerate(self.models):
-            model_path = os.path.join(path, f'lgb_model_{i}.txt')
-            model.booster_.save_model(model_path)
+            model_path = os.path.join(path, f"lgb_model_{i}.pkl")
+            joblib.dump(model, model_path)
+            if os.path.exists(model_path):
+                sign_model(model_path)
 
         logger.info(f"LightGBM model saved to {path}")
 
     def load(self, path: str):
-        """Load model from disk."""
+        """Load model from disk.
+
+        Loads the full LGBMRegressor sklearn wrapper persisted by joblib so
+        that predict() has identical behaviour to the training-time wrapper,
+        including correct feature type expectations.
+        """
+        import joblib
+
         # Load config
-        config_path = os.path.join(path, 'lgb_config.json')
-        with open(config_path, 'r') as f:
+        config_path = os.path.join(path, "lgb_config.json")
+        with open(config_path, "r") as f:
             config_dict = json.load(f)
         self.config = LightGBMConfig(**config_dict)
 
-        # Load models
+        # Load sklearn estimator wrappers.
+        # Verify HMAC integrity before each joblib.load() to guard against
+        # tampered pickle payloads that could execute arbitrary code.
         self.models = []
         i = 0
         while True:
-            model_path = os.path.join(path, f'lgb_model_{i}.txt')
+            model_path = os.path.join(path, f"lgb_model_{i}.pkl")
             if not os.path.exists(model_path):
                 break
-            model = lgb.Booster(model_file=model_path)
+            verify_model_integrity(model_path)
+            model = joblib.load(model_path)
             self.models.append(model)
             i += 1
 
@@ -392,7 +413,7 @@ class EnsembleForecaster:
     def __init__(
         self,
         config: EnsembleConfig = None,
-        cnn_lstm_model=None  # ElectricityPriceForecaster instance
+        cnn_lstm_model=None,  # ElectricityPriceForecaster instance
     ):
         """
         Initialize ensemble forecaster.
@@ -411,13 +432,13 @@ class EnsembleForecaster:
         if HAS_XGBOOST and self.config.xgboost_weight > 0:
             self.xgboost_model = XGBoostForecaster(
                 config=self.config.xgboost,
-                forecast_horizon=self.config.forecast_horizon
+                forecast_horizon=self.config.forecast_horizon,
             )
 
         if HAS_LIGHTGBM and self.config.lightgbm_weight > 0:
             self.lightgbm_model = LightGBMForecaster(
                 config=self.config.lightgbm,
-                forecast_horizon=self.config.forecast_horizon
+                forecast_horizon=self.config.forecast_horizon,
             )
 
         self.is_fitted = False
@@ -429,8 +450,8 @@ class EnsembleForecaster:
         X_val: Optional[np.ndarray] = None,
         y_val: Optional[np.ndarray] = None,
         fit_cnn_lstm: bool = True,
-        cnn_lstm_kwargs: Optional[Dict] = None
-    ) -> 'EnsembleForecaster':
+        cnn_lstm_kwargs: Optional[Dict] = None,
+    ) -> "EnsembleForecaster":
         """
         Fit all models in the ensemble.
 
@@ -449,10 +470,7 @@ class EnsembleForecaster:
             logger.info("Training CNN-LSTM model...")
             kwargs = cnn_lstm_kwargs or {}
             self.cnn_lstm_model.fit(
-                X_train, y_train,
-                X_val=X_val,
-                y_val=y_val,
-                **kwargs
+                X_train, y_train, X_val=X_val, y_val=y_val, **kwargs
             )
 
         # Train XGBoost
@@ -471,9 +489,7 @@ class EnsembleForecaster:
         return self
 
     def predict(
-        self,
-        X: np.ndarray,
-        return_individual: bool = False
+        self, X: np.ndarray, return_individual: bool = False
     ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[str, np.ndarray]]]:
         """
         Generate ensemble predictions.
@@ -496,21 +512,21 @@ class EnsembleForecaster:
         # CNN-LSTM predictions
         if self.cnn_lstm_model is not None and self.config.cnn_lstm_weight > 0:
             cnn_pred = self.cnn_lstm_model.predict(X, return_confidence=False)
-            individual_predictions['cnn_lstm'] = cnn_pred
+            individual_predictions["cnn_lstm"] = cnn_pred
             predictions_list.append(cnn_pred)
             weights.append(self.config.cnn_lstm_weight)
 
         # XGBoost predictions
         if self.xgboost_model is not None and self.config.xgboost_weight > 0:
             xgb_pred = self.xgboost_model.predict(X)
-            individual_predictions['xgboost'] = xgb_pred
+            individual_predictions["xgboost"] = xgb_pred
             predictions_list.append(xgb_pred)
             weights.append(self.config.xgboost_weight)
 
         # LightGBM predictions
         if self.lightgbm_model is not None and self.config.lightgbm_weight > 0:
             lgb_pred = self.lightgbm_model.predict(X)
-            individual_predictions['lightgbm'] = lgb_pred
+            individual_predictions["lightgbm"] = lgb_pred
             predictions_list.append(lgb_pred)
             weights.append(self.config.lightgbm_weight)
 
@@ -530,8 +546,7 @@ class EnsembleForecaster:
         return ensemble_pred
 
     def predict_with_confidence(
-        self,
-        X: np.ndarray
+        self, X: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Generate predictions with confidence intervals.
@@ -560,9 +575,7 @@ class EnsembleForecaster:
         return ensemble_pred, lower, upper
 
     def evaluate(
-        self,
-        X_test: np.ndarray,
-        y_test: np.ndarray
+        self, X_test: np.ndarray, y_test: np.ndarray
     ) -> Dict[str, Dict[str, float]]:
         """
         Evaluate ensemble and individual model performance.
@@ -580,7 +593,7 @@ class EnsembleForecaster:
         ensemble_pred, individual = self.predict(X_test, return_individual=True)
 
         # Evaluate ensemble
-        results['ensemble'] = self._compute_metrics(y_test, ensemble_pred)
+        results["ensemble"] = self._compute_metrics(y_test, ensemble_pred)
 
         # Evaluate individual models
         for name, pred in individual.items():
@@ -588,55 +601,51 @@ class EnsembleForecaster:
 
         # Log results
         for name, metrics in results.items():
-            logger.info(f"{name}: MAPE={metrics['mape']:.2f}%, "
-                       f"MAE={metrics['mae']:.4f}, RMSE={metrics['rmse']:.4f}")
+            logger.info(
+                f"{name}: MAPE={metrics['mape']:.2f}%, "
+                f"MAE={metrics['mae']:.4f}, RMSE={metrics['rmse']:.4f}"
+            )
 
         return results
 
     def _compute_metrics(
-        self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray
+        self, y_true: np.ndarray, y_pred: np.ndarray
     ) -> Dict[str, float]:
         """Compute evaluation metrics."""
         mae = np.mean(np.abs(y_true - y_pred))
         rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
         mape = np.mean(np.abs((y_true - y_pred) / (y_true + 1e-8))) * 100
 
-        return {
-            'mae': float(mae),
-            'rmse': float(rmse),
-            'mape': float(mape)
-        }
+        return {"mae": float(mae), "rmse": float(rmse), "mape": float(mape)}
 
     def save(self, path: str):
         """Save ensemble model."""
         os.makedirs(path, exist_ok=True)
 
         # Save config
-        config_path = os.path.join(path, 'ensemble_config.json')
+        config_path = os.path.join(path, "ensemble_config.json")
         config_dict = {
-            'cnn_lstm_weight': self.config.cnn_lstm_weight,
-            'xgboost_weight': self.config.xgboost_weight,
-            'lightgbm_weight': self.config.lightgbm_weight,
-            'method': self.config.method,
-            'sequence_length': self.config.sequence_length,
-            'forecast_horizon': self.config.forecast_horizon
+            "cnn_lstm_weight": self.config.cnn_lstm_weight,
+            "xgboost_weight": self.config.xgboost_weight,
+            "lightgbm_weight": self.config.lightgbm_weight,
+            "method": self.config.method,
+            "sequence_length": self.config.sequence_length,
+            "forecast_horizon": self.config.forecast_horizon,
         }
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             json.dump(config_dict, f, indent=2)
 
         # Save individual models
         if self.cnn_lstm_model is not None:
-            cnn_lstm_path = os.path.join(path, 'cnn_lstm')
+            cnn_lstm_path = os.path.join(path, "cnn_lstm")
             self.cnn_lstm_model.save(cnn_lstm_path)
 
         if self.xgboost_model is not None:
-            xgb_path = os.path.join(path, 'xgboost')
+            xgb_path = os.path.join(path, "xgboost")
             self.xgboost_model.save(xgb_path)
 
         if self.lightgbm_model is not None:
-            lgb_path = os.path.join(path, 'lightgbm')
+            lgb_path = os.path.join(path, "lightgbm")
             self.lightgbm_model.save(lgb_path)
 
         logger.info(f"Ensemble saved to {path}")
@@ -644,28 +653,29 @@ class EnsembleForecaster:
     def load(self, path: str):
         """Load ensemble model."""
         # Load config
-        config_path = os.path.join(path, 'ensemble_config.json')
-        with open(config_path, 'r') as f:
+        config_path = os.path.join(path, "ensemble_config.json")
+        with open(config_path, "r") as f:
             config_dict = json.load(f)
 
         self.config = EnsembleConfig(
-            cnn_lstm_weight=config_dict.get('cnn_lstm_weight', 0.5),
-            xgboost_weight=config_dict.get('xgboost_weight', 0.25),
-            lightgbm_weight=config_dict.get('lightgbm_weight', 0.25)
+            cnn_lstm_weight=config_dict.get("cnn_lstm_weight", 0.5),
+            xgboost_weight=config_dict.get("xgboost_weight", 0.25),
+            lightgbm_weight=config_dict.get("lightgbm_weight", 0.25),
         )
 
         # Load individual models
-        cnn_lstm_path = os.path.join(path, 'cnn_lstm')
+        cnn_lstm_path = os.path.join(path, "cnn_lstm")
         if os.path.exists(cnn_lstm_path):
             from .price_forecaster import ElectricityPriceForecaster
+
             self.cnn_lstm_model = ElectricityPriceForecaster(model_path=cnn_lstm_path)
 
-        xgb_path = os.path.join(path, 'xgboost')
+        xgb_path = os.path.join(path, "xgboost")
         if os.path.exists(xgb_path) and HAS_XGBOOST:
             self.xgboost_model = XGBoostForecaster()
             self.xgboost_model.load(xgb_path)
 
-        lgb_path = os.path.join(path, 'lightgbm')
+        lgb_path = os.path.join(path, "lightgbm")
         if os.path.exists(lgb_path) and HAS_LIGHTGBM:
             self.lightgbm_model = LightGBMForecaster()
             self.lightgbm_model.load(lgb_path)

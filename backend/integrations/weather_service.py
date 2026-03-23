@@ -12,9 +12,8 @@ Free tier: 1,000 calls/day (plenty for 6-hour price refresh cycle)
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 import httpx
 import structlog
@@ -51,7 +50,7 @@ class WeatherData:
         """CDD contribution: how much cooling is needed this hour."""
         return max(0.0, self.temperature_f - DEGREE_DAY_BASE_F)
 
-    def to_feature_vector(self) -> List[float]:
+    def to_feature_vector(self) -> list[float]:
         """Convert to ML feature vector [temp, humidity, wind, clouds]."""
         return [
             self.temperature_f,
@@ -69,10 +68,10 @@ class WeatherForecast:
 
     location: str
     generated_at: datetime
-    hourly: List[WeatherData]
+    hourly: list[WeatherData]
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     """Circuit breaker states."""
 
     CLOSED = "closed"
@@ -102,13 +101,13 @@ class WeatherCircuitBreaker:
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: Optional[datetime] = None
+        self._last_failure_time: datetime | None = None
         self._lock = asyncio.Lock()
 
     @property
     def state(self) -> CircuitState:
         if self._state == CircuitState.OPEN and self._last_failure_time:
-            elapsed = (datetime.now(timezone.utc) - self._last_failure_time).total_seconds()
+            elapsed = (datetime.now(UTC) - self._last_failure_time).total_seconds()
             if elapsed >= self.timeout_seconds:
                 return CircuitState.HALF_OPEN
         return self._state
@@ -136,10 +135,11 @@ class WeatherCircuitBreaker:
     async def record_failure(self) -> None:
         async with self._lock:
             self._failure_count += 1
-            self._last_failure_time = datetime.now(timezone.utc)
-            if self.state == CircuitState.HALF_OPEN:
-                self._open()
-            elif self._failure_count >= self.failure_threshold:
+            self._last_failure_time = datetime.now(UTC)
+            if (
+                self.state == CircuitState.HALF_OPEN
+                or self._failure_count >= self.failure_threshold
+            ):
                 self._open()
 
     def _open(self) -> None:
@@ -173,7 +173,7 @@ class WeatherService:
 
     def __init__(self, api_key: str):
         self._api_key = api_key
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
         self._circuit_breaker = WeatherCircuitBreaker()
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -202,7 +202,7 @@ class WeatherService:
 
         # OWM returns Kelvin by default; request imperial for Fahrenheit
         return WeatherData(
-            timestamp=datetime.fromtimestamp(data.get("dt", 0), tz=timezone.utc),
+            timestamp=datetime.fromtimestamp(data.get("dt", 0), tz=UTC),
             temperature_f=main.get("temp", 0),
             humidity=main.get("humidity", 0),
             wind_speed_mph=wind.get("speed", 0),
@@ -215,7 +215,7 @@ class WeatherService:
         self,
         lat: float = CT_LAT,
         lon: float = CT_LON,
-    ) -> Optional[WeatherData]:
+    ) -> WeatherData | None:
         """
         Get current weather for a location.
 
@@ -254,7 +254,7 @@ class WeatherService:
         self,
         lat: float = CT_LAT,
         lon: float = CT_LON,
-    ) -> Optional[WeatherForecast]:
+    ) -> WeatherForecast | None:
         """
         Get 48-hour weather forecast (3-hour intervals from free tier).
 
@@ -289,7 +289,7 @@ class WeatherService:
 
             result = WeatherForecast(
                 location=data.get("city", {}).get("name", "Unknown"),
-                generated_at=datetime.now(timezone.utc),
+                generated_at=datetime.now(UTC),
                 hourly=hourly,
             )
             await self._circuit_breaker.record_success()
@@ -303,7 +303,7 @@ class WeatherService:
         self,
         lat: float = CT_LAT,
         lon: float = CT_LON,
-    ) -> Optional[Dict[str, List[float]]]:
+    ) -> dict[str, list[float]] | None:
         """
         Get weather features formatted for the ML model.
 
@@ -318,7 +318,7 @@ class WeatherService:
         if forecast is None:
             return None
 
-        features: Dict[str, List[float]] = {
+        features: dict[str, list[float]] = {
             "temperature": [],
             "humidity": [],
             "wind_speed": [],

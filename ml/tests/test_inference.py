@@ -4,10 +4,12 @@ Unit Tests for ML Inference Modules
 Tests for:
 - PricePredictor: model loading, preprocessing, prediction, error handling
 - EnsemblePredictor: weighted averaging, uncertainty estimation, evaluation
+- EnsemblePredictor.load_async: non-blocking construction for async contexts
 
 All heavy model loading is mocked to keep tests fast and isolated.
 """
 
+import asyncio
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -952,3 +954,146 @@ class TestEnsembleUncertaintyEstimation:
         width_disagree = np.mean(result_disagree["upper"] - result_disagree["lower"])
 
         assert width_disagree > width_agree
+
+
+# ============================================================================
+# S3-8: EnsemblePredictor.load_async — non-blocking async construction
+# ============================================================================
+
+
+class TestEnsembleLoadAsync:
+    """Tests for EnsemblePredictor.load_async (S3-8).
+
+    Verifies that the classmethod returns a fully initialised predictor
+    without blocking the event loop, and that calling it from a sync context
+    via asyncio.run() works correctly.
+    """
+
+    def _make_ensemble_dir(self, tmp_path):
+        """Create a minimal ensemble directory with one mocked model dir."""
+        (tmp_path / "xgboost").mkdir()
+        meta = {
+            "version": "async-test",
+            "weights": {"xgboost": {"weight": 1.0}},
+        }
+        (tmp_path / "metadata.yaml").write_text(yaml.dump(meta))
+        return tmp_path
+
+    def test_load_async_returns_ensemble_predictor(self, tmp_path):
+        """load_async() must return an EnsemblePredictor with the correct version."""
+        model_dir = self._make_ensemble_dir(tmp_path)
+
+        mock_pred = MagicMock()
+        mock_pred.predict.return_value = _make_prediction(horizon=24)
+
+        async def run():
+            with patch(
+                "ml.inference.ensemble_predictor.PricePredictor",
+                return_value=mock_pred,
+            ):
+                from ml.inference.ensemble_predictor import EnsemblePredictor
+
+                ep = await EnsemblePredictor.load_async(str(model_dir))
+                return ep
+
+        ep = asyncio.get_event_loop().run_until_complete(run())
+
+        from ml.inference.ensemble_predictor import EnsemblePredictor
+
+        assert isinstance(ep, EnsemblePredictor)
+        assert ep.version == "async-test"
+        assert "xgboost" in ep.predictors
+
+    def test_load_async_with_custom_weights(self, tmp_path):
+        """load_async() must forward explicit weights to __init__."""
+        model_dir = self._make_ensemble_dir(tmp_path)
+        custom_weights = {"xgboost": {"weight": 0.8}}
+
+        mock_pred = MagicMock()
+        mock_pred.predict.return_value = _make_prediction(horizon=24)
+
+        async def run():
+            with patch(
+                "ml.inference.ensemble_predictor.PricePredictor",
+                return_value=mock_pred,
+            ):
+                from ml.inference.ensemble_predictor import EnsemblePredictor
+
+                ep = await EnsemblePredictor.load_async(
+                    str(model_dir), weights=custom_weights
+                )
+                return ep
+
+        ep = asyncio.get_event_loop().run_until_complete(run())
+        assert ep.weights["xgboost"]["weight"] == 0.8
+
+    def test_load_async_is_coroutine(self, tmp_path):
+        """load_async() must be an awaitable (coroutine function)."""
+        import inspect
+
+        from ml.inference.ensemble_predictor import EnsemblePredictor
+
+        assert inspect.iscoroutinefunction(EnsemblePredictor.load_async), (
+            "EnsemblePredictor.load_async must be an async classmethod."
+        )
+
+    def test_load_async_does_not_block_event_loop(self, tmp_path):
+        """load_async() must run model loading in a thread, not inline.
+
+        We verify this by confirming that asyncio.to_thread is used: the
+        constructor is called from a worker thread, not the event loop thread.
+        The test captures the thread identity during construction and compares
+        it against the event-loop thread.
+        """
+        import threading
+
+        model_dir = self._make_ensemble_dir(tmp_path)
+        event_loop_thread_id = threading.get_ident()
+        construction_thread_ids: list = []
+
+        original_init = None
+
+        def spy_init(self_inner, model_path, weights=None):
+            construction_thread_ids.append(threading.get_ident())
+            # Minimal manual init so we don't need real model files
+            self_inner.model_path = model_path
+            self_inner._weights = weights
+            self_inner.predictors = {}
+            self_inner.version = "spy"
+            # Inject one mock predictor so _load_models won't raise
+            mock_p = MagicMock()
+            mock_p.predict.return_value = _make_prediction()
+            self_inner.predictors["xgboost"] = mock_p
+
+        from ml.inference.ensemble_predictor import EnsemblePredictor
+
+        original_init = EnsemblePredictor.__init__
+
+        async def run():
+            with patch.object(EnsemblePredictor, "__init__", spy_init):
+                ep = await EnsemblePredictor.load_async(str(model_dir))
+            return ep
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+        assert len(construction_thread_ids) == 1, (
+            "EnsemblePredictor.__init__ should be called exactly once via load_async"
+        )
+        assert construction_thread_ids[0] != event_loop_thread_id, (
+            "EnsemblePredictor.__init__ ran on the event-loop thread — "
+            "load_async must use asyncio.to_thread to offload blocking I/O."
+        )
+
+    def test_load_async_propagates_constructor_exception(self, tmp_path):
+        """If __init__ raises (e.g. no models found), load_async must surface it."""
+        # Empty directory: no model subdirs => EnsemblePredictor.__init__ raises ValueError
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+
+        async def run():
+            from ml.inference.ensemble_predictor import EnsemblePredictor
+
+            await EnsemblePredictor.load_async(str(empty_dir))
+
+        with pytest.raises((ValueError, Exception)):
+            asyncio.get_event_loop().run_until_complete(run())
