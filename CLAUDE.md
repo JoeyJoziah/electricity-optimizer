@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-23 (Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round. CF Worker 3 cron triggers. Backend 2,976 tests, Frontend 2,043 tests (154 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,390 total. 63 migrations (063: migration_history). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
+> Last validated: 2026-03-24 (Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (7/19 done). CF Worker 3 cron triggers. Backend 2,976 tests, Frontend 2,015 tests (153 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,362 total. 63 migrations (063: migration_history). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
 
 ## Session Initialization Protocol (MANDATORY)
 

@@ -1,9 +1,9 @@
 # MVP Launch Checklist
 
-> **Note**: Test counts in this file reflect the state at MVP launch (2026-03-04). Current counts (2026-03-16): Backend 2,480, Frontend 1,835, ML 611, E2E 671, CF Worker 77, total ~5,674. Database: 53 tables (44 public + 9 neon_auth), 49 migrations. See [docs/TESTING.md](TESTING.md) for current numbers.
+> **Historical Document**: This checklist was created for the beta/MVP launch on 2026-03-04. Numbers below reflect that point in time. As of 2026-03-23 the project has grown significantly: **7,390 total tests** (Backend 2,976 | Frontend 2,043 | E2E 1,605 | ML 676 | CF Worker 90), **58 tables** (49 public + 9 neon_auth), **63 migrations**. See project CLAUDE.md for current numbers.
 
-**Project**: Automated Electricity Supplier Price Optimizer
-**Status**: LIVE IN PRODUCTION (2026-03-04)
+**Project**: RateShift (Automated Electricity Supplier Price Optimizer)
+**Status**: LIVE IN PRODUCTION (2026-03-04, beta launch)
 **Completion**: 100% - All validation phases complete and passing
 
 ---

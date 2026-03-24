@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { cn } from '@/lib/utils/cn'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/input'
-import { API_ORIGIN } from '@/lib/config/env'
-import { isSafeOAuthRedirect } from '@/lib/utils/url'
+import React, { useState, useEffect, useCallback } from "react";
+import { cn } from "@/lib/utils/cn";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/input";
+import { API_ORIGIN } from "@/lib/config/env";
+import { isSafeOAuthRedirect } from "@/lib/utils/url";
 import {
   Mail,
   AlertCircle,
@@ -14,164 +14,177 @@ import {
   Loader2,
   Search,
   FileText,
-} from 'lucide-react'
+} from "lucide-react";
 
 interface EmailConnectionFlowProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
-type EmailProvider = 'gmail' | 'outlook'
+type EmailProvider = "gmail" | "outlook";
 
 interface ScanResult {
-  total_emails_scanned: number
-  utility_bills_found: number
-  bills: UtilityBill[]
+  total_emails_scanned: number;
+  utility_bills_found: number;
+  bills: UtilityBill[];
 }
 
 interface UtilityBill {
-  subject: string
-  date?: string
-  sender?: string
-  amount?: number
+  subject: string;
+  date?: string;
+  sender?: string;
+  amount?: number;
 }
 
 export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
-  const [selectedProvider, setSelectedProvider] = useState<EmailProvider | null>(
-    null
-  )
-  const [consentChecked, setConsentChecked] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [connecting, setConnecting] = useState(false)
+  const [selectedProvider, setSelectedProvider] =
+    useState<EmailProvider | null>(null);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   // Post-OAuth connected state
-  const [connectionId, setConnectionId] = useState<string | null>(null)
-  const [connected, setConnected] = useState(false)
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [connected, setConnected] = useState(false);
 
   // Scan state
-  const [scanning, setScanning] = useState(false)
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null)
-  const [scanError, setScanError] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   // Check URL for ?connected=CONNECTION_ID on mount — verify against API
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const connectedId = params.get('connected')
+    const params = new URLSearchParams(window.location.search);
+    const connectedId = params.get("connected");
     if (connectedId) {
       // Validate the connection ID belongs to the current user
-      fetch(`${API_ORIGIN}/api/v1/connections/${encodeURIComponent(connectedId)}`, {
-        credentials: 'include',
-      })
+      fetch(
+        `${API_ORIGIN}/api/v1/connections/${encodeURIComponent(connectedId)}`,
+        {
+          credentials: "include",
+        },
+      )
         .then((res) => {
           if (res.ok) {
-            setConnectionId(connectedId)
-            setConnected(true)
+            setConnectionId(connectedId);
+            setConnected(true);
           } else {
-            setError('Invalid or expired connection. Please try connecting again.')
+            setError(
+              "Invalid or expired connection. Please try connecting again.",
+            );
           }
         })
         .catch(() => {
-          setError('Could not verify connection. Please try again.')
-        })
+          setError("Could not verify connection. Please try again.");
+        });
     }
-  }, [])
+  }, []);
 
   const handleConnect = useCallback(async () => {
     if (!selectedProvider) {
-      setError('Please select an email provider')
-      return
+      setError("Please select an email provider");
+      return;
     }
     if (!consentChecked) {
-      setError('You must consent to email scanning before connecting')
-      return
+      setError("You must consent to email scanning before connecting");
+      return;
     }
 
     try {
-      setConnecting(true)
-      setError(null)
+      setConnecting(true);
+      setError(null);
 
       const res = await fetch(`${API_ORIGIN}/api/v1/connections/email`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: selectedProvider, consent_given: true }),
-      })
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: selectedProvider,
+          consent_given: true,
+        }),
+      });
 
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json();
         if (data.redirect_url) {
           // Validate before navigating — prevents open redirect attacks.
-          const url = data.redirect_url as string
+          const url = data.redirect_url as string;
           const safe = isSafeOAuthRedirect(url, [
-            'https://accounts.google.com',
-            'https://login.microsoftonline.com',
-            'https://login.live.com',
-          ])
+            "https://accounts.google.com",
+            "https://login.microsoftonline.com",
+            "https://login.live.com",
+          ]);
           if (safe) {
             // Full page redirect for OAuth flow
-            window.location.href = url
+            window.location.href = url;
           } else {
-            setError('Invalid redirect URL returned from server. Please try again.')
+            setError(
+              "Invalid redirect URL returned from server. Please try again.",
+            );
           }
-          return
+          return;
         }
         // Fallback: if no redirect URL, treat as direct connection
-        setConnectionId(data.connection_id || data.id)
-        setConnected(true)
+        setConnectionId(data.connection_id || data.id);
+        setConnected(true);
       } else if (res.status === 403) {
         setError(
-          'Email connections are available on Pro and Business plans. Please upgrade to continue.'
-        )
+          "Email connections are available on Pro and Business plans. Please upgrade to continue.",
+        );
       } else if (res.status === 503) {
-        const data = await res.json().catch(() => null)
+        const data = await res.json().catch(() => null);
         setError(
-          data?.detail || 'Email connection is not yet available. Please try bill upload instead.'
-        )
+          data?.detail ||
+            "Email connection is temporarily unavailable. Please try again later or use bill upload.",
+        );
       } else {
-        const data = await res.json().catch(() => null)
+        const data = await res.json().catch(() => null);
         setError(
-          data?.detail || 'Failed to initiate email connection. Please try again.'
-        )
+          data?.detail ||
+            "Failed to initiate email connection. Please try again.",
+        );
       }
     } catch {
-      setError('Network error. Please check your connection and try again.')
+      setError("Network error. Please check your connection and try again.");
     } finally {
-      setConnecting(false)
+      setConnecting(false);
     }
-  }, [selectedProvider, consentChecked])
+  }, [selectedProvider, consentChecked]);
 
   const handleScanInbox = useCallback(async () => {
-    if (!connectionId) return
+    if (!connectionId) return;
 
     try {
-      setScanning(true)
-      setScanError(null)
-      setScanResult(null)
+      setScanning(true);
+      setScanError(null);
+      setScanResult(null);
 
       const res = await fetch(
         `${API_ORIGIN}/api/v1/connections/email/${connectionId}/scan`,
         {
-          method: 'POST',
-          credentials: 'include',
-        }
-      )
+          method: "POST",
+          credentials: "include",
+        },
+      );
 
       if (res.ok) {
-        const data: ScanResult = await res.json()
-        setScanResult(data)
+        const data: ScanResult = await res.json();
+        setScanResult(data);
       } else if (res.status === 403) {
         setScanError(
-          'Inbox scanning requires a Pro or Business plan. Please upgrade to continue.'
-        )
+          "Inbox scanning requires a Pro or Business plan. Please upgrade to continue.",
+        );
       } else {
-        const data = await res.json().catch(() => null)
-        setScanError(data?.detail || 'Inbox scan failed. Please try again.')
+        const data = await res.json().catch(() => null);
+        setScanError(data?.detail || "Inbox scan failed. Please try again.");
       }
     } catch {
-      setScanError('Network error. Please check your connection and try again.')
+      setScanError(
+        "Network error. Please check your connection and try again.",
+      );
     } finally {
-      setScanning(false)
+      setScanning(false);
     }
-  }, [connectionId])
+  }, [connectionId]);
 
   // Post-OAuth connected state with scan controls
   if (connected && connectionId) {
@@ -184,7 +197,8 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
               Email Connected Successfully
             </h2>
             <p className="text-sm text-gray-500">
-              Your email account is linked. Scan your inbox to find utility bills.
+              Your email account is linked. Scan your inbox to find utility
+              bills.
             </p>
           </div>
         </div>
@@ -201,9 +215,9 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
                   </p>
                   <p className="text-xs text-success-600">
                     Scanned {scanResult.total_emails_scanned} email
-                    {scanResult.total_emails_scanned !== 1 ? 's' : ''} and found{' '}
+                    {scanResult.total_emails_scanned !== 1 ? "s" : ""} and found{" "}
                     {scanResult.utility_bills_found} utility bill
-                    {scanResult.utility_bills_found !== 1 ? 's' : ''}
+                    {scanResult.utility_bills_found !== 1 ? "s" : ""}
                   </p>
                 </div>
               </div>
@@ -212,10 +226,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
               {scanResult.bills.length > 0 && (
                 <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
                   {scanResult.bills.map((bill, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start gap-3 p-3"
-                    >
+                    <div key={index} className="flex items-start gap-3 p-3">
                       <FileText className="mt-0.5 h-4 w-4 text-gray-400 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 truncate">
@@ -228,9 +239,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
                             </p>
                           )}
                           {bill.date && (
-                            <p className="text-xs text-gray-400">
-                              {bill.date}
-                            </p>
+                            <p className="text-xs text-gray-400">{bill.date}</p>
                           )}
                           {bill.amount != null && (
                             <p className="text-xs font-medium text-gray-700">
@@ -272,7 +281,11 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
               loading={scanning}
             >
               <Search className="h-4 w-4" />
-              {scanning ? 'Scanning...' : scanResult ? 'Scan Again' : 'Scan Inbox'}
+              {scanning
+                ? "Scanning..."
+                : scanResult
+                  ? "Scan Again"
+                  : "Scan Inbox"}
             </Button>
             <Button variant="outline" onClick={onComplete}>
               Done
@@ -280,7 +293,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
           </div>
         </div>
       </Card>
-    )
+    );
   }
 
   // Connecting state (API call in progress, waiting for redirect URL)
@@ -302,7 +315,7 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
           </div>
         )}
       </Card>
-    )
+    );
   }
 
   return (
@@ -316,7 +329,8 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
             Connect Email Inbox
           </h2>
           <p className="text-sm text-gray-500">
-            We will scan your inbox for utility bills and extract rate data automatically
+            We will scan your inbox for utility bills and extract rate data
+            automatically
           </p>
         </div>
       </div>
@@ -331,15 +345,15 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
             <button
               type="button"
               onClick={() => {
-                setSelectedProvider('gmail')
-                setError(null)
+                setSelectedProvider("gmail");
+                setError(null);
               }}
               className={cn(
-                'flex items-center gap-3 rounded-xl border p-4 transition-all',
-                'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                selectedProvider === 'gmail'
-                  ? 'border-primary-500 bg-primary-50 shadow-sm'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                "flex items-center gap-3 rounded-xl border p-4 transition-all",
+                "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2",
+                selectedProvider === "gmail"
+                  ? "border-primary-500 bg-primary-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm",
               )}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
@@ -354,15 +368,15 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
             <button
               type="button"
               onClick={() => {
-                setSelectedProvider('outlook')
-                setError(null)
+                setSelectedProvider("outlook");
+                setError(null);
               }}
               className={cn(
-                'flex items-center gap-3 rounded-xl border p-4 transition-all',
-                'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                selectedProvider === 'outlook'
-                  ? 'border-primary-500 bg-primary-50 shadow-sm'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                "flex items-center gap-3 rounded-xl border p-4 transition-all",
+                "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2",
+                selectedProvider === "outlook"
+                  ? "border-primary-500 bg-primary-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm",
               )}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
@@ -386,7 +400,8 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
               </p>
               <p className="mt-1 text-xs text-gray-500">
                 We only scan for utility-related emails. Your personal emails
-                are never read, stored, or shared. You can revoke access at any time.
+                are never read, stored, or shared. You can revoke access at any
+                time.
               </p>
             </div>
           </div>
@@ -397,8 +412,8 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
           label="I consent to RateShift scanning my inbox for utility-related emails only"
           checked={consentChecked}
           onChange={(e) => {
-            setConsentChecked(e.target.checked)
-            setError(null)
+            setConsentChecked(e.target.checked);
+            setError(null);
           }}
         />
 
@@ -419,15 +434,15 @@ export function EmailConnectionFlow({ onComplete }: EmailConnectionFlowProps) {
             disabled={!selectedProvider || !consentChecked}
           >
             <Mail className="h-4 w-4" />
-            Connect{' '}
-            {selectedProvider === 'gmail'
-              ? 'Gmail'
-              : selectedProvider === 'outlook'
-                ? 'Outlook'
-                : 'Email'}
+            Connect{" "}
+            {selectedProvider === "gmail"
+              ? "Gmail"
+              : selectedProvider === "outlook"
+                ? "Outlook"
+                : "Email"}
           </Button>
         </div>
       </div>
     </Card>
-  )
+  );
 }

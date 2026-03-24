@@ -1,13 +1,13 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { cn } from '@/lib/utils/cn'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/input'
-import { formatRelativeTime } from '@/lib/utils/format'
-import { API_ORIGIN } from '@/lib/config/env'
-import { isSafeOAuthRedirect } from '@/lib/utils/url'
+import React, { useState, useEffect, useCallback } from "react";
+import { cn } from "@/lib/utils/cn";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/input";
+import { formatRelativeTime } from "@/lib/utils/format";
+import { API_ORIGIN } from "@/lib/config/env";
+import { isSafeOAuthRedirect } from "@/lib/utils/url";
 import {
   KeyRound,
   ExternalLink,
@@ -17,208 +17,215 @@ import {
   Clock,
   Zap,
   AlertTriangle,
-} from 'lucide-react'
+} from "lucide-react";
 
 interface DirectLoginFormProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
 interface RegistrySupplier {
-  id: string
-  name: string
-  region: string
-  utility_type: string
+  id: string;
+  name: string;
+  region: string;
+  utility_type: string;
 }
 
 interface SyncStatus {
-  last_sync_at: string | null
-  next_sync_at: string | null
-  last_sync_error: string | null
-  sync_frequency_hours: number | null
+  last_sync_at: string | null;
+  next_sync_at: string | null;
+  last_sync_error: string | null;
+  sync_frequency_hours: number | null;
 }
 
 interface SyncResult {
-  success: boolean
-  rates_found: number
-  error: string | null
+  success: boolean;
+  rates_found: number;
+  error: string | null;
 }
 
 function formatFutureTime(dateString: string): string {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = date.getTime() - now.getTime()
-  const diffMinutes = Math.floor(diffMs / (1000 * 60))
-  const diffHours = Math.floor(diffMinutes / 60)
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMinutes / 60);
 
-  if (diffMinutes < 1) return 'any moment'
-  if (diffMinutes < 60) return `in ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`
-  if (diffHours < 24) return `in ${diffHours} hour${diffHours !== 1 ? 's' : ''}`
-  return date.toLocaleDateString()
+  if (diffMinutes < 1) return "any moment";
+  if (diffMinutes < 60)
+    return `in ${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""}`;
+  if (diffHours < 24)
+    return `in ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+  return date.toLocaleDateString();
 }
 
 export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
-  const [suppliers, setSuppliers] = useState<RegistrySupplier[]>([])
-  const [loadingSuppliers, setLoadingSuppliers] = useState(true)
-  const [selectedSupplierId, setSelectedSupplierId] = useState('')
-  const [consentChecked, setConsentChecked] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [connectionId, setConnectionId] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const [suppliers, setSuppliers] = useState<RegistrySupplier[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   // Sync state
-  const [syncing, setSyncing] = useState(false)
-  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
-  const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadSuppliers() {
       try {
         const res = await fetch(`${API_ORIGIN}/api/v1/suppliers/registry`, {
-          credentials: 'include',
-        })
+          credentials: "include",
+        });
         if (res.ok) {
-          const data = await res.json()
-          setSuppliers(data.suppliers || data || [])
+          const data = await res.json();
+          setSuppliers(data.suppliers || data || []);
         }
       } catch {
         // Supplier registry unavailable - form still usable with manual input
       } finally {
-        setLoadingSuppliers(false)
+        setLoadingSuppliers(false);
       }
     }
-    loadSuppliers()
-  }, [])
+    loadSuppliers();
+  }, []);
 
   const fetchSyncStatus = useCallback(async (connId: string) => {
     try {
       const res = await fetch(
         `${API_ORIGIN}/api/v1/connections/${connId}/sync-status`,
-        { credentials: 'include' }
-      )
+        { credentials: "include" },
+      );
       if (res.ok) {
-        const data: SyncStatus = await res.json()
-        setSyncStatus(data)
+        const data: SyncStatus = await res.json();
+        setSyncStatus(data);
       }
     } catch {
       // Silently fail - sync status is supplementary info
     }
-  }, [])
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!selectedSupplierId) {
-      setError('Please select a utility provider')
-      return
+      setError("Please select a utility provider");
+      return;
     }
     if (!consentChecked) {
-      setError('You must consent to data access before connecting')
-      return
+      setError("You must consent to data access before connecting");
+      return;
     }
 
     try {
-      setSubmitting(true)
-      setError(null)
+      setSubmitting(true);
+      setError(null);
 
-      const res = await fetch(`${API_ORIGIN}/api/v1/connections/direct/authorize`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplier_id: selectedSupplierId,
-          consent_given: true,
-        }),
-      })
+      const res = await fetch(
+        `${API_ORIGIN}/api/v1/connections/direct/authorize`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            supplier_id: selectedSupplierId,
+            consent_given: true,
+          }),
+        },
+      );
 
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json();
         if (data.redirect_url) {
           // Validate before navigating — prevents open redirect attacks if the
           // backend response is ever tampered with or returns an unexpected URL.
-          const url = data.redirect_url as string
+          const url = data.redirect_url as string;
           const safe = isSafeOAuthRedirect(url, [
-            'https://utilityapi.com',
-            'https://www.utilityapi.com',
-          ])
+            "https://utilityapi.com",
+            "https://www.utilityapi.com",
+          ]);
           if (safe) {
-            window.location.href = url
+            window.location.href = url;
           } else {
-            setError('Invalid redirect URL returned from server. Please try again.')
+            setError(
+              "Invalid redirect URL returned from server. Please try again.",
+            );
           }
-          return
+          return;
         }
-        const connId = data.id || data.connection_id
-        setConnectionId(connId)
-        setSuccess(true)
+        const connId = data.id || data.connection_id;
+        setConnectionId(connId);
+        setSuccess(true);
         // Fetch initial sync status
-        fetchSyncStatus(connId)
+        fetchSyncStatus(connId);
       } else if (res.status === 403) {
         setError(
-          'Direct connections are available on Pro and Business plans. Please upgrade to continue.'
-        )
+          "Direct connections are available on Pro and Business plans. Please upgrade to continue.",
+        );
       } else if (res.status === 503) {
         setError(
-          'Direct utility connection is not yet available. Please try bill upload instead.'
-        )
+          "Direct utility connection is temporarily unavailable. Please try again later or use bill upload.",
+        );
       } else {
-        const data = await res.json().catch(() => null)
+        const data = await res.json().catch(() => null);
         setError(
-          data?.detail || 'Failed to initiate connection. Please try again.'
-        )
+          data?.detail || "Failed to initiate connection. Please try again.",
+        );
       }
     } catch {
-      setError('Network error. Please check your connection and try again.')
+      setError("Network error. Please check your connection and try again.");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleSyncNow = async () => {
-    if (!connectionId) return
+    if (!connectionId) return;
 
     try {
-      setSyncing(true)
-      setSyncError(null)
-      setSyncResult(null)
+      setSyncing(true);
+      setSyncError(null);
+      setSyncResult(null);
 
       const res = await fetch(
         `${API_ORIGIN}/api/v1/connections/${connectionId}/sync`,
         {
-          method: 'POST',
-          credentials: 'include',
-        }
-      )
+          method: "POST",
+          credentials: "include",
+        },
+      );
 
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json();
         setSyncResult({
           success: true,
           rates_found: data.new_rates_found ?? data.rates_found ?? 0,
           error: null,
-        })
+        });
         // Refresh sync status
-        fetchSyncStatus(connectionId)
+        fetchSyncStatus(connectionId);
       } else if (res.status === 403) {
         setSyncError(
-          'Syncing requires a Pro or Business plan. Please upgrade to continue.'
-        )
+          "Syncing requires a Pro or Business plan. Please upgrade to continue.",
+        );
       } else {
-        const data = await res.json().catch(() => null)
-        setSyncError(data?.detail || 'Sync failed. Please try again.')
+        const data = await res.json().catch(() => null);
+        setSyncError(data?.detail || "Sync failed. Please try again.");
         setSyncResult({
           success: false,
           rates_found: 0,
-          error: data?.detail || 'Sync failed',
-        })
+          error: data?.detail || "Sync failed",
+        });
       }
     } catch {
-      setSyncError('Network error. Please try again.')
+      setSyncError("Network error. Please try again.");
     } finally {
-      setSyncing(false)
+      setSyncing(false);
     }
-  }
+  };
 
   // Post-connection success state with sync controls
   if (success && connectionId) {
@@ -288,8 +295,8 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
                 </p>
                 <p className="text-xs text-success-600">
                   {syncResult.rates_found > 0
-                    ? `Found ${syncResult.rates_found} new rate${syncResult.rates_found !== 1 ? 's' : ''}`
-                    : 'No new rates found. Your data is up to date.'}
+                    ? `Found ${syncResult.rates_found} new rate${syncResult.rates_found !== 1 ? "s" : ""}`
+                    : "No new rates found. Your data is up to date."}
                 </p>
               </div>
             </div>
@@ -312,7 +319,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
               loading={syncing}
             >
               <RefreshCw className="h-4 w-4" />
-              {syncing ? 'Syncing...' : 'Sync Now'}
+              {syncing ? "Syncing..." : "Sync Now"}
             </Button>
             <Button variant="outline" onClick={onComplete}>
               Done
@@ -320,7 +327,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
           </div>
         </div>
       </Card>
-    )
+    );
   }
 
   return (
@@ -356,13 +363,13 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
               id="supplier-select"
               value={selectedSupplierId}
               onChange={(e) => {
-                setSelectedSupplierId(e.target.value)
-                setError(null)
+                setSelectedSupplierId(e.target.value);
+                setError(null);
               }}
               className={cn(
-                'block w-full rounded-lg border border-gray-300 bg-white px-3 py-2',
-                'text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500',
-                'disabled:cursor-not-allowed disabled:bg-gray-50'
+                "block w-full rounded-lg border border-gray-300 bg-white px-3 py-2",
+                "text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500",
+                "disabled:cursor-not-allowed disabled:bg-gray-50",
               )}
             >
               <option value="">Select your utility provider...</option>
@@ -397,8 +404,8 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
           label="I consent to RateShift accessing my utility billing data for rate comparison and optimization purposes"
           checked={consentChecked}
           onChange={(e) => {
-            setConsentChecked(e.target.checked)
-            setError(null)
+            setConsentChecked(e.target.checked);
+            setError(null);
           }}
         />
 
@@ -423,5 +430,5 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
         </Button>
       </form>
     </Card>
-  )
+  );
 }

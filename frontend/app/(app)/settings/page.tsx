@@ -1,25 +1,34 @@
-'use client'
+"use client";
 
-import React from 'react'
-import Link from 'next/link'
-import { Header } from '@/components/layout/Header'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input, Checkbox } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { SupplierSelector } from '@/components/suppliers/SupplierSelector'
-import { SupplierAccountForm } from '@/components/suppliers/SupplierAccountForm'
-import { useSettingsStore } from '@/lib/store/settings'
-import { useSuppliers, useSetSupplier, useLinkAccount, useUserSupplierAccounts } from '@/lib/hooks/useSuppliers'
-import { useUpdateProfile } from '@/lib/hooks/useProfile'
-import { useAuth } from '@/lib/hooks/useAuth'
-import { authClient } from '@/lib/auth/client'
-import { formatCurrency } from '@/lib/utils/format'
-import { US_REGIONS, DEREGULATED_ELECTRICITY_STATES } from '@/lib/constants/regions'
-import type { UtilityType } from '@/lib/store/settings'
-import type { Supplier, RawSupplierRecord } from '@/types'
-import type { LinkedAccountResponse } from '@/lib/api/suppliers'
-import { useToast } from '@/lib/contexts/toast-context'
+import React from "react";
+import Link from "next/link";
+import { Header } from "@/components/layout/Header";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input, Checkbox } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { SupplierSelector } from "@/components/suppliers/SupplierSelector";
+import { SupplierAccountForm } from "@/components/suppliers/SupplierAccountForm";
+import { useSettingsStore } from "@/lib/store/settings";
+import {
+  useSuppliers,
+  useSetSupplier,
+  useLinkAccount,
+  useUserSupplierAccounts,
+} from "@/lib/hooks/useSuppliers";
+import { useUpdateProfile } from "@/lib/hooks/useProfile";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { authClient } from "@/lib/auth/client";
+import { formatCurrency } from "@/lib/utils/format";
+import {
+  US_REGIONS,
+  DEREGULATED_ELECTRICITY_STATES,
+} from "@/lib/constants/regions";
+import type { UtilityType } from "@/lib/store/settings";
+import type { Supplier, RawSupplierRecord } from "@/types";
+import type { LinkedAccountResponse } from "@/lib/api/suppliers";
+import { useToast } from "@/lib/contexts/toast-context";
+import { Modal } from "@/components/ui/modal";
 import {
   User,
   Zap,
@@ -34,15 +43,15 @@ import {
   X,
   KeyRound,
   FileText,
-} from 'lucide-react'
+} from "lucide-react";
 
 const UTILITY_TYPE_OPTIONS: { value: UtilityType; label: string }[] = [
-  { value: 'electricity', label: 'Electricity' },
-  { value: 'natural_gas', label: 'Natural Gas' },
-  { value: 'heating_oil', label: 'Heating Oil' },
-  { value: 'propane', label: 'Propane' },
-  { value: 'community_solar', label: 'Community Solar' },
-]
+  { value: "electricity", label: "Electricity" },
+  { value: "natural_gas", label: "Natural Gas" },
+  { value: "heating_oil", label: "Heating Oil" },
+  { value: "propane", label: "Propane" },
+  { value: "community_solar", label: "Community Solar" },
+];
 
 export default function SettingsPage() {
   const {
@@ -61,78 +70,84 @@ export default function SettingsPage() {
     setNotificationPreferences,
     setDisplayPreferences,
     resetSettings,
-  } = useSettingsStore()
+  } = useSettingsStore();
 
-  const { user } = useAuth()
-  const { success: toastSuccess, error: toastError } = useToast()
-  const [saved, setSaved] = React.useState(false)
-  const [exporting, setExporting] = React.useState(false)
-  const [showSupplierPicker, setShowSupplierPicker] = React.useState(false)
+  const { user } = useAuth();
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [saved, setSaved] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [showSupplierPicker, setShowSupplierPicker] = React.useState(false);
 
   // Profile editing state
-  const [editName, setEditName] = React.useState('')
-  const [nameInitialized, setNameInitialized] = React.useState(false)
+  const [editName, setEditName] = React.useState("");
+  const [nameInitialized, setNameInitialized] = React.useState(false);
 
   // Change password state
-  const [currentPassword, setCurrentPassword] = React.useState('')
-  const [newPassword, setNewPassword] = React.useState('')
-  const [confirmPassword, setConfirmPassword] = React.useState('')
-  const [changingPassword, setChangingPassword] = React.useState(false)
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [changingPassword, setChangingPassword] = React.useState(false);
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
 
-  const updateProfileMutation = useUpdateProfile()
+  const updateProfileMutation = useUpdateProfile();
 
   // Initialize name from user once loaded
   React.useEffect(() => {
     if (user?.name && !nameInitialized) {
-      setEditName(user.name)
-      setNameInitialized(true)
+      setEditName(user.name);
+      setNameInitialized(true);
     }
-  }, [user?.name, nameInitialized])
+  }, [user?.name, nameInitialized]);
 
   // Fetch suppliers for the region
-  const { data: suppliersData } = useSuppliers(region || '', annualUsageKwh)
-  const setSupplierMutation = useSetSupplier()
-  const linkAccountMutation = useLinkAccount()
-  const { data: accountsData } = useUserSupplierAccounts()
+  const { data: suppliersData } = useSuppliers(region || "", annualUsageKwh);
+  const setSupplierMutation = useSetSupplier();
+  const linkAccountMutation = useLinkAccount();
+  const { data: accountsData } = useUserSupplierAccounts();
 
   // Map backend suppliers to frontend type
-  const availableSuppliers: Supplier[] = (suppliersData?.suppliers || []).map((s: RawSupplierRecord) => ({
-    id: s.id,
-    name: s.name,
-    logo: s.logo || s.logo_url,
-    avgPricePerKwh: s.avgPricePerKwh ?? 0.22,
-    standingCharge: s.standingCharge ?? 0.40,
-    greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
-    rating: s.rating ?? 0,
-    estimatedAnnualCost: s.estimatedAnnualCost ?? Math.round((s.avgPricePerKwh ?? 0.22) * annualUsageKwh + 365 * 0.40),
-    tariffType: (s.tariffType ?? (s.tariff_types?.[0] || 'variable')) as Supplier['tariffType'],
-    exitFee: s.exitFee ?? s.exit_fee,
-    contractLength: s.contractLength ?? s.contract_length,
-    features: s.features ?? s.tariff_types,
-  }))
+  const availableSuppliers: Supplier[] = (suppliersData?.suppliers || []).map(
+    (s: RawSupplierRecord) => ({
+      id: s.id,
+      name: s.name,
+      logo: s.logo || s.logo_url,
+      avgPricePerKwh: s.avgPricePerKwh ?? 0.22,
+      standingCharge: s.standingCharge ?? 0.4,
+      greenEnergy: s.greenEnergy ?? s.green_energy_provider ?? false,
+      rating: s.rating ?? 0,
+      estimatedAnnualCost:
+        s.estimatedAnnualCost ??
+        Math.round((s.avgPricePerKwh ?? 0.22) * annualUsageKwh + 365 * 0.4),
+      tariffType: (s.tariffType ??
+        (s.tariff_types?.[0] || "variable")) as Supplier["tariffType"],
+      exitFee: s.exitFee ?? s.exit_fee,
+      contractLength: s.contractLength ?? s.contract_length,
+      features: s.features ?? s.tariff_types,
+    }),
+  );
 
-  const linkedAccounts = accountsData?.accounts || []
+  const linkedAccounts = accountsData?.accounts || [];
 
   const handleSupplierChange = async (supplier: Supplier | null) => {
-    if (!supplier) return
+    if (!supplier) return;
 
     try {
-      await setSupplierMutation.mutateAsync(supplier.id)
+      await setSupplierMutation.mutateAsync(supplier.id);
     } catch {
       // Backend save failed — still update local state
     }
 
-    setCurrentSupplierStore(supplier)
-    setShowSupplierPicker(false)
-  }
+    setCurrentSupplierStore(supplier);
+    setShowSupplierPicker(false);
+  };
 
   const handleLinkAccount = async (data: {
-    supplierId: string
-    accountNumber: string
-    meterNumber?: string
-    serviceZip?: string
-    accountNickname?: string
-    consentGiven: boolean
+    supplierId: string;
+    accountNumber: string;
+    meterNumber?: string;
+    serviceZip?: string;
+    accountNickname?: string;
+    consentGiven: boolean;
   }) => {
     await linkAccountMutation.mutateAsync({
       supplier_id: data.supplierId,
@@ -141,96 +156,115 @@ export default function SettingsPage() {
       service_zip: data.serviceZip,
       account_nickname: data.accountNickname,
       consent_given: data.consentGiven,
-    })
-  }
+    });
+  };
 
   const handleSave = async () => {
     try {
-      const updates: Record<string, string> = {}
-      if (region) updates.region = region
-      if (editName && editName !== user?.name) updates.name = editName
+      const updates: Record<string, string> = {};
+      if (region) updates.region = region;
+      if (editName && editName !== user?.name) updates.name = editName;
       if (Object.keys(updates).length > 0) {
-        await updateProfileMutation.mutateAsync(updates)
+        await updateProfileMutation.mutateAsync(updates);
       }
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch {
-      toastError('Save failed', 'Could not save settings to server.')
+      toastError("Save failed", "Could not save settings to server.");
     }
-  }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toastError('Passwords do not match', 'New password and confirmation must match.')
-      return
+      toastError(
+        "Passwords do not match",
+        "New password and confirmation must match.",
+      );
+      return;
     }
     if (newPassword.length < 12) {
-      toastError('Password too short', 'Password must be at least 12 characters.')
-      return
+      toastError(
+        "Password too short",
+        "Password must be at least 12 characters.",
+      );
+      return;
     }
-    setChangingPassword(true)
+    setChangingPassword(true);
     try {
       const { error } = await authClient.changePassword({
         currentPassword,
         newPassword,
-      })
+      });
       if (error) {
-        toastError('Password change failed', error.message || 'Please check your current password and try again.')
+        toastError(
+          "Password change failed",
+          error.message || "Please check your current password and try again.",
+        );
       } else {
-        toastSuccess('Password changed', 'Your password has been updated successfully.')
-        setCurrentPassword('')
-        setNewPassword('')
-        setConfirmPassword('')
+        toastSuccess(
+          "Password changed",
+          "Your password has been updated successfully.",
+        );
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
       }
     } catch {
-      toastError('Password change failed', 'An unexpected error occurred. Please try again.')
+      toastError(
+        "Password change failed",
+        "An unexpected error occurred. Please try again.",
+      );
     } finally {
-      setChangingPassword(false)
+      setChangingPassword(false);
     }
-  }
+  };
 
   const handleExportData = async () => {
-    setExporting(true)
+    setExporting(true);
     try {
-      const res = await fetch('/api/v1/compliance/gdpr/export', { credentials: 'include' })
-      if (!res.ok) throw new Error('Export failed')
-      const data = await res.json()
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `my-data-${new Date().toISOString().split('T')[0]}.json`
-      a.click()
-      URL.revokeObjectURL(url)
+      const res = await fetch("/api/v1/compliance/gdpr/export", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `my-data-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch {
-      toastError('Export failed', 'Please try again later.')
+      toastError("Export failed", "Please try again later.");
     } finally {
-      setExporting(false)
+      setExporting(false);
     }
-  }
+  };
 
   const handleDeleteAccount = async () => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete your account? This action is irreversible and will permanently delete all your data.'
-    )
-    if (!confirmed) return
+    setShowDeleteModal(false);
     try {
-      const res = await fetch('/api/v1/compliance/gdpr/delete', { method: 'DELETE', credentials: 'include' })
-      if (!res.ok) throw new Error('Delete failed')
+      const res = await fetch("/api/v1/compliance/gdpr/delete", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Delete failed");
       // Clear local state before redirect to prevent stale data
-      resetSettings()
+      resetSettings();
       // Sign out to invalidate session (clears cookies + OneSignal)
       try {
-        await authClient.signOut()
+        await authClient.signOut();
       } catch {
         // Best-effort — proceed with redirect regardless
       }
-      window.location.href = '/'
+      window.location.href = "/";
     } catch {
-      toastError('Delete failed', 'Please try again later.')
+      toastError("Delete failed", "Please try again later.");
     }
-  }
+  };
 
   return (
     <div className="flex flex-col">
@@ -250,8 +284,15 @@ export default function SettingsPage() {
               {/* Profile: Name & Email */}
               <div className="space-y-3">
                 <div>
-                  <label htmlFor="settings-name" className="block font-medium text-gray-900">Display Name</label>
-                  <p className="text-sm text-gray-500 mb-1">How your name appears across RateShift</p>
+                  <label
+                    htmlFor="settings-name"
+                    className="block font-medium text-gray-900"
+                  >
+                    Display Name
+                  </label>
+                  <p className="text-sm text-gray-500 mb-1">
+                    How your name appears across RateShift
+                  </p>
                   <input
                     id="settings-name"
                     type="text"
@@ -263,7 +304,9 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">Email</p>
-                  <p className="text-sm text-gray-500">{user?.email || 'Not available'}</p>
+                  <p className="text-sm text-gray-500">
+                    {user?.email || "Not available"}
+                  </p>
                 </div>
               </div>
 
@@ -276,17 +319,21 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <select
-                    value={region || ''}
+                    value={region || ""}
                     onChange={(e) => setRegion(e.target.value)}
                     className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
                   >
-                    <option value="" disabled>Select your state...</option>
+                    <option value="" disabled>
+                      Select your state...
+                    </option>
                     {US_REGIONS.map((group) => (
                       <optgroup key={group.label} label={group.label}>
                         {group.states.map((state) => (
                           <option key={state.value} value={state.value}>
                             {state.label}
-                            {DEREGULATED_ELECTRICITY_STATES.has(state.abbr) ? ' *' : ''}
+                            {DEREGULATED_ELECTRICITY_STATES.has(state.abbr)
+                              ? " *"
+                              : ""}
                           </option>
                         ))}
                       </optgroup>
@@ -306,8 +353,8 @@ export default function SettingsPage() {
                       key={opt.value}
                       className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                         utilityTypes.includes(opt.value)
-                          ? 'border-primary-500 bg-primary-50 text-primary-700'
-                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                          ? "border-primary-500 bg-primary-50 text-primary-700"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                       }`}
                     >
                       <input
@@ -316,10 +363,12 @@ export default function SettingsPage() {
                         checked={utilityTypes.includes(opt.value)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setUtilityTypes([...utilityTypes, opt.value])
+                            setUtilityTypes([...utilityTypes, opt.value]);
                           } else {
-                            const next = utilityTypes.filter((t) => t !== opt.value)
-                            if (next.length > 0) setUtilityTypes(next)
+                            const next = utilityTypes.filter(
+                              (t) => t !== opt.value,
+                            );
+                            if (next.length > 0) setUtilityTypes(next);
                           }
                         }}
                       />
@@ -338,7 +387,8 @@ export default function SettingsPage() {
                       <div>
                         <p className="font-medium">{currentSupplier.name}</p>
                         <p className="text-sm text-gray-500">
-                          {formatCurrency(currentSupplier.estimatedAnnualCost)}/year
+                          {formatCurrency(currentSupplier.estimatedAnnualCost)}
+                          /year
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -383,7 +433,8 @@ export default function SettingsPage() {
                     />
                     {!currentSupplier && !showSupplierPicker && (
                       <p className="mt-2 text-sm text-gray-500">
-                        Select your supplier to get personalized savings recommendations.
+                        Select your supplier to get personalized savings
+                        recommendations.
                       </p>
                     )}
                   </div>
@@ -404,15 +455,21 @@ export default function SettingsPage() {
                         className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
                       >
                         <div>
-                          <span className="font-medium text-gray-900">{account.supplier_name}</span>
+                          <span className="font-medium text-gray-900">
+                            {account.supplier_name}
+                          </span>
                           {account.account_number_masked && (
                             <>
                               <span className="mx-2 text-gray-300">|</span>
-                              <span className="font-mono text-gray-600">{account.account_number_masked}</span>
+                              <span className="font-mono text-gray-600">
+                                {account.account_number_masked}
+                              </span>
                             </>
                           )}
                           {account.account_nickname && (
-                            <span className="ml-2 text-gray-400">({account.account_nickname})</span>
+                            <span className="ml-2 text-gray-400">
+                              ({account.account_nickname})
+                            </span>
                           )}
                         </div>
                         <Badge variant="info" size="sm">
@@ -466,10 +523,15 @@ export default function SettingsPage() {
                   <Button
                     type="submit"
                     variant="primary"
-                    disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                    disabled={
+                      changingPassword ||
+                      !currentPassword ||
+                      !newPassword ||
+                      !confirmPassword
+                    }
                   >
                     <KeyRound className="mr-2 h-4 w-4" />
-                    {changingPassword ? 'Changing...' : 'Change Password'}
+                    {changingPassword ? "Changing..." : "Change Password"}
                   </Button>
                 </div>
               </form>
@@ -570,7 +632,7 @@ export default function SettingsPage() {
                   value={displayPreferences.currency}
                   onChange={(e) =>
                     setDisplayPreferences({
-                      currency: e.target.value as 'USD' | 'GBP' | 'EUR',
+                      currency: e.target.value as "USD" | "GBP" | "EUR",
                     })
                   }
                   className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
@@ -592,7 +654,7 @@ export default function SettingsPage() {
                   value={displayPreferences.theme}
                   onChange={(e) =>
                     setDisplayPreferences({
-                      theme: e.target.value as 'light' | 'dark' | 'system',
+                      theme: e.target.value as "light" | "dark" | "system",
                     })
                   }
                   className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
@@ -614,7 +676,7 @@ export default function SettingsPage() {
                   value={displayPreferences.timeFormat}
                   onChange={(e) =>
                     setDisplayPreferences({
-                      timeFormat: e.target.value as '12h' | '24h',
+                      timeFormat: e.target.value as "12h" | "24h",
                     })
                   }
                   className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
@@ -642,11 +704,7 @@ export default function SettingsPage() {
                     Reset all settings to default
                   </p>
                 </div>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={resetSettings}
-                >
+                <Button variant="danger" size="sm" onClick={resetSettings}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Reset
                 </Button>
@@ -656,16 +714,24 @@ export default function SettingsPage() {
 
           {/* Data & Privacy (GDPR) */}
           <div className="mt-8 border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900">Data & Privacy</h3>
-            <p className="mt-1 text-sm text-gray-500">Manage your personal data in accordance with GDPR regulations.</p>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Data & Privacy
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage your personal data in accordance with GDPR regulations.
+            </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Button variant="outline" onClick={handleExportData} disabled={exporting}>
+              <Button
+                variant="outline"
+                onClick={handleExportData}
+                disabled={exporting}
+              >
                 <Download className="mr-2 h-4 w-4" />
-                {exporting ? 'Preparing...' : 'Download My Data'}
+                {exporting ? "Preparing..." : "Download My Data"}
               </Button>
               <Button
                 variant="danger"
-                onClick={handleDeleteAccount}
+                onClick={() => setShowDeleteModal(true)}
                 className="border-danger-300 text-danger-600 hover:bg-danger-50"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -674,9 +740,13 @@ export default function SettingsPage() {
             </div>
             <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
               <FileText className="h-4 w-4" />
-              <Link href="/terms" className="hover:text-gray-700 underline">Terms of Service</Link>
+              <Link href="/terms" className="hover:text-gray-700 underline">
+                Terms of Service
+              </Link>
               <span>&middot;</span>
-              <Link href="/privacy" className="hover:text-gray-700 underline">Privacy Policy</Link>
+              <Link href="/privacy" className="hover:text-gray-700 underline">
+                Privacy Policy
+              </Link>
             </div>
           </div>
 
@@ -695,6 +765,17 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Account"
+        description="Are you sure you want to delete your account? This action is irreversible and will permanently delete all your data."
+        confirmLabel="Delete Account"
+        cancelLabel="Cancel"
+        onConfirm={handleDeleteAccount}
+        variant="danger"
+      />
     </div>
-  )
+  );
 }
