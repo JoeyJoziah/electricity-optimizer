@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-24 (Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (7/19 done) + production audit remediation (18 tasks, 5 sprints). CF Worker 3 cron triggers. Backend 2,976 tests, Frontend 2,015 tests (153 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,362 total. 64 migrations (064: migration_history_uuid_pk). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
+> Last validated: 2026-03-24 (Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (7/19 done) + production audit remediation (18 tasks, 5 sprints) + production debugging session (ORIGIN_URL fix, Location header rewrite, keep-alive cron). CF Worker 4 cron triggers. Backend 2,976 tests, Frontend 2,015 tests (153 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,362 total. 64 migrations (064: migration_history_uuid_pk). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -103,7 +103,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
 - **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 49 public + 9 neon_auth = 58 tables total (64 migrations: init_neon through 064_migration_history_uuid_pk)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
-- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Cron: `[triggers] crons = ["0 */3 * * *", "0 */6 * * *", "30 */6 * * *"]` (check-alerts every 3h, price-sync every 6h, observe-forecasts 30min after price-sync). Source: `workers/api-gateway/` (18 files, 90 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
+- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Cron: `[triggers] crons = ["*/10 * * * *", "0 */3 * * *", "0 */6 * * *", "30 */6 * * *"]` (keep-alive every 10min, check-alerts every 3h, price-sync every 6h, observe-forecasts 30min after price-sync). Secrets: ORIGIN_URL, INTERNAL_API_KEY, RATE_LIMIT_BYPASS_KEY. Proxy: Location header rewriting on redirects (prevents leaking Render origin URL). Source: `workers/api-gateway/` (18 files, 90 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id. **Plan gating**: `require_tier("pro"/"business")` dependency on 7 endpoints (forecast, savings, recommendations=pro; prices/stream=business). Free tier: 1 alert limit
 - **Email**: Resend (primary, domain `rateshift.app` verified, DKIM/SPF/DMARC, TLS enforced) + Gmail SMTP fallback. Sender: `RateShift <noreply@rateshift.app>`. Frontend uses nodemailer for SMTP
@@ -141,10 +141,15 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 - **db-maintenance**: Weekly Sunday 3am UTC — database optimization, vacuum, analyze, index maintenance
 - **Phase 1 LIVE**: Sentry→Slack (15min, `rcp_sQ1NKouFdXIe`), Deploy→Slack (hourly, `rcp_9f8mVE2Z_DSP`), GitHub→Notion (6h, `rcp_73Kc9K65YC5T`). Rube session: `drew`
-- **Phase 2 COMPLETE** (5 GHA cron workflows):
-  - `check-alerts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 3h). `POST /internal/check-alerts` (price threshold alerts with dedup)
-  - `price-sync.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 6h). `POST /internal/scrape-rates` (electricity price data ingestion)
-  - `observe-forecasts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (30min after price-sync, every 6h). `POST /internal/observe-forecasts` (backfill actual prices into forecast observations)
+- **CF Worker Cron Triggers** (4 total, zero GHA cost):
+  - `*/10 * * * *`: keep-alive — lightweight GET to Render root, prevents free tier cold starts (added 2026-03-24)
+  - `0 */3 * * *`: check-alerts — `POST /internal/check-alerts` (price threshold alerts with dedup)
+  - `0 */6 * * *`: price-sync — `POST /internal/scrape-rates` (electricity price data ingestion)
+  - `30 */6 * * *`: observe-forecasts — `POST /internal/observe-forecasts` (backfill actual prices into forecast observations)
+- **Phase 2 COMPLETE** (5 GHA cron workflows, 3 moved to CF Worker):
+  - `check-alerts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 3h)
+  - `price-sync.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 6h)
+  - `observe-forecasts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (30min after price-sync, every 6h)
   - `fetch-weather.yml`: Every 12 hours (offset :15, was 6h, reduced for GHA cost optimization) — `POST /internal/fetch-weather` (parallelized with asyncio.gather + Semaphore(10))
   - `market-research.yml`: Daily 2am UTC — `POST /internal/market-research` (Tavily + Diffbot)
   - `sync-connections.yml`: Every 6 hours (was 2h, reduced 2026-03-16) — `POST /internal/sync-connections` (UtilityAPI auto-sync)
