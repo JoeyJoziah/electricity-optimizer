@@ -5,6 +5,7 @@ import type { Env } from "../types";
  * Routes based on the cron expression that triggered the event.
  *
  * Cron schedule:
+ *   "*​/10 * * * *" → keep-alive (every 10 minutes — prevents Render cold starts)
  *   "0 *​/3 * * *"  → check-alerts (every 3 hours)
  *   "0 *​/6 * * *"  → price-sync (every 6 hours)
  *   "30 *​/6 * * *" → observe-forecasts (30min after price-sync)
@@ -19,6 +20,17 @@ export async function handleScheduled(
   const cron = controller.cron;
 
   // Route to the appropriate endpoint based on cron expression
+  // Keep-alive: lightweight GET to root — prevents Render free tier spin-down
+  if (cron === "*/10 * * * *") {
+    try {
+      const resp = await fetch(`${env.ORIGIN_URL}/`, { method: "GET" });
+      console.log(`keep-alive: ${resp.status} (${resp.ok ? "ok" : "degraded"})`);
+    } catch (err) {
+      console.warn(`keep-alive: fetch error — ${err instanceof Error ? err.message : err}`);
+    }
+    return;
+  }
+
   const cronRoutes: Record<string, { endpoint: string; name: string; method: string }> = {
     "0 */3 * * *": {
       endpoint: "/api/v1/internal/check-alerts",

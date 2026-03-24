@@ -47,6 +47,7 @@ ALLOWED_ORIGINS = "https://rateshift.app,https://www.rateshift.app"
 # Cron Triggers — replaces GHA crons for check-alerts, price-sync, observe-forecasts
 [triggers]
 crons = [
+  "*/10 * * * *",  # keep-alive: every 10 minutes — prevents Render free tier cold starts
   "0 */3 * * *",   # check-alerts: every 3 hours
   "0 */6 * * *",   # price-sync: every 6 hours (matches old GHA schedule)
   "30 */6 * * *",  # observe-forecasts: 30min after price-sync

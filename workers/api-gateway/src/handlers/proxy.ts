@@ -40,11 +40,25 @@ export async function proxyToOrigin(
     redirect: "manual", // pass through redirects as-is
   });
 
-  // Clone response so we can modify headers
+  // Clone response headers so we can modify them
+  const responseHeaders = new Headers(originResponse.headers);
+
+  // Rewrite Location headers on redirects to prevent leaking the origin URL.
+  // FastAPI's trailing-slash redirects (307) include the raw Render hostname
+  // which causes CORS failures when browsers follow the redirect.
+  const location = responseHeaders.get("Location");
+  if (location && env.ORIGIN_URL) {
+    const originHost = new URL(env.ORIGIN_URL).origin;
+    if (location.startsWith(originHost)) {
+      const publicUrl = `https://${url.hostname}${location.slice(originHost.length)}`;
+      responseHeaders.set("Location", publicUrl);
+    }
+  }
+
   const response = new Response(originResponse.body, {
     status: originResponse.status,
     statusText: originResponse.statusText,
-    headers: originResponse.headers,
+    headers: responseHeaders,
   });
 
   return response;
