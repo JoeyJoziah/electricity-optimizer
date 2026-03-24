@@ -53,23 +53,15 @@ class OptimizationReportService:
         total_potential_savings = 0.0
         opportunities = []
 
-        # Electricity
-        elec = await self._get_electricity_spend(state)
-        if elec:
-            utilities.append(elec)
-            total_monthly += elec["monthly_cost"]
-            if elec.get("savings"):
-                opportunities.append(elec["savings"])
-                total_potential_savings += elec["savings"]["monthly_savings"]
-
-        # Natural Gas
-        gas = await self._get_gas_spend(state)
-        if gas:
-            utilities.append(gas)
-            total_monthly += gas["monthly_cost"]
-            if gas.get("savings"):
-                opportunities.append(gas["savings"])
-                total_potential_savings += gas["savings"]["monthly_savings"]
+        # Electricity + Natural Gas (single query — both use electricity_prices table)
+        elec, gas = await self._get_electricity_and_gas_spend(state)
+        for item in (elec, gas):
+            if item:
+                utilities.append(item)
+                total_monthly += item["monthly_cost"]
+                if item.get("savings"):
+                    opportunities.append(item["savings"])
+                    total_potential_savings += item["savings"]["monthly_savings"]
 
         # Heating Oil
         oil = await self._get_heating_oil_spend(state)
@@ -104,23 +96,43 @@ class OptimizationReportService:
             "utility_count": len(utilities),
         }
 
-    async def _get_electricity_spend(self, state: str) -> dict | None:
-        """Get electricity spend analysis for a state."""
+    async def _get_electricity_and_gas_spend(self, state: str) -> tuple[dict | None, dict | None]:
+        """Get electricity + natural gas spend in a single query (CTE merge).
+
+        Both utility types live in electricity_prices, so one round trip suffices.
+        """
         result = await self.db.execute(
             text("""
-                SELECT price_per_kwh, supplier
-                FROM electricity_prices
-                WHERE region = :region
-                  AND utility_type = 'ELECTRICITY'
-                ORDER BY timestamp DESC
-                LIMIT 10
+                WITH recent_prices AS (
+                    SELECT price_per_kwh, supplier, utility_type,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY utility_type ORDER BY timestamp DESC
+                           ) AS rn
+                    FROM electricity_prices
+                    WHERE region = :region
+                      AND utility_type IN ('ELECTRICITY', 'NATURAL_GAS')
+                )
+                SELECT price_per_kwh, supplier, utility_type
+                FROM recent_prices
+                WHERE (utility_type = 'ELECTRICITY' AND rn <= 10)
+                   OR (utility_type = 'NATURAL_GAS' AND rn <= 5)
+                ORDER BY utility_type, rn
             """),
             {"region": f"us_{state.lower()}"},
         )
         rows = result.mappings().all()
-        if not rows:
-            return None
 
+        # Partition results by utility_type
+        elec_rows = [r for r in rows if r["utility_type"] == "ELECTRICITY"]
+        gas_rows = [r for r in rows if r["utility_type"] == "NATURAL_GAS"]
+
+        elec = self._build_electricity_result(elec_rows) if elec_rows else None
+        gas = self._build_gas_result(gas_rows) if gas_rows else None
+        return elec, gas
+
+    @staticmethod
+    def _build_electricity_result(rows: list) -> dict:
+        """Build electricity spend dict from pre-fetched rows."""
         prices = [float(r["price_per_kwh"]) for r in rows]
         avg_price = sum(prices) / len(prices)
         min_price = min(prices)
@@ -130,7 +142,7 @@ class OptimizationReportService:
         savings = None
         if len(prices) > 1 and avg_price > min_price:
             monthly_savings = (avg_price - min_price) * consumption["amount"]
-            if monthly_savings > 1.0:  # Only show if savings > $1/month
+            if monthly_savings > 1.0:
                 savings = {
                     "utility_type": "electricity",
                     "action": f"Switch to cheapest supplier ({rows[-1].get('supplier', 'best rate')})",
@@ -149,23 +161,9 @@ class OptimizationReportService:
             "savings": savings,
         }
 
-    async def _get_gas_spend(self, state: str) -> dict | None:
-        """Get natural gas spend analysis."""
-        result = await self.db.execute(
-            text("""
-                SELECT price_per_kwh
-                FROM electricity_prices
-                WHERE region = :region
-                  AND utility_type = 'NATURAL_GAS'
-                ORDER BY timestamp DESC
-                LIMIT 5
-            """),
-            {"region": f"us_{state.lower()}"},
-        )
-        rows = result.mappings().all()
-        if not rows:
-            return None
-
+    @staticmethod
+    def _build_gas_result(rows: list) -> dict:
+        """Build natural gas spend dict from pre-fetched rows."""
         prices = [float(r["price_per_kwh"]) for r in rows]
         avg_price = sum(prices) / len(prices)
         consumption = AVG_MONTHLY_CONSUMPTION["natural_gas"]
@@ -178,7 +176,7 @@ class OptimizationReportService:
             "monthly_consumption": consumption["amount"],
             "consumption_unit": consumption["unit"],
             "monthly_cost": round(monthly_cost, 2),
-            "savings": None,  # Gas savings require supplier comparison (future)
+            "savings": None,
         }
 
     async def _get_heating_oil_spend(self, state: str) -> dict | None:

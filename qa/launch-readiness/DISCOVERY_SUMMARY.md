@@ -1,202 +1,151 @@
-# DISCOVERY SUMMARY — RateShift Launch-Gap Analysis
+# DISCOVERY SUMMARY — RateShift Launch Gap Analysis (v2)
 
-> Generated: 2026-03-23 | Phase 0 of 5 | Source: Full codebase + docs + orchestrator state
-
----
-
-## 1. Sources Ingested
-
-| Source | Count | Key Findings |
-|--------|-------|--------------|
-| **Docs (plans, launch, security)** | 80+ files | Roadmap (5 sprints done), capacity audit, monitoring runbook, PH/HN launch materials |
-| **CLAUDE.md (project root)** | 1 | 44 Render env vars, 58 tables, 63 migrations, 33 GHA workflows, 18 conductor tracks |
-| **MASTER_TODO_REGISTRY** | 28 tasks | All 28 marked "completed" across 7 epics |
-| **Conductor tracks** | 19 dirs | All 19 tracks marked complete (audit-remediation x4, dependency-upgrade, verification-gates, etc.) |
-| **Loki PRDs** | 5 PRDs | Full-gap-remediation PRD (Feb 25) — many items since resolved |
-| **Frontend routes** | 29 page.tsx | 23 loading.tsx, 29 error.tsx — good boundary coverage |
-| **Backend services** | 51 files | Full service layer for alerts, billing, connections, ML, agent, community, etc. |
-| **Backend API routes** | 38 files | v1 API fully wired |
-| **GHA workflows** | 32 files | 3 cron triggers on CF Worker, 12+ cron workflows, self-healing monitor |
-| **Codebase TODOs** | 3 total | 1 backend (FRONTEND_URL Render), 2 frontend E2E (magic link auth, constraint validation) |
+> Generated: 2026-03-24 | Supersedes: 2026-03-23 analysis
+> Analyst: Claude Opus 4.6 (direct tools, no subagents)
+> Previous analysis found 19 gaps (7 completed, 12 remaining). This v2 is more exhaustive.
 
 ---
 
-## 2. Brand Consistency
+## 1. Sources Consulted
 
-| Check | Status |
-|-------|--------|
-| Frontend source code | **CLEAN** — Only 2 "Electricity Optimizer" refs remain: `types/index.ts` comment (line 2), `DirectLoginForm.test.tsx` comment (line 105). Both are code comments, not user-facing |
-| Legal pages (terms, privacy) | **CLEAN** — Both branded "RateShift", dated Feb 12 2026 |
-| Pricing page | **CLEAN** — "RateShift" branding, correct tier pricing ($0/Free, $4.99/Pro, $14.99/Business) |
-| `manifest.ts` / metadata | Verified "RateShift" in prior Sprint 0 brand sweep |
+### Primary Sources (Code — highest trust)
 
----
+| Source | Path | Key Data |
+|--------|------|----------|
+| Project CLAUDE.md | `./CLAUDE.md` | Architecture, 44 env vars, cron jobs, 17 critical reminders |
+| Backend settings | `backend/config/settings.py` | FRONTEND_URL default `localhost:3000`, CORS config |
+| Frontend routes | `frontend/app/**/page.tsx` | 28 page routes (beta-signup deleted in v1 sprint) |
+| Frontend layout | `frontend/app/layout.tsx` | Metadata (OG, Twitter), no GA4, has Clarity |
+| robots.ts | `frontend/app/robots.ts` | Proper disallow rules, sitemap reference |
+| sitemap.ts | `frontend/app/sitemap.ts` | Static + programmatic rate pages; includes /dashboard (issue) |
+| Error boundaries | `frontend/app/**/error.tsx` | 28 files — comprehensive |
+| Loading states | `frontend/app/**/loading.tsx` | 22 files — missing for public pages |
+| Backend routers | `backend/api/v1/` | 41+ router files |
+| CF Worker | `workers/api-gateway/` | 18 files, 3 cron triggers |
+| Migrations | `backend/migrations/` | 063 files, all deployed to Neon |
+| GHA workflows | `.github/workflows/` | 33 workflows |
+| App factory | `backend/app_factory.py` | CORS middleware, all middleware stack |
 
-## 3. Route & Boundary Coverage
+### Secondary Sources (Docs — high trust, maintained with code)
 
-### App Routes (29 pages)
-- `(app)/`: dashboard, prices, connections, alerts, suppliers, optimize, analytics, assistant, community, settings, onboarding, beta-signup, gas-rates, heating-oil, propane, community-solar, water
-- `(auth)/`: login, signup, callback, forgot-password, reset-password, verify-email
-- Public: terms, privacy, pricing, rates/[state]/[utility], home (/)
-- Dev: (dev)/architecture (blocked in production via middleware)
+| Source | Path | Key Data |
+|--------|------|----------|
+| Launch Checklist | `docs/LAUNCH_CHECKLIST.md` | PH launch plan — marketing/content sections unchecked |
+| PH Launch Materials | `docs/launch/PRODUCT_HUNT.md` | Taglines, screenshots needed, hour-by-hour plan |
+| Monitoring Runbook | `docs/launch/MONITORING_RUNBOOK.md` | Dashboards, incident playbooks, pre-launch upgrades |
+| HN/Reddit Posts | `docs/launch/HN_REDDIT_POSTS.md` | Show HN template, 5 Reddit posts |
+| Capacity Audit | `docs/CAPACITY_AUDIT.md` | Free tier limits, risk ratings |
+| Stripe Architecture | `docs/STRIPE_ARCHITECTURE.md` | Billing flows, webhooks |
+| Disaster Recovery | `docs/DISASTER_RECOVERY.md` | RTO <1h, RPO <7d |
+| Automation Plan | `docs/AUTOMATION_PLAN.md` | 9 workflows, all complete |
+| Cost Analysis | `docs/COST_ANALYSIS.md` | ~1,283 GHA min/mo |
 
-### Error Boundaries: 29 error.tsx files
-- Every `(app)/*` route has error.tsx
-- Every `(auth)/*` route has error.tsx
-- Public routes (terms, privacy, pricing, rates) have error.tsx
-- Root error.tsx exists
-- Layout-level `(app)/error.tsx` catches uncaught app errors
+### Tertiary Sources (Tracking — medium trust)
 
-### Loading States: 23 loading.tsx files
-- All `(app)/*` routes covered
-- All `(auth)/*` routes covered
-- **GAP**: No loading.tsx for `terms/`, `privacy/`, `pricing/`, `rates/[state]/[utility]/` — acceptable (static/SSG pages)
-
----
-
-## 4. Dashboard & Data Wiring
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| DashboardTabs | **WIRED** | Multi-utility tab bar with dynamic tabs from user settings |
-| DashboardContent (electricity) | **WIRED** | Lazy-loaded, primary utility |
-| HeatingOilDashboard | **WIRED** | Lazy-loaded in UtilityTabShell |
-| PropaneDashboard | **WIRED** | Lazy-loaded in UtilityTabShell |
-| WaterDashboard | **WIRED** | Lazy-loaded in UtilityTabShell |
-| CommunitySolarContent | **WIRED** | Lazy-loaded in UtilityTabShell |
-| **Natural Gas tab** | **PLACEHOLDER** | `natural_gas` key exists in DashboardTabs but NOT in `UTILITY_DASHBOARDS` map → shows "Dashboard coming soon" |
-| SetupChecklist | **WIRED** | `useConnections()` hook wired for dynamic status (Sprint 0.2 fix) |
-| No hardcoded/mock data in dashboard | **CONFIRMED** | Grep for hardcoded/static/sample/demo returned zero matches |
+| Source | Path | Key Data |
+|--------|------|----------|
+| Master TODO Registry | `.project-intelligence/MASTER_TODO_REGISTRY.json` | 47 tasks, 19 launch gaps tracked |
+| Previous Gap Backlog | `qa/launch-readiness/` (2026-03-23) | 19 gaps, 7 code items completed |
+| Loki Continuity | `.loki/CONTINUITY.md` | Historical only (through 2026-03-11) |
+| Memory files | `.claude/projects/.../memory/` | Cross-session patterns |
 
 ---
 
-## 5. Infrastructure & Env Var Status
+## 2. Discovery Methods
 
-### Render Backend (44 env vars)
-| Env Var | Status |
-|---------|--------|
-| FRONTEND_URL | **NOT SET** — still `http://localhost:3000` default. Must be `https://rateshift.app` |
-| GOOGLE_CLIENT_ID | **PLACEHOLDER** — secret not captured from GCP |
-| GOOGLE_CLIENT_SECRET | **PLACEHOLDER** — secret not captured from GCP |
-| UTILITYAPI_KEY | **MISSING** — needed for utility data connections |
-| GMAIL_CLIENT_ID/SECRET | **MISSING** — needed for email scanning feature |
-| OUTLOOK_CLIENT_ID/SECRET | **MISSING** — needed for Outlook email scanning |
-| OAUTH_STATE_SECRET | SET (2026-03-23) |
-| ML_MODEL_SIGNING_KEY | SET (2026-03-23) |
-| All 34 core + 4 AI + 3 OTel vars | SET |
-
-### Cloudflare Worker
-| Item | Status |
-|------|--------|
-| Worker deployed | **YES** — Version 93c9a1f2, rateshift.workers.dev |
-| 3 cron triggers | **ACTIVE** (check-alerts/3h, price-sync/6h, observe-forecasts/6h) |
-| KV namespace (CACHE) | Active |
-| Rate limiting bindings | Active (native, zero-cost) |
-
-### Free Tier Risks (from Capacity Audit)
-| Service | Limit | Launch Risk | Mitigation |
-|---------|-------|-------------|------------|
-| Render | Free (cold starts) | **HIGH** | keepalive.yml + circuit breaker |
-| Resend | 100 emails/day | **MEDIUM** | Gmail SMTP fallback (~600 total/day) |
-| Gemini | 250 RPD, 10 RPM | **HIGH** | Auto-fallback to Groq |
-| Neon | 100h compute/mo | **LOW** | Monitor, upgrade at 60h |
-| Composio | 1,000 actions/mo | **MEDIUM** | Launch day could use 30% |
-| GHA | 2,000 min/mo | **LOW** | Current ~1,283 min/mo estimate |
+| Method | Tool | Queries |
+|--------|------|---------|
+| Route enumeration | Glob | `frontend/app/**/page.tsx`, `error.tsx`, `loading.tsx` |
+| Analytics check | Grep | `NEXT_PUBLIC_GA`, `gtag`, `google.*analytics`, `GA_MEASUREMENT` |
+| Social image check | Grep + Glob | `og:image`, `opengraph-image`, `frontend/public/og-*.{png,jpg}` |
+| Status page check | Grep | `statuspage`, `status.rateshift`, `betteruptime` |
+| FRONTEND_URL audit | Grep | `FRONTEND_URL` in backend/config |
+| CORS review | Grep | `CORS`, `cors_origins`, `allow_origins` |
+| SEO audit | Grep + Read | `robots.txt`, `sitemap.xml`, `meta.*description`, `og:image` |
+| TODO/FIXME scan | Grep | `TODO\|FIXME\|HACK\|XXX` in `*.py` and `*.{ts,tsx}` |
+| Env var gap check | Read + Grep | CLAUDE.md env var sections, settings.py |
+| Seed data check | Grep | `seed`, `backfill`, `populate` in backend |
+| Rate limiting review | Grep | `rate.limit`, `rateLimit`, `RATE_LIMIT` — 62 files |
+| Onboarding check | Grep | `onboarding`, `welcome.*email` |
 
 ---
 
-## 6. Security & Auth
+## 3. Verified Working (No Gaps)
 
-| Area | Status |
-|------|--------|
-| GitHub OAuth | **COMPLETE** — App ID 3466397, creds in 1Password + Render + Vercel |
-| Google OAuth | **INCOMPLETE** — Client ID exists but secret never captured from GCP |
-| CSP | `unsafe-inline` accepted (risk doc: `docs/security/CSP_RISK_ACCEPTANCE.md`) |
-| CORS | Configured via CF Worker + backend |
-| Rate limiting | 3-tier: CF Worker edge + Redis backend + application-level |
-| Swagger/ReDoc | Disabled in production |
-| OWASP ZAP | Weekly scan configured |
-| pip-audit | In CI pipeline |
-| npm audit | In CI pipeline |
-| Secret scanning | `secret-scan.yml` workflow |
-| Account deletion | Uses `window.confirm()` (native, no custom modal) |
+These areas were checked and found launch-ready:
 
----
-
-## 7. UX / Feature Gaps Found
-
-| Gap | Severity | Location | Detail |
-|-----|----------|----------|--------|
-| Natural Gas dashboard tab shows "coming soon" | P2 | `UtilityTabShell.tsx:61-74` | `natural_gas` not in `UTILITY_DASHBOARDS` map, but `GasRatesContent` component exists at `/gas-rates` page |
-| Beta signup page still accessible | P3 | `(app)/beta-signup/page.tsx` | Posts to `/api/v1/beta/signup` — should be removed or redirected for public launch |
-| `window.confirm` for account deletion | P3 | `settings/page.tsx:214` | Native confirm dialog, not custom modal — noted as deferred in roadmap |
-| Email/Direct Login connection flows show fallback messages | P2 | `EmailConnectionFlow.tsx:127`, `DirectLoginForm.tsx:163` | "not yet available" messages for email and direct login connections |
+- **28 page routes** properly structured in Next.js App Router
+- **28 error.tsx** boundaries (root, app layout, all app/auth/public routes)
+- **22 loading.tsx** states (all app and auth routes covered)
+- **robots.ts** with proper disallow rules (/api/, /dashboard/, /settings/, /onboarding/)
+- **sitemap.ts** generating static + 50-state x N-utility programmatic pages
+- **Root layout metadata**: title template, description, keywords, OG, Twitter card, robots
+- **CORS**: Env-based origins, properly configured in app_factory.py
+- **Rate limiting**: 62 files, 3-tier (CF edge + Redis backend + application)
+- **7,362 tests** all passing (backend 2,976, frontend 2,015, E2E 1,605, ML 676, Worker 90)
+- **33 GHA workflows** with self-healing, retry-curl, notify-slack
+- **3 CF Worker cron triggers** active (check-alerts, price-sync, observe-forecasts)
+- **Stripe billing**: 3 tiers, plan gating on 7+ endpoints, dunning, webhooks
+- **PWA**: manifest.json, service worker, install prompt
+- **Microsoft Clarity** analytics present
+- **Brand**: "RateShift" consistent across user-facing surfaces
+- **GitHub OAuth**: Complete and working
+- **OWASP ZAP + pip-audit + npm audit**: In CI pipeline
+- **Email**: Resend primary (domain verified, DKIM/SPF/DMARC) + Gmail SMTP fallback
+- **Disaster Recovery**: Weekly backups to R2, documented runbook
 
 ---
 
-## 8. Test Coverage Summary
+## 4. Gaps Found
 
-| Suite | Count | Status |
-|-------|-------|--------|
-| Backend (pytest) | 2,976 | Passing |
-| Frontend (jest) | 2,043 (154 suites) | Passing |
-| E2E (Playwright) | 1,605 (25 specs, 5 browsers) | Passing |
-| ML | 676 | Passing |
-| CF Worker | 90 | Passing |
-| **Total** | **~7,390** | All passing |
+### Category A: Infrastructure / Configuration (manual actions needed)
 
-### Skipped Tests
-- No `@pytest.mark.skip` found in backend tests (all previously skipped tests were implemented in Sprint 1.4)
-- 2 E2E TODOs: `authentication.spec.ts` lines 111, 165 — magic link auth and constraint validation tests
+| # | Gap | Evidence | Severity |
+|---|-----|----------|----------|
+| 1 | FRONTEND_URL = localhost:3000 on Render | `settings.py:213-216` TODO comment | **P0 BLOCKER** |
+| 2 | Render free tier cold starts (20-30s) | `docs/CAPACITY_AUDIT.md` CRITICAL rating | P1 |
+| 3 | Resend 100 emails/day cap | `docs/CAPACITY_AUDIT.md` CRITICAL for 100+ signups | P1 |
+| 4 | Google OAuth secret not captured | `CLAUDE.md` — placeholder on Render | P1 |
+| 5 | Missing env vars (UTILITYAPI_KEY, GMAIL_*, OUTLOOK_*) | `CLAUDE.md` env var gaps section | P1 |
+| 6 | No status page | Referenced in `docs/LAUNCH_CHECKLIST.md` but doesn't exist | P2 |
+
+### Category B: Analytics / SEO / Marketing
+
+| # | Gap | Evidence | Severity |
+|---|-----|----------|----------|
+| 7 | No GA4 analytics | Zero matches for gtag/GA4 in frontend (only Clarity) | P1 |
+| 8 | No OG image file | layout.tsx has OG metadata but no `images` property, no og-*.png | P1 |
+| 9 | Sitemap includes /dashboard | `sitemap.ts:23-26` — protected route, search engines can't access | P2 |
+| 10 | Content assets (screenshots, video) not created | `docs/LAUNCH_CHECKLIST.md` Content Assets unchecked | P2 |
+| 11 | Social media accounts not verified | `docs/LAUNCH_CHECKLIST.md` Network Building unchecked | P3 |
+
+### Category C: Code / Feature Gaps (resolved in v1 sprint)
+
+These were found and fixed in the 2026-03-23 sprint:
+- ~~Natural Gas dashboard tab~~ DONE (LG-002)
+- ~~Email/Direct Login "not yet available" messages~~ DONE (LG-003, LG-004)
+- ~~Beta signup page still accessible~~ DONE (LG-008)
+- ~~window.confirm for account deletion~~ DONE (LG-007)
+- ~~MVP checklist stale~~ DONE (LG-015)
+- ~~Launch checklist not walked through~~ DONE (LG-014)
+
+### Category D: Architecture / Deferred
+
+| # | Gap | Evidence | Severity |
+|---|-----|----------|----------|
+| 12 | No background job queue (arq/celery) | Grep returned zero matches | P3 (deferred) |
+| 13 | E2E test TODOs (2 items) | `authentication.spec.ts:111,165` | P3 |
+| 14 | TODO in settings.py | `settings.py:213` | P3 (informational) |
 
 ---
 
-## 9. Documentation Readiness
+## 5. Delta from Previous Analysis (2026-03-23)
 
-| Doc | Status |
-|-----|--------|
-| Product Hunt materials | **READY** — `docs/launch/PRODUCT_HUNT.md` (615 lines) |
-| HN/Reddit posts | **READY** — `docs/launch/HN_REDDIT_POSTS.md` |
-| Monitoring runbook | **READY** — `docs/launch/MONITORING_RUNBOOK.md` (846 lines) |
-| Capacity audit | **READY** — `docs/CAPACITY_AUDIT.md` |
-| CSP risk acceptance | **READY** — `docs/security/CSP_RISK_ACCEPTANCE.md` |
-| Launch checklist | **EXISTS BUT UNCHECKED** — `docs/LAUNCH_CHECKLIST.md` (587 lines, all items unchecked) |
-| MVP checklist | **STALE** — `docs/MVP_LAUNCH_CHECKLIST.md` (test counts from 2026-03-04) |
-
----
-
-## 10. Orchestrator / Registry State
-
-| System | Status |
+| Change | Detail |
 |--------|--------|
-| MASTER_TODO_REGISTRY | 28/28 tasks complete, v2.0.0 |
-| Conductor tracks | 19/19 complete |
-| Loki CONTINUITY.md | Archived 2026-03-16, no active sessions |
-| DSP graph | 474 entities, 940+ imports, 1 real cycle |
-| Board sync | GitHub Projects #4 (local hooks), Notion (6h Rube recipe) |
-
----
-
-## 11. Key Findings Summary
-
-### Blockers (P0)
-1. **FRONTEND_URL not set on Render** — Backend defaults to `localhost:3000`, breaking email links, OAuth redirects, CORS in production
-
-### High Priority (P1)
-2. **Google OAuth incomplete** — Client secret never captured; Google login non-functional
-3. **Render cold starts on free tier** — 20-30s delay kills first impression (keepalive mitigates but not eliminates)
-4. **Launch checklist entirely unchecked** — 587-line checklist with no items marked done despite work being complete
-5. **Connection features show "not yet available"** — Email and Direct Login connection flows display error messages
-
-### Medium Priority (P2)
-6. **Natural Gas dashboard tab placeholder** — Shows "coming soon" even though `GasRatesContent` component exists
-7. **Beta signup page still accessible** — Should be removed/redirected for public launch
-8. **Missing Render env vars** — UTILITYAPI_KEY, GMAIL/OUTLOOK client IDs/secrets (4 connection types affected)
-9. **Resend 100/day email limit** — Could exhaust on launch day (Gmail fallback mitigates)
-10. **Gemini 10 RPM bottleneck** — AI queries will hit rate limit quickly under load
-
-### Low Priority (P3)
-11. **MVP checklist stale** — Test counts from March 4, significantly outdated
-12. **Native `window.confirm` for account deletion** — Works but not polished
-13. **2 E2E test TODOs** — Magic link auth and constraint validation tests not implemented
-14. **types/index.ts has "Electricity Optimizer" in comment** — Code comment, not user-facing
+| **Removed** | LG-002, LG-003, LG-004, LG-007, LG-008, LG-014, LG-015 (7 items completed) |
+| **New gap found** | OG image missing — not in previous analysis |
+| **New gap found** | Sitemap includes protected /dashboard route |
+| **Reclassified** | GA4 was "skipped (needs ID)" — now classified as P1 |
+| **Unchanged** | FRONTEND_URL (P0), Render cold starts (P1), Resend cap (P1), Google OAuth (P1), missing env vars (P1), status page (P2), content assets (P2), social media (P3), job queue (P3) |
+| **Total** | Previous: 19 (12 remaining). New: 14 gaps (9 remaining code/config + 5 manual/process) |

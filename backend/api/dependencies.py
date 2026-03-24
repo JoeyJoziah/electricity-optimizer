@@ -10,9 +10,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
 
 # Re-export auth dependencies from neon_auth module.
-from auth.neon_auth import (
+from auth.neon_auth import (  # noqa: F401
     SessionData,
     get_current_user,
+    get_current_user_optional,
 )
 from config.database import db_manager
 from config.settings import settings

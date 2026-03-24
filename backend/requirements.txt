@@ -29,7 +29,7 @@ python-dateutil==2.9.0.post0
 
 # Monitoring & Logging
 prometheus-client==0.24.1
-sentry-sdk[fastapi]==2.0
+sentry-sdk[fastapi]==2.54.0
 structlog==25.5.0
 
 # OpenTelemetry — opt-in distributed tracing (OTEL_ENABLED=true activates)

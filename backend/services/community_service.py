@@ -126,7 +126,15 @@ class CommunityService:
         body: str,
         agent_service: Any,
     ) -> None:
-        """Run AI moderation: Groq primary, Gemini fallback."""
+        """Run AI moderation: Groq primary, Gemini fallback.
+
+        When agent_service is None (AI disabled), auto-approve the post.
+        """
+        if agent_service is None:
+            logger.info("moderation_skipped_ai_disabled", post_id=str(post_id))
+            await self._clear_pending_moderation(db, post_id)
+            return
+
         content = f"{title}\n\n{body}"
         classification = None
 

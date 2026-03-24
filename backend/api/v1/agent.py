@@ -94,6 +94,19 @@ async def _get_user_context(user_id: str, db: AsyncSession) -> dict:
     return {"region": "Unknown", "supplier": "Unknown", "tier": "free"}
 
 
+# Keys that user-supplied context is allowed to set.  Everything else is
+# derived from the authenticated session / database and must never be
+# overridable from the request body.
+_ALLOWED_CONTEXT_KEYS: frozenset[str] = frozenset(
+    {
+        "region_override",
+        "supplier_override",
+        "utility_type",
+        "comparison_mode",
+    }
+)
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -121,24 +134,25 @@ async def query_agent(
             detail="Database unavailable",
         )
 
-    # Get user context + tier
+    # Build context from DB — then selectively merge whitelisted user overrides.
     context = await _get_user_context(current_user.user_id, db)
     if body.context:
-        context.update(body.context)
-    # Strip any attempt to override security-sensitive keys from the user-supplied
-    # context. tier and user_id MUST always come from the authenticated session /
-    # database, never from the request body.
+        for key in _ALLOWED_CONTEXT_KEYS:
+            if key in body.context:
+                context[key] = body.context[key]
+    # Security-sensitive keys always come from the authenticated session / DB.
     context["tier"] = await _get_user_tier(current_user.user_id, db)
     context["user_id"] = current_user.user_id
     tier = context["tier"]
 
-    # Rate limit check
+    # Atomic rate-limit check + increment (prevents TOCTOU race)
     service = AgentService()
-    allowed, used, limit = await service.check_rate_limit(current_user.user_id, tier, db)
+    allowed, count = await service.increment_usage_atomic(current_user.user_id, tier, db)
     if not allowed:
+        limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Daily query limit reached ({used}/{limit}). Upgrade your plan for more queries.",
+            detail=f"Daily query limit reached ({count}/{limit}). Upgrade your plan for more queries.",
         )
 
     async def event_stream():
@@ -197,22 +211,25 @@ async def submit_agent_task(
             detail="Database unavailable",
         )
 
+    # Build context from DB — then selectively merge whitelisted user overrides.
     context = await _get_user_context(current_user.user_id, db)
     if body.context:
-        context.update(body.context)
-    # Strip any attempt to override security-sensitive keys from the user-supplied
-    # context. tier and user_id MUST always come from the authenticated session /
-    # database, never from the request body.
+        for key in _ALLOWED_CONTEXT_KEYS:
+            if key in body.context:
+                context[key] = body.context[key]
+    # Security-sensitive keys always come from the authenticated session / DB.
     context["tier"] = await _get_user_tier(current_user.user_id, db)
     context["user_id"] = current_user.user_id
     tier = context["tier"]
 
+    # Atomic rate-limit check + increment (prevents TOCTOU race)
     service = AgentService()
-    allowed, used, limit = await service.check_rate_limit(current_user.user_id, tier, db)
+    allowed, count = await service.increment_usage_atomic(current_user.user_id, tier, db)
     if not allowed:
+        limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Daily query limit reached ({used}/{limit}).",
+            detail=f"Daily query limit reached ({count}/{limit}).",
         )
 
     job_id = await service.query_async(
@@ -221,9 +238,6 @@ async def submit_agent_task(
         context=context,
         db=db,
     )
-
-    # Increment usage now (async job already started)
-    await service.increment_usage(current_user.user_id, db)
 
     logger.info("agent_task_submitted", user_id=current_user.user_id, job_id=job_id)
     return {"job_id": job_id}

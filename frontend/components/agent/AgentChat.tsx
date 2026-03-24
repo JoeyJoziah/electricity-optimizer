@@ -27,11 +27,15 @@ function MessageBubble({ message }: { message: AgentMessage }) {
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100">
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100"
+          aria-hidden="true"
+        >
           <Bot className="h-4 w-4 text-primary-600" />
         </div>
       )}
       <div
+        role={isError ? "alert" : undefined}
         className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
           isUser
             ? "bg-primary-600 text-white"
@@ -63,7 +67,10 @@ function MessageBubble({ message }: { message: AgentMessage }) {
         )}
       </div>
       {isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200">
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200"
+          aria-hidden="true"
+        >
           <User className="h-4 w-4 text-gray-600" />
         </div>
       )}
@@ -90,6 +97,8 @@ export function AgentChat() {
     if (!trimmed || isStreaming || trimmed.length > 2000) return;
     setInput("");
     sendQuery(trimmed);
+    // Return focus to input after sending
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleExampleClick = (prompt: string) => {
@@ -135,6 +144,7 @@ export function AgentChat() {
               onClick={reset}
               className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               title="New conversation"
+              aria-label="Start new conversation"
             >
               <RotateCcw className="h-4 w-4" />
             </button>
@@ -143,7 +153,12 @@ export function AgentChat() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div
+        className="flex-1 overflow-y-auto px-6 py-4"
+        role="log"
+        aria-label="Chat messages"
+        aria-live="polite"
+      >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50">
@@ -175,7 +190,7 @@ export function AgentChat() {
             ))}
             {isStreaming && (
               <div className="flex items-center gap-2 text-sm text-gray-400">
-                <div className="flex gap-1">
+                <div className="flex gap-1" aria-hidden="true">
                   <span
                     className="h-2 w-2 animate-bounce rounded-full bg-primary-400"
                     style={{ animationDelay: "0ms" }}
@@ -189,7 +204,7 @@ export function AgentChat() {
                     style={{ animationDelay: "300ms" }}
                   />
                 </div>
-                Thinking...
+                <span role="status">Thinking...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -223,6 +238,7 @@ export function AgentChat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask RateShift AI..."
+              aria-label="Message input"
               rows={1}
               disabled={isStreaming}
               className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 pr-16 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
@@ -239,6 +255,7 @@ export function AgentChat() {
             <button
               type="button"
               onClick={cancel}
+              aria-label="Cancel response"
               className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-200 text-gray-600 transition-colors hover:bg-gray-300"
             >
               <Square className="h-4 w-4" />
@@ -247,6 +264,7 @@ export function AgentChat() {
             <button
               type="submit"
               disabled={!input.trim() || isOverLimit}
+              aria-label="Send message"
               className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white transition-colors hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600"
             >
               <Send className="h-4 w-4" />

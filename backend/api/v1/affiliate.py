@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db_session, verify_api_key
+from api.dependencies import get_current_user_optional, get_db_session, verify_api_key
 
 logger = structlog.get_logger(__name__)
 
@@ -29,19 +29,26 @@ class ClickRequest(BaseModel):
     utility_type: str = Field(description="Utility type: electricity, natural_gas, etc.")
     region: str = Field(description="State/region code")
     source_page: str = Field(description="Page where click originated")
-    user_id: str | None = Field(default=None, description="Authenticated user ID")
 
 
 @router.post("/click", summary="Record affiliate click")
 async def record_affiliate_click(
     body: ClickRequest,
     db: AsyncSession = Depends(get_db_session),
+    current_user=Depends(get_current_user_optional),
 ) -> dict[str, Any]:
-    """Record a click on an affiliate/switch CTA."""
+    """Record a click on an affiliate/switch CTA.
+
+    User ID is derived from the authenticated session when available.
+    Anonymous clicks are allowed (user_id=None).
+    """
     if db is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
     from services.affiliate_service import AffiliateService
+
+    # Use authenticated user_id if logged in, otherwise None (anonymous)
+    user_id = current_user.user_id if current_user else None
 
     service = AffiliateService(db)
     affiliate_url = service.generate_affiliate_url(
@@ -51,7 +58,7 @@ async def record_affiliate_click(
     )
 
     click_id = await service.record_click(
-        user_id=body.user_id,
+        user_id=user_id,
         supplier_id=body.supplier_id,
         supplier_name=body.supplier_name,
         utility_type=body.utility_type,

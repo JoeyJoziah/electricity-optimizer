@@ -34,6 +34,11 @@ _ALLOWED_COLS = frozenset(
         "state",
     }
 )
+# Allowlisted static WHERE clauses (defense-in-depth: prevents future callers
+# from accidentally passing user-controlled SQL fragments).
+_ALLOWED_WHERE_CLAUSES: frozenset[str | None] = frozenset(
+    {None, "utility_type = 'NATURAL_GAS'", "utility_type = 'ELECTRICITY'"}
+)
 
 
 def _validate_sql_identifier(value: str, allowlist: frozenset, label: str) -> str:
@@ -167,10 +172,12 @@ class ForecastService:
         horizon_days: int,
     ) -> dict:
         """Generic trend extrapolation from a price history table."""
-        # Validate all SQL identifiers against allowlists
+        # Validate all SQL identifiers and fragments against allowlists
         _validate_sql_identifier(table, _ALLOWED_TABLES, "table")
         _validate_sql_identifier(price_col, _ALLOWED_COLS, "column")
         _validate_sql_identifier(state_col, _ALLOWED_COLS, "column")
+        if where_clause not in _ALLOWED_WHERE_CLAUSES:
+            raise ValueError(f"Disallowed where_clause: {where_clause!r}")
 
         conditions = []
         params: dict = {"lookback_days": TREND_LOOKBACK_DAYS}

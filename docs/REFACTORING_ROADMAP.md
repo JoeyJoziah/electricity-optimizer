@@ -368,3 +368,48 @@ P1-1 (remove JWT) --before--> P2-4 (decompose Settings)
 > **Note (2026-03-16):** These counts reflect the state at refactoring completion (2026-03-05). Current counts are significantly higher: Backend 2,480, Frontend 1,835, ML 611, E2E 671, CF Worker 77 = ~5,674 total. Growth from Waves 1-5 (multi-utility expansion, community features, security hardening, performance optimization).
 
 **Achievement**: 100% of automated tests passing, comprehensive coverage across all modules, zero critical vulnerabilities, 2,784 core platform tests (backend + frontend), migration 023 fully deployed, circuit breaker + retention scheduler operational, pg_stat_statements monitoring active on production database
+
+---
+
+## Future: Repository Layer Strategic Plan
+
+> Added: 2026-03-24 (audit finding C-13)
+> Status: Planned — low priority, no immediate action required
+
+### Current State
+
+Services use raw SQL via `sqlalchemy.text()` directly (41 `db.execute` calls across 6 service files). This works and is well-tested, but as the codebase grows it leads to:
+
+- SQL duplication across services (e.g., `price_alert_configs` SELECTs in 4+ methods)
+- Serialization helpers repeated per service (`_config_row_to_dict`, `_history_row_to_dict`)
+- Harder to enforce consistent query patterns (pagination, soft-delete, audit columns)
+
+### Recommended Approach
+
+Introduce a thin repository layer **incrementally** — one table group at a time, not a big-bang rewrite.
+
+**Phase 1 — Extract highest-duplication tables first:**
+- `AlertRepository` (covers `price_alert_configs` + `alert_history` — 13 queries in `alert_service.py`)
+- `CommunityRepository` (covers `community_posts/votes/reports` — 18 queries in `community_service.py`)
+
+**Phase 2 — Standardize patterns:**
+- Base `Repository` class with `get_by_id`, `list_paginated`, `create`, `update`, `delete`
+- Shared `RowSerializer` mixin to replace per-service `_*_to_dict` methods
+- Consistent `RETURNING` clause usage
+
+**Phase 3 — Remaining services:**
+- `AgentRepository` (7 queries in `agent_service.py`)
+- `NeighborhoodRepository`, `SavingsRepository` (1 query each — optional, low value)
+
+### Constraints
+
+- Keep raw SQL (do not introduce ORM mapping) — the existing `text()` approach is fast and explicit
+- Repository methods return plain dicts (not ORM objects) to preserve current service contracts
+- Each repository lives in `backend/repositories/` with its own test file
+- Migration is incremental: services call repository methods but can still use `db.execute` for one-off queries
+
+### When to Execute
+
+This is a **post-launch optimization**. Trigger when:
+- A new feature requires 3+ queries against the same table group, OR
+- A service file exceeds 500 lines of SQL-heavy code

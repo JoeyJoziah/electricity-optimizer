@@ -31,7 +31,13 @@ def _mapping_result(rows=None):
 
 
 def _make_db(row_sets=None):
-    """Create a mock DB that returns different row sets per call."""
+    """Create a mock DB that returns different row sets per call.
+
+    After the CTE merge, generate_report makes 3 DB calls:
+      1. electricity + gas CTE (rows must include utility_type)
+      2. heating oil
+      3. propane
+    """
     db = AsyncMock()
     if row_sets:
         db.execute = AsyncMock(side_effect=[_mapping_result(rs) for rs in row_sets])
@@ -69,7 +75,7 @@ class TestAvgMonthlyConsumption:
 
 class TestReportStructure:
     async def test_empty_report_has_required_keys(self):
-        db = _make_db([[], [], [], []])
+        db = _make_db([[], [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
@@ -82,8 +88,9 @@ class TestReportStructure:
         assert result["utility_count"] == 0
 
     async def test_annual_spend_is_12x_monthly(self):
-        elec_rows = [{"price_per_kwh": 0.15, "supplier": "ACME"}]
-        db = _make_db([elec_rows, [], [], []])
+        # CTE query returns electricity rows with utility_type
+        elec_rows = [{"price_per_kwh": 0.15, "supplier": "ACME", "utility_type": "ELECTRICITY"}]
+        db = _make_db([elec_rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
@@ -97,8 +104,8 @@ class TestReportStructure:
 
 class TestElectricitySpend:
     async def test_monthly_cost_calculation(self):
-        rows = [{"price_per_kwh": 0.20, "supplier": "Test"}]
-        db = _make_db([rows, [], [], []])
+        rows = [{"price_per_kwh": 0.20, "supplier": "Test", "utility_type": "ELECTRICITY"}]
+        db = _make_db([rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
@@ -108,10 +115,10 @@ class TestElectricitySpend:
 
     async def test_savings_generated_when_price_spread(self):
         rows = [
-            {"price_per_kwh": 0.25, "supplier": "Expensive"},
-            {"price_per_kwh": 0.15, "supplier": "Cheap"},
+            {"price_per_kwh": 0.25, "supplier": "Expensive", "utility_type": "ELECTRICITY"},
+            {"price_per_kwh": 0.15, "supplier": "Cheap", "utility_type": "ELECTRICITY"},
         ]
-        db = _make_db([rows, [], [], []])
+        db = _make_db([rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
@@ -128,9 +135,12 @@ class TestElectricitySpend:
 
 class TestMultiUtilityAggregation:
     async def test_utility_count_matches_data(self):
-        elec_rows = [{"price_per_kwh": 0.15, "supplier": "A"}]
-        gas_rows = [{"price_per_kwh": 1.20}]
-        db = _make_db([elec_rows, gas_rows, [], []])
+        # CTE returns both electricity and gas rows in one query
+        combined_rows = [
+            {"price_per_kwh": 0.15, "supplier": "A", "utility_type": "ELECTRICITY"},
+            {"price_per_kwh": 1.20, "supplier": None, "utility_type": "NATURAL_GAS"},
+        ]
+        db = _make_db([combined_rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
@@ -140,9 +150,11 @@ class TestMultiUtilityAggregation:
         assert "natural_gas" in types
 
     async def test_total_monthly_aggregates_all(self):
-        elec_rows = [{"price_per_kwh": 0.15, "supplier": "A"}]
-        gas_rows = [{"price_per_kwh": 1.50}]
-        db = _make_db([elec_rows, gas_rows, [], []])
+        combined_rows = [
+            {"price_per_kwh": 0.15, "supplier": "A", "utility_type": "ELECTRICITY"},
+            {"price_per_kwh": 1.50, "supplier": None, "utility_type": "NATURAL_GAS"},
+        ]
+        db = _make_db([combined_rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
@@ -158,7 +170,7 @@ class TestMultiUtilityAggregation:
 class TestHeatingOilSpend:
     async def test_heating_oil_cost_calculation(self):
         oil_rows = [{"price_per_gallon": 3.50}]
-        db = _make_db([[], [], oil_rows, []])
+        db = _make_db([[], oil_rows, []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
@@ -170,7 +182,7 @@ class TestHeatingOilSpend:
 class TestPropaneSpend:
     async def test_propane_cost_calculation(self):
         propane_rows = [{"price_per_gallon": 2.80}]
-        db = _make_db([[], [], [], propane_rows])
+        db = _make_db([[], [], propane_rows])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 

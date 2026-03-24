@@ -22,6 +22,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
+from config.settings import settings
+from services.agent_service import AgentService
 from services.community_service import CommunityService
 
 logger = structlog.get_logger(__name__)
@@ -96,6 +98,7 @@ async def create_post(
         )
 
     service = CommunityService()
+    agent_service = AgentService() if settings.enable_ai_agent else None
     post = await service.create_post(
         db=db,
         user_id=current_user.user_id,
@@ -109,7 +112,7 @@ async def create_post(
             "rate_unit": payload.rate_unit,
             "supplier_name": payload.supplier_name,
         },
-        agent_service=None,  # Moderation auto-clears if no agent available
+        agent_service=agent_service,
     )
     return post
 
@@ -168,12 +171,13 @@ async def edit_post(
     if payload.supplier_name is not None:
         data["supplier_name"] = payload.supplier_name
 
+    agent_service = AgentService() if settings.enable_ai_agent else None
     result = await service.edit_and_resubmit(
         db=db,
         user_id=current_user.user_id,
         post_id=str(post_id),
         data=data,
-        agent_service=None,  # Moderation auto-clears if no agent available
+        agent_service=agent_service,
     )
     return result
 

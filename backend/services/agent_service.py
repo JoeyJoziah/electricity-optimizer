@@ -327,8 +327,8 @@ class AgentService:
             except Exception as log_err:
                 logger.warning("conversation_log_failed", error=str(log_err))
 
-            # Increment usage
-            await self.increment_usage(user_id, db)
+            # Usage already incremented atomically at request admission
+            # (increment_usage_atomic in agent.py) — do NOT double-count here.
 
             yield AgentMessage(
                 role="assistant",

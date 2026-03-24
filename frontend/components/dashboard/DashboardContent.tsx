@@ -83,17 +83,18 @@ export default function DashboardContent() {
     /* enabled */ pricesSuccess,
   );
 
-  // Tier 3 — gated on Tier 2 history data being available
+  // Tier 3a — forecast needs history context
   const historyReady = !!historyData;
   const {
     data: forecastData,
     isLoading: forecastLoading,
     error: forecastError,
   } = usePriceForecast(region, 24, /* enabled */ historyReady);
+  // Tier 3b — suppliers only need region/prices, not history
   const { data: suppliersData } = useSuppliers(
     region,
     annualUsage,
-    /* enabled */ historyReady,
+    /* enabled */ pricesSuccess,
   );
 
   // SSE — only connect after the primary price data has loaded so the
