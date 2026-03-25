@@ -203,22 +203,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
 
-        // Backend calls fire in parallel only after session is confirmed
-        const [supplierResult, profileResult] = await Promise.allSettled([
-          isPublicPage
-            ? Promise.resolve({ supplier: null })
-            : getUserSupplier(),
-          isPublicPage
-            ? Promise.resolve({ region: null, onboarding_completed: false })
-            : getUserProfile(),
-        ]);
-
-        if (cancelled) return;
-
-        // Session is guaranteed fulfilled with a user at this point (early
-        // return above handles the negative case).
-        {
-          const session = sessionResult.value.data;
+        // ------------------------------------------------------------------
+        // Unblock UI immediately after session check.
+        //
+        // Set user + isLoading=false NOW so AuthGuard renders children in
+        // ~500ms (session RTT) instead of blocking for 10-20s while
+        // profile/supplier calls retry against a cold/down backend.
+        // Profile and supplier are fetched in the background below.
+        // ------------------------------------------------------------------
+        const session = sessionResult.value.data;
+        if (!cancelled) {
           setUser({
             id: session.user.id,
             email: session.user.email,
@@ -230,89 +224,103 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Bind OneSignal push subscription to this user
           loginOneSignal(session.user.id);
 
-          // Ensure the public.users profile exists for this authenticated user.
-          // GET /auth/me calls ensure_user_profile on the backend, which upserts
-          // the row if it is missing. This covers OAuth and magic-link sign-in
-          // where signIn() is never called client-side (the redirect bypasses it).
-          // Fire-and-forget: auth init must not block on this.
-          fetch(`${API_URL}/auth/me`, { credentials: "include" }).catch(() => {
-            /* non-fatal */
+          // Let AuthGuard render children immediately
+          setIsLoading(false);
+        }
+
+        // Ensure the public.users profile exists for this authenticated user.
+        // Fire-and-forget: auth init must not block on this.
+        fetch(`${API_URL}/auth/me`, { credentials: "include" }).catch(() => {
+          /* non-fatal */
+        });
+
+        // Skip backend calls on public pages
+        if (isPublicPage) return;
+
+        // ------------------------------------------------------------------
+        // Background profile & supplier fetch
+        //
+        // These run after UI is unblocked. If they fail (503 cold start),
+        // the dashboard still renders with whatever data React Query
+        // provides. Profile redirects (onboarding/region) only fire when
+        // the profile fetch actually succeeds.
+        // ------------------------------------------------------------------
+        const [supplierResult, profileResult] = await Promise.allSettled([
+          getUserSupplier(),
+          getUserProfile(),
+        ]);
+
+        if (cancelled) return;
+
+        // Sync supplier if fetched successfully
+        if (
+          supplierResult.status === "fulfilled" &&
+          supplierResult.value.supplier
+        ) {
+          const supplier = supplierResult.value.supplier;
+          const setCurrentSupplier =
+            useSettingsStore.getState().setCurrentSupplier;
+          setCurrentSupplier({
+            id: supplier.supplier_id,
+            name: supplier.supplier_name,
+            avgPricePerKwh: 0,
+            standingCharge: 0,
+            greenEnergy: supplier.green_energy,
+            rating: supplier.rating ?? 0,
+            estimatedAnnualCost: 0,
+            tariffType: "variable",
           });
+        }
 
-          // Sync supplier if fetched successfully
-          if (
-            supplierResult.status === "fulfilled" &&
-            supplierResult.value.supplier
-          ) {
-            const supplier = supplierResult.value.supplier;
-            const setCurrentSupplier =
-              useSettingsStore.getState().setCurrentSupplier;
-            setCurrentSupplier({
-              id: supplier.supplier_id,
-              name: supplier.supplier_name,
-              avgPricePerKwh: 0,
-              standingCharge: 0,
-              greenEnergy: supplier.green_energy,
-              rating: supplier.rating ?? 0,
-              estimatedAnnualCost: 0,
-              tariffType: "variable",
-            });
+        // ------------------------------------------------------------------
+        // Profile fetch with retry
+        //
+        // If the initial profile fetch failed (network error, backend cold
+        // start, timeout), retry once after a 1s delay before deciding
+        // whether to redirect. This prevents false onboarding redirects
+        // when the backend is slow to respond.
+        // ------------------------------------------------------------------
+        let resolvedProfile =
+          profileResult.status === "fulfilled" ? profileResult.value : null;
+
+        if (profileResult.status === "rejected") {
+          await delay(PROFILE_RETRY_DELAY_MS);
+          if (cancelled) return;
+          try {
+            resolvedProfile = await getUserProfile();
+          } catch {
+            // Retry also failed — set flag so UI can show a banner.
+            if (!cancelled) {
+              setProfileFetchFailed(true);
+            }
+            return;
           }
+        }
 
-          // ------------------------------------------------------------------
-          // Profile fetch with retry
-          //
-          // If the initial profile fetch failed (network error, backend cold
-          // start, timeout), retry once after a 1s delay before deciding
-          // whether to redirect. This prevents false onboarding redirects
-          // when the backend is slow to respond.
-          // ------------------------------------------------------------------
-          let resolvedProfile =
-            profileResult.status === "fulfilled" ? profileResult.value : null;
+        if (cancelled) return;
 
-          if (profileResult.status === "rejected" && !isPublicPage) {
-            await delay(PROFILE_RETRY_DELAY_MS);
-            if (cancelled) return;
-            try {
-              resolvedProfile = await getUserProfile();
-            } catch {
-              // Retry also failed — set flag and do NOT redirect based on
-              // missing region since we cannot determine the true state.
-              if (!cancelled) {
-                setProfileFetchFailed(true);
-                setIsLoading(false);
-              }
+        // Sync region from profile if available.
+        if (resolvedProfile && resolvedProfile.region) {
+          const store = useSettingsStore.getState();
+          if (!store.region) {
+            store.setRegion(resolvedProfile.region);
+          }
+        }
+
+        // ------------------------------------------------------------------
+        // Profile completeness redirects — ONLY when fetch SUCCEEDED
+        // ------------------------------------------------------------------
+        if (resolvedProfile) {
+          const path = window.location.pathname;
+
+          if (isProfileRequiredPath(path)) {
+            if (checkNeedsRegion(resolvedProfile)) {
+              routerRef.current.replace("/onboarding");
               return;
             }
-          }
 
-          if (cancelled) return;
-
-          // Sync region from profile if available.
-          if (resolvedProfile && resolvedProfile.region) {
-            const store = useSettingsStore.getState();
-            if (!store.region) {
-              store.setRegion(resolvedProfile.region);
-            }
-          }
-
-          // ------------------------------------------------------------------
-          // Profile completeness redirects — ONLY when fetch SUCCEEDED
-          // ------------------------------------------------------------------
-          if (resolvedProfile) {
-            const path = window.location.pathname;
-
-            if (isProfileRequiredPath(path)) {
-              if (checkNeedsRegion(resolvedProfile)) {
-                routerRef.current.replace("/onboarding");
-                return;
-              }
-
-              if (checkNeedsOnboarding(resolvedProfile)) {
-                updateUserProfile({ onboarding_completed: true }).catch(
-                  () => {},
-                );
-              }
+            if (checkNeedsOnboarding(resolvedProfile)) {
+              updateUserProfile({ onboarding_completed: true }).catch(() => {});
             }
           }
         }
