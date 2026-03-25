@@ -201,8 +201,12 @@ export default function DashboardContent() {
     [suppliersData],
   );
 
-  // Loading state
-  if (pricesLoading && historyLoading) {
+  // Loading state — show skeleton until Tier 1 (prices) resolves.
+  // All downstream queries (history, savings, forecast, suppliers) are gated
+  // on pricesSuccess, so nothing useful renders before prices arrive.
+  // Using only pricesLoading (not && historyLoading) prevents the cascade of
+  // skeleton→content→skeleton flashes during the waterfall.
+  if (pricesLoading) {
     return (
       <div data-testid="dashboard-loading">
         <Header title="Dashboard" />
