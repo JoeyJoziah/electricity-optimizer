@@ -1,6 +1,6 @@
 # Developer Guide
 
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-03-25
 
 Quick-start guide for contributing to RateShift. For architecture details see `ARCHITECTURE.md`.
 
@@ -14,12 +14,15 @@ Quick-start guide for contributing to RateShift. For architecture details see `A
 | Node.js | 20+ | Frontend (Next.js 16) |
 | npm | 10+ | Package management |
 | Git | 2.40+ | Version control |
+| Wrangler | 3+ | Cloudflare Worker development |
 | Docker | 24+ | Optional: containerized dev |
 
 **Accounts needed** (for full local dev):
 - Neon (database): Project `cold-rice-23455092`
-- Stripe (payments): Test mode keys
+- Stripe (payments): Test mode keys (`sk_test_*`)
 - 1Password CLI (secrets): Vault "RateShift"
+
+> For the complete list of 44 backend env vars, 4 CF Worker secrets, and 6 frontend vars, see `docs/ENV_REFERENCE.md`.
 
 ---
 
@@ -48,20 +51,30 @@ Backend reads from env vars (dev) or 1Password (prod). Minimum for local dev:
 
 ```bash
 # backend/.env (create this file)
-DATABASE_URL=postgresql://...@ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
-REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
 ENVIRONMENT=development
-INTERNAL_API_KEY=your-dev-key
-FIELD_ENCRYPTION_KEY=<32-byte-hex>
-BETTER_AUTH_SECRET=<32+-char-secret>
+JWT_SECRET=dev-local-jwt-secret-at-least-32-characters-long
+BETTER_AUTH_SECRET=dev-local-better-auth-secret-at-least-32-chars
+INTERNAL_API_KEY=dev-local-internal-api-key-at-least-32-chars
+CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+FRONTEND_URL=http://localhost:3000
+
+# Optional — enable features incrementally
+# REDIS_URL=redis://localhost:6379
+# FIELD_ENCRYPTION_KEY=<64-hex-chars>
+# RESEND_API_KEY=re_...
+# STRIPE_SECRET_KEY=sk_test_...
+# EIA_API_KEY=...
+# ENABLE_AI_AGENT=false
 ```
+
+> Generate secrets: `python -c "import secrets; print(secrets.token_hex(32))"`
 
 Frontend uses `NEXT_PUBLIC_*` env vars in `frontend/.env.local`:
 
 ```bash
 NEXT_PUBLIC_API_URL=/api/v1
-NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=false
-NEXT_PUBLIC_OAUTH_GITHUB_ENABLED=false
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 ### 3. Run Locally
@@ -95,7 +108,7 @@ Frontend at `http://localhost:3000`, API at `http://localhost:8000`.
 .venv/bin/python -m pytest ml/tests/ -v
 ```
 
-Coverage threshold: 80%+. Current: 86%+ (2,536 tests).
+Coverage threshold: 80%+. Current: 86%+ (2,976 tests).
 
 > **Module-level cache isolation**: When adding module-level cache dicts (e.g., `_tier_cache`), always add a corresponding `autouse` fixture in `conftest.py` to clear the cache between tests. Detection signal: tests pass individually (`pytest test_foo.py`) but fail when run as a full suite (`pytest backend/tests/`).
 
@@ -107,7 +120,7 @@ npm test              # Watch mode
 npm run test:ci       # CI mode with coverage
 ```
 
-Coverage threshold: 80% branches/functions/lines/statements. Current: 1,898 tests across 138 suites.
+Coverage threshold: 80% branches/functions/lines/statements. Current: 2,015 tests across 153 suites.
 
 ### E2E (Playwright)
 
@@ -119,7 +132,7 @@ npx playwright test --project=chromium  # Single browser
 npx playwright test --ui  # Interactive UI mode
 ```
 
-Current: 671 tests, 5 browser projects.
+Current: 1,605 tests across 25 specs, 5 browser projects.
 
 ### CF Worker (vitest)
 
@@ -128,7 +141,7 @@ cd workers/api-gateway
 npm test
 ```
 
-Current: 77 tests.
+Current: 90 tests.
 
 ---
 
@@ -137,8 +150,8 @@ Current: 77 tests.
 ### Neon PostgreSQL
 
 - **Project**: `cold-rice-23455092` ("energyoptimize")
-- **Tables**: 53 (44 public + 9 neon_auth)
-- **Migrations**: 50 (init_neon through 050), all deployed to production
+- **Tables**: 58 (49 public + 9 neon_auth)
+- **Migrations**: 64 (init_neon through 064_migration_history_uuid_pk), all deployed to production
 
 ### Running Migrations
 
@@ -250,14 +263,17 @@ Follow the pattern from ADR-005 (`docs/adr/005-multi-utility-expansion.md`):
 
 ## CI/CD
 
-### GitHub Actions (32 workflows)
+### GitHub Actions (33 workflows)
 
 Key workflows:
 - `ci.yml` — Unified CI: lint, test (backend + frontend + ML), security scan, Docker build
 - `e2e-tests.yml` — Playwright E2E + Lighthouse + load tests
 - `deploy.yml` — Deploy to Render (migration gate before deploy)
 - `deploy-worker.yml` — Deploy CF Worker
+- `daily-data-pipeline.yml` — Consolidated daily pipeline (scrape-rates, scan-emails, learn, detect-rate-changes)
 - `owasp-zap.yml` — Weekly OWASP ZAP baseline scan
+
+> For the full cron job schedule and per-job troubleshooting, see `docs/runbooks/CRON_JOBS.md`.
 
 ### Self-Healing
 
@@ -297,17 +313,115 @@ Use `npm install --legacy-peer-deps` (configured in `.npmrc`).
 
 ---
 
+## Makefile Targets
+
+The root `Makefile` provides common commands for development, testing, and deployment. Run `make help` for a self-documenting list of all targets.
+
+### Development
+
+| Target | Description |
+|--------|-------------|
+| `make setup` | First-time setup: copy `.env.example`, build images, start services |
+| `make build` | Build all Docker images |
+| `make build-prod` | Build production Docker images |
+| `make up` | Start all services in development mode (frontend :3000, backend :8000, Grafana :3001) |
+| `make up-prod` | Start production services |
+| `make down` | Stop all services |
+| `make down-prod` | Stop production services |
+| `make restart` | Stop then start all services |
+| `make install` | Install all dependencies locally (pip + npm for backend, frontend, ml) |
+| `make logs` | View logs for all services |
+| `make logs-backend` | View backend logs only |
+| `make logs-frontend` | View frontend logs only |
+
+### Testing
+
+| Target | Description |
+|--------|-------------|
+| `make test` | Run all tests (backend + ML + frontend) |
+| `make test-backend` | Run backend tests with coverage |
+| `make test-ml` | Run ML tests with coverage |
+| `make test-frontend` | Run frontend tests with coverage |
+| `make test-e2e` | Run Playwright E2E tests |
+| `make test-docker` | Run tests inside Docker containers |
+
+### Code Quality
+
+| Target | Description |
+|--------|-------------|
+| `make lint` | Run all linters (backend + frontend) |
+| `make lint-backend` | Lint backend with ruff + mypy |
+| `make lint-frontend` | Lint frontend with ESLint |
+| `make format` | Format all code |
+| `make format-backend` | Format backend with Black + isort |
+| `make format-frontend` | Format frontend with Prettier |
+| `make security-scan` | Run bandit (Python) + npm audit |
+
+### Database
+
+| Target | Description |
+|--------|-------------|
+| `make db-shell` | Open PostgreSQL shell |
+| `make redis-shell` | Open Redis CLI |
+
+### Deploy
+
+| Target | Description |
+|--------|-------------|
+| `make deploy` | Deploy to development |
+| `make deploy-staging` | Deploy to staging |
+| `make deploy-prod` | Deploy to production (with warning) |
+
+### Backup & Monitoring
+
+| Target | Description |
+|--------|-------------|
+| `make backup` | Create database backup |
+| `make backup-full` | Create full backup (all databases) |
+| `make restore` | Restore from latest backup (destructive) |
+| `make health` | Run health checks on all services |
+| `make metrics` | Open Prometheus metrics UI |
+| `make grafana` | Open Grafana dashboard |
+
+### Cleanup
+
+| Target | Description |
+|--------|-------------|
+| `make clean` | Remove all containers, volumes, and images (with confirmation) |
+| `make clean-cache` | Clean Python and npm caches (`__pycache__`, `.pytest_cache`, `node_modules`, `.next`) |
+
+### CI/CD
+
+| Target | Description |
+|--------|-------------|
+| `make ci-test` | Run CI test suite (lint + test + security-scan) |
+| `make ci-build` | Build and push production Docker images |
+
+### Utilities
+
+| Target | Description |
+|--------|-------------|
+| `make shell-backend` | Open shell in backend container |
+| `make shell-frontend` | Open shell in frontend container |
+| `make docs` | Open API documentation in browser |
+
+---
+
 ## Key Documentation
 
 | Document | Purpose |
 |----------|---------|
 | `CLAUDE.md` | Project instructions (architecture quick ref, critical reminders) |
 | `docs/ARCHITECTURE.md` | System architecture overview |
-| `docs/API_REFERENCE.md` | Full API endpoint documentation |
+| `docs/API_REFERENCE.md` | Full API endpoint documentation (~140 endpoints) |
+| `docs/ENV_REFERENCE.md` | All environment variables (44 backend + 4 worker + 6 frontend) |
+| `docs/DATABASE_SCHEMA.md` | Database tables (58) and migrations (64) |
+| `docs/ML_PIPELINE.md` | ML pipeline architecture (ingestion → training → inference → learning) |
 | `docs/CODEMAP_BACKEND.md` | Backend code structure |
 | `docs/CODEMAP_FRONTEND.md` | Frontend code structure |
-| `docs/DATABASE_SCHEMA.md` | Database tables and migrations |
+| `docs/CODEMAP_SERVICES.md` | Service layer overview (51 services by domain) |
+| `docs/runbooks/CRON_JOBS.md` | Cron job runbook (4 CF Worker + 14 GHA schedules) |
 | `docs/TESTING.md` | Test suite details and running instructions |
 | `docs/OBSERVABILITY.md` | OpenTelemetry tracing architecture |
 | `docs/AUTOMATION_PLAN.md` | CI/CD workflows and cron jobs |
-| `docs/adr/` | Architecture Decision Records (5 ADRs) |
+| `docs/adr/` | Architecture Decision Records (9 ADRs) |

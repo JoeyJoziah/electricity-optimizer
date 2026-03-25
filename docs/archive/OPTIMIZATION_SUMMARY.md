@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 # Backend Performance Optimization Summary
 
 > ARCHIVED (2026-02-07) — This document was the original optimization report for the Render free-tier deployment. The project now uses Neon PostgreSQL, Render paid tier, and 34 environment variables managed via 1Password. See [backend/PERFORMANCE_OPTIMIZATIONS.md](../../backend/PERFORMANCE_OPTIMIZATIONS.md) for detailed free-tier optimization techniques.

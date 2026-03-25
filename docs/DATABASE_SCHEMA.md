@@ -1,8 +1,8 @@
 # Database Schema Reference
 
-RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 50 migrations (init_neon through 050), 44 public tables plus 9 neon_auth tables = 53 total.
+RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 64 migrations (init_neon through 064_migration_history_uuid_pk), 49 public tables plus 9 neon_auth tables = 58 total.
 
-Last updated: 2026-03-16 (Migration 050: community_posts_indexes. All 50 migrations deployed to production.)
+Last updated: 2026-03-24 (Migration 064: migration_history UUID PK. All 64 migrations deployed to production.)
 
 ## Overview
 
@@ -10,12 +10,12 @@ Last updated: 2026-03-16 (Migration 050: community_posts_indexes. All 50 migrati
 - **Project ID**: `cold-rice-23455092`
 - **Endpoint (Pooled)**: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (application use)
 - **Endpoint (Direct)**: `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (migrations only)
-- **Migrations**: Sequential init_neon through 050 (50 migrations, all deployed)
-- **Schema**: `public` (44 tables) + `neon_auth` (9 tables, managed by Better Auth)
+- **Migrations**: Sequential init_neon through 064 (64 migrations, all deployed)
+- **Schema**: `public` (49 tables) + `neon_auth` (9 tables, managed by Better Auth)
 - **Primary Keys**: All UUID type via `gen_random_uuid()`
 - **Ownership**: `neondb_owner` role (via GRANT statements)
 
-## Public Schema Tables (44 tables)
+## Public Schema Tables (49 tables)
 
 ### User & Authentication
 
@@ -699,6 +699,97 @@ created_at              TIMESTAMPTZ DEFAULT now()
 UNIQUE(user_id, post_id)
 ```
 
+### Audit & Rate Plan Tables (Migrations 062-064)
+
+#### `rate_plans` (migration 062)
+Available rate plans and pricing tiers for suppliers.
+
+```
+id                      UUID PRIMARY KEY
+supplier_id             UUID NOT NULL REFERENCES supplier_registry(id) ON DELETE CASCADE
+plan_name               VARCHAR(255) NOT NULL
+plan_type               VARCHAR(50) — 'fixed'|'variable'|'time_of_use'
+base_rate_per_kwh       NUMERIC(10,6) NOT NULL
+peak_rate_per_kwh       NUMERIC(10,6)
+off_peak_rate_per_kwh   NUMERIC(10,6)
+standing_charge         NUMERIC(10,6)
+min_commitment_months   INT
+is_available            BOOLEAN DEFAULT TRUE
+created_at              TIMESTAMPTZ DEFAULT now()
+updated_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Indexes: `idx_rate_plans_supplier_id`
+
+#### `rate_plan_features` (migration 062)
+Features and add-ons associated with rate plans.
+
+```
+id                      UUID PRIMARY KEY
+plan_id                 UUID NOT NULL REFERENCES rate_plans(id) ON DELETE CASCADE
+feature_name            VARCHAR(100) NOT NULL
+feature_value           VARCHAR(500)
+is_available            BOOLEAN DEFAULT TRUE
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Indexes: `idx_rate_plan_features_plan_id`
+
+#### `plan_comparisons` (migration 062)
+Comparative analysis between user's current plan and alternatives.
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+connection_id           UUID REFERENCES user_connections(id) ON DELETE CASCADE
+current_plan_id         UUID REFERENCES rate_plans(id)
+alternative_plan_id     UUID NOT NULL REFERENCES rate_plans(id) ON DELETE CASCADE
+estimated_monthly_cost  NUMERIC(10,2)
+potential_savings       NUMERIC(10,2)
+savings_percentage      NUMERIC(5,2)
+comparison_date         TIMESTAMPTZ DEFAULT now()
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Indexes: `idx_plan_comparisons_user_id`, `idx_plan_comparisons_connection_id`
+
+#### `savings_projections` (migration 062)
+Projected savings based on historical usage and rate comparisons.
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+connection_id           UUID REFERENCES user_connections(id) ON DELETE CASCADE
+plan_id                 UUID NOT NULL REFERENCES rate_plans(id) ON DELETE CASCADE
+monthly_kwh             NUMERIC(12,2)
+projected_monthly_cost  NUMERIC(10,2)
+current_monthly_cost    NUMERIC(10,2)
+annual_savings          NUMERIC(10,2)
+confidence_score        NUMERIC(3,2)
+projection_start_date   DATE
+projection_end_date     DATE
+created_at              TIMESTAMPTZ DEFAULT now()
+updated_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Indexes: `idx_savings_projections_user_id`, `idx_savings_projections_connection_id`
+
+#### `migration_history` (migration 063, UUID PK via 064)
+Audit log tracking all applied migrations.
+
+```
+id                      UUID PRIMARY KEY (UUID, converted from SERIAL in migration 064)
+migration_name          VARCHAR(255) NOT NULL UNIQUE
+applied_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+applied_by              VARCHAR(100) NOT NULL DEFAULT 'system'
+checksum                VARCHAR(64)
+execution_ms            INTEGER
+```
+
+Indexes: `idx_migration_history_name`
+
+**Note**: Migration 064 converts the primary key from SERIAL to UUID for consistency with project conventions.
+
 ## neon_auth Schema (9 Tables)
 
 Managed by Better Auth (Neon Auth). Do NOT modify directly.
@@ -765,12 +856,26 @@ Managed by Better Auth (Neon Auth). Do NOT modify directly.
 | 048 | 048_utility_feature_flags.sql | 2026-03-12 | Seed utility-type feature flags for visibility control |
 | 049 | 049_community_tables.sql | 2026-03-12 | community_posts, community_votes, community_reports tables |
 | 050 | 050_community_posts_indexes.sql | 2026-03-16 | Optimized partial indexes for community_posts (visible posts composite, re-moderation) |
+| 051 | 051_gdpr_cascade_fixes.sql | 2026-03-16 | GDPR CASCADE fixes for community + notifications FKs |
+| 052 | 052_ab_tests.sql | 2026-03-17 | A/B test schema audit fixes |
+| 053 | 053_notification_dedup_index.sql | 2026-03-17 | Notification deduplication index |
+| 054 | 054_stripe_processed_events.sql | 2026-03-17 | Stripe webhook event tracking |
+| 055 | 055_audit_remediation_security.sql | 2026-03-18 | Security audit remediation (FKs, indexes, constraints) |
+| 056 | 056_stripe_customer_id_unique.sql | 2026-03-19 | Stripe customer ID uniqueness constraint |
+| 057 | 057_remove_ghost_columns.sql | 2026-03-19 | Remove deprecated/unused columns |
+| 058 | 058_fix_foreign_keys.sql | 2026-03-19 | Foreign key constraint repairs |
+| 059 | 059_oauth_bytea_columns.sql | 2026-03-20 | OAuth token BYTEA type fixes |
+| 060 | 060_updated_at_triggers.sql | 2026-03-20 | Updated_at trigger automation for audit tables |
+| 061 | 061_audit_schema_fixes.sql | 2026-03-22 | Orphan cleanup, DISTINCT ON dedup, CONCURRENTLY indexes |
+| 062 | 062_audit_schema_fixes_round2.sql | 2026-03-23 | Rate plan tables + forecast_hour CHECK + dedup indexes |
+| 063 | 063_migration_history.sql | 2026-03-24 | Migration history tracking table (SERIAL PK) |
+| 064 | 064_migration_history_uuid_pk.sql | 2026-03-24 | Convert migration_history PK from SERIAL to UUID |
 
 ## Migration Conventions
 
 All migrations follow these patterns:
 
-1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 050)
+1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 064)
 2. **IF NOT EXISTS**: All CREATE TABLE/INDEX statements are idempotent
 3. **Primary Keys**: UUID via `gen_random_uuid()` (no SERIAL/BIGSERIAL)
 4. **Foreign Keys**: ON DELETE CASCADE or ON DELETE RESTRICT with explicit choices

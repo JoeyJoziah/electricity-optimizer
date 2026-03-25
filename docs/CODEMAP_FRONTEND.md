@@ -1,11 +1,11 @@
 # Frontend Codemap
 
-**Last Updated:** 2026-03-16 (Wave 5 complete: unified dashboard, community, 6 utility pages, SEO engine, 15 sidebar nav items)
+**Last Updated:** 2026-03-25 (Launch gap backlog sprint 7/19 items done: beta-signup deleted, natural gas dashboard wired, connection errors improved)
 **Framework:** Next.js 16.0.x (App Router) + React 19 + TypeScript
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 1,898 tests (138 suites)
+**Test Coverage:** Frontend 2,015 tests (153 suites)
 
 ---
 
@@ -56,8 +56,6 @@ frontend/
         page.tsx                # Alerts CRUD page (/alerts) — wrapper for AlertsContent
       assistant/
         page.tsx                # AI Assistant chat interface (/assistant) — RateShift AI agent (Gemini 3 Flash + Groq fallback, Composio tools)
-      beta-signup/
-        page.tsx                # Early access signup (public route, beta invitations, progress tracking)
       gas-rates/
         page.tsx                # Natural gas rates dashboard (Wave 2)
       community-solar/
@@ -98,7 +96,7 @@ frontend/
     layout/
       Header.tsx                # Top header (logo, user menu, mobile toggle)
       NotificationBell.tsx      # In-app notification bell (sidebar, unread count badge, dropdown panel, mark read)
-      Sidebar.tsx               # Main navigation sidebar (15 nav items: Dashboard, Prices, Suppliers, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Optimize, Connections, Alerts, Community, Assistant, Settings)
+      Sidebar.tsx               # Main navigation sidebar (15 nav items: Dashboard, Prices, Suppliers, Connections, Optimize, Alerts, Settings, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Community, Assistant)
       StatusBadge.tsx           # Connection/service status indicator badge
     dev/
       DevBanner.tsx             # Development-only banner (top of page)
@@ -2157,11 +2155,13 @@ updateMutation.mutate({ id: alert.id, body: { is_active: !alert.is_active } })
 
 ---
 
-**Last Reviewed:** 2026-03-16 (full audit — component names, hooks, API clients, utils verified against filesystem)
-**Status:** Current with all Waves 0-5 complete, codebase audit remediation, performance optimization
-**Test Coverage:** 1,898 tests (frontend, 138 suites), ~5,793+ total (all layers)
+**Last Reviewed:** 2026-03-25 (launch gap backlog sprint — beta-signup deleted, all pages/routes updated, skeleton/error boundaries verified)
+**Status:** Current with all Waves 0-5 complete, launch gap backlog sprint 7/19 items done, production audit remediation complete
+**Test Coverage:** 2,015 tests (frontend, 153 suites), ~7,362+ total (all layers: Backend 2,976, Frontend 2,015, ML 676, E2E 1,605, Worker 90)
 **Framework:** Next.js 16 + React 19 + TypeScript
 **Components:** 106 .tsx files across 20 component directories
-**Pages:** 29 page.tsx files (root + (app) with sidebar + (dev) + auth + SEO)
+**Pages:** 28 page.tsx files (root + (app) with sidebar excluding beta-signup + (dev) + auth + SEO)
+**Error Boundaries:** 28 (21 route-level error.tsx + 1 global-error.tsx + 2 component error-boundary.tsx + 4 page.tsx exported error fields)
+**Loading States:** 22 (21 route-level loading.tsx + 1 at root layout/page level)
 **Hooks:** 27 (useAuth, useAlerts, useAgent, usePrices, useSuppliers, useConnections, + 21 more)
-**API Clients:** 25 (client.ts + circuit-breaker.ts + 23 domain-specific clients)
+**API Clients:** 27 (client.ts + circuit-breaker.ts + 25 domain-specific clients)

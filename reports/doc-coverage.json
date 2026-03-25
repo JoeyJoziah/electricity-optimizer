@@ -1,0 +1,1156 @@
+{
+  "generated": "2026-03-25",
+  "dsp_uid_map_available": true,
+  "summary": {
+    "codemap": {
+      "passing": 141,
+      "total": 141,
+      "pct": 100
+    },
+    "docstring": {
+      "passing": 106,
+      "total": 141,
+      "pct": 75
+    },
+    "dsp": {
+      "passing": 141,
+      "total": 141,
+      "pct": 100
+    },
+    "overall": {
+      "passing": 388,
+      "total": 423,
+      "pct": 92
+    }
+  },
+  "files": [
+    {
+      "path": "backend/services/ab_test_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/affiliate_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/agent_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/alert_renderer.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/alert_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/analytics_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/bill_parser.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/cca_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/community_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/community_solar_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/connection_analytics_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/connection_sync_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/data_persistence_helper.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/data_quality_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/dunning_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/email_oauth_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/email_scanner_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/email_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/feature_flag_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/forecast_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/gas_rate_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/geocoding_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/heating_oil_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/hnsw_vector_store.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/kpi_report_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/learning_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/maintenance_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/market_intelligence_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/model_version_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/neighborhood_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/notification_dispatcher.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/notification_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/observation_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/optimization_report_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/portal_scraper_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/price_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/price_sync_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/propane_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/push_notification_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/rate_change_detector.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/rate_export_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/rate_scraper_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/recommendation_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/referral_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/savings_aggregator.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/savings_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/stripe_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/utility_discovery_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/vector_store.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/water_rate_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/services/weather_service.py",
+      "group": "services",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/affiliate.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/agent.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/alerts.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/auth.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/beta.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/billing.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/cca.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/community.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/community_solar.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/compliance.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/export.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/feedback.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/forecast.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/gas_rates.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/health.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/heating_oil.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/neighborhood.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/notifications.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/prices.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/prices_analytics.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/prices_sse.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/propane.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/public_rates.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/rate_changes.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/recommendations.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/referrals.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/regulations.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/reports.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/savings.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/suppliers.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/user.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/user_supplier.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/users.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/utility_accounts.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/utility_discovery.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/water.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "backend/api/v1/webhooks.py",
+      "group": "api",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/hooks/useAgent.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useAlerts.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useCCA.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useCombinedSavings.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useCommunity.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useCommunitySolar.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/hooks/useConnections.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useDiagrams.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useExport.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useForecast.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useGasRates.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useGeocoding.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useHeatingOil.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useNeighborhood.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useNotifications.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useOptimization.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/usePrices.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useProfile.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/hooks/usePropane.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useRateChanges.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useRealtime.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useReports.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useSavings.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useSuppliers.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/hooks/useUtilityDiscovery.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/hooks/useWater.ts",
+      "group": "hooks",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/components/error-boundary.tsx",
+      "group": "components",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/components/page-error-fallback.tsx",
+      "group": "components",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/affiliate.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/agent.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/alerts.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/cca.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/circuit-breaker.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/client.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/community-solar.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/community.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/export.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/forecast.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/gas-rates.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/heating-oil.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/neighborhood.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/notifications.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/optimization.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/portal.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/prices.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/profile.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/propane.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/rate-changes.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/reports.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/savings.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/suppliers.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": true,
+      "dsp": true,
+      "all_pass": true
+    },
+    {
+      "path": "frontend/lib/api/utility-discovery.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    },
+    {
+      "path": "frontend/lib/api/water.ts",
+      "group": "api_ts",
+      "codemap": true,
+      "docstring": false,
+      "dsp": true,
+      "all_pass": false
+    }
+  ]
+}

@@ -419,6 +419,62 @@ jobs:
             NEXT_PUBLIC_API_URL=http://backend:8000
 
   # ===========================================================================
+  # Doc Coverage Check (warning only — never blocks CI)
+  # ===========================================================================
+  doc-coverage:
+    name: Doc Coverage
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check doc coverage
+        run: python scripts/doc-coverage-check.py --ci --format github
+
+      - name: Add coverage summary
+        if: always()
+        run: |
+          echo "## Doc Coverage" >> $GITHUB_STEP_SUMMARY
+          python scripts/doc-coverage-check.py --ci 2>/dev/null >> $GITHUB_STEP_SUMMARY || true
+
+  # ===========================================================================
+  # Storybook Build Check (warning only — never blocks CI)
+  # ===========================================================================
+  storybook:
+    name: Storybook Build
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Node.js environment
+        uses: ./.github/actions/setup-node-env
+
+      - name: Build Storybook
+        run: cd frontend && npm run build-storybook
+
+      - name: Add build summary
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "## Storybook Build: OK" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Storybook Build: FAILED (warning)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ===========================================================================
   # Notify on CI Failure
   # ===========================================================================
   notify-failure:

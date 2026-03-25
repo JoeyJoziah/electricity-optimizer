@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 # T2: Frontend Code Quality Audit
 
 > Audited: 2026-03-03

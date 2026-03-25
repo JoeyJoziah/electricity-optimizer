@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 > **ARCHIVED** — This document is from 2026-02-08 and contains outdated information (test counts, technology references). For current status, see [FINAL_STATUS.md](../../FINAL_STATUS.md) and [PROJECT_COMPLETE.md](../../PROJECT_COMPLETE.md).
 
 # 🎉 LAUNCH READY: Electricity Optimizer MVP

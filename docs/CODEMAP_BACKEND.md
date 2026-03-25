@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-16 (Codebase audit remediation complete. Test count: 2,536. Migrations: 50. Tables: 53 = 44 public + 9 neon_auth. Services: 51. API routes: 56 files incl. connections/ + internal/ subdirectories.)
+> Last updated: 2026-03-25 (Production live. Test count: 2,976. Migrations: 64 (init_neon through 064_migration_history_uuid_pk). Tables: 58 = 49 public + 9 neon_auth. Services: 51. API routes: 57 files incl. connections/ + internal/ subdirectories.)
 
 ## Directory Structure
 
@@ -107,7 +107,8 @@ backend/
 │   ├── forecast_observation_repository.py  # ForecastObservationRepository: observation queries (with version breakdown)
 │   ├── user_repository.py           # UserRepository: by-email, by-stripe-customer-id, preferences, consent
 │   ├── notification_repository.py    # NotificationRepository: CRUD + delivery_status tracking, update_delivery()
-│   └── model_config_repository.py    # ModelConfigRepository: versioned ML config persistence
+│   ├── model_config_repository.py    # ModelConfigRepository: versioned ML config persistence
+│   └── utility_account_repository.py # UtilityAccountRepository: CRUD for utility account connections
 │
 ├── services/
 │   ├── price_service.py             # Business logic: comparison, forecast, optimal windows
@@ -246,7 +247,21 @@ backend/
 │   ├── 047_water_rates.sql            # water_rates table (JSONB rate_tiers)
 │   ├── 048_utility_feature_flags.sql  # Seed utility-type feature flags for visibility control
 │   ├── 049_community_tables.sql       # community_posts, community_votes, community_reports tables
-│   └── 050_community_posts_indexes.sql # Optimized partial indexes for community_posts (visible + re-moderation)
+│   ├── 050_community_posts_indexes.sql # Optimized partial indexes for community_posts (visible + re-moderation)
+│   ├── 051_gdpr_cascade_fixes.sql     # GDPR CASCADE fixes for community + notifications FKs
+│   ├── 052_optimization_report_tables.sql # optimization_reports, optimization_report_details tables
+│   ├── 053_rate_plan_tables.sql       # rate_plans, rate_plan_features, plan_comparisons, savings_projections (Wave 4)
+│   ├── 054_agent_refinements.sql      # Agent conversation schema refinements
+│   ├── 055_notification_preferences.sql # Notification delivery preference columns
+│   ├── 056_alert_history_columns.sql  # Alert history tracking columns
+│   ├── 057_connection_metadata.sql    # Additional connection metadata fields
+│   ├── 058_forecast_accuracy.sql      # Forecast accuracy tracking tables
+│   ├── 059_model_improvement.sql      # Model improvement tracking tables
+│   ├── 060_rate_change_tracking.sql   # Rate change tracking and alerting tables
+│   ├── 061_connection_rate_dedup.sql  # Deduplication and orphan cleanup for connection rates
+│   ├── 062_missing_infrastructure.sql # Missing tables: rate_plans, rate_plan_features, plan_comparisons, savings_projections
+│   ├── 063_migration_history.sql      # Migration history tracking table
+│   └── 064_migration_history_uuid_pk.sql # UUID primary key for migration_history table
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email
@@ -1157,6 +1172,57 @@ Applied in reverse order (last added = first executed):
 9. **CORSMiddleware** -- Origin regex restricted to `electricity-optimizer*.(vercel|onrender)`
 
 Excluded from rate limiting: `/health`, `/health/live`, `/health/ready`, `/metrics`.
+
+### Middleware Details
+
+#### `rate_limiter.py` — Sliding Window Rate Limiting
+
+Per-IP rate limiting at the middleware layer using an atomic Redis sliding window algorithm. User-level rate limiting is handled separately at the endpoint/service layer (not in this middleware).
+
+**Algorithm**: A Lua script executes `ZREMRANGEBYSCORE` + `ZADD` + `EXPIRE` + `ZCARD` as a single atomic operation, eliminating TOCTOU race conditions. Each request timestamp is stored as a sorted set member with a unique suffix (`:seq` counter) to handle sub-microsecond collisions. The `:seq` counter key has a matching TTL to prevent memory leaks.
+
+**Components**:
+- `UserRateLimiter` class: Configurable per-minute (default 100) and per-hour (default 1000) limits. Login attempt tracking with lockout (5 attempts, 15-minute lockout). Supports `check_rate_limits_combined()` for both windows in a single round-trip via `asyncio.gather`.
+- `RateLimitMiddleware` (ASGI): IP-based identification using `CF-Connecting-IP` (production) or `X-Forwarded-For` (non-production only, to prevent spoofing). Injects `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` response headers. Stricter 30/min limit on Stripe webhook path (`/api/v1/billing/webhook`).
+- **In-memory fallback**: When Redis is unavailable, uses a dict-based store with periodic sweep (10K key cap) to bound memory growth.
+- **Testing**: `reset()` method clears all in-memory state and detaches Redis, used by `reset_rate_limiter` autouse fixture in `conftest.py`.
+
+#### `security_headers.py` — Security Headers
+
+Adds defense-in-depth HTTP headers to all responses:
+
+| Header | Value |
+|--------|-------|
+| `Content-Security-Policy` | Strict in production: `default-src 'self'`, `connect-src` allowlist (api.rateshift.app, rateshift.app, *.neondb.tech, *.sentry.io, *.grafana.net, *.onesignal.com, *.stripe.com), `frame-ancestors 'none'`, `form-action 'self'`, `base-uri 'self'`. Permissive in dev (`'unsafe-inline'`, `connect-src https:`). |
+| `X-Frame-Options` | `DENY` (prevent clickjacking) |
+| `X-Content-Type-Options` | `nosniff` (prevent MIME type sniffing) |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` (production only, 1-year HSTS) |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | Disables accelerometer, camera, geolocation, gyroscope, magnetometer, microphone, payment, usb |
+| `Cache-Control` | `no-store, no-cache, must-revalidate, private` for `/api/*` paths |
+
+Also exports `add_security_headers(response)` utility for per-response use outside the middleware.
+
+#### `tracing.py` — Distributed Tracing & Correlation IDs
+
+Generates or propagates a unique trace ID per request for log correlation:
+
+- **Trace ID sourcing**: Reuses caller-supplied `X-Request-ID` header if present and valid (ASCII-safe, max 64 chars, regex `^[\w\-]{1,64}$`). Generates UUID4 otherwise.
+- **Structlog binding**: Clears stale contextvars from recycled asyncio tasks, then binds `trace_id` so it appears automatically in every log record during the request lifetime.
+- **Response header**: Returns `X-Request-ID` in the response so clients can correlate with backend logs.
+- **Scope state**: Stores trace ID on `scope["state"]["trace_id"]` for endpoint access via `request.state.trace_id`.
+- **Middleware ordering**: Must be registered last in `add_middleware()` calls so it executes first (LIFO), propagating context to all downstream middleware.
+
+### Email Templates
+
+Located in `backend/templates/`. Used by `email_service.py` with Jinja2 rendering and sent via Resend (primary) or Gmail SMTP (fallback).
+
+| Template | Trigger | Description |
+|----------|---------|-------------|
+| `welcome_beta.html` | `email_service.send_welcome()` on beta signup | Welcome email for new beta users. Clean, minimal design with RateShift branding. |
+| `price_alert.html` | `alert_service` when price threshold is breached | Notifies users that electricity prices have crossed their configured threshold. Includes current price, threshold value, and region. |
+| `dunning_soft.html` | `DunningService` after first payment failure | Gentle payment retry reminder with amber/warning styling. Includes update-payment-method CTA and support link. |
+| `dunning_final.html` | `DunningService` after 3rd failure | Final warning before account suspension with red/danger styling. Includes 7-day grace period countdown and escalation notice. |
 
 
 ## Authentication & Authorization

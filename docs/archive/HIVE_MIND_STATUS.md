@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 > **ARCHIVED** — This document is a historical snapshot from 2026-02-06 (project initialization). Test counts and technology references are outdated. For current status, see [TODO.md](../../TODO.md) and [TESTING.md](../TESTING.md).
 
 # 🐝 Hive Mind Status Report

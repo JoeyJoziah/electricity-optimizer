@@ -2,7 +2,7 @@
 
 **Base URL**: `https://api.rateshift.app/api/v1`
 **Version**: 1.0
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-03-25
 
 ## Overview
 
@@ -52,14 +52,274 @@ Validation errors (400/422) include detailed field information:
 
 ---
 
+## Health Endpoints
+
+### GET /health
+
+Basic health check with deployment metadata and uptime.
+
+**Authentication**: Not required
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "environment": "production",
+  "uptime_seconds": 3600,
+  "database_status": "connected"
+}
+```
+
+---
+
+### GET /health/ready
+
+Readiness check — verify all critical dependencies (database, Redis) are available.
+
+**Authentication**: Not required
+
+**Response:**
+```json
+{
+  "status": "ready",
+  "checks": {
+    "database": true,
+    "redis": true
+  }
+}
+```
+
+---
+
+### GET /health/live
+
+Liveness probe — returns 200 if application process is running.
+
+**Authentication**: Not required
+
+**Response:**
+```json
+{
+  "status": "alive"
+}
+```
+
+---
+
+### GET /health/integrations
+
+Integration health check for all external services (database, Redis, API keys).
+
+**Authentication**: Required (X-API-Key header)
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "integrations": {
+    "database": {"status": "healthy", "latency_ms": 4.2},
+    "redis": {"status": "healthy", "latency_ms": 1.1},
+    "eia": {"status": "configured"},
+    "stripe": {"status": "configured"}
+  }
+}
+```
+
+---
+
+## Authentication Endpoints
+
+### GET /auth/me
+
+Get authenticated user information from session.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "id": "user-uuid",
+  "email": "user@example.com",
+  "name": "John Doe",
+  "email_verified": true
+}
+```
+
+**Error Codes:**
+- `401`: No valid session
+
+---
+
+### POST /auth/logout
+
+Invalidate current session.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+### POST /auth/password/check-strength
+
+Check password strength without authentication.
+
+**Request Body:**
+```json
+{
+  "password": "MySecurePass123!"
+}
+```
+
+**Response:**
+```json
+{
+  "score": 4,
+  "max_score": 5,
+  "strength": "strong",
+  "valid": true,
+  "checks": {
+    "min_length": true,
+    "has_upper": true,
+    "has_lower": true,
+    "has_digits": true,
+    "has_special": true
+  }
+}
+```
+
+---
+
+## User Endpoints
+
+### GET /user/preferences
+
+Get current user preferences.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "user_id": "user-uuid",
+  "preferences": {
+    "notification_enabled": true,
+    "auto_switch_enabled": false,
+    "green_energy_only": true,
+    "region": "us_ct"
+  }
+}
+```
+
+---
+
+### POST /user/preferences
+
+Update user preferences (partial update).
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "notification_enabled": false,
+  "region": "us_ma"
+}
+```
+
+**Response**: Updated preferences object
+
+---
+
+### POST /user/geocode
+
+Geocode an address to region/coordinates (dual-provider: OWM primary, Nominatim fallback).
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "address": "Hartford, CT"
+}
+```
+
+**Response:**
+```json
+{
+  "region": "us_ct",
+  "latitude": 41.7658,
+  "longitude": -72.6734,
+  "provider": "openweathermap"
+}
+```
+
+---
+
+### GET /users
+
+List all users (admin only).
+
+**Authentication**: Session required (admin tier)
+
+**Query Parameters:**
+- `page` (optional): Page number (default 1)
+- `page_size` (optional): Items per page (1–100, default 20)
+
+**Response:**
+```json
+{
+  "users": [
+    {
+      "id": "user-uuid",
+      "email": "user@example.com",
+      "subscription_tier": "pro",
+      "created_at": "2026-03-10T10:00:00Z"
+    }
+  ],
+  "total": 2145,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+---
+
+### PUT /users/{user_id}
+
+Update user details (admin only).
+
+**Authentication**: Session required (admin tier)
+
+**Request Body:**
+```json
+{
+  "subscription_tier": "business",
+  "region": "us_ny"
+}
+```
+
+**Response**: Updated user object
+
+---
+
 ## Prices Endpoints
 
 ### GET /prices/current
 
 Get current electricity prices for a region.
 
+**Authentication**: Not required
+
 **Query Parameters:**
-- `region` (required): PriceRegion code (e.g., `uk`, `germany`, or US state like `us_ct`)
+- `region` (required): PriceRegion code (e.g., `us_ct`, `uk`)
 - `supplier` (optional): Filter by specific supplier name
 - `limit` (optional): Max results (1–100, default 10)
 
@@ -67,31 +327,28 @@ Get current electricity prices for a region.
 ```json
 {
   "price": {
-    "ticker": "ELEC-UK",
+    "ticker": "ELEC-US-CT",
     "current_price": 0.2845,
     "currency": "USD",
-    "region": "uk",
+    "region": "us_ct",
     "supplier": "Eversource Energy",
     "updated_at": "2026-03-11T14:30:00Z",
     "is_peak": true,
     "carbon_intensity": 185.5
   },
-  "prices": null,
-  "region": "uk",
+  "region": "us_ct",
   "timestamp": "2026-03-11T14:30:15Z",
   "source": "live"
 }
 ```
-
-**Error Codes:**
-- `404`: No price found for supplier
-- `422`: Invalid region parameter
 
 ---
 
 ### GET /prices/history
 
 Get historical electricity prices with pagination.
+
+**Authentication**: Not required
 
 **Query Parameters:**
 - `region` (required): Price region
@@ -100,18 +357,18 @@ Get historical electricity prices with pagination.
 - `start_date` (optional): ISO 8601 start date (inclusive)
 - `end_date` (optional): ISO 8601 end date (inclusive)
 - `page` (optional): Page number (1-based, default 1)
-- `page_size` (optional): Records per page (1–100, default 24 = 1 day hourly)
+- `page_size` (optional): Records per page (1–100, default 24)
 
 **Response:**
 ```json
 {
-  "region": "uk",
+  "region": "us_ct",
   "supplier": null,
   "start_date": "2026-03-04T00:00:00Z",
   "end_date": "2026-03-11T00:00:00Z",
   "prices": [
     {
-      "region": "uk",
+      "region": "us_ct",
       "supplier": "Eversource Energy",
       "price_per_kwh": 0.2600,
       "timestamp": "2026-03-10T23:00:00Z",
@@ -123,7 +380,6 @@ Get historical electricity prices with pagination.
   "average_price": 0.2717,
   "min_price": 0.2400,
   "max_price": 0.3200,
-  "source": "live",
   "total": 168,
   "page": 1,
   "page_size": 24,
@@ -131,61 +387,13 @@ Get historical electricity prices with pagination.
 }
 ```
 
-**Notes:**
-- `start_date`/`end_date` take priority over `days` parameter
-- Both dates default to UTC if no timezone is provided
-- `start_date` must be before `end_date`
-
----
-
-### GET /prices/forecast
-
-Get electricity price forecast (Pro+ tier required).
-
-**Authentication**: Required (Pro tier minimum)
-
-**Query Parameters:**
-- `region` (required): Price region
-- `hours` (optional): Forecast horizon in hours (1–168, default 24)
-- `supplier` (optional): Filter by supplier
-
-**Response:**
-```json
-{
-  "region": "uk",
-  "forecast": {
-    "region": "uk",
-    "generated_at": "2026-03-11T14:30:00Z",
-    "horizon_hours": 24,
-    "prices": [
-      {
-        "region": "uk",
-        "supplier": "Eversource Energy",
-        "price_per_kwh": 0.2750,
-        "timestamp": "2026-03-11T15:00:00Z",
-        "currency": "USD",
-        "is_peak": true,
-        "carbon_intensity": 192.1
-      }
-    ],
-    "confidence": 0.87,
-    "model_version": "v2.1.0"
-  },
-  "generated_at": "2026-03-11T14:30:00Z",
-  "horizon_hours": 24,
-  "confidence": 0.87,
-  "source": "live"
-}
-```
-
-**Error Codes:**
-- `404`: No forecast available for region
-
 ---
 
 ### GET /prices/compare
 
-Compare supplier prices in a region.
+Compare electricity supplier prices in a region.
+
+**Authentication**: Not required
 
 **Query Parameters:**
 - `region` (required): Price region
@@ -193,14 +401,14 @@ Compare supplier prices in a region.
 **Response:**
 ```json
 {
-  "region": "uk",
+  "region": "us_ct",
   "timestamp": "2026-03-11T14:30:15Z",
   "suppliers": [
     {
-      "ticker": "ELEC-UK",
+      "ticker": "ELEC-US-CT",
       "current_price": 0.2400,
       "currency": "USD",
-      "region": "uk",
+      "region": "us_ct",
       "supplier": "Eversource Energy",
       "updated_at": "2026-03-11T14:30:00Z",
       "is_peak": true,
@@ -209,10 +417,21 @@ Compare supplier prices in a region.
   ],
   "cheapest_supplier": "Eversource Energy",
   "cheapest_price": 0.2400,
-  "average_price": 0.2717,
-  "source": "live"
+  "average_price": 0.2717
 }
 ```
+
+---
+
+### GET /prices/average
+
+Get average electricity prices for a region over a period.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Price region
+- `days` (optional): Number of days (default 7)
 
 ---
 
@@ -232,9 +451,128 @@ Trigger price data refresh (internal use).
 }
 ```
 
-**Notes:**
-- Called by GitHub Actions price-sync workflow every 6 hours
-- Internal endpoint; excluded from 30-second timeout
+---
+
+### GET /prices/stream
+
+Server-Sent Events stream of real-time price updates.
+
+**Authentication**: Session required
+
+**Response**: SSE stream with price updates
+
+Each event:
+```json
+{
+  "id": "event-uuid",
+  "timestamp": "2026-03-11T14:30:15Z",
+  "region": "us_ct",
+  "price": 0.2845,
+  "supplier": "Eversource Energy"
+}
+```
+
+---
+
+## Price Analytics Endpoints
+
+### GET /prices/analytics/trend
+
+Get price trend analysis over time.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `region` (required): Price region
+- `days` (optional): Analysis period in days (default 30)
+
+---
+
+### GET /prices/analytics/volatility
+
+Get electricity price volatility metrics.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `region` (required): Price region
+
+---
+
+### GET /prices/analytics/forecast-accuracy
+
+Get forecast accuracy metrics for a region.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `region` (required): Price region
+
+---
+
+### GET /prices/analytics/cost-optimization
+
+Get cost optimization recommendations based on historical data.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `region` (required): Price region
+
+---
+
+## Forecast Endpoints
+
+### GET /forecast
+
+Multi-utility price forecast.
+
+**Authentication**: Session required (Pro tier)
+
+**Query Parameters:**
+- `region` (required): Region code
+- `utility_type` (optional): Filter by utility type
+- `hours` (optional): Forecast horizon (default: 24, max: 168)
+
+**Response:**
+```json
+{
+  "region": "us_ct",
+  "generated_at": "2026-03-11T14:30:00Z",
+  "forecast": [
+    {
+      "timestamp": "2026-03-11T15:00:00Z",
+      "electricity_price": 0.2750,
+      "gas_price": 1.2345,
+      "confidence": 0.87
+    }
+  ],
+  "horizon_hours": 24
+}
+```
+
+---
+
+### GET /forecast/hourly
+
+Hourly electricity price forecast.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `region` (required): Price region
+- `hours` (optional): Forecast horizon (1–168, default 24)
+
+---
+
+### GET /forecast/summary
+
+Forecast summary with key insights.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `region` (required): Price region
 
 ---
 
@@ -243,6 +581,8 @@ Trigger price data refresh (internal use).
 ### GET /suppliers
 
 List energy suppliers with optional filtering.
+
+**Authentication**: Not required
 
 **Query Parameters:**
 - `region` (optional): Filter by region code (e.g., `us_ct`, `us_ma`)
@@ -268,14 +608,9 @@ List energy suppliers with optional filtering.
   ],
   "total": 127,
   "page": 1,
-  "page_size": 20,
-  "region": null,
-  "utility_type": null
+  "page_size": 20
 }
 ```
-
-**Notes:**
-- Results cached in Redis for 1 hour
 
 ---
 
@@ -283,33 +618,19 @@ List energy suppliers with optional filtering.
 
 List suppliers with API integration available.
 
+**Authentication**: Not required
+
 **Query Parameters:**
 - `region` (optional): Filter by region
 - `utility_type` (optional): Filter by utility type
-
-**Response:**
-```json
-{
-  "suppliers": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440001",
-      "name": "Eversource Energy",
-      "region": "us_ct",
-      "utility_type": "electricity"
-    }
-  ]
-}
-```
-
-**Notes:**
-- Used by DirectLoginForm dropdown to show connectable providers
-- Returns only suppliers with `api_available=true`
 
 ---
 
 ### GET /suppliers/{supplier_id}
 
 Get detailed information about a supplier.
+
+**Authentication**: Not required
 
 **Path Parameters:**
 - `supplier_id` (required): UUID of the supplier
@@ -324,20 +645,17 @@ Get detailed information about a supplier.
   "api_available": true,
   "rating": 4.2,
   "review_count": 1254,
-  "green_energy_provider": true,
-  "carbon_neutral": true,
-  "is_active": true
+  "green_energy_provider": true
 }
 ```
-
-**Error Codes:**
-- `404`: Supplier not found
 
 ---
 
 ### GET /suppliers/{supplier_id}/tariffs
 
 Get tariffs offered by a supplier.
+
+**Authentication**: Not required
 
 **Path Parameters:**
 - `supplier_id` (required): UUID of the supplier
@@ -346,42 +664,16 @@ Get tariffs offered by a supplier.
 - `utility_type` (optional): Filter by utility type
 - `available_only` (optional): Show only available tariffs (default true)
 
-**Response:**
-```json
-{
-  "supplier_id": "550e8400-e29b-41d4-a716-446655440001",
-  "supplier_name": "Eversource Energy",
-  "tariffs": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440002",
-      "supplier_id": "550e8400-e29b-41d4-a716-446655440001",
-      "name": "Standard Variable",
-      "type": "variable",
-      "unit_rate": 0.2500,
-      "standing_charge": 0.4000,
-      "green_energy_percentage": 0,
-      "contract_length": "rolling",
-      "is_available": true
-    }
-  ],
-  "total": 5
-}
-```
-
 ---
 
 ### GET /suppliers/region/{region}
 
 Get all suppliers available in a region.
 
+**Authentication**: Not required
+
 **Path Parameters:**
 - `region` (required): Region code (e.g., `us_ct`, `us_ma`)
-
-**Query Parameters:**
-- `utility_type` (optional): Filter by utility type
-- `green_only` (optional): Filter for green providers
-
-**Response**: Same as `GET /suppliers`
 
 ---
 
@@ -389,34 +681,14 @@ Get all suppliers available in a region.
 
 Compare suppliers in a region with their best tariff prices.
 
+**Authentication**: Not required
+
 **Path Parameters:**
 - `region` (required): Region code
 
 **Query Parameters:**
 - `utility_type` (optional): Utility type to compare (default `electricity`)
 - `tariff_type` (optional): Filter by tariff type
-
-**Response:**
-```json
-{
-  "region": "us_ct",
-  "utility_type": "electricity",
-  "suppliers": [
-    {
-      "supplier_id": "550e8400-e29b-41d4-a716-446655440001",
-      "supplier_name": "Eversource Energy",
-      "utility_types": ["electricity"],
-      "cheapest_tariff": "Standard Variable",
-      "unit_rate": "0.25",
-      "standing_charge": "0.40",
-      "rating": 4.2,
-      "green_energy_provider": true
-    }
-  ],
-  "total": 5,
-  "generated_at": "2026-03-11T14:30:15Z"
-}
-```
 
 ---
 
@@ -427,6 +699,8 @@ All require authentication.
 ### GET /alerts
 
 List all price alert configurations for the current user.
+
+**Authentication**: Session required
 
 **Response:**
 ```json
@@ -454,7 +728,7 @@ List all price alert configurations for the current user.
 
 Create a new price alert configuration.
 
-**Authentication**: Required
+**Authentication**: Session required
 
 **Request Body:**
 ```json
@@ -467,21 +741,19 @@ Create a new price alert configuration.
 }
 ```
 
-**Response**: Alert object (same as GET /alerts item)
+**Response**: Alert object
 
 **Validation:**
 - At least one of `price_below`, `price_above`, or `notify_optimal_windows` must be specified
 - Free tier users limited to 1 alert; Pro/Business unlimited
-
-**Error Codes:**
-- `403`: Free tier alert limit reached
-- `422`: Invalid parameters or missing condition
 
 ---
 
 ### GET /alerts/history
 
 Get paginated alert trigger history.
+
+**Authentication**: Session required
 
 **Query Parameters:**
 - `page` (optional): Page number (default 1)
@@ -513,10 +785,12 @@ Get paginated alert trigger history.
 
 Update a price alert configuration.
 
+**Authentication**: Session required
+
 **Path Parameters:**
 - `alert_id` (required): Alert UUID
 
-**Request Body**: UpdateAlertRequest (all fields optional)
+**Request Body:** (all fields optional)
 ```json
 {
   "region": "us_ma",
@@ -525,16 +799,13 @@ Update a price alert configuration.
 }
 ```
 
-**Response**: Updated alert object
-
-**Error Codes:**
-- `404`: Alert not found
-
 ---
 
 ### DELETE /alerts/{alert_id}
 
 Delete a price alert configuration.
+
+**Authentication**: Session required
 
 **Path Parameters:**
 - `alert_id` (required): Alert UUID
@@ -549,110 +820,6 @@ Delete a price alert configuration.
 
 ---
 
-## Billing Endpoints
-
-All require authentication.
-
-### POST /billing/checkout
-
-Create a Stripe Checkout session for subscription.
-
-**Request Body:**
-```json
-{
-  "tier": "pro",
-  "success_url": "https://rateshift.app/dashboard?checkout=success",
-  "cancel_url": "https://rateshift.app/pricing"
-}
-```
-
-**Response:**
-```json
-{
-  "session_id": "cs_live_...",
-  "checkout_url": "https://checkout.stripe.com/pay/cs_live_..."
-}
-```
-
-**Validation:**
-- `tier` must be `pro` or `business`
-- `success_url` and `cancel_url` must use allowed domains (e.g., `rateshift.app`)
-
-**Error Codes:**
-- `400`: Invalid tier or configuration
-- `503`: Stripe not configured
-
----
-
-### POST /billing/portal
-
-Create a Stripe Customer Portal session for subscription management.
-
-**Request Body:**
-```json
-{
-  "return_url": "https://rateshift.app/settings"
-}
-```
-
-**Response:**
-```json
-{
-  "portal_url": "https://billing.stripe.com/..."
-}
-```
-
-**Error Codes:**
-- `400`: No active subscription found
-- `503`: Stripe not configured
-
----
-
-### GET /billing/subscription
-
-Get current subscription status.
-
-**Response:**
-```json
-{
-  "tier": "pro",
-  "status": "active",
-  "has_active_subscription": true,
-  "current_period_end": "2026-04-10T14:30:00Z",
-  "cancel_at_period_end": false
-}
-```
-
-**Notes:**
-- Returns `tier: "free"` if no active subscription
-- Status values: `active`, `trialing`, `past_due`, `canceled`, `unpaid`
-
----
-
-### POST /billing/webhook
-
-Handle Stripe webhook events (no auth required).
-
-**Request Headers:**
-- `stripe-signature` (required): Signature header from Stripe
-
-**Request Body**: Raw Stripe event JSON
-
-**Response:**
-```json
-{
-  "received": true,
-  "event_id": "evt_..."
-}
-```
-
-**Notes:**
-- Security verified via webhook signature
-- Processes subscription changes and payment events
-- No authentication required; signature verification handles security
-
----
-
 ## Savings Endpoints
 
 All require Pro+ tier authentication.
@@ -660,6 +827,8 @@ All require Pro+ tier authentication.
 ### GET /savings/summary
 
 Get aggregated savings totals.
+
+**Authentication**: Session required (Pro+)
 
 **Query Parameters:**
 - `region` (optional): Filter by region code
@@ -680,6 +849,8 @@ Get aggregated savings totals.
 ### GET /savings/history
 
 Get paginated savings records.
+
+**Authentication**: Session required (Pro+)
 
 **Query Parameters:**
 - `page` (optional): Page number (default 1)
@@ -708,6 +879,26 @@ Get paginated savings records.
 
 ---
 
+### GET /savings/combined
+
+Get combined savings across all utility types.
+
+**Authentication**: Session required (Pro+)
+
+**Response:**
+```json
+{
+  "total_savings": 1245.50,
+  "electricity": 845.00,
+  "gas": 300.00,
+  "water": 45.00,
+  "propane": 55.50,
+  "heating_oil": 0.00
+}
+```
+
+---
+
 ## Recommendations Endpoints
 
 All require Pro+ tier authentication.
@@ -715,6 +906,8 @@ All require Pro+ tier authentication.
 ### GET /recommendations/switching
 
 Get supplier switching recommendation.
+
+**Authentication**: Session required (Pro+)
 
 **Response:**
 ```json
@@ -730,14 +923,13 @@ Get supplier switching recommendation.
 }
 ```
 
-**Notes:**
-- Returns `message` with explanation if no recommendation available
-
 ---
 
 ### GET /recommendations/usage
 
 Get usage timing recommendation for an appliance.
+
+**Authentication**: Session required (Pro+)
 
 **Query Parameters:**
 - `appliance` (required): Type of appliance (e.g., `electric_heater`, `ev_charger`)
@@ -761,6 +953,8 @@ Get usage timing recommendation for an appliance.
 
 Get all daily recommendations.
 
+**Authentication**: Session required (Pro+)
+
 **Response:**
 ```json
 {
@@ -778,10 +972,1501 @@ Get all daily recommendations.
       "optimal_start_time": "2026-03-11T22:00:00Z",
       "estimated_cost": 8.50
     }
-  ],
-  "message": null
+  ]
 }
 ```
+
+---
+
+## Billing Endpoints
+
+All require authentication.
+
+### POST /billing/checkout
+
+Create a Stripe Checkout session for subscription.
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "tier": "pro",
+  "success_url": "https://rateshift.app/dashboard?checkout=success",
+  "cancel_url": "https://rateshift.app/pricing"
+}
+```
+
+**Response:**
+```json
+{
+  "session_id": "cs_live_...",
+  "checkout_url": "https://checkout.stripe.com/pay/cs_live_..."
+}
+```
+
+---
+
+### POST /billing/portal
+
+Create a Stripe Customer Portal session for subscription management.
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "return_url": "https://rateshift.app/settings"
+}
+```
+
+**Response:**
+```json
+{
+  "portal_url": "https://billing.stripe.com/..."
+}
+```
+
+---
+
+### GET /billing/subscription
+
+Get current subscription status.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "tier": "pro",
+  "status": "active",
+  "has_active_subscription": true,
+  "current_period_end": "2026-04-10T14:30:00Z",
+  "cancel_at_period_end": false
+}
+```
+
+---
+
+### POST /billing/cancel
+
+Cancel current subscription.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Subscription canceled"
+}
+```
+
+---
+
+## Webhook Endpoints
+
+### POST /webhooks/stripe
+
+Handle Stripe webhook events (no auth required).
+
+**Request Headers:**
+- `stripe-signature` (required): Signature header from Stripe
+
+**Request Body**: Raw Stripe event JSON
+
+**Response:**
+```json
+{
+  "received": true,
+  "event_id": "evt_..."
+}
+```
+
+---
+
+## Connections Endpoints
+
+All require Pro+ tier authentication.
+
+### GET /connections
+
+List all connections for the authenticated user.
+
+**Authentication**: Session required (Pro+)
+
+**Response:**
+```json
+{
+  "connections": [
+    {
+      "id": "conn-uuid",
+      "user_id": "user-uuid",
+      "connection_type": "direct",
+      "supplier_id": "supplier-uuid",
+      "supplier_name": "Eversource Energy",
+      "status": "active",
+      "account_number_masked": "****5678",
+      "meter_number_masked": "****1234",
+      "email_provider": null,
+      "label": "Home",
+      "created_at": "2026-03-10T10:00:00Z",
+      "last_sync_at": "2026-03-11T14:30:00Z",
+      "last_sync_error": null,
+      "current_rate": 0.2845
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+### POST /connections/direct
+
+Create a direct (account-number) connection.
+
+**Authentication**: Session required (Pro+)
+
+**Request Body:**
+```json
+{
+  "supplier_id": "supplier-uuid",
+  "account_number": "123456789",
+  "label": "Home"
+}
+```
+
+**Response**: Connection object
+
+---
+
+### POST /connections/email
+
+Create an email-based connection (Gmail or Outlook OAuth).
+
+**Authentication**: Session required (Pro+)
+
+**Request Body:**
+```json
+{
+  "email_provider": "gmail",
+  "supplier_id": "supplier-uuid",
+  "label": "Home"
+}
+```
+
+**Response:** OAuth redirect URL or connection object
+
+---
+
+### POST /connections/portal
+
+Create a portal scraping connection (for utilities without API).
+
+**Authentication**: Session required (Pro+)
+
+**Request Body:**
+```json
+{
+  "supplier_id": "supplier-uuid",
+  "username": "encrypted-username",
+  "password": "encrypted-password",
+  "label": "Home"
+}
+```
+
+**Response**: Connection object
+
+---
+
+### POST /connections/portal/{id}/scrape
+
+Trigger manual portal scrape for a connection.
+
+**Authentication**: Session required (Pro+)
+
+**Path Parameters:**
+- `id` (required): Connection UUID
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Portal scrape triggered",
+  "job_id": "job-uuid"
+}
+```
+
+---
+
+### POST /connections/direct-sync
+
+Trigger direct sync for a connection.
+
+**Authentication**: Session required (Pro+)
+
+**Request Body:**
+```json
+{
+  "connection_id": "conn-uuid"
+}
+```
+
+---
+
+### GET /connections/direct-sync/{id}/status
+
+Get status of direct sync job.
+
+**Authentication**: Session required (Pro+)
+
+**Path Parameters:**
+- `id` (required): Connection UUID
+
+---
+
+### GET /connections/rates
+
+Get extracted rates for a connection.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `connection_id` (optional): Filter by connection UUID
+
+**Response:**
+```json
+{
+  "rates": [
+    {
+      "connection_id": "conn-uuid",
+      "rate_per_kwh": 0.2845,
+      "effective_date": "2026-03-01T00:00:00Z",
+      "rate_type": "standard",
+      "source": "bill_upload"
+    }
+  ]
+}
+```
+
+---
+
+### POST /connections/bills
+
+Upload a bill image/PDF for rate extraction.
+
+**Authentication**: Session required (Pro+)
+
+**Request:** Multipart form data with file
+
+**Response:**
+```json
+{
+  "success": true,
+  "extracted_rate": 0.2845,
+  "extracted_date": "2026-03-01",
+  "bill_id": "bill-uuid"
+}
+```
+
+---
+
+### GET /connections/bills
+
+List uploaded bills.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `connection_id` (optional): Filter by connection UUID
+
+---
+
+### DELETE /connections/{id}
+
+Delete a connection.
+
+**Authentication**: Session required (Pro+)
+
+**Path Parameters:**
+- `id` (required): Connection UUID
+
+---
+
+### PATCH /connections/{id}
+
+Update connection label or settings.
+
+**Authentication**: Session required (Pro+)
+
+**Path Parameters:**
+- `id` (required): Connection UUID
+
+**Request Body:**
+```json
+{
+  "label": "Office",
+  "is_active": true
+}
+```
+
+---
+
+### GET /connections/analytics
+
+Get analytics for connections (usage, rates, savings).
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `connection_id` (optional): Filter by connection UUID
+
+---
+
+## Community Endpoints
+
+### POST /community/posts
+
+Create a community post (AI-moderated, 10 posts/hour rate limit).
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "title": "Best time to run laundry in CT?",
+  "content": "I noticed rates drop after 9pm...",
+  "category": "tips"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "post-uuid",
+  "title": "Best time to run laundry in CT?",
+  "content": "I noticed rates drop after 9pm...",
+  "category": "tips",
+  "author_id": "user-uuid",
+  "created_at": "2026-03-11T14:30:00Z",
+  "vote_count": 0,
+  "hidden": false
+}
+```
+
+---
+
+### GET /community/posts
+
+List community posts (paginated).
+
+**Authentication**: Session required
+
+**Query Parameters:**
+- `page` (optional): Page number (default 1)
+- `page_size` (optional): Items per page (default 20)
+- `category` (optional): Filter by category
+
+**Response:**
+```json
+{
+  "posts": [
+    {
+      "id": "post-uuid",
+      "title": "Best time to run laundry in CT?",
+      "content": "I noticed rates drop after 9pm...",
+      "category": "tips",
+      "author_id": "user-uuid",
+      "created_at": "2026-03-11T14:30:00Z",
+      "vote_count": 5,
+      "hidden": false
+    }
+  ],
+  "total": 487,
+  "page": 1,
+  "page_size": 20,
+  "pages": 25
+}
+```
+
+---
+
+### PUT /community/posts/{id}
+
+Update a community post (author only).
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `id` (required): Post UUID
+
+**Request Body:**
+```json
+{
+  "title": "Updated title",
+  "content": "Updated content"
+}
+```
+
+---
+
+### POST /community/posts/{id}/vote
+
+Vote on a community post (up or down).
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `id` (required): Post UUID
+
+**Request Body:**
+```json
+{
+  "vote_type": "up"
+}
+```
+
+---
+
+### POST /community/posts/{id}/report
+
+Report a community post (5 unique reporters auto-hides).
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `id` (required): Post UUID
+
+**Request Body:**
+```json
+{
+  "reason": "spam",
+  "details": "Promotional content"
+}
+```
+
+---
+
+### GET /community/stats
+
+Get aggregated community statistics.
+
+**Authentication**: Not required
+
+**Response:**
+```json
+{
+  "total_posts": 1247,
+  "active_users": 345,
+  "total_votes": 5678,
+  "average_post_age_days": 12
+}
+```
+
+---
+
+## Community Solar Endpoints
+
+### GET /community-solar/programs
+
+List community solar programs by state.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `state` (optional): State code (e.g., `CT`)
+
+**Response:**
+```json
+{
+  "programs": [
+    {
+      "id": "program-uuid",
+      "name": "CT Solar Share",
+      "state": "CT",
+      "provider": "Eversource",
+      "savings_estimate_pct": 10.5,
+      "capacity_available": true
+    }
+  ]
+}
+```
+
+---
+
+### GET /community-solar/savings
+
+Get community solar savings estimates.
+
+**Authentication**: Session required
+
+---
+
+### GET /community-solar/program/{program_id}
+
+Get details about a specific community solar program.
+
+**Authentication**: Not required
+
+**Path Parameters:**
+- `program_id` (required): Program UUID
+
+---
+
+### GET /community-solar/states
+
+List states with available community solar programs.
+
+**Authentication**: Not required
+
+---
+
+## CCA (Community Choice Aggregation) Endpoints
+
+### GET /cca/detect
+
+Detect if user's region is served by a CCA program.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "region": "us_ca",
+  "has_cca": true,
+  "cca_name": "East Bay Community Energy"
+}
+```
+
+---
+
+### GET /cca/compare/{cca_id}
+
+Compare CCA program with default supplier.
+
+**Authentication**: Not required
+
+**Path Parameters:**
+- `cca_id` (required): CCA UUID
+
+---
+
+### GET /cca/info/{cca_id}
+
+Get detailed information about a CCA program.
+
+**Authentication**: Not required
+
+**Path Parameters:**
+- `cca_id` (required): CCA UUID
+
+---
+
+### GET /cca/programs
+
+List all CCA programs.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (optional): Filter by region
+- `state` (optional): Filter by state
+
+---
+
+## Natural Gas Rates Endpoints
+
+### GET /rates/natural-gas
+
+Get current natural gas rates for a region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code (e.g., `us_ct`)
+
+**Response:**
+```json
+{
+  "rates": [
+    {
+      "id": "uuid",
+      "region": "us_ct",
+      "price_per_therm": 1.2345,
+      "supplier_name": "Southern CT Gas",
+      "source": "eia",
+      "recorded_at": "2026-03-13T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /rates/natural-gas/history
+
+Get historical natural gas prices.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+- `days` (optional): Number of days (default 30)
+
+---
+
+### GET /rates/natural-gas/stats
+
+Get gas price statistics for a region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+### GET /rates/natural-gas/deregulated-states
+
+List states with deregulated natural gas markets.
+
+**Authentication**: Not required
+
+---
+
+### GET /rates/natural-gas/compare
+
+Compare natural gas suppliers in a region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+## Heating Oil Endpoints
+
+### GET /rates/heating-oil
+
+Current heating oil prices by region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+**Response:**
+```json
+{
+  "rates": [
+    {
+      "id": "uuid",
+      "region": "us_ct",
+      "price_per_gallon": 3.4567,
+      "supplier_name": "Local Oil Dealer",
+      "recorded_at": "2026-03-13T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /rates/heating-oil/history
+
+Get historical heating oil prices.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+### GET /rates/heating-oil/dealers
+
+List heating oil dealers in a region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+### GET /rates/heating-oil/compare
+
+Compare heating oil dealers by price and service.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+## Propane Endpoints
+
+### GET /rates/propane
+
+Current propane prices by region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+**Response:**
+```json
+{
+  "rates": [
+    {
+      "id": "uuid",
+      "region": "us_ct",
+      "price_per_gallon": 2.1234,
+      "supplier_name": "Propane Co",
+      "recorded_at": "2026-03-13T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /rates/propane/history
+
+Get historical propane prices.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+### GET /rates/propane/compare
+
+Compare propane suppliers by price.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+### GET /rates/propane/timing
+
+Optimal propane fill-up timing recommendation.
+
+**Authentication**: Session required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+**Response:**
+```json
+{
+  "region": "us_ct",
+  "recommended_action": "fill_now",
+  "estimated_savings": 45.50,
+  "seasonal_note": "Prices trending down"
+}
+```
+
+---
+
+## Water Endpoints
+
+Water is monitoring-only — no switching CTA (geographic monopoly).
+
+### GET /rates/water
+
+Current water rates by region (municipality-level tiered pricing).
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+**Response:**
+```json
+{
+  "rates": [
+    {
+      "id": "uuid",
+      "region": "us_ct",
+      "tier": 1,
+      "price_per_gallon": 0.0045,
+      "municipality": "Hartford",
+      "recorded_at": "2026-03-13T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /rates/water/benchmark
+
+Compare user's water usage to regional benchmarks.
+
+**Authentication**: Session required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+---
+
+### GET /rates/water/tips
+
+Water conservation tips.
+
+**Authentication**: Not required
+
+**Response:**
+```json
+{
+  "tips": [
+    {
+      "title": "Fix leaks promptly",
+      "description": "A dripping faucet can waste 3,000 gallons per year",
+      "savings_estimate": 50.00
+    }
+  ]
+}
+```
+
+---
+
+## Rate Changes Endpoints
+
+### GET /rate-changes
+
+Get recent rate changes across all utility types for the current user.
+
+**Authentication**: Session required
+
+**Query Parameters:**
+- `days` (optional): Number of days to look back (default 30)
+
+**Response:**
+```json
+{
+  "changes": [
+    {
+      "id": "change-uuid",
+      "utility_type": "electricity",
+      "region": "us_ct",
+      "previous_rate": 0.2600,
+      "new_rate": 0.2845,
+      "change_percent": 9.4,
+      "effective_date": "2026-03-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /rate-changes/history
+
+Get paginated rate change history.
+
+**Authentication**: Session required
+
+**Query Parameters:**
+- `page` (optional): Page number (default 1)
+- `page_size` (optional): Items per page (default 20)
+
+---
+
+### PUT /rate-changes/{id}
+
+Mark a rate change as read/acknowledged.
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `id` (required): Rate change UUID
+
+---
+
+## Regulations Endpoints
+
+### GET /regulations
+
+List regulations for a region.
+
+**Authentication**: Not required
+
+**Query Parameters:**
+- `region` (required): Region code
+
+**Response:**
+```json
+{
+  "regulations": [
+    {
+      "id": "reg-uuid",
+      "region": "us_ct",
+      "title": "Connecticut Public Utilities Regulatory Authority Ruling",
+      "description": "Deregulation of electricity markets",
+      "effective_date": "2000-01-01T00:00:00Z",
+      "source_url": "https://example.com/regulation"
+    }
+  ]
+}
+```
+
+---
+
+### GET /regulations/{regulation_id}
+
+Get detailed information about a regulation.
+
+**Authentication**: Not required
+
+**Path Parameters:**
+- `regulation_id` (required): Regulation UUID
+
+---
+
+## Compliance Endpoints
+
+### POST /compliance/consent
+
+Record user consent for data processing.
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "consent_type": "marketing",
+  "consented": true
+}
+```
+
+---
+
+### GET /compliance/consents
+
+Get user's consent preferences.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "consents": [
+    {
+      "consent_type": "marketing",
+      "consented": true,
+      "recorded_at": "2026-03-10T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /compliance/data-export
+
+Export all user data in standard format.
+
+**Authentication**: Session required
+
+**Response:** ZIP file with JSON export
+
+---
+
+### GET /compliance/deletion-status
+
+Check status of data deletion request.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "status": "pending",
+  "requested_at": "2026-03-10T10:00:00Z",
+  "estimated_completion": "2026-03-17T10:00:00Z"
+}
+```
+
+---
+
+### DELETE /compliance/delete-data
+
+Request full account and data deletion.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Data deletion scheduled",
+  "deletion_date": "2026-03-17T10:00:00Z"
+}
+```
+
+---
+
+### DELETE /compliance/delete-connections
+
+Delete all connection data (GDPR compliance).
+
+**Authentication**: Session required
+
+---
+
+### POST /compliance/audit-log
+
+Request audit log of data access events.
+
+**Authentication**: Session required
+
+---
+
+## Feedback Endpoint
+
+### POST /feedback
+
+Submit user feedback (bug report, feature request, or general comment).
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "type": "bug",
+  "message": "The alert notification did not trigger when the price dropped below threshold."
+}
+```
+
+**Response:**
+```json
+{
+  "id": "feedback-uuid",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2026-03-11T14:30:00Z"
+}
+```
+
+---
+
+## Referrals Endpoints
+
+### GET /referrals/code
+
+Get the current user's unique referral code.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "code": "ABC123XYZ",
+  "referral_url": "https://rateshift.app?ref=ABC123XYZ",
+  "created_at": "2026-03-10T10:00:00Z"
+}
+```
+
+---
+
+### POST /referrals/apply
+
+Apply a referral code during signup or on dashboard.
+
+**Authentication**: Optional (Session preferred)
+
+**Request Body:**
+```json
+{
+  "code": "ABC123XYZ"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "bonus": "$10 credit",
+  "applied_at": "2026-03-11T14:30:00Z"
+}
+```
+
+---
+
+### GET /referrals/stats
+
+Get referral statistics for the current user.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "total_referrals": 12,
+  "accepted_referrals": 8,
+  "pending_referrals": 4,
+  "total_bonus": 80.00,
+  "currency": "USD"
+}
+```
+
+---
+
+## Affiliate Endpoints
+
+### POST /affiliate/click
+
+Record an affiliate link click (no auth required).
+
+**Request Body:**
+```json
+{
+  "affiliate_id": "aff-uuid",
+  "source_url": "https://example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "tracking_id": "track-uuid"
+}
+```
+
+---
+
+### GET /affiliate/stats
+
+Get affiliate click and conversion stats.
+
+**Authentication**: Required (X-API-Key)
+
+**Query Parameters:**
+- `affiliate_id` (optional): Filter by affiliate UUID
+
+**Response:**
+```json
+{
+  "clicks": 1234,
+  "conversions": 45,
+  "conversion_rate": 3.65,
+  "earned": 450.00
+}
+```
+
+---
+
+## Notifications Endpoints
+
+### GET /notifications
+
+Get all notifications for the current user.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "notifications": [
+    {
+      "id": "notif-uuid",
+      "type": "price_alert",
+      "message": "Electricity price dropped below $0.22/kWh in CT",
+      "read": false,
+      "created_at": "2026-03-11T14:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /notifications/count
+
+Get unread notification count.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "unread_count": 5
+}
+```
+
+---
+
+### PUT /notifications/read-all
+
+Mark all notifications as read.
+
+**Authentication**: Session required
+
+---
+
+### PUT /notifications/{notification_id}/read
+
+Mark a specific notification as read.
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `notification_id` (required): Notification UUID
+
+---
+
+## Utility Accounts Endpoints
+
+### GET /utility-accounts
+
+List all utility accounts for the current user.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+[
+  {
+    "id": "account-uuid",
+    "user_id": "user-uuid",
+    "utility_name": "Eversource Energy",
+    "utility_type": "electricity",
+    "account_number": "123456789",
+    "meter_number": "987654321",
+    "created_at": "2026-03-10T10:00:00Z"
+  }
+]
+```
+
+---
+
+### POST /utility-accounts
+
+Create a new utility account record.
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "utility_name": "Eversource Energy",
+  "utility_type": "electricity",
+  "account_number": "123456789",
+  "meter_number": "987654321"
+}
+```
+
+---
+
+### GET /utility-accounts/types
+
+Get list of available utility types.
+
+**Authentication**: Not required
+
+**Response:**
+```json
+{
+  "types": [
+    "electricity",
+    "natural_gas",
+    "water",
+    "propane",
+    "heating_oil"
+  ]
+}
+```
+
+---
+
+### GET /utility-accounts/{account_id}
+
+Get details of a specific utility account.
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `account_id` (required): Account UUID
+
+---
+
+### PUT /utility-accounts/{account_id}
+
+Update utility account details.
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `account_id` (required): Account UUID
+
+**Request Body:** (all fields optional)
+```json
+{
+  "account_number": "new-number",
+  "meter_number": "new-meter"
+}
+```
+
+---
+
+### DELETE /utility-accounts/{account_id}
+
+Delete a utility account.
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `account_id` (required): Account UUID
+
+---
+
+## Utility Discovery Endpoints
+
+### GET /utility-discovery/discover
+
+Get available utility types and completion progress for the current user.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "available_utilities": [
+    "electricity",
+    "natural_gas",
+    "water"
+  ],
+  "completed_utilities": ["electricity"],
+  "completion_percentage": 33.3
+}
+```
+
+---
+
+### GET /utility-discovery/completion
+
+Get utility setup completion percentage.
+
+**Authentication**: Session required
+
+**Response:**
+```json
+{
+  "percentage": 33.3,
+  "total_utilities": 3,
+  "completed": 1
+}
+```
+
+---
+
+## Public Rates Endpoints
+
+### GET /rates/states
+
+List states with available rate data (ISR for SEO).
+
+**Authentication**: Not required
+
+**Response:**
+```json
+{
+  "states": [
+    {
+      "code": "ct",
+      "name": "Connecticut",
+      "utility_types": ["electricity", "natural_gas", "water"]
+    }
+  ]
+}
+```
+
+---
+
+### GET /rates/{state}/{utility_type}
+
+Public rate data for ISR (Incremental Static Regeneration) pages.
+
+**Authentication**: Not required
+
+**Path Parameters:**
+- `state` (required): State code (e.g., `ct`, `ny`)
+- `utility_type` (required): `electricity`, `gas`, `heating_oil`, `propane`, `water`
+
+**Response:**
+```json
+{
+  "state": "ct",
+  "utility_type": "electricity",
+  "rates": [
+    {
+      "supplier": "Eversource Energy",
+      "current_price": 0.2845,
+      "updated_at": "2026-03-11T14:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## Reports Endpoint
+
+### GET /reports
+
+Cross-utility optimization report for the user.
+
+**Authentication**: Session required (Pro+)
+
+**Query Parameters:**
+- `format` (optional): `json` or `pdf` (default `json`)
+
+**Response:**
+```json
+{
+  "report_id": "report-uuid",
+  "generated_at": "2026-03-11T14:30:00Z",
+  "summary": {
+    "total_spending": 1200.50,
+    "potential_savings": 245.00,
+    "optimization_score": 82
+  },
+  "recommendations": [
+    {
+      "action": "Switch to NextEra Energy",
+      "estimated_savings": 180.00
+    }
+  ]
+}
+```
+
+---
+
+## Export Endpoint
+
+### GET /export
+
+Export rate data in CSV or JSON format.
+
+**Authentication**: Session required
+
+**Query Parameters:**
+- `format` (optional): `csv` or `json` (default `json`)
+- `utility_type` (optional): Filter by utility type
+
+**Response:** File download or JSON array
 
 ---
 
@@ -793,7 +2478,7 @@ All require authentication. Rate limited per tier (free 3/day, pro 20/day, busin
 
 Send a prompt to RateShift AI and receive streaming response (SSE).
 
-**Authentication**: Required
+**Authentication**: Session required
 
 **Request Body:**
 ```json
@@ -820,17 +2505,15 @@ Each event:
 }
 ```
 
-**Streaming**: Response ends with `[DONE]` message
-
-**Error Codes:**
-- `429`: Daily query limit reached
-- `503`: AI agent not enabled
+Streaming ends with `[DONE]` message.
 
 ---
 
 ### POST /agent/task
 
 Submit an async AI task for tool-heavy queries.
+
+**Authentication**: Session required
 
 **Request Body**: Same as POST /agent/query
 
@@ -848,6 +2531,8 @@ Submit an async AI task for tool-heavy queries.
 ### GET /agent/task/{job_id}
 
 Poll result of async AI task.
+
+**Authentication**: Session required
 
 **Path Parameters:**
 - `job_id` (required): Job UUID from task submission
@@ -867,13 +2552,15 @@ Poll result of async AI task.
 }
 ```
 
-**Status values**: `processing`, `completed`, `failed`, `not_found`
+Status values: `processing`, `completed`, `failed`, `not_found`
 
 ---
 
 ### GET /agent/usage
 
 Get daily query usage stats.
+
+**Authentication**: Session required
 
 **Response:**
 ```json
@@ -888,76 +2575,45 @@ Get daily query usage stats.
 
 ---
 
-## User Endpoints
+### GET /agent/health
 
-All require authentication.
+Get AI agent service health status.
 
-### GET /user/preferences
-
-Get current user preferences.
+**Authentication**: Session required
 
 **Response:**
 ```json
 {
-  "user_id": "user-uuid",
-  "preferences": {
-    "notification_enabled": true,
-    "auto_switch_enabled": false,
-    "green_energy_only": true,
-    "region": "us_ct"
-  }
+  "status": "healthy",
+  "model": "gemini-3-flash",
+  "fallback_model": "groq-llama-3.3-70b",
+  "tools_available": 15,
+  "last_check": "2026-03-11T14:30:00Z"
 }
 ```
 
 ---
 
-### POST /user/preferences
+## Neighborhood Endpoint
 
-Update user preferences (partial update).
+### GET /neighborhood/compare
 
-**Request Body:**
-```json
-{
-  "notification_enabled": false,
-  "region": "us_ma"
-}
-```
+Compare user's rates to neighborhood average.
 
-**Response**: Updated preferences object
+**Authentication**: Session required
 
----
-
-## Feedback Endpoint
-
-### POST /feedback
-
-Submit user feedback (bug report, feature request, or general comment).
-
-**Authentication**: Required
-
-**Request Body:**
-```json
-{
-  "type": "bug",
-  "message": "The alert notification did not trigger when the price dropped below threshold."
-}
-```
+**Query Parameters:**
+- `radius_miles` (optional): Comparison radius (default 10)
 
 **Response:**
 ```json
 {
-  "id": "feedback-uuid",
-  "type": "bug",
-  "status": "new",
-  "created_at": "2026-03-11T14:30:00Z"
+  "user_rate": 0.2845,
+  "neighborhood_average": 0.2750,
+  "percentile": 75,
+  "message": "You're paying slightly above average"
 }
 ```
-
-**Validation:**
-- `type` must be `bug`, `feature`, or `general`
-- `message` must be 10–5000 characters
-
-**Status Code**: 201 (Created)
 
 ---
 
@@ -971,7 +2627,7 @@ Trigger alert checking job (deduped by cooldown window).
 
 **Authentication**: Required (X-API-Key)
 
-**Request**: Empty body or optional filtering params
+**Request**: Empty body
 
 **Response:**
 ```json
@@ -987,7 +2643,7 @@ Trigger alert checking job (deduped by cooldown window).
 
 ### POST /internal/fetch-weather
 
-Fetch weather data for regions (parallelized).
+Fetch weather data for regions (parallelized with asyncio.gather + Semaphore(10)).
 
 **Authentication**: Required (X-API-Key)
 
@@ -1018,26 +2674,6 @@ Fetch market research and competitive data (Tavily + Diffbot).
   "articles_collected": 45,
   "suppliers_analyzed": 23,
   "duration_seconds": 15.2
-}
-```
-
----
-
-### POST /internal/sync-connections
-
-Auto-sync user connections via UtilityAPI.
-
-**Authentication**: Required (X-API-Key)
-
-**Request**: Empty body
-
-**Response:**
-```json
-{
-  "connections_synced": 87,
-  "rates_extracted": 512,
-  "errors": 2,
-  "timestamp": "2026-03-11T14:30:00Z"
 }
 ```
 
@@ -1108,11 +2744,88 @@ Geocode an address using dual-provider (OWM primary, Nominatim fallback).
 
 **Authentication**: Required (X-API-Key)
 
+**Request Body:**
+```json
+{
+  "address": "Hartford, CT"
+}
+```
+
+---
+
+### POST /internal/scan-emails
+
+Batch scan email connections for bill attachments and rate extraction.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+**Response:**
+```json
+{
+  "connections_scanned": 42,
+  "rates_extracted": 18,
+  "errors": 2,
+  "timestamp": "2026-03-11T14:30:00Z"
+}
+```
+
+---
+
+### POST /internal/scrape-portals
+
+Batch scrape portal connections (parallelized with Semaphore(2)).
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+**Response:**
+```json
+{
+  "portals_scraped": 15,
+  "rates_extracted": 23,
+  "errors": 1,
+  "timestamp": "2026-03-11T14:30:00Z"
+}
+```
+
+---
+
+### POST /internal/sync-connections
+
+Auto-sync user connections via UtilityAPI.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+**Response:**
+```json
+{
+  "connections_synced": 87,
+  "rates_extracted": 512,
+  "errors": 2,
+  "timestamp": "2026-03-11T14:30:00Z"
+}
+```
+
+---
+
+### POST /internal/sync-users
+
+Sync user data with external services.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
 ---
 
 ### POST /internal/dunning-cycle
 
-Execute payment dunning cycle (overdue payment escalation).
+Execute payment dunning cycle (overdue payment escalation with 7-day grace period).
 
 **Authentication**: Required (X-API-Key)
 
@@ -1187,387 +2900,291 @@ Get database health and freshness metrics.
 
 ---
 
-## Gas Rates Endpoints (Wave 2)
+### GET /internal/data-quality/freshness
 
-### GET /rates/gas
+Get data freshness metrics for all tables.
 
-Get current natural gas rates for a region.
-
-**Authentication**: Not required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `region` | string | Yes | Region code (e.g., `us_ct`) |
-
-**Response:** `200 OK`
-```json
-{
-  "rates": [
-    {
-      "id": "uuid",
-      "region": "us_ct",
-      "price_per_therm": 1.2345,
-      "supplier_name": "Southern CT Gas",
-      "source": "eia",
-      "recorded_at": "2026-03-13T00:00:00Z"
-    }
-  ]
-}
-```
-
-### GET /rates/gas/compare
-
-Compare gas suppliers in a region.
-
-**Authentication**: Not required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `region` | string | Yes | Region code |
-
----
-
-## Community Solar Endpoints (Wave 2)
-
-### GET /community-solar/programs
-
-List community solar programs by state.
-
-**Authentication**: Not required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `state` | string | Yes | State code (e.g., `CT`) |
-
-**Response:** `200 OK`
-```json
-{
-  "programs": [
-    {
-      "id": "uuid",
-      "name": "CT Solar Share",
-      "state": "CT",
-      "provider": "Eversource",
-      "savings_estimate_pct": 10.5,
-      "capacity_available": true
-    }
-  ]
-}
-```
-
----
-
-## CCA Detection Endpoints (Wave 3)
-
-### GET /cca/programs
-
-List Community Choice Aggregation programs by region.
-
-**Authentication**: Not required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `region` | string | No | Region code (returns all if omitted) |
-| `state` | string | No | Filter by state |
-
-### GET /cca/detect
-
-Detect if user's region is served by a CCA program.
-
-**Authentication**: Session required
-
----
-
-## Heating Oil Endpoints (Wave 3)
-
-### GET /rates/heating-oil
-
-Current heating oil prices by region.
-
-**Authentication**: Not required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `region` | string | Yes | Region code |
-
-### GET /rates/heating-oil/dealers
-
-List heating oil dealers in a region.
-
-**Authentication**: Not required
-
-### GET /rates/heating-oil/compare
-
-Compare heating oil dealers by price and service.
-
-**Authentication**: Not required
-
----
-
-## Rate Changes Endpoints (Wave 3)
-
-### GET /rate-changes
-
-Get recent rate changes across all utility types for the current user.
-
-**Authentication**: Session required
-
-### POST /rate-changes/alerts
-
-Create a rate change alert configuration.
-
-**Authentication**: Session required
-
----
-
-## Public Rates Endpoint (Wave 3 — SEO)
-
-### GET /rates/{state}/{utility_type}
-
-Public rate data for ISR (Incremental Static Regeneration) pages. Generates 153 pages (51 states x 3+ utility types).
-
-**Authentication**: Not required
-
-**Path Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `state` | string | State code (e.g., `ct`, `ny`) |
-| `utility_type` | string | `electricity`, `gas`, `heating_oil`, `propane`, `water` |
-
----
-
-## Affiliate Endpoints (Wave 3)
-
-### POST /affiliate/click
-
-Record an affiliate link click.
-
-**Authentication**: Not required
-
-### GET /affiliate/stats
-
-Get affiliate click and conversion stats.
-
-**Authentication**: `X-API-Key` required
-
----
-
-## Propane Endpoints (Wave 4)
-
-### GET /rates/propane
-
-Current propane prices by region.
-
-**Authentication**: Not required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `region` | string | Yes | Region code |
-
-### GET /rates/propane/history
-
-Historical propane prices.
-
-**Authentication**: Not required
-
-### GET /rates/propane/fill-timing
-
-Optimal fill-up timing recommendation based on price trends and seasonal patterns.
-
-**Authentication**: Session required
-
-### GET /rates/propane/compare
-
-Regional propane price comparison.
-
-**Authentication**: Not required
-
----
-
-## Water Endpoints (Wave 4)
-
-Water is monitoring-only — no switching CTA (geographic monopoly).
-
-### GET /rates/water
-
-Current water rates by region (municipality-level tiered pricing).
-
-**Authentication**: Not required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `region` | string | Yes | Region code |
-
-### GET /rates/water/benchmark
-
-Compare user's water usage to regional benchmarks.
-
-**Authentication**: Session required
-
-### GET /rates/water/tips
-
-Water conservation tips.
-
-**Authentication**: Not required
-
----
-
-## Forecast Endpoint (Wave 4)
-
-### GET /forecast
-
-Multi-utility price forecast.
-
-**Authentication**: Pro tier required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `utility_type` | string | No | Filter by utility type |
-| `region` | string | Yes | Region code |
-| `hours` | integer | No | Forecast horizon (default: 24, max: 168) |
-
----
-
-## Reports Endpoint (Wave 4)
-
-### GET /reports/optimization
-
-Cross-utility optimization report for the user.
-
-**Authentication**: Session required
-
----
-
-## Export Endpoint (Wave 4)
-
-### GET /export/rates
-
-Export rate data in CSV or JSON format.
-
-**Authentication**: Session required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `format` | string | No | `csv` or `json` (default: `json`) |
-| `utility_type` | string | No | Filter by utility type |
-
----
-
-## Community Endpoints (Wave 5)
-
-### GET /community/posts
-
-List community posts (paginated).
-
-**Authentication**: Session required
-
-**Query Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `page` | integer | No | Page number (default: 1) |
-| `page_size` | integer | No | Items per page (default: 20) |
-| `category` | string | No | Filter by category |
-
-### POST /community/posts
-
-Create a community post. Content is AI-moderated (Groq primary, Gemini fallback) and sanitized via nh3.
-
-**Authentication**: Session required. Rate limit: 10 posts/hour.
-
-**Request Body:**
-```json
-{
-  "title": "Best time to run laundry in CT?",
-  "content": "I noticed rates drop after 9pm...",
-  "category": "tips"
-}
-```
-
-### POST /community/posts/{id}/vote
-
-Vote on a community post (up or down).
-
-**Authentication**: Session required
-
-**Request Body:**
-```json
-{
-  "vote_type": "up"
-}
-```
-
-### POST /community/posts/{id}/report
-
-Report a community post. 5 unique reporters auto-hides the post.
-
-**Authentication**: Session required
-
-**Request Body:**
-```json
-{
-  "reason": "spam",
-  "details": "Promotional content"
-}
-```
-
----
-
-## Neighborhood Endpoints (Wave 5)
-
-### GET /neighborhood/comparison
-
-Compare user's rates to neighborhood average.
-
-**Authentication**: Session required
-
-### GET /neighborhood/stats
-
-Get aggregated neighborhood statistics.
-
-**Authentication**: Not required
-
----
-
-## Utility Discovery Endpoints (Wave 2)
-
-### GET /discover
-
-Get available utility types and completion progress for the current user.
-
-**Authentication**: Session required
-
-### GET /discover/completion
-
-Get utility setup completion percentage.
-
-**Authentication**: Session required
-
----
-
-## Health Endpoint
-
-### GET /health
-
-Basic liveness check.
-
-**Authentication**: Not required
+**Authentication**: Required (X-API-Key)
 
 **Response:**
 ```json
 {
-  "status": "ok",
-  "timestamp": "2026-03-11T14:30:00Z"
+  "tables": {
+    "prices": {"freshness_hours": 0.5, "last_update": "2026-03-11T14:00:00Z"},
+    "weather": {"freshness_hours": 2.0, "last_update": "2026-03-11T12:30:00Z"},
+    "suppliers": {"freshness_hours": 24.0, "last_update": "2026-03-10T14:30:00Z"}
+  }
 }
 ```
+
+---
+
+### GET /internal/data-quality/anomalies
+
+Get detected data anomalies and quality issues.
+
+**Authentication**: Required (X-API-Key)
+
+**Response:**
+```json
+{
+  "anomalies": [
+    {
+      "table": "prices",
+      "issue": "Missing prices for region us_ny",
+      "severity": "high",
+      "detected_at": "2026-03-11T14:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /internal/data-quality/sources
+
+Get data source health and status.
+
+**Authentication**: Required (X-API-Key)
+
+**Response:**
+```json
+{
+  "sources": {
+    "eia": {"status": "healthy", "last_sync": "2026-03-11T14:30:00Z"},
+    "nrel": {"status": "unhealthy", "last_sync": "2026-03-10T10:00:00Z", "error": "Rate limited"},
+    "openweathermap": {"status": "healthy", "last_sync": "2026-03-11T14:15:00Z"}
+  }
+}
+```
+
+---
+
+### POST /internal/observe-forecasts
+
+Backfill actual prices into forecast observations for ML model training.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+---
+
+### POST /internal/learn
+
+Trigger nightly ML model learning/retraining.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body
+
+---
+
+### GET /internal/observation-stats
+
+Get ML observation statistics.
+
+**Authentication**: Required (X-API-Key)
+
+---
+
+### GET /internal/model-versions
+
+Get available ML model versions.
+
+**Authentication**: Required (X-API-Key)
+
+---
+
+### POST /internal/model-versions/compare
+
+Compare two ML model versions for performance.
+
+**Authentication**: Required (X-API-Key)
+
+**Request Body:**
+```json
+{
+  "model_v1": "v2.0.0",
+  "model_v2": "v2.1.0"
+}
+```
+
+---
+
+### PUT /internal/flags/{name}
+
+Set feature flags for A/B testing or gradual rollouts.
+
+**Authentication**: Required (X-API-Key)
+
+**Path Parameters:**
+- `name` (required): Flag name
+
+**Request Body:**
+```json
+{
+  "value": true,
+  "expires_at": "2026-03-25T00:00:00Z"
+}
+```
+
+---
+
+### GET /internal/flags
+
+List all active feature flags.
+
+**Authentication**: Required (X-API-Key)
+
+---
+
+### POST /internal/maintenance/cleanup
+
+Run database cleanup and maintenance tasks.
+
+**Authentication**: Required (X-API-Key)
+
+**Request**: Empty body or cleanup options
+
+**Response:**
+```json
+{
+  "operations": [
+    {"operation": "vacuum", "rows_affected": 5432, "duration_ms": 234},
+    {"operation": "analyze", "tables_analyzed": 58, "duration_ms": 156}
+  ],
+  "total_duration_ms": 390
+}
+```
+
+---
+
+## Beta Endpoints
+
+### POST /beta/signup
+
+Submit beta signup (unauthenticated).
+
+**Authentication**: Not required
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "region": "us_ct",
+  "utility_type": "electricity"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Signup recorded. Watch for early access email.",
+  "id": "signup-uuid"
+}
+```
+
+---
+
+### GET /beta/signups/count
+
+Get total beta signup count.
+
+**Authentication**: Required (X-API-Key)
+
+---
+
+### GET /beta/signups/stats
+
+Get beta signup statistics and demographics.
+
+**Authentication**: Required (X-API-Key)
+
+---
+
+### POST /beta/verify-code
+
+Verify beta access code.
+
+**Authentication**: Optional
+
+**Request Body:**
+```json
+{
+  "code": "BETA2026"
+}
+```
+
+---
+
+## User Supplier Endpoint
+
+### PUT /user/supplier
+
+Link or update user's current supplier.
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "supplier_id": "supplier-uuid",
+  "region": "us_ct"
+}
+```
+
+---
+
+### GET /user/supplier
+
+Get user's current supplier information.
+
+**Authentication**: Session required
+
+---
+
+### DELETE /user/supplier
+
+Unlink user's supplier.
+
+**Authentication**: Session required
+
+---
+
+### POST /user/supplier/link
+
+Link a third-party account (via OAuth/API).
+
+**Authentication**: Session required
+
+**Request Body:**
+```json
+{
+  "supplier_id": "supplier-uuid",
+  "oauth_code": "auth-code-from-provider"
+}
+```
+
+---
+
+### GET /user/supplier/accounts
+
+Get all linked supplier accounts.
+
+**Authentication**: Session required
+
+---
+
+### DELETE /user/supplier/accounts/{supplier_id}
+
+Unlink a specific supplier account.
+
+**Authentication**: Session required
+
+**Path Parameters:**
+- `supplier_id` (required): Supplier UUID
 
 ---
 
@@ -1602,6 +3219,12 @@ Basic liveness check.
 6. **Retry Logic**: Internal endpoints should be idempotent; safe to retry on 5xx errors.
 
 7. **Regional Codes**: Use two-letter country codes (e.g., `uk`, `de`) or `us_<state>` format (e.g., `us_ct`).
+
+8. **Connection Types**: Use `direct` for account numbers, `email` for OAuth (Gmail/Outlook), `portal` for web scraping.
+
+9. **Tier Gating**: Always check subscription tier for gated endpoints (Pro, Business). Free tier has limited functionality.
+
+10. **Webhook Security**: All Stripe webhook requests include `stripe-signature` header; verify signature before processing.
 
 ---
 

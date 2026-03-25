@@ -22,3 +22,10 @@ repos:
         language: script
         pass_filenames: false
         stages: [pre-push]
+
+      - id: doc-coverage-reminder
+        name: doc coverage reminder
+        entry: python3 scripts/doc-coverage-check.py --quick --changed-only
+        language: system
+        pass_filenames: false
+        files: ^(backend/services/|backend/api/|frontend/lib/hooks/|frontend/components/)

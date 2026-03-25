@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 # WCAG 2.1 Level AA Accessibility Audit Report
 ## RateShift Frontend Components
 

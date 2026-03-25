@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 # T4: E2E Test Analysis Report
 
 > Generated: 2026-03-03 | Agent: e2e-fixer

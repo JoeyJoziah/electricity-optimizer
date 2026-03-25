@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 # Brand Sweep Summary — Electricity Optimizer → RateShift
 
 **Date**: 2026-03-11

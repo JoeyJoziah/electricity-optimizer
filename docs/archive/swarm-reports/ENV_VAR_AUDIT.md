@@ -1,3 +1,7 @@
+> **DEPRECATED** — This document is archived for historical reference only. It may contain outdated information. See current documentation in the parent `docs/` directory.
+
+---
+
 # Render Backend Env Var Audit vs 1Password Vault
 
 > Auditor: security-engineer
