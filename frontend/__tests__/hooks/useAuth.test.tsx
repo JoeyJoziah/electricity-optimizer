@@ -1,18 +1,18 @@
-import { renderHook, act, waitFor } from '@testing-library/react'
-import React, { ReactNode } from 'react'
-import '@testing-library/jest-dom'
+import { renderHook, act, waitFor } from "@testing-library/react";
+import React, { ReactNode } from "react";
+import "@testing-library/jest-dom";
 
 // --- Mocks ---
 
 // Mock authClient with controllable return values
-const mockGetSession = jest.fn()
-const mockSignInEmail = jest.fn()
-const mockSignUpEmail = jest.fn()
-const mockSignOut = jest.fn()
-const mockSignInSocial = jest.fn()
-const mockSignInMagicLink = jest.fn()
+const mockGetSession = jest.fn();
+const mockSignInEmail = jest.fn();
+const mockSignUpEmail = jest.fn();
+const mockSignOut = jest.fn();
+const mockSignInSocial = jest.fn();
+const mockSignInMagicLink = jest.fn();
 
-jest.mock('@/lib/auth/client', () => ({
+jest.mock("@/lib/auth/client", () => ({
   authClient: {
     getSession: (...args: unknown[]) => mockGetSession(...args),
     signIn: {
@@ -25,25 +25,25 @@ jest.mock('@/lib/auth/client', () => ({
     },
     signOut: (...args: unknown[]) => mockSignOut(...args),
   },
-}))
+}));
 
 // Mock supplier API
-const mockGetUserSupplier = jest.fn()
-jest.mock('@/lib/api/suppliers', () => ({
+const mockGetUserSupplier = jest.fn();
+jest.mock("@/lib/api/suppliers", () => ({
   getUserSupplier: (...args: unknown[]) => mockGetUserSupplier(...args),
-}))
+}));
 
 // Mock profile API
-const mockGetUserProfile = jest.fn()
-jest.mock('@/lib/api/profile', () => ({
+const mockGetUserProfile = jest.fn();
+jest.mock("@/lib/api/profile", () => ({
   getUserProfile: (...args: unknown[]) => mockGetUserProfile(...args),
-}))
+}));
 
 // Mock settings store
-const mockSetCurrentSupplier = jest.fn()
-const mockSetRegion = jest.fn()
-const mockResetSettings = jest.fn()
-jest.mock('@/lib/store/settings', () => ({
+const mockSetCurrentSupplier = jest.fn();
+const mockSetRegion = jest.fn();
+const mockResetSettings = jest.fn();
+jest.mock("@/lib/store/settings", () => ({
   useSettingsStore: {
     getState: () => ({
       setCurrentSupplier: mockSetCurrentSupplier,
@@ -51,993 +51,1019 @@ jest.mock('@/lib/store/settings', () => ({
       resetSettings: mockResetSettings,
     }),
   },
-}))
+}));
 
 // Mock next/navigation
-const mockPush = jest.fn()
-const mockReplace = jest.fn()
-jest.mock('next/navigation', () => ({
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
+jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
     replace: mockReplace,
   }),
-  usePathname: () => '/dashboard',
-}))
+  usePathname: () => "/dashboard",
+}));
 
 // Mock OneSignal notifications
-const mockLoginOneSignal = jest.fn()
-const mockLogoutOneSignal = jest.fn()
-jest.mock('@/lib/notifications/onesignal', () => ({
+const mockLoginOneSignal = jest.fn();
+const mockLogoutOneSignal = jest.fn();
+jest.mock("@/lib/notifications/onesignal", () => ({
   loginOneSignal: (...args: unknown[]) => mockLoginOneSignal(...args),
   logoutOneSignal: (...args: unknown[]) => mockLogoutOneSignal(...args),
-}))
+}));
 
 // Import after mocks are set up
-import { AuthProvider, useAuth, useRequireAuth } from '@/lib/hooks/useAuth'
+import { AuthProvider, useAuth, useRequireAuth } from "@/lib/hooks/useAuth";
 
 // Helpers
 function createWrapper() {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <AuthProvider>{children}</AuthProvider>
-  }
+    return <AuthProvider>{children}</AuthProvider>;
+  };
 }
 
 // Save original location
-const originalLocation = window.location
+const originalLocation = window.location;
 
-describe('useAuth hook', () => {
+describe("useAuth hook", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
 
     // Default: no session, no supplier, no profile
-    mockGetSession.mockResolvedValue({ data: null, error: null })
-    mockGetUserSupplier.mockResolvedValue({ supplier: null })
-    mockGetUserProfile.mockResolvedValue({ region: null, onboarding_completed: false })
+    mockGetSession.mockResolvedValue({ data: null, error: null });
+    mockGetUserSupplier.mockResolvedValue({ supplier: null });
+    mockGetUserProfile.mockResolvedValue({
+      region: null,
+      onboarding_completed: false,
+    });
 
     // Reset window.location for tests that check redirect
     // Use a writable descriptor so tests can assign window.location.href
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
       value: {
         ...originalLocation,
-        href: 'http://localhost:3000/auth/login',
-        search: '',
-        pathname: '/auth/login',
-        origin: 'http://localhost:3000',
+        href: "http://localhost:3000/auth/login",
+        search: "",
+        pathname: "/auth/login",
+        origin: "http://localhost:3000",
       },
-    })
+    });
 
     // Reset fetch mock (used by signOut for backend cache invalidation)
-    ;(global.fetch as jest.Mock).mockResolvedValue({ ok: true })
-  })
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+  });
 
   afterAll(() => {
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
       value: originalLocation,
-    })
-  })
+    });
+  });
 
   // -------------------------------------------------------------------------
   // Context guard
   // -------------------------------------------------------------------------
-  it('throws when useAuth is used outside AuthProvider', () => {
+  it("throws when useAuth is used outside AuthProvider", () => {
     // Suppress console.error for the expected error
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
 
     expect(() => {
-      renderHook(() => useAuth())
-    }).toThrow('useAuth must be used within an AuthProvider')
+      renderHook(() => useAuth());
+    }).toThrow("useAuth must be used within an AuthProvider");
 
-    spy.mockRestore()
-  })
+    spy.mockRestore();
+  });
 
   // -------------------------------------------------------------------------
   // Session initialization
   // -------------------------------------------------------------------------
-  it('initializes with loading state then resolves to unauthenticated', async () => {
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+  it("initializes with loading state then resolves to unauthenticated", async () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // Initially loading
-    expect(result.current.isLoading).toBe(true)
+    expect(result.current.isLoading).toBe(true);
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    expect(result.current.user).toBeNull()
-    expect(result.current.isAuthenticated).toBe(false)
-    expect(result.current.error).toBeNull()
-  })
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
 
-  it('initializes with authenticated user when session exists', async () => {
+  it("initializes with authenticated user when session exists", async () => {
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          name: 'Test User',
+          id: "user-123",
+          email: "test@example.com",
+          name: "Test User",
           emailVerified: true,
-          createdAt: new Date('2026-01-01'),
+          createdAt: new Date("2026-01-01"),
         },
-        session: { id: 'sess-1' },
+        session: { id: "sess-1" },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    expect(result.current.isAuthenticated).toBe(true)
+    expect(result.current.isAuthenticated).toBe(true);
     expect(result.current.user).toEqual({
-      id: 'user-123',
-      email: 'test@example.com',
-      name: 'Test User',
+      id: "user-123",
+      email: "test@example.com",
+      name: "Test User",
       emailVerified: true,
       createdAt: expect.any(String),
-    })
-  })
+    });
+  });
 
-  it('calls loginOneSignal with user id on session init', async () => {
+  it("calls loginOneSignal with user id on session init", async () => {
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'user-onesignal',
-          email: 'push@example.com',
-          name: 'Push User',
+          id: "user-onesignal",
+          email: "push@example.com",
+          name: "Push User",
           emailVerified: true,
-          createdAt: new Date('2026-01-01'),
+          createdAt: new Date("2026-01-01"),
         },
-        session: { id: 'sess-1' },
+        session: { id: "sess-1" },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    renderHook(() => useAuth(), { wrapper })
-
-    await waitFor(() => {
-      expect(mockLoginOneSignal).toHaveBeenCalledWith('user-onesignal')
-    })
-  })
-
-  it('does not call loginOneSignal when no session exists', async () => {
-    mockGetSession.mockResolvedValue({ data: null, error: null })
-
-    const wrapper = createWrapper()
-    renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(mockGetSession).toHaveBeenCalled()
-    })
+      expect(mockLoginOneSignal).toHaveBeenCalledWith("user-onesignal");
+    });
+  });
 
-    expect(mockLoginOneSignal).not.toHaveBeenCalled()
-  })
+  it("does not call loginOneSignal when no session exists", async () => {
+    mockGetSession.mockResolvedValue({ data: null, error: null });
 
-  it('syncs supplier to settings store when session and supplier both succeed', async () => {
+    const wrapper = createWrapper();
+    renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => {
+      expect(mockGetSession).toHaveBeenCalled();
+    });
+
+    expect(mockLoginOneSignal).not.toHaveBeenCalled();
+  });
+
+  it("syncs supplier to settings store when session and supplier both succeed", async () => {
     // Must be on a non-auth page so getUserSupplier() is not skipped
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
       value: {
         ...window.location,
-        href: 'http://localhost:3000/dashboard',
-        pathname: '/dashboard',
-        search: '',
-        origin: 'http://localhost:3000',
+        href: "http://localhost:3000/dashboard",
+        pathname: "/dashboard",
+        search: "",
+        origin: "http://localhost:3000",
       },
-    })
+    });
 
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          name: 'Test User',
+          id: "user-123",
+          email: "test@example.com",
+          name: "Test User",
           emailVerified: true,
-          createdAt: new Date('2026-01-01'),
+          createdAt: new Date("2026-01-01"),
         },
       },
-    })
+    });
     mockGetUserSupplier.mockResolvedValue({
       supplier: {
-        supplier_id: 'sup-1',
-        supplier_name: 'Eversource Energy',
+        supplier_id: "sup-1",
+        supplier_name: "Eversource Energy",
         green_energy: true,
         rating: 4.2,
       },
-    })
+    });
     // Profile returns onboarding_completed: true so we don't get redirected away
-    mockGetUserProfile.mockResolvedValue({ region: 'CT', onboarding_completed: true })
+    mockGetUserProfile.mockResolvedValue({
+      region: "CT",
+      onboarding_completed: true,
+    });
 
-    const wrapper = createWrapper()
-    renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
       expect(mockSetCurrentSupplier).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'sup-1',
-          name: 'Eversource Energy',
+          id: "sup-1",
+          name: "Eversource Energy",
           greenEnergy: true,
           rating: 4.2,
-        })
-      )
-    })
-  })
+        }),
+      );
+    });
+  });
 
-  it('skips supplier and profile API calls on auth pages', async () => {
+  it("skips supplier and profile API calls on auth pages", async () => {
     // Simulate being on an auth page
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
       value: {
         ...window.location,
-        pathname: '/auth/login',
-        href: 'http://localhost:3000/auth/login',
-        search: '',
-        origin: 'http://localhost:3000',
+        pathname: "/auth/login",
+        href: "http://localhost:3000/auth/login",
+        search: "",
+        origin: "http://localhost:3000",
       },
-    })
+    });
 
-    mockGetSession.mockResolvedValue({ data: null, error: null })
+    mockGetSession.mockResolvedValue({ data: null, error: null });
 
-    const wrapper = createWrapper()
-    renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(mockGetSession).toHaveBeenCalled()
-    })
+      expect(mockGetSession).toHaveBeenCalled();
+    });
 
     // getUserSupplier and getUserProfile should NOT have been called on auth pages
-    expect(mockGetUserSupplier).not.toHaveBeenCalled()
-    expect(mockGetUserProfile).not.toHaveBeenCalled()
-  })
+    expect(mockGetUserSupplier).not.toHaveBeenCalled();
+    expect(mockGetUserProfile).not.toHaveBeenCalled();
+  });
 
-  it('calls supplier and profile APIs on non-auth pages', async () => {
-    Object.defineProperty(window, 'location', {
+  it("calls supplier and profile APIs on non-auth pages", async () => {
+    Object.defineProperty(window, "location", {
       writable: true,
       value: {
         ...window.location,
-        pathname: '/dashboard',
-        href: 'http://localhost:3000/dashboard',
-        search: '',
-        origin: 'http://localhost:3000',
+        pathname: "/dashboard",
+        href: "http://localhost:3000/dashboard",
+        search: "",
+        origin: "http://localhost:3000",
       },
-    })
+    });
 
-    mockGetSession.mockResolvedValue({ data: null, error: null })
+    // Must return a valid session — backend calls are staggered AFTER session check
+    mockGetSession.mockResolvedValue({
+      data: {
+        user: {
+          id: "user-123",
+          email: "test@example.com",
+          name: "Test User",
+          emailVerified: true,
+          createdAt: new Date("2026-01-01"),
+        },
+        session: { id: "sess-1" },
+      },
+      error: null,
+    });
 
-    const wrapper = createWrapper()
-    renderHook(() => useAuth(), { wrapper })
-
-    await waitFor(() => {
-      expect(mockGetSession).toHaveBeenCalled()
-    })
-
-    // On non-auth pages, both should be called
-    expect(mockGetUserSupplier).toHaveBeenCalled()
-    expect(mockGetUserProfile).toHaveBeenCalled()
-  })
-
-  it('handles getSession failure gracefully', async () => {
-    mockGetSession.mockRejectedValue(new Error('Network failure'))
-
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(mockGetSession).toHaveBeenCalled();
+    });
+
+    // On non-auth pages with a valid session, both should be called
+    await waitFor(() => {
+      expect(mockGetUserSupplier).toHaveBeenCalled();
+    });
+    expect(mockGetUserProfile).toHaveBeenCalled();
+  });
+
+  it("handles getSession failure gracefully", async () => {
+    mockGetSession.mockRejectedValue(new Error("Network failure"));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
 
     // Should not crash -- just remain unauthenticated
-    expect(result.current.user).toBeNull()
-    expect(result.current.isAuthenticated).toBe(false)
-  })
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+  });
 
   // -------------------------------------------------------------------------
   // signIn
   // -------------------------------------------------------------------------
-  it('signIn sets user on success and redirects', async () => {
+  it("signIn sets user on success and redirects", async () => {
     mockSignInEmail.mockResolvedValue({
       data: {
         user: {
-          id: 'user-456',
-          email: 'login@example.com',
-          name: 'Login User',
+          id: "user-456",
+          email: "login@example.com",
+          name: "Login User",
           emailVerified: false,
-          createdAt: new Date('2026-02-01'),
+          createdAt: new Date("2026-02-01"),
         },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // Wait for init
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signIn('login@example.com', 'password123')
-    })
+      await result.current.signIn("login@example.com", "password123");
+    });
 
     expect(mockSignInEmail).toHaveBeenCalledWith({
-      email: 'login@example.com',
-      password: 'password123',
-    })
+      email: "login@example.com",
+      password: "password123",
+    });
 
-    expect(result.current.user?.email).toBe('login@example.com')
+    expect(result.current.user?.email).toBe("login@example.com");
     // Redirects via window.location.href
-    expect(window.location.href).toBe('/dashboard')
-  })
+    expect(window.location.href).toBe("/dashboard");
+  });
 
-  it('signIn calls loginOneSignal with user id on success', async () => {
+  it("signIn calls loginOneSignal with user id on success", async () => {
     mockSignInEmail.mockResolvedValue({
       data: {
         user: {
-          id: 'user-signin-456',
-          email: 'signin@example.com',
-          name: 'SignIn User',
+          id: "user-signin-456",
+          email: "signin@example.com",
+          name: "SignIn User",
           emailVerified: true,
-          createdAt: new Date('2026-02-01'),
+          createdAt: new Date("2026-02-01"),
         },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signIn('signin@example.com', 'password123')
-    })
+      await result.current.signIn("signin@example.com", "password123");
+    });
 
-    expect(mockLoginOneSignal).toHaveBeenCalledWith('user-signin-456')
-  })
+    expect(mockLoginOneSignal).toHaveBeenCalledWith("user-signin-456");
+  });
 
-  it('signIn uses callbackUrl from query params when safe', async () => {
+  it("signIn uses callbackUrl from query params when safe", async () => {
     // Set search params with a callbackUrl
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
       value: {
         ...window.location,
-        href: 'http://localhost:3000/auth/login?callbackUrl=%2Fprices',
-        search: '?callbackUrl=%2Fprices',
+        href: "http://localhost:3000/auth/login?callbackUrl=%2Fprices",
+        search: "?callbackUrl=%2Fprices",
       },
-    })
+    });
 
     mockSignInEmail.mockResolvedValue({
       data: {
         user: {
-          id: 'u-1',
-          email: 'a@b.com',
-          name: '',
+          id: "u-1",
+          email: "a@b.com",
+          name: "",
           emailVerified: false,
           createdAt: new Date(),
         },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signIn('a@b.com', 'pass')
-    })
+      await result.current.signIn("a@b.com", "pass");
+    });
 
     // Should redirect to /prices, not /dashboard
-    expect(window.location.href).toBe('/prices')
-  })
+    expect(window.location.href).toBe("/prices");
+  });
 
-  it('signIn rejects unsafe callbackUrl (protocol-relative)', async () => {
-    Object.defineProperty(window, 'location', {
+  it("signIn rejects unsafe callbackUrl (protocol-relative)", async () => {
+    Object.defineProperty(window, "location", {
       writable: true,
       value: {
         ...window.location,
-        href: 'http://localhost:3000/auth/login?callbackUrl=%2F%2Fevil.com',
-        search: '?callbackUrl=%2F%2Fevil.com',
+        href: "http://localhost:3000/auth/login?callbackUrl=%2F%2Fevil.com",
+        search: "?callbackUrl=%2F%2Fevil.com",
       },
-    })
+    });
 
     mockSignInEmail.mockResolvedValue({
       data: {
         user: {
-          id: 'u-1',
-          email: 'a@b.com',
-          name: '',
+          id: "u-1",
+          email: "a@b.com",
+          name: "",
           emailVerified: false,
           createdAt: new Date(),
         },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signIn('a@b.com', 'pass')
-    })
+      await result.current.signIn("a@b.com", "pass");
+    });
 
     // Protocol-relative //evil.com should be rejected, fallback to /dashboard
-    expect(window.location.href).toBe('/dashboard')
-  })
+    expect(window.location.href).toBe("/dashboard");
+  });
 
-  it('signIn sets error on auth failure', async () => {
+  it("signIn sets error on auth failure", async () => {
     mockSignInEmail.mockResolvedValue({
       data: null,
-      error: { message: 'Invalid credentials' },
-    })
+      error: { message: "Invalid credentials" },
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     // The signIn method sets error state then re-throws.
     // We catch the rejection and then wait for the state update to flush.
-    let caughtError: unknown
+    let caughtError: unknown;
     await act(async () => {
       try {
-        await result.current.signIn('bad@example.com', 'wrong')
+        await result.current.signIn("bad@example.com", "wrong");
       } catch (e) {
-        caughtError = e
+        caughtError = e;
       }
-    })
+    });
 
-    expect(caughtError).toBeDefined()
-    expect((caughtError as Error).message).toBe('Invalid credentials')
-
-    await waitFor(() => {
-      expect(result.current.error).toBe('Invalid credentials')
-    })
-    expect(result.current.user).toBeNull()
-  })
-
-  it('signIn sets generic error when auth throws non-Error', async () => {
-    mockSignInEmail.mockRejectedValue('Network timeout')
-
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    expect(caughtError).toBeDefined();
+    expect((caughtError as Error).message).toBe("Invalid credentials");
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.error).toBe("Invalid credentials");
+    });
+    expect(result.current.user).toBeNull();
+  });
 
-    let caughtError: unknown
+  it("signIn sets generic error when auth throws non-Error", async () => {
+    mockSignInEmail.mockRejectedValue("Network timeout");
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    let caughtError: unknown;
     await act(async () => {
       try {
-        await result.current.signIn('a@b.com', 'pass')
+        await result.current.signIn("a@b.com", "pass");
       } catch (e) {
-        caughtError = e
+        caughtError = e;
       }
-    })
+    });
 
-    expect(caughtError).toBeDefined()
+    expect(caughtError).toBeDefined();
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Failed to sign in')
-    })
-  })
+      expect(result.current.error).toBe("Failed to sign in");
+    });
+  });
 
   // -------------------------------------------------------------------------
   // signUp
   // -------------------------------------------------------------------------
-  it('signUp redirects to verify-email (no session until verified)', async () => {
+  it("signUp redirects to verify-email (no session until verified)", async () => {
     mockSignUpEmail.mockResolvedValue({
       data: {
         user: {
-          id: 'user-new',
-          email: 'new@example.com',
-          name: 'New User',
+          id: "user-new",
+          email: "new@example.com",
+          name: "New User",
           emailVerified: false,
-          createdAt: new Date('2026-02-25'),
+          createdAt: new Date("2026-02-25"),
         },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signUp('new@example.com', 'securepass', 'New User')
-    })
+      await result.current.signUp("new@example.com", "securepass", "New User");
+    });
 
     expect(mockSignUpEmail).toHaveBeenCalledWith({
-      email: 'new@example.com',
-      password: 'securepass',
-      name: 'New User',
-    })
+      email: "new@example.com",
+      password: "securepass",
+      name: "New User",
+    });
     // No session is created until email is verified, so user should not be set
-    expect(result.current.user).toBeNull()
+    expect(result.current.user).toBeNull();
     // Redirects to verify-email with the email as query param
-    expect(window.location.href).toBe('/auth/verify-email?email=new%40example.com')
-  })
+    expect(window.location.href).toBe(
+      "/auth/verify-email?email=new%40example.com",
+    );
+  });
 
-  it('signUp sets error on failure', async () => {
+  it("signUp sets error on failure", async () => {
     mockSignUpEmail.mockResolvedValue({
       data: null,
-      error: { message: 'Email already registered' },
-    })
+      error: { message: "Email already registered" },
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    let caughtError: unknown
+    let caughtError: unknown;
     await act(async () => {
       try {
-        await result.current.signUp('existing@example.com', 'pass')
+        await result.current.signUp("existing@example.com", "pass");
       } catch (e) {
-        caughtError = e
+        caughtError = e;
       }
-    })
+    });
 
-    expect(caughtError).toBeDefined()
-    expect((caughtError as Error).message).toBe('Email already registered')
+    expect(caughtError).toBeDefined();
+    expect((caughtError as Error).message).toBe("Email already registered");
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Email already registered')
-    })
-  })
+      expect(result.current.error).toBe("Email already registered");
+    });
+  });
 
-  it('signUp sends empty name when name is not provided', async () => {
+  it("signUp sends empty name when name is not provided", async () => {
     mockSignUpEmail.mockResolvedValue({
       data: {
         user: {
-          id: 'u-1',
-          email: 'a@b.com',
-          name: '',
+          id: "u-1",
+          email: "a@b.com",
+          name: "",
           emailVerified: false,
           createdAt: new Date(),
         },
       },
       error: null,
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signUp('a@b.com', 'pass')
-    })
+      await result.current.signUp("a@b.com", "pass");
+    });
 
     expect(mockSignUpEmail).toHaveBeenCalledWith({
-      email: 'a@b.com',
-      password: 'pass',
-      name: '',
-    })
-  })
+      email: "a@b.com",
+      password: "pass",
+      name: "",
+    });
+  });
 
   // -------------------------------------------------------------------------
   // signOut
   // -------------------------------------------------------------------------
-  it('signOut clears user state and redirects to login', async () => {
+  it("signOut clears user state and redirects to login", async () => {
     // Start with a valid session
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          name: 'Test',
+          id: "user-123",
+          email: "test@example.com",
+          name: "Test",
           emailVerified: true,
           createdAt: new Date(),
         },
       },
-    })
-    mockSignOut.mockResolvedValue({ data: null, error: null })
+    });
+    mockSignOut.mockResolvedValue({ data: null, error: null });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(true)
-    })
+      expect(result.current.isAuthenticated).toBe(true);
+    });
 
     await act(async () => {
-      await result.current.signOut()
-    })
+      await result.current.signOut();
+    });
 
-    expect(result.current.user).toBeNull()
-    expect(result.current.isAuthenticated).toBe(false)
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
     // signOut now uses full-page navigation to clear all client state
-    expect(window.location.href).toBe('/auth/login')
-  })
+    expect(window.location.href).toBe("/auth/login");
+  });
 
-  it('signOut calls logoutOneSignal', async () => {
+  it("signOut calls logoutOneSignal", async () => {
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'user-os-logout',
-          email: 'push@example.com',
+          id: "user-os-logout",
+          email: "push@example.com",
           emailVerified: true,
           createdAt: new Date(),
         },
       },
-    })
-    mockSignOut.mockResolvedValue({})
+    });
+    mockSignOut.mockResolvedValue({});
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(true)
-    })
+      expect(result.current.isAuthenticated).toBe(true);
+    });
 
     // Clear mocks from init (loginOneSignal was called during session init)
-    mockLogoutOneSignal.mockClear()
+    mockLogoutOneSignal.mockClear();
 
     await act(async () => {
-      await result.current.signOut()
-    })
+      await result.current.signOut();
+    });
 
-    expect(mockLogoutOneSignal).toHaveBeenCalledTimes(1)
-  })
+    expect(mockLogoutOneSignal).toHaveBeenCalledTimes(1);
+  });
 
-  it('signOut calls backend logout for cache invalidation', async () => {
+  it("signOut calls backend logout for cache invalidation", async () => {
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'u-1',
-          email: 'a@b.com',
+          id: "u-1",
+          email: "a@b.com",
           emailVerified: true,
           createdAt: new Date(),
         },
       },
-    })
-    mockSignOut.mockResolvedValue({})
+    });
+    mockSignOut.mockResolvedValue({});
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(true)
-    })
+      expect(result.current.isAuthenticated).toBe(true);
+    });
 
     await act(async () => {
-      await result.current.signOut()
-    })
+      await result.current.signOut();
+    });
 
     // Check that fetch was called for backend cache invalidation
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/logout'),
-      expect.objectContaining({ method: 'POST', credentials: 'include' })
-    )
-  })
+      expect.stringContaining("/auth/logout"),
+      expect.objectContaining({ method: "POST", credentials: "include" }),
+    );
+  });
 
-  it('signOut clears state even when authClient.signOut throws', async () => {
+  it("signOut clears state even when authClient.signOut throws", async () => {
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'u-1',
-          email: 'a@b.com',
+          id: "u-1",
+          email: "a@b.com",
           emailVerified: true,
           createdAt: new Date(),
         },
       },
-    })
-    mockSignOut.mockRejectedValue(new Error('signOut exploded'))
+    });
+    mockSignOut.mockRejectedValue(new Error("signOut exploded"));
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(true)
-    })
+      expect(result.current.isAuthenticated).toBe(true);
+    });
 
     await act(async () => {
-      await result.current.signOut()
-    })
+      await result.current.signOut();
+    });
 
     // User should still be cleared
-    expect(result.current.user).toBeNull()
-    expect(result.current.isAuthenticated).toBe(false)
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
     // signOut now uses full-page navigation to clear all client state
-    expect(window.location.href).toBe('/auth/login')
-  })
+    expect(window.location.href).toBe("/auth/login");
+  });
 
   // -------------------------------------------------------------------------
   // Social sign-in
   // -------------------------------------------------------------------------
-  it('signInWithGoogle calls social provider', async () => {
-    mockSignInSocial.mockResolvedValue({ data: null, error: null })
+  it("signInWithGoogle calls social provider", async () => {
+    mockSignInSocial.mockResolvedValue({ data: null, error: null });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signInWithGoogle()
-    })
+      await result.current.signInWithGoogle();
+    });
 
     expect(mockSignInSocial).toHaveBeenCalledWith({
-      provider: 'google',
-      callbackURL: '/onboarding',
-    })
-  })
+      provider: "google",
+      callbackURL: "/onboarding",
+    });
+  });
 
-  it('signInWithGitHub calls social provider', async () => {
-    mockSignInSocial.mockResolvedValue({ data: null, error: null })
+  it("signInWithGitHub calls social provider", async () => {
+    mockSignInSocial.mockResolvedValue({ data: null, error: null });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.signInWithGitHub()
-    })
+      await result.current.signInWithGitHub();
+    });
 
     expect(mockSignInSocial).toHaveBeenCalledWith({
-      provider: 'github',
-      callbackURL: '/onboarding',
-    })
-  })
+      provider: "github",
+      callbackURL: "/onboarding",
+    });
+  });
 
-  it('signInWithGoogle sets error on failure', async () => {
-    mockSignInSocial.mockRejectedValue(new Error('Google OAuth failed'))
+  it("signInWithGoogle sets error on failure", async () => {
+    mockSignInSocial.mockRejectedValue(new Error("Google OAuth failed"));
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    let caughtError: unknown
+    let caughtError: unknown;
     await act(async () => {
       try {
-        await result.current.signInWithGoogle()
+        await result.current.signInWithGoogle();
       } catch (e) {
-        caughtError = e
+        caughtError = e;
       }
-    })
+    });
 
-    expect(caughtError).toBeDefined()
-    expect((caughtError as Error).message).toBe('Google OAuth failed')
-
-    await waitFor(() => {
-      expect(result.current.error).toBe('Google OAuth failed')
-    })
-  })
-
-  it('signInWithGitHub sets error on failure', async () => {
-    mockSignInSocial.mockRejectedValue(new Error('GitHub OAuth failed'))
-
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    expect(caughtError).toBeDefined();
+    expect((caughtError as Error).message).toBe("Google OAuth failed");
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.error).toBe("Google OAuth failed");
+    });
+  });
 
-    let caughtError: unknown
+  it("signInWithGitHub sets error on failure", async () => {
+    mockSignInSocial.mockRejectedValue(new Error("GitHub OAuth failed"));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    let caughtError: unknown;
     await act(async () => {
       try {
-        await result.current.signInWithGitHub()
+        await result.current.signInWithGitHub();
       } catch (e) {
-        caughtError = e
+        caughtError = e;
       }
-    })
+    });
 
-    expect(caughtError).toBeDefined()
+    expect(caughtError).toBeDefined();
 
     await waitFor(() => {
-      expect(result.current.error).toBe('GitHub OAuth failed')
-    })
-  })
+      expect(result.current.error).toBe("GitHub OAuth failed");
+    });
+  });
 
   // -------------------------------------------------------------------------
   // Magic link
   // -------------------------------------------------------------------------
-  it('sendMagicLink calls authClient.signIn.magicLink', async () => {
-    mockSignInMagicLink.mockResolvedValue({ error: null })
+  it("sendMagicLink calls authClient.signIn.magicLink", async () => {
+    mockSignInMagicLink.mockResolvedValue({ error: null });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
-      await result.current.sendMagicLink('test@example.com')
-    })
+      await result.current.sendMagicLink("test@example.com");
+    });
 
     expect(mockSignInMagicLink).toHaveBeenCalledWith({
-      email: 'test@example.com',
-      callbackURL: '/dashboard',
-    })
-    expect(result.current.error).toBeNull()
-  })
+      email: "test@example.com",
+      callbackURL: "/dashboard",
+    });
+    expect(result.current.error).toBeNull();
+  });
 
-  it('sendMagicLink throws and sets error on failure', async () => {
+  it("sendMagicLink throws and sets error on failure", async () => {
     mockSignInMagicLink.mockResolvedValue({
-      error: { message: 'Failed to send magic link' },
-    })
+      error: { message: "Failed to send magic link" },
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    let caughtError: unknown
+    let caughtError: unknown;
     await act(async () => {
       try {
-        await result.current.sendMagicLink('test@example.com')
+        await result.current.sendMagicLink("test@example.com");
       } catch (e) {
-        caughtError = e
+        caughtError = e;
       }
-    })
+    });
 
-    expect(caughtError).toBeDefined()
+    expect(caughtError).toBeDefined();
     await waitFor(() => {
-      expect(result.current.error).toBe('Failed to send magic link')
-    })
-  })
+      expect(result.current.error).toBe("Failed to send magic link");
+    });
+  });
 
   // -------------------------------------------------------------------------
   // clearError
   // -------------------------------------------------------------------------
-  it('clearError resets the error state', async () => {
+  it("clearError resets the error state", async () => {
     // Trigger an error via failed magic link
     mockSignInMagicLink.mockResolvedValue({
-      error: { message: 'Magic link error' },
-    })
+      error: { message: "Magic link error" },
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
     await act(async () => {
       try {
-        await result.current.sendMagicLink('test@example.com')
+        await result.current.sendMagicLink("test@example.com");
       } catch {
         // expected
       }
-    })
+    });
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Magic link error')
-    })
+      expect(result.current.error).toBe("Magic link error");
+    });
 
     act(() => {
-      result.current.clearError()
-    })
+      result.current.clearError();
+    });
 
-    expect(result.current.error).toBeNull()
-  })
+    expect(result.current.error).toBeNull();
+  });
 
   // -------------------------------------------------------------------------
   // isAuthenticated derived state
   // -------------------------------------------------------------------------
-  it('isAuthenticated is derived from user presence', async () => {
+  it("isAuthenticated is derived from user presence", async () => {
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'u-1',
-          email: 'a@b.com',
+          id: "u-1",
+          email: "a@b.com",
           emailVerified: true,
           createdAt: new Date(),
         },
       },
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     // While loading, user is null so isAuthenticated is false
-    expect(result.current.isAuthenticated).toBe(false)
+    expect(result.current.isAuthenticated).toBe(false);
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    expect(result.current.isAuthenticated).toBe(true)
-  })
-})
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // useRequireAuth
 // ---------------------------------------------------------------------------
-describe('useRequireAuth hook', () => {
+describe("useRequireAuth hook", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockGetSession.mockResolvedValue({ data: null, error: null })
-    mockGetUserSupplier.mockResolvedValue({ supplier: null })
-    mockGetUserProfile.mockResolvedValue({ region: null, onboarding_completed: false })
-    ;(global.fetch as jest.Mock).mockResolvedValue({ ok: true })
-  })
+    jest.clearAllMocks();
+    mockGetSession.mockResolvedValue({ data: null, error: null });
+    mockGetUserSupplier.mockResolvedValue({ supplier: null });
+    mockGetUserProfile.mockResolvedValue({
+      region: null,
+      onboarding_completed: false,
+    });
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+  });
 
-  it('redirects to login when not authenticated', async () => {
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useRequireAuth(), { wrapper })
+  it("redirects to login when not authenticated", async () => {
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useRequireAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    expect(mockPush).toHaveBeenCalledWith('/auth/login')
-  })
+    expect(mockPush).toHaveBeenCalledWith("/auth/login");
+  });
 
-  it('does not redirect when authenticated', async () => {
+  it("does not redirect when authenticated", async () => {
     mockGetSession.mockResolvedValue({
       data: {
         user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          name: 'Test',
+          id: "user-123",
+          email: "test@example.com",
+          name: "Test",
           emailVerified: true,
           createdAt: new Date(),
         },
       },
-    })
+    });
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useRequireAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useRequireAuth(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false)
-    })
+      expect(result.current.isLoading).toBe(false);
+    });
 
-    expect(result.current.isAuthenticated).toBe(true)
+    expect(result.current.isAuthenticated).toBe(true);
     // push should NOT have been called for redirect to login
-    expect(mockPush).not.toHaveBeenCalledWith('/auth/login')
-  })
+    expect(mockPush).not.toHaveBeenCalledWith("/auth/login");
+  });
 
-  it('does not redirect while loading', async () => {
+  it("does not redirect while loading", async () => {
     // Make getSession hang so isLoading stays true
-    mockGetSession.mockReturnValue(new Promise(() => {}))
+    mockGetSession.mockReturnValue(new Promise(() => {}));
 
-    const wrapper = createWrapper()
-    const { result } = renderHook(() => useRequireAuth(), { wrapper })
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useRequireAuth(), { wrapper });
 
     // Still loading
-    expect(result.current.isLoading).toBe(true)
+    expect(result.current.isLoading).toBe(true);
 
     // Should not redirect while loading
-    expect(mockPush).not.toHaveBeenCalled()
-  })
-})
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});

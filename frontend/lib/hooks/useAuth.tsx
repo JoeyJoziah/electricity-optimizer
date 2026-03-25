@@ -180,23 +180,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
           pathname === "/privacy" ||
           pathname === "/terms";
 
-        const [sessionResult, supplierResult, profileResult] =
-          await Promise.allSettled([
-            authClient.getSession(),
-            isPublicPage
-              ? Promise.resolve({ supplier: null })
-              : getUserSupplier(),
-            isPublicPage
-              ? Promise.resolve({ region: null, onboarding_completed: false })
-              : getUserProfile(),
-          ]);
+        // ------------------------------------------------------------------
+        // Staggered auth initialization
+        //
+        // Session check first (goes to Vercel — always fast), then backend
+        // calls. This avoids hitting the Render backend before we know the
+        // user is even authenticated, reducing the request burst on cold
+        // starts from 3 simultaneous calls to 1 + 2.
+        // ------------------------------------------------------------------
+        const sessionResult = await authClient.getSession().then(
+          (v) => ({ status: "fulfilled" as const, value: v }),
+          (e: unknown) => ({ status: "rejected" as const, reason: e }),
+        );
+
+        // Skip backend calls if session check failed or user not authenticated
+        if (
+          sessionResult.status !== "fulfilled" ||
+          !sessionResult.value.data?.user
+        ) {
+          if (cancelled) return;
+          setIsLoading(false);
+          return;
+        }
+
+        // Backend calls fire in parallel only after session is confirmed
+        const [supplierResult, profileResult] = await Promise.allSettled([
+          isPublicPage
+            ? Promise.resolve({ supplier: null })
+            : getUserSupplier(),
+          isPublicPage
+            ? Promise.resolve({ region: null, onboarding_completed: false })
+            : getUserProfile(),
+        ]);
 
         if (cancelled) return;
 
-        if (
-          sessionResult.status === "fulfilled" &&
-          sessionResult.value.data?.user
-        ) {
+        // Session is guaranteed fulfilled with a user at this point (early
+        // return above handles the negative case).
+        {
           const session = sessionResult.value.data;
           setUser({
             id: session.user.id,

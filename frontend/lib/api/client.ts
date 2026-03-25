@@ -161,10 +161,40 @@ function isRetryable(error: unknown): boolean {
   if (error instanceof DOMException && error.name === "AbortError")
     return false;
   if (error instanceof ApiClientError) {
+    // 429 = rate limited — retrying immediately makes it worse
+    if (error.status === 429) return false;
     return error.status >= 500;
   }
   // Network errors (fetch throws TypeError on network failure)
   return error instanceof TypeError;
+}
+
+// ---------------------------------------------------------------------------
+// Global 503 cooldown
+//
+// When the backend returns 503 (cold start / unavailable), ALL subsequent
+// fetch attempts wait for a shared cooldown promise. This prevents the retry
+// cascade from overwhelming the CF Worker rate limiter (120 req/min) — without
+// it, 10+ parallel queries each retrying 2-3 times create 30-40 requests in
+// seconds, all hitting 503 and then 429.
+// ---------------------------------------------------------------------------
+const BACKEND_COOLDOWN_MS = 3_000;
+let _backendCooldown: Promise<void> | null = null;
+
+/** Trigger a global cooldown — all fetchWithRetry calls will wait */
+function triggerBackendCooldown() {
+  if (_backendCooldown) return; // Already cooling down
+  _backendCooldown = new Promise((resolve) => {
+    setTimeout(() => {
+      _backendCooldown = null;
+      resolve();
+    }, BACKEND_COOLDOWN_MS);
+  });
+}
+
+/** @internal Reset cooldown state — exposed for tests only */
+export function _resetBackendCooldown() {
+  _backendCooldown = null;
 }
 
 async function fetchWithRetry<T>(
@@ -174,6 +204,11 @@ async function fetchWithRetry<T>(
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    // Wait if backend is in cooldown (503 detected by any recent request)
+    if (_backendCooldown) {
+      await _backendCooldown;
+    }
+
     try {
       const response = await fetch(url, options);
       const result = await handleResponse<T>(response);
@@ -185,6 +220,11 @@ async function fetchWithRetry<T>(
       // Re-throw AbortError immediately — no retries, no circuit breaker
       if (error instanceof DOMException && error.name === "AbortError") {
         throw error;
+      }
+
+      // On 503, trigger global cooldown so parallel queries don't dogpile
+      if (error instanceof ApiClientError && error.status === 503) {
+        triggerBackendCooldown();
       }
 
       // Track gateway errors for circuit breaker (after all retries exhausted)
@@ -199,7 +239,12 @@ async function fetchWithRetry<T>(
       if (!isRetryable(error) || attempt === MAX_RETRIES) {
         throw error;
       }
-      await new Promise((r) => setTimeout(r, RETRY_BASE_MS * 2 ** attempt));
+      // Use longer backoff for 503 to give backend time to warm up
+      const backoff =
+        error instanceof ApiClientError && error.status === 503
+          ? BACKEND_COOLDOWN_MS
+          : RETRY_BASE_MS * 2 ** attempt;
+      await new Promise((r) => setTimeout(r, backoff));
     }
   }
 
