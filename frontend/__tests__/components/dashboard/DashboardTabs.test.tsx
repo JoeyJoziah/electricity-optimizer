@@ -16,18 +16,22 @@ jest.mock("next/navigation", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock DashboardContent (statically imported by UtilityTabShell)
+// ---------------------------------------------------------------------------
+jest.mock("@/components/dashboard/DashboardContent", () => {
+  const Comp = () => (
+    <div data-testid="dashboard-content">Electricity Dashboard</div>
+  );
+  Comp.displayName = "DashboardContent";
+  return { __esModule: true, default: Comp };
+});
+
+// ---------------------------------------------------------------------------
 // Mock next/dynamic — resolve all dynamic imports synchronously
 // ---------------------------------------------------------------------------
 jest.mock("next/dynamic", () => {
   return (loader: () => Promise<unknown>) => {
     const src = loader.toString();
-    if (src.includes("DashboardContent")) {
-      const Comp = () => (
-        <div data-testid="dashboard-content">Electricity Dashboard</div>
-      );
-      Comp.displayName = "DashboardContent";
-      return Comp;
-    }
     if (src.includes("HeatingOilDashboard")) {
       const Comp = () => (
         <div data-testid="heating-oil-dashboard">Heating Oil Dashboard</div>

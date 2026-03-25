@@ -2,12 +2,9 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import DashboardContent from "@/components/dashboard/DashboardContent";
 
-// Lazy-load each utility dashboard to avoid loading all at once
-const DashboardContent = dynamic(
-  () => import("@/components/dashboard/DashboardContent"),
-  { ssr: false },
-);
+// Lazy-load secondary utility dashboards (not electricity — it's the default tab)
 const HeatingOilDashboard = dynamic(
   () =>
     import("@/components/heating-oil/HeatingOilDashboard").then((m) => ({
