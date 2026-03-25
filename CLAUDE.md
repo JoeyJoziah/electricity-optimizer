@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-24 (Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (7/19 done) + production audit remediation (18 tasks, 5 sprints) + production debugging session (ORIGIN_URL fix, Location header rewrite, keep-alive cron). CF Worker 4 cron triggers. Backend 2,976 tests, Frontend 2,015 tests (153 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,362 total. 64 migrations (064: migration_history_uuid_pk). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
+> Last validated: 2026-03-25 (Dashboard reload loop fix — 3-layer auth resilience. Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (7/19 done) + production audit remediation (18 tasks, 5 sprints) + production debugging session (ORIGIN_URL fix, Location header rewrite, keep-alive cron). CF Worker 4 cron triggers. Backend 2,976 tests, Frontend 2,015 tests (153 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,362 total. 64 migrations (064: migration_history_uuid_pk). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -136,6 +136,8 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 15. **Browser automation limitations**: Chrome blocks programmatic file downloads (non-user-gesture). GCP new Auth Platform permanently hashes secrets after creation dialog — ALWAYS Download JSON before dismissing
 16. **requirements.txt sync**: Pins must match installed versions — stale pins cause ResolutionImpossible on Render Docker builds. Run `pip freeze` and sync periodically
 17. **Render Docker config**: Render service uses `backend/Dockerfile` with `./backend` context (updated 2026-03-23). `render.yaml` is just a blueprint — actual service settings are in Render dashboard
+18. **Auth resilience (3 layers)**: (1) `backend/auth/neon_auth.py` wraps `_get_session_from_token` in try/except → 503 on DB errors, NEVER let DB exceptions propagate to 401. (2) `frontend/lib/api/client.ts` `handle401Redirect()` suppresses 401 redirects when `_backendCooldown` active or `circuitBreaker.isFallbackMode()`. (3) `frontend/lib/hooks/useAuth.tsx` sets `setIsLoading(false)` immediately after session check (~700ms), profile/supplier fetched in background — do NOT re-introduce blocking waits in initAuth()
+19. **Global 503 cooldown**: `_backendCooldown` in `client.ts` serializes all `fetchWithRetry` calls for 3s after any 503 — prevents retry dogpiling that overwhelms CF Worker rate limiter. `QueryProvider.tsx` smart retry: 503=1 retry/3s delay, 429/4xx=no retry
 
 ## Cron Jobs & Maintenance
 
