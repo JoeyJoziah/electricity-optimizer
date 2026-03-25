@@ -317,7 +317,17 @@ async def get_current_user(
         pass
 
     # Validate session against neon_auth tables
-    session_data = await _get_session_from_token(session_token, db, redis)
+    try:
+        session_data = await _get_session_from_token(session_token, db, redis)
+    except Exception:
+        # DB connection error during session validation — surface as 503 so the
+        # frontend doesn't misinterpret it as an invalid session (401) and
+        # trigger a redirect loop while the backend is degraded.
+        logger.error("database_error_during_session_validation")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not available",
+        )
 
     if session_data is None:
         logger.warning("invalid_or_expired_session")

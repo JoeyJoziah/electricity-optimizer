@@ -75,6 +75,13 @@ export function handle401Redirect(): boolean {
 
   if (redirectInFlight) return false;
 
+  // Suppress 401 redirect when backend is known to be degraded.
+  // A 401 during a 503 cooldown or circuit-breaker fallback is likely a false
+  // positive — the auth check failed because the DB is down, not because the
+  // session is invalid.  Redirecting to login when the user IS authenticated
+  // creates an infinite loop (login → callback → dashboard → 401 → login…).
+  if (_backendCooldown || circuitBreaker.isFallbackMode()) return false;
+
   // Expire old redirect counters so users aren't permanently locked out
   const lastTs = parseInt(sessionStorage.getItem(REDIRECT_TS_KEY) || "0", 10);
   const now = Date.now();
