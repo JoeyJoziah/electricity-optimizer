@@ -201,12 +201,19 @@ export default function DashboardContent() {
     [suppliersData],
   );
 
-  // Loading state — show skeleton until Tier 1 (prices) resolves.
-  // All downstream queries (history, savings, forecast, suppliers) are gated
-  // on pricesSuccess, so nothing useful renders before prices arrive.
-  // Using only pricesLoading (not && historyLoading) prevents the cascade of
-  // skeleton→content→skeleton flashes during the waterfall.
-  if (pricesLoading) {
+  // Loading state — show skeleton until region is available AND Tier 1
+  // (prices) resolves. Two conditions covered:
+  //
+  // 1. !region: Zustand persist hydrates from localStorage in a microtask
+  //    after mount. Until then, region is undefined and useCurrentPrices is
+  //    disabled (enabled: !!region), which makes pricesLoading=false. Without
+  //    this guard the component briefly renders empty content before the
+  //    skeleton, causing a visible flash.
+  //
+  // 2. pricesLoading: All downstream queries (history, savings, forecast,
+  //    suppliers) are gated on pricesSuccess, so nothing useful renders
+  //    before prices arrive.
+  if (!region || pricesLoading) {
     return (
       <div data-testid="dashboard-loading">
         <Header title="Dashboard" />
