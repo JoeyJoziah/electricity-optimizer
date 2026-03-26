@@ -108,11 +108,25 @@ def _check_external_apis() -> dict[str, dict[str, str]]:
 
 @router.get("", tags=["Health"], summary="Basic health check")
 async def health_check():
-    """Basic health check endpoint with deployment metadata and uptime."""
+    """Basic health check endpoint with deployment metadata and uptime.
+
+    Reports ``"status": "degraded"`` when the database is disconnected so
+    that uptime monitors and load balancers can distinguish between a fully
+    healthy backend and one that is alive but unable to serve data.
+
+    Also triggers a reconnection attempt when the DB is down and
+    DATABASE_URL is configured, so a simple health-check ping from a cron
+    job or uptime monitor can recover the backend from a transient startup
+    failure (e.g. Neon scale-to-zero timeout).
+    """
     uptime_seconds = time.time() - _startup_time
 
     db_status = "disconnected"
     try:
+        # Trigger reconnection if the session maker was never initialised
+        if not db_manager.async_session_maker and settings.database_url:
+            await db_manager._try_reconnect_database()
+
         if db_manager.timescale_engine or db_manager.timescale_pool:
             result = await db_manager._execute_raw_query("SELECT 1")
             if result:
@@ -120,8 +134,10 @@ async def health_check():
     except Exception:
         db_status = "disconnected"
 
+    overall = "healthy" if db_status == "connected" else "degraded"
+
     return {
-        "status": "healthy",
+        "status": overall,
         "version": settings.app_version,
         "environment": settings.environment,
         "uptime_seconds": round(uptime_seconds, 2),

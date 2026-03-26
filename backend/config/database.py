@@ -6,6 +6,7 @@ Handles connections to:
 - Redis for caching and task queues
 """
 
+import time as _time
 from contextlib import asynccontextmanager
 
 import asyncpg
@@ -31,6 +32,9 @@ class DatabaseManager:
         self.timescale_pool: asyncpg.Pool | None = None
         self.redis_client: aioredis.Redis | None = None
         self.async_session_maker = None
+        # Reconnection rate limiter — prevents hammering a down database
+        self._last_reconnect_attempt: float = 0
+        self._reconnect_cooldown: float = 30  # seconds between retry attempts
 
     async def initialize(self):
         """Initialize all database connections"""
@@ -156,9 +160,34 @@ class DatabaseManager:
             await self.redis_client.close()
             logger.info("redis_connection_closed")
 
+    async def _try_reconnect_database(self):
+        """Attempt to re-initialize the database connection.
+
+        Rate-limited to one attempt per ``_reconnect_cooldown`` seconds so a
+        burst of requests against a still-down database doesn't flood logs or
+        overload the connection endpoint.
+        """
+        now = _time.monotonic()
+        if now - self._last_reconnect_attempt < self._reconnect_cooldown:
+            return  # Too soon — skip this attempt
+        self._last_reconnect_attempt = now
+        logger.info("database_reconnect_attempt")
+        await self._init_database()
+        if self.async_session_maker:
+            logger.info("database_reconnected_successfully")
+
     @asynccontextmanager
     async def get_timescale_session(self):
-        """Get database session (SQLAlchemy). Yields None if not initialized."""
+        """Get database session (SQLAlchemy). Yields None if not initialized.
+
+        If the session maker is not available but DATABASE_URL is configured,
+        attempts a rate-limited reconnection before giving up.  This recovers
+        from transient failures during startup (e.g. Neon scale-to-zero
+        timeout) without requiring a full process restart.
+        """
+        if not self.async_session_maker and settings.database_url:
+            await self._try_reconnect_database()
+
         if not self.async_session_maker:
             yield None
             return
