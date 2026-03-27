@@ -16,6 +16,9 @@ if (
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  // Prevent Next.js from issuing 308 redirects to strip trailing slashes.
+  // FastAPI routes use trailing slashes; the 308 ↔ 307 loop is infinite.
+  skipTrailingSlashRedirect: true,
   optimizePackageImports: ['date-fns', 'lucide-react', 'recharts', 'better-auth'],
 
   // Production optimizations
