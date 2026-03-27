@@ -138,6 +138,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 17. **Render Docker config**: Render service uses `backend/Dockerfile` with `./backend` context (updated 2026-03-23). `render.yaml` is just a blueprint — actual service settings are in Render dashboard
 18. **Auth resilience (3 layers)**: (1) `backend/auth/neon_auth.py` wraps `_get_session_from_token` in try/except → 503 on DB errors, NEVER let DB exceptions propagate to 401. (2) `frontend/lib/api/client.ts` `handle401Redirect()` suppresses 401 redirects when `_backendCooldown` active or `circuitBreaker.isFallbackMode()`. (3) `frontend/lib/hooks/useAuth.tsx` sets `setIsLoading(false)` immediately after session check (~700ms), profile/supplier fetched in background — do NOT re-introduce blocking waits in initAuth()
 19. **Global 503 cooldown**: `_backendCooldown` in `client.ts` serializes all `fetchWithRetry` calls for 3s after any 503 — prevents retry dogpiling that overwhelms CF Worker rate limiter. `QueryProvider.tsx` smart retry: 503=1 retry/3s delay, 429/4xx=no retry
+20. **Vercel rewrite trailing slash**: next.config.js uses `beforeFiles` + `:path(.*)` regex capture (NOT `:path*`) to preserve trailing slashes when proxying to backend. `:path*` drops trailing slashes, causing infinite 307↔308 loops with FastAPI. `skipTrailingSlashRedirect: true` prevents Next.js 308s
 
 ## Cron Jobs & Maintenance
 
