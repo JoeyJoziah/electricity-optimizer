@@ -66,8 +66,10 @@ const nextConfig = {
     return {
       beforeFiles: [
         {
-          source: '/api/v1/:path*',
-          destination: `${backendUrl}/api/v1/:path*`,
+          // Use regex capture so trailing slashes are preserved.
+          // :path* drops trailing slashes; :path(.*) keeps them.
+          source: '/api/v1/:path(.*)',
+          destination: `${backendUrl}/api/v1/:path`,
         },
       ],
       afterFiles: [],
