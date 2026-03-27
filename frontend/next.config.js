@@ -57,18 +57,21 @@ const nextConfig = {
     ]
   },
 
-  // API proxy rewrites — use fallback so Next.js API routes (/api/auth/*) are checked first
+  // API proxy rewrites — beforeFiles so the rewrite runs before Next.js
+  // trailing-slash normalisation (which strips slashes and breaks FastAPI
+  // routes that require them, causing infinite 308↔307 redirect loops).
+  // Safe because /api/v1/* never collides with Next.js API routes (/api/auth/*).
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
     return {
-      beforeFiles: [],
-      afterFiles: [],
-      fallback: [
+      beforeFiles: [
         {
           source: '/api/v1/:path*',
           destination: `${backendUrl}/api/v1/:path*`,
         },
       ],
+      afterFiles: [],
+      fallback: [],
     }
   },
 
