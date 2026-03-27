@@ -388,6 +388,59 @@ describe("proxyToOrigin", () => {
       const [, fetchInit] = mockFetch.mock.calls[0];
       expect(fetchInit.redirect).toBe("manual");
     });
+
+    it("should rewrite Location header to relative path to prevent cross-origin redirects", async () => {
+      // FastAPI returns 307 with Location pointing to Render origin
+      mockFetch.mockResolvedValueOnce(
+        new Response(null, {
+          status: 307,
+          statusText: "Temporary Redirect",
+          headers: {
+            Location:
+              "https://electricity-optimizer.onrender.com/api/v1/connections/",
+          },
+        })
+      );
+
+      const request = makeRequest(
+        "https://api.rateshift.app/api/v1/connections"
+      );
+      const response = await proxyToOrigin(
+        request,
+        createMockEnv(),
+        "req-1",
+        "1.2.3.4"
+      );
+
+      expect(response.status).toBe(307);
+      // Location must be relative (path only) so the browser resolves
+      // against its current origin, preserving session cookies
+      expect(response.headers.get("Location")).toBe("/api/v1/connections/");
+    });
+
+    it("should not rewrite Location header when it does not match origin", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          statusText: "Found",
+          headers: { Location: "https://external-site.com/callback" },
+        })
+      );
+
+      const request = makeRequest("https://api.rateshift.app/oauth/callback");
+      const response = await proxyToOrigin(
+        request,
+        createMockEnv(),
+        "req-1",
+        "1.2.3.4"
+      );
+
+      expect(response.status).toBe(302);
+      // External Location should be left unchanged
+      expect(response.headers.get("Location")).toBe(
+        "https://external-site.com/callback"
+      );
+    });
   });
 
   describe("header preservation", () => {

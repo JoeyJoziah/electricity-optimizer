@@ -46,12 +46,19 @@ export async function proxyToOrigin(
   // Rewrite Location headers on redirects to prevent leaking the origin URL.
   // FastAPI's trailing-slash redirects (307) include the raw Render hostname
   // which causes CORS failures when browsers follow the redirect.
+  //
+  // Use a RELATIVE URL (path only) so the browser resolves the redirect
+  // against its current origin. This handles both direct requests (browser →
+  // api.rateshift.app) and proxied requests (browser → rateshift.app →
+  // Vercel rewrite → api.rateshift.app). With a relative Location, the
+  // redirect stays on the browser's original origin and session cookies
+  // are preserved.
   const location = responseHeaders.get("Location");
   if (location && env.ORIGIN_URL) {
     const originHost = new URL(env.ORIGIN_URL).origin;
     if (location.startsWith(originHost)) {
-      const publicUrl = `https://${url.hostname}${location.slice(originHost.length)}`;
-      responseHeaders.set("Location", publicUrl);
+      const relativePath = location.slice(originHost.length);
+      responseHeaders.set("Location", relativePath);
     }
   }
 
