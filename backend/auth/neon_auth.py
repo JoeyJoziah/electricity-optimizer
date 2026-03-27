@@ -18,7 +18,9 @@ FIELD_ENCRYPTION_KEY to protect user data at rest.
 """
 
 import hashlib
+import hmac
 import json
+from base64 import b64decode
 from dataclasses import dataclass
 
 import structlog
@@ -41,6 +43,48 @@ security = HTTPBearer(auto_error=False)
 SESSION_COOKIE_NAME = "better-auth.session_token"
 # On HTTPS (production), Better Auth prefixes with __Secure-
 SESSION_COOKIE_NAME_SECURE = "__Secure-better-auth.session_token"
+
+
+def _unsign_cookie_token(signed_value: str) -> str:
+    """
+    Extract the raw session token from a Better Auth signed cookie.
+
+    Better Auth uses Hono's signed cookie format: ``{token}.{base64(HMAC-SHA256(token, secret))}``.
+    The cookie value stored in the browser is the *signed* form. The DB stores
+    the *raw* token only.  We must strip the HMAC suffix before querying.
+
+    If BETTER_AUTH_SECRET is available, the HMAC signature is verified.
+    If the value has no '.' separator, it's returned as-is (plain token from
+    Bearer header or unsigned cookie in dev).
+    """
+    dot_idx = signed_value.rfind(".")
+    if dot_idx == -1:
+        return signed_value  # No signature — already a raw token
+
+    raw_token = signed_value[:dot_idx]
+    signature_b64 = signed_value[dot_idx + 1 :]
+
+    # Verify HMAC if secret is available
+    secret = settings.better_auth_secret
+    if secret:
+        try:
+            expected = hmac.new(
+                secret.encode("utf-8"),
+                raw_token.encode("utf-8"),
+                hashlib.sha256,
+            ).digest()
+            # Better Auth encodes with btoa(String.fromCharCode(...bytes))
+            # which is standard base64 of the raw HMAC bytes
+            actual = b64decode(signature_b64)
+            if not hmac.compare_digest(expected, actual):
+                logger.warning("cookie_signature_mismatch")
+                return signed_value  # Signature invalid — return as-is, will fail DB lookup
+        except Exception:
+            # Signature verification failed (bad base64, etc.) — fall through
+            # and return raw token anyway; the DB query is the final arbiter.
+            pass
+
+    return raw_token
 
 
 @dataclass
@@ -283,6 +327,7 @@ async def get_current_user(
 
     # Extract session token from header or cookie
     session_token: str | None = None
+    from_cookie = False
 
     if credentials and credentials.credentials:
         session_token = credentials.credentials
@@ -297,6 +342,13 @@ async def get_current_user(
             session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.cookies.get(
                 SESSION_COOKIE_NAME_SECURE
             )
+        from_cookie = True
+
+    # Better Auth signs cookie values with HMAC-SHA256: "token.signature"
+    # The DB stores only the raw token, so we must strip the signature.
+    # Bearer tokens from the Authorization header are already raw.
+    if session_token and from_cookie:
+        session_token = _unsign_cookie_token(session_token)
 
     if not session_token:
         logger.warning("missing_session_token")

@@ -7,7 +7,10 @@ to limit the stale-session window for banned users.
 Security hardening: Verify AES-256-GCM encryption of session cache in Redis.
 """
 
+import hashlib
+import hmac as hmac_mod
 import json
+from base64 import b64encode
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from auth.neon_auth import (
@@ -15,8 +18,77 @@ from auth.neon_auth import (
     _decrypt_session_cache,
     _encrypt_session_cache,
     _get_session_from_token,
+    _unsign_cookie_token,
     invalidate_session_cache,
 )
+
+
+class TestUnsignCookieToken:
+    """Verify Better Auth signed cookie parsing in _unsign_cookie_token."""
+
+    def _make_signed(self, token: str, secret: str) -> str:
+        """Replicate Better Auth's signing: token.base64(HMAC-SHA256(token, secret))."""
+        sig = hmac_mod.new(
+            secret.encode("utf-8"),
+            token.encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+        return f"{token}.{b64encode(sig).decode('ascii')}"
+
+    def test_unsigned_token_returned_as_is(self):
+        """A token with no '.' separator is returned unchanged."""
+        assert _unsign_cookie_token("plain-token-no-dots") == "plain-token-no-dots"
+
+    def test_signed_token_extracts_raw(self):
+        """A properly signed cookie value yields the raw token."""
+        secret = "a" * 64
+        raw = "ES4SabyB9mmzKHAXq12dr4Hx7eBfBtl1"
+        signed = self._make_signed(raw, secret)
+
+        with patch("auth.neon_auth.settings") as mock_settings:
+            mock_settings.better_auth_secret = secret
+            result = _unsign_cookie_token(signed)
+
+        assert result == raw
+
+    def test_bad_signature_returns_full_value(self):
+        """If the HMAC doesn't match, the full signed value is returned (will fail DB lookup)."""
+        secret = "a" * 64
+        raw = "ES4SabyB9mmzKHAXq12dr4Hx7eBfBtl1"
+        # Sign with wrong secret
+        signed = self._make_signed(raw, "wrong-secret")
+
+        with patch("auth.neon_auth.settings") as mock_settings:
+            mock_settings.better_auth_secret = secret
+            result = _unsign_cookie_token(signed)
+
+        assert result == signed  # Returns full signed value
+
+    def test_no_secret_still_extracts_raw(self):
+        """Without BETTER_AUTH_SECRET, the raw token is extracted without verification."""
+        signed = "some-token.c29tZS1zaWduYXR1cmU="
+
+        with patch("auth.neon_auth.settings") as mock_settings:
+            mock_settings.better_auth_secret = None
+            result = _unsign_cookie_token(signed)
+
+        assert result == "some-token"
+
+    def test_empty_string(self):
+        """Empty string returns empty string."""
+        assert _unsign_cookie_token("") == ""
+
+    def test_token_with_dots_uses_rfind(self):
+        """If token itself contains dots, rfind splits on the last one (the signature)."""
+        secret = "b" * 64
+        raw = "token.with.dots.in.it"
+        signed = self._make_signed(raw, secret)
+
+        with patch("auth.neon_auth.settings") as mock_settings:
+            mock_settings.better_auth_secret = secret
+            result = _unsign_cookie_token(signed)
+
+        assert result == raw
 
 
 class TestSessionCacheTTL:
