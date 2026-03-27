@@ -21,7 +21,7 @@ export function ClarityScript({ nonce }: { nonce?: string }) {
   return (
     <Script
       id="microsoft-clarity"
-      strategy="afterInteractive"
+      strategy="lazyOnload"
       nonce={nonce}
       src={`https://www.clarity.ms/tag/${safeId}`}
     />
