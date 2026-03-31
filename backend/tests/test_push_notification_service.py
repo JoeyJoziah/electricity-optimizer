@@ -16,7 +16,8 @@ Coverage:
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from services.push_notification_service import ONESIGNAL_API_URL, PushNotificationService
+from services.push_notification_service import (ONESIGNAL_API_URL,
+                                                PushNotificationService)
 
 # =============================================================================
 # Fixtures

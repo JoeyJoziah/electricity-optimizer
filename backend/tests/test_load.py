@@ -56,9 +56,9 @@ class TestConcurrentHealth:
             responses = await asyncio.gather(*tasks)
             elapsed = time.monotonic() - start
 
-        assert all(r.status_code == 200 for r in responses), (
-            f"Some health checks failed: {[r.status_code for r in responses if r.status_code != 200]}"
-        )
+        assert all(
+            r.status_code == 200 for r in responses
+        ), f"Some health checks failed: {[r.status_code for r in responses if r.status_code != 200]}"
         assert elapsed < 2.0, f"50 health checks took {elapsed:.2f}s (limit 2s)"
 
     async def test_concurrent_docs_disabled(self):
@@ -108,9 +108,9 @@ class TestConcurrentPriceEndpoints:
             responses = await asyncio.gather(*tasks)
 
         server_errors = [r for r in responses if r.status_code >= 500]
-        assert len(server_errors) == 0, (
-            f"{len(server_errors)} server errors out of {len(responses)} mixed requests"
-        )
+        assert (
+            len(server_errors) == 0
+        ), f"{len(server_errors)} server errors out of {len(responses)} mixed requests"
 
 
 class TestLatencyBudget:

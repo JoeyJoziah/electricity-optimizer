@@ -30,9 +30,9 @@ def _make_alert(
         timestamp=timestamp or datetime(2024, 6, 15, 14, 30, tzinfo=UTC),
         optimal_window_start=optimal_window_start,
         optimal_window_end=optimal_window_end,
-        estimated_savings=Decimal(str(estimated_savings))
-        if estimated_savings is not None
-        else None,
+        estimated_savings=(
+            Decimal(str(estimated_savings)) if estimated_savings is not None else None
+        ),
     )
 
 

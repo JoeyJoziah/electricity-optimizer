@@ -13,7 +13,8 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.pricing_apis.base import APIError, RateLimitError
-from integrations.pricing_apis.service import create_pricing_service_from_settings
+from integrations.pricing_apis.service import \
+    create_pricing_service_from_settings
 from models.price import Price
 from models.region import Region as PricingRegion
 from repositories.price_repository import PriceRepository

@@ -273,9 +273,11 @@ class AnalyticsService:
             "off_peak_hours": sorted(off_peak_hours),
             "average_by_hour": hourly_avg,
             "overall_average": overall_avg,
-            "peak_premium_percent": ((max_avg / overall_avg - 1) * 100).quantize(Decimal("0.1"))
-            if overall_avg > 0
-            else Decimal("0"),
+            "peak_premium_percent": (
+                ((max_avg / overall_avg - 1) * 100).quantize(Decimal("0.1"))
+                if overall_avg > 0
+                else Decimal("0")
+            ),
         }
 
         await self._set_cached(cache_key, result, ttl=900)  # 15 min
@@ -347,9 +349,11 @@ class AnalyticsService:
             "period_days": days,
             "suppliers": supplier_stats,
             "cheapest_supplier": supplier_stats[0]["supplier"] if supplier_stats else None,
-            "most_stable": min(supplier_stats, key=lambda s: s["volatility"])["supplier"]
-            if supplier_stats
-            else None,
+            "most_stable": (
+                min(supplier_stats, key=lambda s: s["volatility"])["supplier"]
+                if supplier_stats
+                else None
+            ),
         }
 
         await self._set_cached(cache_key, result, ttl=3600)  # 1 hour

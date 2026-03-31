@@ -60,9 +60,9 @@ class TestAtomicRedisRateLimiter:
         allowed, remaining = await limiter._check_redis("testkey", 10, 60)
 
         assert redis_mock.eval.called, "Expected redis.eval to be called"
-        assert not redis_mock.pipeline.called, (
-            "redis.pipeline() must not be called — use atomic Lua eval instead"
-        )
+        assert (
+            not redis_mock.pipeline.called
+        ), "redis.pipeline() must not be called — use atomic Lua eval instead"
         assert allowed is True
         assert remaining == 9
 
@@ -202,9 +202,9 @@ class TestSSEConnectionCounterFinally:
             except RuntimeError:
                 pass  # expected
 
-        assert "user-exception-test" in decr_calls, (
-            "_sse_decr must be called even when the generator raises"
-        )
+        assert (
+            "user-exception-test" in decr_calls
+        ), "_sse_decr must be called even when the generator raises"
         # Counter must be back to zero (key removed)
         assert "user-exception-test" not in prices_sse._sse_connections
 
@@ -241,9 +241,9 @@ class TestSSEConnectionCounterFinally:
             async for _ in event_stream():
                 pass
 
-        assert "user-cancel-test" not in prices_sse._sse_connections, (
-            "Counter must be zero after CancelledError"
-        )
+        assert (
+            "user-cancel-test" not in prices_sse._sse_connections
+        ), "Counter must be zero after CancelledError"
 
     async def test_incr_decr_balance_under_normal_completion(self):
         """Normal generator exhaustion should leave the counter at zero."""
@@ -320,9 +320,9 @@ class TestSlidingWindowLimiterEviction:
         assert allowed is True, "The fresh request on 'trigger' must be allowed"
         # All 10 stale keys (empty after pruning) should have been evicted
         stale_remaining = [k for k in limiter._windows if k.startswith("stale-key-")]
-        assert len(stale_remaining) == 0, (
-            f"Expected 0 stale keys after eviction, found {len(stale_remaining)}"
-        )
+        assert (
+            len(stale_remaining) == 0
+        ), f"Expected 0 stale keys after eviction, found {len(stale_remaining)}"
 
     async def test_active_keys_not_evicted(self):
         """Keys with recent activity must survive the eviction sweep."""
@@ -375,9 +375,9 @@ class TestSlidingWindowLimiterEviction:
         # Because len < _MAX_KEYS, eviction sweep should not have run.
         # The stale keys remain (they're cleaned lazily only when accessed).
         stale_remaining = [k for k in limiter._windows if k.startswith("stale-")]
-        assert len(stale_remaining) == 10, (
-            "Stale keys must not be eagerly evicted when below threshold"
-        )
+        assert (
+            len(stale_remaining) == 10
+        ), "Stale keys must not be eagerly evicted when below threshold"
 
     async def test_stale_key_evicted_when_other_key_triggers_sweep(self):
         """
@@ -405,9 +405,9 @@ class TestSlidingWindowLimiterEviction:
         # "stale-candidate" is a different key so it gets evicted.
         await limiter.acquire("new-key")
 
-        assert "stale-candidate" not in limiter._windows, (
-            "Stale key must be evicted when sweep is triggered by another key"
-        )
+        assert (
+            "stale-candidate" not in limiter._windows
+        ), "Stale key must be evicted when sweep is triggered by another key"
         # The actively-acquired key must still be present
         assert "new-key" in limiter._windows
 
@@ -470,9 +470,9 @@ class TestRedisRateLimiterAtomicAcquire:
 
         assert result is True
         assert redis_mock.eval.called, "redis.eval must be called"
-        assert not redis_mock.pipeline.called, (
-            "redis.pipeline must NOT be called — use atomic Lua script"
-        )
+        assert (
+            not redis_mock.pipeline.called
+        ), "redis.pipeline must NOT be called — use atomic Lua script"
 
     async def test_acquire_returns_false_when_lua_denies(self, rl, redis_mock):
         """When Lua returns allowed=0 acquire() returns False."""

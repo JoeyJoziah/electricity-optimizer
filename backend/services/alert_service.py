@@ -539,12 +539,12 @@ class AlertService:
                 "email": row["email"],
                 "region": row["region"],
                 "currency": row["currency"],
-                "price_below": Decimal(str(row["price_below"]))
-                if row["price_below"] is not None
-                else None,
-                "price_above": Decimal(str(row["price_above"]))
-                if row["price_above"] is not None
-                else None,
+                "price_below": (
+                    Decimal(str(row["price_below"])) if row["price_below"] is not None else None
+                ),
+                "price_above": (
+                    Decimal(str(row["price_above"])) if row["price_above"] is not None else None
+                ),
                 "notify_optimal_windows": row["notify_optimal_windows"],
                 "notification_frequency": row["notification_frequency"] or "daily",
             }

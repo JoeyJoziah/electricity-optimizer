@@ -13,7 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-from repositories.forecast_observation_repository import ForecastObservationRepository
+from repositories.forecast_observation_repository import \
+    ForecastObservationRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -154,15 +155,13 @@ class ObservationService:
 
     async def get_observation_summary(self):
         """Get summary statistics for observations."""
-        result = await self._repo._db.execute(
-            text("""
+        result = await self._repo._db.execute(text("""
             SELECT
                 COUNT(*) as total,
                 MIN(created_at) as oldest,
                 MAX(created_at) as newest
             FROM forecast_observations
-        """)
-        )
+        """))
         row = result.fetchone()
         if not row or not row[0]:
             return {"total": 0, "oldest": None, "newest": None}

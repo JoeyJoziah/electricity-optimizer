@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user_optional, get_db_session, verify_api_key
+from api.dependencies import (get_current_user_optional, get_db_session,
+                              verify_api_key)
 
 logger = structlog.get_logger(__name__)
 

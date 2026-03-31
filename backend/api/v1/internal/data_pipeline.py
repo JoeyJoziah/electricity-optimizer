@@ -287,16 +287,14 @@ async def scrape_supplier_rates(
 
     # Auto-discover suppliers with website URLs when no explicit list provided
     if not supplier_urls:
-        result = await db.execute(
-            text("""
+        result = await db.execute(text("""
                 SELECT id, name, website
                 FROM supplier_registry
                 WHERE is_active = true
                   AND website IS NOT NULL
                   AND website != ''
                 ORDER BY name
-            """)
-        )
+            """))
         rows_db = result.fetchall()
         supplier_urls = [{"supplier_id": str(row[0]), "url": row[2]} for row in rows_db]
 
@@ -399,11 +397,9 @@ async def fetch_heating_oil_prices(
     Stores prices in heating_oil_prices table.
     """
     from config.settings import get_settings
-    from integrations.pricing_apis.eia import (
-        HEATING_OIL_SERIES,
-        HEATING_OIL_STATE_SERIES,
-        EIAClient,
-    )
+    from integrations.pricing_apis.eia import (HEATING_OIL_SERIES,
+                                               HEATING_OIL_STATE_SERIES,
+                                               EIAClient)
     from services.heating_oil_service import HeatingOilService
 
     app_settings = get_settings()
@@ -490,11 +486,8 @@ async def fetch_propane_prices(
     Stores prices in propane_prices table.
     """
     from config.settings import get_settings
-    from integrations.pricing_apis.eia import (
-        PROPANE_SERIES,
-        PROPANE_STATE_SERIES,
-        EIAClient,
-    )
+    from integrations.pricing_apis.eia import (PROPANE_SERIES,
+                                               PROPANE_STATE_SERIES, EIAClient)
     from services.propane_service import PropaneService
 
     app_settings = get_settings()

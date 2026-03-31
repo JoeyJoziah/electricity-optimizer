@@ -250,7 +250,8 @@ class TestNeonAuthSessionValidation:
 
     async def test_get_current_user_optional_returns_user(self, mock_db_session, mock_request):
         """Test optional auth returns SessionData when authenticated"""
-        from auth.neon_auth import SESSION_COOKIE_NAME, SessionData, get_current_user_optional
+        from auth.neon_auth import (SESSION_COOKIE_NAME, SessionData,
+                                    get_current_user_optional)
 
         mock_request.cookies = {SESSION_COOKIE_NAME: "token"}
 
@@ -329,7 +330,8 @@ class TestNeonAuthSessionValidation:
         """Verify Redis SET uses SHA-256 cache key on cache miss + DB hit."""
         import hashlib
 
-        from auth.neon_auth import _SESSION_CACHE_TTL, SessionData, _get_session_from_token
+        from auth.neon_auth import (_SESSION_CACHE_TTL, SessionData,
+                                    _get_session_from_token)
 
         mock_redis = AsyncMock()
         mock_redis.get.return_value = None
@@ -754,7 +756,8 @@ class TestAuthIntegration:
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from api.v1.auth import _get_current_user_with_brute_force_tracking, router
+        from api.v1.auth import (_get_current_user_with_brute_force_tracking,
+                                 router)
         from auth.neon_auth import SessionData
         from config.database import get_timescale_session
 
@@ -904,9 +907,7 @@ class TestBannedUserSessionBypass:
             side_effect=lambda key: (
                 cached_data
                 if key.startswith("session:")
-                else b"1"
-                if key == "banned_user:banned-user-123"
-                else None
+                else b"1" if key == "banned_user:banned-user-123" else None
             )
         )
         mock_redis.delete = AsyncMock()
@@ -954,10 +955,8 @@ class TestBannedUserSessionBypass:
 
     async def test_invalidate_sessions_for_banned_user_sets_marker(self):
         """invalidate_sessions_for_banned_user sets a Redis marker."""
-        from auth.neon_auth import (
-            _BANNED_USER_MARKER_TTL,
-            invalidate_sessions_for_banned_user,
-        )
+        from auth.neon_auth import (_BANNED_USER_MARKER_TTL,
+                                    invalidate_sessions_for_banned_user)
 
         mock_redis = AsyncMock()
         mock_redis.setex = AsyncMock()

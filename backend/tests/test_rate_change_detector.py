@@ -6,12 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.rate_change_detector import (
-    DEFAULT_THRESHOLDS,
-    LOOKBACK_DAYS,
-    AlertPreferenceService,
-    RateChangeDetector,
-)
+from services.rate_change_detector import (DEFAULT_THRESHOLDS, LOOKBACK_DAYS,
+                                           AlertPreferenceService,
+                                           RateChangeDetector)
 
 
 def _mock_db():

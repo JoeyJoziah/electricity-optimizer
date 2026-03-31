@@ -22,11 +22,9 @@ from uuid import uuid4
 
 import pytest
 
-from services.notification_dispatcher import (
-    ALL_CHANNELS,
-    NotificationChannel,
-    NotificationDispatcher,
-)
+from services.notification_dispatcher import (ALL_CHANNELS,
+                                              NotificationChannel,
+                                              NotificationDispatcher)
 
 # =============================================================================
 # Fixtures
@@ -306,9 +304,9 @@ class TestDeduplication:
         mock_db.execute.assert_awaited_once()
         # The single execute call should be an INSERT, not a dedup SELECT
         call_sql = str(mock_db.execute.call_args.args[0])
-        assert "INSERT" in call_sql.upper(), (
-            "Expected the sole db.execute call to be an INSERT, not a dedup SELECT"
-        )
+        assert (
+            "INSERT" in call_sql.upper()
+        ), "Expected the sole db.execute call to be an INSERT, not a dedup SELECT"
 
     async def test_dedup_key_stored_in_metadata(self, dispatcher, mock_db):
         """The dedup_key should be written into the notification metadata column."""

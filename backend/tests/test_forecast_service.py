@@ -13,10 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-from services.forecast_service import (
-    FORECASTABLE_UTILITIES,
-    ForecastService,
-)
+from services.forecast_service import FORECASTABLE_UTILITIES, ForecastService
 
 # ---------------------------------------------------------------------------
 # Helpers
