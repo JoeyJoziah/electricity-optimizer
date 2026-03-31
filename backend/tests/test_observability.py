@@ -386,9 +386,9 @@ class TestConfigureTracerProvider:
         for proc in provider._active_span_processor._span_processors:
             exporter = getattr(proc, "span_exporter", None)
             if exporter is not None:
-                assert not isinstance(exporter, ConsoleSpanExporter), (
-                    f"Production must not use ConsoleSpanExporter; got {type(exporter)}"
-                )
+                assert not isinstance(
+                    exporter, ConsoleSpanExporter
+                ), f"Production must not use ConsoleSpanExporter; got {type(exporter)}"
 
 
 # ---------------------------------------------------------------------------

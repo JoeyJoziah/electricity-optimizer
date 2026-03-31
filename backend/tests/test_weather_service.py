@@ -6,15 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from integrations.weather_service import (
-    CT_LAT,
-    CT_LON,
-    DEGREE_DAY_BASE_F,
-    CircuitState,
-    WeatherCircuitBreaker,
-    WeatherData,
-    WeatherService,
-)
+from integrations.weather_service import (CT_LAT, CT_LON, DEGREE_DAY_BASE_F,
+                                          CircuitState, WeatherCircuitBreaker,
+                                          WeatherData, WeatherService)
 
 
 class TestWeatherData:

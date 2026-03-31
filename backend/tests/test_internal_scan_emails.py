@@ -648,9 +648,9 @@ class TestScanEmailsConcurrency:
 
             result = await scan_all_emails(db=mock_db)
 
-        assert peak <= _mod._SCAN_SEMAPHORE_LIMIT, (
-            f"Peak concurrency {peak} exceeded semaphore limit {_mod._SCAN_SEMAPHORE_LIMIT}"
-        )
+        assert (
+            peak <= _mod._SCAN_SEMAPHORE_LIMIT
+        ), f"Peak concurrency {peak} exceeded semaphore limit {_mod._SCAN_SEMAPHORE_LIMIT}"
         assert result["connections_scanned"] == 10
 
 

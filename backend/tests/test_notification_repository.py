@@ -144,17 +144,17 @@ class TestMigration032Structure:
         sql = _read_migration_032()
         # Must have: ADD COLUMN IF NOT EXISTS error_message TEXT
         normalised = re.sub(r"\s+", " ", sql.lower())
-        assert re.search(r"add column if not exists error_message text", normalised), (
-            "error_message must be defined as TEXT"
-        )
+        assert re.search(
+            r"add column if not exists error_message text", normalised
+        ), "error_message must be defined as TEXT"
 
     def test_index_on_channel_created_at(self):
         sql = _read_migration_032()
         normalised = re.sub(r"\s+", " ", sql.lower())
         # Must have a CREATE INDEX covering delivery_channel and created_at
-        assert "delivery_channel" in normalised, (
-            "Migration 032 must reference delivery_channel in an index"
-        )
+        assert (
+            "delivery_channel" in normalised
+        ), "Migration 032 must reference delivery_channel in an index"
         assert "created_at" in normalised, "Migration 032 must include created_at in an index"
         assert re.search(
             r"create index if not exists\s+\w+\s+on notifications\s*\(",

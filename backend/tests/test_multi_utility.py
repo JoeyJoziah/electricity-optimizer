@@ -11,22 +11,12 @@ from decimal import Decimal
 import pytest
 
 from models.price import Price
-from models.region import (
-    COMMUNITY_SOLAR_STATES,
-    DEREGULATED_ELECTRICITY_STATES,
-    DEREGULATED_GAS_STATES,
-    HEATING_OIL_STATES,
-    PriceRegion,
-    PricingRegion,
-    Region,
-)
-from models.utility import (
-    UNIT_LABELS,
-    UTILITY_DEFAULT_UNITS,
-    UTILITY_LABELS,
-    PriceUnit,
-    UtilityType,
-)
+from models.region import (COMMUNITY_SOLAR_STATES,
+                           DEREGULATED_ELECTRICITY_STATES,
+                           DEREGULATED_GAS_STATES, HEATING_OIL_STATES,
+                           PriceRegion, PricingRegion, Region)
+from models.utility import (UNIT_LABELS, UTILITY_DEFAULT_UNITS, UTILITY_LABELS,
+                            PriceUnit, UtilityType)
 
 # =============================================================================
 # UtilityType enum tests
@@ -242,7 +232,8 @@ class TestEIAClient:
     @pytest.fixture
     def mock_eia_client(self):
         from integrations.pricing_apis.eia import EIAClient
-        from integrations.pricing_apis.rate_limiter import create_api_rate_limiter
+        from integrations.pricing_apis.rate_limiter import \
+            create_api_rate_limiter
 
         client = EIAClient(
             api_key="test-key",

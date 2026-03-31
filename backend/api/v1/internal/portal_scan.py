@@ -63,8 +63,7 @@ async def scrape_all_portals(
     Returns a summary dict: ``{total, succeeded, failed, errors}``.
     """
     # 1. Fetch all active portal connections
-    result = await db.execute(
-        text("""
+    result = await db.execute(text("""
             SELECT
                 id,
                 user_id,
@@ -76,8 +75,7 @@ async def scrape_all_portals(
             WHERE connection_type = 'portal_scrape'
               AND status = 'active'
             ORDER BY portal_last_scraped_at ASC NULLS FIRST
-        """)
-    )
+        """))
     rows = result.fetchall()
 
     if not rows:

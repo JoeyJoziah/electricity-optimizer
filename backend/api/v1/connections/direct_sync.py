@@ -20,11 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier, verify_callback_state
-from models.connections import (
-    AuthorizationCallbackResponse,
-    SyncResultResponse,
-    SyncStatusResponse,
-)
+from models.connections import (AuthorizationCallbackResponse,
+                                SyncResultResponse, SyncStatusResponse)
 
 logger = structlog.get_logger(__name__)
 

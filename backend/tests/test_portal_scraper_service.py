@@ -36,10 +36,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.portal_scraper_service import (
-    SUPPORTED_UTILITIES,
-    PortalScraperService,
-)
+from services.portal_scraper_service import (SUPPORTED_UTILITIES,
+                                             PortalScraperService)
 
 # ---------------------------------------------------------------------------
 # Helpers

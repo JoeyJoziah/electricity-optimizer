@@ -16,11 +16,8 @@ import tempfile
 import numpy as np
 import pytest
 
-from services.vector_store import (
-    VectorStore,
-    appliance_config_to_vector,
-    price_curve_to_vector,
-)
+from services.vector_store import (VectorStore, appliance_config_to_vector,
+                                   price_curve_to_vector)
 
 
 @pytest.fixture

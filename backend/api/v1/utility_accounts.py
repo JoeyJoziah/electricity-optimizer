@@ -12,12 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
 from models.utility import UtilityType
-from models.utility_account import (
-    UtilityAccount,
-    UtilityAccountCreate,
-    UtilityAccountResponse,
-    UtilityAccountUpdate,
-)
+from models.utility_account import (UtilityAccount, UtilityAccountCreate,
+                                    UtilityAccountResponse,
+                                    UtilityAccountUpdate)
 from repositories.utility_account_repository import UtilityAccountRepository
 from utils.encryption import encrypt_field
 
@@ -58,9 +55,9 @@ async def create_utility_account(
         provider_name=body.provider_name,
         is_primary=body.is_primary,
         metadata=body.metadata,
-        account_number_encrypted=encrypt_field(body.account_number)
-        if body.account_number
-        else None,
+        account_number_encrypted=(
+            encrypt_field(body.account_number) if body.account_number else None
+        ),
     )
 
     created = await repo.create(account)

@@ -87,11 +87,9 @@ class TestSecureCookieEnforcement:
         This verifies the plain cookie value is never read in production,
         even if an attacker manages to inject it alongside the secure one.
         """
-        from auth.neon_auth import (
-            SESSION_COOKIE_NAME,
-            SESSION_COOKIE_NAME_SECURE,
-            get_current_user,
-        )
+        from auth.neon_auth import (SESSION_COOKIE_NAME,
+                                    SESSION_COOKIE_NAME_SECURE,
+                                    get_current_user)
 
         # Set both cookies -- the plain one has a different (attacker) token
         mock_request.cookies = {
@@ -138,11 +136,9 @@ class TestSecureCookieEnforcement:
 
     async def test_development_prefers_plain_cookie(self, mock_db_session, mock_request):
         """In development, when both cookies are present, the plain one is used first."""
-        from auth.neon_auth import (
-            SESSION_COOKIE_NAME,
-            SESSION_COOKIE_NAME_SECURE,
-            get_current_user,
-        )
+        from auth.neon_auth import (SESSION_COOKIE_NAME,
+                                    SESSION_COOKIE_NAME_SECURE,
+                                    get_current_user)
 
         mock_request.cookies = {
             SESSION_COOKIE_NAME: "dev-plain-token",

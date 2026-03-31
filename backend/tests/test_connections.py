@@ -1101,7 +1101,8 @@ class TestCallbackStateTimestampExpiry:
         with patch("api.v1.connections.settings") as mock_settings:
             mock_settings.internal_api_key = "test-signing-key-1234"
 
-            from api.v1.connections.common import sign_callback_state, verify_callback_state
+            from api.v1.connections.common import (sign_callback_state,
+                                                   verify_callback_state)
 
             state = sign_callback_state("conn-123", "user-456")
             connection_id, user_id = verify_callback_state(state)
@@ -1119,7 +1120,8 @@ class TestCallbackStateTimestampExpiry:
         with patch("api.v1.connections.settings") as mock_settings:
             mock_settings.internal_api_key = "test-signing-key-1234"
 
-            from api.v1.connections.common import OAUTH_STATE_TIMEOUT_SECONDS, verify_callback_state
+            from api.v1.connections.common import (OAUTH_STATE_TIMEOUT_SECONDS,
+                                                   verify_callback_state)
 
             # Forge a state with a timestamp 15 minutes in the past
             connection_id = "conn-old"

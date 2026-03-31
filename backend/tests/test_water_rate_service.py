@@ -8,9 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.water_rate_service import (
-    WaterRateService,
-)
+from services.water_rate_service import WaterRateService
 
 
 def _mock_db_rows(rows):

@@ -207,7 +207,8 @@ class LearningService:
         try:
             from datetime import datetime
 
-            from repositories.model_config_repository import ModelConfigRepository
+            from repositories.model_config_repository import \
+                ModelConfigRepository
 
             repo = ModelConfigRepository(self._db)
             # Build a version string based on the best-performing model
@@ -292,7 +293,8 @@ class LearningService:
         if self._db is None:
             return None
         try:
-            from repositories.model_config_repository import ModelConfigRepository
+            from repositories.model_config_repository import \
+                ModelConfigRepository
 
             repo = ModelConfigRepository(self._db)
             config = await repo.get_active_config(model_name)

@@ -18,13 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
-from models.connections import (
-    ConnectionListResponse,
-    ConnectionResponse,
-    CreateDirectConnectionRequest,
-    DeleteConnectionResponse,
-    UpdateConnectionRequest,
-)
+from models.connections import (ConnectionListResponse, ConnectionResponse,
+                                CreateDirectConnectionRequest,
+                                DeleteConnectionResponse,
+                                UpdateConnectionRequest)
 
 logger = structlog.get_logger(__name__)
 

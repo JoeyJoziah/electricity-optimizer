@@ -23,11 +23,8 @@ from starlette.responses import RedirectResponse
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
-from models.connections import (
-    CreateEmailConnectionRequest,
-    EmailConnectionInitResponse,
-    EmailScanResponse,
-)
+from models.connections import (CreateEmailConnectionRequest,
+                                EmailConnectionInitResponse, EmailScanResponse)
 
 logger = structlog.get_logger(__name__)
 
@@ -54,13 +51,9 @@ async def create_email_connection(
     Initiate an email-import connection.
     Creates a pending connection and returns the OAuth consent URL.
     """
-    from services.email_oauth_service import (
-        get_gmail_consent_url,
-        get_outlook_consent_url,
-    )
-    from services.email_oauth_service import (
-        settings as _oauth_settings,
-    )
+    from services.email_oauth_service import (get_gmail_consent_url,
+                                              get_outlook_consent_url)
+    from services.email_oauth_service import settings as _oauth_settings
 
     # Fail fast if OAuth credentials are not configured for the requested provider
     if payload.provider == "gmail":
@@ -125,12 +118,10 @@ async def email_oauth_callback(
     """
     import httpx as _httpx
 
-    from services.email_oauth_service import (
-        encrypt_tokens,
-        exchange_gmail_code,
-        exchange_outlook_code,
-        verify_oauth_state,
-    )
+    from services.email_oauth_service import (encrypt_tokens,
+                                              exchange_gmail_code,
+                                              exchange_outlook_code,
+                                              verify_oauth_state)
 
     # Verify state (includes timestamp expiry and HMAC integrity)
     connection_id, state_user_id = verify_oauth_state(state)
@@ -260,14 +251,12 @@ async def trigger_email_scan(
     """
     import httpx as _httpx
 
-    from services.email_scanner_service import (
-        download_gmail_attachments,
-        download_outlook_attachments,
-        extract_rates_from_attachments,
-        extract_rates_from_email,
-        scan_gmail_inbox,
-        scan_outlook_inbox,
-    )
+    from services.email_scanner_service import (download_gmail_attachments,
+                                                download_outlook_attachments,
+                                                extract_rates_from_attachments,
+                                                extract_rates_from_email,
+                                                scan_gmail_inbox,
+                                                scan_outlook_inbox)
     from utils.encryption import decrypt_field as _decrypt_field
 
     result = await db.execute(
@@ -295,11 +284,9 @@ async def trigger_email_scan(
     # Check if token expired and refresh if needed
     if row["oauth_token_expires_at"] and row["oauth_token_expires_at"] < datetime.now(UTC):
         if row["oauth_refresh_token"]:
-            from services.email_oauth_service import (
-                encrypt_tokens,
-                refresh_gmail_token,
-                refresh_outlook_token,
-            )
+            from services.email_oauth_service import (encrypt_tokens,
+                                                      refresh_gmail_token,
+                                                      refresh_outlook_token)
 
             enc_refresh = bytes(row["oauth_refresh_token"])
             try:

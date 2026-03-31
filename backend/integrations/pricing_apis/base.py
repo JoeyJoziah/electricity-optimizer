@@ -263,12 +263,12 @@ class ForecastData:
             prices=[PriceData.from_dict(p) for p in data.get("prices", [])],
             model_version=data.get("model_version"),
             confidence_level=data.get("confidence_level"),
-            lower_bound=[Decimal(b) for b in data["lower_bound"]]
-            if data.get("lower_bound")
-            else None,
-            upper_bound=[Decimal(b) for b in data["upper_bound"]]
-            if data.get("upper_bound")
-            else None,
+            lower_bound=(
+                [Decimal(b) for b in data["lower_bound"]] if data.get("lower_bound") else None
+            ),
+            upper_bound=(
+                [Decimal(b) for b in data["upper_bound"]] if data.get("upper_bound") else None
+            ),
         )
 
 

@@ -8,13 +8,11 @@ and duplicate detection.
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-from services.data_quality_service import (
-    ANOMALY_STD_THRESHOLD,
-    FRESHNESS_ALERT_MULTIPLIER,
-    FRESHNESS_THRESHOLDS,
-    SOURCE_FAILURE_ALERT_THRESHOLD,
-    DataQualityService,
-)
+from services.data_quality_service import (ANOMALY_STD_THRESHOLD,
+                                           FRESHNESS_ALERT_MULTIPLIER,
+                                           FRESHNESS_THRESHOLDS,
+                                           SOURCE_FAILURE_ALERT_THRESHOLD,
+                                           DataQualityService)
 
 
 class TestFreshnessThresholds:

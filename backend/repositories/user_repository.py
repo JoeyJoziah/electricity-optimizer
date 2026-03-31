@@ -175,9 +175,11 @@ class UserRepository(BaseRepository[User]):
                     "stripe_customer_id": entity.stripe_customer_id,
                     "email_verified": entity.email_verified,
                     "current_tariff": entity.current_tariff,
-                    "average_daily_kwh": float(entity.average_daily_kwh)
-                    if entity.average_daily_kwh is not None
-                    else None,
+                    "average_daily_kwh": (
+                        float(entity.average_daily_kwh)
+                        if entity.average_daily_kwh is not None
+                        else None
+                    ),
                     "household_size": entity.household_size,
                     "consent_given": entity.consent_given,
                     "data_processing_agreed": entity.data_processing_agreed,

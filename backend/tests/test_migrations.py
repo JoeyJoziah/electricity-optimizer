@@ -65,9 +65,9 @@ class TestMigrationFiles:
                     and "CONCURRENTLY" not in stripped
                 ):
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, (
-            "CREATE INDEX without guard (IF NOT EXISTS or CONCURRENTLY):\n" + "\n".join(violations)
-        )
+        assert (
+            not violations
+        ), "CREATE INDEX without guard (IF NOT EXISTS or CONCURRENTLY):\n" + "\n".join(violations)
 
     def test_alter_table_add_column_has_if_not_exists(self):
         """ALTER TABLE ADD COLUMN statements should use IF NOT EXISTS."""
@@ -170,9 +170,9 @@ class TestMigration017AdditionalIndexes:
         assert idx != -1, "Notifications index not found"
         # The WHERE clause should appear after the index definition
         after_idx = content[idx:]
-        assert "WHERE read_at IS NULL" in after_idx, (
-            "Partial index missing WHERE read_at IS NULL clause"
-        )
+        assert (
+            "WHERE read_at IS NULL" in after_idx
+        ), "Partial index missing WHERE read_at IS NULL clause"
 
 
 class TestMigration053NotificationDedupIndex:
@@ -201,9 +201,9 @@ class TestMigration053NotificationDedupIndex:
         # Find the ADD COLUMN line for alert_id
         for line in content.split("\n"):
             if "alert_id" in line and "ADD COLUMN" in line.upper():
-                assert "UUID" in line.upper(), (
-                    f"alert_id column should be UUID type, got: {line.strip()}"
-                )
+                assert (
+                    "UUID" in line.upper()
+                ), f"alert_id column should be UUID type, got: {line.strip()}"
                 break
 
     def test_fk_constraint_uses_set_null(self):
@@ -475,9 +475,9 @@ class TestMigration019NationwideSuppliers:
     def test_uses_green_energy_not_provider(self):
         """Migration 019 should use 'green_energy' column, not 'green_energy_provider'."""
         content = _read_migration("019")
-        assert "green_energy_provider" not in content, (
-            "Migration 019 should use 'green_energy', not 'green_energy_provider'"
-        )
+        assert (
+            "green_energy_provider" not in content
+        ), "Migration 019 should use 'green_energy', not 'green_energy_provider'"
         assert "green_energy" in content
 
     def test_seeds_at_least_34_suppliers_across_13_states(self):
@@ -507,12 +507,12 @@ class TestMigration011CommentFix:
     def test_comment_says_migration_011(self):
         """Migration 011 header comment must reference 011, not 010."""
         content = _read_migration("011")
-        assert "Migration 010" not in content, (
-            "011_utilityapi_sync_columns.sql still contains stale 'Migration 010' comment"
-        )
-        assert "Migration 011" in content, (
-            "011_utilityapi_sync_columns.sql should have 'Migration 011' in comment header"
-        )
+        assert (
+            "Migration 010" not in content
+        ), "011_utilityapi_sync_columns.sql still contains stale 'Migration 010' comment"
+        assert (
+            "Migration 011" in content
+        ), "011_utilityapi_sync_columns.sql should have 'Migration 011' in comment header"
 
 
 class TestMigration028CommentFix:
@@ -521,12 +521,12 @@ class TestMigration028CommentFix:
     def test_comment_says_version_028(self):
         """Migration 028 version comment must read 028, not 026."""
         content = _read_migration("028")
-        assert "Version: 026" not in content, (
-            "028_feedback_table.sql still contains stale 'Version: 026' comment"
-        )
-        assert "Version: 028" in content, (
-            "028_feedback_table.sql should have 'Version: 028' in comment header"
-        )
+        assert (
+            "Version: 026" not in content
+        ), "028_feedback_table.sql still contains stale 'Version: 026' comment"
+        assert (
+            "Version: 028" in content
+        ), "028_feedback_table.sql should have 'Version: 028' in comment header"
 
 
 class TestMigration061AuditSchemaFixes:
@@ -725,9 +725,9 @@ class TestMigration061AuditSchemaFixes:
         ]
         assert concurrent_stmt_positions, "No CREATE INDEX CONCURRENTLY statements found"
         for pos in concurrent_stmt_positions:
-            assert pos > commit_pos, (
-                f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
-            )
+            assert (
+                pos > commit_pos
+            ), f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
 
     def test_all_new_constraints_use_idempotent_guards(self):
         """All new constraints must be wrapped in idempotency DO blocks."""
@@ -740,9 +740,9 @@ class TestMigration061AuditSchemaFixes:
             "uq_model_config_name_version",
         ]
         for constraint in new_constraints:
-            assert constraint in content, (
-                f"Expected constraint {constraint} not found in migration 061"
-            )
+            assert (
+                constraint in content
+            ), f"Expected constraint {constraint} not found in migration 061"
 
     def test_grants_included(self):
         """Migration must include GRANT statements for neondb_owner."""
@@ -833,9 +833,9 @@ class TestMigration062AuditSchemaFixesRound2:
         ]
         assert concurrent_stmt_positions, "No CREATE INDEX CONCURRENTLY statements found"
         for pos in concurrent_stmt_positions:
-            assert pos > commit_pos, (
-                f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
-            )
+            assert (
+                pos > commit_pos
+            ), f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
 
     def test_grants_included(self):
         """Migration must include GRANT statements for neondb_owner."""
