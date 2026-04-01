@@ -2,7 +2,7 @@
 
 > **PURPOSE**: Executable step-by-step guide to fully redeploy the RateShift application from scratch across all four deployment layers (Database, Backend, Frontend, Edge Layer).
 >
-> **LAST UPDATED**: 2026-03-16
+> **LAST UPDATED**: 2026-04-01
 > **STATUS**: Production-ready
 > **SCOPE**: Cold start redeployment, assumes DNS already configured per `/docs/DNS_EMAIL_SETUP.md`
 
@@ -111,12 +111,12 @@ rm /tmp/secrets.env
 - **Direct endpoint** (for DDL/migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`
 - **Region**: us-east-1
 - **Branches**: `production` (default), `vercel-dev` (for preview deployments)
-- **Total tables**: 44 public + 9 neon_auth = 53 total
+- **Total tables**: 49 public + 9 neon_auth = 58 total
 - **All migrations**: 50 files in `backend/migrations/` (49 deployed to production through 049), using `IF NOT EXISTS` pattern (safe to re-run)
 
 ### Migration Files (Complete List)
 
-The following 50 migrations must be applied **in order** to the `production` branch (49 deployed as of 2026-03-16, 050 pending):
+The following 64 migrations must be applied **in order** to the `production` branch (all 64 deployed as of 2026-03-24):
 
 ```
 1.  init_neon.sql                               (core schema, users, prices, suppliers)
@@ -227,7 +227,7 @@ export NEON_CONNECTION="postgresql://neondb_owner:${NEON_PASSWORD}@ep-withered-m
 
 MIGRATIONS_DIR="/Users/devinmcgrath/projects/electricity-optimizer/backend/migrations"
 
-echo "Applying all 50 migrations to Neon..."
+echo "Applying all 64 migrations to Neon..."
 echo "Connection: $(echo $NEON_CONNECTION | cut -d'@' -f2)"
 echo ""
 
@@ -308,7 +308,7 @@ for ((i=0; i<${#migrations[@]}; i++)); do
 done
 
 echo ""
-echo "All 50 migrations applied successfully!"
+echo "All 64 migrations applied successfully!"
 ```
 
 Run the migration script:
@@ -383,7 +383,7 @@ psql "$NEON_CONNECTION" -c \
 
 You should see:
 - 44 public tables
-- 9 neon_auth tables (53 total)
+- 9 neon_auth tables (58 total)
 - 100+ indexes
 - All tables with `neondb_owner` ownership
 - No errors in the migration logs

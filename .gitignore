@@ -129,6 +129,10 @@ Thumbs.db
 .mcp.backup_*.json
 .composio.lock
 
+# Paperclip (local agent orchestration, not checked in)
+paperclip/
+.paperclip/
+
 # Claude Code local settings (contains auto-approved permission patterns — may embed secrets)
 .claude/settings.local.json
 .claude/worktrees/

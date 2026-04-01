@@ -32,8 +32,8 @@
 - [x] Neon project: "energyoptimize" (project ID: cold-rice-23455092)
 - [x] Connection string from 1Password vault "RateShift"
 - [x] Production branch: `production` (br-shy-sun-aibo9dns), Preview branch: `vercel-dev`
-- [x] 50 migrations deployed (latest: 050_community_posts_indexes)
-- [x] 44 public + 9 neon_auth = 53 tables total
+- [x] 64 migrations deployed (latest: 064_migration_history_uuid_pk)
+- [x] 49 public + 9 neon_auth = 58 tables total
 
 **Notes**:
 ```
@@ -58,7 +58,7 @@ DATABASE_URL=postgresql://neondb_owner:***@ep-withered-morning-aix83cfw-pooler.c
 ### Step 4: Render.com Backend Deployment (10 min)
 - [x] Backend deployed as Web Service on Render
 - [x] URL: https://api.rateshift.app (srv-d649uhur433s73d557cg)
-- [x] 41 environment variables configured
+- [x] 44 environment variables configured
 - [x] Auto-deploy on push to `main` via deploy hooks
 
 ### Step 5: Vercel Frontend Deployment (5 min)
@@ -179,7 +179,7 @@ NEXT_PUBLIC_API_URL=
 - [x] Stripe checkout/portal/webhook functional
 - [x] Alert system running (check-alerts every 15 min)
 - [x] 7/7 automation workflows live
-- [x] Self-healing CI/CD operational (32 GHA workflows)
+- [x] Self-healing CI/CD operational (33 GHA workflows)
 - [x] Custom domain purchased (rateshift.app via Cloudflare Registrar)
 - [x] DKIM/SPF/DMARC configured for Resend
 - [x] Resend custom domain email active (`noreply@rateshift.app`)

@@ -3,8 +3,8 @@
 Automatically shift consumers to lower utility rates across all 50 US states. Multi-utility price comparison (electricity, natural gas, propane, heating oil, water), AI-powered recommendations, smart alerts, and real-time price tracking.
 
 [![CI Status](https://github.com/JoeyJoziah/electricity-optimizer/workflows/test/badge.svg)](https://github.com/JoeyJoziah/electricity-optimizer/actions)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-2480%20passing-brightgreen)](docs/TESTING.md)
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1841%20passing-brightgreen)](docs/TESTING.md)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-2976%20passing-brightgreen)](docs/TESTING.md)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-2015%20passing-brightgreen)](docs/TESTING.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## What is RateShift?
@@ -32,7 +32,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 |-------|-----------|
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | **Backend** | FastAPI, Python 3.12, asyncpg + SQLAlchemy ORM |
-| **Database** | Neon PostgreSQL (serverless), 50 migrations, 53 tables, UUID PKs |
+| **Database** | Neon PostgreSQL (serverless), 64 migrations, 58 tables, UUID PKs |
 | **Auth** | Neon Auth (Better Auth) — session-based, httpOnly cookies |
 | **Edge Layer** | Cloudflare Worker — 2-tier caching, native rate limiting, bot detection, CORS |
 | **ML** | Python ensemble predictor, HNSW vector store, XGBoost |
@@ -42,7 +42,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 | **Hosting** | Render (backend), Vercel (frontend), Cloudflare (edge/DNS) |
 | **Notifications** | OneSignal (push), Email (Resend + SMTP) |
 | **Observability** | OpenTelemetry + Grafana Cloud Tempo (distributed tracing) |
-| **CI/CD** | GitHub Actions (32 workflows), self-healing automation |
+| **CI/CD** | GitHub Actions (33 workflows), self-healing automation |
 | **Security** | OWASP ZAP, pip-audit, npm audit, Gitleaks, 1Password |
 
 ## Getting Started
@@ -117,29 +117,29 @@ electricity-optimizer/
     services/                Business logic (52 services)
     repositories/            Data access layer
     integrations/            External APIs (weather, market research, utility sync, ...)
-    migrations/              SQL migrations (50 total, init_neon through 050)
-    tests/                   Unit and integration tests (2,480 total)
+    migrations/              SQL migrations (64 total, init_neon through 064)
+    tests/                   Unit and integration tests (2,976 total)
   frontend/                  Next.js 16 application
     app/                     App Router structure
       (app)/                 Authenticated pages (15 sidebar nav items)
       (dev)/                 Dev-only pages (architecture editor)
     components/              React components (charts, forms, layouts, auth, ...)
     lib/                     Utilities, hooks, API clients, state
-    __tests__/               Jest unit tests (1,841 total, 136 suites)
-    e2e/                     Playwright E2E tests (671 total)
+    __tests__/               Jest unit tests (2,015 total, 153 suites)
+    e2e/                     Playwright E2E tests (1,605 total, 25 specs)
   ml/                        Machine learning pipelines
     models/                  Predictor definitions, HNSW indexing
     training/                Model training and evaluation
     inference/               Serving and prediction batching
-  workers/                   Cloudflare Worker edge layer (API gateway, 77 tests)
+  workers/                   Cloudflare Worker edge layer (API gateway, 90 tests)
   scripts/                   Deployment and utility scripts
   docs/                      Project documentation (ARCHITECTURE, DEVELOPER_GUIDE, 5 ADRs, ...)
-  .github/workflows/         CI/CD automation (31 GitHub Actions workflows)
+  .github/workflows/         CI/CD automation (33 GitHub Actions workflows)
 ```
 
 ## Testing
 
-### Backend (2,480 tests)
+### Backend (2,976 tests)
 
 ```bash
 .venv/bin/python -m pytest backend/tests/ -v
@@ -147,7 +147,7 @@ electricity-optimizer/
 
 Always use `.venv/bin/python` (system Python lacks required dependencies).
 
-### Frontend (1,841 tests, 136 suites)
+### Frontend (2,015 tests, 153 suites)
 
 ```bash
 cd frontend
@@ -155,13 +155,13 @@ npm test                    # Watch mode
 npm run test:ci            # Full coverage
 ```
 
-### ML (611 tests)
+### ML (676 tests)
 
 ```bash
 .venv/bin/python -m pytest ml/tests/ -v
 ```
 
-### E2E (671 tests)
+### E2E (1,605 tests, 25 specs, 5 browsers)
 
 ```bash
 cd frontend
@@ -169,14 +169,14 @@ npx playwright test
 npx playwright test --ui    # Interactive mode
 ```
 
-### CF Worker (77 tests)
+### CF Worker (90 tests)
 
 ```bash
 cd workers/api-gateway
 npm test
 ```
 
-**Total test count:** ~5,680 across all suites (2,480 backend + 1,841 frontend + 611 ML + 671 E2E + 77 CF Worker). See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
+**Total test count:** ~7,362 across all suites (2,976 backend + 2,015 frontend + 676 ML + 1,605 E2E + 90 CF Worker). See [docs/TESTING.md](docs/TESTING.md) for testing guides and coverage targets.
 
 ## API Documentation
 
@@ -222,7 +222,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instruction
 
 ## CI/CD
 
-31 GitHub Actions workflows including:
+33 GitHub Actions workflows including:
 
 - **Test workflows** — Backend (pytest), Frontend (Jest, Playwright), ML (pytest), utility-type tests, CF Worker tests
 - **Cron automation** — Price sync, alerts (30min), weather fetch (6h), market research (daily), dunning cycle (daily), KPI reports (daily), email scan (daily), portal scrape (weekly), gas/heating-oil/propane fetch, rate change detection
@@ -242,7 +242,7 @@ See [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for the full workflow inven
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment guide (local, staging, production) |
 | [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Service catalog, CI/CD workflow inventory |
 | [TESTING.md](docs/TESTING.md) | Test suites, coverage targets, running tests |
-| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | All 53 tables, migration history |
+| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | All 58 tables, migration history |
 | [API_REFERENCE.md](docs/API_REFERENCE.md) | Complete API endpoint reference |
 | [OBSERVABILITY.md](docs/OBSERVABILITY.md) | OpenTelemetry tracing, Grafana Cloud |
 | [STRIPE_ARCHITECTURE.md](docs/STRIPE_ARCHITECTURE.md) | Payment flow, webhooks, dunning cycle |

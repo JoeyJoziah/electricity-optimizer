@@ -122,7 +122,7 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | `notify-slack` | Color-coded Slack failure alerts (critical=danger, warning, info=blue) via incoming webhook to `#incidents` |
 | `validate-migrations` | Convention checks: sequential numbering, IF NOT EXISTS on CREATE TABLE, GRANT TO neondb_owner, no SERIAL/BIGSERIAL |
 
-**Concurrency Controls**: All 32 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
+**Concurrency Controls**: All 33 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
 
 **Render Deploy Hooks**: Production and staging deploy workflows trigger Render builds via deploy hook URLs stored in GitHub secrets (`RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`). Deploy workflows include self-healing smoke tests that auto-retry on failure.
 

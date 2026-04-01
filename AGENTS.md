@@ -24,7 +24,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 | Cache | Redis (Upstash) | -- |
 | Edge Layer | Cloudflare Worker | 2-tier cache + rate limiting |
 | Hosting | Render (backend), Vercel (frontend), Cloudflare (edge) | -- |
-| CI | GitHub Actions | 32 workflows |
+| CI | GitHub Actions | 33 workflows |
 
 ## Build, Test, and Run Commands
 
@@ -32,13 +32,13 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 
 ```bash
 # CRITICAL: Always use the project venv, never system Python
-.venv/bin/python -m pytest backend/tests/              # all backend tests (2,480+)
+.venv/bin/python -m pytest backend/tests/              # all backend tests (2,976+)
 .venv/bin/python -m pytest backend/tests/test_auth.py  # single file
 .venv/bin/python -m pytest backend/tests/ -x           # stop on first failure
 .venv/bin/python -m pytest backend/tests/ -k "test_name"  # by name
 
 # ML tests
-.venv/bin/python -m pytest ml/tests/                   # ML suite (611+)
+.venv/bin/python -m pytest ml/tests/                   # ML suite (676+)
 
 # Run dev server
 .venv/bin/python -m uvicorn backend.main:app --reload --port 8000
@@ -48,10 +48,10 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 
 ```bash
 cd frontend
-npm test                    # Jest unit tests (1,841, 136 suites)
+npm test                    # Jest unit tests (2,015, 153 suites)
 npm run build               # production build
 npm run dev                 # dev server (port 3000)
-npx playwright test         # E2E tests (15 specs)
+npx playwright test         # E2E tests (25 specs)
 npx playwright test --ui    # E2E with interactive UI
 ```
 
@@ -104,7 +104,7 @@ electricity-optimizer/
     middleware/
       rate_limiter.py    # Per-IP rate limiting (in-memory or Redis)
       security_headers.py
-    migrations/          # Raw SQL migrations (50 total, run against app DB, NOT Neon MCP)
+    migrations/          # Raw SQL migrations (64 total, run against app DB, NOT Neon MCP)
     models/
       price.py           # Price (Pydantic BaseModel, used as SQLAlchemy-ish)
       user.py            # User model
@@ -175,7 +175,7 @@ electricity-optimizer/
     tests/               # 105+ tests
   docs/                  # DEPLOYMENT, TESTING, CODEMAP_BACKEND, etc.
   scripts/               # Utility scripts (Notion sync, setup)
-  .github/workflows/     # 23 CI/CD workflows
+  .github/workflows/     # 33 CI/CD workflows
 ```
 
 ### Request Flow

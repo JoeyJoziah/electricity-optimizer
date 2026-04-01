@@ -1,13 +1,13 @@
 # Testing Guide
 
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-04-01
 **Overall Test Coverage**: 82%+
-**Backend Tests**: 2,536 passed (pytest, 112 test files)
-**Frontend Tests**: 1,898 across 138 suites (Jest)
-**ML Tests**: 611 passed, 55 skipped (pytest)
-**E2E Tests**: 671 passed (Playwright)
-**CF Worker Tests**: 77 passed (vitest)
-**Total**: ~5,793+ tests across 5 layers
+**Backend Tests**: 2,976 passed (pytest)
+**Frontend Tests**: 2,015 across 153 suites (Jest)
+**ML Tests**: 676 passed (pytest)
+**E2E Tests**: 1,605 passed (Playwright, 25 specs, 5 browsers)
+**CF Worker Tests**: 90 passed (vitest)
+**Total**: ~7,362 tests across 5 layers
 
 ---
 
@@ -15,12 +15,12 @@
 
 | Test Type | Count | Coverage | Framework |
 |-----------|-------|----------|-----------|
-| **Backend Unit/Integration** | 2,536 passed | 86%+ | pytest |
-| **Frontend Component + Lib Tests** | 1,898 (138 suites) | 80%+ | Jest + RTL |
+| **Backend Unit/Integration** | 2,976 passed | 86%+ | pytest |
+| **Frontend Component + Lib Tests** | 2,015 (153 suites) | 80%+ | Jest + RTL |
 | **Accessibility Tests** | 51 (included in frontend) | WCAG 2.1 AA | jest-axe |
-| **ML Inference + Training** | 611 passed, 55 skipped | 82%+ | pytest |
-| **E2E Tests** | 671 passed | Critical flows | Playwright |
-| **CF Worker Tests** | 77 passed | 90%+ | vitest |
+| **ML Inference + Training** | 676 passed | 82%+ | pytest |
+| **E2E Tests** | 1,605 passed (25 specs, 5 browsers) | Critical flows | Playwright |
+| **CF Worker Tests** | 90 passed | 90%+ | vitest |
 | **Security Tests** | 156 | 91%+ | pytest |
 | **Load Tests** | N/A | 1000+ users | Locust |
 | **Performance Tests** | 31 | API/ML | pytest |
@@ -103,10 +103,10 @@ cd tests/load && ./run_load_test.sh quick
 ### 1. Backend Unit and Integration Tests
 
 **Location**: `backend/tests/`
-**Count**: 2,536 passed
+**Count**: 2,976 passed
 **Coverage Target**: 86%+
 
-**Test Files** (112 files):
+**Test Files**:
 - `test_api.py` - API endpoint tests
 - `test_api_billing.py` - Stripe billing endpoint tests (33 tests)
 - `test_api_predictions.py` - ML prediction endpoint tests
@@ -187,7 +187,7 @@ pytest tests/ -v --cov=. --cov-report=html
 ### 2. Frontend Component + Library Tests
 
 **Location**: `frontend/__tests__/` and `frontend/lib/`
-**Count**: 1,898 tests across 138 suites
+**Count**: 2,015 tests across 153 suites
 **Coverage Target**: 80%+
 
 **Known issues**: 3 pre-existing failures in `send.test.ts` (email send utility — related to Resend sandbox restrictions). These are non-blocking and tracked as a known issue.
@@ -268,10 +268,10 @@ npm run test:ci    # CI mode with coverage
 ### 3. E2E Tests
 
 **Location**: `frontend/e2e/`
-**Count**: 671 passed
-**Last Run**: 2026-03-12 (Wave 5 dashboard tabs + community E2E tests)
+**Count**: 1,605 passed
+**Last Run**: 2026-03-26 (E2E overhaul — 25 specs, 5 browsers)
 
-**Test Files** (15 specs):
+**Test Files** (25 specs):
 - `authentication.spec.ts` - Auth flows (login, OAuth, magic link, redirect loop prevention)
 - `billing-flow.spec.ts` - Stripe checkout, pricing tiers
 - `dashboard.spec.ts` - Dashboard widgets, navigation, error handling
@@ -334,7 +334,7 @@ npx playwright show-report
 ### 4. ML Tests
 
 **Location**: `ml/tests/`
-**Count**: 611 passed, 55 skipped (matplotlib/plotly not installed)
+**Count**: 676 passed
 **Coverage Target**: 82%+
 
 **Test Files** (16 files):
@@ -742,7 +742,7 @@ open tests/load/reports/load_test_*.html
 ### 8. CF Worker Tests
 
 **Location**: `workers/api-gateway/test/`
-**Count**: 77 passed
+**Count**: 90 passed
 **Coverage**: 90%+
 **Framework**: vitest
 
@@ -832,7 +832,7 @@ Replace `"query"` with a relevant search term (e.g., `"electricity prices"`, `"s
 
 - Loki Mode hooks run outside the test process and do not interfere with pytest, Jest, or Playwright test runners
 - The `.loki/` directory is local to the project root and does not affect CI environments (no `.loki/` directory is present in CI runners)
-- All 2,536 backend, 1,898 frontend, and 611 ML tests continue to pass with Loki Mode installed
+- All 2,976 backend, 2,015 frontend, and 676 ML tests continue to pass with Loki Mode installed
 
 ---
 
@@ -883,4 +883,4 @@ cd frontend && npm test -- -u
 
 ---
 
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-04-01

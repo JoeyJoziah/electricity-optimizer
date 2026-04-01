@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-03-25 (Dashboard reload loop fix — 3-layer auth resilience. Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (7/19 done) + production audit remediation (18 tasks, 5 sprints) + production debugging session (ORIGIN_URL fix, Location header rewrite, keep-alive cron). CF Worker 4 cron triggers. Backend 2,976 tests, Frontend 2,015 tests (153 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,362 total. 64 migrations (064: migration_history_uuid_pk). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
+> Last validated: 2026-04-01 (Memory sync — 226 learned skills, 4,777 CF entries, 7 patterns at confidence 1.0. Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (7/19 done) + production audit remediation (18 tasks, 5 sprints) + production debugging session (ORIGIN_URL fix, Location header rewrite, keep-alive cron). CF Worker 4 cron triggers. Backend 2,976 tests, Frontend 2,015 tests (153 suites), E2E 1,605 (25 specs, 5 browsers), Worker 90, ML 676 = ~7,362 total. 64 migrations (064: migration_history_uuid_pk). 58 tables (49 public + 9 neon_auth). 29 error boundaries, 23 loading states. 15 sidebar nav items. 33 GHA workflows. DSP graph: 474 entities, 940+ imports, 1 real cycle. 18 conductor tracks all complete.)
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -81,6 +81,18 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Excluded**: 32 agents, 29 skills (consensus, federation, v3, Flow Nexus, SONA, hive-mind — internal or redundant)
 - **Rollback**: `~/.claude/integrations/agentic-flow-electricity-optimizer.json`
 
+## Paperclip.ai (Local Agent Orchestration, 2026-03-31)
+
+- **Server**: localhost:3100 (manual start via `cd ~/.paperclip && pnpm dev`)
+- **Config**: `~/.paperclip/instances/default/config.json`
+- **Tasks**: `~/.paperclip/tasks/` (file-based agent communication)
+- **Agents**: 7 (CEO, CTO, COO, CMO, Engineer, QA, DataOps) — start with 4 (CEO, CTO, COO, DataOps), add remaining after 1 week stable
+- **Layer**: Strategy/delegation — sits above Claude Flow/Loki/AF. Never touches code directly
+- **Budget**: ~$38/mo total across all LLM agents (hard caps per agent)
+- **Scripts**: `paperclip/scripts/populate-*.sh` — bash bridges from real sources to `/tasks` dir
+- **Data flow**: One-way only (real systems → Paperclip task files). Paperclip agents never write to Claude Flow memory, trigger Loki RARV cycles, or duplicate GHA/CF Worker crons
+- **IMPORTANT**: Paperclip is `.gitignore`d (both `paperclip/` and `.paperclip/`). Machine-specific setup
+
 ## Multi-Repo Skill Integration (2026-03-04)
 
 - **Total**: 2,099 skills, 204 commands, 189 agents (2,492 entities)
@@ -139,6 +151,8 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 18. **Auth resilience (3 layers)**: (1) `backend/auth/neon_auth.py` wraps `_get_session_from_token` in try/except → 503 on DB errors, NEVER let DB exceptions propagate to 401. (2) `frontend/lib/api/client.ts` `handle401Redirect()` suppresses 401 redirects when `_backendCooldown` active or `circuitBreaker.isFallbackMode()`. (3) `frontend/lib/hooks/useAuth.tsx` sets `setIsLoading(false)` immediately after session check (~700ms), profile/supplier fetched in background — do NOT re-introduce blocking waits in initAuth()
 19. **Global 503 cooldown**: `_backendCooldown` in `client.ts` serializes all `fetchWithRetry` calls for 3s after any 503 — prevents retry dogpiling that overwhelms CF Worker rate limiter. `QueryProvider.tsx` smart retry: 503=1 retry/3s delay, 429/4xx=no retry
 20. **Vercel rewrite trailing slash**: next.config.js uses `beforeFiles` + `:path(.*)` regex capture (NOT `:path*`) to preserve trailing slashes when proxying to backend. `:path*` drops trailing slashes, causing infinite 307↔308 loops with FastAPI. `skipTrailingSlashRedirect: true` prevents Next.js 308s
+21. **Post-deploy browser verification is mandatory**: Every production deploy must be followed by Chrome automation testing (navigate + screenshot + console check). Local/CI tests cannot catch: missing Worker secrets, redirect header leaks, rate limiter interactions, Vercel rewrite normalization bugs
+22. **Graceful degradation preference hierarchy**: (1) 503 over false 401 for auth DB errors, (2) proxy-layer fixes over backend changes for redirect/CORS, (3) non-blocking UI over blocking waits, (4) shared cooldowns over per-request retries, (5) regex captures over named captures in Vercel rewrites
 
 ## Cron Jobs & Maintenance
 

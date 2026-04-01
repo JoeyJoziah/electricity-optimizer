@@ -14,7 +14,7 @@ RateShift runs on an all-free-tier infrastructure stack. This document tracks ac
 | **Render** | Free | $0 | 750 hours, cold-sleeps after 15min | Always-on via cron wakeups | Medium |
 | **Vercel** | Hobby | $0 | 100 GB bandwidth, 1000 serverless invocations | Well within limits | Low |
 | **Cloudflare** | Free | $0 | 100K Worker requests/day, unlimited DNS | Well within limits | Low |
-| **GitHub Actions** | Free | $0 | 2,000 min/mo (Linux) | ~2,700 min/mo (see below) | **High** |
+| **GitHub Actions** | Free | $0 | 2,000 min/mo (Linux) | ~1,843 min/mo (see below) | Medium |
 | **Cloudflare Registrar** | — | ~$10/yr | N/A (domain registration) | Fixed cost | None |
 | **Resend** | Free | $0 | 100 emails/day, 3K/mo | Low volume | Low |
 | **OneSignal** | Free | $0 | 10K subscribers | Low volume | Low |

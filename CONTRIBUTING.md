@@ -161,11 +161,11 @@ cd frontend && npx playwright test --debug
 
 ## Migration Guidelines
 
-Migrations are sequential SQL files in `backend/migrations/`. Current count: 50 (init_neon through 050). Next migration number: **051**.
+Migrations are sequential SQL files in `backend/migrations/`. Current count: 64 (init_neon through 064). Next migration number: **065**.
 
 ### Rules
 
-1. **Sequential numbering**: `050_community_posts_indexes.sql`, `051_your_feature.sql`, etc.
+1. **Sequential numbering**: `064_migration_history_uuid_pk.sql`, `065_your_feature.sql`, etc.
 2. **IF NOT EXISTS**: Always use on CREATE TABLE/INDEX
 3. **No SERIAL/BIGSERIAL**: Use `UUID DEFAULT gen_random_uuid()` instead
 4. **Grant permissions**: `GRANT SELECT, INSERT, UPDATE, DELETE ON table TO neondb_owner`
@@ -174,7 +174,7 @@ Migrations are sequential SQL files in `backend/migrations/`. Current count: 50 
 
 Example:
 ```sql
--- migrations/051_my_feature.sql
+-- migrations/065_my_feature.sql
 CREATE TABLE IF NOT EXISTS my_table (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -250,7 +250,7 @@ electricity-optimizer/
 - **Security**: `docs/SECURITY_AUDIT.md`
 - **Automation**: `docs/AUTOMATION_PLAN.md`
 - **Redeployment Runbook**: `docs/REDEPLOYMENT_RUNBOOK.md`
-- **ADRs**: `docs/adr/001-005` (5 Architecture Decision Records)
+- **ADRs**: `docs/adr/001-009` (9 Architecture Decision Records)
 
 ## Questions?
 
