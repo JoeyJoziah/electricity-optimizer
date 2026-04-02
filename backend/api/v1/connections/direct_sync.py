@@ -18,8 +18,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import SessionData, get_db_session
-from api.v1.connections.common import require_paid_tier, verify_callback_state
+from api.dependencies import SessionData, get_current_user, get_db_session
+from api.v1.connections.common import verify_callback_state
 from models.connections import (
     AuthorizationCallbackResponse,
     SyncResultResponse,
@@ -43,11 +43,14 @@ router = APIRouter()
 )
 async def initiate_utilityapi_authorization(
     payload: dict,
-    current_user: SessionData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
     Create a pending connection and return a UtilityAPI authorization URL.
+
+    Available on ALL tiers (Free, Pro, Business). Meter monitoring is billed
+    as a $2.25/meter/month add-on via Stripe after authorization completes.
 
     The user is redirected to UtilityAPI to grant data access. After
     authorization, UtilityAPI calls back to GET /direct/callback.
@@ -67,10 +70,16 @@ async def initiate_utilityapi_authorization(
 
     supplier_id = payload.get("supplier_id")
     consent_given = payload.get("consent_given", False)
+    accept_addon_pricing = payload.get("accept_addon_pricing", False)
     if not consent_given:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Consent is required.",
+        )
+    if not accept_addon_pricing:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="You must accept the $2.25/meter/month add-on pricing to continue.",
         )
     if not supplier_id:
         raise HTTPException(
@@ -274,16 +283,37 @@ async def utilityapi_callback(
     log.info("utilityapi_callback_connection_activated")
 
     # 4. Kick off initial sync (best-effort — don't fail the callback if it errors)
+    sync_result: dict | None = None
     try:
         sync_svc = ConnectionSyncService(db)
-        await sync_svc.sync_connection(connection_id)
+        sync_result = await sync_svc.sync_connection(connection_id)
     except Exception as exc:
         log.warning("utilityapi_callback_initial_sync_failed", error=str(exc))
+
+    # 5. Add meter billing (best-effort — connection still works if billing fails)
+    checkout_url: str | None = None
+    meter_count = max((sync_result or {}).get("new_rates_found", 0), 1)
+    try:
+        from services.utilityapi_billing_service import UtilityAPIBillingService
+
+        billing_svc = UtilityAPIBillingService(db)
+        billing_result = await billing_svc.add_meters(
+            user_id=state_user_id,
+            connection_id=connection_id,
+            meter_count=meter_count,
+        )
+        checkout_url = billing_result.get("checkout_url")
+    except Exception as exc:
+        log.warning("utilityapi_callback_billing_failed", error=str(exc))
+
+    message = "Authorization successful. Initial data sync complete."
+    if checkout_url:
+        message += " Please complete payment to activate meter monitoring."
 
     return AuthorizationCallbackResponse(
         connection_id=connection_id,
         status="active",
-        message="Authorization successful. Initial data sync complete.",
+        message=message,
     )
 
 
@@ -299,7 +329,7 @@ async def utilityapi_callback(
 )
 async def trigger_sync(
     connection_id: uuid.UUID,
-    current_user: SessionData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> SyncResultResponse:
     """
@@ -353,7 +383,7 @@ async def trigger_sync(
 )
 async def get_sync_status(
     connection_id: uuid.UUID,
-    current_user: SessionData = Depends(require_paid_tier),
+    current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> SyncStatusResponse:
     """

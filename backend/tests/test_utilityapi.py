@@ -858,23 +858,32 @@ class TestManualSyncEndpoint:
         response = client.post(f"{BASE}/{uuid4()}/sync")
         assert response.status_code == 404
 
-    def test_sync_requires_paid_tier(self, client):
-        """Free-tier user receives 403 on sync endpoint."""
-        from api.dependencies import get_current_user, get_db_session
-        from api.v1.connections import require_paid_tier
-        from main import app
+    def test_sync_allows_free_tier(self, client):
+        """Free-tier user can access sync (billing handled via add-on)."""
+        db = _install_auth(tier="free")
 
-        app.dependency_overrides.pop(require_paid_tier, None)
+        # Ownership check
+        ownership_result = MagicMock()
+        ownership_result.fetchone.return_value = MagicMock()
 
-        session = _session_data(tier="free")
-        db = _mock_db()
-        db.execute = AsyncMock(return_value=_scalar_result("free"))
+        sync_result = {
+            "connection_id": TEST_CONNECTION_ID,
+            "success": True,
+            "new_rates_found": 0,
+            "error": None,
+            "synced_at": "2026-04-02T12:00:00Z",
+        }
 
-        app.dependency_overrides[get_current_user] = lambda: session
-        app.dependency_overrides[get_db_session] = lambda: db
+        db.execute = AsyncMock(return_value=ownership_result)
 
-        response = client.post(f"{BASE}/{TEST_CONNECTION_ID}/sync")
-        assert response.status_code == 403
+        with patch("services.connection_sync_service.ConnectionSyncService") as mock_svc_cls:
+            mock_svc = MagicMock()
+            mock_svc.sync_connection = AsyncMock(return_value=sync_result)
+            mock_svc_cls.return_value = mock_svc
+
+            response = client.post(f"{BASE}/{TEST_CONNECTION_ID}/sync")
+
+        assert response.status_code == 200
 
     def test_sync_returns_error_on_failure(self, client):
         """Sync returning success=False still returns 200 with error message."""

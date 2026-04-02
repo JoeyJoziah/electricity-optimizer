@@ -103,6 +103,30 @@ class WebhookEventResponse(BaseModel):
 # =============================================================================
 
 
+@router.get(
+    "/addon-pricing",
+    summary="Get UtilityAPI add-on pricing",
+    responses={
+        200: {"description": "Add-on pricing info"},
+        401: {"description": "Authentication required"},
+    },
+)
+async def get_addon_pricing(
+    current_user: SessionData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get current UtilityAPI meter monitoring add-on pricing.
+
+    Returns per-meter price, current meter count, and monthly total.
+    Available to all authenticated users regardless of tier.
+    """
+    from services.utilityapi_billing_service import UtilityAPIBillingService
+
+    billing_svc = UtilityAPIBillingService(db)
+    return await billing_svc.get_addon_pricing(current_user.user_id)
+
+
 @router.post(
     "/checkout",
     response_model=CheckoutSessionResponse,

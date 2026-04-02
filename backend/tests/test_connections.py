@@ -733,10 +733,14 @@ class TestDeleteConnection:
         """Owner can delete their own connection (returns 200 with message)."""
         db = _install_auth()
 
-        # First execute: ownership check → found
-        ownership_row = MagicMock()
+        # First execute: ownership check → found (uses mappings().first())
+        ownership_row = {
+            "id": TEST_CONNECTION_ID,
+            "connection_type": "email_import",
+            "stripe_subscription_item_id": None,
+        }
         ownership_result = MagicMock()
-        ownership_result.fetchone.return_value = ownership_row
+        ownership_result.mappings.return_value.first.return_value = ownership_row
 
         # Second execute: UPDATE
         update_result = MagicMock()
@@ -755,7 +759,7 @@ class TestDeleteConnection:
         db = _install_auth()
 
         not_found_result = MagicMock()
-        not_found_result.fetchone.return_value = None
+        not_found_result.mappings.return_value.first.return_value = None
         db.execute = AsyncMock(return_value=not_found_result)
 
         response = client.delete(f"{BASE}/{uuid4()}")
@@ -768,7 +772,7 @@ class TestDeleteConnection:
 
         # DB returns None because WHERE user_id = :uid filters it out
         not_found_result = MagicMock()
-        not_found_result.fetchone.return_value = None
+        not_found_result.mappings.return_value.first.return_value = None
         db.execute = AsyncMock(return_value=not_found_result)
 
         response = client.delete(f"{BASE}/{TEST_CONNECTION_ID}")

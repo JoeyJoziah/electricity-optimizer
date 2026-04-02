@@ -63,6 +63,9 @@ class SecretsManager:
         "stripe_webhook_secret": "Stripe Keys/webhook_secret",
         "stripe_price_pro": "Stripe Keys/price_pro",
         "stripe_price_business": "Stripe Keys/price_business",
+        "stripe_price_utilityapi_meter": "Stripe Keys/price_utilityapi_meter",
+        # UtilityAPI
+        "utilityapi_key": "UtilityAPI/api_key",
         "resend_api_key": "Resend/resend_api_key",
         # OAuth providers (social login)
         "google_client_id": "OAuth Providers/google_client_id",

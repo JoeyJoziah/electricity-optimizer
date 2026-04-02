@@ -106,6 +106,8 @@ class ConnectionResponse(BaseModel):
     last_sync_at: datetime | None = None
     last_sync_error: str | None = None
     current_rate: float | None = None
+    utilityapi_meter_count: int = 0
+    stripe_subscription_item_id: str | None = None
 
 
 class UpdateConnectionRequest(BaseModel):

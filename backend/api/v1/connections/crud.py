@@ -52,6 +52,8 @@ async def list_connections(
                    uc.supplier_name, uc.status, uc.account_number_masked,
                    uc.meter_number_masked, uc.email_provider, uc.label,
                    uc.created_at, uc.last_sync_at, uc.last_sync_error,
+                   uc.utilityapi_meter_count,
+                   uc.stripe_subscription_item_id,
                    (SELECT cer.rate_per_kwh FROM connection_extracted_rates cer
                     WHERE cer.connection_id = uc.id
                     ORDER BY cer.effective_date DESC LIMIT 1
@@ -195,6 +197,8 @@ async def get_connection(
                    uc.supplier_name, uc.status, uc.account_number_masked,
                    uc.meter_number_masked, uc.email_provider, uc.label,
                    uc.created_at, uc.last_sync_at, uc.last_sync_error,
+                   uc.utilityapi_meter_count,
+                   uc.stripe_subscription_item_id,
                    (SELECT cer.rate_per_kwh FROM connection_extracted_rates cer
                     WHERE cer.connection_id = uc.id
                     ORDER BY cer.effective_date DESC LIMIT 1
@@ -231,16 +235,32 @@ async def delete_connection(
     """Mark a connection as disconnected (soft delete), scoped to the current user."""
     result = await db.execute(
         text("""
-            SELECT id FROM user_connections
+            SELECT id, connection_type, stripe_subscription_item_id
+            FROM user_connections
             WHERE id = :cid AND user_id = :uid
         """),
         {"cid": connection_id, "uid": current_user.user_id},
     )
-    if result.fetchone() is None:
+    conn_row = result.mappings().first()
+    if conn_row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Connection not found.",
         )
+
+    # Remove UtilityAPI billing if applicable (best-effort)
+    if conn_row["connection_type"] == "direct" and conn_row["stripe_subscription_item_id"]:
+        try:
+            from services.utilityapi_billing_service import UtilityAPIBillingService
+
+            billing_svc = UtilityAPIBillingService(db)
+            await billing_svc.remove_meters(current_user.user_id, str(connection_id))
+        except Exception as exc:
+            logger.warning(
+                "delete_connection_billing_removal_failed",
+                connection_id=str(connection_id),
+                error=str(exc),
+            )
 
     await db.execute(
         text("""

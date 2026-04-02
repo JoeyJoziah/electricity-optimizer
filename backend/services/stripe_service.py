@@ -11,6 +11,7 @@ from typing import Any
 
 import stripe
 import structlog
+from sqlalchemy import text
 
 from config.settings import settings
 from lib.tracing import traced
@@ -419,23 +420,42 @@ class StripeService:
                 user_id = session.get("metadata", {}).get("user_id")
                 tier = session.get("metadata", {}).get("tier")
                 customer_id = session.get("customer")
+                addon_type = session.get("metadata", {}).get("addon_type")
 
-                result.update(
-                    {
-                        "handled": True,
-                        "action": "activate_subscription",
-                        "user_id": user_id,
-                        "tier": tier,
-                        "customer_id": customer_id,
-                    }
-                )
+                if addon_type == "utilityapi_meter":
+                    # UtilityAPI add-on checkout completed
+                    result.update(
+                        {
+                            "handled": True,
+                            "action": "activate_addon",
+                            "user_id": user_id,
+                            "customer_id": customer_id,
+                            "addon_connection_id": session.get("metadata", {}).get("connection_id"),
+                        }
+                    )
+                    logger.info(
+                        "addon_checkout_completed",
+                        user_id=user_id,
+                        customer_id=customer_id,
+                        addon_type=addon_type,
+                    )
+                else:
+                    result.update(
+                        {
+                            "handled": True,
+                            "action": "activate_subscription",
+                            "user_id": user_id,
+                            "tier": tier,
+                            "customer_id": customer_id,
+                        }
+                    )
 
-                logger.info(
-                    "checkout_completed",
-                    user_id=user_id,
-                    tier=tier,
-                    customer_id=customer_id,
-                )
+                    logger.info(
+                        "checkout_completed",
+                        user_id=user_id,
+                        tier=tier,
+                        customer_id=customer_id,
+                    )
 
             # Subscription updated
             elif event_type == "customer.subscription.updated":
@@ -689,7 +709,21 @@ async def apply_webhook_action(
         logger.warning("webhook_user_not_found", user_id=user_id, action=action)
         return False
 
-    if action == "activate_subscription":
+    if action == "activate_addon":
+        # UtilityAPI add-on checkout completed — finalize billing link
+        addon_connection_id = result.get("addon_connection_id")
+        if addon_connection_id and db is not None:
+            from services.utilityapi_billing_service import UtilityAPIBillingService
+
+            billing_svc = UtilityAPIBillingService(db)
+            await billing_svc.finalize_checkout(addon_connection_id)
+            # Also store customer_id on user if not already set
+            if customer_id and not user.stripe_customer_id:
+                user.stripe_customer_id = customer_id
+                await user_repo.update(user_id, user)
+        return True
+
+    elif action == "activate_subscription":
         user.subscription_tier = tier or "pro"
         user.stripe_customer_id = customer_id
         await user_repo.update(user_id, user)
@@ -705,6 +739,28 @@ async def apply_webhook_action(
         await user_repo.update(user_id, user)
         await invalidate_tier_cache(user_id)
         logger.info("tier_cache_invalidated", user_id=user_id, action=action)
+        # Disconnect all UtilityAPI connections when subscription is fully canceled
+        if db is not None:
+            try:
+                await db.execute(
+                    text("""
+                        UPDATE user_connections
+                        SET status = 'disconnected',
+                            stripe_subscription_item_id = NULL,
+                            utilityapi_meter_count = 0
+                        WHERE user_id = :uid
+                          AND connection_type = 'direct'
+                          AND status = 'active'
+                    """),
+                    {"uid": user_id},
+                )
+                logger.info("utilityapi_connections_disconnected_on_cancel", user_id=user_id)
+            except Exception as exc:
+                logger.warning(
+                    "utilityapi_disconnect_on_cancel_failed",
+                    user_id=user_id,
+                    error=str(exc),
+                )
     elif action == "payment_failed":
         if db is not None:
             from services.dunning_service import DunningService

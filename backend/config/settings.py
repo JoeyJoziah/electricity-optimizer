@@ -147,6 +147,9 @@ class Settings(BaseSettings):
     stripe_price_business: str | None = Field(
         default=None, validation_alias="STRIPE_PRICE_BUSINESS"
     )
+    stripe_price_utilityapi_meter: str | None = Field(
+        default=None, validation_alias="STRIPE_PRICE_UTILITYAPI_METER"
+    )
     # MRR calculation constants — externalized so pricing can be updated without
     # code changes (set STRIPE_MRR_PRICE_PRO / STRIPE_MRR_PRICE_BUSINESS on Render).
     # These are the amounts billed in USD cents (4.99 and 14.99 dollars respectively)

@@ -17,6 +17,7 @@ import {
   Clock,
   Zap,
   AlertTriangle,
+  DollarSign,
 } from "lucide-react";
 
 interface DirectLoginFormProps {
@@ -63,6 +64,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [consentChecked, setConsentChecked] = useState(false);
+  const [addonConsentChecked, setAddonConsentChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionId, setConnectionId] = useState<string | null>(null);
@@ -119,6 +121,10 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
       setError("You must consent to data access before connecting");
       return;
     }
+    if (!addonConsentChecked) {
+      setError("You must accept the add-on pricing to continue");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -133,6 +139,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
           body: JSON.stringify({
             supplier_id: selectedSupplierId,
             consent_given: true,
+            accept_addon_pricing: true,
           }),
         },
       );
@@ -163,7 +170,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
         fetchSyncStatus(connId);
       } else if (res.status === 403) {
         setError(
-          "Direct connections are available on Pro and Business plans. Please upgrade to continue.",
+          "Authentication required. Please sign in to connect your utility account.",
         );
       } else if (res.status === 503) {
         setError(
@@ -399,12 +406,39 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
           </div>
         </div>
 
+        {/* Add-on pricing disclosure */}
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <DollarSign className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">
+                Monitoring Add-On: $2.25/month per meter
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                Direct utility connections include ongoing monitoring at
+                $2.25/mo per meter. This will be added to your subscription or
+                billed separately. Disconnect anytime to stop the charge.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Consent */}
         <Checkbox
           label="I consent to RateShift accessing my utility billing data for rate comparison and optimization purposes"
           checked={consentChecked}
           onChange={(e) => {
             setConsentChecked(e.target.checked);
+            setError(null);
+          }}
+        />
+
+        {/* Add-on pricing consent */}
+        <Checkbox
+          label="I accept the $2.25/month per meter add-on charge for utility monitoring"
+          checked={addonConsentChecked}
+          onChange={(e) => {
+            setAddonConsentChecked(e.target.checked);
             setError(null);
           }}
         />
@@ -423,7 +457,9 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
           variant="primary"
           className="w-full"
           loading={submitting}
-          disabled={!selectedSupplierId || !consentChecked}
+          disabled={
+            !selectedSupplierId || !consentChecked || !addonConsentChecked
+          }
         >
           <KeyRound className="h-4 w-4" />
           Connect Utility Account
