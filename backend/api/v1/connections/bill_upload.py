@@ -89,6 +89,40 @@ async def _run_background_parse(
             upload_id=upload_id,
             error=str(exc),
         )
+        # Mark the upload as failed so the frontend stops polling.
+        # This handles cases where DB session acquisition or other outer
+        # errors prevent parser.parse() from ever running.
+        try:
+            from api.dependencies import get_db_session as _get_db_fallback
+
+            gen_fb = _get_db_fallback()
+            db_fb: AsyncSession = await gen_fb.__anext__()
+            try:
+                await db_fb.execute(
+                    text("""
+                        UPDATE bill_uploads
+                        SET parse_status = 'failed',
+                            parse_error  = :error,
+                            updated_at   = NOW()
+                        WHERE id = :uid AND parse_status = 'pending'
+                    """),
+                    {
+                        "uid": upload_id,
+                        "error": f"Background processing failed: {exc}",
+                    },
+                )
+                await db_fb.commit()
+            finally:
+                try:
+                    await gen_fb.aclose()
+                except Exception:
+                    pass
+        except Exception as inner_exc:
+            logger.error(
+                "background_parse_failsafe_error",
+                upload_id=upload_id,
+                error=str(inner_exc),
+            )
 
 
 # ---------------------------------------------------------------------------

@@ -1,171 +1,194 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { Globe, ArrowLeft, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
-import { cn } from '@/lib/utils/cn'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input, Checkbox } from '@/components/ui/input'
-import { API_ORIGIN } from '@/lib/config/env'
+import React, { useState, useEffect } from "react";
+import {
+  Globe,
+  ArrowLeft,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils/cn";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input, Checkbox } from "@/components/ui/input";
+import { API_ORIGIN } from "@/lib/config/env";
 import {
   createPortalConnection,
   triggerPortalScrape,
   type PortalScrapeResponse,
-} from '@/lib/api/portal'
+} from "@/lib/api/portal";
 
 interface PortalConnectionFlowProps {
-  onBack: () => void
-  onSuccess: () => void
+  onBack: () => void;
+  onSuccess: () => void;
 }
 
 interface RegistrySupplier {
-  id: string
-  name: string
-  region: string
-  utility_type: string
+  id: string;
+  name: string;
+  region: string;
+  utility_type: string;
 }
 
-type FlowStep = 'form' | 'submitting' | 'scraping' | 'success' | 'error'
+type FlowStep = "form" | "submitting" | "scraping" | "success" | "error";
 
-export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlowProps) {
-  const [suppliers, setSuppliers] = useState<RegistrySupplier[]>([])
-  const [loadingSuppliers, setLoadingSuppliers] = useState(true)
+export function PortalConnectionFlow({
+  onBack,
+  onSuccess,
+}: PortalConnectionFlowProps) {
+  const [suppliers, setSuppliers] = useState<RegistrySupplier[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
 
   // Form fields
-  const [selectedSupplierId, setSelectedSupplierId] = useState('')
-  const [portalUsername, setPortalUsername] = useState('')
-  const [portalPassword, setPortalPassword] = useState('')
-  const [portalLoginUrl, setPortalLoginUrl] = useState('')
-  const [consentChecked, setConsentChecked] = useState(false)
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [portalUsername, setPortalUsername] = useState("");
+  const [portalPassword, setPortalPassword] = useState("");
+  const [portalLoginUrl, setPortalLoginUrl] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // Validation
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Flow state
-  const [step, setStep] = useState<FlowStep>('form')
-  const [error, setError] = useState<string | null>(null)
-  const [scrapeResult, setScrapeResult] = useState<PortalScrapeResponse | null>(null)
+  const [step, setStep] = useState<FlowStep>("form");
+  const [error, setError] = useState<string | null>(null);
+  const [scrapeResult, setScrapeResult] = useState<PortalScrapeResponse | null>(
+    null,
+  );
 
   // Load suppliers on mount
   useEffect(() => {
     async function loadSuppliers() {
       try {
         const res = await fetch(`${API_ORIGIN}/api/v1/suppliers/registry`, {
-          credentials: 'include',
-        })
+          credentials: "include",
+        });
         if (res.ok) {
-          const data = await res.json()
-          setSuppliers(data.suppliers || data || [])
+          const data = await res.json();
+          setSuppliers(data.suppliers || data || []);
         }
       } catch {
         // Supplier registry unavailable - form still renders
       } finally {
-        setLoadingSuppliers(false)
+        setLoadingSuppliers(false);
       }
     }
-    loadSuppliers()
-  }, [])
+    loadSuppliers();
+  }, []);
 
   function validate(): boolean {
-    const errors: Record<string, string> = {}
+    const errors: Record<string, string> = {};
 
     if (!selectedSupplierId) {
-      errors.supplier = 'Please select a utility provider'
+      errors.supplier = "Please select a utility provider";
     }
     if (!portalUsername.trim()) {
-      errors.username = 'Username is required'
+      errors.username = "Username is required";
     }
     if (!portalPassword) {
-      errors.password = 'Password is required'
+      errors.password = "Password is required";
     }
     if (!consentChecked) {
-      errors.consent = 'You must consent before connecting'
+      errors.consent = "You must consent before connecting";
     }
 
-    setFieldErrors(errors)
-    return Object.keys(errors).length === 0
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
-    if (!validate()) return
+    if (!validate()) return;
 
     // 30s timeout to match CF Worker wall clock limit
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30_000)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
 
     try {
-      setStep('submitting')
+      setStep("submitting");
 
-      const connection = await createPortalConnection(
-        {
-          supplier_id: selectedSupplierId,
-          portal_username: portalUsername.trim(),
-          portal_password: portalPassword,
-          portal_login_url: portalLoginUrl.trim() || undefined,
-          consent_given: true,
-        },
-        { signal: controller.signal },
-      )
+      let connection: Awaited<ReturnType<typeof createPortalConnection>>;
+      try {
+        connection = await createPortalConnection(
+          {
+            supplier_id: selectedSupplierId,
+            portal_username: portalUsername.trim(),
+            portal_password: portalPassword,
+            portal_login_url: portalLoginUrl.trim() || undefined,
+            consent_given: true,
+          },
+          { signal: controller.signal },
+        );
+      } catch (createErr) {
+        // Clear password from state even on failure
+        setPortalPassword("");
+        throw createErr;
+      }
 
       // Clear sensitive credential from React state immediately
-      setPortalPassword('')
+      setPortalPassword("");
 
-      clearTimeout(timeout)
+      clearTimeout(timeout);
 
       // Automatically trigger a scrape after connection creation
       // with a separate 30s timeout
-      const scrapeController = new AbortController()
-      const scrapeTimeout = setTimeout(() => scrapeController.abort(), 30_000)
+      const scrapeController = new AbortController();
+      const scrapeTimeout = setTimeout(() => scrapeController.abort(), 30_000);
 
       try {
-        setStep('scraping')
-        const result = await triggerPortalScrape(connection.connection_id, { signal: scrapeController.signal })
-        setScrapeResult(result)
-        setStep('success')
+        setStep("scraping");
+        const result = await triggerPortalScrape(connection.connection_id, {
+          signal: scrapeController.signal,
+        });
+        setScrapeResult(result);
+        setStep("success");
       } catch {
         // Scrape failed but connection was created successfully
         setScrapeResult({
           connection_id: connection.connection_id,
-          status: 'pending',
+          status: "pending",
           rates_extracted: 0,
-          error: 'Scrape will be retried automatically',
+          error: "Scrape will be retried automatically",
           scraped_at: null,
-        })
-        setStep('success')
+        });
+        setStep("success");
       } finally {
-        clearTimeout(scrapeTimeout)
+        clearTimeout(scrapeTimeout);
       }
     } catch (err) {
       const message =
-        err instanceof DOMException && err.name === 'AbortError'
-          ? 'Request timed out. Please try again.'
+        err instanceof DOMException && err.name === "AbortError"
+          ? "Request timed out. Please try again."
           : err instanceof Error
             ? err.message
-            : 'Failed to create portal connection'
-      setError(message)
-      setStep('error')
+            : "Failed to create portal connection";
+      setError(message);
+      setStep("error");
     } finally {
-      clearTimeout(timeout)
+      clearTimeout(timeout);
     }
   }
 
   // Clear field error when user interacts
   function clearFieldError(field: string) {
     setFieldErrors((prev) => {
-      const next = { ...prev }
-      delete next[field]
-      return next
-    })
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }
 
   const isFormValid =
-    selectedSupplierId && portalUsername.trim() && portalPassword && consentChecked
+    selectedSupplierId &&
+    portalUsername.trim() &&
+    portalPassword &&
+    consentChecked;
 
   // Success state
-  if (step === 'success') {
+  if (step === "success") {
     return (
       <Card padding="lg">
         <div className="flex items-center gap-3 mb-6">
@@ -183,23 +206,25 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
         {scrapeResult && (
           <div
             className={cn(
-              'rounded-lg border p-4 mb-6',
+              "rounded-lg border p-4 mb-6",
               scrapeResult.rates_extracted > 0
-                ? 'border-success-200 bg-success-50'
-                : 'border-gray-200 bg-gray-50'
+                ? "border-success-200 bg-success-50"
+                : "border-gray-200 bg-gray-50",
             )}
           >
             {scrapeResult.rates_extracted > 0 ? (
               <p className="text-sm text-success-700">
-                Successfully extracted{' '}
-                <span className="font-semibold">{scrapeResult.rates_extracted}</span>{' '}
-                rate{scrapeResult.rates_extracted !== 1 ? 's' : ''} from your utility
-                portal.
+                Successfully extracted{" "}
+                <span className="font-semibold">
+                  {scrapeResult.rates_extracted}
+                </span>{" "}
+                rate{scrapeResult.rates_extracted !== 1 ? "s" : ""} from your
+                utility portal.
               </p>
             ) : (
               <p className="text-sm text-gray-600">
                 {scrapeResult.error ||
-                  'No rates extracted yet. The scrape will be retried automatically.'}
+                  "No rates extracted yet. The scrape will be retried automatically."}
               </p>
             )}
           </div>
@@ -209,11 +234,11 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
           Done
         </Button>
       </Card>
-    )
+    );
   }
 
   // Error state (connection creation failed)
-  if (step === 'error') {
+  if (step === "error") {
     return (
       <Card padding="lg">
         <div className="flex items-center gap-3 mb-6">
@@ -223,7 +248,7 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
               Connection Failed
             </h2>
             <p className="text-sm text-danger-600">
-              {error || 'An unexpected error occurred'}
+              {error || "An unexpected error occurred"}
             </p>
           </div>
         </div>
@@ -233,8 +258,8 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
             variant="primary"
             className="flex-1"
             onClick={() => {
-              setStep('form')
-              setError(null)
+              setStep("form");
+              setError(null);
             }}
           >
             Try Again
@@ -244,26 +269,27 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
           </Button>
         </div>
       </Card>
-    )
+    );
   }
 
   // Loading / scraping state
-  if (step === 'submitting' || step === 'scraping') {
+  if (step === "submitting" || step === "scraping") {
     return (
       <Card padding="lg">
-        <div className="flex flex-col items-center justify-center py-12" role="status">
+        <div
+          className="flex flex-col items-center justify-center py-12"
+          role="status"
+        >
           <Loader2 className="h-8 w-8 animate-spin text-primary-500 mb-4" />
           <p className="text-sm font-medium text-gray-700">
-            {step === 'submitting'
-              ? 'Creating portal connection...'
-              : 'Scraping your utility portal for rates...'}
+            {step === "submitting"
+              ? "Creating portal connection..."
+              : "Scraping your utility portal for rates..."}
           </p>
-          <p className="mt-1 text-xs text-gray-500">
-            This may take a moment
-          </p>
+          <p className="mt-1 text-xs text-gray-500">This may take a moment</p>
         </div>
       </Card>
-    )
+    );
   }
 
   // Form state
@@ -300,22 +326,22 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
               id="portal-supplier-select"
               value={selectedSupplierId}
               onChange={(e) => {
-                setSelectedSupplierId(e.target.value)
-                clearFieldError('supplier')
+                setSelectedSupplierId(e.target.value);
+                clearFieldError("supplier");
               }}
               className={cn(
-                'block w-full rounded-lg border bg-white px-3 py-2.5',
-                'text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-0',
-                'transition-all duration-200',
-                'hover:border-gray-400',
-                'disabled:cursor-not-allowed disabled:bg-gray-50',
+                "block w-full rounded-lg border bg-white px-3 py-2.5",
+                "text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-0",
+                "transition-all duration-200",
+                "hover:border-gray-400",
+                "disabled:cursor-not-allowed disabled:bg-gray-50",
                 fieldErrors.supplier
-                  ? 'border-danger-300 focus:border-danger-500 focus:ring-danger-500'
-                  : 'border-gray-300 focus:border-primary-500 focus:ring-primary-500'
+                  ? "border-danger-300 focus:border-danger-500 focus:ring-danger-500"
+                  : "border-gray-300 focus:border-primary-500 focus:ring-primary-500",
               )}
-              aria-invalid={fieldErrors.supplier ? 'true' : undefined}
+              aria-invalid={fieldErrors.supplier ? "true" : undefined}
               aria-describedby={
-                fieldErrors.supplier ? 'portal-supplier-error' : undefined
+                fieldErrors.supplier ? "portal-supplier-error" : undefined
               }
             >
               <option value="">Select your utility provider...</option>
@@ -345,8 +371,8 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
           placeholder="Your utility portal username or email"
           value={portalUsername}
           onChange={(e) => {
-            setPortalUsername(e.target.value)
-            clearFieldError('username')
+            setPortalUsername(e.target.value);
+            clearFieldError("username");
           }}
           error={fieldErrors.username}
           autoComplete="username"
@@ -360,8 +386,8 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
           placeholder="Your utility portal password"
           value={portalPassword}
           onChange={(e) => {
-            setPortalPassword(e.target.value)
-            clearFieldError('password')
+            setPortalPassword(e.target.value);
+            clearFieldError("password");
           }}
           error={fieldErrors.password}
           autoComplete="current-password"
@@ -402,8 +428,8 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
             label="I consent to RateShift securely storing my portal credentials and accessing my utility billing data for rate comparison and optimization"
             checked={consentChecked}
             onChange={(e) => {
-              setConsentChecked(e.target.checked)
-              clearFieldError('consent')
+              setConsentChecked(e.target.checked);
+              clearFieldError("consent");
             }}
           />
           {fieldErrors.consent && (
@@ -425,5 +451,5 @@ export function PortalConnectionFlow({ onBack, onSuccess }: PortalConnectionFlow
         </Button>
       </form>
     </Card>
-  )
+  );
 }

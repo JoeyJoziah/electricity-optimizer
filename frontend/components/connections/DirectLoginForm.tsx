@@ -167,7 +167,7 @@ export function DirectLoginForm({ onComplete }: DirectLoginFormProps) {
         );
       } else if (res.status === 503) {
         setError(
-          "Direct utility connection is temporarily unavailable. Please try again later or use bill upload.",
+          "Direct utility connection is not yet configured for this environment. Please use bill upload or portal connection instead.",
         );
       } else {
         const data = await res.json().catch(() => null);

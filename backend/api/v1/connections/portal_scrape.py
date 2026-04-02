@@ -89,10 +89,17 @@ async def create_portal_connection(
         )
 
     # Encrypt credentials and encode as base64 for TEXT/VARCHAR column storage
-    encrypted_pw = encrypt_field(payload.portal_password)
-    encrypted_pw_b64 = base64.b64encode(encrypted_pw).decode("ascii")
-    encrypted_un = encrypt_field(payload.portal_username)
-    encrypted_un_b64 = base64.b64encode(encrypted_un).decode("ascii")
+    try:
+        encrypted_pw = encrypt_field(payload.portal_password)
+        encrypted_pw_b64 = base64.b64encode(encrypted_pw).decode("ascii")
+        encrypted_un = encrypt_field(payload.portal_username)
+        encrypted_un_b64 = base64.b64encode(encrypted_un).decode("ascii")
+    except RuntimeError as exc:
+        log.error("portal_encryption_config_error", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Portal connections are temporarily unavailable due to a configuration issue. Please try bill upload instead.",
+        ) from exc
 
     connection_id = str(uuid4())
 
