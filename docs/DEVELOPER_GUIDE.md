@@ -263,7 +263,7 @@ Follow the pattern from ADR-005 (`docs/adr/005-multi-utility-expansion.md`):
 
 ## CI/CD
 
-### GitHub Actions (33 workflows)
+### GitHub Actions (35 workflows)
 
 Key workflows:
 - `ci.yml` — Unified CI: lint, test (backend + frontend + ML), security scan, Docker build

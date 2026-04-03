@@ -45,7 +45,7 @@ This document describes the infrastructure architecture, service dependencies, a
 
            +-------------GitHub Actions------------------+
            |                                              |
-           |  32 workflows: CI/CD, deploy, cron jobs      |
+           |  35 workflows: CI/CD, deploy, cron jobs      |
            |  price-sync, check-alerts, kpi-report, etc.  |
            |                                              |
            +----------------------------------------------+
@@ -97,7 +97,7 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | dunning-cycle.yml | Daily 7am UTC | Overdue payment escalation — find failing accounts, send final dunning email, downgrade (Phase 3) |
 | kpi-report.yml | Daily 6am UTC | Nightly business metrics aggregation (Phase 3) |
 | data-health-check.yml | Daily | Data pipeline health check — row counts, last-write timestamps, empty table flags |
-| self-healing-monitor.yml | Daily 9am UTC | Monitors 16 workflows for repeated failures; auto-creates/closes GitHub issues |
+| self-healing-monitor.yml | Daily 9am UTC | Monitors 21 workflows for repeated failures; auto-creates/closes GitHub issues |
 | db-maintenance.yml | Weekly Sunday 3am UTC | Database optimization — vacuum, analyze, index maintenance |
 | secret-scan.yml | PRs + push to main | Gitleaks secret scanning |
 | owasp-zap.yml | Weekly Sunday 4am UTC | OWASP ZAP baseline security scan against Render backend |
@@ -107,9 +107,9 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | fetch-heating-oil.yml | Weekly Monday 2pm UTC | Heating oil + propane price fetching from EIA |
 | detect-rate-changes.yml | Via daily-data-pipeline | Multi-utility rate change detection and alerting |
 | utility-type-tests.yml | On push/PR | Utility-type-specific test suite |
-| deploy-staging.yml | On push to develop | GHCR push + Render deploy hooks + smoke tests |
+| agent-switcher-scan.yml | Daily 4am UTC | Auto Rate Switcher daily decision engine scan |
+| sync-available-plans.yml | Daily 2am UTC | Refresh available plan cache from EnergyBot |
 | _backend-tests.yml | (callable) | Reusable backend test job (postgres + redis services) |
-| _docker-build-push.yml | (callable) | Reusable Docker build + GHCR push |
 
 **Composite Actions** (`.github/actions/`):
 
@@ -122,7 +122,7 @@ Pipeline orchestration is handled by GitHub Actions workflows (`.github/workflow
 | `notify-slack` | Color-coded Slack failure alerts (critical=danger, warning, info=blue) via incoming webhook to `#incidents` |
 | `validate-migrations` | Convention checks: sequential numbering, IF NOT EXISTS on CREATE TABLE, GRANT TO neondb_owner, no SERIAL/BIGSERIAL |
 
-**Concurrency Controls**: All 33 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
+**Concurrency Controls**: All 35 GHA workflows have concurrency groups. CI and analysis workflows cancel in-progress runs on new pushes. Deploy and scheduled workflows do not cancel (to prevent partial deploys). All jobs have explicit `timeout-minutes`.
 
 **Render Deploy Hooks**: Production and staging deploy workflows trigger Render builds via deploy hook URLs stored in GitHub secrets (`RENDER_DEPLOY_HOOK_BACKEND`, `RENDER_DEPLOY_HOOK_FRONTEND`). Deploy workflows include self-healing smoke tests that auto-retry on failure.
 
@@ -535,9 +535,10 @@ deploy:
 
 ### Key Risk: GitHub Actions Minutes
 
-GHA minutes reduced from ~2,700 to ~1,283 min/mo (within 2,000 free limit).
+GHA minutes reduced from ~2,700 to ~1,963 min/mo (near 2,000 free limit).
 Optimized 2026-03-16: reduced cron frequencies, consolidated daily pipeline, cut warmup overhead.
 Optimized 2026-03-17: Migrated price-sync and observe-forecasts to CF Worker cron triggers (~480 min/mo savings).
+2026-04-03: +120 min/mo from Auto Rate Switcher workflows (agent-switcher-scan + sync-available-plans, daily).
 See `COST_ANALYSIS.md` for full breakdown, optimization history, and scaling projections.
 
 ### Scaling Cost Impact

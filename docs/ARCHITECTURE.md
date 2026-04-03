@@ -1,6 +1,6 @@
 # RateShift — System Architecture
 
-**Last Updated**: 2026-04-01 (Migration 064, 2,976 backend tests, 2,015 frontend tests, 33 GHA workflows)
+**Last Updated**: 2026-04-03 (Migration 066, 3,325 backend tests, 2,022 frontend tests, 35 GHA workflows)
 
 ## System Topology
 
@@ -231,10 +231,10 @@ Templates: beta welcome, alert notification, dunning soft (amber), dunning final
 
 ## CI/CD Pipeline
 
-**32 GHA workflows** total:
+**35 GHA workflows** total:
 - **CI**: Backend tests (Black + isort + flake8 + pytest), Frontend (ESLint + Jest + build), E2E (Playwright)
 - **Deploy**: Migration-gate → deploy-production (Render), CF Worker deploy
-- **Cron** (13 workflows): check-alerts (2h), fetch-weather (6h), market-research (daily), sync-connections (6h), daily-data-pipeline (daily 3am, consolidates scrape-rates+scan-emails+nightly-learning+detect-rate-changes), scrape-portals (weekly), dunning-cycle (daily), kpi-report (daily), fetch-heating-oil (weekly), db-maintenance (weekly), self-healing-monitor (daily), gateway-health (12h)
+- **Cron** (15 workflows): check-alerts (2h), fetch-weather (6h), market-research (daily), sync-connections (6h), daily-data-pipeline (daily 3am, consolidates scrape-rates+scan-emails+nightly-learning+detect-rate-changes), scrape-portals (weekly), dunning-cycle (daily), kpi-report (daily), fetch-heating-oil (weekly), db-maintenance (weekly), self-healing-monitor (daily), gateway-health (12h), agent-switcher-scan (daily), sync-available-plans (daily)
 - **Self-healing**: `self-healing-monitor.yml` (daily) — auto-creates GitHub issues after 3+ failures
 - **Security**: `owasp-zap.yml` (weekly), `pip-audit` in backend CI, `npm audit` in frontend CI
 - **Composite actions**: `retry-curl` (exponential backoff), `notify-slack` (color-coded alerts), `validate-migrations`

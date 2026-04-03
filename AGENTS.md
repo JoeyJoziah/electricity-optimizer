@@ -24,7 +24,7 @@ RateShift is a nationwide energy price comparison and optimization platform. Use
 | Cache | Redis (Upstash) | -- |
 | Edge Layer | Cloudflare Worker | 2-tier cache + rate limiting |
 | Hosting | Render (backend), Vercel (frontend), Cloudflare (edge) | -- |
-| CI | GitHub Actions | 33 workflows |
+| CI | GitHub Actions | 35 workflows |
 
 ## Build, Test, and Run Commands
 

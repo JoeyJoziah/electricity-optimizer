@@ -117,7 +117,7 @@ All 3 workflows live via Rube recipes. No application code changes required.
 
 ## Self-Healing CI/CD System — COMPLETE ✅ (2026-03-06)
 
-Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, and proactive monitoring across all 33 GHA workflows.
+Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, and proactive monitoring across all 35 GHA workflows.
 
 ### Deliverable 1: CI Auto-Format ✅
 - **Modified**: `.github/workflows/ci.yml` — `backend-lint` and `frontend-lint` jobs
@@ -147,7 +147,7 @@ Cross-cutting infrastructure upgrade that adds resilience, automatic recovery, a
 ### Deliverable 5: Self-Healing Monitor ✅
 - **Created**: `.github/workflows/self-healing-monitor.yml`
 - **Schedule**: Daily 9am UTC (after overnight crons)
-- **Logic**: Matrix strategy over 13 monitored workflows. Counts failures in last 24h via `gh run list`. If ≥3 failures → creates GitHub issue with `self-healing` + `automated` labels. If 3 consecutive successes → auto-closes issue.
+- **Logic**: Matrix strategy over 21 monitored workflows. Counts failures in last 24h via `gh run list`. If ≥3 failures → creates GitHub issue with `self-healing` + `automated` labels. If 3 consecutive successes → auto-closes issue.
 - **Permissions**: `issues: write`, `actions: read`
 
 ### Deliverable 6: E2E Test Resilience ✅
@@ -221,7 +221,7 @@ All 12 cron workflows created:
 - `daily-data-pipeline.yml` (daily 3am UTC) — consolidated: scrape-rates → scan-emails → nightly-learning → detect-rate-changes
 - `dunning-cycle.yml` (daily 7am UTC) — overdue payment escalation
 - `kpi-report.yml` (daily 6am UTC) — nightly business metrics
-- `self-healing-monitor.yml` (daily 9am UTC) — check 13 workflows for failures, auto-manage issues
+- `self-healing-monitor.yml` (daily 9am UTC) — check 21 workflows for failures, auto-manage issues
 
 ---
 

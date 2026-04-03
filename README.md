@@ -3,8 +3,8 @@
 Automatically shift consumers to lower utility rates across all 50 US states. Multi-utility price comparison (electricity, natural gas, propane, heating oil, water), AI-powered recommendations, smart alerts, and real-time price tracking.
 
 [![CI Status](https://github.com/JoeyJoziah/electricity-optimizer/workflows/test/badge.svg)](https://github.com/JoeyJoziah/electricity-optimizer/actions)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-2976%20passing-brightgreen)](docs/TESTING.md)
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-2015%20passing-brightgreen)](docs/TESTING.md)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-3325%20passing-brightgreen)](docs/TESTING.md)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-2022%20passing-brightgreen)](docs/TESTING.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## What is RateShift?
@@ -32,7 +32,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 |-------|-----------|
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | **Backend** | FastAPI, Python 3.12, asyncpg + SQLAlchemy ORM |
-| **Database** | Neon PostgreSQL (serverless), 64 migrations, 58 tables, UUID PKs |
+| **Database** | Neon PostgreSQL (serverless), 66 migrations, 64 tables, UUID PKs |
 | **Auth** | Neon Auth (Better Auth) — session-based, httpOnly cookies |
 | **Edge Layer** | Cloudflare Worker — 2-tier caching, native rate limiting, bot detection, CORS |
 | **ML** | Python ensemble predictor, HNSW vector store, XGBoost |
@@ -42,7 +42,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 | **Hosting** | Render (backend), Vercel (frontend), Cloudflare (edge/DNS) |
 | **Notifications** | OneSignal (push), Email (Resend + SMTP) |
 | **Observability** | OpenTelemetry + Grafana Cloud Tempo (distributed tracing) |
-| **CI/CD** | GitHub Actions (33 workflows), self-healing automation |
+| **CI/CD** | GitHub Actions (35 workflows), self-healing automation |
 | **Security** | OWASP ZAP, pip-audit, npm audit, Gitleaks, 1Password |
 
 ## Getting Started
