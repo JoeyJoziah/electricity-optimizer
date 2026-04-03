@@ -1,15 +1,15 @@
-import { render } from '@testing-library/react'
-import { axe } from 'jest-axe'
-import { Sidebar } from '@/components/layout/Sidebar'
-import '@testing-library/jest-dom'
+import { render } from "@testing-library/react";
+import { axe } from "jest-axe";
+import { Sidebar } from "@/components/layout/Sidebar";
+import "@testing-library/jest-dom";
 
-let mockPathname = '/dashboard'
+let mockPathname = "/dashboard";
 
-jest.mock('next/navigation', () => ({
+jest.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
-}))
+}));
 
-jest.mock('next/link', () => {
+jest.mock("next/link", () => {
   const MockLink = ({
     children,
     href,
@@ -17,31 +17,36 @@ jest.mock('next/link', () => {
     onClick,
     ...props
   }: {
-    children: React.ReactNode
-    href: string
-    className?: string
-    onClick?: () => void
+    children: React.ReactNode;
+    href: string;
+    className?: string;
+    onClick?: () => void;
   }) => (
     <a href={href} className={className} onClick={onClick} {...props}>
       {children}
     </a>
-  )
-  MockLink.displayName = 'MockLink'
-  return MockLink
-})
+  );
+  MockLink.displayName = "MockLink";
+  return MockLink;
+});
 
-jest.mock('@/lib/utils/cn', () => ({
-  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
-}))
+jest.mock("@/lib/utils/cn", () => ({
+  cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
+}));
 
 // Mock NotificationBell to avoid QueryClientProvider requirement
-jest.mock('@/components/layout/NotificationBell', () => ({
+jest.mock("@/components/layout/NotificationBell", () => ({
   NotificationBell: () => <div>notifications</div>,
-}))
+}));
 
-jest.mock('@/lib/hooks/useAuth', () => ({
+// Mock useAutoSwitcherPendingCount to avoid QueryClientProvider requirement
+jest.mock("@/lib/hooks/useAutoSwitcher", () => ({
+  useAutoSwitcherPendingCount: () => ({ data: 0, isLoading: false }),
+}));
+
+jest.mock("@/lib/hooks/useAuth", () => ({
   useAuth: () => ({
-    user: { name: 'Test User', email: 'test@example.com' },
+    user: { name: "Test User", email: "test@example.com" },
     isAuthenticated: true,
     isLoading: false,
     signIn: jest.fn(),
@@ -51,22 +56,24 @@ jest.mock('@/lib/hooks/useAuth', () => ({
     signInWithGitHub: jest.fn(),
     sendMagicLink: jest.fn(),
   }),
-}))
+}));
 
-jest.mock('@/lib/contexts/sidebar-context', () => ({
+jest.mock("@/lib/contexts/sidebar-context", () => ({
   useSidebar: () => ({
     isOpen: false,
     toggle: jest.fn(),
     close: jest.fn(),
   }),
-}))
+}));
 
-jest.mock('@/lib/store/settings', () => ({
+jest.mock("@/lib/store/settings", () => ({
   useSettingsStore: () => null,
-}))
+}));
 
-jest.mock('lucide-react', () => ({
-  LayoutDashboard: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
+jest.mock("lucide-react", () => ({
+  LayoutDashboard: (props: React.SVGAttributes<SVGElement>) => (
+    <svg {...props} />
+  ),
   TrendingUp: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Flame: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   Sun: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
@@ -87,34 +94,35 @@ jest.mock('lucide-react', () => ({
   X: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   HelpCircle: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
   FileText: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
-}))
+  ToggleLeft: (props: React.SVGAttributes<SVGElement>) => <svg {...props} />,
+}));
 
-describe('Sidebar a11y', () => {
+describe("Sidebar a11y", () => {
   beforeEach(() => {
-    mockPathname = '/dashboard'
-  })
+    mockPathname = "/dashboard";
+  });
 
-  it('has no accessibility violations when rendered for authenticated user', async () => {
-    const { container } = render(<Sidebar />)
-    const results = await axe(container)
-    expect(results).toHaveNoViolations()
-  })
+  it("has no accessibility violations when rendered for authenticated user", async () => {
+    const { container } = render(<Sidebar />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
 
-  it('has no accessibility violations on non-dashboard page', async () => {
-    mockPathname = '/prices'
-    const { container } = render(<Sidebar />)
-    const results = await axe(container)
-    expect(results).toHaveNoViolations()
-  })
-})
+  it("has no accessibility violations on non-dashboard page", async () => {
+    mockPathname = "/prices";
+    const { container } = render(<Sidebar />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+});
 
-describe('Sidebar a11y (unauthenticated)', () => {
+describe("Sidebar a11y (unauthenticated)", () => {
   beforeEach(() => {
-    jest.resetModules()
-  })
+    jest.resetModules();
+  });
 
-  it('has no accessibility violations when user is not authenticated', async () => {
-    jest.mock('@/lib/hooks/useAuth', () => ({
+  it("has no accessibility violations when user is not authenticated", async () => {
+    jest.mock("@/lib/hooks/useAuth", () => ({
       useAuth: () => ({
         user: null,
         isAuthenticated: false,
@@ -126,10 +134,10 @@ describe('Sidebar a11y (unauthenticated)', () => {
         signInWithGitHub: jest.fn(),
         sendMagicLink: jest.fn(),
       }),
-    }))
+    }));
 
-    const { container } = render(<Sidebar />)
-    const results = await axe(container)
-    expect(results).toHaveNoViolations()
-  })
-})
+    const { container } = render(<Sidebar />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+});

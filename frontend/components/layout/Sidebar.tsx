@@ -1,13 +1,14 @@
-'use client'
+"use client";
 
-import React, { useEffect } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils/cn'
-import { useAuth } from '@/lib/hooks/useAuth'
-import { useSidebar } from '@/lib/contexts/sidebar-context'
-import { useSettingsStore } from '@/lib/store/settings'
-import { NotificationBell } from '@/components/layout/NotificationBell'
+import React, { useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils/cn";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { useSidebar } from "@/lib/contexts/sidebar-context";
+import { useSettingsStore } from "@/lib/store/settings";
+import { useAutoSwitcherPendingCount } from "@/lib/hooks/useAutoSwitcher";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -30,74 +31,93 @@ import {
   X,
   HelpCircle,
   FileText,
-} from 'lucide-react'
+  ToggleLeft,
+} from "lucide-react";
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Prices', href: '/prices', icon: TrendingUp },
-  { name: 'Gas Rates', href: '/gas-rates', icon: Flame },
-  { name: 'Heating Oil', href: '/heating-oil', icon: Droplets },
-  { name: 'Propane', href: '/propane', icon: Fuel },
-  { name: 'Water', href: '/water', icon: Waves },
-  { name: 'Solar', href: '/community-solar', icon: Sun },
-  { name: 'Suppliers', href: '/suppliers', icon: Building2 },
-  { name: 'Connections', href: '/connections', icon: Link2 },
-  { name: 'Optimize', href: '/optimize', icon: Calendar },
-  { name: 'Community', href: '/community', icon: Users },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Alerts', href: '/alerts', icon: Bell },
-  { name: 'Assistant', href: '/assistant', icon: Bot },
-  { name: 'Settings', href: '/settings', icon: Settings },
-]
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Prices", href: "/prices", icon: TrendingUp },
+  { name: "Gas Rates", href: "/gas-rates", icon: Flame },
+  { name: "Heating Oil", href: "/heating-oil", icon: Droplets },
+  { name: "Propane", href: "/propane", icon: Fuel },
+  { name: "Water", href: "/water", icon: Waves },
+  { name: "Solar", href: "/community-solar", icon: Sun },
+  { name: "Suppliers", href: "/suppliers", icon: Building2 },
+  { name: "Connections", href: "/connections", icon: Link2 },
+  { name: "Optimize", href: "/optimize", icon: Calendar },
+  { name: "Community", href: "/community", icon: Users },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Alerts", href: "/alerts", icon: Bell },
+  { name: "Auto Switcher", href: "/auto-switcher", icon: ToggleLeft },
+  { name: "Assistant", href: "/assistant", icon: Bot },
+  { name: "Settings", href: "/settings", icon: Settings },
+];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname()
-  const { user, isAuthenticated, signOut } = useAuth()
-  const currentSupplier = useSettingsStore((s) => s.currentSupplier)
+  const pathname = usePathname();
+  const { user, isAuthenticated, signOut } = useAuth();
+  const currentSupplier = useSettingsStore((s) => s.currentSupplier);
+  const { data: pendingCount } = useAutoSwitcherPendingCount();
 
   // Setup completion status for nav items
   const setupComplete: Record<string, boolean> = {
-    '/suppliers': !!currentSupplier,
-  }
+    "/suppliers": !!currentSupplier,
+  };
+
+  // Badge counts for nav items (only shown when > 0)
+  const badgeCounts: Record<string, number> = {
+    "/auto-switcher": pendingCount ?? 0,
+  };
 
   return (
     <>
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-6">
         <Zap className="h-8 w-8 text-primary-600" />
-        <span className="text-xl font-bold text-gray-900">
-          RateShift
-        </span>
+        <span className="text-xl font-bold text-gray-900">RateShift</span>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href;
+          const badgeCount = badgeCounts[item.href] ?? 0;
           return (
             <Link
               key={item.name}
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? "bg-primary-50 text-primary-700"
+                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
               )}
             >
               <item.icon
                 className={cn(
-                  'h-5 w-5',
-                  isActive ? 'text-primary-600' : 'text-gray-400'
+                  "h-5 w-5",
+                  isActive ? "text-primary-600" : "text-gray-400",
                 )}
               />
               {item.name}
               {setupComplete[item.href] && (
-                <span className="ml-auto h-2 w-2 rounded-full bg-success-500" title="Set up" />
+                <span
+                  className="ml-auto h-2 w-2 rounded-full bg-success-500"
+                  title="Set up"
+                />
+              )}
+              {badgeCount > 0 && (
+                <span
+                  className="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-semibold leading-none text-white"
+                  title={`${badgeCount} pending`}
+                  data-testid="auto-switcher-badge"
+                >
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </span>
               )}
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -121,7 +141,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-gray-900">
-                  {user.name || 'User'}
+                  {user.name || "User"}
                 </p>
                 <p className="truncate text-xs text-gray-500">{user.email}</p>
               </div>
@@ -146,9 +166,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <div className="flex items-center gap-3 px-3 py-1">
                 <FileText className="h-4 w-4 text-gray-400" />
                 <div className="flex gap-2 text-xs text-gray-400">
-                  <Link href="/terms" onClick={onNavigate} className="hover:text-gray-600">Terms</Link>
+                  <Link
+                    href="/terms"
+                    onClick={onNavigate}
+                    className="hover:text-gray-600"
+                  >
+                    Terms
+                  </Link>
                   <span>&middot;</span>
-                  <Link href="/privacy" onClick={onNavigate} className="hover:text-gray-600">Privacy</Link>
+                  <Link
+                    href="/privacy"
+                    onClick={onNavigate}
+                    className="hover:text-gray-600"
+                  >
+                    Privacy
+                  </Link>
                 </div>
               </div>
               <p className="px-3 py-1 text-[10px] text-gray-300">v1.0.0</p>
@@ -156,27 +188,27 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         ) : (
           <div className="rounded-lg bg-primary-50 p-3">
-            <p className="text-sm font-medium text-primary-900">
-              Need help?
-            </p>
+            <p className="text-sm font-medium text-primary-900">Need help?</p>
             <p className="mt-1 text-xs text-primary-700">
-              <a href="mailto:support@rateshift.app" className="underline">Contact support</a>
+              <a href="mailto:support@rateshift.app" className="underline">
+                Contact support
+              </a>
             </p>
           </div>
         )}
       </div>
     </>
-  )
+  );
 }
 
 export function Sidebar() {
-  const { isOpen, close } = useSidebar()
-  const pathname = usePathname()
+  const { isOpen, close } = useSidebar();
+  const pathname = usePathname();
 
   // Close mobile sidebar on route change
   useEffect(() => {
-    close()
-  }, [pathname, close])
+    close();
+  }, [pathname, close]);
 
   return (
     <>
@@ -211,5 +243,5 @@ export function Sidebar() {
         </div>
       )}
     </>
-  )
+  );
 }

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>We Found a Better Electricity Plan for You</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        .comparison-row {
+            display: table;
+            width: 100%;
+            border-spacing: 0;
+            margin: 16px 0;
+        }
+        .plan-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 8px 0;
+            background: #f9fafb;
+        }
+        .plan-card-current {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+        }
+        .plan-card-recommended {
+            border-color: #a78bfa;
+            background: #f5f3ff;
+        }
+        .plan-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .plan-label-current { color: #6b7280; }
+        .plan-label-recommended { color: #7c3aed; }
+        .plan-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 4px 0;
+        }
+        .plan-meta {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .arrow-row {
+            text-align: center;
+            font-size: 22px;
+            margin: 4px 0;
+            color: #9ca3af;
+        }
+        .savings-box {
+            background: #ecfdf5;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 24px 0;
+        }
+        .savings-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #059669;
+            margin: 6px 0;
+        }
+        .savings-annual {
+            font-size: 16px;
+            color: #047857;
+            font-weight: 600;
+        }
+        .confidence-bar-outer {
+            background: #e5e7eb;
+            border-radius: 4px;
+            height: 8px;
+            margin: 8px 0 4px 0;
+            overflow: hidden;
+        }
+        .confidence-bar-inner {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            border-radius: 4px;
+        }
+        .expiry-note {
+            background: #fffbeb;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #78350f;
+        }
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white !important;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 24px;">We Found a Better Plan</h1>
+        <p style="margin: 5px 0 0 0; opacity: 0.9;">A new electricity deal is available in your area</p>
+    </div>
+
+    <div class="content">
+        <p>Hi {{ user_name or "there" }},</p>
+
+        <p>RateShift has identified a new electricity plan that could save you money. Here's a comparison:</p>
+
+        <div class="plan-card plan-card-current">
+            <div class="plan-label plan-label-current">Your Current Plan</div>
+            <div class="plan-name">{{ current_plan_name }}</div>
+            <div class="plan-meta">
+                {{ current_provider }}
+                {% if current_rate_kwh is not none %} &middot; ${{ "%.4f"|format(current_rate_kwh|float) }}/kWh{% endif %}
+                {% if current_fixed_charge is not none and current_fixed_charge > 0 %} &middot; ${{ "%.2f"|format(current_fixed_charge|float) }}/mo fixed{% endif %}
+            </div>
+        </div>
+
+        <div class="arrow-row">&#8595;</div>
+
+        <div class="plan-card plan-card-recommended">
+            <div class="plan-label plan-label-recommended">Recommended Plan</div>
+            <div class="plan-name">{{ recommended_plan_name }}</div>
+            <div class="plan-meta">
+                {{ recommended_provider }}
+                {% if recommended_rate_kwh is not none %} &middot; ${{ "%.4f"|format(recommended_rate_kwh|float) }}/kWh{% endif %}
+                {% if recommended_fixed_charge is not none and recommended_fixed_charge > 0 %} &middot; ${{ "%.2f"|format(recommended_fixed_charge|float) }}/mo fixed{% endif %}
+            </div>
+        </div>
+
+        <div class="savings-box">
+            <div style="font-size: 13px; font-weight: 600; color: #065f46; text-transform: uppercase; letter-spacing: 0.05em;">Projected Monthly Savings</div>
+            <div class="savings-value">${{ "%.2f"|format(savings_monthly|float) }}</div>
+            {% if savings_annual is not none %}
+            <div class="savings-annual">That's ${{ "%.0f"|format(savings_annual|float) }} over a full year</div>
+            {% endif %}
+        </div>
+
+        {% if confidence is not none %}
+        <div style="margin: 16px 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 13px; color: #374151;">
+                <span style="font-weight: 600;">Model Confidence</span>
+                <span>{{ "%.0f"|format(confidence|float * 100) }}%</span>
+            </div>
+            <div class="confidence-bar-outer">
+                <div class="confidence-bar-inner" style="width: {{ "%.0f"|format(confidence|float * 100) }}%;"></div>
+            </div>
+            <div style="font-size: 12px; color: #9ca3af;">Based on your usage history and current market data</div>
+        </div>
+        {% endif %}
+
+        <div class="expiry-note">
+            <strong>Time-sensitive:</strong> This recommendation expires in 30 days.
+            Electricity rates change frequently — approve now to lock in this saving.
+        </div>
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="{{ approve_url or 'https://rateshift.app/dashboard' }}" class="button">
+                Approve This Switch
+            </a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px; margin-top: 16px;">
+            As a Pro plan member, RateShift identifies the best plans for you but waits for your
+            approval before making any changes. Upgrade to Business for fully automatic switching.
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>You're receiving this because you enabled plan recommendations on RateShift.</p>
+        <p>
+            <a href="https://rateshift.app/dashboard" style="color: #667eea;">Dashboard</a> &bull;
+            <a href="https://rateshift.app/settings" style="color: #667eea;">Manage preferences</a> &bull;
+            <a href="https://rateshift.app/privacy" style="color: #667eea;">Privacy Policy</a>
+        </p>
+        <p style="margin-top: 10px; font-size: 11px;">
+            &copy; 2026 RateShift. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>

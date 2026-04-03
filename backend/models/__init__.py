@@ -5,6 +5,7 @@ Pydantic models for the Energy Optimizer API.
 Supports electricity, natural gas, heating oil, propane, and community solar.
 """
 
+from models.available_plan import AvailablePlan, AvailablePlanResponse
 from models.community import (
     CommunityPost,
     CommunityPostCreate,
@@ -17,6 +18,7 @@ from models.community import (
     PaginatedPostsResponse,
     PostType,
 )
+from models.meter_reading import MeterReading, MeterReadingBatch, MeterReadingCreate
 from models.observation import (
     AccuracyMetrics,
     ForecastObservation,
@@ -53,6 +55,8 @@ from models.supplier import (
     TariffResponse,
     TariffType,
 )
+from models.switch_audit_log import SwitchAuditLog, SwitchAuditLogResponse
+from models.switch_execution import SwitchExecution, SwitchExecutionResponse
 from models.user import (
     User,
     UserCreate,
@@ -61,6 +65,12 @@ from models.user import (
     UserResponse,
     UserUpdate,
 )
+from models.user_agent_settings import (
+    UserAgentSettings,
+    UserAgentSettingsResponse,
+    UserAgentSettingsUpdate,
+)
+from models.user_plan import UserPlan, UserPlanCreate, UserPlanResponse
 from models.utility import UtilityType
 
 __all__ = [
@@ -107,4 +117,20 @@ __all__ = [
     "CommunityReport",
     "CommunityStatsResponse",
     "PaginatedPostsResponse",
+    # Auto-switcher models
+    "UserPlan",
+    "UserPlanCreate",
+    "UserPlanResponse",
+    "AvailablePlan",
+    "AvailablePlanResponse",
+    "MeterReading",
+    "MeterReadingCreate",
+    "MeterReadingBatch",
+    "SwitchAuditLog",
+    "SwitchAuditLogResponse",
+    "SwitchExecution",
+    "SwitchExecutionResponse",
+    "UserAgentSettings",
+    "UserAgentSettingsUpdate",
+    "UserAgentSettingsResponse",
 ]

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Electricity Contract Is Expiring Soon</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        .countdown-box {
+            background: #fffbeb;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .countdown-days {
+            font-size: 48px;
+            font-weight: bold;
+            color: #d97706;
+            margin: 4px 0;
+        }
+        .countdown-label {
+            font-size: 14px;
+            color: #92400e;
+            font-weight: 600;
+        }
+        .plan-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 16px 0;
+            background: #f9fafb;
+        }
+        .plan-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 4px 0;
+        }
+        .plan-meta {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .etf-free-banner {
+            background: #ecfdf5;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin: 20px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .etf-free-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .tip-box {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 14px 18px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white !important;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 24px;">Your Contract Is Expiring Soon</h1>
+        <p style="margin: 5px 0 0 0; opacity: 0.9;">Now is the best time to compare your options</p>
+    </div>
+
+    <div class="content">
+        <p>Hi {{ user_name or "there" }},</p>
+
+        <p>Your current electricity contract is approaching its end date. This is the ideal moment to shop around — switching before expiry avoids early termination fees and ensures continuous coverage.</p>
+
+        <div class="countdown-box">
+            <div class="countdown-label">Days Remaining on Your Contract</div>
+            <div class="countdown-days">{{ days_remaining }}</div>
+            {% if expiry_date %}
+            <div style="font-size: 14px; color: #78350f;">Expires {{ expiry_date }}</div>
+            {% endif %}
+        </div>
+
+        <div class="plan-card">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 6px;">Current Plan</div>
+            <div class="plan-name">{{ plan_name }}</div>
+            {% if provider %}
+            <div class="plan-meta">{{ provider }}{% if rate_kwh is not none %} &middot; ${{ "%.4f"|format(rate_kwh|float) }}/kWh{% endif %}</div>
+            {% endif %}
+        </div>
+
+        {% if is_free_switch_window %}
+        <div class="etf-free-banner">
+            <div class="etf-free-icon">&#10003;</div>
+            <div>
+                <strong style="color: #047857; display: block;">No early termination fee if you switch now</strong>
+                <span style="font-size: 14px; color: #374151;">
+                    You're within the free-switch window. RateShift can move you to a better plan
+                    today with zero cancellation cost.
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="tip-box">
+            <strong style="color: #065f46;">Why act now?</strong>
+            <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #374151; font-size: 14px;">
+                <li>Avoid being automatically rolled onto a more expensive default tariff</li>
+                <li>Lock in current competitive rates before they change</li>
+                {% if is_free_switch_window %}
+                <li>Switch with no early termination fee during the free-switch window</li>
+                {% endif %}
+                <li>RateShift will handle the switch seamlessly — no downtime or service interruption</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 28px 0;">
+            <a href="https://rateshift.app/dashboard" class="button">
+                View Available Plans
+            </a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px;">
+            RateShift compares hundreds of plans in your area and automatically finds the best deal
+            for your usage pattern. Approve a switch in seconds from your dashboard.
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>You're receiving this because your current electricity contract expires within 45 days.</p>
+        <p>
+            <a href="https://rateshift.app/dashboard" style="color: #667eea;">Dashboard</a> &bull;
+            <a href="https://rateshift.app/settings" style="color: #667eea;">Manage preferences</a> &bull;
+            <a href="https://rateshift.app/privacy" style="color: #667eea;">Privacy Policy</a>
+        </p>
+        <p style="margin-top: 10px; font-size: 11px;">
+            &copy; 2026 RateShift. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Electricity Plan Has Been Switched</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: white;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        .plan-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 8px 0;
+            background: #f9fafb;
+        }
+        .plan-card-old {
+            border-color: #fca5a5;
+            background: #fef2f2;
+        }
+        .plan-card-new {
+            border-color: #6ee7b7;
+            background: #ecfdf5;
+        }
+        .plan-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .plan-label-old { color: #dc2626; }
+        .plan-label-new { color: #059669; }
+        .plan-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 4px 0;
+        }
+        .plan-meta {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .arrow-row {
+            text-align: center;
+            font-size: 22px;
+            margin: 4px 0;
+            color: #9ca3af;
+        }
+        .savings-box {
+            background: #ecfdf5;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 24px 0;
+        }
+        .savings-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #059669;
+            margin: 6px 0;
+        }
+        .savings-annual {
+            font-size: 16px;
+            color: #047857;
+            font-weight: 600;
+        }
+        .rescission-box {
+            background: #eff6ff;
+            border: 1px solid #93c5fd;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white !important;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .button-secondary {
+            display: inline-block;
+            background: white;
+            color: #667eea !important;
+            padding: 12px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            border: 2px solid #667eea;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 24px;">Your Plan Has Been Switched</h1>
+        <p style="margin: 5px 0 0 0; opacity: 0.9;">RateShift automatically found you a better deal</p>
+    </div>
+
+    <div class="content">
+        <p>Hi {{ user_name or "there" }},</p>
+
+        <p>Great news — RateShift has automatically switched your electricity plan to save you money. Here's a summary of the change:</p>
+
+        <div class="plan-card plan-card-old">
+            <div class="plan-label plan-label-old">Previous Plan</div>
+            <div class="plan-name">{{ old_plan_name }}</div>
+            <div class="plan-meta">
+                {{ old_provider }}
+                {% if old_rate_kwh is not none %} &middot; ${{ "%.4f"|format(old_rate_kwh|float) }}/kWh{% endif %}
+                {% if old_fixed_charge is not none and old_fixed_charge > 0 %} &middot; ${{ "%.2f"|format(old_fixed_charge|float) }}/mo fixed{% endif %}
+            </div>
+        </div>
+
+        <div class="arrow-row">&#8595;</div>
+
+        <div class="plan-card plan-card-new">
+            <div class="plan-label plan-label-new">New Plan</div>
+            <div class="plan-name">{{ new_plan_name }}</div>
+            <div class="plan-meta">
+                {{ new_provider }}
+                {% if new_rate_kwh is not none %} &middot; ${{ "%.4f"|format(new_rate_kwh|float) }}/kWh{% endif %}
+                {% if new_fixed_charge is not none and new_fixed_charge > 0 %} &middot; ${{ "%.2f"|format(new_fixed_charge|float) }}/mo fixed{% endif %}
+            </div>
+        </div>
+
+        <div class="savings-box">
+            <div style="font-size: 13px; font-weight: 600; color: #065f46; text-transform: uppercase; letter-spacing: 0.05em;">Projected Monthly Savings</div>
+            <div class="savings-value">${{ "%.2f"|format(savings_monthly|float) }}</div>
+            {% if savings_annual is not none %}
+            <div class="savings-annual">That's ${{ "%.0f"|format(savings_annual|float) }} over a full year</div>
+            {% endif %}
+        </div>
+
+        {% if rescission_days is not none and rescission_days > 0 %}
+        <div class="rescission-box">
+            <p style="margin: 0; font-weight: 600; color: #1e40af;">You have a {{ rescission_days }}-day cancellation window</p>
+            <p style="margin: 6px 0 0 0; color: #374151; font-size: 14px;">
+                Changed your mind? You can cancel this switch at no cost within {{ rescission_days }} days.
+                After that, your plan will remain with {{ new_provider }}.
+            </p>
+        </div>
+        {% endif %}
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="https://rateshift.app/dashboard" class="button">
+                View Dashboard
+            </a>
+        </div>
+
+        {% if rollback_url %}
+        <div style="text-align: center; margin-top: 8px;">
+            <a href="{{ rollback_url }}" class="button-secondary">
+                Cancel This Switch
+            </a>
+        </div>
+        {% endif %}
+
+        <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">
+            This switch was performed automatically by RateShift on your behalf as part of your Business plan.
+            Savings projections are estimates based on your average monthly usage.
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>You're receiving this because RateShift automatically switched your electricity plan.</p>
+        <p>
+            <a href="https://rateshift.app/dashboard" style="color: #667eea;">Dashboard</a> &bull;
+            <a href="https://rateshift.app/settings" style="color: #667eea;">Manage preferences</a> &bull;
+            <a href="https://rateshift.app/privacy" style="color: #667eea;">Privacy Policy</a>
+        </p>
+        <p style="margin-top: 10px; font-size: 11px;">
+            &copy; 2026 RateShift. All rights reserved.
+        </p>
+    </div>
+</body>
+</html>

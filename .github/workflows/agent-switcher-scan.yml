@@ -1,0 +1,45 @@
+name: Agent Switcher - Daily Scan
+
+on:
+  schedule:
+    # Daily at 4am UTC — decision engine scan for all enrolled users
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: agent-switcher-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+
+      - name: Run agent switcher scan
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/agent-switcher/scan
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+          timeout: '300'
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Agent Switcher - Daily Scan"
+          severity: warning

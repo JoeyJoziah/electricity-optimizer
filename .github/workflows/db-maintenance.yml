@@ -1,0 +1,55 @@
+name: Weekly Database Maintenance
+
+on:
+  schedule:
+    # Weekly Sunday at 3am UTC — after db-backup (2am) and before data-retention (4am)
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: db-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Warmup backend
+        uses: ./.github/actions/warmup-backend
+        with:
+          backend-url: ${{ secrets.BACKEND_URL }}
+
+      # Step 1: Run vacuum, analyze, and index maintenance
+      - name: Run database optimization
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/maintenance/db-optimize
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+
+      # Step 2: Clean up stale agent switcher meter data partitions
+      - name: Cleanup agent switcher meter data
+        uses: ./.github/actions/retry-curl
+        with:
+          url: ${{ secrets.BACKEND_URL }}/api/v1/internal/agent-switcher/cleanup-meter-data
+          headers: |
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            Content-Type: application/json
+          body: '{}'
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-slack
+        with:
+          webhook-url: ${{ secrets.SLACK_INCIDENTS_WEBHOOK_URL }}
+          workflow-name: "Weekly Database Maintenance"
+          severity: warning

@@ -49,6 +49,9 @@ jobs:
           - { file: "fetch-gas-rates.yml", name: "Fetch Gas Rates", severity: "warning" }
           - { file: "daily-data-pipeline.yml", name: "Daily Data Pipeline", severity: "warning" }
           - { file: "db-backup.yml", name: "Database Backup", severity: "critical" }
+          - { file: "db-maintenance.yml", name: "Weekly Database Maintenance", severity: "warning" }
+          - { file: "agent-switcher-scan.yml", name: "Agent Switcher - Daily Scan", severity: "warning" }
+          - { file: "sync-available-plans.yml", name: "Agent Switcher - Sync Available Plans", severity: "warning" }
 
     steps:
       - name: Count recent failures
@@ -189,6 +192,9 @@ jobs:
               *"Fetch Gas"*|*"Gas Rates"*) WORKFLOW_FILE="fetch-gas-rates.yml" ;;
               *"Daily Data Pipeline"*) WORKFLOW_FILE="daily-data-pipeline.yml" ;;
               *"Database Backup"*) WORKFLOW_FILE="db-backup.yml" ;;
+              *"Database Maintenance"*) WORKFLOW_FILE="db-maintenance.yml" ;;
+              *"Agent Switcher - Daily Scan"*) WORKFLOW_FILE="agent-switcher-scan.yml" ;;
+              *"Agent Switcher - Sync Available Plans"*) WORKFLOW_FILE="sync-available-plans.yml" ;;
               *) echo "Unknown workflow in issue #$ISSUE_NUM: $ISSUE_TITLE"; continue ;;
             esac
 

@@ -627,6 +627,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
 
     from api.v1 import affiliate as affiliate_v1
     from api.v1 import agent as agent_v1
+    from api.v1 import agent_switcher as agent_switcher_v1
     from api.v1 import alerts as alerts_v1
     from api.v1 import auth as auth_v1
     from api.v1 import beta as beta_v1
@@ -785,6 +786,11 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         agent_v1.router,
         prefix=f"{settings.api_prefix}",
         tags=["Agent"],
+    )
+    app.include_router(
+        agent_switcher_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["agent-switcher"],
     )
     app.include_router(
         utility_accounts_v1.router,
