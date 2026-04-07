@@ -1,0 +1,3 @@
+source: ml/utils/integrity.py
+kind: object
+purpose: Model Integrity Utilities — HMAC-SHA256 signing and verification for ML artifacts.

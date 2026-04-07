@@ -1,0 +1,3 @@
+source: backend/models/meter_reading.py
+kind: object
+purpose: Meter Reading Models

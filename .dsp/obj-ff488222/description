@@ -1,0 +1,3 @@
+source: backend/services/plan_scorer.py
+kind: object
+purpose: Plan Scorer — Rate Structure Matching Engine

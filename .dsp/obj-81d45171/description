@@ -1,0 +1,3 @@
+source: backend/api/v1/internal/agent_switcher.py
+kind: object
+purpose: Internal agent-switcher endpoints.

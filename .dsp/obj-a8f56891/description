@@ -1,0 +1,3 @@
+source: frontend/components/ui/modal.stories.tsx
+kind: object
+purpose: UI component for Modal.Stories

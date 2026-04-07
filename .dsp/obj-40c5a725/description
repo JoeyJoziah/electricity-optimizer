@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/router.ts
+kind: object
+purpose: Maximum length for any query parameter value used in cache keys.

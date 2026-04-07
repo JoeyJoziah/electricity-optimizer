@@ -1,0 +1,3 @@
+source: frontend/components/auth/AuthGuard.tsx
+kind: object
+purpose: UI component for Authguard

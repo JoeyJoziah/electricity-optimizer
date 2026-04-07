@@ -1,0 +1,3 @@
+source: frontend/components/ui/skeleton.stories.tsx
+kind: object
+purpose: UI component for Skeleton.Stories

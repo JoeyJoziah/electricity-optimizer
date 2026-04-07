@@ -1,8 +1,8 @@
 # Database Schema Reference
 
-RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 64 migrations (init_neon through 064_migration_history_uuid_pk), 49 public tables plus 9 neon_auth tables = 58 total.
+RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 66 migrations (init_neon through 066_auto_rate_switcher), 55 public tables plus 9 neon_auth tables = 64 total.
 
-Last updated: 2026-03-24 (Migration 064: migration_history UUID PK. All 64 migrations deployed to production.)
+Last updated: 2026-04-07 (Migrations 065-066: UtilityAPI billing add-on + Auto Rate Switcher. All 66 migrations deployed to production.)
 
 ## Overview
 
@@ -10,12 +10,12 @@ Last updated: 2026-03-24 (Migration 064: migration_history UUID PK. All 64 migra
 - **Project ID**: `cold-rice-23455092`
 - **Endpoint (Pooled)**: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (application use)
 - **Endpoint (Direct)**: `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (migrations only)
-- **Migrations**: Sequential init_neon through 064 (64 migrations, all deployed)
-- **Schema**: `public` (49 tables) + `neon_auth` (9 tables, managed by Better Auth)
+- **Migrations**: Sequential init_neon through 066 (66 migrations, all deployed)
+- **Schema**: `public` (55 tables) + `neon_auth` (9 tables, managed by Better Auth)
 - **Primary Keys**: All UUID type via `gen_random_uuid()`
 - **Ownership**: `neondb_owner` role (via GRANT statements)
 
-## Public Schema Tables (49 tables)
+## Public Schema Tables (55 tables)
 
 ### User & Authentication
 
@@ -217,6 +217,8 @@ last_sync_at                    TIMESTAMPTZ (migration 011)
 last_sync_error                 VARCHAR(500) (migration 011)
 next_sync_at                    TIMESTAMPTZ (migration 011)
 utilityapi_account_id           VARCHAR(255) (migration 011)
+stripe_subscription_item_id     VARCHAR(255) (migration 065) — Stripe subscription item for UtilityAPI billing
+utilityapi_meter_count           INT DEFAULT 0 (migration 065) — number of monitored meters
 created_at                      TIMESTAMPTZ DEFAULT now()
 updated_at                      TIMESTAMPTZ DEFAULT now()
 ```
@@ -790,6 +792,143 @@ Indexes: `idx_migration_history_name`
 
 **Note**: Migration 064 converts the primary key from SERIAL to UUID for consistency with project conventions.
 
+### Auto Rate Switcher Tables (Migration 066)
+
+#### `user_agent_settings` (migration 066)
+Per-user auto-switcher configuration (one row per user, UNIQUE on user_id).
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE
+enabled                 BOOLEAN DEFAULT FALSE
+savings_threshold_pct   DECIMAL(5,2) DEFAULT 10.0
+savings_threshold_min   DECIMAL(10,2) DEFAULT 10.0
+cooldown_days           INTEGER DEFAULT 5
+paused_until            TIMESTAMPTZ
+loa_signed_at           TIMESTAMPTZ
+loa_document_s3_key     VARCHAR
+loa_revoked_at          TIMESTAMPTZ
+created_at              TIMESTAMPTZ DEFAULT now()
+updated_at              TIMESTAMPTZ DEFAULT now()
+```
+
+#### `user_plans` (migration 066)
+User's current and historical electricity plans.
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+plan_name               VARCHAR NOT NULL
+provider_name           VARCHAR NOT NULL
+rate_kwh                DECIMAL(10,6)
+fixed_charge            DECIMAL(10,2)
+term_months             INTEGER
+etf_amount              DECIMAL(10,2) DEFAULT 0
+contract_start          TIMESTAMPTZ
+contract_end            TIMESTAMPTZ
+status                  VARCHAR NOT NULL DEFAULT 'active'
+source                  VARCHAR NOT NULL
+raw_plan_data           JSONB
+created_at              TIMESTAMPTZ DEFAULT now()
+updated_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Indexes: `idx_user_plans_user` (user_id, status, created_at DESC)
+
+#### `available_plans` (migration 066)
+Cached marketplace plans per zip/utility (fetched from EnergyBot).
+
+```
+id                      UUID PRIMARY KEY
+zip_code                VARCHAR(10) NOT NULL
+utility_code            VARCHAR(50)
+region                  VARCHAR(50) NOT NULL
+plan_name               VARCHAR NOT NULL
+provider_name           VARCHAR NOT NULL
+rate_kwh                DECIMAL(10,6) NOT NULL
+fixed_charge            DECIMAL(10,2) DEFAULT 0
+term_months             INTEGER
+etf_amount              DECIMAL(10,2) DEFAULT 0
+renewable_pct           INTEGER DEFAULT 0
+plan_url                VARCHAR
+energybot_id            VARCHAR
+raw_plan_data           JSONB
+fetched_at              TIMESTAMPTZ DEFAULT now()
+expires_at              TIMESTAMPTZ
+```
+
+Indexes: `idx_available_plans_zip` (zip_code, fetched_at DESC), `idx_available_plans_region` (region)
+
+#### `meter_readings` (migration 066)
+Interval usage data, partitioned by month with 90-day retention.
+
+```
+id                      UUID DEFAULT gen_random_uuid()
+user_id                 UUID NOT NULL
+connection_id           UUID
+reading_time            TIMESTAMPTZ NOT NULL
+kwh                     DECIMAL(10,4) NOT NULL
+interval_minutes        INTEGER NOT NULL DEFAULT 60
+source                  VARCHAR NOT NULL
+created_at              TIMESTAMPTZ DEFAULT now()
+PRIMARY KEY (id, reading_time)
+```
+
+Partitioned by RANGE (reading_time). Initial partitions: 2026_04 through 2026_07.
+
+Indexes: `idx_meter_readings_user` (user_id, reading_time DESC)
+
+#### `switch_audit_log` (migration 066)
+Every decision engine run (including holds and no-action decisions).
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+trigger_type            VARCHAR NOT NULL
+decision                VARCHAR NOT NULL
+reason                  TEXT NOT NULL
+current_plan_id         UUID REFERENCES user_plans(id)
+proposed_plan_id        UUID REFERENCES available_plans(id)
+savings_monthly         DECIMAL(10,2)
+savings_annual          DECIMAL(10,2)
+etf_cost                DECIMAL(10,2) DEFAULT 0
+net_savings_year1       DECIMAL(10,2)
+confidence_score        DECIMAL(3,2)
+data_source             VARCHAR
+tier                    VARCHAR NOT NULL
+executed                BOOLEAN DEFAULT FALSE
+enrollment_id           VARCHAR
+created_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Indexes: `idx_switch_audit_user` (user_id, created_at DESC)
+
+#### `switch_executions` (migration 066)
+Enrollment lifecycle state machine (tracks plan switch from initiation through enactment).
+
+```
+id                      UUID PRIMARY KEY
+user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+audit_log_id            UUID NOT NULL REFERENCES switch_audit_log(id)
+old_plan_id             UUID REFERENCES user_plans(id)
+new_plan_id             UUID REFERENCES user_plans(id)
+idempotency_key         UUID NOT NULL UNIQUE
+enrollment_id           VARCHAR
+executor_type           VARCHAR NOT NULL DEFAULT 'energybot'
+status                  VARCHAR NOT NULL DEFAULT 'initiating'
+initiated_at            TIMESTAMPTZ
+confirmed_at            TIMESTAMPTZ
+enacted_at              TIMESTAMPTZ
+rescission_ends         TIMESTAMPTZ
+cooldown_ends           TIMESTAMPTZ
+failure_reason          TEXT
+rolled_back_from        UUID REFERENCES switch_executions(id)
+created_at              TIMESTAMPTZ DEFAULT now()
+updated_at              TIMESTAMPTZ DEFAULT now()
+```
+
+Indexes: `idx_switch_exec_user` (user_id, created_at DESC), `idx_switch_exec_status` (status, partial WHERE status IN active states)
+
 ## neon_auth Schema (9 Tables)
 
 Managed by Better Auth (Neon Auth). Do NOT modify directly.
@@ -870,12 +1009,14 @@ Managed by Better Auth (Neon Auth). Do NOT modify directly.
 | 062 | 062_audit_schema_fixes_round2.sql | 2026-03-23 | Rate plan tables + forecast_hour CHECK + dedup indexes |
 | 063 | 063_migration_history.sql | 2026-03-24 | Migration history tracking table (SERIAL PK) |
 | 064 | 064_migration_history_uuid_pk.sql | 2026-03-24 | Convert migration_history PK from SERIAL to UUID |
+| 065 | 065_utilityapi_addon_billing.sql | 2026-04-02 | UtilityAPI add-on billing columns (stripe_subscription_item_id + utilityapi_meter_count on user_connections) |
+| 066 | 066_auto_rate_switcher.sql | 2026-04-03 | Auto Rate Switcher tables (user_agent_settings, user_plans, available_plans, meter_readings partitioned, switch_audit_log, switch_executions) |
 
 ## Migration Conventions
 
 All migrations follow these patterns:
 
-1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 064)
+1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 066)
 2. **IF NOT EXISTS**: All CREATE TABLE/INDEX statements are idempotent
 3. **Primary Keys**: UUID via `gen_random_uuid()` (no SERIAL/BIGSERIAL)
 4. **Foreign Keys**: ON DELETE CASCADE or ON DELETE RESTRICT with explicit choices
@@ -900,6 +1041,8 @@ All migrations follow these patterns:
 - Agent: Cascade on user delete (transient)
 - Model versions: RESTRICT delete (prevent orphaned A/B tests)
 - Alert configs: Cascade on user delete
+- Auto Rate Switcher: Cascade on user delete (user-owned config + audit data)
+- Switch executions: FK to switch_audit_log (audit trail preservation)
 
 ## Related Documentation
 

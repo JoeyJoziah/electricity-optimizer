@@ -1,0 +1,3 @@
+source: frontend/components/ui/badge.stories.tsx
+kind: object
+purpose: UI component for Badge.Stories

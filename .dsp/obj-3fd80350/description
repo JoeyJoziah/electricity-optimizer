@@ -1,0 +1,3 @@
+source: backend/models/user_agent_settings.py
+kind: object
+purpose: User Agent Settings Models

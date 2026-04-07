@@ -1,0 +1,3 @@
+source: frontend/app/(app)/heating-oil/loading.tsx
+kind: object
+purpose: App page component for Loading

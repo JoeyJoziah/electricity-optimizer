@@ -1,0 +1,3 @@
+source: backend/services/energybot_service.py
+kind: object
+purpose: EnergyBot API Service

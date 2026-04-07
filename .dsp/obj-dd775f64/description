@@ -1,0 +1,3 @@
+source: backend/models/available_plan.py
+kind: object
+purpose: Available Plan Models

@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-03-25 (Production live. Test count: 2,976. Migrations: 64 (init_neon through 064_migration_history_uuid_pk). Tables: 58 = 49 public + 9 neon_auth. Services: 51. API routes: 57 files incl. connections/ + internal/ subdirectories.)
+> Last updated: 2026-04-07 (Production live. Test count: 3,325. Migrations: 66 (init_neon through 066_auto_rate_switcher). Tables: 64 = 55 public + 9 neon_auth. Services: 58. API routes: 57 files incl. connections/ + internal/ subdirectories.)
 
 ## Directory Structure
 
@@ -161,7 +161,14 @@ backend/
 │   ├── market_intelligence_service.py # Market intelligence data aggregation (Tavily + Diffbot)
 │   ├── push_notification_service.py  # OneSignal push notification delivery
 │   ├── rate_scraper_service.py      # Rate scraping orchestration (Diffbot integration)
-│   └── weather_service.py           # OpenWeatherMap integration (circuit breaker, regional caching)
+│   ├── weather_service.py           # OpenWeatherMap integration (circuit breaker, regional caching)
+│   ├── switch_decision_engine.py    # 7-rule autonomous plan switching decision engine (Pro tier only)
+│   ├── switch_execution_service.py  # Enrollment lifecycle state machine (initiating → submitted → accepted → enacted)
+│   ├── switch_executor.py           # Adapter for plan enrollment via external providers (EnergyBot primary)
+│   ├── switch_notification_service.py # User notifications for switch lifecycle events
+│   ├── switch_safeguards.py         # Safety checks before plan switch (LOA, tier, rate limits)
+│   ├── plan_scorer.py               # Scores and ranks available plans against user's current plan
+│   └── utilityapi_billing_service.py # UtilityAPI meter monitoring add-on billing ($2.25/meter/mo)
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)
@@ -261,7 +268,9 @@ backend/
 │   ├── 061_connection_rate_dedup.sql  # Deduplication and orphan cleanup for connection rates
 │   ├── 062_missing_infrastructure.sql # Missing tables: rate_plans, rate_plan_features, plan_comparisons, savings_projections
 │   ├── 063_migration_history.sql      # Migration history tracking table
-│   └── 064_migration_history_uuid_pk.sql # UUID primary key for migration_history table
+│   ├── 064_migration_history_uuid_pk.sql # UUID primary key for migration_history table
+│   ├── 065_utilityapi_billing_columns.sql # stripe_subscription_item_id + utilityapi_meter_count on user_connections
+│   └── 066_auto_rate_switcher.sql        # user_agent_settings, user_plans, available_plans, meter_readings, switch_audit_log, switch_executions (6 tables)
 │
 ├── templates/emails/
 │   ├── welcome_beta.html            # Jinja2 beta welcome email

@@ -1,1 +1,0 @@
-Uses get_db_session, get_redis, get_current_user_optional + 1 more

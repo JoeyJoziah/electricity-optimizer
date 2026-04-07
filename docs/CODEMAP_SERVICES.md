@@ -1,7 +1,7 @@
 # RateShift Backend Services Codemap
 
-**Last Updated**: 2026-03-25
-**Total Services**: 51
+**Last Updated**: 2026-04-07
+**Total Services**: 58
 **Total Test Files**: 105+
 **Repositories**: 1 (monorepo)
 
@@ -9,7 +9,7 @@
 
 ## Quick Navigation
 
-This document maps all 51 backend services across 9 functional domains. Use this to:
+This document maps all 58 backend services across 10 functional domains. Use this to:
 - Find which service handles a feature
 - Understand service dependencies
 - Locate related tests
@@ -26,7 +26,8 @@ This document maps all 51 backend services across 9 functional domains. Use this
 8. [Notification Services (6)](#notification-services)
 9. [Analytics Services (4)](#analytics-services)
 10. [Utility Support Services (11)](#utility-support-services)
-11. [Service Dependency Diagram](#service-dependency-diagram)
+11. [Auto Rate Switcher Services (7)](#auto-rate-switcher-services)
+12. [Service Dependency Diagram](#service-dependency-diagram)
 
 ---
 
@@ -43,6 +44,7 @@ This document maps all 51 backend services across 9 functional domains. Use this
 | **Notifications** | 6 | Email, push, in-app, alerts, dispatching, rendering |
 | **Analytics** | 4 | Usage tracking, KPI reports, optimization, A/B tests |
 | **Support** | 11 | Geocoding, weather, features, referrals, savings, etc. |
+| **Auto Switcher** | 7 | Autonomous plan comparison, decision engine, safe execution |
 
 ---
 
@@ -618,6 +620,79 @@ This document maps all 51 backend services across 9 functional domains. Use this
 
 ---
 
+## Auto Rate Switcher Services
+
+### switch_decision_engine.py
+- **Class**: `SwitchDecisionEngine`
+- **Purpose**: 7-rule decision engine for autonomous plan switching (Pro tier only)
+- **Key Methods**:
+  - `evaluate_user(user_id: str) -> SwitchDecision` — run all rules, produce switch/hold decision
+  - `_check_savings_threshold(current_plan, alternatives)` — min savings % + $ threshold
+  - `_check_cooldown(user_id: str) -> bool` — enforce per-user cooldown period
+  - `_check_etf_breakeven(current_plan, proposed_plan)` — early termination fee analysis
+- **Dependencies**: `PlanScorerService`, `UserPlanRepository`, `AvailablePlanRepository`
+- **Tests**: `test_switch_decision_engine.py`
+
+### switch_execution_service.py
+- **Class**: `SwitchExecutionService`
+- **Purpose**: Manages enrollment lifecycle state machine (initiating → submitted → accepted → enacted)
+- **Key Methods**:
+  - `initiate_switch(user_id: str, audit_log_id: str) -> str` — create idempotent execution
+  - `update_status(execution_id: str, status: str)` — state machine transition
+  - `rollback_switch(execution_id: str, reason: str)` — revert to old plan
+- **Dependencies**: `SwitchExecutor`, `SwitchNotificationService`, `switch_executions` table
+- **Tests**: `test_switch_execution_service.py`
+
+### switch_executor.py
+- **Class**: `SwitchExecutor`
+- **Purpose**: Adapter pattern for plan enrollment via external providers (EnergyBot primary)
+- **Key Methods**:
+  - `execute_switch(plan: AvailablePlan, user_settings: UserAgentSettings) -> str` — submit enrollment
+  - `check_enrollment_status(enrollment_id: str) -> dict` — poll provider for status
+- **Dependencies**: `EnergyBotService`, httpx, structlog
+- **Tests**: `test_switch_executor.py`
+
+### switch_notification_service.py
+- **Class**: `SwitchNotificationService`
+- **Purpose**: User notifications for switch lifecycle events (proposed, executed, completed, failed)
+- **Key Methods**:
+  - `notify_switch_proposed(user_id: str, savings: dict)` — email + in-app for proposed switch
+  - `notify_switch_executed(user_id: str, execution: dict)` — confirmation notification
+  - `notify_switch_failed(user_id: str, reason: str)` — failure alert
+- **Dependencies**: `NotificationDispatcher`, `EmailService`, Jinja2 templates
+- **Tests**: `test_switch_notification_service.py`
+
+### switch_safeguards.py
+- **Class**: `SwitchSafeguards`
+- **Purpose**: Safety checks before executing any plan switch (LOA validation, tier check, rate limits)
+- **Key Methods**:
+  - `validate_switch(user_id: str, proposed_plan: dict) -> ValidationResult` — all safety checks
+  - `check_loa_status(user_id: str) -> bool` — Letter of Authorization signed and not revoked
+  - `check_tier_eligibility(user_id: str) -> bool` — Pro tier required
+- **Dependencies**: `UserAgentSettingsRepository`, `UserRepository`
+- **Tests**: `test_switch_safeguards.py`
+
+### plan_scorer.py
+- **Class**: `PlanScorerService`
+- **Purpose**: Scores and ranks available plans against user's current plan
+- **Key Methods**:
+  - `score_plans(current_plan: UserPlan, alternatives: list[AvailablePlan], usage_kwh: float) -> list[ScoredPlan]` — rank by net savings
+  - `calculate_annual_cost(plan: dict, monthly_kwh: float) -> Decimal` — total cost projection
+- **Dependencies**: NumPy, `MeterReadingRepository`
+- **Tests**: `test_plan_scorer.py`
+
+### utilityapi_billing_service.py
+- **Class**: `UtilityAPIBillingService`
+- **Purpose**: Manages UtilityAPI meter monitoring add-on billing ($2.25/meter/mo via Stripe subscription items)
+- **Key Methods**:
+  - `get_addon_pricing(user_id: str) -> dict` — current meter count and pricing
+  - `update_meter_count(connection_id: str, count: int)` — adjust Stripe subscription item quantity
+  - `calculate_addon_cost(meter_count: int) -> Decimal` — $2.25 * meter_count
+- **Dependencies**: `StripeService`, `UserConnectionRepository`, `STRIPE_PRICE_UTILITYAPI_METER` env var
+- **Tests**: `test_utilityapi_billing_service.py`
+
+---
+
 ## Service Dependency Diagram
 
 ```
@@ -672,6 +747,18 @@ This document maps all 51 backend services across 9 functional domains. Use this
                      │- maintenance  │    │- Groq Llama      │   │
                      │- persistence  │    │- Composio Tools  │   │
                      └───────────────┘    └──────────────────┘   │
+                                                                   │
+   ┌────────────────────────────────┐                             │
+   │ Auto Switcher (7)              │                             │
+   │                                │                             │
+   │- switch_eng                    │                             │
+   │- switch_exec_svc               │                             │
+   │- switch_executor               │                             │
+   │- switch_notif_svc              │                             │
+   │- switch_safeguards             │                             │
+   │- plan_scorer                   │                             │
+   │- utilityapi_billing_svc        │                             │
+   └────────────────────────────────┘                             │
                                                                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -760,6 +847,8 @@ Services depend on database tables created by migrations:
 | 032 | notifications (expanded schema) | notification_dispatcher |
 | 049 | community_posts, community_votes, community_reports | community_service |
 | 061 | (pattern: CTE query optimization) | optimization_report_service |
+| 065 | user_connections (new columns) | utilityapi_billing_service |
+| 066 | user_agent_settings, user_plans, available_plans, meter_readings, switch_audit_log, switch_executions | switch_decision_engine, switch_execution_service, plan_scorer |
 
 ---
 
@@ -776,9 +865,12 @@ Services depend on database tables created by migrations:
 - Moderate community posts? → `community_service.py`
 - Generate optimization report? → `optimization_report_service.py`
 - Check feature flags? → `feature_flag_service.py`
+- Auto-switch electricity plans? → `switch_decision_engine.py`
+- Execute a plan switch? → `switch_execution_service.py`
+- Manage UtilityAPI billing? → `utilityapi_billing_service.py`
 
 ---
 
 ## Last Updated
 
-2026-03-25 — 51 services documented, 105+ test files, dependency diagram included.
+2026-04-07 — 58 services documented, 105+ test files, dependency diagram included.

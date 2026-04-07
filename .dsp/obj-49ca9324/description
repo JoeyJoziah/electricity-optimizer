@@ -1,3 +1,0 @@
-source: workers/api-gateway/src/router.ts
-kind: object
-purpose: Workers module: router

@@ -1,8 +1,32 @@
 # RateShift - Project TODO
 
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-04-07
 **Status**: Live in production (Backend: Render, Frontend: Vercel, Edge: CF Worker)
-**Overall Progress**: All features complete across Waves 1-5. ~5,680 tests passing (2,480 backend, 1,841 frontend, 611 ML, 671 E2E, 77 CF Worker). 50 migrations (all deployed), 53 tables (44 public + 9 neon_auth), 32 GHA workflows, self-healing CI/CD. Master TODO registry: 27/27 COMPLETE.
+**Overall Progress**: All features complete across Waves 1-5. ~7,655 tests passing (3,325 backend, 2,022 frontend, 676 ML, 1,642 E2E, 90 CF Worker). 66 migrations (all deployed), 64 tables (55 public + 9 neon_auth), 36 GHA workflows, self-healing CI/CD. Master TODO registry: 27/27 COMPLETE.
+
+---
+
+## Completed Items from Sessions 2026-03-17 to 2026-04-07
+
+### Auto Rate Switcher (2026-04-03)
+- [x] **Decision Engine**: 7-rule engine with configurable thresholds per user
+- [x] **Migration 066**: 6 new tables (user_agent_settings, user_plans, available_plans, meter_readings partitioned, switch_audit_log, switch_executions)
+- [x] **7 Backend Services**: switch_decision_engine, switch_execution_service, switch_executor, switch_notification_service, switch_safeguards, plan_scorer, utilityapi_billing_service
+- [x] **API**: 15 public + 2 internal endpoints at `/agent-switcher/*`
+- [x] **Frontend**: `/auto-switcher` (3 pages + loading/error states), 16th sidebar nav item
+- [x] **GHA Workflows**: agent-switcher-scan.yml (daily), sync-available-plans.yml (daily)
+- [x] **Self-healing monitor**: 21 workflows tracked (was 18)
+
+### UtilityAPI Billing Add-On (2026-04-02)
+- [x] **Migration 065**: stripe_subscription_item_id + utilityapi_meter_count on user_connections
+- [x] **Service**: utilityapi_billing_service.py ($2.25/meter/mo via Stripe subscription items)
+- [x] **Endpoint**: GET /billing/addon-pricing
+
+### Production Audit Remediation (2026-03-17 to 2026-03-24)
+- [x] **18 tasks across 5 sprints**: Security hardening, foreign key repairs, ghost column removal, UUID PK conversion
+- [x] **Migrations 055-064**: Audit remediation batch (10 migrations)
+- [x] **CF Worker Production Debugging**: ORIGIN_URL fix, Location header rewrite, keep-alive cron
+- [x] **Rate plan tables**: Migration 062 (rate_plans, rate_plan_features, plan_comparisons, savings_projections)
 
 ---
 
@@ -546,13 +570,13 @@
 - **Documentation**: 15+ comprehensive docs
 
 ### Test Coverage
-- **Total Tests**: ~5,680 (backend + frontend + ML + E2E + CF Worker)
+- **Total Tests**: ~7,655 (backend + frontend + ML + E2E + CF Worker)
 - **Test Success Rate**: 100%
-- **Backend Tests**: 2,480 tests
-- **Frontend Unit Tests**: 1,841 tests (136 suites)
-- **ML Tests**: 611 tests
-- **E2E Tests**: 671 tests (across Chromium/Firefox/WebKit/Mobile)
-- **CF Worker Tests**: 77 tests
+- **Backend Tests**: 3,325 tests
+- **Frontend Unit Tests**: 2,022 tests (153 suites)
+- **ML Tests**: 676 tests
+- **E2E Tests**: 1,642 tests (across Chromium/Firefox/WebKit/Mobile)
+- **CF Worker Tests**: 90 tests
 - **Overall Coverage**: 80%+
 - **Load Tests**: 1000+ concurrent users (Locust)
 
@@ -653,11 +677,11 @@ make backup
 
 **Statistics**:
 - 50,000+ lines of production code
-- ~5,680 tests (2,480 backend, 1,841 frontend, 611 ML, 671 E2E, 77 CF Worker)
+- ~7,655 tests (3,325 backend, 2,022 frontend, 676 ML, 1,642 E2E, 90 CF Worker)
 - 100% backend test success rate
 - 100% frontend test success rate
-- 53 database tables (44 public + 9 neon_auth), 50 migrations
-- 31 GitHub Actions workflows, self-healing CI/CD
+- 64 database tables (55 public + 9 neon_auth), 66 migrations
+- 36 GHA workflows, self-healing CI/CD
 - OWASP ZAP + pip-audit + npm audit security gates
 - 80%+ code coverage across all modules
 
@@ -665,17 +689,17 @@ make backup
 
 ---
 
-## Session Summary: 2026-03-16
+## Session Summary: 2026-04-07
 
-**Latest Session**: End-to-end performance optimization (9 fixes), full documentation refresh (all root-level docs updated)
-**Test Status**: ~5,680 tests passing (2,480 backend, 1,841 frontend, 611 ML, 671 E2E, 77 CF Worker)
-**Database**: 53 tables (44 public + 9 neon_auth), 50 migrations (all deployed to production)
-**CI/CD**: 32 GHA workflows, self-healing monitor, 6 composite actions, Dependabot
+**Latest Session**: Auto Rate Switcher (23-task implementation), UtilityAPI billing add-on, production audit remediation (18 tasks, 5 sprints)
+**Test Status**: ~7,655 tests passing (3,325 backend, 2,022 frontend, 676 ML, 1,642 E2E, 90 CF Worker)
+**Database**: 64 tables (55 public + 9 neon_auth), 66 migrations (all deployed to production)
+**CI/CD**: 36 GHA workflows, self-healing monitor (21 workflows tracked), 6 composite actions, Dependabot
 **Automation**: All 7/7 workflows live, 3 Rube recipes, KPI report, OWASP ZAP weekly scan
 **Waves**: 1-5 COMPLETE (foundation, infrastructure, depth, breadth, unification)
 
 ---
 
-**Last Updated**: 2026-03-16
+**Last Updated**: 2026-04-07
 **Target Market**: Nationwide USA (USD default, multi-utility: electricity, natural gas, propane, heating oil, water)
-**Achievement**: Full production platform with multi-utility support, community features, AI agent, and comprehensive test coverage
+**Achievement**: Full production platform with multi-utility support, community features, AI agent, Auto Rate Switcher, and comprehensive test coverage

@@ -5,7 +5,7 @@
 **Entry Point:** `frontend/app/layout.tsx`
 **State Management:** Zustand (persisted to localStorage) + TanStack React Query v5
 **Styling:** Tailwind CSS 3.4.1 + tailwind-merge + clsx
-**Test Coverage:** Frontend 2,015 tests (153 suites)
+**Test Coverage:** Frontend 2,022 tests (153 suites)
 
 ---
 
@@ -70,6 +70,16 @@ frontend/
         page.tsx                # Cross-utility analytics dashboard (Wave 4)
       community/
         page.tsx                # Community posts, voting, stats (Wave 5)
+      auto-switcher/
+        page.tsx                # Auto Rate Switcher dashboard (/auto-switcher) — enrollment, savings overview
+        loading.tsx             # Switcher loading skeleton
+        history/
+          page.tsx              # Switch history (/auto-switcher/history)
+          SwitchHistoryContent.tsx  # History table with audit log entries
+        settings/
+          page.tsx              # Auto-switcher settings (/auto-switcher/settings)
+          loading.tsx           # Settings loading skeleton
+          AutoSwitcherSettingsContent.tsx  # LOA signing, thresholds, cooldown config
       auth/                     # Authentication pages (route group within (app))
         layout.tsx              # Auth layout (centered cards, no sidebar)
         login/page.tsx          # Sign in form (email/password, OAuth, magic link)
@@ -96,7 +106,7 @@ frontend/
     layout/
       Header.tsx                # Top header (logo, user menu, mobile toggle)
       NotificationBell.tsx      # In-app notification bell (sidebar, unread count badge, dropdown panel, mark read)
-      Sidebar.tsx               # Main navigation sidebar (15 nav items: Dashboard, Prices, Suppliers, Connections, Optimize, Alerts, Settings, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Community, Assistant)
+      Sidebar.tsx               # Main navigation sidebar (16 nav items: Dashboard, Prices, Suppliers, Connections, Optimize, Alerts, Settings, Gas Rates, Community Solar, Heating Oil, Propane, Water, Analytics, Community, Assistant, Auto Switcher)
       StatusBadge.tsx           # Connection/service status indicator badge
     dev/
       DevBanner.tsx             # Development-only banner (top of page)
@@ -203,6 +213,10 @@ frontend/
       PostList.tsx              # Community post list with voting
       ReportButton.tsx          # Post report button
       VoteButton.tsx            # Post vote (upvote/downvote) button
+    auto-switcher/              # Auto Rate Switcher components (2026-04-03)
+      AutoSwitcherContent.tsx   # Dashboard: enrollment status, savings overview, current plan
+      SwitchHistoryContent.tsx  # History table with audit log entries (date, from/to plan, savings, status)
+      AutoSwitcherSettingsContent.tsx  # LOA signing, savings thresholds, cooldown config
     onboarding/                 # Onboarding flow components
       OnboardingWizard.tsx      # Region-only 1-step onboarding (simplified from 4-step)
       RegionSelector.tsx        # Region selection dropdown (50 states + DC)

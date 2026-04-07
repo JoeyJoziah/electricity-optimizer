@@ -1,7 +1,7 @@
 # LAUNCH GAP BACKLOG — RateShift (v2)
 
 > Generated: 2026-03-24 | Supersedes: 2026-03-23 backlog
-> Total gaps: 21 | Completed: 8 | Active: 13 | New in v2: LG-020, LG-021
+> Total gaps: 21 | Completed: 10 | Active: 11 | New in v2: LG-020, LG-021
 > Skipped: LG-016 (GA4 — needs Measurement ID from user)
 
 ---
@@ -57,15 +57,10 @@
 - **Dependencies**: Need GA4 Measurement ID from user
 - **Verification**: GA4 real-time dashboard shows events from test clicks
 
-### LG-020: No OG image for social sharing (NEW)
+### ~~LG-020: No OG image for social sharing~~ DONE
+- **Status**: COMPLETED (2026-04-07) — Created `frontend/app/opengraph-image.tsx` using Next.js ImageResponse (1200x630, blue gradient, bolt icon, "RateShift" branding). Added `images` to `openGraph` and `twitter` metadata in `layout.tsx`.
 - **Domain**: SEO / Marketing
 - **Type**: Code + asset creation
-- **Description**: `frontend/app/layout.tsx` has `openGraph` metadata but no `images` property. No `og-*.png` file exists in `frontend/public/`. Product Hunt, Twitter, LinkedIn, and all social shares will show no preview image — critical for a PH launch where visual appeal drives clicks.
-- **Evidence**: `grep 'og:image|opengraph-image' frontend/` returned zero. `glob 'frontend/public/og-*.{png,jpg}'` returned zero.
-- **Fix**: (a) Create OG image (1200x630px) with RateShift branding, (b) place in `frontend/public/og-image.png`, (c) add `images` to `openGraph` and `twitter` metadata in `layout.tsx`
-- **Effort**: 30-60 minutes (design + code)
-- **Dependencies**: Brand assets (logo, color scheme) — already exist
-- **Verification**: Paste `https://rateshift.app` into Twitter card validator or opengraph.xyz — should show image
 
 ---
 
@@ -92,15 +87,10 @@
 - **Dependencies**: None
 - **Verification**: Status page URL loads and shows all systems green
 
-### LG-021: Sitemap includes protected /dashboard route (NEW)
+### ~~LG-021: Sitemap includes protected /dashboard route~~ DONE
+- **Status**: COMPLETED (2026-04-07) — Removed `/dashboard` entry from `staticPages` in `frontend/app/sitemap.ts`. Sitemap now has 4 static pages (/, /pricing, /privacy, /terms) + programmatic rate pages.
 - **Domain**: SEO
 - **Type**: Code fix
-- **Description**: `frontend/app/sitemap.ts:23-26` includes `/dashboard` in the sitemap. This is a protected route that requires authentication — search engines cannot access it. Including it is bad SEO practice (wastes crawl budget, generates 302/401 errors in Google Search Console).
-- **Evidence**: `frontend/app/sitemap.ts:23` — `url: \`${baseUrl}/dashboard\``
-- **Fix**: Remove the `/dashboard` entry from `staticPages` array in `sitemap.ts`
-- **Effort**: 2 minutes
-- **Dependencies**: None
-- **Verification**: `curl https://rateshift.app/sitemap.xml` should not contain `/dashboard`
 
 ### LG-018: Content assets (screenshots, video) not verified
 - **Domain**: Launch Prep
@@ -166,21 +156,21 @@
 
 | Priority | Total | Completed | Active | Code Work | Manual Only |
 |----------|-------|-----------|--------|-----------|-------------|
-| P0 | 1 | 0 | 1 | 0 | 1 |
-| P1 | 5 | 0 | 5 | 2 | 3 |
-| P2 | 7 | 4 | 3 | 1 | 2 |
+| P0 | 1 | 1 | 0 | 0 | 1 |
+| P1 | 5 | 1 | 4 | 1 | 3 |
+| P2 | 7 | 5 | 2 | 1 | 1 |
 | P3 | 8 | 3 | 5 | 0 | 5 |
-| **Total** | **21** | **7** | **14** | **3** | **11** |
+| **Total** | **21** | **10** | **11** | **2** | **9** |
 
 ### Effort Estimate (active items only)
 
 | Priority | Count | Effort | Monthly Cost |
 |----------|-------|--------|--------------|
-| P0 | 1 | 2 minutes | $0 |
-| P1 | 5 | 2-4 hours | $27/mo (Render + Resend) |
-| P2 | 3 | 3-5 hours | $0 (optional Statuspage) |
+| P0 | 0 | — | $0 |
+| P1 | 4 | 2-4 hours | $27/mo (Render + Resend) |
+| P2 | 2 | 2.5-4.5 hours | $0 (optional Statuspage) |
 | P3 | 5 | 5-7 hours | $0 |
-| **Total active** | **14** | **~10-16 hours** | **$27/mo** |
+| **Total active** | **11** | **~9-15 hours** | **$27/mo** |
 
 ---
 
@@ -208,7 +198,7 @@ THEN (parallel, 3-5 hours):
 
 **Estimated time from now to launch-ready: 1-2 working days** (assuming manual config actions done promptly and GA4 Measurement ID provided).
 
-**Code changes needed: 3 items only**
-1. LG-021: Remove /dashboard from sitemap.ts (2 min)
-2. LG-020: Add OG image + metadata (30 min)
+**Code changes needed: 1 item remaining**
+1. ~~LG-021: Remove /dashboard from sitemap.ts~~ DONE
+2. ~~LG-020: Add OG image + metadata~~ DONE
 3. LG-016: GA4 integration (1-2 hours, needs Measurement ID)

@@ -1,0 +1,3 @@
+source: backend/services/contract_lifecycle_service.py
+kind: object
+purpose: Contract Lifecycle Service

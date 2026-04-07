@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-07
+
+### Added
+- **Auto Rate Switcher**: Autonomous electricity plan switching for Pro tier users.
+  - 7-rule decision engine with configurable savings thresholds (default: 10% + $10/mo minimum)
+  - 6 new database tables (migration 066): user_agent_settings, user_plans, available_plans, meter_readings (partitioned), switch_audit_log, switch_executions
+  - 7 backend services: switch_decision_engine, switch_execution_service, switch_executor, switch_notification_service, switch_safeguards, plan_scorer, utilityapi_billing_service
+  - Adapter pattern executors (EnergyBot primary), enrollment lifecycle state machine
+  - Frontend: `/auto-switcher` (3 pages: dashboard, history, settings), 16th sidebar nav item
+  - API: 15 public + 2 internal endpoints at `/agent-switcher/*`
+  - 2 new GHA workflows: `agent-switcher-scan.yml` (daily scan), `sync-available-plans.yml` (daily plan cache refresh)
+  - Per-user Letter of Authorization (LOA) requirement, 5-day cooldown between switches
+- **UtilityAPI Billing Add-On**: $2.25/meter/mo (50% markup on $1.50 cost) via Stripe subscription items.
+  - Migration 065: `stripe_subscription_item_id` + `utilityapi_meter_count` on user_connections
+  - Service: `utilityapi_billing_service.py`, endpoint: `GET /billing/addon-pricing`
+
+### Changed
+- Database: 49 to 55 public tables, migrations through 066. GHA workflows: 33 to 36.
+- Backend tests: 2,480 to 3,325. Frontend tests: 1,841 to 2,022. E2E tests: 671 to 1,642. Total: ~7,655.
+- Self-healing monitor expanded to 21 workflows (was 18).
+- db-maintenance.yml updated with weekly meter reading partition cleanup.
+
 ## [1.4.0] - 2026-03-16
 
 ### Added
@@ -174,7 +196,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **CI/CD**: 23 GitHub Actions workflows, Dependabot for dependency updates.
 - **Documentation**: API reference, deployment guides, security audits.
 
-[Unreleased]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/JoeyJoziah/electricity-optimizer/compare/v1.1.0...v1.2.0

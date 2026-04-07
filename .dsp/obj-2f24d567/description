@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/handlers/scheduled.ts
+kind: object
+purpose: Request handler for Scheduled

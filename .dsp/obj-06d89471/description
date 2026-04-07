@@ -1,0 +1,3 @@
+source: @storybook/nextjs-vite
+kind: external
+purpose: External package: @storybook/nextjs-vite

@@ -1,0 +1,3 @@
+source: frontend/components/ui/button.stories.tsx
+kind: object
+purpose: UI component for Button.Stories

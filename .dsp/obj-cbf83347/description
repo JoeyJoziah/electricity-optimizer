@@ -1,0 +1,3 @@
+source: frontend/app/terms/loading.tsx
+kind: object
+purpose: Frontend module: loading

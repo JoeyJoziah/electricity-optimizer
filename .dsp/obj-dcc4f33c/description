@@ -1,0 +1,3 @@
+source: @storybook/react
+kind: external
+purpose: External package: @storybook/react

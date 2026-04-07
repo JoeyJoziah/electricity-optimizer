@@ -1,0 +1,3 @@
+source: frontend/components/auto-switcher/AutoSwitcherContent.tsx
+kind: object
+purpose: UI component for Autoswitchercontent

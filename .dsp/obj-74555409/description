@@ -1,0 +1,3 @@
+source: frontend/components/ui/toast.stories.tsx
+kind: object
+purpose: UI component for Toast.Stories
