@@ -21,12 +21,8 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.notification import (
-    DeliveryChannel,
-    DeliveryStatus,
-    Notification,
-    NotificationDeliveryUpdate,
-)
+from models.notification import (DeliveryChannel, DeliveryStatus, Notification,
+                                 NotificationDeliveryUpdate)
 from repositories.base import RepositoryError
 
 logger = structlog.get_logger(__name__)

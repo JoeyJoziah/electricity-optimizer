@@ -11,11 +11,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.switch_decision_engine import (
-    PlanDetails,
-    SwitchDecisionEngine,
-    UserContext,
-)
+from services.switch_decision_engine import (PlanDetails, SwitchDecisionEngine,
+                                             UserContext)
 
 # =============================================================================
 # Helpers

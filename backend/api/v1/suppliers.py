@@ -16,11 +16,8 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from api.dependencies import get_db_session, get_redis
-from models.supplier import (
-    SupplierDetailResponse,
-    SupplierResponse,
-    TariffResponse,
-)
+from models.supplier import (SupplierDetailResponse, SupplierResponse,
+                             TariffResponse)
 from repositories.supplier_repository import SupplierRegistryRepository
 
 logger = structlog.get_logger(__name__)

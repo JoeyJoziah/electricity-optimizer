@@ -26,7 +26,8 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import SessionData, get_current_user, get_db_session, require_tier
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              require_tier)
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -123,9 +124,11 @@ class _MockSwitcherDB:
             "savings_threshold_min": params.get("savings_threshold_min", 10.0),
             "cooldown_days": params.get("cooldown_days", 5),
             "paused_until": params.get("paused_until"),
-            "loa_signed_at": params.get("loa_signed_at") or params.get("now")
-            if "loa_signed_at" in params
-            else None,
+            "loa_signed_at": (
+                params.get("loa_signed_at") or params.get("now")
+                if "loa_signed_at" in params
+                else None
+            ),
             "loa_revoked_at": params.get("loa_revoked_at"),
             "created_at": now,
             "updated_at": now,
@@ -557,9 +560,9 @@ class TestGetSettings:
             "created_at",
             "updated_at",
         }
-        assert expected_keys.issubset(set(data.keys())), (
-            f"Missing keys: {expected_keys - set(data.keys())}"
-        )
+        assert expected_keys.issubset(
+            set(data.keys())
+        ), f"Missing keys: {expected_keys - set(data.keys())}"
 
 
 class TestUpdateSettings:
@@ -866,9 +869,9 @@ class TestCheckNow:
             "etf_cost",
             "confidence",
         }
-        assert required.issubset(set(decision.keys())), (
-            f"Missing: {required - set(decision.keys())}"
-        )
+        assert required.issubset(
+            set(decision.keys())
+        ), f"Missing: {required - set(decision.keys())}"
 
     def test_check_now_stores_audit_log(self, pro_client, mock_db):
         """Check-now writes an entry to switch_audit_log."""

@@ -32,8 +32,7 @@ async def get_available_states(
     if db is None:
         return {"states": []}
 
-    result = await db.execute(
-        text("""
+    result = await db.execute(text("""
             SELECT DISTINCT region AS state, 'electricity' AS utility_type
             FROM electricity_prices
             WHERE region IS NOT NULL
@@ -46,8 +45,7 @@ async def get_available_states(
             FROM heating_oil_prices
             WHERE state IS NOT NULL
             ORDER BY state, utility_type
-        """)
-    )
+        """))
     rows = result.mappings().all()
     states: dict[str, list[str]] = {}
     for row in rows:

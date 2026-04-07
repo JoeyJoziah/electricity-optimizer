@@ -163,14 +163,12 @@ class GasRateService:
 
     async def get_deregulated_states(self) -> list[dict]:
         """Get list of gas-deregulated states with regulation details."""
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT state_code, state_name, puc_name, puc_website,
                        comparison_tool_url
                 FROM state_regulations
                 WHERE gas_deregulated = TRUE
                 ORDER BY state_name
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return [dict(r) for r in rows]

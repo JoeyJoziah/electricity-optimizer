@@ -18,13 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
-from models.connections import (
-    ConnectionListResponse,
-    ConnectionResponse,
-    CreateDirectConnectionRequest,
-    DeleteConnectionResponse,
-    UpdateConnectionRequest,
-)
+from models.connections import (ConnectionListResponse, ConnectionResponse,
+                                CreateDirectConnectionRequest,
+                                DeleteConnectionResponse,
+                                UpdateConnectionRequest)
 
 logger = structlog.get_logger(__name__)
 
@@ -251,7 +248,8 @@ async def delete_connection(
     # Remove UtilityAPI billing if applicable (best-effort)
     if conn_row["connection_type"] == "direct" and conn_row["stripe_subscription_item_id"]:
         try:
-            from services.utilityapi_billing_service import UtilityAPIBillingService
+            from services.utilityapi_billing_service import \
+                UtilityAPIBillingService
 
             billing_svc = UtilityAPIBillingService(db)
             await billing_svc.remove_meters(current_user.user_id, str(connection_id))

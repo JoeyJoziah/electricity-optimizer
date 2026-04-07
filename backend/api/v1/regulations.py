@@ -11,7 +11,8 @@ Provides state-level energy regulation data including:
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from api.dependencies import get_db_session
-from models.regulation import StateRegulationListResponse, StateRegulationResponse
+from models.regulation import (StateRegulationListResponse,
+                               StateRegulationResponse)
 from repositories.supplier_repository import StateRegulationRepository
 
 router = APIRouter(tags=["Regulations"])

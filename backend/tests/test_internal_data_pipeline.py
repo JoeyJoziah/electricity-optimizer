@@ -740,9 +740,9 @@ class TestRateScraperServiceConcurrency:
                 ]
                 await svc.scrape_supplier_rates(suppliers, max_concurrency=3)
 
-        assert peak_concurrent <= 3, (
-            f"Peak concurrent calls ({peak_concurrent}) exceeded semaphore limit (3)"
-        )
+        assert (
+            peak_concurrent <= 3
+        ), f"Peak concurrent calls ({peak_concurrent}) exceeded semaphore limit (3)"
 
     async def test_summary_response_format_complete(self):
         """scrape_supplier_rates always returns all required summary keys."""

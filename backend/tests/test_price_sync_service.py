@@ -125,7 +125,8 @@ class TestSyncPrices:
                 return_value=mock_pricing_svc,
             ),
         ):
-            from services.price_sync_service import DEFAULT_REGIONS, sync_prices
+            from services.price_sync_service import (DEFAULT_REGIONS,
+                                                     sync_prices)
 
             await sync_prices(mock_db, regions=None)
 

@@ -235,9 +235,7 @@ class ConnectionAnalyticsService:
                 "days_since_sync": (
                     (datetime.now(UTC) - row["last_scan_at"]).days
                     if row["last_scan_at"]
-                    else (datetime.now(UTC) - row["created_at"]).days
-                    if row["created_at"]
-                    else None
+                    else (datetime.now(UTC) - row["created_at"]).days if row["created_at"] else None
                 ),
             }
             for row in rows
@@ -284,9 +282,9 @@ class ConnectionAnalyticsService:
                         "current_rate": round(current, 4),
                         "change_percentage": round(change_pct, 2),
                         "direction": "increase" if current > previous else "decrease",
-                        "detected_at": row["effective_date"].isoformat()
-                        if row["effective_date"]
-                        else None,
+                        "detected_at": (
+                            row["effective_date"].isoformat() if row["effective_date"] else None
+                        ),
                     }
                 )
 
