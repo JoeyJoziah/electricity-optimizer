@@ -13,7 +13,7 @@ const features = [
     icon: TrendingDown,
     title: "Real-Time Price Tracking",
     description:
-      "Monitor electricity rates from local utility providers across all 50 states in real time.",
+      "Monitor electricity rates from utility providers in deregulated electricity markets in real time.",
   },
   {
     icon: Bell,
@@ -140,9 +140,10 @@ export default function LandingPage() {
             <span className="text-primary-600">Your Electricity Bills</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">
-            AI-powered price optimization that tracks real-time rates from local
-            utility providers across all 50 states. Get smart alerts and ML
-            forecasts to cut your electricity bill.
+            AI-powered price optimization that tracks real-time rates from
+            utility providers in deregulated electricity markets (TX, PA, OH,
+            IL, NY, and more). Get smart alerts and ML forecasts to cut your
+            electricity bill.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link

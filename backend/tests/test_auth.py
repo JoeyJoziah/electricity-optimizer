@@ -756,7 +756,7 @@ class TestAuthIntegration:
 
         from api.v1.auth import _get_current_user_with_brute_force_tracking, router
         from auth.neon_auth import SessionData
-        from config.database import get_timescale_session
+        from config.database import get_pg_session
 
         # Build a standalone app with the auth router
         app = FastAPI()
@@ -777,7 +777,7 @@ class TestAuthIntegration:
         app.dependency_overrides[_get_current_user_with_brute_force_tracking] = lambda: (
             valid_session
         )
-        app.dependency_overrides[get_timescale_session] = lambda: mock_db
+        app.dependency_overrides[get_pg_session] = lambda: mock_db
 
         with TestClient(app) as client:
             response = client.get("/api/v1/auth/me")

@@ -248,7 +248,7 @@ Notes:
 | Query latency (avg) | < 50ms | 50-200ms | > 200ms | Neon Console > Monitoring |
 
 Notes:
-- The connection pool is configured at `pool_size=3, max_overflow=5` (8 max total). At 8
+- The connection pool is configured at `pool_size=5, max_overflow=10` (15 max total). At 15
   active connections, new requests queue and then fail. This is the single most dangerous
   bottleneck under concurrent load.
 - If compute-hours exceed 12 hours in the first 6 hours of launch, the month budget will

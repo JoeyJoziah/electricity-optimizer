@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
-from api.dependencies import SessionData, get_current_user, get_db_session
+from api.dependencies import SessionData, _get_user_tier, get_current_user, get_db_session
 from config.settings import settings
 from services.agent_service import AgentService
 
@@ -63,17 +63,6 @@ def _require_agent_enabled():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI agent is not enabled. Set ENABLE_AI_AGENT=true to activate.",
         )
-
-
-async def _get_user_tier(user_id: str, db: AsyncSession) -> str:
-    """Look up the user's subscription tier."""
-    from sqlalchemy import text
-
-    result = await db.execute(
-        text("SELECT subscription_tier FROM public.users WHERE id = :id"),
-        {"id": user_id},
-    )
-    return result.scalar_one_or_none() or "free"
 
 
 async def _get_user_context(user_id: str, db: AsyncSession) -> dict:

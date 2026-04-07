@@ -95,7 +95,7 @@
 | **Monitoring** | Neon Console > Project `cold-rice-23455092` > Usage tab |
 | **Upgrade path** | Neon Launch: **$19/month** for 300 compute-hours, 10 GB storage, 1 CU. |
 
-**Key concern**: The DB connection pool (`pool_size=3, max_overflow=5` = 8 max connections) will be the real limit under concurrent load. At 50+ concurrent users, connection exhaustion is possible. Connection pooling via Neon PgBouncer helps but 0.25 CU will be slow under load.
+**Key concern**: The DB connection pool (`pool_size=5, max_overflow=10` = 15 max connections) will be the real limit under concurrent load. At 50+ concurrent users, connection exhaustion is possible. Connection pooling via Neon PgBouncer helps but 0.25 CU will be slow under load.
 
 ---
 

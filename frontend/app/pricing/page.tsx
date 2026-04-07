@@ -63,7 +63,7 @@ const tiers = [
       "Custom alert rules & thresholds",
       "Advanced analytics & reporting",
       "SSE real-time streaming",
-      "Dedicated account manager",
+      "White-glove onboarding",
     ],
     limitations: [],
     cta: "Contact Sales",
@@ -244,7 +244,7 @@ export default function PricingPage() {
               <dd className="mt-2 text-sm text-gray-600">
                 We use official NREL (National Renewable Energy Laboratory) and
                 EIA data combined with real-time supplier feeds from utility
-                providers across all 50 states.
+                providers in deregulated electricity markets.
               </dd>
             </div>
           </dl>

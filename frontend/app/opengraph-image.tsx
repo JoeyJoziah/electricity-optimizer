@@ -57,7 +57,7 @@ export default function OGImage() {
           fontWeight: 400,
         }}
       >
-        AI-Powered Utility Savings for All 50 States
+        AI-Powered Utility Savings for Deregulated Markets
       </div>
     </div>,
     { ...size },

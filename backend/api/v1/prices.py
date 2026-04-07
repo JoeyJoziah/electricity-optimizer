@@ -20,7 +20,7 @@ from api.dependencies import (
     require_tier,
     verify_api_key,
 )
-from config.database import get_timescale_session
+from config.database import get_pg_session
 from config.settings import get_settings
 from models.price import (
     Price,
@@ -494,7 +494,7 @@ async def compare_prices(
 )
 async def refresh_prices(
     _api_key: bool = Depends(verify_api_key),
-    session: AsyncSession = Depends(get_timescale_session),
+    session: AsyncSession = Depends(get_pg_session),
 ):
     """
     Trigger a refresh of electricity price data from external sources.

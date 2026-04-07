@@ -88,6 +88,10 @@ class Settings(BaseSettings):
         default=None, validation_alias="OPENWEATHERMAP_API_KEY"
     )
 
+    # Auto Rate Switcher (EnergyBot — plan comparison/enrollment, Arcadia — meter data)
+    energybot_api_key: str | None = Field(default=None, validation_alias="ENERGYBOT_API_KEY")
+    arcadia_api_key: str | None = Field(default=None, validation_alias="ARCADIA_API_KEY")
+
     # Rate Scraping (Diffbot — free tier, 10K credits/month)
     diffbot_api_token: str | None = Field(default=None, validation_alias="DIFFBOT_API_TOKEN")
 
@@ -213,9 +217,6 @@ class Settings(BaseSettings):
     oauth_redirect_base_url: str = Field(
         default="http://localhost:8000", validation_alias="OAUTH_REDIRECT_BASE_URL"
     )
-    # TODO: Set FRONTEND_URL=https://rateshift.app on Render (and any other
-    # non-local deployment) so OAuth callbacks redirect to the correct frontend
-    # origin.  The default covers local development only.
     frontend_url: str = Field(default="http://localhost:3000", validation_alias="FRONTEND_URL")
 
     # AI Agent (Gemini primary + Groq fallback + Composio tools)

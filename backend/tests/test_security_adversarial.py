@@ -205,9 +205,9 @@ def full_app_client():
             new_callable=AsyncMock,
             return_value=[{"1": 1}],
         ),
-        patch("config.database.db_manager.get_timescale_session") as mock_session_cm,
+        patch("config.database.db_manager.get_pg_session") as mock_session_cm,
     ):
-        # Make get_timescale_session a context manager that yields None.
+        # Make get_pg_session a context manager that yields None.
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=None)
         mock_session.__aexit__ = AsyncMock(return_value=False)

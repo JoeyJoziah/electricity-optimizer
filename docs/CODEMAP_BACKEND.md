@@ -845,7 +845,7 @@ for CSRF protection (state timeout configured). Bill uploads: File type validati
 
 | Backend | Client | Pool Config |
 |---------|--------|-------------|
-| Neon PostgreSQL | SQLAlchemy `AsyncEngine` + optional `asyncpg.Pool` | pool_size=3, max_overflow=5, pool_recycle=200, pool_timeout=20 |
+| Neon PostgreSQL | SQLAlchemy `AsyncEngine` + optional `asyncpg.Pool` | pool_size=5, max_overflow=10, pool_recycle=200, pool_timeout=20 |
 | Redis | `redis.asyncio.Redis` | max_connections=10, socket_keepalive=True |
 
 **Neon handling:** SSL auto-required for `neon.tech` URLs; `sslmode`/`channel_binding`

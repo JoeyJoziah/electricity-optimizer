@@ -127,7 +127,7 @@ async def health_check():
         if not db_manager.async_session_maker and settings.database_url:
             await db_manager._try_reconnect_database()
 
-        if db_manager.timescale_engine or db_manager.timescale_pool:
+        if db_manager.pg_engine or db_manager.pg_pool:
             result = await db_manager._execute_raw_query("SELECT 1")
             if result:
                 db_status = "connected"

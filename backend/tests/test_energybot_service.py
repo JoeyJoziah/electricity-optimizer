@@ -198,13 +198,13 @@ class TestFetchPlansSuccess:
         mock_client.request = AsyncMock(
             return_value=_make_httpx_response(200, {"plans": sample_plans})
         )
-        # execute is called: 1 DELETE + N INSERTs
+        # execute is called: 1 DELETE + 1 bulk INSERT
         mock_db.execute.return_value = MagicMock()
 
         await service.fetch_plans("19103", utility_code="PECO")
 
-        # DELETE + 2 INSERTs = 3 execute calls
-        assert mock_db.execute.call_count == 1 + len(sample_plans)
+        # DELETE + 1 bulk INSERT = 2 execute calls
+        assert mock_db.execute.call_count == 2
         mock_db.commit.assert_awaited_once()
 
 

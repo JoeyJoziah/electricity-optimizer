@@ -24,7 +24,7 @@ from auth.neon_auth import (
     invalidate_session_cache,
 )
 from auth.password import check_password_strength
-from config.database import db_manager, get_timescale_session
+from config.database import db_manager, get_pg_session
 from middleware.rate_limiter import UserRateLimiter
 
 logger = structlog.get_logger()
@@ -113,7 +113,7 @@ async def _check_login_lockout(request: Request) -> None:
 
 async def _get_current_user_with_brute_force_tracking(
     request: Request,
-    db: AsyncSession = Depends(get_timescale_session),
+    db: AsyncSession = Depends(get_pg_session),
 ) -> SessionData:
     """Wrap ``get_current_user`` to record failed auth attempts per IP.
 
@@ -149,7 +149,7 @@ async def _get_current_user_with_brute_force_tracking(
 async def get_me(
     request: Request,
     current_user: SessionData = Depends(_get_current_user_with_brute_force_tracking),
-    db: AsyncSession = Depends(get_timescale_session),
+    db: AsyncSession = Depends(get_pg_session),
 ):
     """
     Get current authenticated user information.

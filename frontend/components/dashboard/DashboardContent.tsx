@@ -318,6 +318,7 @@ export default function DashboardContent() {
           onTimeRangeChange={setTimeRange}
           savingsData={savingsData}
           savingsError={savingsError}
+          region={region}
         />
 
         {/* Second row: Forecast + Top suppliers */}

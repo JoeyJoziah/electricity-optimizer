@@ -28,8 +28,8 @@ class DatabaseManager:
     """Manages database connections and pooling"""
 
     def __init__(self):
-        self.timescale_engine = None
-        self.timescale_pool: asyncpg.Pool | None = None
+        self.pg_engine = None
+        self.pg_pool: asyncpg.Pool | None = None
         self.redis_client: aioredis.Redis | None = None
         self.async_session_maker = None
         # Reconnection rate limiter — prevents hammering a down database
@@ -84,7 +84,7 @@ class DatabaseManager:
             # PgBouncer multiplexing; increase DB_POOL_SIZE / DB_MAX_OVERFLOW
             # freely on the pooler endpoint without hitting Neon limits.
             sqlalchemy_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
-            self.timescale_engine = create_async_engine(
+            self.pg_engine = create_async_engine(
                 sqlalchemy_url,
                 echo=False,  # Disable SQL echo in production to reduce overhead
                 pool_size=settings.db_pool_size,
@@ -97,14 +97,14 @@ class DatabaseManager:
 
             # Create async session maker
             self.async_session_maker = async_sessionmaker(
-                self.timescale_engine, class_=AsyncSession, expire_on_commit=False
+                self.pg_engine, class_=AsyncSession, expire_on_commit=False
             )
 
             # Create asyncpg pool for raw queries (skip for Neon - use SQLAlchemy only)
             # Optimized pool sizes for free tier
             if "neon.tech" not in db_url:
                 try:
-                    self.timescale_pool = await asyncpg.create_pool(
+                    self.pg_pool = await asyncpg.create_pool(
                         db_url,
                         min_size=1,  # Reduced from 2
                         max_size=5,  # Reduced from 10 for free tier
@@ -148,12 +148,12 @@ class DatabaseManager:
 
     async def close(self):
         """Close all database connections"""
-        if self.timescale_pool:
-            await self.timescale_pool.close()
+        if self.pg_pool:
+            await self.pg_pool.close()
             logger.info("database_pool_closed")
 
-        if self.timescale_engine:
-            await self.timescale_engine.dispose()
+        if self.pg_engine:
+            await self.pg_engine.dispose()
             logger.info("database_engine_disposed")
 
         if self.redis_client:
@@ -177,7 +177,7 @@ class DatabaseManager:
             logger.info("database_reconnected_successfully")
 
     @asynccontextmanager
-    async def get_timescale_session(self):
+    async def get_pg_session(self):
         """Get database session (SQLAlchemy). Yields None if not initialized.
 
         If the session maker is not available but DATABASE_URL is configured,
@@ -204,14 +204,14 @@ class DatabaseManager:
 
     async def _execute_raw_query(self, query: str, *args):
         """Execute raw query on database (asyncpg pool or SQLAlchemy fallback)"""
-        if self.timescale_pool:
-            async with self.timescale_pool.acquire() as conn:
+        if self.pg_pool:
+            async with self.pg_pool.acquire() as conn:
                 return await conn.fetch(query, *args)
 
-        if self.timescale_engine:
+        if self.pg_engine:
             from sqlalchemy import text
 
-            async with self.timescale_engine.connect() as conn:
+            async with self.pg_engine.connect() as conn:
                 result = await conn.execute(text(query))
                 return result.fetchall()
 
@@ -227,9 +227,9 @@ db_manager = DatabaseManager()
 
 
 # Dependency injection for FastAPI
-async def get_timescale_session():
+async def get_pg_session():
     """FastAPI dependency for database session"""
-    async with db_manager.get_timescale_session() as session:
+    async with db_manager.get_pg_session() as session:
         yield session
 
 

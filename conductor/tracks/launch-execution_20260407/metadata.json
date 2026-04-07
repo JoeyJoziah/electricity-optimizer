@@ -1,0 +1,20 @@
+{
+  "id": "launch-execution_20260407",
+  "title": "Product Hunt Launch Execution",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-04-07T00:00:00Z",
+  "updated": "2026-04-07T00:00:00Z",
+  "current_phase": 0,
+  "current_task": "0.1",
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 10,
+    "completed": 0
+  },
+  "commits": [],
+  "depends_on": "pre-launch-completion_20260407"
+}

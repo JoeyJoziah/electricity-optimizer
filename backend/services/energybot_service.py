@@ -8,6 +8,7 @@ External API — all calls mocked in tests until API contract in place.
 """
 
 import asyncio
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -97,7 +98,7 @@ class EnergyBotService:
 
     def __init__(self, db: AsyncSession):
         self._db = db
-        self._api_key = getattr(settings, "energybot_api_key", None) or ""
+        self._api_key = settings.energybot_api_key or ""
         self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -250,32 +251,44 @@ class EnergyBotService:
             delete_params,
         )
 
-        for plan in plans:
+        if plans:
+            rows = [
+                {
+                    f"zip_{i}": zip_code,
+                    f"util_{i}": utility_code or plan.get("utility_code"),
+                    f"region_{i}": plan.get("state", "unknown"),
+                    f"name_{i}": plan.get("plan_name", "Unknown Plan"),
+                    f"provider_{i}": plan.get("provider_name", "Unknown Provider"),
+                    f"rate_{i}": plan.get("rate_kwh", 0),
+                    f"fixed_{i}": plan.get("fixed_charge", 0),
+                    f"term_{i}": plan.get("term_months"),
+                    f"etf_{i}": plan.get("etf_amount", 0),
+                    f"renewable_{i}": plan.get("renewable_pct", 0),
+                    f"url_{i}": plan.get("plan_url"),
+                    f"eb_id_{i}": plan.get("id"),
+                    f"raw_{i}": json.dumps(plan),
+                }
+                for i, plan in enumerate(plans)
+            ]
+            values_clauses = ", ".join(
+                f"(:zip_{i}, :util_{i}, :region_{i}, :name_{i}, :provider_{i}, "
+                f":rate_{i}, :fixed_{i}, :term_{i}, :etf_{i}, :renewable_{i}, "
+                f":url_{i}, :eb_id_{i}, :raw_{i}::jsonb, now())"
+                for i in range(len(plans))
+            )
+            params: dict[str, Any] = {}
+            for row in rows:
+                params.update(row)
+
             await self._db.execute(
                 text(
                     "INSERT INTO available_plans "
                     "(zip_code, utility_code, region, plan_name, provider_name, "
                     "rate_kwh, fixed_charge, term_months, etf_amount, renewable_pct, "
                     "plan_url, energybot_id, raw_plan_data, fetched_at) "
-                    "VALUES (:zip, :util, :region, :name, :provider, "
-                    ":rate, :fixed, :term, :etf, :renewable, "
-                    ":url, :eb_id, :raw::jsonb, now())"
+                    f"VALUES {values_clauses}"
                 ),
-                {
-                    "zip": zip_code,
-                    "util": utility_code or plan.get("utility_code"),
-                    "region": plan.get("state", "unknown"),
-                    "name": plan.get("plan_name", "Unknown Plan"),
-                    "provider": plan.get("provider_name", "Unknown Provider"),
-                    "rate": plan.get("rate_kwh", 0),
-                    "fixed": plan.get("fixed_charge", 0),
-                    "term": plan.get("term_months"),
-                    "etf": plan.get("etf_amount", 0),
-                    "renewable": plan.get("renewable_pct", 0),
-                    "url": plan.get("plan_url"),
-                    "eb_id": plan.get("id"),
-                    "raw": str(plan),
-                },
+                params,
             )
         await self._db.commit()
 

@@ -272,7 +272,7 @@ PSEUDOCODE db_connection_strategy:
     1. Supabase client (optional, skip in dev if unconfigured)
     2. Primary DB: DATABASE_URL > TIMESCALEDB_URL priority
        Neon: ssl=require, strip sslmode/channel_binding, SQLAlchemy only (no asyncpg pool)
-       TimescaleDB: asyncpg pool min=1/max=5 + SQLAlchemy engine pool_size=3/overflow=5
+       TimescaleDB: asyncpg pool min=1/max=5 + SQLAlchemy engine pool_size=5/overflow=10
     3. Redis: aioredis from_url, max_connections=10
     Production: raise on any init failure. Dev: warn and continue.
 ```

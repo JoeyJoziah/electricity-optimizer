@@ -29,7 +29,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.database import db_manager, get_timescale_session
+from config.database import db_manager, get_pg_session
 from config.settings import settings
 
 logger = structlog.get_logger()
@@ -304,7 +304,7 @@ async def invalidate_sessions_for_banned_user(user_id: str, redis=None) -> bool:
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: AsyncSession = Depends(get_timescale_session),
+    db: AsyncSession = Depends(get_pg_session),
 ) -> SessionData:
     """
     FastAPI dependency — extracts and validates a Neon Auth session.
@@ -391,7 +391,7 @@ async def get_current_user(
 async def get_current_user_optional(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: AsyncSession = Depends(get_timescale_session),
+    db: AsyncSession = Depends(get_pg_session),
 ) -> SessionData | None:
     """
     Get current user if authenticated, None otherwise.

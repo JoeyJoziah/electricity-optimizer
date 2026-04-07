@@ -419,7 +419,7 @@ class TestDatabaseManager:
         db_manager = DatabaseManager()
 
         assert db_manager is not None
-        assert db_manager.timescale_pool is None  # Not initialized yet
+        assert db_manager.pg_pool is None  # Not initialized yet
         assert db_manager.redis_client is None  # Not initialized yet
 
     async def test_get_redis_returns_none_if_not_initialized(self):

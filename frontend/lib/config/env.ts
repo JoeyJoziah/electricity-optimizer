@@ -21,8 +21,8 @@
 // Helpers
 // ---------------------------------------------------------------------------
 
-const isProduction = process.env.NODE_ENV === 'production'
-const isTest = process.env.NODE_ENV === 'test'
+const isProduction = process.env.NODE_ENV === "production";
+const isTest = process.env.NODE_ENV === "test";
 
 /**
  * Resolve an env var with a fallback. In production, if the variable is
@@ -34,14 +34,14 @@ function env(
   fallback: string,
   opts?: { required?: boolean; name?: string },
 ): string {
-  if (value) return value
+  if (value) return value;
   if (isProduction && opts?.required) {
     throw new Error(
-      `[env] Missing required environment variable: ${opts.name ?? '(unknown)'}. ` +
-        'Set it in your deployment configuration.',
-    )
+      `[env] Missing required environment variable: ${opts.name ?? "(unknown)"}. ` +
+        "Set it in your deployment configuration.",
+    );
   }
-  return fallback
+  return fallback;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,11 +54,10 @@ function env(
  *
  * Example: "https://api.rateshift.app/api/v1"
  */
-export const API_URL: string = env(
-  process.env.NEXT_PUBLIC_API_URL,
-  '/api/v1',
-  { required: false, name: 'NEXT_PUBLIC_API_URL' },
-)
+export const API_URL: string = env(process.env.NEXT_PUBLIC_API_URL, "/api/v1", {
+  required: false,
+  name: "NEXT_PUBLIC_API_URL",
+});
 
 /**
  * API origin (scheme + host + port) **without** any path.
@@ -70,13 +69,13 @@ export const API_URL: string = env(
  */
 export const API_ORIGIN: string = (() => {
   try {
-    if (API_URL.startsWith('/')) return ''
-    const parsed = new URL(API_URL)
-    return `${parsed.protocol}//${parsed.host}`
+    if (API_URL.startsWith("/")) return "";
+    const parsed = new URL(API_URL);
+    return `${parsed.protocol}//${parsed.host}`;
   } catch {
-    return ''
+    return "";
   }
-})()
+})();
 
 /**
  * Fallback API URL for direct-to-origin requests when the CF Worker gateway
@@ -85,7 +84,7 @@ export const API_ORIGIN: string = (() => {
  * Example: "https://electricity-optimizer.onrender.com/api/v1"
  */
 export const FALLBACK_API_URL: string =
-  process.env.NEXT_PUBLIC_FALLBACK_API_URL || ''
+  process.env.NEXT_PUBLIC_FALLBACK_API_URL || "";
 
 // ---------------------------------------------------------------------------
 // Frontend / App
@@ -99,18 +98,18 @@ export const FALLBACK_API_URL: string =
  */
 export const APP_URL: string = env(
   process.env.NEXT_PUBLIC_APP_URL,
-  'http://localhost:3000',
-  { name: 'NEXT_PUBLIC_APP_URL' },
-)
+  "http://localhost:3000",
+  { name: "NEXT_PUBLIC_APP_URL" },
+);
 
 // Warn at startup if NEXT_PUBLIC_APP_URL is missing in production.
 // This variable is critical for auth redirects and SEO metadata.
 if (isProduction && !process.env.NEXT_PUBLIC_APP_URL) {
   console.warn(
-    '[env] WARNING: NEXT_PUBLIC_APP_URL is not set in production. ' +
-      'Auth redirects and canonical URLs will fall back to http://localhost:3000. ' +
-      'Set NEXT_PUBLIC_APP_URL in your deployment environment.',
-  )
+    "[env] WARNING: NEXT_PUBLIC_APP_URL is not set in production. " +
+      "Auth redirects and canonical URLs will fall back to http://localhost:3000. " +
+      "Set NEXT_PUBLIC_APP_URL in your deployment environment.",
+  );
 }
 
 /**
@@ -119,29 +118,35 @@ if (isProduction && !process.env.NEXT_PUBLIC_APP_URL) {
  */
 export const SITE_URL: string = env(
   process.env.NEXT_PUBLIC_SITE_URL,
-  'https://rateshift.app',
-  { name: 'NEXT_PUBLIC_SITE_URL' },
-)
+  "https://rateshift.app",
+  { name: "NEXT_PUBLIC_SITE_URL" },
+);
 
 // ---------------------------------------------------------------------------
 // Flags & Utilities
 // ---------------------------------------------------------------------------
 
 /** True when NODE_ENV === 'production' */
-export const IS_PRODUCTION = isProduction
+export const IS_PRODUCTION = isProduction;
 
 /** True when NODE_ENV === 'test' */
-export const IS_TEST = isTest
+export const IS_TEST = isTest;
 
 /** True when NODE_ENV === 'development' (or unset) */
-export const IS_DEV = !isProduction && !isTest
+export const IS_DEV = !isProduction && !isTest;
 
 // ---------------------------------------------------------------------------
 // Analytics & Integrations
 // ---------------------------------------------------------------------------
 
 /** Microsoft Clarity project ID for heatmaps and session recordings (free, unlimited). */
-export const CLARITY_PROJECT_ID: string = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || ''
+export const CLARITY_PROJECT_ID: string =
+  process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || "";
 
 /** OneSignal App ID for web push notifications (free tier, 10K web push/send). */
-export const ONESIGNAL_APP_ID: string = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || ''
+export const ONESIGNAL_APP_ID: string =
+  process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "";
+
+/** Google Analytics 4 Measurement ID (e.g. "G-XXXXXXXXXX"). Empty in dev/test by default. */
+export const GA_MEASUREMENT_ID: string =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "";

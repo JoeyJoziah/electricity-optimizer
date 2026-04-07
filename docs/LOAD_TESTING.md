@@ -177,8 +177,8 @@ behind a proxy pool or from multiple machines.
 
 ### Neon DB Connection Pool
 
-The backend uses a PgBouncer-compatible connection pool with `size=3,
-max_overflow=5` (8 total concurrent database connections). Endpoints that
+The backend uses a PgBouncer-compatible connection pool with `size=5,
+max_overflow=10` (15 total concurrent database connections). Endpoints that
 bypass the pool (`/health/live`, `/health/ready`) are weighted higher in the
 test to prevent pool exhaustion from cascading into 503s on data endpoints.
 

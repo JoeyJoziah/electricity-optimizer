@@ -226,6 +226,9 @@ jest.mock("lucide-react", () => ({
   Clock: (props: React.SVGAttributes<SVGElement>) => (
     <svg data-testid="icon-clock" {...props} />
   ),
+  DollarSign: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-dollar-sign" {...props} />
+  ),
 }));
 
 // ---------------------------------------------------------------------------
@@ -1003,9 +1006,11 @@ describe("DashboardContent", () => {
     expect(screen.getByText("Top Suppliers")).toBeInTheDocument();
   });
 
-  // --- Upgrade CTA for tier-gated features (403 errors) ---
+  // --- Value-first teaser for tier-gated features (403 errors) ---
+  // Free-tier users now see blurred/estimated content BEFORE the CTA,
+  // not a lock gate that replaces all content.
 
-  it("shows forecast upgrade CTA when forecast returns 403", () => {
+  it("shows forecast teaser (blurred chart) when forecast returns 403", () => {
     const forecastError = new ApiClientError({
       message: "Pro plan required",
       status: 403,
@@ -1018,13 +1023,18 @@ describe("DashboardContent", () => {
 
     render(<DashboardContent />, { wrapper: createWrapper() });
 
-    expect(screen.getByTestId("forecast-upgrade-cta")).toBeInTheDocument();
-    expect(screen.getByText("Unlock ML-Powered Forecasts")).toBeInTheDocument();
+    // Blurred chart teaser should be visible
+    expect(screen.getByTestId("forecast-teaser-chart")).toBeInTheDocument();
     expect(
-      screen.getByText(/upgrade to pro to see 24-hour price predictions/i),
+      screen.getByTestId("forecast-teaser-blurred-data"),
+    ).toBeInTheDocument();
+    // CTA below the teaser content
+    expect(screen.getByTestId("forecast-teaser-cta")).toBeInTheDocument();
+    expect(
+      screen.getByText(/upgrade to see exact forecasts/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /upgrade to pro/i }),
+      screen.getByRole("link", { name: /unlock forecasts/i }),
     ).toHaveAttribute("href", "/pricing");
   });
 
@@ -1038,12 +1048,12 @@ describe("DashboardContent", () => {
     render(<DashboardContent />, { wrapper: createWrapper() });
 
     expect(
-      screen.queryByTestId("forecast-upgrade-cta"),
+      screen.queryByTestId("forecast-teaser-chart"),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Forecast unavailable")).toBeInTheDocument();
   });
 
-  it("shows savings upgrade CTA when savings returns 403", () => {
+  it("shows savings teaser (estimated range) when savings returns 403", () => {
     const savingsError = new ApiClientError({
       message: "Pro plan required",
       status: 403,
@@ -1055,11 +1065,15 @@ describe("DashboardContent", () => {
 
     render(<DashboardContent />, { wrapper: createWrapper() });
 
-    expect(screen.getByTestId("savings-upgrade-cta")).toBeInTheDocument();
-    expect(screen.getByText("Track Your Savings")).toBeInTheDocument();
-    expect(
-      screen.getByText(/upgrade to pro to see savings tracking/i),
-    ).toBeInTheDocument();
+    // Savings teaser with estimated range should be visible (us_ct = Northeast)
+    expect(screen.getByTestId("savings-teaser-range")).toBeInTheDocument();
+    expect(screen.getByText(/\$200/)).toBeInTheDocument();
+    expect(screen.getByText(/\$400/)).toBeInTheDocument();
+    // CTA below the estimate
+    expect(screen.getByTestId("savings-teaser-cta")).toBeInTheDocument();
+    expect(screen.getByText(/get exact savings with pro/i)).toBeInTheDocument();
+    // Card title should reflect teaser state
+    expect(screen.getByText("Your Potential Savings")).toBeInTheDocument();
   });
 
   it("shows SavingsTracker when savings error is not 403", () => {
@@ -1070,22 +1084,22 @@ describe("DashboardContent", () => {
 
     render(<DashboardContent />, { wrapper: createWrapper() });
 
-    expect(screen.queryByTestId("savings-upgrade-cta")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("savings-teaser-cta")).not.toBeInTheDocument();
     expect(screen.getByTestId("savings-tracker")).toBeInTheDocument();
   });
 
-  it("does not show upgrade CTAs when data loads successfully", () => {
+  it("does not show teasers when data loads successfully", () => {
     render(<DashboardContent />, { wrapper: createWrapper() });
 
     expect(
-      screen.queryByTestId("forecast-upgrade-cta"),
+      screen.queryByTestId("forecast-teaser-chart"),
     ).not.toBeInTheDocument();
-    expect(screen.queryByTestId("savings-upgrade-cta")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("savings-teaser-cta")).not.toBeInTheDocument();
     expect(screen.getByTestId("forecast-chart")).toBeInTheDocument();
     expect(screen.getByTestId("savings-tracker")).toBeInTheDocument();
   });
 
-  it("shows both upgrade CTAs simultaneously for free-tier users", () => {
+  it("shows both teasers simultaneously for free-tier users", () => {
     const forecastError = new ApiClientError({
       message: "Pro plan required",
       status: 403,
@@ -1106,8 +1120,8 @@ describe("DashboardContent", () => {
 
     render(<DashboardContent />, { wrapper: createWrapper() });
 
-    expect(screen.getByTestId("forecast-upgrade-cta")).toBeInTheDocument();
-    expect(screen.getByTestId("savings-upgrade-cta")).toBeInTheDocument();
+    expect(screen.getByTestId("forecast-teaser-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("savings-teaser-cta")).toBeInTheDocument();
 
     // Both should link to /pricing
     const pricingLinks = screen

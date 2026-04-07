@@ -349,11 +349,11 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
 
             # Instrument the SQLAlchemy engine for tracing once it is
             # available.  No-op when OTEL_ENABLED is false.
-            if settings.otel_enabled and db_manager.timescale_engine is not None:
+            if settings.otel_enabled and db_manager.pg_engine is not None:
                 try:
                     from observability import instrument_sqlalchemy_engine
 
-                    instrument_sqlalchemy_engine(db_manager.timescale_engine)
+                    instrument_sqlalchemy_engine(db_manager.pg_engine)
                 except Exception as _sa_exc:
                     logger.warning("otel_sqlalchemy_wire_failed", error=str(_sa_exc))
         except Exception as e:

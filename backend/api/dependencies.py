@@ -34,7 +34,7 @@ async def get_db_session() -> AsyncGenerator:
     Yields:
         AsyncSession for database operations (None if DB not available)
     """
-    async with db_manager.get_timescale_session() as session:
+    async with db_manager.get_pg_session() as session:
         yield session
 
 

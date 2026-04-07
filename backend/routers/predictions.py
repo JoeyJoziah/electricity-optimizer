@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user
-from config.database import get_redis, get_timescale_session
+from config.database import get_pg_session, get_redis
 from models.region import Region
 
 logger = structlog.get_logger(__name__)
@@ -412,7 +412,7 @@ async def predict_prices(
     request: PriceForecastRequest,
     current_user: SessionData = Depends(get_current_user),
     redis_client=Depends(get_redis),
-    session: AsyncSession = Depends(get_timescale_session),
+    session: AsyncSession = Depends(get_pg_session),
 ):
     """
     Generate electricity price forecast
@@ -489,7 +489,7 @@ async def find_optimal_times(
     request: OptimalTimesRequest,
     current_user: SessionData = Depends(get_current_user),
     redis_client=Depends(get_redis),
-    session: AsyncSession = Depends(get_timescale_session),
+    session: AsyncSession = Depends(get_pg_session),
 ):
     """
     Find optimal time slots for running appliances
@@ -578,7 +578,7 @@ async def estimate_savings(
     request: SavingsEstimateRequest,
     current_user: SessionData = Depends(get_current_user),
     redis_client=Depends(get_redis),
-    session: AsyncSession = Depends(get_timescale_session),
+    session: AsyncSession = Depends(get_pg_session),
 ):
     """
     Estimate cost savings from appliance optimization

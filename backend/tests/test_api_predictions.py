@@ -19,21 +19,21 @@ from fastapi.testclient import TestClient
 def predictions_client():
     """Create a TestClient with mocked database dependencies."""
     from api.dependencies import SessionData, get_current_user
-    from config.database import get_redis, get_timescale_session
+    from config.database import get_pg_session, get_redis
     from main import app
 
     mock_user = SessionData(user_id="test-user-id", email="test@example.com")
 
     # Override DB and auth dependencies so no real connections are needed
     app.dependency_overrides[get_redis] = lambda: None
-    app.dependency_overrides[get_timescale_session] = lambda: AsyncMock()
+    app.dependency_overrides[get_pg_session] = lambda: AsyncMock()
     app.dependency_overrides[get_current_user] = lambda: mock_user
 
     client = TestClient(app)
     yield client
 
     app.dependency_overrides.pop(get_redis, None)
-    app.dependency_overrides.pop(get_timescale_session, None)
+    app.dependency_overrides.pop(get_pg_session, None)
     app.dependency_overrides.pop(get_current_user, None)
 
 

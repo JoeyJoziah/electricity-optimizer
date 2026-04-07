@@ -87,7 +87,7 @@ Hey everyone! I've been working on **RateShift** for the past few months and jus
 1. **Multi-state complexity:** Each state has different deregulation rules, utilities, tariffs. I built a Region enum covering all 50 states + DC and a supplier_registry table seeded with utility info
 2. **Real-time data consistency:** Streaming prices via SSE while keeping the DB in sync was tricky. Added RequestTimeoutMiddleware exclusions for batch jobs and parallelized API calls with asyncio.gather + Semaphore
 3. **ML model drift:** Built an adaptive learning loop that records forecast vs actual prices nightly, detects bias, and retrains weights automatically
-4. **Neon serverless gotchas:** Had to tune PgBouncer config (statement_cache_size=0), pool settings (size=3, max_overflow=5), and handle connection recycling carefully
+4. **Neon serverless gotchas:** Had to tune PgBouncer config (statement_cache_size=0), pool settings (size=5, max_overflow=10), and handle connection recycling carefully
 5. **Payment webhook reliability:** Stripe invoice events lack user metadata, so I resolve users via stripe_customer_id lookup + had to handle async billing correctly
 
 **Testing & Quality:**
@@ -248,7 +248,7 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 
 2. **Neon Serverless Tuning:**
    - `statement_cache_size=0` required for PgBouncer compatibility
-   - Pool: `size=3, max_overflow=5, recycle=200, timeout=20`
+   - Pool: `size=5, max_overflow=10, recycle=200, timeout=20`
    - Discovered the hard way that connection pooling + SSL adds latency
 
 3. **ML Model Drift:**

@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -46,7 +46,7 @@ jobs:
           fi
 
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: frontend/.next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx') }}
@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload baselines as artifact
         if: always() && steps.check.outputs.snapshot_count != '0'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: visual-baselines-${{ inputs.project || 'chromium' }}
           path: frontend/e2e/visual-regression.spec.ts-snapshots/

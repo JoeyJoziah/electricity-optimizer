@@ -32,7 +32,7 @@
 ### Current Bottlenecks
 
 - **Render auto-sleep**: Backend goes idle after 15 minutes of inactivity. Cold start takes 20-30 seconds, causing first-request failures for returning users.
-- **DB connection pool**: `pool_size=3, max_overflow=5` (8 max). Sufficient for single-worker free tier but will saturate under concurrent load.
+- **DB connection pool**: `pool_size=5, max_overflow=10` (15 max). Sufficient for single-worker free tier but will saturate under concurrent load.
 - **Single worker**: Uvicorn runs with `--workers 1`. No parallelism for CPU-bound ML inference or concurrent DB queries.
 - **No shared rate limiter**: In-memory rate limiter is per-process. Multiple workers would each have their own counter, making rate limits inconsistent.
 - **Neon compute limits**: Free tier suspends after 100h/month active time (~3.3h/day average). Sustained traffic will exhaust this.
@@ -507,7 +507,7 @@ Current settings are well-tuned for Neon free tier:
 | `pool_recycle=200` | Correct | 100s before Neon 5-min auto-suspend |
 | `pool_pre_ping=True` | Correct | Validates connections before use |
 | `pool_timeout=20` | Good | Prevents cascading timeouts |
-| `pool_size=3 + max_overflow=5` | Appropriate | 8 max fits Neon free tier ~10 limit |
+| `pool_size=5 + max_overflow=10` | Appropriate | 15 max fits Neon free tier connection limit |
 
 No changes needed. Configuration is externalized via `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` env vars.
 

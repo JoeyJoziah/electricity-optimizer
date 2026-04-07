@@ -107,19 +107,80 @@ test.describe("Authentication Flows", () => {
     },
   );
 
-  // HTML5 email validation shows native browser tooltip, not visible text.
-  // TODO(#GH-needs-issue): Rewrite to test native constraint validation API
-  test.fixme("validates email format — needs native constraint validation rewrite", async ({
-    page,
-  }) => {
-    await page.goto("/auth/login");
+  // The email input uses type="email" which activates the browser's native
+  // Constraint Validation API. We test this via page.evaluate() to read the
+  // validity state directly — the native browser tooltip is not DOM-accessible.
+  // The onBlur handler in LoginForm also sets a React emailError state;
+  // we verify that path separately by triggering blur without a submit.
+  test(
+    "validates email format via native constraint validation API",
+    { tag: ["@regression"] },
+    async ({ page }) => {
+      await mockBetterAuth(page);
+      // Use the default "load" waitUntil (same as passing tests in this file)
+      // so the goto resolves only after the full page load event, not during
+      // Next.js dev-mode route compilation which can cause transient 404s.
+      await page.goto("/auth/login");
 
-    await page.fill("#email", "invalid-email");
-    await page.fill("#password", "TestPass123!");
-    await page.click('button[type="submit"]');
+      // Wait for React hydration: click the email field first to ensure it
+      // is interactive, then fill it and confirm the DOM value was accepted.
+      // In Next.js dev mode with parallel workers, the controlled input may
+      // not be hydrated immediately after toBeVisible() — a click() first
+      // ensures the React event handlers are attached before filling.
+      const emailInput = page.locator("#email");
+      await expect(emailInput).toBeVisible({ timeout: 20000 });
+      await emailInput.click();
+      await emailInput.fill("user@example.com");
 
-    await expect(page.getByText(/valid email/i)).toBeVisible();
-  });
+      // Wait until the DOM value actually reflects our fill — this confirms
+      // React's onChange fired and the controlled component accepted the value.
+      await page.waitForFunction(
+        () =>
+          (document.querySelector("#email") as HTMLInputElement | null)
+            ?.value === "user@example.com",
+        { timeout: 5000 },
+      );
+
+      // Verify a well-formed email address passes native constraint validation.
+      const validValidity = await page.evaluate(() => {
+        const el = document.querySelector<HTMLInputElement>("#email");
+        return {
+          valid: el!.validity.valid,
+          typeMismatch: el!.validity.typeMismatch,
+        };
+      });
+      expect(validValidity.valid).toBe(true);
+      expect(validValidity.typeMismatch).toBe(false);
+
+      // Clear and fill an invalid address — native validation must flag it.
+      await emailInput.fill("not-a-valid-email");
+      await page.waitForFunction(
+        () =>
+          (document.querySelector("#email") as HTMLInputElement | null)
+            ?.value === "not-a-valid-email",
+        { timeout: 5000 },
+      );
+      const invalidValidity = await page.evaluate(() => {
+        const el = document.querySelector<HTMLInputElement>("#email");
+        return {
+          valid: el!.validity.valid,
+          typeMismatch: el!.validity.typeMismatch,
+        };
+      });
+      expect(invalidValidity.valid).toBe(false);
+      expect(invalidValidity.typeMismatch).toBe(true);
+
+      // The onBlur handler in LoginForm also renders a React error message.
+      // Trigger blur by clicking the password field, then assert the message.
+      await page.locator("#password").click();
+      await expect(
+        page.getByText(/please enter a valid email address/i),
+      ).toBeVisible({ timeout: 5000 });
+
+      // Page must remain on login — no submit should have been sent.
+      await expect(page).toHaveURL(/\/auth\/login/);
+    },
+  );
 
   test("shows OAuth login options", { tag: ["@smoke"] }, async ({ page }) => {
     await mockBetterAuth(page);
@@ -161,21 +222,68 @@ test.describe("Authentication Flows", () => {
     await page.waitForURL(/\/(dashboard|auth)/, { timeout: 10000 });
   });
 
-  // Magic link not supported — useAuth returns error message.
-  // TODO(#GH-needs-issue): Remove or rewrite once magic link auth is implemented
-  test.fixme("user can login with magic link — feature not yet implemented", async ({
-    page,
-  }) => {
-    await page.goto("/auth/login");
+  // Magic link IS implemented via Better Auth's magicLinkClient() plugin.
+  // The flow: toggle to magic link mode → fill email → submit → "Check your email"
+  // confirmation screen appears. The /api/auth/sign-in/magic-link endpoint is
+  // mocked here because no backend is running during E2E tests.
+  test(
+    "user can request magic link login",
+    { tag: ["@regression"] },
+    async ({ page }) => {
+      await mockBetterAuth(page);
 
-    await page.click("text=Sign in with magic link");
-    await expect(page.getByText(/magic link/i)).toBeVisible();
+      // Mock the Better Auth magic link endpoint (POST /api/auth/sign-in/magic-link)
+      await page.route("**/api/auth/sign-in/magic-link", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ status: true }),
+        });
+      });
 
-    await page.fill("#email", "test@example.com");
-    await page.click('button[type="submit"]');
+      // Use the default "load" waitUntil to avoid transient 404s during
+      // Next.js dev-mode compilation under parallel worker load.
+      await page.goto("/auth/login");
 
-    await expect(page.getByText(/check your email/i)).toBeVisible();
-  });
+      // Wait for React hydration: click the email field to confirm interaction
+      // works, then click elsewhere to blur before toggling magic link mode.
+      const emailInput = page.locator("#email");
+      await expect(emailInput).toBeVisible({ timeout: 20000 });
+      await emailInput.click();
+
+      // Click the toggle button to switch to magic link mode.
+      // The button fires React's onClick → setShowMagicLink(true).
+      const magicLinkToggle = page.getByRole("button", {
+        name: /sign in with magic link/i,
+      });
+      await expect(magicLinkToggle).toBeVisible({ timeout: 5000 });
+      await magicLinkToggle.click();
+
+      // After toggling, the password field disappears and the submit button
+      // text changes to "Send magic link"
+      await expect(
+        page.getByRole("button", { name: /send magic link/i }),
+      ).toBeVisible({ timeout: 5000 });
+      await expect(page.locator("#password")).not.toBeVisible();
+
+      // Fill in a valid email and submit. Click email field first to confirm
+      // React's onChange handler is wired up before filling the value.
+      await emailInput.click();
+      await emailInput.fill("test@example.com");
+      await page.waitForFunction(
+        () =>
+          (document.querySelector("#email") as HTMLInputElement | null)
+            ?.value === "test@example.com",
+        { timeout: 5000 },
+      );
+      await page.click('button[type="submit"]');
+
+      // After a successful magic link request the form shows the confirmation screen
+      await expect(page.getByText(/check your email/i)).toBeVisible({
+        timeout: 8000,
+      });
+    },
+  );
 
   // Sign-out button is in sidebar (hidden on mobile). Webkit sign-out redirect
   // exceeds the 30s test timeout due to slow cookie/session clearing in the engine.

@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.dependencies import SessionData, get_current_user
-from config.database import get_timescale_session
+from config.database import get_pg_session
 
 TEST_USER = SessionData(user_id="user-prefs-1", email="prefs@example.com")
 
@@ -33,13 +33,13 @@ def auth_client():
 
     mock_db = AsyncMock()
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
-    app.dependency_overrides[get_timescale_session] = lambda: mock_db
+    app.dependency_overrides[get_pg_session] = lambda: mock_db
 
     client = TestClient(app)
     yield client
 
     app.dependency_overrides.pop(get_current_user, None)
-    app.dependency_overrides.pop(get_timescale_session, None)
+    app.dependency_overrides.pop(get_pg_session, None)
 
 
 @pytest.fixture

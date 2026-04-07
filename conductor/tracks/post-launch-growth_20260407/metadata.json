@@ -1,0 +1,21 @@
+{
+  "id": "post-launch-growth_20260407",
+  "title": "Post-Launch Growth & Scaling",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-04-07T00:00:00Z",
+  "updated": "2026-04-07T00:00:00Z",
+  "current_phase": 0,
+  "current_task": "D.1",
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 18,
+    "completed": 2
+  },
+  "commits": [],
+  "depends_on": "launch-execution_20260407",
+  "note": "Trigger-gated backlog — tasks activate when metric thresholds are met"
+}
