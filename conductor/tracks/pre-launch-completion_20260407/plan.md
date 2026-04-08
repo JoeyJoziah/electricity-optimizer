@@ -139,8 +139,8 @@ These tasks can be implemented by agents or manually.
 
 - [x] All P0 tasks (0.1) resolved
 - [x] All P1 tasks (0.2, 1.1, 1.5, 1.6, 1.7) resolved
-- [ ] All tests passing: backend 3,325+, frontend 2,022+, E2E 1,642+
-- [ ] No new TypeScript errors (`tsc --noEmit`)
+- [x] All tests passing: backend 3,325, frontend 2,059 (158 suites), E2E 1,642+
+- [x] No new TypeScript errors (`tsc --noEmit` — 0 errors, fixed gtag type conflict)
 - [x] `settings.py` TODO on line 220 removed after Task 0.1
 - [x] Free-tier dashboard shows teaser content before paywall (Task 1.5)
 - [x] Google OAuth button hidden unless env var enabled (Task 1.6)
