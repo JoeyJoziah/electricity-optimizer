@@ -1,8 +1,8 @@
 # Launch Posts for RateShift
 
-> **WARNING**: These posts contain stale claims ("all 50 states"). Rewrite using copy from `docs/launch/FINAL_COPY.md` before publishing. Use "deregulated US markets" or "17+ states" instead.
+> Updated 2026-04-08 — all claims corrected per multi-agent review guardrails. Canonical copy in `docs/launch/FINAL_COPY.md`.
 
-Launch strategy for announcing RateShift (RateShift) on Hacker News and Reddit. Each post emphasizes different angles while maintaining authenticity and technical credibility.
+Launch strategy for announcing RateShift on Hacker News and Reddit. Each post emphasizes different angles while maintaining authenticity and technical credibility.
 
 ---
 
@@ -19,10 +19,10 @@ I've been building RateShift for the past few months, and we're ready to launch 
 
 **The Problem:** Electricity prices vary wildly across suppliers and time periods, but most people have no visibility into what they're actually paying. If you're on a variable-rate plan, you could save hundreds per year just by switching suppliers or shifting energy usage during off-peak hours. But comparing rates manually is tedious and unreliable.
 
-**What We Built:** RateShift is a full-stack platform that automatically monitors electricity rates across all 50 US states + DC, predicts price movements 24 hours ahead, and recommends when to switch suppliers or schedule high-energy tasks.
+**What We Built:** RateShift is a full-stack platform that automatically monitors electricity rates across deregulated US electricity markets (17+ states), predicts price movements 24 hours ahead, and recommends when to switch suppliers or schedule high-energy tasks.
 
 **Technical Highlights:**
-- **Real-time price streaming** via SSE to track supplier rate changes across 100+ utilities
+- **Real-time price streaming** via SSE to track supplier rate changes across utilities in 17+ deregulated states
 - **ML ensemble** combining CNN-LSTM (time-series) + XGBoost (pattern matching) for price forecasting with ~85% accuracy
 - **Vector search** using HNSW for fast pattern matching against historical prices (~5M+ records in Neon PostgreSQL)
 - **Automated recommendations** via mixed-integer linear programming (MILP) to optimize load shifting given consumption patterns
@@ -30,14 +30,14 @@ I've been building RateShift for the past few months, and we're ready to launch 
 - **Stripe monetization** with Free / $4.99 Pro / $14.99 Business tiers, including dunning for failed payments
 
 **Tech Stack:**
-- Backend: FastAPI + Python 3.12 (2,480 tests passing)
-- Frontend: Next.js 16 + TypeScript + Playwright E2E (1,835 tests)
+- Backend: FastAPI + Python 3.12 (3,325 tests passing)
+- Frontend: Next.js 16 + TypeScript + Playwright E2E (2,059 tests)
 - ML: TensorFlow + XGBoost + scikit-learn + PuLP optimizer
-- Database: Neon PostgreSQL (serverless, 44 public tables + 9 neon_auth = 53 total)
+- Database: Neon PostgreSQL (serverless, 55 public tables + 9 neon_auth = 64 total)
 - Infrastructure: Vercel + Render + Cloudflare Workers + GitHub Actions (30 automated workflows including self-healing CI/CD)
 
 **Current Status:**
-- 5,674+ total tests (backend 2,480, frontend 1,835, ML 611, E2E 671, CF Worker 77)
+- 7,789+ total tests (backend 3,325, frontend 2,059, ML 676, E2E 1,642, CF Worker 90)
 - 80%+ code coverage across all layers
 - Production deployment on Vercel + Render
 - Multi-state expansion complete (not just Connecticut)
@@ -71,29 +71,29 @@ Hey everyone! I've been working on **RateShift** for the past few months and jus
 **The idea:** Most people have no idea how much their electricity rates fluctuate or what they're actually paying. If you're on a variable-rate plan, you could save hundreds by switching suppliers or running high-energy tasks during off-peak hours. But comparing rates manually sucks, and existing tools only cover specific regions.
 
 **What I built:**
-- Real-time price monitoring across all 50 US states + DC
+- Real-time price monitoring across deregulated US electricity markets (17+ states)
 - ML-powered forecasting (CNN-LSTM + XGBoost ensemble) to predict rates 24h ahead
 - Automated recommendations for supplier switching and load shifting
 - Full SaaS with Stripe billing (Free / $4.99 Pro / $14.99 Business)
 
 **Tech Stack (more details):**
-- **Backend:** FastAPI + Python 3.12 with 2,480 tests
-- **Frontend:** Next.js 16 + TypeScript, 1,835 tests + Playwright E2E
+- **Backend:** FastAPI + Python 3.12 with 3,325 tests
+- **Frontend:** Next.js 16 + TypeScript, 2,059 tests + Playwright E2E
 - **ML:** TensorFlow (CNN-LSTM), XGBoost (pattern matching), PuLP (load-shifting optimizer)
-- **Database:** Neon PostgreSQL (serverless) with 53 tables (44 public + 9 neon_auth), 49 migrations
+- **Database:** Neon PostgreSQL (serverless) with 64 tables (55 public + 9 neon_auth), 66 migrations
 - **Auth:** Better Auth (session-based, httpOnly cookies, magic links)
 - **Payments:** Stripe with async webhook handling + dunning for failed payments
-- **Infrastructure:** Vercel + Render + Cloudflare Workers + GitHub Actions with 30 workflows including self-healing CI/CD
+- **Infrastructure:** Vercel + Render + Cloudflare Workers + GitHub Actions with 36 workflows including self-healing CI/CD
 
 **Challenges I overcame:**
-1. **Multi-state complexity:** Each state has different deregulation rules, utilities, tariffs. I built a Region enum covering all 50 states + DC and a supplier_registry table seeded with utility info
+1. **Multi-state complexity:** Each state has different deregulation rules, utilities, tariffs. I built a Region enum covering deregulated US markets (17+ states) and a supplier_registry table seeded with utility info
 2. **Real-time data consistency:** Streaming prices via SSE while keeping the DB in sync was tricky. Added RequestTimeoutMiddleware exclusions for batch jobs and parallelized API calls with asyncio.gather + Semaphore
 3. **ML model drift:** Built an adaptive learning loop that records forecast vs actual prices nightly, detects bias, and retrains weights automatically
 4. **Neon serverless gotchas:** Had to tune PgBouncer config (statement_cache_size=0), pool settings (size=5, max_overflow=10), and handle connection recycling carefully
 5. **Payment webhook reliability:** Stripe invoice events lack user metadata, so I resolve users via stripe_customer_id lookup + had to handle async billing correctly
 
 **Testing & Quality:**
-- 5,674+ total tests across backend/frontend/ML/E2E/CF Worker
+- 7,789+ total tests across backend/frontend/ML/E2E/CF Worker
 - 80%+ code coverage
 - Gitleaks + Trivy container scanning in CI/CD
 - Playwright E2E tests run daily with retry logic
@@ -131,7 +131,7 @@ I built a free tool to automatically save you $200+/year on electricity by monit
 
 **Post Body:**
 
-TL;DR: I built **RateShift** – it automatically monitors electricity prices across all 50 states and tells you when to switch suppliers or shift your energy usage to save money. Free to use, no credit card required. https://rateshift.app
+TL;DR: I built **RateShift** – it automatically monitors electricity prices in deregulated US electricity markets (17+ states) and tells you when to switch suppliers or shift your energy usage to save money. Free to use, no credit card required. https://rateshift.app
 
 **The Reality of Electricity Pricing:**
 - Rates vary by 20-50% between suppliers in deregulated states
@@ -199,7 +199,7 @@ Built a full-stack energy SaaS: Next.js + FastAPI + ML ensemble + Neon. Here's w
 I spent the last few months building **RateShift**, a real-time electricity rate monitoring platform with ML-powered forecasting. Thought I'd share the technical architecture and lessons learned since this community appreciates the engineering side.
 
 **What it does:**
-- Streams real-time electricity prices from 100+ utilities across all 50 US states
+- Streams real-time electricity prices from utilities in 17+ deregulated US states
 - Predicts price movements 24h ahead using ML
 - Recommends when to switch suppliers or shift energy usage
 - Full SaaS with Stripe billing and role-based access
@@ -208,14 +208,14 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 
 **Backend: FastAPI + Python 3.12**
 - RESTful API with async/await throughout
-- 2,480 unit + integration tests (80%+ coverage)
+- 3,325 unit + integration tests (80%+ coverage)
 - Key services: Stripe, Alert System, HNSW Vector Store, Observation Loop, Adaptive Learning
 - Cron workflows for price sync, model retraining, dunning (failed payment escalation)
 - GDPR compliance layer (data export, deletion, consent audit trails)
 
 **Frontend: Next.js 16 + TypeScript**
 - App Router with layout-based navigation
-- 1,835 tests (Jest + Playwright E2E)
+- 2,059 tests (Jest + Playwright E2E)
 - Recharts for visualization
 - Tailwind CSS + custom design tokens
 - OneSignal push notifications with user binding
@@ -235,9 +235,9 @@ I spent the last few months building **RateShift**, a real-time electricity rate
 ```
 
 **Database: Neon PostgreSQL (Serverless)**
-- 44 public tables (+ 9 neon_auth tables from Better Auth = 53 total)
+- 55 public tables (+ 9 neon_auth tables from Better Auth = 64 total)
 - All PKs are UUIDs
-- 49 migrations (000-049)
+- 66 migrations (000-066)
 - Async connections via asyncpg with optimized pool settings
 - Vector search via HNSW (sine of similarity for fast K-NN lookups)
 
@@ -265,7 +265,7 @@ I spent the last few months building **RateShift**, a real-time electricity rate
    - Async processing via `asyncio.to_thread()` for payment operations
 
 5. **CI/CD Reliability:**
-   - 30 GitHub Actions workflows total
+   - 36 GitHub Actions workflows total
    - Self-healing monitor: auto-creates issues after 3+ consecutive failures
    - Composite actions: `retry-curl` (exponential backoff), `notify-slack` (color-coded alerts), `validate-migrations` (convention checks)
    - E2E tests run daily with Playwright retry logic
@@ -313,7 +313,7 @@ Database:     Neon PostgreSQL, HNSW vector store, Alembic
 Auth:         Better Auth (session-based, httpOnly cookies)
 Payments:     Stripe (checkout, portal, webhooks, async handling)
 Email:        Resend primary, Gmail SMTP fallback
-Infra:        Vercel, Render, Cloudflare Workers, GitHub Actions (30 workflows)
+Infra:        Vercel, Render, Cloudflare Workers, GitHub Actions (36 workflows)
 ```
 
 **Deployment:**
@@ -358,7 +358,7 @@ A: Most variable plans allow monthly switches with no penalty. Check your bill. 
 
 **Q: "How do you get real-time price data?"**
 
-A: We integrate with 100+ utilities' public APIs (EIA, NREL, OpenWeatherMap, plus direct utility APIs). Free tier updates every 6 hours; Pro tier streams updates in real-time via SSE.
+A: We integrate with utilities in 17+ deregulated states' public APIs (EIA, NREL, OpenWeatherMap, plus direct utility APIs). Free tier updates every 6 hours; Pro tier streams updates in real-time via SSE.
 
 **Q: "How accurate are your ML forecasts?"**
 
@@ -498,5 +498,5 @@ Post is successful if:
 
 ---
 
-**Last Updated:** 2026-03-10
-**Status:** Ready for launch
+**Last Updated:** 2026-04-08
+**Status:** Ready for launch (all claims verified per FINAL_COPY.md guardrails)
