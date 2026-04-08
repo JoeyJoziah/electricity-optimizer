@@ -151,7 +151,10 @@ export async function getHistory(
   offset: number = 0,
   signal?: AbortSignal,
 ): Promise<SwitchAuditEntry[]> {
-  return apiClient.get<SwitchAuditEntry[]>(
+  const res = await apiClient.get<{
+    history: SwitchAuditEntry[];
+    total: number;
+  }>(
     "/agent-switcher/history",
     {
       limit,
@@ -159,6 +162,7 @@ export async function getHistory(
     },
     { signal },
   );
+  return res.history ?? [];
 }
 
 /**
@@ -168,13 +172,17 @@ export async function getActivity(
   limit: number = 10,
   signal?: AbortSignal,
 ): Promise<SwitchAuditEntry[]> {
-  return apiClient.get<SwitchAuditEntry[]>(
+  const res = await apiClient.get<{
+    activity: SwitchAuditEntry[];
+    total: number;
+  }>(
     "/agent-switcher/activity",
     {
       limit,
     },
     { signal },
   );
+  return res.activity ?? [];
 }
 
 // ---------------------------------------------------------------------------
