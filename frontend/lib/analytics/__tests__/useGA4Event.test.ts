@@ -13,7 +13,8 @@ import { renderHook, act } from "@testing-library/react";
 
 declare global {
   interface Window {
-    gtag?: (...args: unknown[]) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gtag?: (...args: any[]) => void;
     dataLayer?: unknown[];
   }
 }
