@@ -91,12 +91,13 @@ async def _check_login_lockout(request: Request) -> None:
     attempts once the failure threshold is reached. The lockout counter is
     maintained per-IP in ``_login_attempt_limiter``.
     """
-    # Lazily inject Redis for distributed state
-    if _login_attempt_limiter.redis is None:
-        try:
-            _login_attempt_limiter.redis = await db_manager.get_redis_client()
-        except Exception:
-            pass  # Falls back to in-memory limiting
+    # Lazily inject Redis for distributed state.
+    # Also detach stale Redis if db_manager has been closed (e.g. between test runs).
+    redis_client = await db_manager.get_redis_client()
+    if _login_attempt_limiter.redis is not None and redis_client is None:
+        _login_attempt_limiter.redis = None
+    elif _login_attempt_limiter.redis is None and redis_client is not None:
+        _login_attempt_limiter.redis = redis_client
 
     client_ip = request.client.host if request.client else "unknown"
     identifier = f"login:ip:{client_ip}"

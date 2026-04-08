@@ -5,6 +5,7 @@ FastAPI dependency injection for database, services, and authentication.
 """
 
 from collections.abc import AsyncGenerator
+from functools import lru_cache
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
@@ -163,6 +164,7 @@ async def invalidate_tier_cache(user_id: str) -> None:
             pass
 
 
+@lru_cache(maxsize=8)
 def require_tier(min_tier: str):
     """
     Factory for tier-gating dependencies.

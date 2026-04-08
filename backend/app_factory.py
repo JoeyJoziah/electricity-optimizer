@@ -408,6 +408,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         # Shutdown
         logger.info("application_shutting_down")
         try:
+            app_rate_limiter.reset()
             await db_manager.close()
             logger.info("database_connections_closed")
         except Exception as e:

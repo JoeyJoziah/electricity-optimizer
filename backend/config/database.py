@@ -150,14 +150,20 @@ class DatabaseManager:
         """Close all database connections"""
         if self.pg_pool:
             await self.pg_pool.close()
+            self.pg_pool = None
             logger.info("database_pool_closed")
 
         if self.pg_engine:
             await self.pg_engine.dispose()
+            self.pg_engine = None
             logger.info("database_engine_disposed")
 
         if self.redis_client:
-            await self.redis_client.close()
+            try:
+                await self.redis_client.close()
+            except RuntimeError:
+                pass  # Event loop already closed
+            self.redis_client = None
             logger.info("redis_connection_closed")
 
     async def _try_reconnect_database(self):
