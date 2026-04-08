@@ -65,7 +65,10 @@ async def list_connections(
         {"uid": current_user.user_id},
     )
     rows = result.mappings().all()
-    connections = [ConnectionResponse(**dict(row)) for row in rows]
+    connections = [
+        ConnectionResponse(**{k: str(v) if hasattr(v, "hex") else v for k, v in dict(row).items()})
+        for row in rows
+    ]
     return ConnectionListResponse(connections=connections, total=len(connections))
 
 
