@@ -27,8 +27,8 @@
 
 | [x] | audit-remediation_20260323 | Codebase Audit Remediation 2026-03-23 (~560 findings, 75 tasks, 9 sprints) | 2026-03-23 | 2026-03-23 |
 
-| [~] | pre-launch-completion_20260407 | Pre-Launch Completion — Infra, GA4, Code TODOs, CF Data Quality (9 tasks, 3 sprints) | 2026-04-07 | 2026-04-07 |
-| [~] | launch-execution_20260407 | Product Hunt Launch Execution — Campaign, Content, Launch Day (10 tasks, 4 phases) | 2026-04-07 | 2026-04-07 |
-| [ ] | post-launch-growth_20260407 | Post-Launch Growth & Scaling — Infra Triggers, Product Expansion, Community (17 tasks, trigger-gated) | 2026-04-07 | 2026-04-07 |
+| [~] | pre-launch-completion_20260407 | Pre-Launch Completion — Infra, GA4, Code TODOs, CF Data Quality. **9/10 done** (Sprint 2 manual tasks remain: visual regression baseline, status page, social media) | 2026-04-07 | 2026-04-08 |
+| [~] | launch-execution_20260407 | Product Hunt Launch Execution — Campaign, Content, Launch Day. **2/10 done** (PH account created, launch date Tue Apr 14, FINAL_COPY.md drafted). PAUSED: need production auth/screenshot debugging | 2026-04-07 | 2026-04-08 |
+| [ ] | post-launch-growth_20260407 | Post-Launch Growth & Scaling — Infra Triggers, Product Expansion, Community (17 tasks, trigger-gated, starts post-launch) | 2026-04-07 | 2026-04-07 |
 
 <!-- Tracks registered by /conductor:new-track -->

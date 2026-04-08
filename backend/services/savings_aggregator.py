@@ -42,7 +42,7 @@ class SavingsAggregator:
 
         if enabled_utilities:
             placeholders = ", ".join(f":ut_{i}" for i in range(len(enabled_utilities)))
-            utility_filter = f" AND us.utility_type IN ({placeholders})"
+            utility_filter = f" AND us.savings_type IN ({placeholders})"
             for i, ut in enumerate(enabled_utilities):
                 params[f"ut_{i}"] = ut
 
@@ -50,14 +50,14 @@ class SavingsAggregator:
         combined_sql = text(f"""
             WITH user_breakdown AS (
                 SELECT
-                    us.utility_type,
+                    us.savings_type AS utility_type,
                     COALESCE(SUM(us.amount), 0) AS monthly_savings
                 FROM user_savings us
                 WHERE us.user_id = :user_id
                   AND us.created_at >= NOW() - INTERVAL '30 days'
                   {utility_filter}
-                GROUP BY us.utility_type
-                ORDER BY us.utility_type
+                GROUP BY us.savings_type
+                ORDER BY us.savings_type
             ),
             all_user_totals AS (
                 SELECT user_id, SUM(amount) AS total_savings

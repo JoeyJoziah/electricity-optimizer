@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-04-07 (Render env var recovery (50 vars restored). Dependency security audit — Python 26→2 vulns, npm 14→0. All 5,355 tests passing. Memory sync — 251 learned skills, ~4,941 CF entries, 9 patterns at confidence 1.0. Render env vars: 50 (recovered after destructive PUT wipe). CF Data Quality Maintenance System VERIFIED — 8 scripts (memory-janitor, routing-optimizer, pattern-doctor, execute-work-orders + 4 existing), LaunchAgent 2x/day (8am full + 6pm light), producer-consumer architecture, dry-runs passing. Pre-launch audit COMPLETE — 4 audit tracks + 1 pre-launch fix round + launch gap backlog (9/21 done, 13 active) + production audit remediation (18 tasks, 5 sprints) + production debugging session (ORIGIN_URL fix, Location header rewrite, keep-alive cron). CF Worker 4 cron triggers. Backend 3,325 tests, Frontend 2,022 tests (153 suites), E2E 1,642 (28 specs, 5 browsers), Worker 90, ML 676. 66 migrations (066: auto_rate_switcher). 64 tables (55 public + 9 neon_auth). 29 error boundaries, 23 loading states. 16 sidebar nav items. 36 GHA workflows. DSP graph: 564 entities (522 source + 42 external), 1074 imports, 1 real cycle. 18 conductor tracks all complete.)
+> Last validated: 2026-04-08. Tests: ~7,789 passing. 66 migrations, 64 tables, 36 GHA workflows. See MEMORY.md for session-level detail.
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -157,64 +157,13 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ## Cron Jobs & Maintenance
 
-- **db-maintenance**: Weekly Sunday 3am UTC — database optimization, vacuum, analyze, index maintenance
-- **Phase 1 LIVE**: Sentry→Slack (15min, `rcp_sQ1NKouFdXIe`), Deploy→Slack (hourly, `rcp_9f8mVE2Z_DSP`), GitHub→Notion (6h, `rcp_73Kc9K65YC5T`). Rube session: `drew`
-- **CF Worker Cron Triggers** (4 total, zero GHA cost):
-  - `*/10 * * * *`: keep-alive — lightweight GET to Render root, prevents free tier cold starts (added 2026-03-24)
-  - `0 */3 * * *`: check-alerts — `POST /internal/check-alerts` (price threshold alerts with dedup)
-  - `0 */6 * * *`: price-sync — `POST /internal/scrape-rates` (electricity price data ingestion)
-  - `30 */6 * * *`: observe-forecasts — `POST /internal/observe-forecasts` (backfill actual prices into forecast observations)
-- **Phase 2 COMPLETE** (5 GHA cron workflows, 3 moved to CF Worker):
-  - `check-alerts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 3h)
-  - `price-sync.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (every 6h)
-  - `observe-forecasts.yml`: Manual trigger only (`workflow_dispatch`) — cron moved to CF Worker Cron Trigger (30min after price-sync, every 6h)
-  - `fetch-weather.yml`: Every 12 hours (offset :15, was 6h, reduced for GHA cost optimization) — `POST /internal/fetch-weather` (parallelized with asyncio.gather + Semaphore(10))
-  - `market-research.yml`: Daily 2am UTC — `POST /internal/market-research` (Tavily + Diffbot)
-  - `sync-connections.yml`: Every 6 hours (was 2h, reduced 2026-03-16) — `POST /internal/sync-connections` (UtilityAPI auto-sync)
-  - All use `INTERNAL_API_KEY` secret, `/api/v1/internal/` paths excluded from RequestTimeoutMiddleware
-- **Utility Integration Track** (2 GHA cron workflows, 2026-03-11):
-  - `scan-emails.yml`: Via `daily-data-pipeline.yml` (was standalone 4am cron, consolidated 2026-03-16) — `POST /internal/scan-emails` (batch scan all active email_import connections, extract rates from body + attachments)
-  - `scrape-portals.yml`: Weekly Sunday 5am UTC — `POST /internal/scrape-portals` (batch scrape portal_scrape connections with Semaphore(2))
-  - Portal endpoints: `POST /connections/portal` (create with encrypted creds), `POST /connections/portal/{id}/scrape` (trigger manual scrape)
-  - PortalScraperService: httpx-based, 5 utilities (Duke Energy, PG&E, Con Edison, ComEd, FPL), AES-256-GCM encrypted credentials
-  - Email extraction: `extract_rates_from_email()` + `download_gmail_attachments()`/`download_outlook_attachments()` + `extract_rates_from_attachments()` wired into scan endpoint
-  - Diffbot rate extraction: `_extract_rate_from_diffbot_data()` wired into scrape-rates, embeds `_detected_rate_kwh` in JSONB
-  - Frontend: PortalConnectionFlow.tsx (multi-step form), portal.ts API client, ConnectionMethodPicker 4th option
-- **Phase 3 COMPLETE** (2 GHA cron workflows + migration 024):
-  - `dunning-cycle.yml`: Daily 7am UTC — `POST /internal/dunning-cycle` (overdue payment escalation, 7-day grace period)
-  - `kpi-report.yml`: Daily 6am UTC — `POST /internal/kpi-report` (business metrics aggregation)
-  - Migration 024: `payment_retry_history` table (retry tracking, email history, escalation audit)
-  - DunningService wired into `apply_webhook_action()` for real-time `invoice.payment_failed` handling
-  - Email templates: `dunning_soft.html` (amber) + `dunning_final.html` (red, grace period warning)
-- **Self-Healing CI/CD** (implemented 2026-03-06):
-  - `self-healing-monitor.yml`: Daily 9am UTC — checks 21 workflows for repeated failures, auto-creates/closes GitHub issues
-  - `retry-curl` composite action: Exponential backoff with jitter, 4xx fail-fast, 3 retries
-  - `notify-slack` composite action: Color-coded severity alerts to `#incidents` (C0AKV2TK257)
-  - `validate-migrations` composite action: Sequential numbering, IF NOT EXISTS, neondb_owner, no SERIAL
-  - CI auto-format: Black + isort auto-fix on PRs (commit bot), fail on main
-  - E2E resilience: Retry Playwright install, extended timeouts, rerun failed tests
-  - All 12 cron workflows updated with retry-curl + notify-slack
-  - Deploy pipeline: migration-gate job before deploy, Slack rollback notification
-  - New secret required: `SLACK_INCIDENTS_WEBHOOK_URL`
-  - New labels: `self-healing`, `automated`
-- **Cost Optimization** (2026-03-16 to 2026-03-17):
-  - `daily-data-pipeline.yml`: Daily 3am UTC — consolidated pipeline running scrape-rates, scan-emails, nightly-learning, detect-rate-changes sequentially (single checkout + warmup)
-  - `e2e-tests.yml`: Removed daily cron trigger (still runs on push/PR)
-  - `nightly-learning.yml`: Via `daily-data-pipeline.yml` (was standalone 4am cron)
-  - `detect-rate-changes.yml`: Via `daily-data-pipeline.yml` (was standalone 6:30am cron)
-  - `price-sync.yml` (Sprint 0-2): Moved to CF Worker Cron Trigger (every 6h) — saves ~240 min/mo
-  - `observe-forecasts.yml` (Sprint 0-2): Moved to CF Worker Cron Trigger (30min after price-sync) — saves ~240 min/mo
-  - Total estimated GHA savings: ~4,470 min/mo (from baseline). Current usage: ~1,843 min/mo (+80 for db-backup, down from ~2,700 pre-optimization). Full analysis: `docs/COST_ANALYSIS.md`
-- **Auto Rate Switcher** (2 GHA cron workflows + db-maintenance update, 2026-04-03):
-  - `agent-switcher-scan.yml`: Daily 4am UTC — `POST /internal/agent-switcher/scan` (daily decision engine scan for all enrolled users)
-  - `sync-available-plans.yml`: Daily 2am UTC — `POST /internal/agent-switcher/sync-plans` (refresh available plan cache from EnergyBot)
-  - `db-maintenance.yml` updated: added `POST /internal/agent-switcher/cleanup-meter-data` (weekly meter reading partition cleanup)
-  - All use `INTERNAL_API_KEY` secret + `retry-curl` + `notify-slack` patterns
-- **Security Scanning** (Wave 5, 2026-03-12):
-  - `owasp-zap.yml`: Weekly Sunday 4am UTC — OWASP ZAP baseline scan against Render backend (not CF Worker)
-  - `pip-audit` in `_backend-tests.yml`: Fails on known Python dependency vulnerabilities
-  - `npm audit --audit-level=high` in `ci.yml`: Fails on high/critical npm vulnerabilities
-  - `.zap/rules.tsv`: 5 false-positive suppression rules
+> Full detail: `docs/AUTOMATION_PLAN.md` (9 workflows, ALL phases complete) and `docs/COST_ANALYSIS.md`
+
+- **CF Worker Cron Triggers** (4, zero GHA cost): keep-alive `*/10min`, check-alerts `/3h`, price-sync `/6h`, observe-forecasts `/6h+30min`
+- **GHA Cron Workflows**: daily-data-pipeline (3am, consolidated), fetch-weather (12h), market-research (2am), sync-connections (6h), dunning-cycle (7am), kpi-report (6am), scrape-portals (weekly Sun 5am), db-maintenance (weekly Sun 3am), self-healing-monitor (daily 9am), agent-switcher-scan (daily 4am), sync-available-plans (daily 2am), owasp-zap (weekly Sun 4am)
+- **Rube Recipes**: Sentry→Slack (15min), Deploy→Slack (hourly), GitHub→Notion (6h). Session: `drew`
+- **Self-Healing**: `retry-curl` (exponential backoff), `notify-slack` (color-coded), `validate-migrations`, auto-format, E2E resilience. Monitor creates issues after 3+ failures
+- **All cron workflows** use `INTERNAL_API_KEY` secret + `retry-curl` + `notify-slack` patterns
 
 ## Autonomous Workflow (when Loki is driving)
 

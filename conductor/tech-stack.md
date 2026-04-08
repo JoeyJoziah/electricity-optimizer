@@ -14,14 +14,14 @@
 - **Framework:** Next.js 16 (App Router, server components)
 - **UI:** React 19, Tailwind CSS, custom design system
 - **State:** TanStack Query (server state), Zustand (client state)
-- **Testing:** Jest (1,835 tests, 136 suites), Playwright (E2E), jest-axe (a11y)
+- **Testing:** Jest (2,056 tests, 158 suites), Playwright E2E (1,642 tests, 28 specs, 5 browsers), jest-axe (a11y)
 - **Auth:** Better Auth (session-based, httpOnly cookies)
 
 ## Backend
 
 - **Framework:** FastAPI (Python 3.12, async)
 - **ORM:** SQLAlchemy 2.0 (async) + asyncpg
-- **Testing:** pytest (2,478 tests), 80% coverage threshold
+- **Testing:** pytest (3,325 tests), 80% coverage threshold
 - **Auth:** Neon Auth (Better Auth), session-based
 - **Formatting:** Black (line-length 100) + isort
 - **Linting:** Ruff (pycodestyle, pyflakes, bugbear, comprehensions, pyupgrade)
@@ -33,14 +33,14 @@
 - **Provider:** Neon PostgreSQL (serverless)
 - **Project:** `cold-rice-23455092` ("energyoptimize")
 - **Connection:** asyncpg with PgBouncer (statement_cache_size=0)
-- **Migrations:** 49 sequential SQL migrations (init_neon through 049_community_tables)
-- **Schema:** 44 public + 9 neon_auth = 53 tables, UUID primary keys
+- **Migrations:** 66 sequential SQL migrations (init_neon through 066_auto_rate_switcher)
+- **Schema:** 55 public + 9 neon_auth = 64 tables, UUID primary keys
 
 ## ML
 
 - **Ensemble predictor** with HNSW vector search
 - **Adaptive learning** with nightly retraining
-- **611 tests** covering models, inference, optimization, evaluation
+- **676 tests** covering models, inference, optimization, evaluation
 
 ## Infrastructure
 
@@ -58,7 +58,9 @@
 | **Grafana Cloud** | Distributed tracing (OpenTelemetry + Tempo) |
 | **UptimeRobot** | Uptime monitoring |
 | **Better Stack** | Incident management |
-| **GitHub Actions** | CI/CD (28 workflows + Dependabot) |
+| **GitHub Actions** | CI/CD (36 workflows + Dependabot) |
+| **EnergyBot** | Plan switching API (13-state enrollment) |
+| **Arcadia Arc** | Meter data access (95% US coverage) |
 | **OWASP ZAP** | Weekly security baseline scan |
 
 ## Key Dependencies

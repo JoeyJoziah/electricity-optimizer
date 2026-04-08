@@ -42,11 +42,10 @@ class NeighborhoodService:
                 SELECT
                     us.user_id,
                     AVG(us.amount) AS avg_rate,
-                    MAX(s.name) AS supplier_name
+                    NULL::text AS supplier_name
                 FROM user_savings us
-                LEFT JOIN suppliers s ON us.supplier_id = s.id
                 WHERE us.region = :region
-                  AND us.utility_type = :utility_type
+                  AND us.savings_type = :utility_type
                   AND us.created_at >= NOW() - INTERVAL '30 days'
                 GROUP BY us.user_id
             ),
