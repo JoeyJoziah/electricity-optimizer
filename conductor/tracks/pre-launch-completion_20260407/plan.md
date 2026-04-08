@@ -36,14 +36,10 @@ These tasks require manual dashboard access. Cannot be automated by agents.
   - **Priority:** P2
   - **Resolution:** UTILITYAPI_KEY set via Render API (value from 1Password item 6fanzg65um6m3scmqwxzewixuy). Live on Render (50 env vars total).
 
-- [ ] Task 0.3b: Set email scanning OAuth credentials on Render
+- [x] Task 0.3b: Set email scanning OAuth credentials on Render
   - **Source:** LAUNCHGAP-013
-  - **Priority:** P3 — Email scanning is a secondary feature; not needed for launch
-  - **Action:** Render dashboard → Environment → Add:
-    - `GMAIL_CLIENT_ID` + `GMAIL_CLIENT_SECRET` — from Google Cloud Console
-    - `OUTLOOK_CLIENT_ID` + `OUTLOOK_CLIENT_SECRET` — from Azure App Registration
-  - **Note:** Use GET-merge-PUT pattern for Render API (destructive PUT replaces all vars)
-  - **Verify:** `curl -H "Authorization: Bearer $RENDER_API_KEY" https://api.render.com/v1/services/srv-d649uhur433s73d557cg/env-vars | jq '.[] | select(.key | test("GMAIL|OUTLOOK"))'`
+  - **Priority:** P3
+  - **Resolution:** GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET set via Render API (same Google OAuth client 542073657021-... from 1Password qrtmbt4use5zeijzx4crdzqtsm). OUTLOOK_CLIENT_ID + OUTLOOK_CLIENT_SECRET were already present on Render. All 4 verified via API listing. Render env vars now 52 total.
 
 ---
 
