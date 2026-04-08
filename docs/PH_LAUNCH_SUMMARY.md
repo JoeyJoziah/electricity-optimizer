@@ -1,6 +1,8 @@
 # Product Hunt Launch - Quick Reference Guide
 
-> Created: 2026-03-10 | Status: Ready to Execute
+> **SUPERSEDED**: Use `docs/launch/FINAL_COPY.md` for all launch copy. This doc contains stale claims.
+
+> Created: 2026-03-10 | Status: ARCHIVED
 
 This document provides a quick reference for the Product Hunt launch. For detailed information, see the full preparation guides.
 

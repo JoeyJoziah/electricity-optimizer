@@ -1,6 +1,8 @@
 # Product Hunt Launch Preparation
 
-> Status: Ready for Public Launch | Last Updated: 2026-03-10
+> **SUPERSEDED**: Use `docs/launch/FINAL_COPY.md` for all launch copy. This doc contains stale claims ("Join thousands", "65+ beta users") that must NOT be used.
+
+> Status: ARCHIVED | Last Updated: 2026-03-10
 
 This document outlines RateShift's Product Hunt strategy, messaging, and execution plan for a successful launch.
 

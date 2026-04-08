@@ -1,5 +1,7 @@
 # Launch Posts for RateShift
 
+> **WARNING**: These posts contain stale claims ("all 50 states"). Rewrite using copy from `docs/launch/FINAL_COPY.md` before publishing. Use "deregulated US markets" or "17+ states" instead.
+
 Launch strategy for announcing RateShift (RateShift) on Hacker News and Reddit. Each post emphasizes different angles while maintaining authenticity and technical credibility.
 
 ---
