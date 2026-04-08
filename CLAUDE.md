@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-04-08. Tests: ~7,789 passing. 66 migrations, 64 tables, 36 GHA workflows. See MEMORY.md for session-level detail.
+> Last validated: 2026-04-08. Tests: ~7,840 passing. 66 migrations, 64 tables, 36 GHA workflows. See MEMORY.md for session-level detail.
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -31,26 +31,25 @@ print('Loki memory index: OK')
 /Users/devinmcgrath/projects/electricity-optimizer/.claude/hooks/board-sync/loki-event-sync.sh
 ```
 
-### Step 3: Board Sync Health Check
+### Step 3: Board Sync Health Check (CONDITIONAL — only when board-sync is relevant)
 ```bash
-# Verify sync script is operational
 ls -la .claude/hooks/board-sync/sync-boards.sh  # must be executable
 ```
 
-### Step 4: Memory Cross-Sync Verification
+### Step 4: Memory Cross-Sync (CONDITIONAL — only when loki memory operations needed)
 ```
 Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional sync
 ```
 
-### Step 5: Agentic-Flow Availability Check
+### Step 5: Agentic-Flow Check (CONDITIONAL — only when using af-* agents)
 ```bash
-# Verify agentic-flow MCP tools are accessible (optional — only if using af-* agents)
 # Tools namespaced as mcp__agentic-flow__*
 ```
 
 ### Skip Conditions
 - Skip if user says "skip init"
-- Skip if all 5 steps were already run this conversation
+- Skip if Steps 1-2 were already run this conversation
+- Steps 3-5 are conditional — skip unless the session task requires them
 - On failure: warn user, attempt partial init, continue with what works
 
 ## Loki Mode
@@ -115,7 +114,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
 - **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 55 public + 9 neon_auth = 64 tables total (66 migrations: init_neon through 066_auto_rate_switcher)
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
-- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Cron: `[triggers] crons = ["*/10 * * * *", "0 */3 * * *", "0 */6 * * *", "30 */6 * * *"]` (keep-alive every 10min, check-alerts every 3h, price-sync every 6h, observe-forecasts 30min after price-sync). Secrets: ORIGIN_URL, INTERNAL_API_KEY, RATE_LIMIT_BYPASS_KEY. Proxy: Location header rewriting on redirects (prevents leaking Render origin URL). Source: `workers/api-gateway/` (18 files, 90 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
+- **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Cron: `[triggers] crons = ["*/10 * * * *", "0 */3 * * *", "0 */6 * * *", "30 */6 * * *"]` (keep-alive every 10min, check-alerts every 3h, price-sync every 6h, observe-forecasts 30min after price-sync). Secrets: ORIGIN_URL, INTERNAL_API_KEY, RATE_LIMIT_BYPASS_KEY. Proxy: Location header rewriting on redirects (prevents leaking Render origin URL). Source: `workers/api-gateway/` (19 files, 127 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning
 - **Payments**: Stripe (Free/$4.99 Pro/$14.99 Business), payment_failed webhook resolves user via stripe_customer_id. **Plan gating**: `require_tier("pro"/"business")` dependency on 7 endpoints (forecast, savings, recommendations=pro; prices/stream=business). Free tier: 1 alert limit. **UtilityAPI Add-On**: $2.25/meter/mo (50% markup on $1.50 UtilityAPI cost), all tiers via Stripe subscription items. Service: `backend/services/utilityapi_billing_service.py`. Endpoint: `GET /billing/addon-pricing`. Migration 065: `stripe_subscription_item_id` + `utilityapi_meter_count` on user_connections. Env var: `STRIPE_PRICE_UTILITYAPI_METER`
 - **Email**: Resend (primary, domain `rateshift.app` verified, DKIM/SPF/DMARC, TLS enforced) + Gmail SMTP fallback. Sender: `RateShift <noreply@rateshift.app>`. Frontend uses nodemailer for SMTP
@@ -130,40 +129,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Slack**: Workspace `electricityoptimizer.slack.com` (T0AK0AJV5NE). Channels: `#incidents` (C0AKV2TK257), `#deployments` (C0AKCN6T02Z), `#metrics` (C0AKDD7P2HX). Webhook: `SLACK_INCIDENTS_WEBHOOK_URL` GHA secret + 1Password. Composio connection: `ca_jI3-cs-HrXPY` (Note: workspace named electricityoptimizer but project is RateShift)
 - **Board Sync**: GitHub Projects #4 (local hooks). Notion via Rube recipe only (every 6h, rcp_73Kc9K65YC5T). Hub page: `31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7`, Tracker DB: `31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f`
 
-## Critical Reminders
-
-1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 64 tables (55 public + 9 neon_auth), 66 migrations (latest: 066_auto_rate_switcher). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
-2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
-3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
-4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "RateShift"
-5. **Region enum**: `backend/models/region.py` — all 50 states + DC + international, never raw strings
-6. **UUID PKs**: All primary keys use UUID type; GRANTs use `neondb_owner` role
-7. **Agentic-flow symlinks**: Machine-specific (`.gitignore`d). Re-run integration if cloned fresh. MCP tools: `mcp__agentic-flow__*`, no conflict with `mcp__claude-flow__*`
-8. **Multi-repo skill symlinks**: Machine-specific (`.gitignore`d). Re-run `~/.claude/scripts/multi-repo-integrate.sh` if cloned fresh. Verify with `~/.claude/scripts/verify-skills.sh`
-9. **Internal endpoints**: All `/api/v1/internal/*` routes require `X-API-Key` header and are excluded from RequestTimeoutMiddleware (30s). GHA workflows use `INTERNAL_API_KEY` repo secret
-10. **Self-healing CI/CD**: 36 GHA workflows total (35 cron/CI + 1 manual-only). retry-curl retries on 5xx/429/408/000 with exponential backoff; 4xx (except 429/408) fails immediately. notify-slack uses `SLACK_INCIDENTS_WEBHOOK_URL` secret. self-healing-monitor auto-creates issues after 3+ failures with `self-healing` label
-11. **Community**: `/community` page with posts, voting, reporting. AI moderation: Groq `classify_content()` primary, Gemini fallback, fail-closed 30s. nh3 XSS sanitization. Report threshold: 5 unique reporters auto-hides. Rate limit: 10 posts/hour. Community backend: `community_service.py`, `savings_aggregator.py`, `neighborhood_service.py`. Migration 049: 3 tables (community_posts, community_votes, community_reports). Migration 050: optimized partial indexes. Migration 051: GDPR CASCADE fixes for community + notifications FKs
-12. **Tier cache**: 30s TTL (in-memory + Redis). Stripe webhook events update DB directly; cache self-heals within 30s. `require_tier()` gates 7+ endpoints
-13. **Rate limiter Lua script**: Redis `:seq` counter keys now have TTL matching the main key (previously leaked without expiry)
-14. **OAuth credentials**: GitHub OAuth COMPLETE (1Password xfucwotbnak4smvc6y4gad34eq). Google OAuth COMPLETE (1Password qrtmbt4use5zeijzx4crdzqtsm, feature-flagged). Outlook OAuth COMPLETE (Azure app "RateShift Email Scanner", 1Password jpgvr6vifdxdxrisutwhumngsm, secret expires ~2028-04-08). Email scanning consolidated: 1Password lpamj4zojybs5cr7akons4zmxq. All creds LIVE on Render (52 env vars). No remaining gaps
-15. **Browser automation limitations**: Chrome blocks programmatic file downloads (non-user-gesture). GCP new Auth Platform permanently hashes secrets after creation dialog — ALWAYS Download JSON before dismissing
-16. **requirements.txt sync**: Pins must match installed versions — stale pins cause ResolutionImpossible on Render Docker builds. Run `pip freeze` and sync periodically
-17. **Render Docker config**: Render service uses `backend/Dockerfile` with `./backend` context (updated 2026-03-23). `render.yaml` is just a blueprint — actual service settings are in Render dashboard
-18. **Auth resilience (3 layers)**: (1) `backend/auth/neon_auth.py` wraps `_get_session_from_token` in try/except → 503 on DB errors, NEVER let DB exceptions propagate to 401. (2) `frontend/lib/api/client.ts` `handle401Redirect()` suppresses 401 redirects when `_backendCooldown` active or `circuitBreaker.isFallbackMode()`. (3) `frontend/lib/hooks/useAuth.tsx` sets `setIsLoading(false)` immediately after session check (~700ms), profile/supplier fetched in background — do NOT re-introduce blocking waits in initAuth()
-19. **Global 503 cooldown**: `_backendCooldown` in `client.ts` serializes all `fetchWithRetry` calls for 3s after any 503 — prevents retry dogpiling that overwhelms CF Worker rate limiter. `QueryProvider.tsx` smart retry: 503=1 retry/3s delay, 429/4xx=no retry
-20. **Vercel rewrite trailing slash**: next.config.js uses `beforeFiles` + `:path(.*)` regex capture (NOT `:path*`) to preserve trailing slashes when proxying to backend. `:path*` drops trailing slashes, causing infinite 307↔308 loops with FastAPI. `skipTrailingSlashRedirect: true` prevents Next.js 308s
-21. **Post-deploy browser verification is mandatory**: Every production deploy must be followed by Chrome automation testing (navigate + screenshot + console check). Local/CI tests cannot catch: missing Worker secrets, redirect header leaks, rate limiter interactions, Vercel rewrite normalization bugs
-22. **Graceful degradation preference hierarchy**: (1) 503 over false 401 for auth DB errors, (2) proxy-layer fixes over backend changes for redirect/CORS, (3) non-blocking UI over blocking waits, (4) shared cooldowns over per-request retries, (5) regex captures over named captures in Vercel rewrites
-
-## Cron Jobs & Maintenance
-
-> Full detail: `docs/AUTOMATION_PLAN.md` (9 workflows, ALL phases complete) and `docs/COST_ANALYSIS.md`
-
-- **CF Worker Cron Triggers** (4, zero GHA cost): keep-alive `*/10min`, check-alerts `/3h`, price-sync `/6h`, observe-forecasts `/6h+30min`
-- **GHA Cron Workflows**: daily-data-pipeline (3am, consolidated), fetch-weather (12h), market-research (2am), sync-connections (6h), dunning-cycle (7am), kpi-report (6am), scrape-portals (weekly Sun 5am), db-maintenance (weekly Sun 3am), self-healing-monitor (daily 9am), agent-switcher-scan (daily 4am), sync-available-plans (daily 2am), owasp-zap (weekly Sun 4am)
-- **Rube Recipes**: Sentry→Slack (15min), Deploy→Slack (hourly), GitHub→Notion (6h). Session: `drew`
-- **Self-Healing**: `retry-curl` (exponential backoff), `notify-slack` (color-coded), `validate-migrations`, auto-format, E2E resilience. Monitor creates issues after 3+ failures
-- **All cron workflows** use `INTERNAL_API_KEY` secret + `retry-curl` + `notify-slack` patterns
+> See [REMINDERS.md](REMINDERS.md) for 22 critical reminders, cron jobs, and maintenance procedures.
 
 ## Autonomous Workflow (when Loki is driving)
 

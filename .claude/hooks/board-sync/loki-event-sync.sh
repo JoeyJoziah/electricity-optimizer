@@ -317,6 +317,20 @@ main() {
         process_all_pending "$dry_run"
     fi
 
+    # Prune old archives (7-day retention) — piggybacks on session-start execution
+    if [[ -d "$ARCHIVE_DIR" ]]; then
+        local pruned
+        pruned=$(find "$ARCHIVE_DIR" -type f -mtime +7 2>/dev/null | wc -l | tr -d ' ')
+        if (( pruned > 0 )); then
+            if [[ "$dry_run" == true ]]; then
+                log "DRY-RUN: Would prune $pruned archived events (>7 days)"
+            else
+                find "$ARCHIVE_DIR" -type f -mtime +7 -delete 2>/dev/null || true
+                log "Pruned $pruned archived events (>7 days)"
+            fi
+        fi
+    fi
+
     log "=== loki-event-sync finished ==="
 }
 

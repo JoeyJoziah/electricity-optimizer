@@ -115,7 +115,7 @@ export async function storeInCache(
       status: response.status,
       headers: {
         ...Object.fromEntries(response.headers.entries()),
-        "Cache-Control": `public, max-age=${cacheConfig.ttlSeconds}`,
+        "Cache-Control": `private, max-age=${cacheConfig.ttlSeconds}`,
         "X-Cache": "HIT",
       },
     });
@@ -176,6 +176,11 @@ export async function invalidatePriceCache(
 function buildCachedResponse(entry: CacheEntry, cacheStatus: "HIT" | "STALE"): Response {
   const headers = new Headers(entry.headers);
   headers.set("X-Cache", cacheStatus);
+  // Set Cache-Control with remaining TTL so browsers/CDN respect freshness
+  const remainingTtl = entry.ttlSeconds - (Math.floor(Date.now() / 1000) - entry.storedAt);
+  if (remainingTtl > 0) {
+    headers.set("Cache-Control", `private, max-age=${remainingTtl}`);
+  }
   return new Response(entry.body, {
     status: entry.status,
     headers,

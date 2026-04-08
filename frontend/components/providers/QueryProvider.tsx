@@ -3,6 +3,13 @@
 import React, { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+// Cache policy hierarchy (see also: workers/api-gateway/src/config.ts):
+// - Default staleTime: 60s (here). Override per-hook in frontend/lib/hooks/*.ts
+// - Price data: 55s-180s staleTime (hooks) + 300s CF Worker TTL + 30s backend tier cache
+// - Suppliers: 300s staleTime (hooks) + 3600s CF Worker TTL
+// - CCA/reports: 3600s staleTime (hooks) + no CF cache (auth-gated)
+// - CF Worker sends Cache-Control: private, max-age=<remaining> on cache hits
+// - gcTime: 5min default. Tests override to 0 for isolation.
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
