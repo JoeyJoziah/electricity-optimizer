@@ -8,7 +8,7 @@ tensorboard==2.15.0
 
 # ML Frameworks
 scikit-learn==1.4.0
-xgboost==2.0.3
+xgboost==2.1.4
 lightgbm==4.3.0
 
 # Hyperparameter Optimization
