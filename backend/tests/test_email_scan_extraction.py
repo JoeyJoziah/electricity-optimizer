@@ -609,7 +609,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_extracts_rate_from_pdf_attachment(self):
         """Should call bill_parser extractors and return rate data."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         fake_pdf_data = b"%PDF-1.4 fake"
         attachments = [
@@ -640,7 +641,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_skips_attachment_with_empty_data(self):
         """Empty data bytes should produce no results."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [{"filename": "empty.pdf", "data": b"", "mime_type": "application/pdf"}]
         results = await extract_rates_from_attachments(attachments)
@@ -648,7 +650,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_attachment_with_no_extractable_text_returns_partial_result(self):
         """An attachment whose text extraction yields blank should be skipped."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "scan.pdf", "data": b"%PDF-blank", "mime_type": "application/pdf"}
@@ -665,7 +668,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_rate_below_confidence_threshold_not_included(self):
         """Rates with confidence < 0.5 should be omitted from the result dict."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "bill.pdf", "data": b"%PDF-low-conf", "mime_type": "application/pdf"}
@@ -691,7 +695,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_exception_in_extractor_returns_partial_result(self):
         """An exception in bill_parser should not crash — filename entry is returned."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "corrupt.pdf", "data": b"%PDF-corrupt", "mime_type": "application/pdf"}
@@ -709,7 +714,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_multiple_attachments_all_processed(self):
         """All qualifying attachments in the list should be processed."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
             {"filename": "jan.pdf", "data": b"%PDF-jan", "mime_type": "application/pdf"},

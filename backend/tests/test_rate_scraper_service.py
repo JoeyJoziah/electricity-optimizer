@@ -22,11 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.rate_scraper_service import (
-    _RATE_LIMIT_SLEEP_S,
-    DIFFBOT_EXTRACT_URL,
-    RateScraperService,
-)
+from services.rate_scraper_service import (_RATE_LIMIT_SLEEP_S,
+                                           DIFFBOT_EXTRACT_URL,
+                                           RateScraperService)
 
 # =============================================================================
 # Fixtures

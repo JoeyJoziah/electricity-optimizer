@@ -714,9 +714,9 @@ class TestGetABAssignment:
             assignment = await service.get_ab_assignment("ensemble", "stable-user-id")
             assignments.append(assignment.bucket)
 
-        assert len(set(assignments)) == 1, (
-            f"Expected all assignments to be the same bucket, got: {assignments}"
-        )
+        assert (
+            len(set(assignments)) == 1
+        ), f"Expected all assignments to be the same bucket, got: {assignments}"
 
     async def test_different_users_can_get_different_buckets(self, service, mock_db):
         """

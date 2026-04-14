@@ -13,12 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
-from models.user_supplier import (
-    LinkAccountRequest,
-    LinkedAccountResponse,
-    SetSupplierRequest,
-    UserSupplierResponse,
-)
+from models.user_supplier import (LinkAccountRequest, LinkedAccountResponse,
+                                  SetSupplierRequest, UserSupplierResponse)
 from utils.encryption import decrypt_field, encrypt_field, mask_account_number
 
 logger = structlog.get_logger()

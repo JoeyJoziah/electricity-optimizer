@@ -124,9 +124,8 @@ class EnergyBotExecutor:
         ):
             try:
                 # Import here to avoid circular dependency
-                from services.energybot_service import (
-                    EnrollmentRequest as EBRequest,
-                )
+                from services.energybot_service import \
+                    EnrollmentRequest as EBRequest
 
                 eb_request = EBRequest(
                     plan_id=request.plan_id,

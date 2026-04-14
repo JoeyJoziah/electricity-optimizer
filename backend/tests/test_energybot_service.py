@@ -9,16 +9,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from services.energybot_service import (
-    MAX_RETRIES,
-    EnergyBotAuthError,
-    EnergyBotError,
-    EnergyBotRateLimitError,
-    EnergyBotService,
-    EnrollmentRequest,
-    EnrollmentResult,
-    EnrollmentStatus,
-)
+from services.energybot_service import (MAX_RETRIES, EnergyBotAuthError,
+                                        EnergyBotError,
+                                        EnergyBotRateLimitError,
+                                        EnergyBotService, EnrollmentRequest,
+                                        EnrollmentResult, EnrollmentStatus)
 
 # =============================================================================
 # Helpers

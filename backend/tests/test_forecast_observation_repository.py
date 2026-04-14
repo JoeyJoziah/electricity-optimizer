@@ -60,7 +60,8 @@ def mock_session():
 @pytest.fixture
 def repo(mock_session):
     """ForecastObservationRepository bound to the mock session."""
-    from repositories.forecast_observation_repository import ForecastObservationRepository
+    from repositories.forecast_observation_repository import \
+        ForecastObservationRepository
 
     return ForecastObservationRepository(mock_session)
 
@@ -135,9 +136,7 @@ class TestInsertForecasts:
         assert count == 1
         # Verify the row passed to execute has forecast_hour=14
         call_args = mock_session.execute.call_args
-        rows = call_args[
-            0
-        ][
+        rows = call_args[0][
             1
         ]  # second positional arg is the flat params dict (keys use numeric suffix: forecast_hour0, etc.)
         assert rows["forecast_hour0"] == 14

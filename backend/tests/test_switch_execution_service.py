@@ -15,12 +15,8 @@ import pytest
 
 from services.switch_decision_engine import PlanDetails, SwitchDecision
 from services.switch_execution_service import SwitchExecutionService
-from services.switch_executor import (
-    AdvisoryOnlyFallback,
-    EnrollmentResult,
-    EnrollmentStatus,
-    SwitchExecutor,
-)
+from services.switch_executor import (AdvisoryOnlyFallback, EnrollmentResult,
+                                      EnrollmentStatus, SwitchExecutor)
 
 # =============================================================================
 # Helpers / Factories

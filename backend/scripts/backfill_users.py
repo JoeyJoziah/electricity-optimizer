@@ -73,16 +73,14 @@ class SyncResult(NamedTuple):
 
 async def fetch_neon_users(conn: asyncpg.Connection) -> list[NeonUser]:
     """Return all users from neon_auth.user ordered by creation date."""
-    rows = await conn.fetch(
-        """
+    rows = await conn.fetch("""
         SELECT
             id::text          AS id,
             email             AS email,
             COALESCE(name, '') AS name
         FROM neon_auth."user"
         ORDER BY "createdAt"
-        """
-    )
+        """)
     return [NeonUser(id=r["id"], email=r["email"], name=r["name"]) for r in rows]
 
 

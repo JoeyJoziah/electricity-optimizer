@@ -12,10 +12,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from services.optimization_report_service import (
-    AVG_MONTHLY_CONSUMPTION,
-    OptimizationReportService,
-)
+from services.optimization_report_service import (AVG_MONTHLY_CONSUMPTION,
+                                                  OptimizationReportService)
 
 # ---------------------------------------------------------------------------
 # Helpers

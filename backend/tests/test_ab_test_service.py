@@ -116,7 +116,8 @@ class TestAssignUser:
         Multiple calls for the same user_id should return the same version
         deterministically — hash is stable so same inputs produce same output.
         """
-        from services.ab_test_service import ABTestService, _hash_user_to_bucket
+        from services.ab_test_service import (ABTestService,
+                                              _hash_user_to_bucket)
 
         user_id = "stable-user"
         version_a, version_b = "v1.0", "v2.0"
