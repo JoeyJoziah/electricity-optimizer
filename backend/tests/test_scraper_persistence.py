@@ -78,7 +78,8 @@ class TestExtractRateFromDiffbotData:
 
     def _fn(self, data):
         """Import lazily so tests don't depend on module-load order."""
-        from api.v1.internal.data_pipeline import _extract_rate_from_diffbot_data
+        from api.v1.internal.data_pipeline import \
+            _extract_rate_from_diffbot_data
 
         return _extract_rate_from_diffbot_data(data)
 
@@ -113,9 +114,9 @@ class TestExtractRateFromDiffbotData:
         for kwh_variant in ("kWh", "kwh", "KWH"):
             data = {"text": f"Rate: 0.1111 per {kwh_variant}"}
             result = self._fn(data)
-            assert result == pytest.approx(0.1111, abs=1e-6), (
-                f"Failed for kWh variant '{kwh_variant}'"
-            )
+            assert result == pytest.approx(
+                0.1111, abs=1e-6
+            ), f"Failed for kWh variant '{kwh_variant}'"
 
     def test_extracts_from_objects_list(self):
         """When ``text`` is absent, concatenated object texts are searched."""
@@ -143,9 +144,7 @@ class TestExtractRateFromDiffbotData:
         """Top-level ``text`` is preferred over the ``objects`` list."""
         data = {
             "text": "Rate: 0.2000 per kWh",
-            "objects": [
-                {"text": "rate: 0.9999 per kWh"}  # should NOT be used
-            ],
+            "objects": [{"text": "rate: 0.9999 per kWh"}],  # should NOT be used
         }
         result = self._fn(data)
         assert result == pytest.approx(0.2000, abs=1e-6)
@@ -202,7 +201,8 @@ class TestExtractRateFromDiffbotData:
         # Use monkeypatching to inject a bad capture group
         import re
 
-        from api.v1.internal.data_pipeline import _extract_rate_from_diffbot_data
+        from api.v1.internal.data_pipeline import \
+            _extract_rate_from_diffbot_data
 
         original_search = re.search
 
@@ -451,9 +451,9 @@ class TestScrapeRatesRateExtraction:
         assert len(captured_rows) == 1
 
         stored_data = json.loads(captured_rows[0]["data"])
-        assert "_detected_rate_kwh" in stored_data, (
-            "Expected _detected_rate_kwh to be embedded in stored extracted_data"
-        )
+        assert (
+            "_detected_rate_kwh" in stored_data
+        ), "Expected _detected_rate_kwh to be embedded in stored extracted_data"
         assert stored_data["_detected_rate_kwh"] == pytest.approx(0.1375, abs=1e-6)
 
     @patch("services.rate_scraper_service.RateScraperService")

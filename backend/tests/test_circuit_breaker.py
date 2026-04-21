@@ -7,7 +7,8 @@ between CLOSED → OPEN → HALF_OPEN → CLOSED states.
 
 import pytest
 
-from lib.circuit_breaker import CircuitBreaker, CircuitBreakerOpen, CircuitState
+from lib.circuit_breaker import (CircuitBreaker, CircuitBreakerOpen,
+                                 CircuitState)
 
 
 class TestCircuitBreakerStates:

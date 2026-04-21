@@ -28,7 +28,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import SessionData, get_current_user, get_db_session, require_tier
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              require_tier)
 
 logger = structlog.get_logger(__name__)
 
@@ -467,19 +468,19 @@ async def get_history(
             "trigger_type": row["trigger_type"],
             "decision": row["decision"],
             "reason": row["reason"],
-            "savings_monthly": float(row["savings_monthly"])
-            if row["savings_monthly"] is not None
-            else None,
-            "savings_annual": float(row["savings_annual"])
-            if row["savings_annual"] is not None
-            else None,
+            "savings_monthly": (
+                float(row["savings_monthly"]) if row["savings_monthly"] is not None else None
+            ),
+            "savings_annual": (
+                float(row["savings_annual"]) if row["savings_annual"] is not None else None
+            ),
             "etf_cost": float(row["etf_cost"]) if row["etf_cost"] is not None else None,
-            "net_savings_year1": float(row["net_savings_year1"])
-            if row["net_savings_year1"] is not None
-            else None,
-            "confidence_score": float(row["confidence_score"])
-            if row["confidence_score"] is not None
-            else None,
+            "net_savings_year1": (
+                float(row["net_savings_year1"]) if row["net_savings_year1"] is not None else None
+            ),
+            "confidence_score": (
+                float(row["confidence_score"]) if row["confidence_score"] is not None else None
+            ),
             "data_source": row["data_source"],
             "tier": row["tier"],
             "executed": row["executed"],
@@ -538,9 +539,9 @@ async def get_activity(
             "trigger_type": row["trigger_type"],
             "decision": row["decision"],
             "reason": row["reason"],
-            "confidence_score": float(row["confidence_score"])
-            if row["confidence_score"] is not None
-            else None,
+            "confidence_score": (
+                float(row["confidence_score"]) if row["confidence_score"] is not None else None
+            ),
             "data_source": row["data_source"],
             "created_at": row["created_at"],
         }
@@ -606,10 +607,8 @@ async def check_now(
     else:
         # Import and run the decision engine
         try:
-            from services.switch_decision_engine import (
-                SwitchDecisionEngine,
-                UserContext,
-            )
+            from services.switch_decision_engine import (SwitchDecisionEngine,
+                                                         UserContext)
 
             # Build a UserContext from the settings and DB data
             ctx = UserContext(

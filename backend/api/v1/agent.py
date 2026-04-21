@@ -22,7 +22,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
-from api.dependencies import SessionData, _get_user_tier, get_current_user, get_db_session
+from api.dependencies import (SessionData, _get_user_tier, get_current_user,
+                              get_db_session)
 from config.settings import settings
 from services.agent_service import AgentService
 

@@ -422,15 +422,11 @@ async def extract_rates_from_attachments(
     billing_period_end).
     """
     # Lazy import to avoid circular deps
-    from services.bill_parser import (
-        _validate_magic_bytes,
-        extract_billing_period,
-        extract_rate_per_kwh,
-        extract_supplier,
-        extract_text,
-        extract_total_amount,
-        extract_total_kwh,
-    )
+    from services.bill_parser import (_validate_magic_bytes,
+                                      extract_billing_period,
+                                      extract_rate_per_kwh, extract_supplier,
+                                      extract_text, extract_total_amount,
+                                      extract_total_kwh)
 
     _MIME_TO_TYPE = {
         "application/pdf": "pdf",

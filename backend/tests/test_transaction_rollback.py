@@ -340,7 +340,8 @@ class TestGasRateServiceRollback:
 
     async def test_fetch_gas_rates_handles_partial_failure(self):
         """Partial failure should be caught per-state, not crash the batch."""
-        from integrations.pricing_apis.base import APIError, PriceData, PriceUnit
+        from integrations.pricing_apis.base import (APIError, PriceData,
+                                                    PriceUnit)
         from services.gas_rate_service import GasRateService
 
         mock_db = AsyncMock()
@@ -377,7 +378,8 @@ class TestForecastObservationRepositoryRollback:
     """Verify ForecastObservationRepository rolls back on commit failure."""
 
     async def test_insert_forecasts_rollback_on_commit_failure(self):
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         db = _mock_db(commit_side_effect=Exception("disk full"))
         db.execute.return_value = MagicMock()
@@ -403,7 +405,8 @@ class TestForecastObservationRepositoryRollback:
         db.rollback.assert_awaited_once()
 
     async def test_backfill_actuals_rollback_on_commit_failure(self):
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         db = _mock_db(commit_side_effect=Exception("connection reset"))
         result = MagicMock()
@@ -417,7 +420,8 @@ class TestForecastObservationRepositoryRollback:
         db.rollback.assert_awaited_once()
 
     async def test_insert_recommendation_rollback_on_commit_failure(self):
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         db = _mock_db(commit_side_effect=Exception("FK violation"))
         db.execute.return_value = MagicMock()
@@ -433,7 +437,8 @@ class TestForecastObservationRepositoryRollback:
         db.rollback.assert_awaited_once()
 
     async def test_update_recommendation_response_rollback_on_commit_failure(self):
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         db = _mock_db(commit_side_effect=Exception("serialization failure"))
         result = MagicMock()

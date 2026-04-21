@@ -8,16 +8,10 @@ Provides GDPR compliance functionality including:
 - Right to object (Article 21)
 """
 
-from compliance.gdpr import (
-    ConsentError,
-    DataRetentionService,
-    GDPRComplianceService,
-    UserNotFoundError,
-    anonymize_email,
-    anonymize_ip,
-    anonymize_name,
-    anonymize_user_agent,
-)
+from compliance.gdpr import (ConsentError, DataRetentionService,
+                             GDPRComplianceService, UserNotFoundError,
+                             anonymize_email, anonymize_ip, anonymize_name,
+                             anonymize_user_agent)
 
 __all__ = [
     "GDPRComplianceService",

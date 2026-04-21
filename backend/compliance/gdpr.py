@@ -18,11 +18,7 @@ from uuid import uuid4
 
 import structlog
 
-from models.consent import (
-    ConsentPurpose,
-    ConsentRecord,
-    DeletionLog,
-)
+from models.consent import ConsentPurpose, ConsentRecord, DeletionLog
 
 logger = structlog.get_logger()
 
@@ -594,9 +590,9 @@ class GDPRComplianceService:
                                 "post_type": row["post_type"],
                                 "title": row["title"],
                                 "body": row["body"],
-                                "rate_per_unit": str(row["rate_per_unit"])
-                                if row.get("rate_per_unit")
-                                else None,
+                                "rate_per_unit": (
+                                    str(row["rate_per_unit"]) if row.get("rate_per_unit") else None
+                                ),
                                 "supplier_name": row.get("supplier_name"),
                                 "created_at": str(row["created_at"]),
                             }
