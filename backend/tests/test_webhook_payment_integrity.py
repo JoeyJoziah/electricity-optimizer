@@ -735,6 +735,6 @@ class TestMigration056Structure:
         has_guard = "IF NOT EXISTS" in sql.upper() or (
             "DO" in sql and "IF" in sql and "NOT EXISTS" in sql.upper()
         )
-        assert has_guard, (
-            "Migration 056 must be safe to re-run (use IF NOT EXISTS or a DO block guard)"
-        )
+        assert (
+            has_guard
+        ), "Migration 056 must be safe to re-run (use IF NOT EXISTS or a DO block guard)"

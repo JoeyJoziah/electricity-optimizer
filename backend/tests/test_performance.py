@@ -718,7 +718,8 @@ class TestForecastObservationBatchInsert:
 
     @pytest.fixture
     def repo(self, db):
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         return ForecastObservationRepository(db)
 
@@ -775,6 +776,7 @@ class TestForecastObservationBatchInsert:
 
     async def test_batch_size_constant(self, repo):
         """_INSERT_BATCH_SIZE should be 20."""
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         assert ForecastObservationRepository._INSERT_BATCH_SIZE == 20

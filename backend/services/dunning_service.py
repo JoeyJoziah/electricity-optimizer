@@ -208,11 +208,13 @@ class DunningService:
                         type="dunning",
                         title=subject,
                         body=(
-                            f"Payment of {currency} {amount:.2f} could not be processed. "
-                            "Please update your payment method."
-                        )
-                        if amount
-                        else subject,
+                            (
+                                f"Payment of {currency} {amount:.2f} could not be processed. "
+                                "Please update your payment method."
+                            )
+                            if amount
+                            else subject
+                        ),
                         channels=[
                             NotificationChannel.EMAIL,
                             NotificationChannel.PUSH,

@@ -867,7 +867,8 @@ class TestBillUploadModels:
         assert dumped["parse_error"] is None
 
     def test_bill_upload_list_response_valid(self):
-        from models.connections import BillUploadListResponse, BillUploadResponse
+        from models.connections import (BillUploadListResponse,
+                                        BillUploadResponse)
 
         now = datetime.now(UTC)
         uploads = [

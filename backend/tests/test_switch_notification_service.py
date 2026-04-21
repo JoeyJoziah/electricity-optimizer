@@ -23,11 +23,8 @@ from uuid import uuid4
 
 import pytest
 
-from services.switch_notification_service import (
-    SwitchNotificationService,
-    _to_float,
-    _to_float_or_none,
-)
+from services.switch_notification_service import (SwitchNotificationService,
+                                                  _to_float, _to_float_or_none)
 
 # =============================================================================
 # Shared test data

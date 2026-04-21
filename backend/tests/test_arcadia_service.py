@@ -14,13 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from services.arcadia_service import (
-    MAX_RETRIES,
-    ArcadiaAuthError,
-    ArcadiaError,
-    ArcadiaRateLimitError,
-    ArcadiaService,
-)
+from services.arcadia_service import (MAX_RETRIES, ArcadiaAuthError,
+                                      ArcadiaError, ArcadiaRateLimitError,
+                                      ArcadiaService)
 
 # =============================================================================
 # Helpers

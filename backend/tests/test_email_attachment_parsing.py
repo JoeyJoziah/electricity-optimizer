@@ -612,7 +612,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_extracts_all_fields_from_pdf_attachment(self):
         """Full extraction pipeline: all bill_parser fields populated."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
         patches = self._bill_parser_patches()
@@ -662,7 +663,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_skips_attachment_with_empty_data(self):
         """An attachment dict with empty bytes is skipped without crashing."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment(data=b"")
         results = await extract_rates_from_attachments([att])
@@ -671,7 +673,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_skips_attachment_when_magic_bytes_mismatch(self):
         """If _validate_magic_bytes returns None and MIME type yields no type, skip."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         # Data is not a valid PDF/PNG/JPG magic bytes sequence
         garbage_data = b"\x00\x01\x02\x03garbage"
@@ -689,7 +692,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_skips_attachment_when_extracted_text_is_blank(self):
         """When extract_text returns only whitespace the attachment is skipped."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
@@ -703,7 +707,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_omits_rate_when_confidence_below_threshold(self):
         """rate_per_kwh is omitted when confidence < 0.5."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
@@ -724,7 +729,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_includes_rate_at_exactly_confidence_threshold(self):
         """rate_per_kwh IS included when confidence == 0.5 (boundary case)."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
@@ -745,7 +751,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_omits_optional_fields_when_not_found(self):
         """Fields like supplier and billing period are omitted when None."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment()
 
@@ -769,7 +776,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_recovers_gracefully_when_bill_parser_raises(self):
         """If bill_parser raises an exception, the attachment gets a fallback result."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment(filename="broken.pdf")
 
@@ -785,7 +793,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_handles_multiple_attachments_independently(self):
         """Each attachment is processed independently; one failure does not affect others."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att1 = self._make_attachment(filename="good.pdf", data=_PDF_MAGIC)
         att2 = self._make_attachment(filename="bad.pdf", data=_PDF_MAGIC)
@@ -817,7 +826,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_processes_png_attachment(self):
         """PNG attachments are routed through the image extraction path."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         att = self._make_attachment(filename="scan.png", data=_PNG_MAGIC, mime_type="image/png")
 
@@ -841,7 +851,8 @@ class TestExtractRatesFromAttachments:
 
     async def test_returns_empty_list_for_empty_attachment_list(self):
         """No attachments input produces empty output with no bill_parser calls."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         results = await extract_rates_from_attachments([])
 

@@ -14,23 +14,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import (
-    SessionData,
-    get_price_service,
-    require_tier,
-    verify_api_key,
-)
+from api.dependencies import (SessionData, get_price_service, require_tier,
+                              verify_api_key)
 from config.database import get_pg_session
 from config.settings import get_settings
-from models.price import (
-    Price,
-    PriceComparisonResponse,
-    PriceForecast,
-    PriceForecastResponse,
-    PriceHistoryResponse,
-    PriceRegion,
-    PriceResponse,
-)
+from models.price import (Price, PriceComparisonResponse, PriceForecast,
+                          PriceForecastResponse, PriceHistoryResponse,
+                          PriceRegion, PriceResponse)
 from services.price_service import PriceService
 
 logger = structlog.get_logger(__name__)

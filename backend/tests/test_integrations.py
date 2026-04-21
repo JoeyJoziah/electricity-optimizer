@@ -20,36 +20,26 @@ import httpx
 import pytest
 
 # Import all components to test
-from integrations.pricing_apis.base import (
-    AuthenticationError,
-    CircuitBreaker,
-    CircuitBreakerConfig,
-    CircuitBreakerOpenError,
-    CircuitState,
-    PriceData,
-    PriceUnit,
-    PricingRegion,
-    RateLimitError,
-    RetryConfig,
-    ServiceUnavailableError,
-)
-from integrations.pricing_apis.base import (
-    ForecastData as PriceForecast,  # backward-compat alias used in tests below
-)
-from integrations.pricing_apis.cache import (
-    CacheConfig,
-    CacheEntry,
-    InMemoryCache,
-)
+from integrations.pricing_apis.base import (AuthenticationError,
+                                            CircuitBreaker,
+                                            CircuitBreakerConfig,
+                                            CircuitBreakerOpenError,
+                                            CircuitState)
+from integrations.pricing_apis.base import \
+    ForecastData as PriceForecast  # backward-compat alias used in tests below
+from integrations.pricing_apis.base import (PriceData, PriceUnit,
+                                            PricingRegion, RateLimitError,
+                                            RetryConfig,
+                                            ServiceUnavailableError)
+from integrations.pricing_apis.cache import (CacheConfig, CacheEntry,
+                                             InMemoryCache)
 from integrations.pricing_apis.flatpeak import FlatpeakClient
 from integrations.pricing_apis.iea import IEAClient
 from integrations.pricing_apis.nrel import NRELClient
-from integrations.pricing_apis.rate_limiter import (
-    CompositeRateLimiter,
-    SlidingWindowLimiter,
-    TokenBucketLimiter,
-    create_api_rate_limiter,
-)
+from integrations.pricing_apis.rate_limiter import (CompositeRateLimiter,
+                                                    SlidingWindowLimiter,
+                                                    TokenBucketLimiter,
+                                                    create_api_rate_limiter)
 
 # =============================================================================
 # FIXTURES

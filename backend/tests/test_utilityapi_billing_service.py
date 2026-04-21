@@ -10,10 +10,8 @@ import pytest
 import stripe
 
 from config.settings import settings
-from services.utilityapi_billing_service import (
-    PRICE_PER_METER_USD,
-    UtilityAPIBillingService,
-)
+from services.utilityapi_billing_service import (PRICE_PER_METER_USD,
+                                                 UtilityAPIBillingService)
 
 # =============================================================================
 # Fixtures

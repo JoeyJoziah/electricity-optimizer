@@ -713,7 +713,8 @@ async def apply_webhook_action(
         # UtilityAPI add-on checkout completed — finalize billing link
         addon_connection_id = result.get("addon_connection_id")
         if addon_connection_id and db is not None:
-            from services.utilityapi_billing_service import UtilityAPIBillingService
+            from services.utilityapi_billing_service import \
+                UtilityAPIBillingService
 
             billing_svc = UtilityAPIBillingService(db)
             await billing_svc.finalize_checkout(addon_connection_id)

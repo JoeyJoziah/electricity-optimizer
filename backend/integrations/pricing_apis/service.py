@@ -17,12 +17,7 @@ import structlog
 
 from lib.circuit_breaker import CircuitBreaker
 
-from .base import (
-    APIError,
-    PriceData,
-    PriceForecast,
-    PricingRegion,
-)
+from .base import APIError, PriceData, PriceForecast, PricingRegion
 from .cache import PricingCache
 from .eia import EIAClient
 from .flatpeak import FlatpeakClient
