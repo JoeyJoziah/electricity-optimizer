@@ -16,13 +16,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.neon_auth import (
-    SESSION_COOKIE_NAME,
-    SESSION_COOKIE_NAME_SECURE,
-    SessionData,
-    get_current_user,
-    invalidate_session_cache,
-)
+from auth.neon_auth import (SESSION_COOKIE_NAME, SESSION_COOKIE_NAME_SECURE,
+                            SessionData, get_current_user,
+                            invalidate_session_cache)
 from auth.password import check_password_strength
 from config.database import db_manager, get_pg_session
 from middleware.rate_limiter import UserRateLimiter

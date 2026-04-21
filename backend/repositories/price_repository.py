@@ -39,9 +39,9 @@ def _row_to_price(row: dict) -> Price:
         is_peak=row.get("is_peak"),
         source_api=row.get("source_api"),
         created_at=row.get("created_at", datetime.now(UTC)),
-        carbon_intensity=float(row["carbon_intensity"])
-        if row.get("carbon_intensity") is not None
-        else None,
+        carbon_intensity=(
+            float(row["carbon_intensity"]) if row.get("carbon_intensity") is not None else None
+        ),
         utility_type=row.get("utility_type", "electricity"),
     )
 
@@ -168,9 +168,9 @@ class PriceRepository(BaseRepository[Price]):
                 """),
                 {
                     "id": entity.id,
-                    "region": entity.region
-                    if isinstance(entity.region, str)
-                    else entity.region.value,
+                    "region": (
+                        entity.region if isinstance(entity.region, str) else entity.region.value
+                    ),
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -179,9 +179,11 @@ class PriceRepository(BaseRepository[Price]):
                     "source_api": entity.source_api,
                     "created_at": entity.created_at,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type
-                    if isinstance(entity.utility_type, str)
-                    else entity.utility_type.value,
+                    "utility_type": (
+                        entity.utility_type
+                        if isinstance(entity.utility_type, str)
+                        else entity.utility_type.value
+                    ),
                 },
             )
             await self._db.commit()
@@ -219,9 +221,9 @@ class PriceRepository(BaseRepository[Price]):
                 """),
                 {
                     "id": id,
-                    "region": entity.region
-                    if isinstance(entity.region, str)
-                    else entity.region.value,
+                    "region": (
+                        entity.region if isinstance(entity.region, str) else entity.region.value
+                    ),
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -229,9 +231,11 @@ class PriceRepository(BaseRepository[Price]):
                     "is_peak": entity.is_peak,
                     "source_api": entity.source_api,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type
-                    if isinstance(entity.utility_type, str)
-                    else entity.utility_type.value,
+                    "utility_type": (
+                        entity.utility_type
+                        if isinstance(entity.utility_type, str)
+                        else entity.utility_type.value
+                    ),
                 },
             )
             await self._db.commit()
@@ -786,9 +790,11 @@ class PriceRepository(BaseRepository[Price]):
             return {
                 "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
                 "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
-                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
-                if row["avg_price"]
-                else None,
+                "avg_price": (
+                    Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
+                    if row["avg_price"]
+                    else None
+                ),
                 "count": row["count"],
                 "period_days": days,
                 "utility_type": ut_val,
@@ -842,12 +848,16 @@ class PriceRepository(BaseRepository[Price]):
             return {
                 "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
                 "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
-                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
-                if row["avg_price"]
-                else None,
-                "stddev_price": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
-                if row["stddev_price"]
-                else None,
+                "avg_price": (
+                    Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
+                    if row["avg_price"]
+                    else None
+                ),
+                "stddev_price": (
+                    Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
+                    if row["stddev_price"]
+                    else None
+                ),
                 "count": row["count"],
                 "period_days": days,
                 "utility_type": ut_val,
@@ -915,12 +925,12 @@ class PriceRepository(BaseRepository[Price]):
                 return {"first_third_avg": None, "last_third_avg": None, "total_count": 0}
 
             return {
-                "first_third_avg": Decimal(str(row["first_third_avg"]))
-                if row["first_third_avg"]
-                else None,
-                "last_third_avg": Decimal(str(row["last_third_avg"]))
-                if row["last_third_avg"]
-                else None,
+                "first_third_avg": (
+                    Decimal(str(row["first_third_avg"])) if row["first_third_avg"] else None
+                ),
+                "last_third_avg": (
+                    Decimal(str(row["last_third_avg"])) if row["last_third_avg"] else None
+                ),
                 "total_count": row["total_count"],
             }
 
@@ -1026,9 +1036,11 @@ class PriceRepository(BaseRepository[Price]):
                     "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")),
                     "min_price": Decimal(str(row["min_price"])).quantize(Decimal("0.0001")),
                     "max_price": Decimal(str(row["max_price"])).quantize(Decimal("0.0001")),
-                    "volatility": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
-                    if row["stddev_price"]
-                    else Decimal("0"),
+                    "volatility": (
+                        Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
+                        if row["stddev_price"]
+                        else Decimal("0")
+                    ),
                     "count": row["count"],
                 }
                 for row in rows

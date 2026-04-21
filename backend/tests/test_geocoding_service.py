@@ -4,11 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
-from services.geocoding_service import (
-    _STATE_NAME_TO_ABBR,
-    _US_STATES,
-    GeocodingService,
-)
+from services.geocoding_service import (_STATE_NAME_TO_ABBR, _US_STATES,
+                                        GeocodingService)
 
 
 def _make_settings(owm_key="test-owm-key"):

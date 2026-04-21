@@ -24,24 +24,18 @@ import uuid
 from uuid import uuid4
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
+                     UploadFile, status)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
-from models.connections import (
-    BillUploadListResponse,
-    BillUploadResponse,
-    ConnectionResponse,
-    CreateUploadConnectionRequest,
-)
-from services.bill_parser import (
-    MAX_FILE_SIZE_BYTES,
-    BillParserService,
-    build_storage_key,
-    validate_upload_file,
-)
+from models.connections import (BillUploadListResponse, BillUploadResponse,
+                                ConnectionResponse,
+                                CreateUploadConnectionRequest)
+from services.bill_parser import (MAX_FILE_SIZE_BYTES, BillParserService,
+                                  build_storage_key, validate_upload_file)
 
 logger = structlog.get_logger(__name__)
 

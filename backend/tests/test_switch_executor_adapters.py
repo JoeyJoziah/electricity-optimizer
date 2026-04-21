@@ -10,15 +10,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.switch_executor import (
-    AdvisoryOnlyFallback,
-    EnergyBotExecutor,
-    EnrollmentRequest,
-    EnrollmentResult,
-    EnrollmentStatus,
-    SwitchExecutor,
-    get_executor,
-)
+from services.switch_executor import (AdvisoryOnlyFallback, EnergyBotExecutor,
+                                      EnrollmentRequest, EnrollmentResult,
+                                      EnrollmentStatus, SwitchExecutor,
+                                      get_executor)
 
 # =============================================================================
 # Helpers

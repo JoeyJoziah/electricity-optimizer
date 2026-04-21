@@ -14,12 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import (
-    SessionData,
-    get_current_user,
-    get_db_session,
-    get_recommendation_service,
-)
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              get_recommendation_service)
 
 
 def _tier_db_mock(tier: str = "pro"):

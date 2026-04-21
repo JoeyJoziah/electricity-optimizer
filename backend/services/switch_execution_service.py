@@ -480,7 +480,8 @@ class SwitchExecutionService:
                 raise ValueError(f"Audit log {audit_log_id} has already been executed.")
 
             # Step 2 — build a minimal SwitchDecision-compatible object from the log
-            from services.switch_decision_engine import PlanDetails, SwitchDecision
+            from services.switch_decision_engine import (PlanDetails,
+                                                         SwitchDecision)
 
             plan = PlanDetails(
                 plan_id=row["plan_id"] or "",

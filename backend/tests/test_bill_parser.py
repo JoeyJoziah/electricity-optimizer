@@ -5,23 +5,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.bill_parser import (
-    _MAGIC_JPG,
-    _MAGIC_PDF,
-    _MAGIC_PNG,
-    BillParserService,
-    _parse_date_flexible,
-    _strip_commas,
-    _validate_magic_bytes,
-    build_storage_key,
-    extract_billing_period,
-    extract_rate_per_kwh,
-    extract_supplier,
-    extract_text,
-    extract_total_amount,
-    extract_total_kwh,
-    validate_upload_file,
-)
+from services.bill_parser import (_MAGIC_JPG, _MAGIC_PDF, _MAGIC_PNG,
+                                  BillParserService, _parse_date_flexible,
+                                  _strip_commas, _validate_magic_bytes,
+                                  build_storage_key, extract_billing_period,
+                                  extract_rate_per_kwh, extract_supplier,
+                                  extract_text, extract_total_amount,
+                                  extract_total_kwh, validate_upload_file)
 
 # ---------------------------------------------------------------------------
 # Magic bytes / helper tests

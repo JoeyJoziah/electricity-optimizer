@@ -9,12 +9,8 @@ from decimal import Decimal
 
 import pytest
 
-from services.plan_scorer import (
-    PlanScore,
-    PlanScorer,
-    RateStructure,
-    UsageProfile,
-)
+from services.plan_scorer import (PlanScore, PlanScorer, RateStructure,
+                                  UsageProfile)
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures

@@ -57,11 +57,8 @@ def _install_recording_provider():
     from opentelemetry import trace
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import (
-        SimpleSpanProcessor,
-        SpanExporter,
-        SpanExportResult,
-    )
+    from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                SpanExporter, SpanExportResult)
 
     class _InMemoryExporter(SpanExporter):
         def __init__(self):
@@ -114,9 +111,9 @@ class TestAgentServiceTracing:
                 pass
 
         agent_spans = [s for s in exporter.spans if s.name.startswith("agent.")]
-        assert len(agent_spans) >= 1, (
-            f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(agent_spans) >= 1
+        ), f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
         assert agent_spans[0].attributes.get("agent.provider") is not None or True
 
     async def test_query_async_creates_span(self):
@@ -141,9 +138,9 @@ class TestAgentServiceTracing:
                 pass
 
         agent_spans = [s for s in exporter.spans if s.name.startswith("agent.")]
-        assert len(agent_spans) >= 1, (
-            f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(agent_spans) >= 1
+        ), f"Expected agent.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +165,9 @@ class TestPriceServiceTracing:
         await svc.get_current_price(PriceRegion.NY, "ConEd")
 
         price_spans = [s for s in exporter.spans if s.name.startswith("price.")]
-        assert len(price_spans) >= 1, (
-            f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(price_spans) >= 1
+        ), f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
         span = price_spans[0]
         assert span.attributes.get("price.region") == "NY"
 
@@ -193,9 +190,9 @@ class TestPriceServiceTracing:
             pass  # May fail due to ML deps — we only care about span
 
         price_spans = [s for s in exporter.spans if s.name.startswith("price.")]
-        assert len(price_spans) >= 1, (
-            f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(price_spans) >= 1
+        ), f"Expected price.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -225,9 +222,9 @@ class TestStripeServiceTracing:
                 pass
 
         stripe_spans = [s for s in exporter.spans if s.name.startswith("stripe.")]
-        assert len(stripe_spans) >= 1, (
-            f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(stripe_spans) >= 1
+        ), f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
 
     async def test_handle_webhook_creates_span(self):
         """handle_webhook_event() should create a 'stripe.webhook' span."""
@@ -245,9 +242,9 @@ class TestStripeServiceTracing:
                 pass
 
         stripe_spans = [s for s in exporter.spans if s.name.startswith("stripe.")]
-        assert len(stripe_spans) >= 1, (
-            f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(stripe_spans) >= 1
+        ), f"Expected stripe.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -270,9 +267,9 @@ class TestAlertServiceTracing:
         await svc.send_alerts([])  # empty list is fine
 
         alert_spans = [s for s in exporter.spans if s.name.startswith("alert.")]
-        assert len(alert_spans) >= 1, (
-            f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(alert_spans) >= 1
+        ), f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
 
     async def test_create_alert_creates_span(self):
         """create_alert() should create an 'alert.create' span."""
@@ -297,9 +294,9 @@ class TestAlertServiceTracing:
             pass
 
         alert_spans = [s for s in exporter.spans if s.name.startswith("alert.")]
-        assert len(alert_spans) >= 1, (
-            f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(alert_spans) >= 1
+        ), f"Expected alert.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -327,9 +324,9 @@ class TestPortalScraperServiceTracing:
             pass
 
         scraper_spans = [s for s in exporter.spans if s.name.startswith("scraper.")]
-        assert len(scraper_spans) >= 1, (
-            f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(scraper_spans) >= 1
+        ), f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"
         assert scraper_spans[0].attributes.get("scraper.utility") == "Duke Energy"
 
 
@@ -356,9 +353,9 @@ class TestConnectionSyncServiceTracing:
             pass
 
         sync_spans = [s for s in exporter.spans if s.name.startswith("sync.")]
-        assert len(sync_spans) >= 1, (
-            f"Expected sync.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(sync_spans) >= 1
+        ), f"Expected sync.* span, got: {[s.name for s in exporter.spans]}"
 
 
 # ---------------------------------------------------------------------------
@@ -383,6 +380,6 @@ class TestRateScraperServiceTracing:
             pass
 
         scraper_spans = [s for s in exporter.spans if s.name.startswith("scraper.")]
-        assert len(scraper_spans) >= 1, (
-            f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"
-        )
+        assert (
+            len(scraper_spans) >= 1
+        ), f"Expected scraper.* span, got: {[s.name for s in exporter.spans]}"
