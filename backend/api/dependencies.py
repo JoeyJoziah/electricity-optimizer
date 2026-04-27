@@ -5,7 +5,7 @@ FastAPI dependency injection for database, services, and authentication.
 """
 
 from collections.abc import AsyncGenerator
-from functools import lru_cache
+from typing import Any
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
@@ -164,22 +164,8 @@ async def invalidate_tier_cache(user_id: str) -> None:
             pass
 
 
-@lru_cache(maxsize=8)
-def require_tier(min_tier: str):
-    """
-    Factory for tier-gating dependencies.
-
-    Args:
-        min_tier: Minimum subscription tier required ('free', 'pro', or 'business').
-
-    Returns:
-        Dependency function that checks the user's subscription tier.
-        Returns 403 if the user's tier is below min_tier.
-
-    Examples:
-        require_tier("pro")      — allows pro + business
-        require_tier("business") — allows business only
-    """
+def _build_tier_check(min_tier: str):
+    """Build a tier-checking dependency for the given minimum tier."""
 
     async def check_tier(
         current_user: SessionData = Depends(get_current_user),
@@ -196,7 +182,40 @@ def require_tier(min_tier: str):
             )
         return current_user
 
+    check_tier.__name__ = f"require_tier_{min_tier}"
+    check_tier.__qualname__ = f"require_tier.{min_tier}"
     return check_tier
+
+
+# Pre-built dependency callables — one per tier — so FastAPI's dependency
+# identity is stable across uvicorn workers and across hot-reloads. Replaces
+# an earlier @lru_cache wrapper on require_tier(); lru_cache is inappropriate
+# for an authorization primitive because the cached closures captured
+# worker-local state (Redis client, metrics) and a future capture would
+# silently grant the wrong tier (security H-5 / code-quality P0-5).
+_TIER_DEPENDENCIES: dict[str, Any] = {tier: _build_tier_check(tier) for tier in _TIER_ORDER}
+
+
+def require_tier(min_tier: str):
+    """
+    Factory for tier-gating dependencies.
+
+    Args:
+        min_tier: Minimum subscription tier required ('free', 'pro', or 'business').
+
+    Returns:
+        Dependency function that checks the user's subscription tier.
+        Returns 403 if the user's tier is below min_tier.
+
+    Examples:
+        require_tier("pro")      — allows pro + business
+        require_tier("business") — allows business only
+    """
+    if min_tier not in _TIER_DEPENDENCIES:
+        # Build on demand for any unknown tier string (e.g. tests passing a
+        # custom tier) so we never silently 403 with the wrong rule.
+        _TIER_DEPENDENCIES[min_tier] = _build_tier_check(min_tier)
+    return _TIER_DEPENDENCIES[min_tier]
 
 
 # =============================================================================

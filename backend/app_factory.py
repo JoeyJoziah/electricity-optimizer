@@ -407,6 +407,14 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
 
         # Shutdown
         logger.info("application_shutting_down")
+        # Drain any in-flight AI agent background tasks BEFORE the DB pool is
+        # closed so the drain helper can mark Redis job entries as failed.
+        try:
+            from services.agent_service import drain_background_tasks
+
+            await drain_background_tasks()
+        except Exception as e:
+            logger.warning("agent_background_drain_error", error=str(e))
         try:
             app_rate_limiter.reset()
             await db_manager.close()

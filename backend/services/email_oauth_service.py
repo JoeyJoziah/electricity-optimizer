@@ -42,6 +42,47 @@ def _get_redirect_uri() -> str:
     return f"{base}/api/v1/connections/email/callback"
 
 
+def _get_oauth_signing_key() -> bytes:
+    """Resolve the OAuth state HMAC signing key.
+
+    Prefers ``OAUTH_STATE_SECRET`` (a dedicated secret distinct from
+    ``INTERNAL_API_KEY``) so a leak of one key plane (e.g. CF Worker→origin
+    auth) does not compromise OAuth CSRF tokens. Falls back to
+    ``INTERNAL_API_KEY`` with a one-time deprecation warning to keep
+    pre-rotation deployments working.
+
+    Secrets must be non-empty strings; the explicit ``isinstance`` check is a
+    guard against ``MagicMock`` attributes leaking through in test contexts
+    that patch ``settings`` wholesale.
+    """
+    secret = settings.oauth_state_secret
+    if isinstance(secret, str) and secret:
+        return secret.encode()
+    fallback = settings.internal_api_key
+    if isinstance(fallback, str) and fallback:
+        # Pre-rotation fallback. The settings validator enforces that
+        # OAUTH_STATE_SECRET is set in production, so this branch should only
+        # execute in development or during a live rotation window.
+        if not _get_oauth_signing_key._warned:  # type: ignore[attr-defined]
+            logger.warning(
+                "oauth_state_secret_missing_using_internal_api_key_fallback",
+                message=(
+                    "OAUTH_STATE_SECRET is not set; falling back to "
+                    "INTERNAL_API_KEY for OAuth HMAC signing. "
+                    "Configure a dedicated OAUTH_STATE_SECRET to maintain key isolation."
+                ),
+            )
+            _get_oauth_signing_key._warned = True  # type: ignore[attr-defined]
+        return fallback.encode()
+    raise RuntimeError(
+        "OAUTH_STATE_SECRET (or INTERNAL_API_KEY for legacy fallback) must be "
+        "set for OAuth HMAC signing"
+    )
+
+
+_get_oauth_signing_key._warned = False  # type: ignore[attr-defined]
+
+
 def generate_oauth_state(connection_id: str, user_id: str = "") -> str:
     """Generate a signed state parameter with timestamp for CSRF + replay protection.
 
@@ -58,9 +99,7 @@ def generate_oauth_state(connection_id: str, user_id: str = "") -> str:
     nonce = secrets.token_hex(16)
     timestamp = str(int(time.time()))
     payload = f"{connection_id}:{user_id}:{nonce}:{timestamp}"
-    if not settings.internal_api_key:
-        raise RuntimeError("INTERNAL_API_KEY must be set for OAuth HMAC signing")
-    key = settings.internal_api_key.encode()
+    key = _get_oauth_signing_key()
     mac = hmac.HMAC(key, payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}:{mac}"
 
@@ -88,10 +127,7 @@ def verify_oauth_state(
     connection_id, user_id, nonce, timestamp_str, received_mac = parts
     payload = f"{connection_id}:{user_id}:{nonce}:{timestamp_str}"
 
-    if not settings.internal_api_key:
-        raise RuntimeError("INTERNAL_API_KEY must be set for OAuth HMAC signing")
-
-    key = settings.internal_api_key.encode()
+    key = _get_oauth_signing_key()
     expected_mac = hmac.HMAC(key, payload.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(received_mac, expected_mac):
         return None, None

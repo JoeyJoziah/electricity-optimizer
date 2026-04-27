@@ -1,8 +1,8 @@
 """
 AI Agent API
 
-Endpoints for the RateShift AI assistant — powered by Gemini 2.5 Flash
-with Groq fallback and Composio tool integration.
+Endpoints for the RateShift AI assistant — powered by Gemini 3 Flash Preview
+with Groq Llama 3.3 70B fallback and Composio tool integration.
 
 Routes
 ------
@@ -17,14 +17,14 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
 from api.dependencies import SessionData, _get_user_tier, get_current_user, get_db_session
 from config.settings import settings
-from services.agent_service import AgentService
+from services.agent_service import AgentService, get_agent_service
 
 logger = structlog.get_logger(__name__)
 
@@ -108,12 +108,14 @@ _ALLOWED_CONTEXT_KEYS: frozenset[str] = frozenset(
 )
 async def query_agent(
     body: AgentQueryRequest,
+    request: Request,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
+    service: AgentService = Depends(get_agent_service),
 ):
     """
     Send a prompt to RateShift AI and receive a streaming response.
-    Uses Gemini 2.5 Flash with automatic Groq fallback.
+    Uses Gemini 3 Flash Preview with automatic Groq Llama 3.3 70B fallback.
     """
     _require_agent_enabled()
 
@@ -135,7 +137,6 @@ async def query_agent(
     tier = context["tier"]
 
     # Atomic rate-limit check + increment (prevents TOCTOU race)
-    service = AgentService()
     allowed, count = await service.increment_usage_atomic(current_user.user_id, tier, db)
     if not allowed:
         limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
@@ -150,6 +151,7 @@ async def query_agent(
             prompt=body.prompt,
             context=context,
             db=db,
+            is_disconnected=request.is_disconnected,
         ):
             data = json.dumps(
                 {
@@ -187,6 +189,7 @@ async def submit_agent_task(
     body: AgentQueryRequest,
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
+    service: AgentService = Depends(get_agent_service),
 ) -> dict[str, str]:
     """
     Submit a prompt as an async background task (for tool-heavy queries).
@@ -212,7 +215,6 @@ async def submit_agent_task(
     tier = context["tier"]
 
     # Atomic rate-limit check + increment (prevents TOCTOU race)
-    service = AgentService()
     allowed, count = await service.increment_usage_atomic(current_user.user_id, tier, db)
     if not allowed:
         limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
@@ -240,6 +242,7 @@ async def submit_agent_task(
 async def get_task_result(
     job_id: uuid.UUID,
     current_user: SessionData = Depends(get_current_user),
+    service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
     """
     Poll the result of an async agent task by job_id.
@@ -247,7 +250,6 @@ async def get_task_result(
     """
     _require_agent_enabled()
 
-    service = AgentService()
     result = await service.get_job_result(str(job_id), user_id=current_user.user_id)
     return result
 
@@ -260,6 +262,7 @@ async def get_task_result(
 async def get_agent_usage(
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
+    service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
     """
     Return today's query usage, tier limit, and remaining queries.
@@ -273,5 +276,4 @@ async def get_agent_usage(
         )
 
     tier = await _get_user_tier(current_user.user_id, db)
-    service = AgentService()
     return await service.get_usage(current_user.user_id, tier, db)

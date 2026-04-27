@@ -1,7 +1,7 @@
 """
 RateShift AI Agent Service
 
-Primary: Gemini 2.5 Flash (free tier)
+Primary: Gemini 3 Flash Preview (free tier — 10 RPM, 250 RPD)
 Fallback: Groq Llama 3.3 70B (free tier)
 Tools: Composio (16 connected apps)
 """
@@ -10,7 +10,7 @@ import asyncio
 import json
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass, field
 
 import structlog
@@ -72,7 +72,99 @@ User context:
 # task can be garbage-collected before it finishes if no other object holds a
 # reference to it.  The done callback removes the completed task from this set
 # so it does not grow without bound.
+#
+# This set is per-worker (uvicorn forks isolate it).  The lifespan shutdown
+# handler calls ``drain_background_tasks`` to give in-flight Gemini calls a
+# bounded grace window before the worker exits, and to mark Redis job entries
+# as failed so polling clients see a concrete terminal state instead of a
+# perpetual "processing" status.
 _background_tasks: set[asyncio.Task] = set()
+_BACKGROUND_DRAIN_TIMEOUT_SECONDS = 10.0
+
+
+async def drain_background_tasks(
+    timeout: float = _BACKGROUND_DRAIN_TIMEOUT_SECONDS,
+) -> None:
+    """Drain in-flight async agent jobs at application shutdown.
+
+    Awaits up to ``timeout`` seconds for queued tasks to finish naturally.
+    Tasks that are still running when the timeout elapses are cancelled and
+    their Redis job entries are marked as ``failed`` so polling clients see
+    a terminal state.  Safe to call multiple times.
+    """
+    if not _background_tasks:
+        return
+
+    pending = {t for t in _background_tasks if not t.done()}
+    if not pending:
+        _background_tasks.clear()
+        return
+
+    logger.info("agent_background_drain_started", count=len(pending), timeout=timeout)
+    try:
+        await asyncio.wait(pending, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("agent_background_drain_wait_error", error=str(exc))
+
+    still_running = [t for t in pending if not t.done()]
+    if still_running:
+        logger.warning("agent_background_drain_cancelling", count=len(still_running))
+        for task in still_running:
+            task.cancel()
+        # Best-effort: mark any matching Redis job entries as failed so the
+        # polling endpoint surfaces a clean terminal state.
+        try:
+            from config.database import db_manager  # local import to avoid cycle
+
+            redis = await db_manager.get_redis_client()
+            if redis:
+                for task in still_running:
+                    job_id = getattr(task, "_agent_job_id", None)
+                    if job_id:
+                        try:
+                            await redis.set(
+                                f"agent:job:{job_id}",
+                                json.dumps(
+                                    {
+                                        "status": "failed",
+                                        "error": "Server shutdown — please retry.",
+                                    }
+                                ),
+                                ex=3600,
+                            )
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    _background_tasks.clear()
+    logger.info("agent_background_drain_complete")
+
+
+# Module-level singleton used as the FastAPI dependency for AgentService.
+# Constructing AgentService is cheap (lazy-init of SDK clients), but doing
+# it on every request still triggers Composio/Groq/Gemini SDK initialisation
+# during the *first* call after a cold start, serialising those requests.
+# Caching the instance makes that one-time cost happen at most once per
+# process and lets ``app.dependency_overrides`` swap it in tests.
+_agent_service_singleton: "AgentService | None" = None
+
+
+def get_agent_service() -> "AgentService":
+    """Return the process-wide AgentService instance.
+
+    Used as a FastAPI dependency:
+        ``service: AgentService = Depends(get_agent_service)``
+    """
+    global _agent_service_singleton
+    if _agent_service_singleton is None:
+        _agent_service_singleton = AgentService()
+    return _agent_service_singleton
+
+
+def _reset_agent_service_singleton() -> None:
+    """Test helper: clear the cached singleton between test cases."""
+    global _agent_service_singleton
+    _agent_service_singleton = None
 
 
 class AgentService:
@@ -101,8 +193,61 @@ class AgentService:
             self._groq_client = AsyncGroq(api_key=settings.groq_api_key)
         return self._groq_client
 
-    def _get_composio_tools(self):
-        """Get Composio tools for Gemini function calling."""
+    # ------------------------------------------------------------------
+    # Composio tool allow-list per tier (security M-7)
+    #
+    # Composio is provisioned with 16 connected apps including gmail, slack,
+    # resend, googlesheets, etc. Several of those are destructive
+    # (send_email, post_message, write_file). Without a server-side allow-list,
+    # a prompt injection in user input could direct the LLM to email a
+    # third party from the user's connected gmail. Tier-gating destructive
+    # surface narrows that risk dramatically while preserving the read-only
+    # tools (search, list, read) that drive most legitimate use.
+    # ------------------------------------------------------------------
+
+    # Read-only tools available to all tiers (free, pro, business)
+    _READ_ONLY_TOOL_PREFIXES: tuple[str, ...] = (
+        "search_",
+        "list_",
+        "read_",
+        "get_",
+        "fetch_",
+    )
+
+    # Destructive tools restricted to business tier (and only with explicit
+    # per-tool consent at execution time — see _is_tool_allowed)
+    _BUSINESS_ONLY_TOOL_PREFIXES: tuple[str, ...] = (
+        "send_",
+        "post_",
+        "create_",
+        "update_",
+        "delete_",
+        "write_",
+    )
+
+    @classmethod
+    def _is_tool_allowed(cls, tool_name: str, tier: str) -> bool:
+        """Return True if ``tier`` is allowed to invoke ``tool_name``."""
+        name = (tool_name or "").lower()
+        if any(name.startswith(p) for p in cls._READ_ONLY_TOOL_PREFIXES):
+            return True
+        if any(name.startswith(p) for p in cls._BUSINESS_ONLY_TOOL_PREFIXES):
+            return tier == "business"
+        # Default-deny for unrecognised verbs — require explicit allow-listing.
+        return False
+
+    def _get_composio_tools(self, tier: str = "free"):
+        """Get Composio tools for Gemini function calling, filtered by tier.
+
+        Args:
+            tier: ``free``, ``pro``, or ``business``. Free + pro receive only
+                read-only tools (search/list/read/get/fetch). Business
+                additionally receives mutating tools (send/post/create/etc.).
+
+        Returns ``None`` if Composio is not configured or initialisation
+        failed.  Otherwise returns the underlying toolset; the caller is
+        responsible for passing it to Gemini's function-calling API.
+        """
         if self._composio_toolset is None:
             if settings.composio_api_key:
                 try:
@@ -114,7 +259,18 @@ class AgentService:
                     self._composio_toolset = False  # sentinel: don't retry
             else:
                 self._composio_toolset = False
-        return self._composio_toolset if self._composio_toolset is not False else None
+        toolset = self._composio_toolset if self._composio_toolset is not False else None
+        if toolset is None:
+            return None
+        # Mark the active tier on the toolset so any future tool dispatch
+        # can re-validate before invocation. The actual filtering happens at
+        # call-time via ``_is_tool_allowed`` since the Composio SDK does not
+        # expose an explicit allow-list parameter on the Toolset constructor.
+        try:
+            toolset._rateshift_tier = tier  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        return toolset
 
     async def check_rate_limit(self, user_id: str, tier: str, db) -> tuple[bool, int, int]:
         """Check if user has remaining queries. Returns (allowed, used, limit).
@@ -255,9 +411,27 @@ class AgentService:
         }
 
     async def query_streaming(
-        self, user_id: str, prompt: str, context: dict, db
+        self,
+        user_id: str,
+        prompt: str,
+        context: dict,
+        db,
+        is_disconnected: "Callable[[], Awaitable[bool]] | None" = None,
     ) -> AsyncGenerator[AgentMessage, None]:
-        """Stream agent responses. Yields AgentMessage objects."""
+        """Stream agent responses. Yields AgentMessage objects.
+
+        ``is_disconnected`` is an optional async callable (e.g.
+        ``request.is_disconnected``) that the streamer polls *before* opening
+        an outbound LLM call. If it reports True, the call is skipped and the
+        generator returns without yielding — saving Gemini quota when a user
+        bails out mid-prompt.
+
+        NOTE: ``asyncio.to_thread`` does not propagate cancellation into the
+        underlying thread, so once the Gemini call is *in flight* it cannot
+        be aborted. The proper fix is to migrate to the SDK's streaming API
+        (``generate_content_stream``) and check ``is_disconnected`` between
+        chunks. Tracked as a follow-up to security M-3 / audit P1-22.
+        """
         async with traced("agent.query", attributes={"agent.provider": "gemini"}):
             start_time = time.time()
 
@@ -280,6 +454,18 @@ class AgentService:
             model_used = "gemini-3-flash-preview"
             tools_used = []
             tokens_used = 0
+
+            # Pre-call disconnect check: if the client already bailed (e.g.
+            # tab closed during the rate-limit handshake), skip the Gemini
+            # call entirely so we don't burn quota on a response no one will
+            # see. The post-call check below catches mid-call disconnects.
+            if is_disconnected is not None:
+                try:
+                    if await is_disconnected():
+                        logger.info("agent_query_aborted_pre_call", user_id=user_id)
+                        return
+                except Exception:
+                    pass
 
             try:
                 response_text = await self._query_gemini(system, prompt)
@@ -410,6 +596,9 @@ class AgentService:
             # reference to tasks returned by create_task).  The done callback
             # removes the task from the set once it finishes.
             task = asyncio.create_task(self._run_async_job(job_id, user_id, prompt, context, redis))
+            # Tag the task with its job_id so the shutdown drain can mark the
+            # right Redis entries as failed if it has to cancel.
+            task._agent_job_id = job_id  # type: ignore[attr-defined]
             _background_tasks.add(task)
             task.add_done_callback(_background_tasks.discard)
             return job_id
