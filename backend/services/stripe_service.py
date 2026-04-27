@@ -657,6 +657,288 @@ class StripeService:
             return result
 
 
+# =============================================================================
+# Webhook action dispatch (refactored from a 230-LOC if/elif chain — audit P1-5)
+# =============================================================================
+#
+# Each handler returns True when it applied an effect (DB write, tier change,
+# ops alert) and False to indicate "noop / not applicable" (e.g. activate_addon
+# without a connection_id). Handlers MUST NOT swallow real exceptions — they
+# either return cleanly or raise to the caller (ADR-011: silent-fallback ban).
+#
+# Common preamble (customer-id resolution, user lookup, tier-cache
+# invalidation) lives in apply_webhook_action so each handler stays focused
+# on its action-specific logic.
+
+# Stripe invoice and charge events carry no user metadata — only customer_id.
+# These actions trigger a `stripe_customer_id`-based user lookup at the top of
+# apply_webhook_action so downstream handlers can find the affected account.
+_CUSTOMER_LOOKUP_ACTIONS: frozenset[str] = frozenset(
+    {"payment_failed", "payment_succeeded", "charge_refunded", "dispute_created"}
+)
+
+
+async def _handle_activate_addon(
+    user_id: str,
+    user: Any,
+    result: dict[str, Any],
+    user_repo: Any,
+    db: Any,
+) -> bool:
+    addon_connection_id = result.get("addon_connection_id")
+    if not addon_connection_id or db is None:
+        return False
+
+    from services.utilityapi_billing_service import UtilityAPIBillingService
+
+    billing_svc = UtilityAPIBillingService(db)
+    await billing_svc.finalize_checkout(addon_connection_id)
+    customer_id = result.get("customer_id")
+    if customer_id and not user.stripe_customer_id:
+        user.stripe_customer_id = customer_id
+        await user_repo.update(user_id, user)
+    return True
+
+
+async def _handle_activate_subscription(
+    user_id: str,
+    user: Any,
+    result: dict[str, Any],
+    user_repo: Any,
+    db: Any,  # noqa: ARG001 — uniform handler signature
+) -> bool:
+    from api.dependencies import invalidate_tier_cache
+
+    user.subscription_tier = result.get("tier") or "pro"
+    user.stripe_customer_id = result.get("customer_id")
+    await user_repo.update(user_id, user)
+    await invalidate_tier_cache(user_id)
+    logger.info("tier_cache_invalidated", user_id=str(user.id), action="activate_subscription")
+    return True
+
+
+async def _handle_update_subscription(
+    user_id: str,
+    user: Any,
+    result: dict[str, Any],
+    user_repo: Any,
+    db: Any,  # noqa: ARG001
+) -> bool:
+    from api.dependencies import invalidate_tier_cache
+
+    user.subscription_tier = result.get("tier") or user.subscription_tier
+    await user_repo.update(user_id, user)
+    await invalidate_tier_cache(user_id)
+    logger.info("tier_cache_invalidated", user_id=str(user.id), action="update_subscription")
+    return True
+
+
+async def _handle_deactivate_subscription(
+    user_id: str,
+    user: Any,
+    result: dict[str, Any],  # noqa: ARG001
+    user_repo: Any,
+    db: Any,
+) -> bool:
+    from api.dependencies import invalidate_tier_cache
+
+    user.subscription_tier = "free"
+    await user_repo.update(user_id, user)
+    await invalidate_tier_cache(user_id)
+    logger.info("tier_cache_invalidated", user_id=str(user.id), action="deactivate_subscription")
+
+    # Disconnect all UtilityAPI connections when subscription is fully canceled.
+    # Best-effort: log but do not fail the webhook if cleanup fails.
+    if db is not None:
+        try:
+            await db.execute(
+                text(
+                    """
+                    UPDATE user_connections
+                    SET status = 'disconnected',
+                        stripe_subscription_item_id = NULL,
+                        utilityapi_meter_count = 0
+                    WHERE user_id = :uid
+                      AND connection_type = 'direct'
+                      AND status = 'active'
+                    """
+                ),
+                {"uid": str(user.id)},
+            )
+            logger.info("utilityapi_connections_disconnected_on_cancel", user_id=str(user.id))
+        except Exception as exc:
+            logger.warning(
+                "utilityapi_disconnect_on_cancel_failed",
+                user_id=str(user.id),
+                error=str(exc),
+            )
+    return True
+
+
+async def _handle_payment_failed(
+    user_id: str,
+    user: Any,
+    result: dict[str, Any],
+    user_repo: Any,
+    db: Any,
+) -> bool:
+    if db is None:
+        # No DB session means we cannot run the dunning state machine. Log so
+        # ops can replay the webhook later, but treat the event as "handled"
+        # (return True) so the webhook router does not retry it back into the
+        # idempotency table.
+        logger.warning(
+            "payment_failed_no_db_session",
+            user_id=user_id,
+            customer_id=result.get("customer_id"),
+        )
+        return True
+
+    from services.dunning_service import DunningService
+
+    dunning = DunningService(db)
+    await dunning.handle_payment_failure(
+        user_id=user_id,
+        stripe_invoice_id=result.get("invoice_id", ""),
+        stripe_customer_id=result.get("customer_id") or "",
+        amount_owed=result.get("amount_due"),
+        currency=result.get("currency", "USD"),
+        user_email=user.email or "",
+        user_name=(user.name or "") if user else "",
+        user_repo=user_repo,
+    )
+    return True
+
+
+async def _handle_payment_succeeded(
+    user_id: str,
+    user: Any,
+    result: dict[str, Any],
+    user_repo: Any,
+    db: Any,
+) -> bool:
+    """Restore the user's paid tier after a recovered payment.
+
+    Reverses any dunning escalation. We query the *current* Stripe subscription
+    rather than trusting invoice metadata to determine the authoritative tier.
+
+    Returns True for every reachable branch — even when no tier change is
+    applied — so the webhook router treats the event as handled (and does not
+    retry into the idempotency table). Failure to determine a tier is an
+    *operational* concern surfaced via ``payment_succeeded_tier_unknown``,
+    not a delivery concern.
+    """
+    from api.dependencies import invalidate_tier_cache
+
+    if db is None:
+        logger.warning(
+            "payment_succeeded_no_db_session",
+            user_id=str(user.id),
+            customer_id=result.get("customer_id"),
+        )
+        return True
+
+    subscription_id = result.get("subscription_id")
+    restored_tier: str | None = None
+
+    if subscription_id:
+        try:
+            subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
+            restored_tier = subscription.metadata.get("tier")
+            if subscription.status not in ("active", "trialing"):
+                logger.info(
+                    "payment_succeeded_subscription_not_active",
+                    user_id=str(user.id),
+                    subscription_id=subscription_id,
+                    status=subscription.status,
+                )
+                restored_tier = None
+        except stripe.StripeError as exc:
+            logger.warning(
+                "payment_succeeded_subscription_lookup_failed",
+                user_id=user_id,
+                subscription_id=subscription_id,
+                error=str(exc),
+            )
+
+    if restored_tier in ("pro", "business"):
+        user.subscription_tier = restored_tier
+        await user_repo.update(user_id, user)
+        await invalidate_tier_cache(user_id)
+        logger.info(
+            "tier_restored_after_payment",
+            user_id=user_id,
+            tier=restored_tier,
+            subscription_id=subscription_id,
+        )
+        return True
+
+    # Could not determine tier — log for ops review but DO NOT downgrade.
+    logger.warning(
+        "payment_succeeded_tier_unknown",
+        user_id=user_id,
+        customer_id=result.get("customer_id"),
+        subscription_id=subscription_id,
+    )
+    return True
+
+
+async def _handle_charge_refunded(
+    user_id: str,
+    user: Any,  # noqa: ARG001 — uniform handler signature
+    result: dict[str, Any],
+    user_repo: Any,  # noqa: ARG001
+    db: Any,  # noqa: ARG001
+) -> bool:
+    """Flag account for ops review — refunds may be partial / goodwill, do not auto-downgrade."""
+    logger.warning(
+        "account_refund_flagged_for_review",
+        user_id=user_id,
+        customer_id=result.get("customer_id"),
+        charge_id=result.get("charge_id", "unknown"),
+        amount_refunded=result.get("amount_refunded"),
+        severity="HIGH",
+        action_required="ops_review",
+    )
+    return True
+
+
+async def _handle_dispute_created(
+    user_id: str,
+    user: Any,  # noqa: ARG001 — uniform handler signature
+    result: dict[str, Any],
+    user_repo: Any,  # noqa: ARG001
+    db: Any,  # noqa: ARG001
+) -> bool:
+    """Flag account for ops review — Stripe dispute window is 7-21 days, ops must respond."""
+    logger.warning(
+        "account_dispute_flagged_for_review",
+        user_id=user_id,
+        customer_id=result.get("customer_id"),
+        charge_id=result.get("charge_id", "unknown"),
+        dispute_id=result.get("dispute_id", "unknown"),
+        dispute_reason=result.get("dispute_reason", "unknown"),
+        dispute_amount=result.get("dispute_amount"),
+        severity="CRITICAL",
+        action_required="ops_review",
+    )
+    return True
+
+
+# Dispatch table — extending the webhook surface is now a single dict entry
+# plus a handler function, instead of a new branch in a 230-LOC if/elif chain.
+_WEBHOOK_HANDLERS: dict[str, Any] = {
+    "activate_addon": _handle_activate_addon,
+    "activate_subscription": _handle_activate_subscription,
+    "update_subscription": _handle_update_subscription,
+    "deactivate_subscription": _handle_deactivate_subscription,
+    "payment_failed": _handle_payment_failed,
+    "payment_succeeded": _handle_payment_succeeded,
+    "charge_refunded": _handle_charge_refunded,
+    "dispute_created": _handle_dispute_created,
+}
+
+
 async def apply_webhook_action(
     result: dict[str, Any],
     user_repo: Any,
@@ -672,218 +954,45 @@ async def apply_webhook_action(
     Args:
         result: Dict returned by StripeService.handle_webhook_event.
         user_repo: UserRepository instance for DB access.
-        db: AsyncSession — required for payment_failed dunning flow.
+        db: AsyncSession — required for payment_failed dunning flow and
+            payment_succeeded tier restoration.
 
     Returns:
-        True if a DB update was applied, False otherwise.
+        True if a DB update or ops alert was applied, False otherwise.
     """
-    from api.dependencies import invalidate_tier_cache
-
     if not result.get("handled"):
         return False
 
     action = result["action"]
     user_id = result.get("user_id")
 
-    # payment_failed events come from invoices which carry no user metadata.
-    # Resolve the user via the stripe_customer_id column instead.
-    if not user_id and action == "payment_failed" and result.get("customer_id"):
+    # Stripe invoice and charge events (payment_failed, payment_succeeded,
+    # charge_refunded, dispute_created) carry no user metadata — only a
+    # customer_id. Resolve the user via the stripe_customer_id column so
+    # downstream handlers can apply tier changes and ops alerts.
+    if not user_id and action in _CUSTOMER_LOOKUP_ACTIONS and result.get("customer_id"):
         customer_id_for_lookup = result["customer_id"]
         resolved = await user_repo.get_by_stripe_customer_id(customer_id_for_lookup)
         if resolved:
             user_id = str(resolved.id)
         else:
             logger.warning(
-                "payment_failed_customer_not_found",
+                "webhook_customer_not_found",
+                action=action,
                 customer_id=customer_id_for_lookup,
             )
             return False
 
     if not user_id:
         return False
-    tier = result.get("tier")
-    customer_id = result.get("customer_id")
 
     user = await user_repo.get_by_id(user_id)
     if not user:
         logger.warning("webhook_user_not_found", user_id=user_id, action=action)
         return False
 
-    if action == "activate_addon":
-        # UtilityAPI add-on checkout completed — finalize billing link
-        addon_connection_id = result.get("addon_connection_id")
-        if addon_connection_id and db is not None:
-            from services.utilityapi_billing_service import UtilityAPIBillingService
-
-            billing_svc = UtilityAPIBillingService(db)
-            await billing_svc.finalize_checkout(addon_connection_id)
-            # Also store customer_id on user if not already set
-            if customer_id and not user.stripe_customer_id:
-                user.stripe_customer_id = customer_id
-                await user_repo.update(user_id, user)
-        return True
-
-    elif action == "activate_subscription":
-        user.subscription_tier = tier or "pro"
-        user.stripe_customer_id = customer_id
-        await user_repo.update(user_id, user)
-        await invalidate_tier_cache(user_id)
-        logger.info("tier_cache_invalidated", user_id=user_id, action=action)
-    elif action == "update_subscription":
-        user.subscription_tier = tier or user.subscription_tier
-        await user_repo.update(user_id, user)
-        await invalidate_tier_cache(user_id)
-        logger.info("tier_cache_invalidated", user_id=user_id, action=action)
-    elif action == "deactivate_subscription":
-        user.subscription_tier = "free"
-        await user_repo.update(user_id, user)
-        await invalidate_tier_cache(user_id)
-        logger.info("tier_cache_invalidated", user_id=user_id, action=action)
-        # Disconnect all UtilityAPI connections when subscription is fully canceled
-        if db is not None:
-            try:
-                await db.execute(
-                    text("""
-                        UPDATE user_connections
-                        SET status = 'disconnected',
-                            stripe_subscription_item_id = NULL,
-                            utilityapi_meter_count = 0
-                        WHERE user_id = :uid
-                          AND connection_type = 'direct'
-                          AND status = 'active'
-                    """),
-                    {"uid": user_id},
-                )
-                logger.info("utilityapi_connections_disconnected_on_cancel", user_id=user_id)
-            except Exception as exc:
-                logger.warning(
-                    "utilityapi_disconnect_on_cancel_failed",
-                    user_id=user_id,
-                    error=str(exc),
-                )
-    elif action == "payment_failed":
-        if db is not None:
-            from services.dunning_service import DunningService
-
-            dunning = DunningService(db)
-            user = await user_repo.get_by_id(user_id)
-            user_email = user.email if user else ""
-            user_name = user.name if user else ""
-
-            await dunning.handle_payment_failure(
-                user_id=user_id,
-                stripe_invoice_id=result.get("invoice_id", ""),
-                stripe_customer_id=customer_id or "",
-                amount_owed=result.get("amount_due"),
-                currency=result.get("currency", "USD"),
-                user_email=user_email,
-                user_name=user_name or "",
-                user_repo=user_repo,
-            )
-        else:
-            logger.warning(
-                "payment_failed_no_db_session",
-                user_id=user_id,
-                customer_id=customer_id,
-            )
-
-    elif action == "payment_succeeded":
-        # Re-activate user's subscription tier after a successful payment.
-        #
-        # This reverses any dunning escalation: if the user was downgraded to
-        # free tier after 3+ payment failures and then catches up, they should
-        # be restored to their paid tier.  We query the current Stripe
-        # subscription to determine the authoritative tier rather than relying
-        # on stale metadata in the invoice.
-        if db is not None:
-            subscription_id = result.get("subscription_id")
-            restored_tier: str | None = None
-
-            if subscription_id:
-                try:
-                    subscription = await asyncio.to_thread(
-                        stripe.Subscription.retrieve, subscription_id
-                    )
-                    restored_tier = subscription.metadata.get("tier")
-                    # Stripe may store sub-status "active" after payment
-                    # succeeds; only restore if subscription is actually live.
-                    if subscription.status not in ("active", "trialing"):
-                        logger.info(
-                            "payment_succeeded_subscription_not_active",
-                            user_id=user_id,
-                            subscription_id=subscription_id,
-                            status=subscription.status,
-                        )
-                        restored_tier = None
-                except stripe.StripeError as e:
-                    logger.warning(
-                        "payment_succeeded_subscription_lookup_failed",
-                        user_id=user_id,
-                        subscription_id=subscription_id,
-                        error=str(e),
-                    )
-
-            if restored_tier and restored_tier in ("pro", "business"):
-                user.subscription_tier = restored_tier
-                await user_repo.update(user_id, user)
-                await invalidate_tier_cache(user_id)
-                logger.info(
-                    "tier_restored_after_payment",
-                    user_id=user_id,
-                    tier=restored_tier,
-                    subscription_id=subscription_id,
-                )
-            else:
-                # Could not determine tier from Stripe — log for ops review
-                # but do not downgrade; err on the side of granting access.
-                logger.warning(
-                    "payment_succeeded_tier_unknown",
-                    user_id=user_id,
-                    customer_id=customer_id,
-                    subscription_id=subscription_id,
-                )
-        else:
-            logger.warning(
-                "payment_succeeded_no_db_session",
-                user_id=user_id,
-                customer_id=customer_id,
-            )
-
-    elif action in ("charge_refunded", "dispute_created"):
-        # Flag account for ops review — we do not auto-downgrade because:
-        #   - Refunds: Stripe subscription may still be valid (partial refund,
-        #     goodwill refund, etc.). Ops should verify intent.
-        #   - Disputes: evidence window is time-limited; flagging triggers alert
-        #     so ops can respond within Stripe's 7-21 day window.
-        #
-        # We log a structured WARNING at CRITICAL severity to ensure alert
-        # routing (Sentry/Slack) picks it up without a code path to DB.
-        charge_id = result.get("charge_id", "unknown")
-        dispute_id = result.get("dispute_id", "unknown")
-        if action == "dispute_created":
-            logger.warning(
-                "account_dispute_flagged_for_review",
-                user_id=user_id,
-                customer_id=customer_id,
-                charge_id=charge_id,
-                dispute_id=dispute_id,
-                dispute_reason=result.get("dispute_reason", "unknown"),
-                dispute_amount=result.get("dispute_amount"),
-                severity="CRITICAL",
-                action_required="ops_review",
-            )
-        else:
-            logger.warning(
-                "account_refund_flagged_for_review",
-                user_id=user_id,
-                customer_id=customer_id,
-                charge_id=charge_id,
-                amount_refunded=result.get("amount_refunded"),
-                severity="HIGH",
-                action_required="ops_review",
-            )
-
-    else:
+    handler = _WEBHOOK_HANDLERS.get(action)
+    if handler is None:
         return False
 
-    return True
+    return await handler(user_id, user, result, user_repo, db)

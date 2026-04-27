@@ -893,13 +893,51 @@ class TestCheckNow:
 
 
 class TestRollback:
-    def test_rollback_happy_path(self, pro_client, mock_db):
-        """Active execution within 30 days can be rolled back."""
+    def test_rollback_happy_path(self, pro_client, mock_db, monkeypatch):
+        """Active execution within 30 days delegates to SwitchExecutionService."""
+        from services.switch_execution_service import SwitchExecutionService
+
         row = mock_db.seed_execution(user_id=TEST_USER_ID, status="active", days_old=5)
+        called: dict[str, object] = {}
+
+        async def _fake_rollback(self, execution_id, user_id):
+            called["execution_id"] = execution_id
+            called["user_id"] = user_id
+            return {
+                "execution_id": execution_id,
+                "status": "rolled_back",
+                "message": "Switch has been rolled back successfully.",
+            }
+
+        monkeypatch.setattr(SwitchExecutionService, "rollback_switch", _fake_rollback)
+
         response = pro_client.post(f"/api/v1/agent-switcher/rollback/{row['id']}")
         assert response.status_code == 200
         data = response.json()
         assert data["execution_id"] == row["id"]
+        assert data["status"] == "rolled_back"
+        assert called["execution_id"] == row["id"]
+        assert called["user_id"] == TEST_USER_ID
+
+    def test_rollback_service_failure_does_not_fabricate_success(
+        self, pro_client, mock_db, monkeypatch
+    ):
+        """If SwitchExecutionService raises, the failure must propagate — never a fabricated 'rolled_back' UPDATE."""
+        from services.switch_execution_service import SwitchExecutionService
+
+        row = mock_db.seed_execution(user_id=TEST_USER_ID, status="active", days_old=5)
+
+        async def _boom(self, execution_id, user_id):
+            raise RuntimeError("simulated billing API outage")
+
+        monkeypatch.setattr(SwitchExecutionService, "rollback_switch", _boom)
+
+        # The TestClient is configured to re-raise server exceptions, so a real
+        # 5xx here means the bug pattern is gone (no silent 200 with a fake
+        # rolled_back status). This is the regression test for security H-2 /
+        # code-quality P0-1.
+        with pytest.raises(RuntimeError, match="simulated billing API outage"):
+            pro_client.post(f"/api/v1/agent-switcher/rollback/{row['id']}")
 
     def test_rollback_not_found_returns_404(self, pro_client, mock_db):
         """Non-existent execution_id returns 404."""
@@ -951,13 +989,49 @@ class TestApprove:
             **{k: v for k, v in kwargs.items() if k not in ("executed",)},
         )
 
-    def test_approve_happy_path(self, pro_client, mock_db):
-        """Approving a recommend entry returns 200."""
+    def test_approve_happy_path(self, pro_client, mock_db, monkeypatch):
+        """Approving a recommend entry delegates to SwitchExecutionService."""
+        from services.switch_execution_service import SwitchExecutionService
+
         entry = self._seed_recommendation(mock_db)
+        called: dict[str, object] = {}
+
+        async def _fake_approve(self, audit_log_id, user_id):
+            called["audit_log_id"] = audit_log_id
+            called["user_id"] = user_id
+            return {
+                "audit_log_id": audit_log_id,
+                "status": "initiated",
+                "message": "Recommendation approved. Switch execution initiated.",
+            }
+
+        monkeypatch.setattr(SwitchExecutionService, "approve_recommendation", _fake_approve)
+
         response = pro_client.post(f"/api/v1/agent-switcher/approve/{entry['id']}")
         assert response.status_code == 200
         data = response.json()
-        assert "audit_log_id" in data or "status" in data
+        assert data["audit_log_id"] == entry["id"]
+        assert data["status"] == "initiated"
+        assert called["audit_log_id"] == entry["id"]
+        assert called["user_id"] == TEST_USER_ID
+
+    def test_approve_service_failure_does_not_fabricate_success(
+        self, pro_client, mock_db, monkeypatch
+    ):
+        """If SwitchExecutionService raises, the failure must propagate — never a fabricated 'initiated' UPDATE."""
+        from services.switch_execution_service import SwitchExecutionService
+
+        entry = self._seed_recommendation(mock_db)
+
+        async def _boom(self, audit_log_id, user_id):
+            raise RuntimeError("simulated billing API outage")
+
+        monkeypatch.setattr(SwitchExecutionService, "approve_recommendation", _boom)
+
+        # See test_rollback_service_failure_does_not_fabricate_success for
+        # rationale. Regression test for security H-2 / code-quality P0-1.
+        with pytest.raises(RuntimeError, match="simulated billing API outage"):
+            pro_client.post(f"/api/v1/agent-switcher/approve/{entry['id']}")
 
     def test_approve_not_found_returns_404(self, pro_client, mock_db):
         """Non-existent audit_log_id returns 404."""

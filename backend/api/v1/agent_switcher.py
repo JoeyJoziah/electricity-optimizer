@@ -644,9 +644,15 @@ async def check_now(
                 "contract_days_remaining": raw_decision.contract_days_remaining,
                 "data_source": raw_decision.data_source,
             }
-        except (ImportError, Exception) as exc:
-            logger.warning("check_now_engine_error", user_id=current_user.user_id, error=str(exc))
-            # Return advisory hold if engine not available or evaluation fails
+        except ImportError as exc:
+            # Engine module genuinely not deployed — surface as advisory hold so
+            # the UI can render "connect a utility account to enable plan
+            # comparison" rather than blowing up.
+            logger.warning(
+                "check_now_engine_module_missing",
+                user_id=current_user.user_id,
+                error=str(exc),
+            )
             decision = {
                 "action": "hold",
                 "reason": "No current plan data available. Connect a utility account to enable plan comparison.",
@@ -661,6 +667,19 @@ async def check_now(
                 "contract_days_remaining": 0,
                 "data_source": "none",
             }
+        except Exception as exc:
+            # Real evaluation failure (DB error, billing API outage, programming
+            # bug). Do not fabricate an advisory response — let the user see an
+            # explicit 5xx so they retry rather than mistakenly trusting "hold".
+            logger.exception(
+                "check_now_engine_evaluation_failed",
+                user_id=current_user.user_id,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not evaluate switch decision at this time. Please try again shortly.",
+            )
 
     # Store result in switch_audit_log
     audit_id = str(uuid.uuid4())
@@ -770,38 +789,25 @@ async def rollback_switch(
                 detail=f"Rollback window has expired. Rollbacks are only available within 30 days of switch enactment ({days_since} days elapsed).",
             )
 
-    # Import and call rollback service if available
+    # Call rollback service. Only ImportError is treated as a recoverable
+    # "not yet deployed" condition — any other exception (DB error, billing
+    # API failure, programming bug) is propagated so the user gets an explicit
+    # 5xx instead of a fabricated success.
     try:
         from services.switch_execution_service import SwitchExecutionService
-
-        service = SwitchExecutionService(db)
-        result_data = await service.rollback_switch(str(execution_id), current_user.user_id)
-        return result_data
-    except (ImportError, Exception):
-        # Service not yet implemented or failed — mark as rolled_back directly
-        now = datetime.now(UTC)
-        await db.execute(
-            text("""
-                UPDATE public.switch_executions
-                SET status = 'rolled_back', updated_at = :now
-                WHERE id = :execution_id
-            """),
-            {"execution_id": str(execution_id), "now": now},
+    except ImportError:
+        logger.error(
+            "switch_execution_service_unavailable",
+            user_id=current_user.user_id,
+            execution_id=str(execution_id),
         )
-        try:
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
-
-        logger.info(
-            "rollback_completed", user_id=current_user.user_id, execution_id=str(execution_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Switch execution service is not currently available. Please try again shortly.",
         )
-        return {
-            "execution_id": str(execution_id),
-            "status": "rolled_back",
-            "message": "Switch has been rolled back successfully.",
-        }
+
+    service = SwitchExecutionService(db)
+    return await service.rollback_switch(str(execution_id), current_user.user_id)
 
 
 @router.post(
@@ -860,34 +866,22 @@ async def approve_recommendation(
             detail=f"Recommendation {audit_log_id} has already been executed.",
         )
 
-    # Import and call execution service if available
+    # Call execution service. Only ImportError is treated as a recoverable
+    # "not yet deployed" condition — any other exception (DB error, billing
+    # API failure, programming bug) is propagated so the user gets an explicit
+    # 5xx instead of a fabricated "approved" UPDATE.
     try:
         from services.switch_execution_service import SwitchExecutionService
-
-        service = SwitchExecutionService(db)
-        result_data = await service.approve_recommendation(str(audit_log_id), current_user.user_id)
-        return result_data
-    except (ImportError, Exception):
-        # Service not yet implemented or failed — mark as executed and return advisory
-        await db.execute(
-            text("""
-                UPDATE public.switch_audit_log
-                SET executed = TRUE
-                WHERE id = :audit_log_id
-            """),
-            {"audit_log_id": str(audit_log_id)},
+    except ImportError:
+        logger.error(
+            "switch_execution_service_unavailable",
+            user_id=current_user.user_id,
+            audit_log_id=str(audit_log_id),
         )
-        try:
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
-
-        logger.info(
-            "recommendation_approved", user_id=current_user.user_id, audit_log_id=str(audit_log_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Switch execution service is not currently available. Please try again shortly.",
         )
-        return {
-            "audit_log_id": str(audit_log_id),
-            "status": "initiated",
-            "message": "Recommendation approved. Switch execution initiated.",
-        }
+
+    service = SwitchExecutionService(db)
+    return await service.approve_recommendation(str(audit_log_id), current_user.user_id)

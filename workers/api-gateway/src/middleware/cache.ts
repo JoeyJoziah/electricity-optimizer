@@ -108,14 +108,21 @@ export async function storeInCache(
   }
 
   // Store in Cache API (per-colo). Fail silently.
+  // CF Cache API treats Cache-Control: private as non-cacheable, so use public
+  // here. The cached body is shared across users (price data is region-keyed,
+  // not user-keyed), so public is also semantically correct.
   try {
     const cache = caches.default;
     const cacheUrl = new URL(`https://cache.internal/${cacheKey}`);
+    const swr = cacheConfig.staleWhileRevalidateSeconds ?? 0;
+    const cacheControl = swr > 0
+      ? `public, max-age=${cacheConfig.ttlSeconds}, stale-while-revalidate=${swr}`
+      : `public, max-age=${cacheConfig.ttlSeconds}`;
     const cacheResponse = new Response(body, {
       status: response.status,
       headers: {
         ...Object.fromEntries(response.headers.entries()),
-        "Cache-Control": `private, max-age=${cacheConfig.ttlSeconds}`,
+        "Cache-Control": cacheControl,
         "X-Cache": "HIT",
       },
     });
@@ -176,10 +183,14 @@ export async function invalidatePriceCache(
 function buildCachedResponse(entry: CacheEntry, cacheStatus: "HIT" | "STALE"): Response {
   const headers = new Headers(entry.headers);
   headers.set("X-Cache", cacheStatus);
-  // Set Cache-Control with remaining TTL so browsers/CDN respect freshness
+  // Set Cache-Control with remaining TTL so browsers/CDN respect freshness.
+  // STALE responses also signal stale-while-revalidate so browsers can apply
+  // their own SWR semantics during the revalidation window.
   const remainingTtl = entry.ttlSeconds - (Math.floor(Date.now() / 1000) - entry.storedAt);
   if (remainingTtl > 0) {
-    headers.set("Cache-Control", `private, max-age=${remainingTtl}`);
+    headers.set("Cache-Control", `public, max-age=${remainingTtl}`);
+  } else if (cacheStatus === "STALE") {
+    headers.set("Cache-Control", "public, max-age=0, stale-while-revalidate=60");
   }
   return new Response(entry.body, {
     status: entry.status,

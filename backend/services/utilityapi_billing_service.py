@@ -11,6 +11,7 @@ Cost breakdown:
 """
 
 import asyncio
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 import stripe
@@ -23,7 +24,16 @@ from lib.tracing import traced
 
 logger = structlog.get_logger(__name__)
 
-PRICE_PER_METER_USD = 2.25
+# Use Decimal for currency to avoid float drift. With ≥40 meters, the float
+# expression `40 * 2.25` rounds to 90.00000000000001 — fine for display but
+# diverges from Stripe-side reconciliation and Origin Financial bookkeeping.
+PRICE_PER_METER_USD: Decimal = Decimal("2.25")
+_CENTS = Decimal("0.01")
+
+
+def _meter_total(meter_count: int) -> Decimal:
+    """Return the monthly total for ``meter_count`` meters, rounded to cents."""
+    return (Decimal(meter_count) * PRICE_PER_METER_USD).quantize(_CENTS, rounding=ROUND_HALF_UP)
 
 
 class UtilityAPIBillingService:
@@ -182,12 +192,17 @@ class UtilityAPIBillingService:
             await self._db.commit()
 
     async def get_addon_pricing(self, user_id: str) -> dict[str, Any]:
-        """Return pricing info for frontend display."""
+        """Return pricing info for frontend display.
+
+        Currency values are computed as Decimal and stringified for transport
+        so JSON consumers (frontend, Origin reconciliation) see exact cents
+        rather than float-truncated representations.
+        """
         current_meters = await self._get_total_meters(user_id)
         return {
-            "price_per_meter": PRICE_PER_METER_USD,
+            "price_per_meter": str(PRICE_PER_METER_USD),
             "current_meters": current_meters,
-            "monthly_total": round(current_meters * PRICE_PER_METER_USD, 2),
+            "monthly_total": str(_meter_total(current_meters)),
             "currency": "usd",
         }
 

@@ -354,7 +354,11 @@ async def trigger_email_scan(
     # Rate extraction and persistence
     # -----------------------------------------------------------------------
 
-    rates_extracted_count = 0
+    # Collect extracted rates so we can persist them with a single bulk INSERT
+    # and one commit at the end. The previous per-row commit pattern produced
+    # ~150 round-trips on a 50-bill / 2-attachment scan and left partial state
+    # if the loop failed mid-flight (P0-3 / performance QW1).
+    extracted_rates: list[dict[str, object]] = []
     attachments_parsed_count = 0
 
     for bill in utility_bills:
@@ -362,23 +366,15 @@ async def trigger_email_scan(
         try:
             body_rates = await extract_rates_from_email(provider, access_token, bill.email_id)
             if body_rates.get("rate_per_kwh") is not None:
-                rate_id = str(uuid4())
-                await db.execute(
-                    text("""
-                        INSERT INTO connection_extracted_rates
-                            (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
-                        VALUES
-                            (:id, :cid, :rate, NOW(), 'email_scan', :label)
-                    """),
+                extracted_rates.append(
                     {
-                        "id": rate_id,
+                        "id": str(uuid4()),
                         "cid": connection_id,
                         "rate": body_rates["rate_per_kwh"],
+                        "source": "email_scan",
                         "label": f"email_body:{bill.email_id}",
-                    },
+                    }
                 )
-                await db.commit()
-                rates_extracted_count += 1
         except Exception as _exc:
             logger.warning(
                 "email_scan_body_extraction_failed",
@@ -402,24 +398,18 @@ async def trigger_email_scan(
                     for att_result in att_results:
                         rate_val = att_result.get("rate_per_kwh")
                         if rate_val is not None:
-                            rate_id = str(uuid4())
-                            raw_label = f"email_attachment:{bill.email_id}:{att_result.get('filename', 'unknown')}"
-                            await db.execute(
-                                text("""
-                                    INSERT INTO connection_extracted_rates
-                                        (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
-                                    VALUES
-                                        (:id, :cid, :rate, NOW(), 'email_attachment', :label)
-                                """),
+                            extracted_rates.append(
                                 {
-                                    "id": rate_id,
+                                    "id": str(uuid4()),
                                     "cid": connection_id,
                                     "rate": rate_val,
-                                    "label": raw_label,
-                                },
+                                    "source": "email_attachment",
+                                    "label": (
+                                        f"email_attachment:{bill.email_id}:"
+                                        f"{att_result.get('filename', 'unknown')}"
+                                    ),
+                                }
                             )
-                            await db.commit()
-                            rates_extracted_count += 1
             except Exception as _exc:
                 logger.warning(
                     "email_scan_attachment_extraction_failed",
@@ -427,6 +417,42 @@ async def trigger_email_scan(
                     email_id=bill.email_id,
                     error=str(_exc),
                 )
+
+    # Single bulk INSERT for the whole scan. SQLAlchemy expands the parameter
+    # list into a multi-row VALUES clause when the statement is executed with
+    # a list of mappings. ON CONFLICT (id) DO NOTHING is defensive against the
+    # rare case of UUID collision on retry.
+    rates_extracted_count = 0
+    if extracted_rates:
+        try:
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO connection_extracted_rates
+                        (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
+                    VALUES
+                        (:id, :cid, :rate, NOW(), :source, :label)
+                    ON CONFLICT (id) DO NOTHING
+                    """
+                ),
+                extracted_rates,
+            )
+            await db.commit()
+            rates_extracted_count = len(extracted_rates)
+        except Exception as _exc:
+            await db.rollback()
+            logger.error(
+                "email_scan_bulk_persist_failed",
+                connection_id=connection_id,
+                row_count=len(extracted_rates),
+                error=str(_exc),
+            )
+            # Surface as 502 — the scan succeeded but persistence failed; the
+            # client should retry rather than treat the partial state as final.
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Email scan completed but rate persistence failed. Please retry.",
+            )
 
     logger.info(
         "email_scan_complete",

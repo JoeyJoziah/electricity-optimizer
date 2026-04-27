@@ -13,7 +13,10 @@ import { renderHook, act } from "@testing-library/react";
 
 declare global {
   interface Window {
-    gtag?: (...args: unknown[]) => void;
+    // Match the production declaration in ../useGA4Event.ts to avoid a merged
+    // declare global conflict between any[] and unknown[].
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gtag?: (...args: any[]) => void;
     dataLayer?: unknown[];
   }
 }

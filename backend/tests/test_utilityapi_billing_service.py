@@ -4,6 +4,7 @@ Tests for UtilityAPI Billing Service
 Tests the $2.25/meter/month add-on billing for UtilityAPI direct connections.
 """
 
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -13,6 +14,7 @@ from config.settings import settings
 from services.utilityapi_billing_service import (
     PRICE_PER_METER_USD,
     UtilityAPIBillingService,
+    _meter_total,
 )
 
 # =============================================================================
@@ -60,7 +62,26 @@ def _make_mapping_result(rows: list[dict]):
 
 class TestConstants:
     def test_price_per_meter(self):
-        assert PRICE_PER_METER_USD == 2.25
+        assert Decimal("2.25") == PRICE_PER_METER_USD
+
+    def test_price_per_meter_is_decimal(self):
+        """Currency must use Decimal — float arithmetic drifts at ≥40 meters."""
+        assert isinstance(PRICE_PER_METER_USD, Decimal)
+
+    @pytest.mark.parametrize(
+        "meter_count, expected",
+        [
+            (0, "0.00"),
+            (1, "2.25"),
+            (3, "6.75"),
+            (40, "90.00"),  # 40 * 2.25 — float would give 90.00000000000001
+            (137, "308.25"),
+        ],
+    )
+    def test_meter_total_exact(self, meter_count: int, expected: str):
+        result = _meter_total(meter_count)
+        assert isinstance(result, Decimal)
+        assert str(result) == expected
 
 
 # =============================================================================
@@ -76,10 +97,11 @@ class TestGetAddonPricing:
 
         result = await billing_service.get_addon_pricing("user_123")
 
+        # Currency values serialize as strings to preserve cent precision.
         assert result == {
-            "price_per_meter": 2.25,
+            "price_per_meter": "2.25",
             "current_meters": 0,
-            "monthly_total": 0.0,
+            "monthly_total": "0.00",
             "currency": "usd",
         }
 
@@ -91,7 +113,7 @@ class TestGetAddonPricing:
         result = await billing_service.get_addon_pricing("user_123")
 
         assert result["current_meters"] == 3
-        assert result["monthly_total"] == 6.75
+        assert result["monthly_total"] == "6.75"
 
     @pytest.mark.asyncio
     async def test_returns_pricing_with_null_total(self, billing_service, mock_db):
@@ -101,7 +123,7 @@ class TestGetAddonPricing:
         result = await billing_service.get_addon_pricing("user_123")
 
         assert result["current_meters"] == 0
-        assert result["monthly_total"] == 0.0
+        assert result["monthly_total"] == "0.00"
 
 
 # =============================================================================
