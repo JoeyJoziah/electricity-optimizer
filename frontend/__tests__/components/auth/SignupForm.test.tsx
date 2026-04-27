@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SignupForm } from "@/components/auth/SignupForm";
+import { TURNSTILE_DEV_SENTINEL } from "@/components/auth/TurnstileWidget";
 import "@testing-library/jest-dom";
 
 // Mock useAuth hook
@@ -177,6 +178,10 @@ describe("SignupForm", () => {
         "john@example.com",
         "StrongPass1!",
         "John Doe",
+        // Turnstile widget emits the dev sentinel when no site key is set,
+        // so the form unblocks submission and forwards the sentinel as the
+        // optional fourth arg. Backend ignores the sentinel value.
+        { turnstileToken: TURNSTILE_DEV_SENTINEL },
       );
     });
   });

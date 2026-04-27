@@ -43,7 +43,12 @@ interface AuthContextType {
   error: string | null;
   profileFetchFailed: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    name?: string,
+    options?: { turnstileToken?: string },
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
@@ -402,18 +407,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  // Sign up with email/password
+  // Sign up with email/password.
+  //
+  // ``options.turnstileToken`` (P1-7) is forwarded as the
+  // ``X-Turnstile-Token`` header so the backend can verify the challenge
+  // with Cloudflare's siteverify endpoint before creating the account.
+  // When NEXT_PUBLIC_TURNSTILE_SITE_KEY is unset the widget emits the dev
+  // sentinel and the backend simply ignores the header (validator only
+  // engages when TURNSTILE_SECRET_KEY is set).
   const signUp = useCallback(
-    async (email: string, password: string, name?: string) => {
+    async (
+      email: string,
+      password: string,
+      name?: string,
+      options?: { turnstileToken?: string },
+    ) => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const { error: authError } = await authClient.signUp.email({
+        // Preserve the legacy single-argument call shape when no Turnstile
+        // token is provided, so existing tests and callers stay compatible.
+        // Only pass fetchOptions when we actually have a header to attach.
+        const signupBody = {
           email,
           password,
           name: name || "",
-        });
+        };
+        const { error: authError } = options?.turnstileToken
+          ? await authClient.signUp.email(signupBody, {
+              headers: {
+                "X-Turnstile-Token": options.turnstileToken,
+              },
+            })
+          : await authClient.signUp.email(signupBody);
 
         if (authError) {
           throw new Error(authError.message || "Failed to sign up");
