@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
@@ -47,8 +47,9 @@ ignore = [
     "SIM105", # suppressible-exception (contextlib.suppress preference)
     "SIM108", # use-ternary-operator (readability preference)
     "ARG001", # unused-function-argument (FastAPI Depends pattern)
-    "UP045",  # use X | None (Optional[] still valid and more readable)
     "F821",   # undefined-name (forward refs in type hints)
+    "UP046",  # PEP 695 type parameters (larger refactor, separate track)
+    "UP047",  # PEP 695 generic functions (larger refactor, separate track)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -59,7 +60,7 @@ ignore = [
 known-first-party = ["backend", "config", "models", "repositories", "services", "api", "routers"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -129,21 +130,7 @@ show_missing = true
 exclude_dirs = ["tests", "alembic"]
 skips = ["B101"]  # assert_used
 
-[tool.black]
-line-length = 100
-target-version = ["py311"]
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-    | alembic
-)/
-'''
+# NOTE: Black is intentionally NOT configured here. ruff-format is the
+# canonical formatter (see .pre-commit-config.yaml). The previous [tool.black]
+# block was vestigial; it created reader confusion and a latent conflict if
+# anyone ran `black .` manually. (Best-practices audit P2-7 / "Tooling debt")

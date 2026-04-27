@@ -1,8 +1,9 @@
 # Environment Variable Reference
 
-> Last updated: 2026-03-25 | Source: `backend/config/settings.py`, `render.yaml`, `wrangler.toml`, `frontend/lib/config/env.ts`
+> Last updated: 2026-04-27 | Source: `backend/config/settings.py`, `render.yaml`, `wrangler.toml`, `frontend/lib/config/env.ts`
+> Note: `OAUTH_STATE_SECRET` is required in production (separate from `INTERNAL_API_KEY` per security audit H-4).
 
-## Backend (Render — 44 env vars)
+## Backend (Render — 52 env vars in production)
 
 Settings loaded via pydantic-settings from env vars (dev) or 1Password (prod). Source: `backend/config/settings.py`.
 

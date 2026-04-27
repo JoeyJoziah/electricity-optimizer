@@ -1,6 +1,6 @@
 # RateShift — System Architecture
 
-**Last Updated**: 2026-04-03 (Migration 066, 3,325 backend tests, 2,022 frontend tests, 35 GHA workflows)
+**Last Updated**: 2026-04-27 (Migration 066, 3,325 backend tests, 2,059 frontend tests, 35 GHA workflows, 64 tables = 55 public + 9 neon_auth)
 
 ## System Topology
 
@@ -37,8 +37,8 @@
       ┌──────────▼──┐    ┌──────────▼──┐    ┌──────────▼──┐
       │    Neon      │    │   Grafana   │    │  External   │
       │  PostgreSQL  │    │   Cloud     │    │   APIs      │
-      │  58 tables   │    │   Tempo     │    │ Stripe,     │
-      │  64 migrations│   │   (OTel)    │    │ Resend,     │
+      │  64 tables   │    │   Tempo     │    │ Stripe,     │
+      │  66 migrations│   │   (OTel)    │    │ Resend,     │
       └──────────────┘    └─────────────┘    │ Gemini,     │
                                              │ Groq, etc.  │
                                              └─────────────┘

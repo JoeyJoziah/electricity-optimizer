@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-04-08. Tests: ~7,840 passing. 66 migrations, 64 tables, 36 GHA workflows. See MEMORY.md for session-level detail.
+> Last validated: 2026-04-27. Tests: ~7,937 passing (3,325 BE + 2,059 FE + 18 ML files + 12 root + 127 Worker + new audit-day additions). 66 migrations, 64 tables (55 public + 9 neon_auth), 35 GHA workflows. See MEMORY.md for session-level detail.
 
 ## Session Initialization Protocol (MANDATORY)
 
@@ -80,15 +80,21 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **Excluded**: 32 agents, 29 skills (consensus, federation, v3, Flow Nexus, SONA, hive-mind — internal or redundant)
 - **Rollback**: `~/.claude/integrations/agentic-flow-electricity-optimizer.json`
 
-## Paperclip.ai (Local Agent Orchestration, 2026-03-31)
+## Paperclip.ai (Local Agent Orchestration, 2026-03-31, restructured 2026-04-09)
 
 - **Server**: localhost:3100 (manual start via `cd ~/.paperclip && pnpm dev`)
 - **Config**: `~/.paperclip/instances/default/config.json`
 - **Tasks**: `~/.paperclip/tasks/` (file-based agent communication)
-- **Agents**: 7 (CEO, CTO, COO, CMO, Engineer, QA, DataOps) — start with 4 (CEO, CTO, COO, DataOps), add remaining after 1 week stable
+- **Canonical Org**: `paperclip/AGENTS.md` + `paperclip/.paperclip.yaml` — 6 agents total
+- **Active Agents**: CEO (Haiku, 24h), CTO (Sonnet, 12h), COO (Haiku, 6h), DataOps (Bash, 3h), Engineer (Claude Code, on-demand)
+- **Planned**: Growth (Haiku, 24h) — deploy post-PH launch
+- **Company ID**: `99c6bb83-300d-4cf6-ab09-de64f1649f4d`
 - **Layer**: Strategy/delegation — sits above Claude Flow/Loki/AF. Never touches code directly
-- **Budget**: ~$38/mo total across all LLM agents (hard caps per agent)
-- **Scripts**: `paperclip/scripts/populate-*.sh` — bash bridges from real sources to `/tasks` dir
+- **Budget**: ~$26/mo allocated, $38/mo hard cap. CEO+CTO+COO ~$11, Engineer $15 cap, DataOps $0
+- **Scripts**: `paperclip/scripts/` — 9 bash scripts (4 populate + reconcile-escalations + populate-budget + populate-codebase-stats + dataops-runner + setup)
+- **Env**: `~/.paperclip/env` — sources INTERNAL_API_KEY for DataOps scripts
+- **Ack Protocol**: Agents write to `~/.paperclip/tasks/ack-{role}.md` after reading directives
+- **Memory**: Each LLM agent has `memory/YYYY-MM-DD.md` in its instructions dir, reads last 3 on startup
 - **Data flow**: One-way only (real systems → Paperclip task files). Paperclip agents never write to Claude Flow memory, trigger Loki RARV cycles, or duplicate GHA/CF Worker crons
 - **IMPORTANT**: Paperclip is `.gitignore`d (both `paperclip/` and `.paperclip/`). Machine-specific setup
 

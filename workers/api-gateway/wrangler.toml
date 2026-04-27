@@ -52,3 +52,10 @@ crons = [
   "0 */6 * * *",   # price-sync: every 6 hours (matches old GHA schedule)
   "30 */6 * * *",  # observe-forecasts: 30min after price-sync
 ]
+
+# Native Workers Observability (GA 2025) — routes structured `console.log`
+# output to Cloudflare's log pipeline at zero cost. Enables `wrangler tail`
+# log enrichment and Logpush export. Without this, the structured request
+# logs at index.ts:215-234 are dropped.
+[observability]
+enabled = true

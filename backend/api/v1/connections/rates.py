@@ -15,7 +15,6 @@ CRUD wildcard router.
 
 import math
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
@@ -124,7 +123,7 @@ async def get_rates(
 
 @router.get(
     "/{connection_id}/rates/current",
-    response_model=Optional[ExtractedRateResponse],
+    response_model=ExtractedRateResponse | None,
     summary="Get the most recent extracted rate for a connection",
 )
 async def get_current_rate(
