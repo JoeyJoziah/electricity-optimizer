@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-04-27. Tests: ~7,937 passing (3,325 BE + 2,059 FE + 18 ML files + 12 root + 127 Worker + new audit-day additions). 66 migrations, 64 tables (55 public + 9 neon_auth), 35 GHA workflows. See MEMORY.md for session-level detail.
+> Last validated: 2026-04-27. Tests: ~6,362 passing (3,437 BE + 2,069 FE + 729 ML + 127 Worker) + 10 integration skipped + ~1,642 E2E (Playwright, run separately) = ~8,014 total. 66 migrations, 64 tables (55 public + 9 neon_auth), 35 GHA workflows. See MEMORY.md for session-level detail.
 
 ## Session Initialization Protocol (MANDATORY)
 
