@@ -433,7 +433,7 @@ function SwitchTimeline({ entries }: { entries: SwitchAuditEntry[] }) {
             {/* Date group separator */}
             {(index === 0 ||
               formatDate(entry.created_at) !==
-                formatDate(entries[index - 1].created_at)) && (
+                formatDate(entries[index - 1]?.created_at ?? "")) && (
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
                 {formatDate(entry.created_at)}
               </p>

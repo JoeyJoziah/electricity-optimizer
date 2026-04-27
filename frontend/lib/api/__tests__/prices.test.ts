@@ -3,18 +3,22 @@ import {
   getPriceHistory,
   getPriceForecast,
   getOptimalPeriods,
-} from '@/lib/api/prices'
-import { ApiClientError, _resetRedirectState } from '@/lib/api/client'
-import '@testing-library/jest-dom'
+} from "@/lib/api/prices";
+import { ApiClientError, _resetRedirectState } from "@/lib/api/client";
+import "@testing-library/jest-dom";
 
 // ---------------------------------------------------------------------------
 // Setup - mock fetch (already globally mocked in jest.setup.js)
 // ---------------------------------------------------------------------------
 
-const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-const originalLocation = window.location
+const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+const originalLocation = window.location;
 
-function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Response {
+function mockJsonResponse(
+  body: unknown,
+  status = 200,
+  statusText = "OK",
+): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
@@ -22,8 +26,8 @@ function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Respo
     json: jest.fn().mockResolvedValue(body),
     headers: new Headers(),
     redirected: false,
-    type: 'basic',
-    url: '',
+    type: "basic",
+    url: "",
     clone: jest.fn(),
     body: null,
     bodyUsed: false,
@@ -32,233 +36,274 @@ function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Respo
     formData: jest.fn(),
     text: jest.fn(),
     bytes: jest.fn(),
-  } as unknown as Response
+  } as unknown as Response;
 }
 
 beforeEach(() => {
-  mockFetch.mockReset()
-  _resetRedirectState()
-})
+  mockFetch.mockReset();
+  _resetRedirectState();
+});
 
 afterAll(() => {
-  Object.defineProperty(window, 'location', { writable: true, value: originalLocation })
-})
+  Object.defineProperty(window, "location", {
+    writable: true,
+    value: originalLocation,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getCurrentPrices
 // ---------------------------------------------------------------------------
 
-describe('getCurrentPrices', () => {
-  it('calls correct endpoint', async () => {
+describe("getCurrentPrices", () => {
+  it("calls correct endpoint", async () => {
     // Backend shape: prices[] contains ApiPriceResponse with current_price (Decimal string)
     const responseData = {
       prices: [
         {
-          ticker: 'ELEC-US_CT',
-          current_price: '0.2500',
-          currency: 'USD',
-          region: 'us_ct',
-          supplier: 'Eversource Energy',
-          updated_at: '2026-02-24T12:00:00Z',
+          ticker: "ELEC-US_CT",
+          current_price: "0.2500",
+          currency: "USD",
+          region: "us_ct",
+          supplier: "Eversource Energy",
+          updated_at: "2026-02-24T12:00:00Z",
           is_peak: false,
           carbon_intensity: null,
           price_change_24h: null,
         },
       ],
-      region: 'us_ct',
-      timestamp: '2026-02-24T12:00:00Z',
-      source: 'live',
+      region: "us_ct",
+      timestamp: "2026-02-24T12:00:00Z",
+      source: "live",
       price: null,
-    }
-    mockFetch.mockResolvedValue(mockJsonResponse(responseData))
+    };
+    mockFetch.mockResolvedValue(mockJsonResponse(responseData));
 
-    await getCurrentPrices({ region: 'us_ct' })
+    await getCurrentPrices({ region: "us_ct" });
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('/api/v1/prices/current')
-  })
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/prices/current");
+  });
 
-  it('passes region parameter', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ prices: [], price: null, region: 'us_ny', timestamp: '2026-02-24T12:00:00Z', source: null }))
+  it("passes region parameter", async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        prices: [],
+        price: null,
+        region: "us_ny",
+        timestamp: "2026-02-24T12:00:00Z",
+        source: null,
+      }),
+    );
 
-    await getCurrentPrices({ region: 'us_ny' })
+    await getCurrentPrices({ region: "us_ny" });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('region=us_ny')
-  })
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("region=us_ny");
+  });
 
-  it('passes optional supplier parameter', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ price: null, prices: null, region: 'us_ct', timestamp: '2026-02-24T12:00:00Z', source: null }))
+  it("passes optional supplier parameter", async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        price: null,
+        prices: null,
+        region: "us_ct",
+        timestamp: "2026-02-24T12:00:00Z",
+        source: null,
+      }),
+    );
 
-    await getCurrentPrices({ region: 'us_ct', supplier: 'Eversource Energy' })
+    await getCurrentPrices({ region: "us_ct", supplier: "Eversource Energy" });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('supplier=Eversource+Energy')
-  })
-})
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("supplier=Eversource+Energy");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getPriceHistory
 // ---------------------------------------------------------------------------
 
-describe('getPriceHistory', () => {
-  it('includes days parameter', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({
-      region: 'us_ct',
-      supplier: null,
-      start_date: '2026-02-22T12:00:00Z',
-      end_date: '2026-02-24T12:00:00Z',
-      prices: [],
-      average_price: null,
-      min_price: null,
-      max_price: null,
-      source: 'live',
-      total: 0,
-      page: 1,
-      page_size: 24,
-      pages: 1,
-    }))
+describe("getPriceHistory", () => {
+  it("includes days parameter", async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        region: "us_ct",
+        supplier: null,
+        start_date: "2026-02-22T12:00:00Z",
+        end_date: "2026-02-24T12:00:00Z",
+        prices: [],
+        average_price: null,
+        min_price: null,
+        max_price: null,
+        source: "live",
+        total: 0,
+        page: 1,
+        page_size: 24,
+        pages: 1,
+      }),
+    );
 
-    await getPriceHistory({ region: 'us_ct', days: 2 })
+    await getPriceHistory({ region: "us_ct", days: 2 });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('/api/v1/prices/history')
-    expect(calledUrl).toContain('days=2')
-    expect(calledUrl).toContain('region=us_ct')
-  })
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/prices/history");
+    expect(calledUrl).toContain("days=2");
+    expect(calledUrl).toContain("region=us_ct");
+  });
 
-  it('includes page parameters', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({
-      region: 'us_ct',
-      supplier: null,
-      start_date: '2026-02-22T12:00:00Z',
-      end_date: '2026-02-24T12:00:00Z',
-      prices: [],
-      average_price: null,
-      min_price: null,
-      max_price: null,
-      source: 'live',
-      total: 0,
-      page: 2,
-      page_size: 10,
-      pages: 1,
-    }))
+  it("includes page parameters", async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        region: "us_ct",
+        supplier: null,
+        start_date: "2026-02-22T12:00:00Z",
+        end_date: "2026-02-24T12:00:00Z",
+        prices: [],
+        average_price: null,
+        min_price: null,
+        max_price: null,
+        source: "live",
+        total: 0,
+        page: 2,
+        page_size: 10,
+        pages: 1,
+      }),
+    );
 
-    await getPriceHistory({ region: 'us_ct', page: 2, pageSize: 10 })
+    await getPriceHistory({ region: "us_ct", page: 2, pageSize: 10 });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('page=2')
-    expect(calledUrl).toContain('page_size=10')
-  })
-})
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("page=2");
+    expect(calledUrl).toContain("page_size=10");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getPriceForecast
 // ---------------------------------------------------------------------------
 
-describe('getPriceForecast', () => {
-  it('calls forecast endpoint', async () => {
+describe("getPriceForecast", () => {
+  it("calls forecast endpoint", async () => {
     const forecastData = {
-      region: 'us_ct',
+      region: "us_ct",
       forecast: {
-        id: 'abc',
-        region: 'us_ct',
-        generated_at: '2026-02-24T12:00:00Z',
+        id: "abc",
+        region: "us_ct",
+        generated_at: "2026-02-24T12:00:00Z",
         horizon_hours: 24,
         prices: [],
         confidence: 0.85,
-        model_version: 'v1',
+        model_version: "v1",
         source_api: null,
       },
-      generated_at: '2026-02-24T12:00:00Z',
+      generated_at: "2026-02-24T12:00:00Z",
       horizon_hours: 24,
       confidence: 0.85,
-      source: 'live',
-    }
-    mockFetch.mockResolvedValue(mockJsonResponse(forecastData))
+      source: "live",
+    };
+    mockFetch.mockResolvedValue(mockJsonResponse(forecastData));
 
-    const result = await getPriceForecast({ region: 'us_ct', hours: 24 })
+    const result = await getPriceForecast({ region: "us_ct", hours: 24 });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('/api/v1/prices/forecast')
-    expect(calledUrl).toContain('region=us_ct')
-    expect(calledUrl).toContain('hours=24')
-    expect(result).toEqual(forecastData)
-  })
-})
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/prices/forecast");
+    expect(calledUrl).toContain("region=us_ct");
+    expect(calledUrl).toContain("hours=24");
+    expect(result).toEqual(forecastData);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getOptimalPeriods
 // ---------------------------------------------------------------------------
 
-describe('getOptimalPeriods', () => {
-  it('calls optimal-periods endpoint', async () => {
+describe("getOptimalPeriods", () => {
+  it("calls optimal-periods endpoint", async () => {
     const periodsData = {
       periods: [
-        { start: '2026-02-24T02:00:00Z', end: '2026-02-24T05:00:00Z', avgPrice: 0.15 },
+        {
+          start: "2026-02-24T02:00:00Z",
+          end: "2026-02-24T05:00:00Z",
+          avgPrice: 0.15,
+        },
       ],
-    }
-    mockFetch.mockResolvedValue(mockJsonResponse(periodsData))
+    };
+    mockFetch.mockResolvedValue(mockJsonResponse(periodsData));
 
-    const result = await getOptimalPeriods('us_ct', 24)
+    const result = await getOptimalPeriods("us_ct", 24);
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('/api/v1/prices/optimal-periods')
-    expect(calledUrl).toContain('region=us_ct')
-    expect(calledUrl).toContain('hours=24')
-    expect(result).toEqual(periodsData)
-  })
-})
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/prices/optimal-periods");
+    expect(calledUrl).toContain("region=us_ct");
+    expect(calledUrl).toContain("hours=24");
+    expect(result).toEqual(periodsData);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Error handling
 // ---------------------------------------------------------------------------
 
-describe('error handling', () => {
-  it('handles 401 unauthorized response', async () => {
+describe("error handling", () => {
+  it("handles 401 unauthorized response", async () => {
     // Set pathname to auth page so 401 redirect is suppressed and error is thrown
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
-      value: { ...originalLocation, pathname: '/auth/login', href: 'http://localhost:3000/auth/login' },
-    })
+      value: {
+        ...originalLocation,
+        pathname: "/auth/login",
+        href: "http://localhost:3000/auth/login",
+      },
+    });
 
     mockFetch.mockResolvedValue(
-      mockJsonResponse({ detail: 'Unauthorized' }, 401, 'Unauthorized')
-    )
+      mockJsonResponse({ detail: "Unauthorized" }, 401, "Unauthorized"),
+    );
 
-    await expect(getCurrentPrices({ region: 'us_ct' })).rejects.toThrow(ApiClientError)
+    await expect(getCurrentPrices({ region: "us_ct" })).rejects.toThrow(
+      ApiClientError,
+    );
 
     try {
-      await getCurrentPrices({ region: 'us_ct' })
+      await getCurrentPrices({ region: "us_ct" });
     } catch (error) {
-      const apiError = error as ApiClientError
-      expect(apiError.status).toBe(401)
+      const apiError = error as ApiClientError;
+      expect(apiError.status).toBe(401);
     }
-  })
+  });
 
-  it('handles 500 server error', async () => {
+  it("handles 500 server error", async () => {
     mockFetch.mockResolvedValue(
-      mockJsonResponse({ detail: 'Internal Server Error' }, 500, 'Internal Server Error')
-    )
+      mockJsonResponse(
+        { detail: "Internal Server Error" },
+        500,
+        "Internal Server Error",
+      ),
+    );
 
     // With retry, the client will try MAX_RETRIES+1 times for 500 errors
-    await expect(getCurrentPrices({ region: 'us_ct' })).rejects.toThrow(ApiClientError)
+    await expect(getCurrentPrices({ region: "us_ct" })).rejects.toThrow(
+      ApiClientError,
+    );
 
     try {
-      await getCurrentPrices({ region: 'us_ct' })
+      await getCurrentPrices({ region: "us_ct" });
     } catch (error) {
-      const apiError = error as ApiClientError
-      expect(apiError.status).toBe(500)
-      expect(apiError.message).toBe('Internal Server Error')
+      const apiError = error as ApiClientError;
+      expect(apiError.status).toBe(500);
+      expect(apiError.message).toBe("Internal Server Error");
     }
-  })
+  });
 
-  it('handles network timeout', async () => {
-    mockFetch.mockRejectedValue(new TypeError('Failed to fetch'))
+  it("handles network timeout", async () => {
+    mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
 
     // The client retries on TypeError (network errors), so it will
     // eventually throw after exhausting retries
-    await expect(getCurrentPrices({ region: 'us_ct' })).rejects.toThrow(TypeError)
-  })
-})
+    await expect(getCurrentPrices({ region: "us_ct" })).rejects.toThrow(
+      TypeError,
+    );
+  });
+});

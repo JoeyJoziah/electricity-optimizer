@@ -1,35 +1,60 @@
-'use client'
+"use client";
 
-import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { MessageSquarePlus, X, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils/cn'
-import { Button } from '@/components/ui/button'
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import {
+  MessageSquarePlus,
+  X,
+  Send,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
+import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 
-type FeedbackType = 'bug' | 'feature' | 'general'
+type FeedbackType = "bug" | "feature" | "general";
 
 interface FeedbackPayload {
-  type: FeedbackType
-  message: string
+  type: FeedbackType;
+  message: string;
 }
 
-const TYPE_OPTIONS: { value: FeedbackType; label: string; description: string }[] = [
-  { value: 'bug', label: 'Bug Report', description: 'Something is broken or not working as expected' },
-  { value: 'feature', label: 'Feature Request', description: 'Suggest a new feature or improvement' },
-  { value: 'general', label: 'General Feedback', description: 'Share any thoughts or comments' },
-]
+const TYPE_OPTIONS: {
+  value: FeedbackType;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "bug",
+    label: "Bug Report",
+    description: "Something is broken or not working as expected",
+  },
+  {
+    value: "feature",
+    label: "Feature Request",
+    description: "Suggest a new feature or improvement",
+  },
+  {
+    value: "general",
+    label: "General Feedback",
+    description: "Share any thoughts or comments",
+  },
+];
 
-async function submitFeedback(payload: FeedbackPayload): Promise<{ id: string }> {
-  const res = await fetch('/api/v1/feedback', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+async function submitFeedback(
+  payload: FeedbackPayload,
+): Promise<{ id: string }> {
+  const res = await fetch("/api/v1/feedback", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  })
+  });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body?.detail ?? `Request failed with status ${res.status}`)
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.detail ?? `Request failed with status ${res.status}`);
   }
-  return res.json()
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------
@@ -37,69 +62,74 @@ async function submitFeedback(payload: FeedbackPayload): Promise<{ id: string }>
 // ---------------------------------------------------------------------------
 
 interface FeedbackModalProps {
-  onClose: () => void
+  onClose: () => void;
 }
 
 function FeedbackModal({ onClose }: FeedbackModalProps) {
-  const [type, setType] = useState<FeedbackType>('general')
-  const [message, setMessage] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [type, setType] = useState<FeedbackType>("general");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const modalRef = useRef<HTMLDivElement>(null)
-  const firstFocusRef = useRef<HTMLButtonElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null);
+  const firstFocusRef = useRef<HTMLButtonElement>(null);
 
   // Focus trap + close on Escape
   useEffect(() => {
-    firstFocusRef.current?.focus()
+    firstFocusRef.current?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-        return
+      if (e.key === "Escape") {
+        onClose();
+        return;
       }
       // Trap Tab within modal
-      if (e.key === 'Tab' && modalRef.current) {
+      if (e.key === "Tab" && modalRef.current) {
         const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusable.length === 0) return
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
         if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault()
-          last.focus()
+          e.preventDefault();
+          last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
+          e.preventDefault();
+          first.focus();
         }
       }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
-      e.preventDefault()
+      e.preventDefault();
       if (!message.trim() || message.trim().length < 10) {
-        setError('Please enter at least 10 characters.')
-        return
+        setError("Please enter at least 10 characters.");
+        return;
       }
-      setError(null)
-      setSubmitting(true)
+      setError(null);
+      setSubmitting(true);
       try {
-        await submitFeedback({ type, message: message.trim() })
-        setSubmitted(true)
+        await submitFeedback({ type, message: message.trim() });
+        setSubmitted(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Submission failed. Please try again.",
+        );
       } finally {
-        setSubmitting(false)
+        setSubmitting(false);
       }
     },
-    [type, message]
-  )
+    [type, message],
+  );
 
   return (
     <div
@@ -120,10 +150,10 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
       <div
         ref={modalRef}
         className={cn(
-          'relative w-full max-w-sm rounded-xl bg-white shadow-card',
-          'border border-gray-200',
-          'animate-slide-up',
-          'mb-16' // sits above the FAB
+          "relative w-full max-w-sm rounded-xl bg-white shadow-card",
+          "border border-gray-200",
+          "animate-slide-up",
+          "mb-16", // sits above the FAB
         )}
       >
         {/* Header */}
@@ -154,13 +184,22 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
             <p className="text-sm text-gray-500">
               Your feedback has been received. We read every submission.
             </p>
-            <Button variant="outline" size="sm" onClick={onClose} className="mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="mt-2"
+            >
               Close
             </Button>
           </div>
         ) : (
           /* Form */
-          <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4" noValidate>
+          <form
+            onSubmit={handleSubmit}
+            className="px-5 py-4 space-y-4"
+            noValidate
+          >
             {/* Type selector */}
             <fieldset>
               <legend className="mb-2 block text-sm font-medium text-gray-700">
@@ -171,14 +210,18 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
                   <label
                     key={opt.value}
                     className={cn(
-                      'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                      "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
                       type === opt.value
-                        ? 'border-primary-400 bg-primary-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        ? "border-primary-400 bg-primary-50"
+                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50",
                     )}
                   >
                     <input
-                      ref={index === 0 ? firstFocusRef as React.RefObject<HTMLInputElement> : undefined}
+                      ref={
+                        index === 0
+                          ? (firstFocusRef as React.RefObject<HTMLInputElement>)
+                          : undefined
+                      }
                       type="radio"
                       name="feedback-type"
                       value={opt.value}
@@ -190,7 +233,9 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
                       <span className="block text-sm font-medium text-gray-900">
                         {opt.label}
                       </span>
-                      <span className="block text-xs text-gray-500">{opt.description}</span>
+                      <span className="block text-xs text-gray-500">
+                        {opt.description}
+                      </span>
                     </div>
                   </label>
                 ))}
@@ -209,23 +254,25 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
                 id="feedback-message"
                 value={message}
                 onChange={(e) => {
-                  setMessage(e.target.value)
-                  if (error) setError(null)
+                  setMessage(e.target.value);
+                  if (error) setError(null);
                 }}
                 rows={4}
                 maxLength={5000}
                 placeholder="Tell us more... (minimum 10 characters)"
                 className={cn(
-                  'block w-full rounded-lg border bg-white px-4 py-2.5',
-                  'text-gray-900 placeholder-gray-400 text-sm',
-                  'focus:outline-none focus:ring-2 focus:ring-offset-0',
-                  'transition-all duration-200 resize-none',
-                  'hover:border-gray-400',
+                  "block w-full rounded-lg border bg-white px-4 py-2.5",
+                  "text-gray-900 placeholder-gray-400 text-sm",
+                  "focus:outline-none focus:ring-2 focus:ring-offset-0",
+                  "transition-all duration-200 resize-none",
+                  "hover:border-gray-400",
                   error
-                    ? 'border-danger-300 focus:border-danger-500 focus:ring-danger-500'
-                    : 'border-gray-300 focus:border-primary-500 focus:ring-primary-500'
+                    ? "border-danger-300 focus:border-danger-500 focus:ring-danger-500"
+                    : "border-gray-300 focus:border-primary-500 focus:ring-primary-500",
                 )}
-                aria-describedby={error ? 'feedback-message-error' : 'feedback-message-hint'}
+                aria-describedby={
+                  error ? "feedback-message-error" : "feedback-message-hint"
+                }
                 data-testid="feedback-message"
               />
               {error ? (
@@ -239,7 +286,10 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
                   {error}
                 </p>
               ) : (
-                <p id="feedback-message-hint" className="mt-1 text-xs text-gray-400">
+                <p
+                  id="feedback-message-hint"
+                  className="mt-1 text-xs text-gray-400"
+                >
                   {message.length}/5000 characters
                 </p>
               )}
@@ -258,13 +308,13 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              {submitting ? 'Sending...' : 'Send Feedback'}
+              {submitting ? "Sending..." : "Send Feedback"}
             </Button>
           </form>
         )}
       </div>
     </div>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -272,10 +322,10 @@ function FeedbackModal({ onClose }: FeedbackModalProps) {
 // ---------------------------------------------------------------------------
 
 export function FeedbackWidget() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
-  const handleOpen = useCallback(() => setOpen(true), [])
-  const handleClose = useCallback(() => setOpen(false), [])
+  const handleOpen = useCallback(() => setOpen(true), []);
+  const handleClose = useCallback(() => setOpen(false), []);
 
   return (
     <>
@@ -285,12 +335,12 @@ export function FeedbackWidget() {
         aria-label="Open feedback form"
         data-testid="feedback-fab"
         className={cn(
-          'fixed bottom-6 right-6 z-40',
-          'flex items-center gap-2 rounded-full px-4 py-3',
-          'bg-primary-600 text-white shadow-lg',
-          'hover:bg-primary-700 active:scale-95',
-          'transition-all duration-200',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2'
+          "fixed bottom-6 right-6 z-40",
+          "flex items-center gap-2 rounded-full px-4 py-3",
+          "bg-primary-600 text-white shadow-lg",
+          "hover:bg-primary-700 active:scale-95",
+          "transition-all duration-200",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2",
         )}
       >
         <MessageSquarePlus className="h-5 w-5" />
@@ -300,5 +350,5 @@ export function FeedbackWidget() {
       {/* Modal */}
       {open && <FeedbackModal onClose={handleClose} />}
     </>
-  )
+  );
 }

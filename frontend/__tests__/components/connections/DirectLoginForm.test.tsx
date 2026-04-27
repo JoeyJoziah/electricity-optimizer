@@ -201,7 +201,7 @@ describe("DirectLoginForm", () => {
 
     // Only check the first consent checkbox
     const checkboxes = screen.getAllByRole("checkbox");
-    await user.click(checkboxes[0]);
+    await user.click(checkboxes[0]!);
 
     const submitButton = screen.getByRole("button", {
       name: /connect utility account/i,

@@ -536,8 +536,8 @@ test.describe("Accessibility — Heading Hierarchy", () => {
 
     // No skipped levels (e.g., h1 → h3 without h2)
     for (let i = 1; i < headingData.length; i++) {
-      const prev = headingData[i - 1].level;
-      const curr = headingData[i].level;
+      const prev = headingData[i - 1]!.level;
+      const curr = headingData[i]!.level;
       // Heading level must not increase by more than 1
       expect(curr).toBeLessThanOrEqual(prev + 1);
     }

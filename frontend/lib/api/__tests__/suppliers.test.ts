@@ -2,18 +2,22 @@ import {
   getSuppliers,
   getSupplier,
   compareSuppliers,
-} from '@/lib/api/suppliers'
-import { ApiClientError, _resetRedirectState } from '@/lib/api/client'
-import '@testing-library/jest-dom'
+} from "@/lib/api/suppliers";
+import { ApiClientError, _resetRedirectState } from "@/lib/api/client";
+import "@testing-library/jest-dom";
 
 // ---------------------------------------------------------------------------
 // Setup - mock fetch (already globally mocked in jest.setup.js)
 // ---------------------------------------------------------------------------
 
-const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-const originalLocation = window.location
+const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+const originalLocation = window.location;
 
-function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Response {
+function mockJsonResponse(
+  body: unknown,
+  status = 200,
+  statusText = "OK",
+): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
@@ -21,8 +25,8 @@ function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Respo
     json: jest.fn().mockResolvedValue(body),
     headers: new Headers(),
     redirected: false,
-    type: 'basic',
-    url: '',
+    type: "basic",
+    url: "",
     clone: jest.fn(),
     body: null,
     bodyUsed: false,
@@ -31,154 +35,159 @@ function mockJsonResponse(body: unknown, status = 200, statusText = 'OK'): Respo
     formData: jest.fn(),
     text: jest.fn(),
     bytes: jest.fn(),
-  } as unknown as Response
+  } as unknown as Response;
 }
 
 beforeEach(() => {
-  mockFetch.mockReset()
-  _resetRedirectState()
-})
+  mockFetch.mockReset();
+  _resetRedirectState();
+});
 
 afterAll(() => {
-  Object.defineProperty(window, 'location', { writable: true, value: originalLocation })
-})
+  Object.defineProperty(window, "location", {
+    writable: true,
+    value: originalLocation,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getSuppliers
 // ---------------------------------------------------------------------------
 
-describe('getSuppliers', () => {
-  it('calls correct endpoint', async () => {
+describe("getSuppliers", () => {
+  it("calls correct endpoint", async () => {
     const responseData = {
-      suppliers: [
-        { id: '1', name: 'Eversource Energy', avgPricePerKwh: 0.25 },
-      ],
-    }
-    mockFetch.mockResolvedValue(mockJsonResponse(responseData))
+      suppliers: [{ id: "1", name: "Eversource Energy", avgPricePerKwh: 0.25 }],
+    };
+    mockFetch.mockResolvedValue(mockJsonResponse(responseData));
 
-    const result = await getSuppliers('us_ct')
+    const result = await getSuppliers("us_ct");
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('/api/v1/suppliers')
-    expect(result).toEqual(responseData)
-  })
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/suppliers");
+    expect(result).toEqual(responseData);
+  });
 
-  it('passes region filter', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }))
+  it("passes region filter", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }));
 
-    await getSuppliers('us_ny')
+    await getSuppliers("us_ny");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('region=us_ny')
-  })
-})
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("region=us_ny");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getSupplier (by ID)
 // ---------------------------------------------------------------------------
 
-describe('getSupplierDetails', () => {
-  it('fetches by ID', async () => {
+describe("getSupplierDetails", () => {
+  it("fetches by ID", async () => {
     const supplier = {
-      id: 'supplier_001',
-      name: 'Eversource Energy',
+      id: "supplier_001",
+      name: "Eversource Energy",
       avgPricePerKwh: 0.25,
       rating: 4.5,
-    }
-    mockFetch.mockResolvedValue(mockJsonResponse(supplier))
+    };
+    mockFetch.mockResolvedValue(mockJsonResponse(supplier));
 
-    const result = await getSupplier('supplier_001')
+    const result = await getSupplier("supplier_001");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('/api/v1/suppliers/supplier_001')
-    expect(result).toEqual(supplier)
-  })
-})
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/suppliers/supplier_001");
+    expect(result).toEqual(supplier);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // compareSuppliers
 // ---------------------------------------------------------------------------
 
-describe('compareSuppliers', () => {
-  it('calls compare endpoint', async () => {
+describe("compareSuppliers", () => {
+  it("calls compare endpoint", async () => {
     const comparisonData = {
       comparisons: [
-        { id: '1', name: 'Eversource', estimatedAnnualCost: 1200 },
-        { id: '2', name: 'NextEra', estimatedAnnualCost: 1050 },
+        { id: "1", name: "Eversource", estimatedAnnualCost: 1200 },
+        { id: "2", name: "NextEra", estimatedAnnualCost: 1050 },
       ],
-    }
-    mockFetch.mockResolvedValue(mockJsonResponse(comparisonData))
+    };
+    mockFetch.mockResolvedValue(mockJsonResponse(comparisonData));
 
-    const result = await compareSuppliers(['1', '2'], 10500)
+    const result = await compareSuppliers(["1", "2"], 10500);
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    const calledUrl = mockFetch.mock.calls[0][0] as string
-    expect(calledUrl).toContain('/api/v1/suppliers/compare')
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/suppliers/compare");
 
     // Verify it was a POST request with the correct body
-    const calledOptions = mockFetch.mock.calls[0][1] as RequestInit
-    expect(calledOptions.method).toBe('POST')
+    const calledOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+    expect(calledOptions.method).toBe("POST");
     expect(JSON.parse(calledOptions.body as string)).toEqual({
-      supplierIds: ['1', '2'],
+      supplierIds: ["1", "2"],
       annualUsage: 10500,
-    })
+    });
 
-    expect(result).toEqual(comparisonData)
-  })
-})
+    expect(result).toEqual(comparisonData);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Error handling
 // ---------------------------------------------------------------------------
 
-describe('error handling', () => {
-  it('handles 401 unauthorized', async () => {
+describe("error handling", () => {
+  it("handles 401 unauthorized", async () => {
     // Set pathname to auth page so 401 redirect is suppressed and error is thrown
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
-      value: { ...originalLocation, pathname: '/auth/login', href: 'http://localhost:3000/auth/login' },
-    })
+      value: {
+        ...originalLocation,
+        pathname: "/auth/login",
+        href: "http://localhost:3000/auth/login",
+      },
+    });
 
     mockFetch.mockResolvedValue(
-      mockJsonResponse({ detail: 'Not authenticated' }, 401, 'Unauthorized')
-    )
+      mockJsonResponse({ detail: "Not authenticated" }, 401, "Unauthorized"),
+    );
 
-    await expect(getSuppliers('us_ct')).rejects.toThrow(ApiClientError)
+    await expect(getSuppliers("us_ct")).rejects.toThrow(ApiClientError);
 
     try {
-      await getSuppliers('us_ct')
+      await getSuppliers("us_ct");
     } catch (error) {
-      const apiError = error as ApiClientError
-      expect(apiError.status).toBe(401)
+      const apiError = error as ApiClientError;
+      expect(apiError.status).toBe(401);
     }
-  })
+  });
 
-  it('handles empty response', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }))
+  it("handles empty response", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }));
 
-    const result = await getSuppliers('us_ct')
+    const result = await getSuppliers("us_ct");
 
-    expect(result).toEqual({ suppliers: [] })
-    expect(result.suppliers).toHaveLength(0)
-  })
+    expect(result).toEqual({ suppliers: [] });
+    expect(result.suppliers).toHaveLength(0);
+  });
 
-  it('handles network error', async () => {
-    mockFetch.mockRejectedValue(new TypeError('Failed to fetch'))
+  it("handles network error", async () => {
+    mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
 
     // The client retries on network errors (TypeError), eventually throws
-    await expect(getSuppliers('us_ct')).rejects.toThrow(TypeError)
-  })
+    await expect(getSuppliers("us_ct")).rejects.toThrow(TypeError);
+  });
 
-  it('request includes credentials for auth', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }))
+  it("request includes credentials for auth", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }));
 
-    await getSuppliers('us_ct')
+    await getSuppliers("us_ct");
 
-    const calledOptions = mockFetch.mock.calls[0][1] as RequestInit
-    expect(calledOptions.credentials).toBe('include')
+    const calledOptions = mockFetch.mock.calls[0]![1] as RequestInit;
+    expect(calledOptions.credentials).toBe("include");
     expect(calledOptions.headers).toEqual(
-      expect.objectContaining({ 'Content-Type': 'application/json' })
-    )
-  })
-})
+      expect.objectContaining({ "Content-Type": "application/json" }),
+    );
+  });
+});

@@ -44,8 +44,9 @@ export function Modal({
     const focusable = overlayRef.current.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
-    if (focusable.length > 0) {
-      focusable[0].focus();
+    const firstFocusable = focusable[0];
+    if (firstFocusable) {
+      firstFocusable.focus();
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,6 +63,7 @@ export function Modal({
 
         const first = elements[0];
         const last = elements[elements.length - 1];
+        if (!first || !last) return;
 
         if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();

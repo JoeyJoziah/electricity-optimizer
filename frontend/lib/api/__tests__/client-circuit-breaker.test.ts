@@ -63,7 +63,7 @@ describe("apiClient circuit breaker integration", () => {
 
     await apiClient.get("/prices");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("/api/v1/prices");
     expect(calledUrl).not.toContain("onrender.com");
   });
@@ -152,7 +152,7 @@ describe("apiClient circuit breaker integration", () => {
 
     await apiClient.get("/prices");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("onrender.com");
     expect(calledUrl).toContain("/api/v1/prices");
   });
@@ -186,7 +186,7 @@ describe("apiClient circuit breaker integration", () => {
 
     await apiClient.get("/prices");
 
-    const calledOptions = mockFetch.mock.calls[0][1] as RequestInit;
+    const calledOptions = mockFetch.mock.calls[0]![1] as RequestInit;
     const headers = calledOptions.headers as Record<string, string>;
     expect(headers["X-Fallback-Mode"]).toBe("true");
   });
@@ -196,7 +196,7 @@ describe("apiClient circuit breaker integration", () => {
 
     await apiClient.get("/prices");
 
-    const calledOptions = mockFetch.mock.calls[0][1] as RequestInit;
+    const calledOptions = mockFetch.mock.calls[0]![1] as RequestInit;
     const headers = calledOptions.headers as Record<string, string>;
     expect(headers["X-Fallback-Mode"]).toBeUndefined();
   });
@@ -261,7 +261,7 @@ describe("apiClient circuit breaker integration", () => {
 
     await apiClient.post("/feedback", { message: "great app" });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("/api/v1/feedback");
   });
 
@@ -270,7 +270,7 @@ describe("apiClient circuit breaker integration", () => {
 
     await apiClient.put("/profile", { name: "Test" });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("/api/v1/profile");
   });
 
@@ -279,7 +279,7 @@ describe("apiClient circuit breaker integration", () => {
 
     await apiClient.delete("/alerts/123");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("/api/v1/alerts/123");
   });
 });

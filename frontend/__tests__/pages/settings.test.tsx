@@ -227,7 +227,7 @@ describe("SettingsPage", () => {
 
     // Click the first "Change" button (the supplier change button)
     const changeButtons = screen.getAllByRole("button", { name: /change/i });
-    await user.click(changeButtons[0]);
+    await user.click(changeButtons[0]!);
 
     expect(screen.getByTestId("supplier-selector")).toBeInTheDocument();
   });

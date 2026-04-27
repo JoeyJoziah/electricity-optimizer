@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useWaterRates } from '@/lib/hooks/useWater'
-import type { WaterRate } from '@/lib/api/water'
+import { useState } from "react";
+import { useWaterRates } from "@/lib/hooks/useWater";
+import type { WaterRate } from "@/lib/api/water";
 
 interface WaterTierCalculatorProps {
-  state: string
+  state: string;
 }
 
 export function WaterTierCalculator({ state }: WaterTierCalculatorProps) {
-  const { data, isLoading, error } = useWaterRates(state)
-  const [selectedMunicipality, setSelectedMunicipality] = useState<string>('')
-  const [usageGallons, setUsageGallons] = useState<number>(5760)
+  const { data, isLoading, error } = useWaterRates(state);
+  const [selectedMunicipality, setSelectedMunicipality] = useState<string>("");
+  const [usageGallons, setUsageGallons] = useState<number>(5760);
 
   if (isLoading) {
     return (
@@ -20,36 +20,49 @@ export function WaterTierCalculator({ state }: WaterTierCalculatorProps) {
           <div key={i} className="animate-pulse rounded-lg bg-gray-100 h-12" />
         ))}
       </div>
-    )
+    );
   }
 
-  if (error || !data) return null
+  if (error || !data) return null;
 
-  const rates = data.rates || []
-  const selectedRate = rates.find((r) => r.municipality === selectedMunicipality)
+  const rates = data.rates || [];
+  const selectedRate = rates.find(
+    (r) => r.municipality === selectedMunicipality,
+  );
 
   const calculateCost = (rate: WaterRate, gallons: number) => {
-    const tiers = rate.rate_tiers || []
-    let remaining = gallons
-    let tierCharges = 0
-    let prevLimit = 0
-    const breakdown: { tier: number; gallons: number; rate: number; charge: number }[] = []
+    const tiers = rate.rate_tiers || [];
+    let remaining = gallons;
+    let tierCharges = 0;
+    let prevLimit = 0;
+    const breakdown: {
+      tier: number;
+      gallons: number;
+      rate: number;
+      charge: number;
+    }[] = [];
 
     for (let i = 0; i < tiers.length; i++) {
-      const tier = tiers[i]
-      const limit = tier.limit_gallons
-      const ratePerGal = tier.rate_per_gallon
+      const tier = tiers[i];
+      if (!tier) continue;
+      const limit = tier.limit_gallons;
+      const ratePerGal = tier.rate_per_gallon;
 
-      const tierCapacity = limit === null ? remaining : limit - prevLimit
-      const gallonsInTier = Math.min(remaining, tierCapacity)
-      const charge = gallonsInTier * ratePerGal
+      const tierCapacity = limit === null ? remaining : limit - prevLimit;
+      const gallonsInTier = Math.min(remaining, tierCapacity);
+      const charge = gallonsInTier * ratePerGal;
 
-      tierCharges += charge
-      breakdown.push({ tier: i + 1, gallons: gallonsInTier, rate: ratePerGal, charge })
+      tierCharges += charge;
+      breakdown.push({
+        tier: i + 1,
+        gallons: gallonsInTier,
+        rate: ratePerGal,
+        charge,
+      });
 
-      remaining -= gallonsInTier
-      if (limit !== null) prevLimit = limit
-      if (remaining <= 0) break
+      remaining -= gallonsInTier;
+      if (limit !== null) prevLimit = limit;
+      if (remaining <= 0) break;
     }
 
     return {
@@ -57,18 +70,23 @@ export function WaterTierCalculator({ state }: WaterTierCalculatorProps) {
       tierCharges: Math.round(tierCharges * 100) / 100,
       total: Math.round((rate.base_charge + tierCharges) * 100) / 100,
       breakdown,
-    }
-  }
+    };
+  };
 
-  const cost = selectedRate ? calculateCost(selectedRate, usageGallons) : null
+  const cost = selectedRate ? calculateCost(selectedRate, usageGallons) : null;
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Water Cost Calculator</h3>
+      <h3 className="text-lg font-semibold text-gray-900">
+        Water Cost Calculator
+      </h3>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="water-municipality" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="water-municipality"
+            className="block text-sm font-medium text-gray-700"
+          >
             Municipality
           </label>
           <select
@@ -87,7 +105,10 @@ export function WaterTierCalculator({ state }: WaterTierCalculatorProps) {
         </div>
 
         <div>
-          <label htmlFor="water-usage" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="water-usage"
+            className="block text-sm font-medium text-gray-700"
+          >
             Monthly Usage (gallons)
           </label>
           <input
@@ -105,8 +126,12 @@ export function WaterTierCalculator({ state }: WaterTierCalculatorProps) {
       {cost && selectedRate && (
         <div className="rounded-lg border bg-cyan-50 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-cyan-700">Estimated Monthly Bill</p>
-            <p className="text-2xl font-bold text-cyan-900">${cost.total.toFixed(2)}</p>
+            <p className="text-sm font-medium text-cyan-700">
+              Estimated Monthly Bill
+            </p>
+            <p className="text-2xl font-bold text-cyan-900">
+              ${cost.total.toFixed(2)}
+            </p>
           </div>
 
           <div className="space-y-1 text-sm text-cyan-800">
@@ -116,7 +141,10 @@ export function WaterTierCalculator({ state }: WaterTierCalculatorProps) {
             </div>
             {cost.breakdown.map((b) => (
               <div key={b.tier} className="flex justify-between">
-                <span>Tier {b.tier}: {b.gallons.toLocaleString()} gal @ ${b.rate.toFixed(4)}/gal</span>
+                <span>
+                  Tier {b.tier}: {b.gallons.toLocaleString()} gal @ $
+                  {b.rate.toFixed(4)}/gal
+                </span>
                 <span>${b.charge.toFixed(2)}</span>
               </div>
             ))}
@@ -128,5 +156,5 @@ export function WaterTierCalculator({ state }: WaterTierCalculatorProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

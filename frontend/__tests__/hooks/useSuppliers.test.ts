@@ -1,24 +1,24 @@
-import { renderHook, waitFor, act } from '@testing-library/react'
-import React, { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import '@testing-library/jest-dom'
+import { renderHook, waitFor, act } from "@testing-library/react";
+import React, { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "@testing-library/jest-dom";
 
 // --- Mocks ---
 
-const mockGetSuppliers = jest.fn()
-const mockGetSupplier = jest.fn()
-const mockGetRecommendation = jest.fn()
-const mockCompareSuppliers = jest.fn()
-const mockInitiateSwitch = jest.fn()
-const mockGetSwitchStatus = jest.fn()
-const mockSetUserSupplier = jest.fn()
-const mockGetUserSupplier = jest.fn()
-const mockRemoveUserSupplier = jest.fn()
-const mockLinkSupplierAccount = jest.fn()
-const mockGetUserSupplierAccounts = jest.fn()
-const mockUnlinkSupplierAccount = jest.fn()
+const mockGetSuppliers = jest.fn();
+const mockGetSupplier = jest.fn();
+const mockGetRecommendation = jest.fn();
+const mockCompareSuppliers = jest.fn();
+const mockInitiateSwitch = jest.fn();
+const mockGetSwitchStatus = jest.fn();
+const mockSetUserSupplier = jest.fn();
+const mockGetUserSupplier = jest.fn();
+const mockRemoveUserSupplier = jest.fn();
+const mockLinkSupplierAccount = jest.fn();
+const mockGetUserSupplierAccounts = jest.fn();
+const mockUnlinkSupplierAccount = jest.fn();
 
-jest.mock('@/lib/api/suppliers', () => ({
+jest.mock("@/lib/api/suppliers", () => ({
   getSuppliers: (...args: unknown[]) => mockGetSuppliers(...args),
   getSupplier: (...args: unknown[]) => mockGetSupplier(...args),
   getRecommendation: (...args: unknown[]) => mockGetRecommendation(...args),
@@ -33,7 +33,7 @@ jest.mock('@/lib/api/suppliers', () => ({
     mockGetUserSupplierAccounts(...args),
   unlinkSupplierAccount: (...args: unknown[]) =>
     mockUnlinkSupplierAccount(...args),
-}))
+}));
 
 import {
   useSuppliers,
@@ -48,7 +48,7 @@ import {
   useLinkAccount,
   useUserSupplierAccounts,
   useUnlinkAccount,
-} from '@/lib/hooks/useSuppliers'
+} from "@/lib/hooks/useSuppliers";
 
 // --- Helpers ---
 
@@ -57,16 +57,16 @@ function createWrapper() {
     defaultOptions: {
       queries: { retry: false, gcTime: 0 },
     },
-  })
+  });
   return {
     queryClient,
     wrapper: ({ children }: { children: ReactNode }) =>
       React.createElement(
         QueryClientProvider,
         { client: queryClient },
-        children
+        children,
       ),
-  }
+  };
 }
 
 // --- Mock data ---
@@ -74,695 +74,728 @@ function createWrapper() {
 const mockSuppliersData = {
   suppliers: [
     {
-      id: 'sup-1',
-      name: 'Eversource Energy',
+      id: "sup-1",
+      name: "Eversource Energy",
       avgPricePerKwh: 0.24,
       standingCharge: 9.99,
       greenEnergy: false,
       rating: 3.8,
       estimatedAnnualCost: 2520,
-      tariffType: 'variable',
+      tariffType: "variable",
     },
     {
-      id: 'sup-2',
-      name: 'United Illuminating',
+      id: "sup-2",
+      name: "United Illuminating",
       avgPricePerKwh: 0.22,
       standingCharge: 8.5,
       greenEnergy: true,
       rating: 4.1,
       estimatedAnnualCost: 2310,
-      tariffType: 'fixed',
+      tariffType: "fixed",
     },
   ],
-}
+};
 
 const mockSingleSupplier = {
-  id: 'sup-1',
-  name: 'Eversource Energy',
+  id: "sup-1",
+  name: "Eversource Energy",
   avgPricePerKwh: 0.24,
   standingCharge: 9.99,
   greenEnergy: false,
   rating: 3.8,
-}
+};
 
 const mockRecommendation = {
   recommendation: {
-    supplierId: 'sup-2',
-    supplierName: 'United Illuminating',
+    supplierId: "sup-2",
+    supplierName: "United Illuminating",
     estimatedSavings: 210,
-    reason: 'Lower average kWh rate',
+    reason: "Lower average kWh rate",
   },
-}
+};
 
 // ==========================================================================
 // useSuppliers
 // ==========================================================================
-describe('useSuppliers', () => {
+describe("useSuppliers", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockGetSuppliers.mockResolvedValue(mockSuppliersData)
-  })
+    jest.clearAllMocks();
+    mockGetSuppliers.mockResolvedValue(mockSuppliersData);
+  });
 
-  it('fetches suppliers with explicit region', async () => {
-    const { wrapper } = createWrapper()
+  it("fetches suppliers with explicit region", async () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useSuppliers('us_ct'), { wrapper })
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
-
-    expect(result.current.data).toEqual(mockSuppliersData)
-    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', undefined, expect.anything())
-  })
-
-  it('fetches suppliers with custom region', async () => {
-    const { wrapper } = createWrapper()
-
-    const { result } = renderHook(() => useSuppliers('us_ny'), { wrapper })
+    const { result } = renderHook(() => useSuppliers("us_ct"), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
+      expect(result.current.isSuccess).toBe(true);
+    });
 
-    expect(mockGetSuppliers).toHaveBeenCalledWith('us_ny', undefined, expect.anything())
-  })
+    expect(result.current.data).toEqual(mockSuppliersData);
+    expect(mockGetSuppliers).toHaveBeenCalledWith(
+      "us_ct",
+      undefined,
+      expect.anything(),
+    );
+  });
 
-  it('fetches suppliers with annual usage', async () => {
-    const { wrapper } = createWrapper()
+  it("fetches suppliers with custom region", async () => {
+    const { wrapper } = createWrapper();
 
-    renderHook(() => useSuppliers('us_ct', 12000), { wrapper })
-
-    await waitFor(() => {
-      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', 12000, expect.anything())
-    })
-  })
-
-  it('uses correct query key with region and usage', async () => {
-    const { wrapper, queryClient } = createWrapper()
-
-    renderHook(() => useSuppliers('us_ma', 8000), { wrapper })
+    const { result } = renderHook(() => useSuppliers("us_ny"), { wrapper });
 
     await waitFor(() => {
-      const queries = queryClient.getQueryCache().getAll()
-      const keys = queries.map((q) => q.queryKey)
-      expect(keys).toContainEqual(['suppliers', 'us_ma', 8000])
-    })
-  })
+      expect(result.current.isSuccess).toBe(true);
+    });
 
-  it('handles fetch error', async () => {
-    mockGetSuppliers.mockRejectedValue(new Error('API unavailable'))
+    expect(mockGetSuppliers).toHaveBeenCalledWith(
+      "us_ny",
+      undefined,
+      expect.anything(),
+    );
+  });
 
-    const { wrapper } = createWrapper()
+  it("fetches suppliers with annual usage", async () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useSuppliers('us_ct'), { wrapper })
+    renderHook(() => useSuppliers("us_ct", 12000), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isError).toBe(true)
-    })
+      expect(mockGetSuppliers).toHaveBeenCalledWith(
+        "us_ct",
+        12000,
+        expect.anything(),
+      );
+    });
+  });
 
-    expect(result.current.error?.message).toBe('API unavailable')
-  })
+  it("uses correct query key with region and usage", async () => {
+    const { wrapper, queryClient } = createWrapper();
 
-  it('refetches when region changes', async () => {
-    const { wrapper } = createWrapper()
+    renderHook(() => useSuppliers("us_ma", 8000), { wrapper });
+
+    await waitFor(() => {
+      const queries = queryClient.getQueryCache().getAll();
+      const keys = queries.map((q) => q.queryKey);
+      expect(keys).toContainEqual(["suppliers", "us_ma", 8000]);
+    });
+  });
+
+  it("handles fetch error", async () => {
+    mockGetSuppliers.mockRejectedValue(new Error("API unavailable"));
+
+    const { wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useSuppliers("us_ct"), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(result.current.error?.message).toBe("API unavailable");
+  });
+
+  it("refetches when region changes", async () => {
+    const { wrapper } = createWrapper();
 
     const { rerender } = renderHook(
       ({ region }: { region: string }) => useSuppliers(region),
       {
         wrapper,
-        initialProps: { region: 'us_ct' },
-      }
-    )
+        initialProps: { region: "us_ct" },
+      },
+    );
 
     await waitFor(() => {
-      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ct', undefined, expect.anything())
-    })
+      expect(mockGetSuppliers).toHaveBeenCalledWith(
+        "us_ct",
+        undefined,
+        expect.anything(),
+      );
+    });
 
-    rerender({ region: 'us_ny' })
+    rerender({ region: "us_ny" });
 
     await waitFor(() => {
-      expect(mockGetSuppliers).toHaveBeenCalledWith('us_ny', undefined, expect.anything())
-    })
+      expect(mockGetSuppliers).toHaveBeenCalledWith(
+        "us_ny",
+        undefined,
+        expect.anything(),
+      );
+    });
 
-    expect(mockGetSuppliers).toHaveBeenCalledTimes(2)
-  })
-})
+    expect(mockGetSuppliers).toHaveBeenCalledTimes(2);
+  });
+});
 
 // ==========================================================================
 // useSupplier (single)
 // ==========================================================================
-describe('useSupplier', () => {
+describe("useSupplier", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockGetSupplier.mockResolvedValue(mockSingleSupplier)
-  })
+    jest.clearAllMocks();
+    mockGetSupplier.mockResolvedValue(mockSingleSupplier);
+  });
 
-  it('fetches a single supplier by ID', async () => {
-    const { wrapper } = createWrapper()
+  it("fetches a single supplier by ID", async () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useSupplier('sup-1'), { wrapper })
+    const { result } = renderHook(() => useSupplier("sup-1"), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
+      expect(result.current.isSuccess).toBe(true);
+    });
 
-    expect(result.current.data).toEqual(mockSingleSupplier)
-    expect(mockGetSupplier).toHaveBeenCalledWith('sup-1', expect.anything())
-  })
+    expect(result.current.data).toEqual(mockSingleSupplier);
+    expect(mockGetSupplier).toHaveBeenCalledWith("sup-1", expect.anything());
+  });
 
-  it('is disabled when supplierId is empty', async () => {
-    const { wrapper } = createWrapper()
+  it("is disabled when supplierId is empty", async () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useSupplier(''), { wrapper })
+    const { result } = renderHook(() => useSupplier(""), { wrapper });
 
     // Query should not fire
-    expect(result.current.fetchStatus).toBe('idle')
-    expect(mockGetSupplier).not.toHaveBeenCalled()
-  })
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockGetSupplier).not.toHaveBeenCalled();
+  });
 
-  it('uses correct query key', async () => {
-    const { wrapper, queryClient } = createWrapper()
+  it("uses correct query key", async () => {
+    const { wrapper, queryClient } = createWrapper();
 
-    renderHook(() => useSupplier('sup-42'), { wrapper })
+    renderHook(() => useSupplier("sup-42"), { wrapper });
 
     await waitFor(() => {
-      const queries = queryClient.getQueryCache().getAll()
-      const keys = queries.map((q) => q.queryKey)
-      expect(keys).toContainEqual(['supplier', 'sup-42'])
-    })
-  })
-})
+      const queries = queryClient.getQueryCache().getAll();
+      const keys = queries.map((q) => q.queryKey);
+      expect(keys).toContainEqual(["supplier", "sup-42"]);
+    });
+  });
+});
 
 // ==========================================================================
 // useSupplierRecommendation
 // ==========================================================================
-describe('useSupplierRecommendation', () => {
+describe("useSupplierRecommendation", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockGetRecommendation.mockResolvedValue(mockRecommendation)
-  })
+    jest.clearAllMocks();
+    mockGetRecommendation.mockResolvedValue(mockRecommendation);
+  });
 
-  it('fetches recommendation with valid params', async () => {
-    const { wrapper } = createWrapper()
+  it("fetches recommendation with valid params", async () => {
+    const { wrapper } = createWrapper();
 
     const { result } = renderHook(
-      () => useSupplierRecommendation('sup-1', 10500, 'us_ct'),
-      { wrapper }
-    )
+      () => useSupplierRecommendation("sup-1", 10500, "us_ct"),
+      { wrapper },
+    );
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
+      expect(result.current.isSuccess).toBe(true);
+    });
 
-    expect(result.current.data).toEqual(mockRecommendation)
-    expect(mockGetRecommendation).toHaveBeenCalledWith('sup-1', 10500, 'us_ct', expect.anything())
-  })
+    expect(result.current.data).toEqual(mockRecommendation);
+    expect(mockGetRecommendation).toHaveBeenCalledWith(
+      "sup-1",
+      10500,
+      "us_ct",
+      expect.anything(),
+    );
+  });
 
-  it('is disabled when currentSupplierId is empty', () => {
-    const { wrapper } = createWrapper()
-
-    const { result } = renderHook(
-      () => useSupplierRecommendation('', 10500, 'us_ct'),
-      { wrapper }
-    )
-
-    expect(result.current.fetchStatus).toBe('idle')
-    expect(mockGetRecommendation).not.toHaveBeenCalled()
-  })
-
-  it('is disabled when annualUsage is 0', () => {
-    const { wrapper } = createWrapper()
+  it("is disabled when currentSupplierId is empty", () => {
+    const { wrapper } = createWrapper();
 
     const { result } = renderHook(
-      () => useSupplierRecommendation('sup-1', 0, 'us_ct'),
-      { wrapper }
-    )
+      () => useSupplierRecommendation("", 10500, "us_ct"),
+      { wrapper },
+    );
 
-    expect(result.current.fetchStatus).toBe('idle')
-    expect(mockGetRecommendation).not.toHaveBeenCalled()
-  })
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockGetRecommendation).not.toHaveBeenCalled();
+  });
 
-  it('passes region explicitly', async () => {
-    const { wrapper } = createWrapper()
+  it("is disabled when annualUsage is 0", () => {
+    const { wrapper } = createWrapper();
 
-    renderHook(() => useSupplierRecommendation('sup-1', 10000, 'us_ny'), { wrapper })
+    const { result } = renderHook(
+      () => useSupplierRecommendation("sup-1", 0, "us_ct"),
+      { wrapper },
+    );
+
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockGetRecommendation).not.toHaveBeenCalled();
+  });
+
+  it("passes region explicitly", async () => {
+    const { wrapper } = createWrapper();
+
+    renderHook(() => useSupplierRecommendation("sup-1", 10000, "us_ny"), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(mockGetRecommendation).toHaveBeenCalledWith(
-        'sup-1',
+        "sup-1",
         10000,
-        'us_ny',
-        expect.anything()
-      )
-    })
-  })
-})
+        "us_ny",
+        expect.anything(),
+      );
+    });
+  });
+});
 
 // ==========================================================================
 // useCompareSuppliers
 // ==========================================================================
-describe('useCompareSuppliers', () => {
+describe("useCompareSuppliers", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
     mockCompareSuppliers.mockResolvedValue({
       comparisons: [mockSingleSupplier],
-    })
-  })
+    });
+  });
 
-  it('compares suppliers with valid params', async () => {
-    const { wrapper } = createWrapper()
+  it("compares suppliers with valid params", async () => {
+    const { wrapper } = createWrapper();
 
     const { result } = renderHook(
-      () => useCompareSuppliers(['sup-1', 'sup-2'], 10000),
-      { wrapper }
-    )
+      () => useCompareSuppliers(["sup-1", "sup-2"], 10000),
+      { wrapper },
+    );
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     expect(mockCompareSuppliers).toHaveBeenCalledWith(
-      ['sup-1', 'sup-2'],
+      ["sup-1", "sup-2"],
       10000,
-      expect.anything()
-    )
-  })
+      expect.anything(),
+    );
+  });
 
-  it('is disabled when supplierIds is empty', () => {
-    const { wrapper } = createWrapper()
+  it("is disabled when supplierIds is empty", () => {
+    const { wrapper } = createWrapper();
 
     const { result } = renderHook(() => useCompareSuppliers([], 10000), {
       wrapper,
-    })
+    });
 
-    expect(result.current.fetchStatus).toBe('idle')
-    expect(mockCompareSuppliers).not.toHaveBeenCalled()
-  })
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockCompareSuppliers).not.toHaveBeenCalled();
+  });
 
-  it('is disabled when annualUsage is 0', () => {
-    const { wrapper } = createWrapper()
+  it("is disabled when annualUsage is 0", () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(
-      () => useCompareSuppliers(['sup-1'], 0),
-      { wrapper }
-    )
+    const { result } = renderHook(() => useCompareSuppliers(["sup-1"], 0), {
+      wrapper,
+    });
 
-    expect(result.current.fetchStatus).toBe('idle')
-  })
+    expect(result.current.fetchStatus).toBe("idle");
+  });
 
-  it('uses sorted JSON.stringify for stable queryKey', async () => {
-    const { wrapper, queryClient } = createWrapper()
+  it("uses sorted JSON.stringify for stable queryKey", async () => {
+    const { wrapper, queryClient } = createWrapper();
 
-    renderHook(() => useCompareSuppliers(['sup-2', 'sup-1'], 10000), { wrapper })
+    renderHook(() => useCompareSuppliers(["sup-2", "sup-1"], 10000), {
+      wrapper,
+    });
 
     await waitFor(() => {
-      const queries = queryClient.getQueryCache().getAll()
-      const keys = queries.map((q) => q.queryKey)
+      const queries = queryClient.getQueryCache().getAll();
+      const keys = queries.map((q) => q.queryKey);
       // IDs are sorted before stringifying
       expect(keys).toContainEqual([
-        'compare',
-        JSON.stringify(['sup-1', 'sup-2']),
+        "compare",
+        JSON.stringify(["sup-1", "sup-2"]),
         10000,
-      ])
-    })
-  })
+      ]);
+    });
+  });
 
-  it('does not refetch when supplierIds array is recreated with same IDs', async () => {
-    const { wrapper } = createWrapper()
+  it("does not refetch when supplierIds array is recreated with same IDs", async () => {
+    const { wrapper } = createWrapper();
 
-    const ids1 = ['sup-1', 'sup-2']
-    const ids2 = ['sup-1', 'sup-2'] // new array reference, same content
+    const ids1 = ["sup-1", "sup-2"];
+    const ids2 = ["sup-1", "sup-2"]; // new array reference, same content
 
     const { rerender } = renderHook(
       ({ ids }: { ids: string[] }) => useCompareSuppliers(ids, 10000),
       {
         wrapper,
         initialProps: { ids: ids1 },
-      }
-    )
+      },
+    );
 
     await waitFor(() => {
-      expect(mockCompareSuppliers).toHaveBeenCalledTimes(1)
-    })
+      expect(mockCompareSuppliers).toHaveBeenCalledTimes(1);
+    });
 
     // Rerender with a new array reference but same content
-    rerender({ ids: ids2 })
+    rerender({ ids: ids2 });
 
     // Should NOT trigger a second fetch
     await waitFor(() => {
-      expect(mockCompareSuppliers).toHaveBeenCalledTimes(1)
-    })
-  })
-})
+      expect(mockCompareSuppliers).toHaveBeenCalledTimes(1);
+    });
+  });
+});
 
 // ==========================================================================
 // useInitiateSwitch
 // ==========================================================================
-describe('useInitiateSwitch', () => {
+describe("useInitiateSwitch", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
     mockInitiateSwitch.mockResolvedValue({
       success: true,
-      referenceNumber: 'SW-123',
-      estimatedCompletionDate: '2026-03-15',
-    })
-  })
+      referenceNumber: "SW-123",
+      estimatedCompletionDate: "2026-03-15",
+    });
+  });
 
-  it('initiates a switch and invalidates queries on success', async () => {
-    const { wrapper, queryClient } = createWrapper()
-    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+  it("initiates a switch and invalidates queries on success", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
 
-    const { result } = renderHook(() => useInitiateSwitch(), { wrapper })
+    const { result } = renderHook(() => useInitiateSwitch(), { wrapper });
 
     await act(async () => {
       await result.current.mutateAsync({
-        newSupplierId: 'sup-2',
+        newSupplierId: "sup-2",
         gdprConsent: true,
-        currentSupplierId: 'sup-1',
-      })
-    })
+        currentSupplierId: "sup-1",
+      });
+    });
 
     expect(mockInitiateSwitch).toHaveBeenCalledWith({
-      newSupplierId: 'sup-2',
+      newSupplierId: "sup-2",
       gdprConsent: true,
-      currentSupplierId: 'sup-1',
-    })
+      currentSupplierId: "sup-1",
+    });
 
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['suppliers'] })
-    )
+      expect.objectContaining({ queryKey: ["suppliers"] }),
+    );
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['recommendation'] })
-    )
-  })
+      expect.objectContaining({ queryKey: ["recommendation"] }),
+    );
+  });
 
-  it('handles switch failure', async () => {
-    mockInitiateSwitch.mockRejectedValue(new Error('Switch failed'))
+  it("handles switch failure", async () => {
+    mockInitiateSwitch.mockRejectedValue(new Error("Switch failed"));
 
-    const { wrapper } = createWrapper()
-    const { result } = renderHook(() => useInitiateSwitch(), { wrapper })
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useInitiateSwitch(), { wrapper });
 
     await expect(
       act(async () => {
         await result.current.mutateAsync({
-          newSupplierId: 'sup-2',
+          newSupplierId: "sup-2",
           gdprConsent: true,
-        })
-      })
-    ).rejects.toThrow('Switch failed')
-  })
-})
+        });
+      }),
+    ).rejects.toThrow("Switch failed");
+  });
+});
 
 // ==========================================================================
 // useSwitchStatus
 // ==========================================================================
-describe('useSwitchStatus', () => {
+describe("useSwitchStatus", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
     mockGetSwitchStatus.mockResolvedValue({
-      status: 'processing',
-      estimatedCompletionDate: '2026-03-15',
-      lastUpdated: '2026-02-25T10:00:00Z',
-    })
-  })
+      status: "processing",
+      estimatedCompletionDate: "2026-03-15",
+      lastUpdated: "2026-02-25T10:00:00Z",
+    });
+  });
 
-  it('fetches switch status by reference number', async () => {
-    const { wrapper } = createWrapper()
+  it("fetches switch status by reference number", async () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useSwitchStatus('SW-123'), { wrapper })
+    const { result } = renderHook(() => useSwitchStatus("SW-123"), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
+      expect(result.current.isSuccess).toBe(true);
+    });
 
-    expect(result.current.data?.status).toBe('processing')
-    expect(mockGetSwitchStatus).toHaveBeenCalledWith('SW-123', expect.anything())
-  })
+    expect(result.current.data?.status).toBe("processing");
+    expect(mockGetSwitchStatus).toHaveBeenCalledWith(
+      "SW-123",
+      expect.anything(),
+    );
+  });
 
-  it('is disabled when referenceNumber is empty', () => {
-    const { wrapper } = createWrapper()
+  it("is disabled when referenceNumber is empty", () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useSwitchStatus(''), { wrapper })
+    const { result } = renderHook(() => useSwitchStatus(""), { wrapper });
 
-    expect(result.current.fetchStatus).toBe('idle')
-    expect(mockGetSwitchStatus).not.toHaveBeenCalled()
-  })
-})
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockGetSwitchStatus).not.toHaveBeenCalled();
+  });
+});
 
 // ==========================================================================
 // useUserSupplier
 // ==========================================================================
-describe('useUserSupplier', () => {
+describe("useUserSupplier", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
     mockGetUserSupplier.mockResolvedValue({
       supplier: {
-        supplier_id: 'sup-1',
-        supplier_name: 'Eversource Energy',
-        regions: ['us_ct'],
+        supplier_id: "sup-1",
+        supplier_name: "Eversource Energy",
+        regions: ["us_ct"],
         rating: 3.8,
         green_energy: false,
-        website: 'https://eversource.com',
+        website: "https://eversource.com",
       },
-    })
-  })
+    });
+  });
 
-  it('fetches the current user supplier', async () => {
-    const { wrapper } = createWrapper()
+  it("fetches the current user supplier", async () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useUserSupplier(), { wrapper })
+    const { result } = renderHook(() => useUserSupplier(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
+      expect(result.current.isSuccess).toBe(true);
+    });
 
     expect(result.current.data?.supplier?.supplier_name).toBe(
-      'Eversource Energy'
-    )
-    expect(mockGetUserSupplier).toHaveBeenCalled()
-  })
+      "Eversource Energy",
+    );
+    expect(mockGetUserSupplier).toHaveBeenCalled();
+  });
 
-  it('uses correct query key', async () => {
-    const { wrapper, queryClient } = createWrapper()
+  it("uses correct query key", async () => {
+    const { wrapper, queryClient } = createWrapper();
 
-    renderHook(() => useUserSupplier(), { wrapper })
+    renderHook(() => useUserSupplier(), { wrapper });
 
     await waitFor(() => {
-      const queries = queryClient.getQueryCache().getAll()
-      const keys = queries.map((q) => q.queryKey)
-      expect(keys).toContainEqual(['user-supplier'])
-    })
-  })
-})
+      const queries = queryClient.getQueryCache().getAll();
+      const keys = queries.map((q) => q.queryKey);
+      expect(keys).toContainEqual(["user-supplier"]);
+    });
+  });
+});
 
 // ==========================================================================
 // useSetSupplier
 // ==========================================================================
-describe('useSetSupplier', () => {
+describe("useSetSupplier", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
     mockSetUserSupplier.mockResolvedValue({
-      supplier_id: 'sup-2',
-      supplier_name: 'United Illuminating',
-      regions: ['us_ct'],
+      supplier_id: "sup-2",
+      supplier_name: "United Illuminating",
+      regions: ["us_ct"],
       rating: 4.1,
       green_energy: true,
       website: null,
-    })
-  })
+    });
+  });
 
-  it('sets supplier and invalidates queries', async () => {
-    const { wrapper, queryClient } = createWrapper()
-    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+  it("sets supplier and invalidates queries", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
 
-    const { result } = renderHook(() => useSetSupplier(), { wrapper })
+    const { result } = renderHook(() => useSetSupplier(), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync('sup-2')
-    })
+      await result.current.mutateAsync("sup-2");
+    });
 
-    expect(mockSetUserSupplier).toHaveBeenCalledWith('sup-2')
+    expect(mockSetUserSupplier).toHaveBeenCalledWith("sup-2");
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['user-supplier'] })
-    )
+      expect.objectContaining({ queryKey: ["user-supplier"] }),
+    );
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['suppliers'] })
-    )
-  })
-})
+      expect.objectContaining({ queryKey: ["suppliers"] }),
+    );
+  });
+});
 
 // ==========================================================================
 // useRemoveSupplier
 // ==========================================================================
-describe('useRemoveSupplier', () => {
+describe("useRemoveSupplier", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockRemoveUserSupplier.mockResolvedValue({ message: 'Supplier removed' })
-  })
+    jest.clearAllMocks();
+    mockRemoveUserSupplier.mockResolvedValue({ message: "Supplier removed" });
+  });
 
-  it('removes supplier and invalidates queries', async () => {
-    const { wrapper, queryClient } = createWrapper()
-    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+  it("removes supplier and invalidates queries", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
 
-    const { result } = renderHook(() => useRemoveSupplier(), { wrapper })
+    const { result } = renderHook(() => useRemoveSupplier(), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync()
-    })
+      await result.current.mutateAsync();
+    });
 
-    expect(mockRemoveUserSupplier).toHaveBeenCalled()
+    expect(mockRemoveUserSupplier).toHaveBeenCalled();
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['user-supplier'] })
-    )
-  })
-})
+      expect.objectContaining({ queryKey: ["user-supplier"] }),
+    );
+  });
+});
 
 // ==========================================================================
 // useLinkAccount
 // ==========================================================================
-describe('useLinkAccount', () => {
+describe("useLinkAccount", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
     mockLinkSupplierAccount.mockResolvedValue({
-      supplier_id: 'sup-1',
-      supplier_name: 'Eversource',
-      account_number_masked: '****1234',
+      supplier_id: "sup-1",
+      supplier_name: "Eversource",
+      account_number_masked: "****1234",
       meter_number_masked: null,
-      service_zip: '06103',
-      account_nickname: 'Home',
+      service_zip: "06103",
+      account_nickname: "Home",
       is_primary: true,
       verified_at: null,
-      created_at: '2026-02-25T10:00:00Z',
-    })
-  })
+      created_at: "2026-02-25T10:00:00Z",
+    });
+  });
 
-  it('links an account and invalidates queries', async () => {
-    const { wrapper, queryClient } = createWrapper()
-    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+  it("links an account and invalidates queries", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
 
-    const { result } = renderHook(() => useLinkAccount(), { wrapper })
+    const { result } = renderHook(() => useLinkAccount(), { wrapper });
 
     await act(async () => {
       await result.current.mutateAsync({
-        supplier_id: 'sup-1',
-        account_number: '12345678',
-        service_zip: '06103',
-        account_nickname: 'Home',
+        supplier_id: "sup-1",
+        account_number: "12345678",
+        service_zip: "06103",
+        account_nickname: "Home",
         consent_given: true,
-      })
-    })
+      });
+    });
 
     expect(mockLinkSupplierAccount).toHaveBeenCalledWith({
-      supplier_id: 'sup-1',
-      account_number: '12345678',
-      service_zip: '06103',
-      account_nickname: 'Home',
+      supplier_id: "sup-1",
+      account_number: "12345678",
+      service_zip: "06103",
+      account_nickname: "Home",
       consent_given: true,
-    })
+    });
 
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['user-supplier-accounts'] })
-    )
-  })
-})
+      expect.objectContaining({ queryKey: ["user-supplier-accounts"] }),
+    );
+  });
+});
 
 // ==========================================================================
 // useUserSupplierAccounts
 // ==========================================================================
-describe('useUserSupplierAccounts', () => {
+describe("useUserSupplierAccounts", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
     mockGetUserSupplierAccounts.mockResolvedValue({
       accounts: [
         {
-          supplier_id: 'sup-1',
-          supplier_name: 'Eversource',
-          account_number_masked: '****1234',
+          supplier_id: "sup-1",
+          supplier_name: "Eversource",
+          account_number_masked: "****1234",
           is_primary: true,
         },
       ],
-    })
-  })
+    });
+  });
 
-  it('fetches linked accounts', async () => {
-    const { wrapper } = createWrapper()
+  it("fetches linked accounts", async () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useUserSupplierAccounts(), { wrapper })
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
-
-    expect(result.current.data?.accounts).toHaveLength(1)
-    expect(result.current.data?.accounts[0].supplier_name).toBe('Eversource')
-  })
-
-  it('uses correct query key', async () => {
-    const { wrapper, queryClient } = createWrapper()
-
-    renderHook(() => useUserSupplierAccounts(), { wrapper })
+    const { result } = renderHook(() => useUserSupplierAccounts(), { wrapper });
 
     await waitFor(() => {
-      const queries = queryClient.getQueryCache().getAll()
-      const keys = queries.map((q) => q.queryKey)
-      expect(keys).toContainEqual(['user-supplier-accounts'])
-    })
-  })
-})
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data?.accounts).toHaveLength(1);
+    expect(result.current.data?.accounts[0]!.supplier_name).toBe("Eversource");
+  });
+
+  it("uses correct query key", async () => {
+    const { wrapper, queryClient } = createWrapper();
+
+    renderHook(() => useUserSupplierAccounts(), { wrapper });
+
+    await waitFor(() => {
+      const queries = queryClient.getQueryCache().getAll();
+      const keys = queries.map((q) => q.queryKey);
+      expect(keys).toContainEqual(["user-supplier-accounts"]);
+    });
+  });
+});
 
 // ==========================================================================
 // useUnlinkAccount
 // ==========================================================================
-describe('useUnlinkAccount', () => {
+describe("useUnlinkAccount", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockUnlinkSupplierAccount.mockResolvedValue({ message: 'Account unlinked' })
-  })
+    jest.clearAllMocks();
+    mockUnlinkSupplierAccount.mockResolvedValue({
+      message: "Account unlinked",
+    });
+  });
 
-  it('unlinks an account and invalidates queries', async () => {
-    const { wrapper, queryClient } = createWrapper()
-    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+  it("unlinks an account and invalidates queries", async () => {
+    const { wrapper, queryClient } = createWrapper();
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
 
-    const { result } = renderHook(() => useUnlinkAccount(), { wrapper })
+    const { result } = renderHook(() => useUnlinkAccount(), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync('sup-1')
-    })
+      await result.current.mutateAsync("sup-1");
+    });
 
-    expect(mockUnlinkSupplierAccount).toHaveBeenCalledWith('sup-1')
+    expect(mockUnlinkSupplierAccount).toHaveBeenCalledWith("sup-1");
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['user-supplier-accounts'] })
-    )
-  })
-})
+      expect.objectContaining({ queryKey: ["user-supplier-accounts"] }),
+    );
+  });
+});
 
 // ==========================================================================
 // Null-region guard tests
 // ==========================================================================
-describe('null-region guards', () => {
+describe("null-region guards", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-  })
+    jest.clearAllMocks();
+  });
 
-  it('useSuppliers(null) is disabled — no API call', () => {
-    const { wrapper } = createWrapper()
+  it("useSuppliers(null) is disabled — no API call", () => {
+    const { wrapper } = createWrapper();
 
-    const { result } = renderHook(() => useSuppliers(null), { wrapper })
+    const { result } = renderHook(() => useSuppliers(null), { wrapper });
 
-    expect(result.current.fetchStatus).toBe('idle')
-    expect(mockGetSuppliers).not.toHaveBeenCalled()
-  })
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockGetSuppliers).not.toHaveBeenCalled();
+  });
 
-  it('useSupplierRecommendation with null region is disabled', () => {
-    const { wrapper } = createWrapper()
+  it("useSupplierRecommendation with null region is disabled", () => {
+    const { wrapper } = createWrapper();
 
     const { result } = renderHook(
-      () => useSupplierRecommendation('sup-1', 10500, null),
-      { wrapper }
-    )
+      () => useSupplierRecommendation("sup-1", 10500, null),
+      { wrapper },
+    );
 
-    expect(result.current.fetchStatus).toBe('idle')
-    expect(mockGetRecommendation).not.toHaveBeenCalled()
-  })
-})
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockGetRecommendation).not.toHaveBeenCalled();
+  });
+});

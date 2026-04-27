@@ -122,8 +122,8 @@ describe("Modal focus trap a11y", () => {
     );
     const dialogs = container.querySelectorAll('[role="dialog"]');
     expect(dialogs).toHaveLength(2);
-    const idA = dialogs[0].getAttribute("aria-labelledby");
-    const idB = dialogs[1].getAttribute("aria-labelledby");
+    const idA = dialogs[0]!.getAttribute("aria-labelledby");
+    const idB = dialogs[1]!.getAttribute("aria-labelledby");
     expect(idA).not.toEqual(idB);
   });
 

@@ -162,6 +162,7 @@ export default function DashboardContent() {
     // Extract actual hour labels from the price timestamps instead of using the array index
     const startPrice = prices[bestStart];
     const endPrice = prices[Math.min(bestStart + 4, prices.length - 1)];
+    if (!startPrice || !endPrice) return null;
 
     const fmtHourFromTimestamp = (ts: string, fallbackIndex: number) => {
       if (ts) {

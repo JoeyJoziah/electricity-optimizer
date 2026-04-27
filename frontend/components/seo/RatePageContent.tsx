@@ -169,7 +169,7 @@ export function RatePageContent({
             .map(([code, name]) => (
               <Link
                 key={code}
-                href={`/rates/${stateToSlug(name)}/${UTILITY_TYPES[utilityKey].slug}`}
+                href={`/rates/${stateToSlug(name)}/${UTILITY_TYPES[utilityKey]?.slug ?? utilityKey}`}
                 className="rounded-full border px-3 py-1 text-sm hover:bg-accent"
               >
                 {name}
