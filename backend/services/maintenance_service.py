@@ -39,7 +39,9 @@ class MaintenanceService:
             await self._db.rollback()
             raise
         count = result.rowcount
-        logger.info("activity_logs_cleaned", deleted=count, retention_days=retention_days)
+        logger.info(
+            "activity_logs_cleaned", deleted=count, retention_days=retention_days
+        )
         return {"deleted": count, "retention_days": retention_days}
 
     async def cleanup_old_prices(self, retention_days: int = 365):
@@ -54,7 +56,9 @@ class MaintenanceService:
         except Exception:
             await self._db.rollback()
             raise
-        logger.info("old_prices_cleaned", deleted=deleted, retention_days=retention_days)
+        logger.info(
+            "old_prices_cleaned", deleted=deleted, retention_days=retention_days
+        )
         return {"deleted": deleted, "retention_days": retention_days}
 
     async def cleanup_old_observations(self, retention_days: int = 90):
@@ -69,7 +73,9 @@ class MaintenanceService:
         except Exception:
             await self._db.rollback()
             raise
-        logger.info("old_observations_cleaned", deleted=deleted, retention_days=retention_days)
+        logger.info(
+            "old_observations_cleaned", deleted=deleted, retention_days=retention_days
+        )
         return {"deleted": deleted, "retention_days": retention_days}
 
     async def cleanup_expired_uploads(self, retention_days: int = 730):
@@ -91,7 +97,9 @@ class MaintenanceService:
         try:
             if upload_ids:
                 await self._db.execute(
-                    text("DELETE FROM connection_extracted_rates WHERE bill_upload_id = ANY(:ids)"),
+                    text(
+                        "DELETE FROM connection_extracted_rates WHERE bill_upload_id = ANY(:ids)"
+                    ),
                     {"ids": upload_ids},
                 )
 
@@ -131,7 +139,9 @@ class MaintenanceService:
             await self._db.rollback()
             raise
         count = result.rowcount
-        logger.info("weather_cache_cleaned", deleted=count, retention_days=retention_days)
+        logger.info(
+            "weather_cache_cleaned", deleted=count, retention_days=retention_days
+        )
         return {"deleted": count, "retention_days": retention_days}
 
     async def cleanup_scraped_rates(self, retention_days: int = 90):
@@ -147,7 +157,9 @@ class MaintenanceService:
             await self._db.rollback()
             raise
         count = result.rowcount
-        logger.info("scraped_rates_cleaned", deleted=count, retention_days=retention_days)
+        logger.info(
+            "scraped_rates_cleaned", deleted=count, retention_days=retention_days
+        )
         return {"deleted": count, "retention_days": retention_days}
 
     async def cleanup_market_intelligence(self, retention_days: int = 180):
@@ -163,7 +175,9 @@ class MaintenanceService:
             await self._db.rollback()
             raise
         count = result.rowcount
-        logger.info("market_intelligence_cleaned", deleted=count, retention_days=retention_days)
+        logger.info(
+            "market_intelligence_cleaned", deleted=count, retention_days=retention_days
+        )
         return {"deleted": count, "retention_days": retention_days}
 
     async def cleanup_stripe_processed_events(self, retention_hours: int = 72):
@@ -176,7 +190,9 @@ class MaintenanceService:
         cutoff = datetime.now(UTC) - timedelta(hours=retention_hours)
         try:
             result = await self._db.execute(
-                text("DELETE FROM stripe_processed_events WHERE processed_at < :cutoff"),
+                text(
+                    "DELETE FROM stripe_processed_events WHERE processed_at < :cutoff"
+                ),
                 {"cutoff": cutoff},
             )
             await self._db.commit()

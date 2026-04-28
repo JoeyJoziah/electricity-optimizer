@@ -225,7 +225,9 @@ class TestSyncUsers:
 
         The upsert RETURNING clause yields is_insert=False for an UPDATE.
         """
-        neon_row = self._make_neon_row("uuid-stale-1", "changed@example.com", "Updated Name")
+        neon_row = self._make_neon_row(
+            "uuid-stale-1", "changed@example.com", "Updated Name"
+        )
 
         fetch_result = MagicMock()
         fetch_result.fetchall.return_value = [neon_row]

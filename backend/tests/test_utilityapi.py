@@ -96,7 +96,9 @@ class TestUtilityAPIClientAuthForm:
         from integrations.utilityapi import UtilityAPIClient
 
         client = UtilityAPIClient(api_key="test-key")
-        url = await client.create_authorization_form(TEST_SUPPLIER_NAME, state=TEST_CONNECTION_ID)
+        url = await client.create_authorization_form(
+            TEST_SUPPLIER_NAME, state=TEST_CONNECTION_ID
+        )
 
         assert TEST_CONNECTION_ID in url
 
@@ -106,7 +108,9 @@ class TestUtilityAPIClientAuthForm:
 
         redirect = "https://app.example.com/callback"
         client = UtilityAPIClient(api_key="test-key")
-        url = await client.create_authorization_form(TEST_SUPPLIER_NAME, redirect_url=redirect)
+        url = await client.create_authorization_form(
+            TEST_SUPPLIER_NAME, redirect_url=redirect
+        )
 
         assert "callback" in url
 
@@ -221,7 +225,9 @@ class TestUtilityAPIClientMeters:
 
         mock_http = AsyncMock(spec=httpx.AsyncClient)
         mock_http.is_closed = False
-        mock_http.request = AsyncMock(side_effect=httpx.RequestError("connection refused"))
+        mock_http.request = AsyncMock(
+            side_effect=httpx.RequestError("connection refused")
+        )
 
         client = UtilityAPIClient(api_key="test-key", http_client=mock_http)
 
@@ -434,7 +440,9 @@ class TestConnectionSyncServiceSyncConnection:
 
         mock_client = AsyncMock(spec=UtilityAPIClient)
         mock_client.get_meters = AsyncMock(return_value=[SAMPLE_METER])
-        mock_client.get_bills = AsyncMock(return_value=[SAMPLE_BILL, SAMPLE_BILL_NO_LABEL])
+        mock_client.get_bills = AsyncMock(
+            return_value=[SAMPLE_BILL, SAMPLE_BILL_NO_LABEL]
+        )
         mock_client.extract_rate_from_bill = MagicMock(
             side_effect=[
                 {
@@ -452,7 +460,9 @@ class TestConnectionSyncServiceSyncConnection:
             ]
         )
 
-        with patch("services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID):
+        with patch(
+            "services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID
+        ):
             svc = ConnectionSyncService(db, utilityapi_client=mock_client)
             result = await svc.sync_connection(TEST_CONNECTION_ID)
 
@@ -502,7 +512,9 @@ class TestConnectionSyncServiceSyncConnection:
             side_effect=UtilityAPIError("API error", status_code=500)
         )
 
-        with patch("services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID):
+        with patch(
+            "services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID
+        ):
             svc = ConnectionSyncService(db, utilityapi_client=mock_client)
             result = await svc.sync_connection(TEST_CONNECTION_ID)
 
@@ -519,7 +531,9 @@ class TestConnectionSyncServiceSyncConnection:
         mock_client = AsyncMock(spec=UtilityAPIClient)
         mock_client.get_meters = AsyncMock(return_value=[])
 
-        with patch("services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID):
+        with patch(
+            "services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID
+        ):
             svc = ConnectionSyncService(db, utilityapi_client=mock_client)
             result = await svc.sync_connection(TEST_CONNECTION_ID)
 
@@ -535,7 +549,9 @@ class TestConnectionSyncServiceSyncConnection:
 
         mock_client = AsyncMock(spec=UtilityAPIClient)
         mock_client.get_meters = AsyncMock(return_value=[SAMPLE_METER])
-        mock_client.get_bills = AsyncMock(return_value=[SAMPLE_BILL, SAMPLE_BILL_NO_LABEL])
+        mock_client.get_bills = AsyncMock(
+            return_value=[SAMPLE_BILL, SAMPLE_BILL_NO_LABEL]
+        )
 
         # First bill fails extraction, second succeeds
         good_rate = {
@@ -551,7 +567,9 @@ class TestConnectionSyncServiceSyncConnection:
             ]
         )
 
-        with patch("services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID):
+        with patch(
+            "services.connection_sync_service.decrypt_field", return_value=TEST_AUTH_UID
+        ):
             svc = ConnectionSyncService(db, utilityapi_client=mock_client)
             result = await svc.sync_connection(TEST_CONNECTION_ID)
 
@@ -740,7 +758,9 @@ def _mapping_result(rows: list) -> MagicMock:
     result = MagicMock()
     mock_rows = [_DictRow(r) for r in rows]
     result.mappings.return_value.all.return_value = mock_rows
-    result.mappings.return_value.first.return_value = mock_rows[0] if mock_rows else None
+    result.mappings.return_value.first.return_value = (
+        mock_rows[0] if mock_rows else None
+    )
     result.fetchone.return_value = mock_rows[0] if mock_rows else None
     return result
 
@@ -876,7 +896,9 @@ class TestManualSyncEndpoint:
 
         db.execute = AsyncMock(return_value=ownership_result)
 
-        with patch("services.connection_sync_service.ConnectionSyncService") as mock_svc_cls:
+        with patch(
+            "services.connection_sync_service.ConnectionSyncService"
+        ) as mock_svc_cls:
             mock_svc = MagicMock()
             mock_svc.sync_connection = AsyncMock(return_value=sync_result)
             mock_svc_cls.return_value = mock_svc
@@ -1004,13 +1026,19 @@ class TestAuthorizationCallbackEndpoint:
             return sign_callback_state(connection_id, user_id)
 
     def _setup_callback_db(
-        self, db, connection_found: bool = True, status: str = "pending", user_id: str = None
+        self,
+        db,
+        connection_found: bool = True,
+        status: str = "pending",
+        user_id: str = None,
     ):
         """Configure DB mock for callback tests."""
         if user_id is None:
             user_id = TEST_USER_ID
         if connection_found:
-            conn_row = _DictRow({"id": TEST_CONNECTION_ID, "user_id": user_id, "status": status})
+            conn_row = _DictRow(
+                {"id": TEST_CONNECTION_ID, "user_id": user_id, "status": status}
+            )
             conn_result = MagicMock()
             conn_result.mappings.return_value.first.return_value = conn_row
             conn_result.fetchone.return_value = conn_row

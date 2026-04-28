@@ -139,7 +139,15 @@ class VectorStore:
                 (id, domain, vector, metadata, confidence, usage_count, success_count, created_at, last_used)
                 VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)
                 """,
-                (vec_id, domain, self._vector_to_bytes(vector), meta_json, confidence, now, now),
+                (
+                    vec_id,
+                    domain,
+                    self._vector_to_bytes(vector),
+                    meta_json,
+                    confidence,
+                    now,
+                    now,
+                ),
             )
             conn.commit()
 
@@ -177,7 +185,9 @@ class VectorStore:
         """
         if query_vector.shape[0] != self._dimension:
             if query_vector.shape[0] < self._dimension:
-                query_vector = np.pad(query_vector, (0, self._dimension - query_vector.shape[0]))
+                query_vector = np.pad(
+                    query_vector, (0, self._dimension - query_vector.shape[0])
+                )
             else:
                 query_vector = query_vector[: self._dimension]
 
@@ -263,7 +273,9 @@ class VectorStore:
                 ).fetchone()[0]
             else:
                 total = conn.execute("SELECT COUNT(*) FROM vectors").fetchone()[0]
-                avg_conf = conn.execute("SELECT AVG(confidence) FROM vectors").fetchone()[0]
+                avg_conf = conn.execute(
+                    "SELECT AVG(confidence) FROM vectors"
+                ).fetchone()[0]
 
             domains = conn.execute(
                 "SELECT domain, COUNT(*) FROM vectors GROUP BY domain"

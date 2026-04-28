@@ -223,7 +223,9 @@ class TestFeatureFlagServiceIsEnabled:
         db.execute.return_value = result
         svc = FeatureFlagService(db)
 
-        assert await svc.is_enabled("optimization_schedule", user_id=str(uuid4())) is False
+        assert (
+            await svc.is_enabled("optimization_schedule", user_id=str(uuid4())) is False
+        )
 
     async def test_hundred_percent_always_included(self):
         """percentage=100 means the hash check is skipped entirely."""
@@ -258,7 +260,9 @@ class TestFeatureFlagServiceIsEnabled:
 
         # Compute expected result
         hash_val = int(
-            hashlib.md5(f"{flag_name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
+            hashlib.md5(
+                f"{flag_name}:{user_id}".encode(), usedforsecurity=False
+            ).hexdigest()[:8],
             16,
         )
         expected = (hash_val % 100) < 50
@@ -429,7 +433,9 @@ class TestUpdateFeatureFlag:
     def test_percentage_boundary_zero(self, auth_client, mock_db):
         mock_db.execute.return_value = MagicMock()
 
-        resp = auth_client.put(f"{BASE}/flags/optimization_schedule", json={"percentage": 0})
+        resp = auth_client.put(
+            f"{BASE}/flags/optimization_schedule", json={"percentage": 0}
+        )
         assert resp.status_code == 200
 
     def test_percentage_boundary_hundred(self, auth_client, mock_db):

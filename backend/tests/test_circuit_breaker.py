@@ -7,7 +7,8 @@ between CLOSED → OPEN → HALF_OPEN → CLOSED states.
 
 import pytest
 
-from lib.circuit_breaker import CircuitBreaker, CircuitBreakerOpen, CircuitState
+from lib.circuit_breaker import (CircuitBreaker, CircuitBreakerOpen,
+                                 CircuitState)
 
 
 class TestCircuitBreakerStates:
@@ -106,7 +107,9 @@ class TestCircuitBreakerStates:
         assert cb._failure_count == 0
 
     async def test_half_open_max_limits_probe_calls(self):
-        cb = CircuitBreaker("test", failure_threshold=1, recovery_timeout=0.0, half_open_max=1)
+        cb = CircuitBreaker(
+            "test", failure_threshold=1, recovery_timeout=0.0, half_open_max=1
+        )
         await cb.record_failure()
         assert cb.state == CircuitState.HALF_OPEN
 

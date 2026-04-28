@@ -11,11 +11,9 @@ import pytest
 import stripe
 
 from config.settings import settings
-from services.utilityapi_billing_service import (
-    PRICE_PER_METER_USD,
-    UtilityAPIBillingService,
-    _meter_total,
-)
+from services.utilityapi_billing_service import (PRICE_PER_METER_USD,
+                                                 UtilityAPIBillingService,
+                                                 _meter_total)
 
 # =============================================================================
 # Fixtures
@@ -41,7 +39,9 @@ def billing_service(mock_db):
 @pytest.fixture
 def mock_price_configured():
     """Patch the Stripe price setting."""
-    with patch.object(settings, "stripe_price_utilityapi_meter", "price_utilityapi_test"):
+    with patch.object(
+        settings, "stripe_price_utilityapi_meter", "price_utilityapi_test"
+    ):
         yield
 
 
@@ -133,13 +133,17 @@ class TestGetAddonPricing:
 
 class TestAddMetersValidation:
     @pytest.mark.asyncio
-    async def test_rejects_zero_meter_count(self, billing_service, mock_price_configured):
+    async def test_rejects_zero_meter_count(
+        self, billing_service, mock_price_configured
+    ):
         """Meter count must be at least 1."""
         with pytest.raises(ValueError, match="meter_count must be at least 1"):
             await billing_service.add_meters("user_123", "conn_abc", 0)
 
     @pytest.mark.asyncio
-    async def test_rejects_negative_meter_count(self, billing_service, mock_price_configured):
+    async def test_rejects_negative_meter_count(
+        self, billing_service, mock_price_configured
+    ):
         with pytest.raises(ValueError, match="meter_count must be at least 1"):
             await billing_service.add_meters("user_123", "conn_abc", -1)
 
@@ -176,7 +180,9 @@ class TestAddMetersExistingSubscription:
         """Pro user without existing addon item gets a new subscription item."""
         # 1. User lookup
         mock_db.execute.side_effect = [
-            _make_mapping_result([{"stripe_customer_id": "cus_pro", "subscription_tier": "pro"}]),
+            _make_mapping_result(
+                [{"stripe_customer_id": "cus_pro", "subscription_tier": "pro"}]
+            ),
             # 2. _get_total_meters (existing meters for other connections)
             _make_mapping_result([{"total": 0}]),
             # 3. Store billing on connection (UPDATE)
@@ -194,7 +200,9 @@ class TestAddMetersExistingSubscription:
         }
 
         with (
-            patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread,
+            patch(
+                "services.utilityapi_billing_service.asyncio.to_thread"
+            ) as mock_thread,
             patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock),
         ):
             # _find_addon_subscription_item returns None (no existing item)
@@ -215,18 +223,26 @@ class TestAddMetersExistingSubscription:
     ):
         """Pro user with existing addon item gets quantity updated."""
         mock_db.execute.side_effect = [
-            _make_mapping_result([{"stripe_customer_id": "cus_pro", "subscription_tier": "pro"}]),
+            _make_mapping_result(
+                [{"stripe_customer_id": "cus_pro", "subscription_tier": "pro"}]
+            ),
             _make_mapping_result([{"total": 2}]),  # existing 2 meters
             MagicMock(),  # UPDATE statement
         ]
 
         existing_sub = Mock()
         existing_sub.__getitem__ = lambda self, key: {
-            "items": {"data": [{"id": "si_existing", "price": {"id": "price_utilityapi_test"}}]}
+            "items": {
+                "data": [
+                    {"id": "si_existing", "price": {"id": "price_utilityapi_test"}}
+                ]
+            }
         }[key]
 
         with (
-            patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread,
+            patch(
+                "services.utilityapi_billing_service.asyncio.to_thread"
+            ) as mock_thread,
             patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock),
         ):
             # _find_addon_subscription_item finds existing item
@@ -252,10 +268,14 @@ class TestAddMetersExistingSubscription:
 
 class TestAddMetersFreeUser:
     @pytest.mark.asyncio
-    async def test_creates_checkout_session(self, billing_service, mock_db, mock_price_configured):
+    async def test_creates_checkout_session(
+        self, billing_service, mock_db, mock_price_configured
+    ):
         """Free user gets a Stripe Checkout URL instead of direct billing."""
         mock_db.execute.side_effect = [
-            _make_mapping_result([{"stripe_customer_id": None, "subscription_tier": "free"}]),
+            _make_mapping_result(
+                [{"stripe_customer_id": None, "subscription_tier": "free"}]
+            ),
             _make_mapping_result([{"total": 0}]),  # existing meters
             MagicMock(),  # UPDATE meter count
             _make_mapping_result([{"email": "test@example.com"}]),  # email lookup
@@ -263,7 +283,9 @@ class TestAddMetersFreeUser:
 
         mock_session = Mock(id="cs_test_addon", url="https://checkout.stripe.com/addon")
 
-        with patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread:
+        with patch(
+            "services.utilityapi_billing_service.asyncio.to_thread"
+        ) as mock_thread:
             mock_thread.return_value = mock_session
 
             result = await billing_service.add_meters("user_free", "conn_3", 1)
@@ -282,7 +304,9 @@ class TestAddMetersFreeUser:
     ):
         """Free user with a Stripe customer ID reuses it."""
         mock_db.execute.side_effect = [
-            _make_mapping_result([{"stripe_customer_id": "cus_free", "subscription_tier": "free"}]),
+            _make_mapping_result(
+                [{"stripe_customer_id": "cus_free", "subscription_tier": "free"}]
+            ),
             _make_mapping_result([{"total": 0}]),
             MagicMock(),
             _make_mapping_result([{"email": "test@example.com"}]),
@@ -290,7 +314,9 @@ class TestAddMetersFreeUser:
 
         mock_session = Mock(id="cs_test", url="https://checkout.stripe.com/test")
 
-        with patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread:
+        with patch(
+            "services.utilityapi_billing_service.asyncio.to_thread"
+        ) as mock_thread:
             mock_thread.return_value = mock_session
 
             await billing_service.add_meters("user_free", "conn_4", 1)
@@ -328,7 +354,9 @@ class TestRemoveMeters:
             MagicMock(),  # UPDATE to clear billing
         ]
 
-        with patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread:
+        with patch(
+            "services.utilityapi_billing_service.asyncio.to_thread"
+        ) as mock_thread:
             await billing_service.remove_meters("user_123", "conn_del")
 
         mock_thread.assert_called_once()
@@ -338,17 +366,26 @@ class TestRemoveMeters:
         mock_db.commit.assert_called()
 
     @pytest.mark.asyncio
-    async def test_reduces_quantity_when_other_meters_exist(self, billing_service, mock_db):
+    async def test_reduces_quantity_when_other_meters_exist(
+        self, billing_service, mock_db
+    ):
         """Reduces quantity when other connections still have meters."""
         mock_db.execute.side_effect = [
             _make_mapping_result(
-                [{"stripe_subscription_item_id": "si_reduce", "utilityapi_meter_count": 2}]
+                [
+                    {
+                        "stripe_subscription_item_id": "si_reduce",
+                        "utilityapi_meter_count": 2,
+                    }
+                ]
             ),
             _make_mapping_result([{"total": 3}]),  # 3 meters from other connections
             MagicMock(),  # UPDATE to clear billing
         ]
 
-        with patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread:
+        with patch(
+            "services.utilityapi_billing_service.asyncio.to_thread"
+        ) as mock_thread:
             await billing_service.remove_meters("user_123", "conn_reduce")
 
         mock_thread.assert_called_once()
@@ -367,7 +404,9 @@ class TestRemoveMeters:
             _make_mapping_result([{"total": 0}]),
         ]
 
-        with patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread:
+        with patch(
+            "services.utilityapi_billing_service.asyncio.to_thread"
+        ) as mock_thread:
             mock_thread.side_effect = stripe.StripeError("API error")
 
             with pytest.raises(stripe.StripeError):
@@ -386,17 +425,23 @@ class TestFinalizeCheckout:
     ):
         """Successfully links the SI after checkout completion."""
         mock_db.execute.side_effect = [
-            _make_mapping_result([{"user_id": "user_123", "utilityapi_meter_count": 1}]),
+            _make_mapping_result(
+                [{"user_id": "user_123", "utilityapi_meter_count": 1}]
+            ),
             _make_mapping_result([{"stripe_customer_id": "cus_123"}]),
             MagicMock(),  # UPDATE
         ]
 
         mock_sub = Mock()
         mock_sub.__getitem__ = lambda self, key: {
-            "items": {"data": [{"id": "si_final", "price": {"id": "price_utilityapi_test"}}]}
+            "items": {
+                "data": [{"id": "si_final", "price": {"id": "price_utilityapi_test"}}]
+            }
         }[key]
 
-        with patch("services.utilityapi_billing_service.asyncio.to_thread") as mock_thread:
+        with patch(
+            "services.utilityapi_billing_service.asyncio.to_thread"
+        ) as mock_thread:
             mock_thread.return_value = Mock(data=[mock_sub])
 
             await billing_service.finalize_checkout("conn_final")
@@ -413,10 +458,14 @@ class TestFinalizeCheckout:
         mock_db.commit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_no_op_when_no_customer_id(self, billing_service, mock_db, mock_price_configured):
+    async def test_no_op_when_no_customer_id(
+        self, billing_service, mock_db, mock_price_configured
+    ):
         """Does nothing if user has no Stripe customer ID."""
         mock_db.execute.side_effect = [
-            _make_mapping_result([{"user_id": "user_nocust", "utilityapi_meter_count": 1}]),
+            _make_mapping_result(
+                [{"user_id": "user_nocust", "utilityapi_meter_count": 1}]
+            ),
             _make_mapping_result([{"stripe_customer_id": None}]),
         ]
 
@@ -443,7 +492,9 @@ class TestGetTotalMeters:
     async def test_excludes_connection(self, billing_service, mock_db):
         mock_db.execute.return_value = _make_mapping_result([{"total": 3}])
 
-        result = await billing_service._get_total_meters("user_123", exclude_connection_id="conn_x")
+        result = await billing_service._get_total_meters(
+            "user_123", exclude_connection_id="conn_x"
+        )
 
         assert result == 3
         # Verify the exclude_id parameter was passed

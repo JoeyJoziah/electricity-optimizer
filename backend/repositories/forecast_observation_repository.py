@@ -295,7 +295,9 @@ class ForecastObservationRepository:
             for row in result.fetchall()
         ]
 
-    async def get_accuracy_by_version(self, region: str, days: int = 7) -> list[dict[str, Any]]:
+    async def get_accuracy_by_version(
+        self, region: str, days: int = 7
+    ) -> list[dict[str, Any]]:
         """Compute accuracy breakdown by model_version using SQL GROUP BY.
 
         All aggregation (MAPE, RMSE, coverage) is performed in the database,
@@ -337,7 +339,9 @@ class ForecastObservationRepository:
                 "count": row.count,
                 "mape": round(float(row.mape), 2) if row.mape is not None else None,
                 "rmse": round(float(row.rmse), 6) if row.rmse is not None else None,
-                "coverage": round(float(row.coverage), 1) if row.coverage is not None else None,
+                "coverage": (
+                    round(float(row.coverage), 1) if row.coverage is not None else None
+                ),
             }
             for row in result.fetchall()
         ]

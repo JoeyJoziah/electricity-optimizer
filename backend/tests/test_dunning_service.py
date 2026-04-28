@@ -298,7 +298,9 @@ class TestHandlePaymentFailure:
         assert result["email_sent"] is True
         assert result["escalation_action"] is None
 
-    async def test_dedup_blocks_email(self, mock_db, mock_email_service, mock_user_repo):
+    async def test_dedup_blocks_email(
+        self, mock_db, mock_email_service, mock_user_repo
+    ):
         """When cooldown is active, email should not be sent."""
         count_result = MagicMock()
         count_result.scalar.return_value = 0
@@ -317,7 +319,9 @@ class TestHandlePaymentFailure:
         cooldown_result = MagicMock()
         cooldown_result.first.return_value = cooldown_row
 
-        mock_db.execute = AsyncMock(side_effect=[count_result, insert_result, cooldown_result])
+        mock_db.execute = AsyncMock(
+            side_effect=[count_result, insert_result, cooldown_result]
+        )
 
         dunning = DunningService(mock_db, email_service=mock_email_service)
         result = await dunning.handle_payment_failure(
@@ -355,10 +359,14 @@ class TestDunningServiceWithDispatcher:
         dispatcher.send = AsyncMock(return_value=send_return)
         return dispatcher
 
-    async def test_dispatcher_called_when_user_id_provided(self, mock_db, mock_email_service):
+    async def test_dispatcher_called_when_user_id_provided(
+        self, mock_db, mock_email_service
+    ):
         """When a dispatcher and user_id are supplied, dispatcher.send() should be called."""
         dispatcher = self._make_dispatcher()
-        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+        svc = DunningService(
+            mock_db, email_service=mock_email_service, dispatcher=dispatcher
+        )
 
         result = await svc.send_dunning_email(
             user_email="test@example.com",
@@ -373,12 +381,16 @@ class TestDunningServiceWithDispatcher:
         # Direct email service should NOT be called
         mock_email_service.send.assert_not_awaited()
 
-    async def test_dispatcher_uses_email_and_push_channels(self, mock_db, mock_email_service):
+    async def test_dispatcher_uses_email_and_push_channels(
+        self, mock_db, mock_email_service
+    ):
         """The dispatcher call should include EMAIL and PUSH channels."""
         from services.notification_dispatcher import NotificationChannel
 
         dispatcher = self._make_dispatcher()
-        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+        svc = DunningService(
+            mock_db, email_service=mock_email_service, dispatcher=dispatcher
+        )
 
         await svc.send_dunning_email(
             user_email="test@example.com",
@@ -393,10 +405,14 @@ class TestDunningServiceWithDispatcher:
         assert NotificationChannel.EMAIL in channels
         assert NotificationChannel.PUSH in channels
 
-    async def test_dispatcher_dedup_skip_returns_true(self, mock_db, mock_email_service):
+    async def test_dispatcher_dedup_skip_returns_true(
+        self, mock_db, mock_email_service
+    ):
         """When the dispatcher deduplicates a dunning send, the method should return True."""
         dispatcher = self._make_dispatcher(skipped=True)
-        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+        svc = DunningService(
+            mock_db, email_service=mock_email_service, dispatcher=dispatcher
+        )
 
         result = await svc.send_dunning_email(
             user_email="test@example.com",
@@ -417,7 +433,9 @@ class TestDunningServiceWithDispatcher:
         dispatcher = MagicMock()
         dispatcher.send = AsyncMock(side_effect=Exception("Dispatcher down"))
 
-        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+        svc = DunningService(
+            mock_db, email_service=mock_email_service, dispatcher=dispatcher
+        )
 
         result = await svc.send_dunning_email(
             user_email="test@example.com",
@@ -443,10 +461,14 @@ class TestDunningServiceWithDispatcher:
         assert result is True
         mock_email_service.send.assert_awaited_once()
 
-    async def test_dispatcher_skipped_when_no_user_id(self, mock_db, mock_email_service):
+    async def test_dispatcher_skipped_when_no_user_id(
+        self, mock_db, mock_email_service
+    ):
         """Dispatcher should be skipped when user_id is not provided (legacy callers)."""
         dispatcher = self._make_dispatcher()
-        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+        svc = DunningService(
+            mock_db, email_service=mock_email_service, dispatcher=dispatcher
+        )
 
         result = await svc.send_dunning_email(
             user_email="test@example.com",
@@ -466,7 +488,9 @@ class TestDunningServiceWithDispatcher:
     ):
         """The dedup_key should embed user_id and the template name."""
         dispatcher = self._make_dispatcher()
-        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+        svc = DunningService(
+            mock_db, email_service=mock_email_service, dispatcher=dispatcher
+        )
 
         await svc.send_dunning_email(
             user_email="test@example.com",
@@ -484,7 +508,9 @@ class TestDunningServiceWithDispatcher:
     async def test_dispatcher_cooldown_is_24_hours(self, mock_db, mock_email_service):
         """The dispatcher cooldown_seconds should match DUNNING_COOLDOWN_HOURS * 3600."""
         dispatcher = self._make_dispatcher()
-        svc = DunningService(mock_db, email_service=mock_email_service, dispatcher=dispatcher)
+        svc = DunningService(
+            mock_db, email_service=mock_email_service, dispatcher=dispatcher
+        )
 
         await svc.send_dunning_email(
             user_email="test@example.com",

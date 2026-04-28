@@ -28,7 +28,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import SessionData, get_current_user, get_db_session, require_tier
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              require_tier)
 
 logger = structlog.get_logger(__name__)
 
@@ -418,7 +419,9 @@ async def revoke_loa(
     response_description="Paginated list of switch executions",
 )
 async def get_history(
-    limit: int = Query(default=20, ge=1, le=100, description="Maximum records to return"),
+    limit: int = Query(
+        default=20, ge=1, le=100, description="Maximum records to return"
+    ),
     offset: int = Query(default=0, ge=0, description="Number of records to skip"),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -467,19 +470,27 @@ async def get_history(
             "trigger_type": row["trigger_type"],
             "decision": row["decision"],
             "reason": row["reason"],
-            "savings_monthly": float(row["savings_monthly"])
-            if row["savings_monthly"] is not None
-            else None,
-            "savings_annual": float(row["savings_annual"])
-            if row["savings_annual"] is not None
-            else None,
+            "savings_monthly": (
+                float(row["savings_monthly"])
+                if row["savings_monthly"] is not None
+                else None
+            ),
+            "savings_annual": (
+                float(row["savings_annual"])
+                if row["savings_annual"] is not None
+                else None
+            ),
             "etf_cost": float(row["etf_cost"]) if row["etf_cost"] is not None else None,
-            "net_savings_year1": float(row["net_savings_year1"])
-            if row["net_savings_year1"] is not None
-            else None,
-            "confidence_score": float(row["confidence_score"])
-            if row["confidence_score"] is not None
-            else None,
+            "net_savings_year1": (
+                float(row["net_savings_year1"])
+                if row["net_savings_year1"] is not None
+                else None
+            ),
+            "confidence_score": (
+                float(row["confidence_score"])
+                if row["confidence_score"] is not None
+                else None
+            ),
             "data_source": row["data_source"],
             "tier": row["tier"],
             "executed": row["executed"],
@@ -498,7 +509,9 @@ async def get_history(
     response_description="All agent scan results including holds",
 )
 async def get_activity(
-    limit: int = Query(default=50, ge=1, le=200, description="Maximum records to return"),
+    limit: int = Query(
+        default=50, ge=1, le=200, description="Maximum records to return"
+    ),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
     _: SessionData = Depends(require_tier("pro")),
@@ -538,9 +551,11 @@ async def get_activity(
             "trigger_type": row["trigger_type"],
             "decision": row["decision"],
             "reason": row["reason"],
-            "confidence_score": float(row["confidence_score"])
-            if row["confidence_score"] is not None
-            else None,
+            "confidence_score": (
+                float(row["confidence_score"])
+                if row["confidence_score"] is not None
+                else None
+            ),
             "data_source": row["data_source"],
             "created_at": row["created_at"],
         }
@@ -606,10 +621,8 @@ async def check_now(
     else:
         # Import and run the decision engine
         try:
-            from services.switch_decision_engine import (
-                SwitchDecisionEngine,
-                UserContext,
-            )
+            from services.switch_decision_engine import (SwitchDecisionEngine,
+                                                         UserContext)
 
             # Build a UserContext from the settings and DB data
             ctx = UserContext(
@@ -635,8 +648,12 @@ async def check_now(
                 "reason": raw_decision.reason,
                 "current_plan": raw_decision.current_plan,
                 "proposed_plan": raw_decision.proposed_plan,
-                "projected_savings_monthly": float(raw_decision.projected_savings_monthly),
-                "projected_savings_annual": float(raw_decision.projected_savings_annual),
+                "projected_savings_monthly": float(
+                    raw_decision.projected_savings_monthly
+                ),
+                "projected_savings_annual": float(
+                    raw_decision.projected_savings_annual
+                ),
                 "etf_cost": float(raw_decision.etf_cost),
                 "net_savings_year1": float(raw_decision.net_savings_year1),
                 "confidence": float(raw_decision.confidence),
@@ -732,7 +749,9 @@ async def check_now(
     response_description="Rollback result",
 )
 async def rollback_switch(
-    execution_id: uuid.UUID = Path(..., description="UUID of the switch execution to roll back"),
+    execution_id: uuid.UUID = Path(
+        ..., description="UUID of the switch execution to roll back"
+    ),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
     _: SessionData = Depends(require_tier("pro")),
@@ -781,7 +800,9 @@ async def rollback_switch(
     enacted_at = row.get("enacted_at") or row.get("created_at")
     if enacted_at is not None:
         now = datetime.now(UTC)
-        enacted_at_aware = enacted_at if enacted_at.tzinfo else enacted_at.replace(tzinfo=UTC)
+        enacted_at_aware = (
+            enacted_at if enacted_at.tzinfo else enacted_at.replace(tzinfo=UTC)
+        )
         days_since = (now - enacted_at_aware).days
         if days_since > 30:
             raise HTTPException(
@@ -816,7 +837,9 @@ async def rollback_switch(
     response_description="Execution result for the approved recommendation",
 )
 async def approve_recommendation(
-    audit_log_id: uuid.UUID = Path(..., description="UUID of the audit log entry to approve"),
+    audit_log_id: uuid.UUID = Path(
+        ..., description="UUID of the audit log entry to approve"
+    ),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
     _: SessionData = Depends(require_tier("pro")),

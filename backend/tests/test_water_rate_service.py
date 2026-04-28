@@ -8,9 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.water_rate_service import (
-    WaterRateService,
-)
+from services.water_rate_service import WaterRateService
 
 
 def _mock_db_rows(rows):
@@ -81,7 +79,9 @@ def service(mock_db):
 
 class TestGetRates:
     async def test_returns_all_rates(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([SAMPLE_RATE_ROW, SAMPLE_RATE_ROW_2])
+        mock_db.execute.return_value = _mock_db_rows(
+            [SAMPLE_RATE_ROW, SAMPLE_RATE_ROW_2]
+        )
 
         rates = await service.get_rates()
         assert len(rates) == 2
@@ -229,7 +229,9 @@ class TestCalculateMonthlyCost:
 
 class TestGetBenchmark:
     async def test_returns_benchmark_with_rates(self, service, mock_db):
-        mock_db.execute.return_value = _mock_db_rows([SAMPLE_RATE_ROW, SAMPLE_RATE_ROW_2])
+        mock_db.execute.return_value = _mock_db_rows(
+            [SAMPLE_RATE_ROW, SAMPLE_RATE_ROW_2]
+        )
 
         benchmark = await service.get_benchmark("NY")
         assert benchmark["state"] == "NY"
@@ -239,7 +241,10 @@ class TestGetBenchmark:
         assert benchmark["max_monthly_cost"] is not None
         assert len(benchmark["rates"]) == 2
         # Rates should be sorted by monthly_cost
-        assert benchmark["rates"][0]["monthly_cost"] <= benchmark["rates"][1]["monthly_cost"]
+        assert (
+            benchmark["rates"][0]["monthly_cost"]
+            <= benchmark["rates"][1]["monthly_cost"]
+        )
 
     async def test_no_data_returns_empty(self, service, mock_db):
         mock_db.execute.return_value = _mock_db_rows([])

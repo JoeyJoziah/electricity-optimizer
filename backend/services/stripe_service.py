@@ -121,7 +121,9 @@ class StripeService:
         # Support 'plan' as an alias for 'tier'
         if plan is not None and tier is None:
             tier = plan
-        async with traced("stripe.create_checkout", attributes={"stripe.plan": tier or ""}):
+        async with traced(
+            "stripe.create_checkout", attributes={"stripe.plan": tier or ""}
+        ):
             self._ensure_configured()
 
             if tier not in ["pro", "business"]:
@@ -317,7 +319,9 @@ class StripeService:
 
         try:
             if cancel_immediately:
-                subscription = await asyncio.to_thread(stripe.Subscription.cancel, subscription_id)
+                subscription = await asyncio.to_thread(
+                    stripe.Subscription.cancel, subscription_id
+                )
                 logger.info(
                     "subscription_canceled_immediately",
                     subscription_id=subscription_id,
@@ -399,12 +403,15 @@ class StripeService:
             }
         """
         async with traced(
-            "stripe.webhook", attributes={"stripe.event_type": event.get("type", "unknown")}
+            "stripe.webhook",
+            attributes={"stripe.event_type": event.get("type", "unknown")},
         ):
             event_type = event["type"]
             data = event["data"]["object"]
 
-            logger.info("webhook_event_received", event_type=event_type, event_id=event["id"])
+            logger.info(
+                "webhook_event_received", event_type=event_type, event_id=event["id"]
+            )
 
             result = {
                 "handled": False,
@@ -430,7 +437,9 @@ class StripeService:
                             "action": "activate_addon",
                             "user_id": user_id,
                             "customer_id": customer_id,
-                            "addon_connection_id": session.get("metadata", {}).get("connection_id"),
+                            "addon_connection_id": session.get("metadata", {}).get(
+                                "connection_id"
+                            ),
                         }
                     )
                     logger.info(
@@ -469,7 +478,9 @@ class StripeService:
                 # for trialing, past_due, incomplete so users retain access
                 # during grace periods (Stripe retries before hard-canceling).
                 _downgrade_statuses = {"canceled", "unpaid"}
-                effective_tier = "free" if status in _downgrade_statuses else (tier or "free")
+                effective_tier = (
+                    "free" if status in _downgrade_statuses else (tier or "free")
+                )
                 result.update(
                     {
                         "handled": True,
@@ -713,7 +724,9 @@ async def _handle_activate_subscription(
     user.stripe_customer_id = result.get("customer_id")
     await user_repo.update(user_id, user)
     await invalidate_tier_cache(user_id)
-    logger.info("tier_cache_invalidated", user_id=str(user.id), action="activate_subscription")
+    logger.info(
+        "tier_cache_invalidated", user_id=str(user.id), action="activate_subscription"
+    )
     return True
 
 
@@ -729,7 +742,9 @@ async def _handle_update_subscription(
     user.subscription_tier = result.get("tier") or user.subscription_tier
     await user_repo.update(user_id, user)
     await invalidate_tier_cache(user_id)
-    logger.info("tier_cache_invalidated", user_id=str(user.id), action="update_subscription")
+    logger.info(
+        "tier_cache_invalidated", user_id=str(user.id), action="update_subscription"
+    )
     return True
 
 
@@ -745,15 +760,16 @@ async def _handle_deactivate_subscription(
     user.subscription_tier = "free"
     await user_repo.update(user_id, user)
     await invalidate_tier_cache(user_id)
-    logger.info("tier_cache_invalidated", user_id=str(user.id), action="deactivate_subscription")
+    logger.info(
+        "tier_cache_invalidated", user_id=str(user.id), action="deactivate_subscription"
+    )
 
     # Disconnect all UtilityAPI connections when subscription is fully canceled.
     # Best-effort: log but do not fail the webhook if cleanup fails.
     if db is not None:
         try:
             await db.execute(
-                text(
-                    """
+                text("""
                     UPDATE user_connections
                     SET status = 'disconnected',
                         stripe_subscription_item_id = NULL,
@@ -761,11 +777,12 @@ async def _handle_deactivate_subscription(
                     WHERE user_id = :uid
                       AND connection_type = 'direct'
                       AND status = 'active'
-                    """
-                ),
+                    """),
                 {"uid": str(user.id)},
             )
-            logger.info("utilityapi_connections_disconnected_on_cancel", user_id=str(user.id))
+            logger.info(
+                "utilityapi_connections_disconnected_on_cancel", user_id=str(user.id)
+            )
         except Exception as exc:
             logger.warning(
                 "utilityapi_disconnect_on_cancel_failed",
@@ -843,7 +860,9 @@ async def _handle_payment_succeeded(
 
     if subscription_id:
         try:
-            subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
+            subscription = await asyncio.to_thread(
+                stripe.Subscription.retrieve, subscription_id
+            )
             restored_tier = subscription.metadata.get("tier")
             if subscription.status not in ("active", "trialing"):
                 logger.info(

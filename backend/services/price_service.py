@@ -41,7 +41,9 @@ class PriceService:
         self._repo = price_repo
         self._cache = cache
 
-    async def get_current_price(self, region: PriceRegion, supplier: str) -> Price | None:
+    async def get_current_price(
+        self, region: PriceRegion, supplier: str
+    ) -> Price | None:
         """
         Get the current price for a specific supplier in a region.
 
@@ -61,7 +63,9 @@ class PriceService:
         ):
             return await self._repo.get_latest_by_supplier(region, supplier)
 
-    async def get_current_prices(self, region: PriceRegion, limit: int = 10) -> list[Price]:
+    async def get_current_prices(
+        self, region: PriceRegion, limit: int = 10
+    ) -> list[Price]:
         """
         Get current prices for all suppliers in a region.
 
@@ -157,7 +161,9 @@ class PriceService:
         """
         async with traced(
             "price.forecast",
-            attributes={"price.region": getattr(region, "state_code", None) or str(region)},
+            attributes={
+                "price.region": getattr(region, "state_code", None) or str(region)
+            },
         ):
             current_prices = await self._repo.get_current_prices(region, limit=1)
             if not current_prices:
@@ -176,9 +182,13 @@ class PriceService:
                 )
 
             # Fallback: simple peak/off-peak heuristic
-            return self._simple_forecast(region, hours, now, base_price, default_supplier, currency)
+            return self._simple_forecast(
+                region, hours, now, base_price, default_supplier, currency
+            )
 
-    async def _try_ml_forecast(self, region: PriceRegion, hours: int) -> dict[str, Any] | None:
+    async def _try_ml_forecast(
+        self, region: PriceRegion, hours: int
+    ) -> dict[str, Any] | None:
         """Attempt to generate a forecast using the ML EnsemblePredictor."""
         global _ensemble_predictor, _ensemble_load_attempted
 
@@ -191,7 +201,9 @@ class PriceService:
                     # Double-check after acquiring lock (another task may have loaded)
                     if not _ensemble_load_attempted:
                         _ensemble_load_attempted = True
-                        _ensemble_predictor = await asyncio.to_thread(self._load_ensemble_predictor)
+                        _ensemble_predictor = await asyncio.to_thread(
+                            self._load_ensemble_predictor
+                        )
                 if _ensemble_predictor is None:
                     return None
 
@@ -424,7 +436,9 @@ class PriceService:
             {
                 "start": row["window_start"],
                 "end": row["window_start"] + timedelta(hours=duration_hours),
-                "avg_price": Decimal(str(row["window_avg"])).quantize(Decimal("0.0001")),
+                "avg_price": Decimal(str(row["window_avg"])).quantize(
+                    Decimal("0.0001")
+                ),
                 "prices": [],  # individual prices not fetched in SQL path
             }
             for row in rows
@@ -492,7 +506,9 @@ class PriceService:
             supplier=supplier,
         )
 
-    async def get_price_statistics(self, region: PriceRegion, days: int = 7) -> dict[str, Any]:
+    async def get_price_statistics(
+        self, region: PriceRegion, days: int = 7
+    ) -> dict[str, Any]:
         """
         Get price statistics for a region.
 

@@ -30,9 +30,9 @@ def _make_alert(
         timestamp=timestamp or datetime(2024, 6, 15, 14, 30, tzinfo=UTC),
         optimal_window_start=optimal_window_start,
         optimal_window_end=optimal_window_end,
-        estimated_savings=Decimal(str(estimated_savings))
-        if estimated_savings is not None
-        else None,
+        estimated_savings=(
+            Decimal(str(estimated_savings)) if estimated_savings is not None else None
+        ),
     )
 
 
@@ -103,7 +103,9 @@ class TestRenderAlertEmail:
         assert float(call_kwargs["current_price"]) == pytest.approx(0.40)
 
     def test_falls_back_to_inline_html_when_template_raises(self):
-        self.email_svc.render_template.side_effect = FileNotFoundError("template not found")
+        self.email_svc.render_template.side_effect = FileNotFoundError(
+            "template not found"
+        )
         alert = _make_alert()
         html = self.renderer.render_alert_email(self.threshold, alert)
         assert "<h2>" in html

@@ -51,7 +51,8 @@ async def scan_agent_switcher(
 
     Requires a valid X-API-Key header (enforced by router-level dependency).
     """
-    from services.switch_decision_engine import SwitchDecisionEngine, UserContext
+    from services.switch_decision_engine import (SwitchDecisionEngine,
+                                                 UserContext)
     from services.switch_execution_service import SwitchExecutionService
 
     if db is None:
@@ -61,8 +62,7 @@ async def scan_agent_switcher(
     # 1. Load all enrolled users
     # ------------------------------------------------------------------
     try:
-        result = await db.execute(
-            text("""
+        result = await db.execute(text("""
                 SELECT
                     uas.user_id,
                     uas.enabled,
@@ -78,8 +78,7 @@ async def scan_agent_switcher(
                 WHERE uas.enabled = TRUE
                   AND uas.loa_signed_at IS NOT NULL
                   AND uas.loa_revoked_at IS NULL
-            """)
-        )
+            """))
         rows = result.mappings().all()
     except Exception as exc:
         logger.error("agent_switcher_scan_load_users_failed", error=str(exc))
@@ -131,7 +130,9 @@ async def scan_agent_switcher(
                     if row["savings_threshold_min"] is not None
                     else Decimal("10.0")
                 ),
-                cooldown_days=int(row["cooldown_days"]) if row["cooldown_days"] is not None else 5,
+                cooldown_days=(
+                    int(row["cooldown_days"]) if row["cooldown_days"] is not None else 5
+                ),
             )
 
             decision = await engine.evaluate(ctx)
@@ -154,15 +155,25 @@ async def scan_agent_switcher(
                     "id": str(uuid.uuid4()),
                     "user_id": user_id,
                     "decision": decision.action,
-                    "plan_id": decision.proposed_plan.plan_id if decision.proposed_plan else None,
-                    "plan_name": decision.proposed_plan.plan_name
-                    if decision.proposed_plan
-                    else None,
+                    "plan_id": (
+                        decision.proposed_plan.plan_id
+                        if decision.proposed_plan
+                        else None
+                    ),
+                    "plan_name": (
+                        decision.proposed_plan.plan_name
+                        if decision.proposed_plan
+                        else None
+                    ),
                     "provider_name": (
-                        decision.proposed_plan.provider_name if decision.proposed_plan else None
+                        decision.proposed_plan.provider_name
+                        if decision.proposed_plan
+                        else None
                     ),
                     "rate_kwh": (
-                        float(decision.proposed_plan.rate_kwh) if decision.proposed_plan else 0.0
+                        float(decision.proposed_plan.rate_kwh)
+                        if decision.proposed_plan
+                        else 0.0
                     ),
                     "savings_monthly": float(decision.projected_savings_monthly),
                     "savings_annual": float(decision.projected_savings_annual),
@@ -181,7 +192,9 @@ async def scan_agent_switcher(
                     "agent_switcher_scan_switch_initiated",
                     user_id=user_id,
                     proposed_plan=(
-                        decision.proposed_plan.plan_id if decision.proposed_plan else None
+                        decision.proposed_plan.plan_id
+                        if decision.proposed_plan
+                        else None
                     ),
                 )
             elif decision.action == "recommend":
@@ -264,16 +277,14 @@ async def sync_plans(
     # 1. Distinct zip codes for active enrolled users
     # ------------------------------------------------------------------
     try:
-        result = await db.execute(
-            text("""
+        result = await db.execute(text("""
                 SELECT DISTINCT uas.zip_code
                 FROM user_agent_settings uas
                 JOIN public.users u ON u.id = uas.user_id
                 WHERE uas.enabled = TRUE
                   AND uas.zip_code IS NOT NULL
                   AND uas.zip_code <> ''
-            """)
-        )
+            """))
         rows = result.fetchall()
         zip_codes = [row[0] for row in rows if row[0]]
     except Exception as exc:
@@ -365,8 +376,7 @@ async def cleanup_meter_data(
     # 1. Discover existing meter_readings child partitions
     # ------------------------------------------------------------------
     try:
-        result = await db.execute(
-            text("""
+        result = await db.execute(text("""
                 SELECT c.relname AS partition_name
                 FROM pg_catalog.pg_inherits i
                 JOIN pg_catalog.pg_class c ON c.oid = i.inhrelid
@@ -374,8 +384,7 @@ async def cleanup_meter_data(
                 WHERE p.relname = 'meter_readings'
                   AND c.relkind = 'r'
                 ORDER BY c.relname
-            """)
-        )
+            """))
         partition_rows = result.fetchall()
         existing_partitions = [row[0] for row in partition_rows]
     except Exception as exc:

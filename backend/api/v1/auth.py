@@ -16,13 +16,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.neon_auth import (
-    SESSION_COOKIE_NAME,
-    SESSION_COOKIE_NAME_SECURE,
-    SessionData,
-    get_current_user,
-    invalidate_session_cache,
-)
+from auth.neon_auth import (SESSION_COOKIE_NAME, SESSION_COOKIE_NAME_SECURE,
+                            SessionData, get_current_user,
+                            invalidate_session_cache)
 from auth.password import check_password_strength
 from config.database import db_manager, get_pg_session
 from middleware.rate_limiter import UserRateLimiter
@@ -102,9 +98,13 @@ async def _check_login_lockout(request: Request) -> None:
     client_ip = request.client.host if request.client else "unknown"
     identifier = f"login:ip:{client_ip}"
 
-    is_locked, seconds_remaining = await _login_attempt_limiter.is_locked_out(identifier)
+    is_locked, seconds_remaining = await _login_attempt_limiter.is_locked_out(
+        identifier
+    )
     if is_locked:
-        logger.warning("login_lockout_active", ip=client_ip, seconds_remaining=seconds_remaining)
+        logger.warning(
+            "login_lockout_active", ip=client_ip, seconds_remaining=seconds_remaining
+        )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Too many failed attempts. Try again in {seconds_remaining} seconds.",
@@ -128,7 +128,9 @@ async def _get_current_user_with_brute_force_tracking(
     credentials: HTTPAuthorizationCredentials | None = None
     auth_header = request.headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=auth_header[7:])
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials=auth_header[7:]
+        )
 
     try:
         return await get_current_user(request, credentials, db)
@@ -175,11 +177,15 @@ async def get_me(
             db=db,
         )
     except Exception as e:
-        logger.warning("user_profile_sync_failed", user_id=current_user.user_id, error=str(e))
+        logger.warning(
+            "user_profile_sync_failed", user_id=current_user.user_id, error=str(e)
+        )
 
     # Record successful auth to clear any prior failed-attempt counter
     client_ip = request.client.host if request.client else "unknown"
-    await _login_attempt_limiter.record_login_attempt(f"login:ip:{client_ip}", success=True)
+    await _login_attempt_limiter.record_login_attempt(
+        f"login:ip:{client_ip}", success=True
+    )
 
     return UserResponse(
         id=current_user.user_id,
@@ -222,7 +228,9 @@ async def logout(
             pass
         invalidated = await invalidate_session_cache(session_token, redis)
         logger.info(
-            "session_cache_invalidated", user_id=current_user.user_id, cache_hit=invalidated
+            "session_cache_invalidated",
+            user_id=current_user.user_id,
+            cache_hit=invalidated,
         )
     else:
         logger.warning("logout_no_token", user_id=current_user.user_id)
@@ -257,7 +265,9 @@ async def check_password(http_request: Request, request: PasswordStrengthRequest
     # Per-endpoint rate limit (5/min) — stricter than global middleware
     client_ip = http_request.client.host if http_request.client else "unknown"
     identifier = f"password_check:ip:{client_ip}"
-    allowed, remaining = await _password_check_limiter.check_rate_limit(identifier, "minute")
+    allowed, remaining = await _password_check_limiter.check_rate_limit(
+        identifier, "minute"
+    )
     if not allowed:
         logger.warning(
             "password_check_rate_limited",

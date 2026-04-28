@@ -101,7 +101,9 @@ class NeighborhoodService:
 
         user_rate = Decimal(str(row["user_rate"]))
         cheapest_rate = (
-            Decimal(str(row["cheapest_rate"])) if row["cheapest_rate"] is not None else user_rate
+            Decimal(str(row["cheapest_rate"]))
+            if row["cheapest_rate"] is not None
+            else user_rate
         )
         potential_savings = max(Decimal("0"), user_rate - cheapest_rate)
 
@@ -113,6 +115,10 @@ class NeighborhoodService:
             "user_rate": user_rate,
             "cheapest_supplier": row["cheapest_supplier"],
             "cheapest_rate": cheapest_rate,
-            "avg_rate": Decimal(str(row["avg_rate"])) if row["avg_rate"] is not None else user_rate,
+            "avg_rate": (
+                Decimal(str(row["avg_rate"]))
+                if row["avg_rate"] is not None
+                else user_rate
+            ),
             "potential_savings": potential_savings,
         }

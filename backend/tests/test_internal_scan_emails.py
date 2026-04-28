@@ -215,7 +215,9 @@ class TestScanEmailsHappyPath:
         ]
         mock_extract.return_value = {"rate_per_kwh": 0.12}
 
-        connections = [_make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(3)]
+        connections = [
+            _make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(3)
+        ]
         mock_db = _make_db_with_connections(connections)
 
         from main import app
@@ -446,7 +448,9 @@ class TestScanEmailsTokenHandling:
         side_effect=RuntimeError("provider 500"),
     )
     @patch("utils.encryption.decrypt_field", return_value="plain-old-token")
-    def test_token_refresh_failure_skips_connection(self, mock_decrypt, mock_refresh, auth_client):
+    def test_token_refresh_failure_skips_connection(
+        self, mock_decrypt, mock_refresh, auth_client
+    ):
         """A failed token refresh skips the connection without crashing the batch."""
         conn = _make_connection_row(
             conn_id="c1",
@@ -508,7 +512,9 @@ class TestScanEmailsErrorIsolation:
         mock_extract.return_value = {"rate_per_kwh": 0.12}
         mock_decrypt.return_value = "plain-token"
 
-        connections = [_make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(3)]
+        connections = [
+            _make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(3)
+        ]
         mock_db = _make_db_with_connections(connections)
 
         from main import app
@@ -573,7 +579,9 @@ class TestScanEmailsErrorIsolation:
         assert data["errors"] == []
 
     @patch("utils.encryption.decrypt_field", side_effect=Exception("decryption error"))
-    def test_decryption_failure_recorded_as_connection_error(self, mock_decrypt, auth_client):
+    def test_decryption_failure_recorded_as_connection_error(
+        self, mock_decrypt, auth_client
+    ):
         """A decrypt_field exception is captured per-connection and surfaced in errors."""
         conn = _make_connection_row(conn_id="c1")
         mock_db = _make_db_with_connections([conn])
@@ -638,7 +646,10 @@ class TestScanEmailsConcurrency:
                 side_effect=_counting_scan,
             ),
         ):
-            conns = [_make_connection_row(conn_id=f"c{i}", provider="gmail") for i in range(10)]
+            conns = [
+                _make_connection_row(conn_id=f"c{i}", provider="gmail")
+                for i in range(10)
+            ]
 
             # Build a mock DB that returns the connections list
             mock_db = _make_db_with_connections(conns)
@@ -648,9 +659,9 @@ class TestScanEmailsConcurrency:
 
             result = await scan_all_emails(db=mock_db)
 
-        assert peak <= _mod._SCAN_SEMAPHORE_LIMIT, (
-            f"Peak concurrency {peak} exceeded semaphore limit {_mod._SCAN_SEMAPHORE_LIMIT}"
-        )
+        assert (
+            peak <= _mod._SCAN_SEMAPHORE_LIMIT
+        ), f"Peak concurrency {peak} exceeded semaphore limit {_mod._SCAN_SEMAPHORE_LIMIT}"
         assert result["connections_scanned"] == 10
 
 
@@ -740,7 +751,13 @@ class TestScanEmailsResponseSchema:
 
         assert response.status_code == 200
         data = response.json()
-        required = {"status", "connections_scanned", "emails_found", "rates_extracted", "errors"}
+        required = {
+            "status",
+            "connections_scanned",
+            "emails_found",
+            "rates_extracted",
+            "errors",
+        }
         missing = required - set(data.keys())
         assert not missing, f"Response missing keys: {missing}"
 

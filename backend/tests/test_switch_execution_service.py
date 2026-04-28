@@ -15,12 +15,8 @@ import pytest
 
 from services.switch_decision_engine import PlanDetails, SwitchDecision
 from services.switch_execution_service import SwitchExecutionService
-from services.switch_executor import (
-    AdvisoryOnlyFallback,
-    EnrollmentResult,
-    EnrollmentStatus,
-    SwitchExecutor,
-)
+from services.switch_executor import (AdvisoryOnlyFallback, EnrollmentResult,
+                                      EnrollmentStatus, SwitchExecutor)
 
 # =============================================================================
 # Helpers / Factories
@@ -176,7 +172,9 @@ class TestExecuteSwitch:
         db = _make_db()
         svc = _make_service(db)
         mock_executor = _make_executor()
-        mock_executor.execute_enrollment = AsyncMock(side_effect=RuntimeError("Provider timeout"))
+        mock_executor.execute_enrollment = AsyncMock(
+            side_effect=RuntimeError("Provider timeout")
+        )
         decision = _make_decision()
 
         with patch(
@@ -277,7 +275,9 @@ class TestExecuteSwitch:
         db = _make_db()
         svc = _make_service(db)
         mock_executor = _make_executor()
-        mock_executor.execute_enrollment = AsyncMock(side_effect=Exception("Unexpected error"))
+        mock_executor.execute_enrollment = AsyncMock(
+            side_effect=Exception("Unexpected error")
+        )
         decision = _make_decision()
 
         with patch(
@@ -542,7 +542,9 @@ class TestRollbackSwitch:
         svc = _make_service(db)
         db.execute = AsyncMock(return_value=_make_mapping_result(self._active_row()))
         mock_executor = _make_executor()
-        mock_executor.cancel_enrollment = AsyncMock(side_effect=RuntimeError("Cancellation failed"))
+        mock_executor.cancel_enrollment = AsyncMock(
+            side_effect=RuntimeError("Cancellation failed")
+        )
 
         with patch(
             "services.switch_execution_service.get_executor",
@@ -678,7 +680,9 @@ class TestApproveRecommendation:
         """Already-executed audit log raises ValueError."""
         db = _make_db()
         svc = _make_service(db)
-        db.execute = AsyncMock(return_value=_make_mapping_result(self._audit_row(executed=True)))
+        db.execute = AsyncMock(
+            return_value=_make_mapping_result(self._audit_row(executed=True))
+        )
 
         with pytest.raises(ValueError, match="already been executed"):
             await svc.approve_recommendation("log_1", "user_1")

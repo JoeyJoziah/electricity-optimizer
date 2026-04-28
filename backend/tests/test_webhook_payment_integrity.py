@@ -126,7 +126,9 @@ class TestWebhookIdempotencyRaceFix:
 
                 stripe_instance = MockStripe.return_value
                 stripe_instance.is_configured = True
-                stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+                stripe_instance.verify_webhook_signature = MagicMock(
+                    return_value=mock_event
+                )
                 stripe_instance.handle_webhook_event = AsyncMock(
                     return_value={
                         "handled": True,
@@ -176,7 +178,9 @@ class TestWebhookIdempotencyRaceFix:
             with patch("api.v1.billing.StripeService") as MockStripe:
                 stripe_instance = MockStripe.return_value
                 stripe_instance.is_configured = True
-                stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+                stripe_instance.verify_webhook_signature = MagicMock(
+                    return_value=mock_event
+                )
                 # Business logic fails
                 stripe_instance.handle_webhook_event = AsyncMock(
                     side_effect=RuntimeError("DB connection lost")
@@ -231,7 +235,9 @@ class TestWebhookIdempotencyRaceFix:
             with patch("api.v1.billing.StripeService") as MockStripe:
                 stripe_instance = MockStripe.return_value
                 stripe_instance.is_configured = True
-                stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+                stripe_instance.verify_webhook_signature = MagicMock(
+                    return_value=mock_event
+                )
                 process_mock = AsyncMock(
                     return_value={"handled": False, "action": None, "user_id": None}
                 )
@@ -735,6 +741,6 @@ class TestMigration056Structure:
         has_guard = "IF NOT EXISTS" in sql.upper() or (
             "DO" in sql and "IF" in sql and "NOT EXISTS" in sql.upper()
         )
-        assert has_guard, (
-            "Migration 056 must be safe to re-run (use IF NOT EXISTS or a DO block guard)"
-        )
+        assert (
+            has_guard
+        ), "Migration 056 must be safe to re-run (use IF NOT EXISTS or a DO block guard)"

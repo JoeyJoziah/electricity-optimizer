@@ -133,7 +133,9 @@ class TestCreateVersion:
         import re
 
         result = await service.create_version("ensemble", config={}, metrics={})
-        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        uuid_re = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     async def test_auto_generates_version_tag_when_omitted(self, service, mock_db):
@@ -166,7 +168,9 @@ class TestCreateVersion:
 
     async def test_insert_params_contain_model_name_and_tag(self, service, mock_db):
         """INSERT parameters must include the model_name and version_tag."""
-        await service.create_version("my_model", config={}, metrics={}, version_tag="v42")
+        await service.create_version(
+            "my_model", config={}, metrics={}, version_tag="v42"
+        )
 
         insert_params = mock_db.execute.call_args[0][1]
         assert insert_params["model_name"] == "my_model"
@@ -548,7 +552,9 @@ class TestCreateABTest:
         no_test.fetchone.return_value = None
 
         ver_a_row = _make_version_row(id="ver-a", model_name=model_name, is_active=True)
-        ver_b_row = _make_version_row(id="ver-b", model_name=model_name, is_active=False)
+        ver_b_row = _make_version_row(
+            id="ver-b", model_name=model_name, is_active=False
+        )
         result_a = MagicMock()
         result_a.fetchone.return_value = ver_a_row
         result_b = MagicMock()
@@ -580,7 +586,9 @@ class TestCreateABTest:
         """Supplied traffic_split must be stored correctly."""
         self._setup_no_running_test_and_two_versions(mock_db)
 
-        result = await service.create_ab_test("ensemble", "ver-a", "ver-b", traffic_split=0.3)
+        result = await service.create_ab_test(
+            "ensemble", "ver-a", "ver-b", traffic_split=0.3
+        )
 
         assert result.traffic_split == pytest.approx(0.3)
 
@@ -597,12 +605,16 @@ class TestCreateABTest:
     async def test_raises_for_invalid_traffic_split_zero(self, service, mock_db):
         """traffic_split=0.0 should raise ValueError before any DB call."""
         with pytest.raises(ValueError, match="traffic_split"):
-            await service.create_ab_test("ensemble", "ver-a", "ver-b", traffic_split=0.0)
+            await service.create_ab_test(
+                "ensemble", "ver-a", "ver-b", traffic_split=0.0
+            )
 
     async def test_raises_for_invalid_traffic_split_one(self, service, mock_db):
         """traffic_split=1.0 should raise ValueError before any DB call."""
         with pytest.raises(ValueError, match="traffic_split"):
-            await service.create_ab_test("ensemble", "ver-a", "ver-b", traffic_split=1.0)
+            await service.create_ab_test(
+                "ensemble", "ver-a", "ver-b", traffic_split=1.0
+            )
 
     async def test_raises_if_version_a_not_found(self, service, mock_db):
         """Should raise ValueError if version_a does not exist in the DB."""
@@ -635,7 +647,9 @@ class TestCreateABTest:
 
         self._setup_no_running_test_and_two_versions(mock_db)
         result = await service.create_ab_test("ensemble", "ver-a", "ver-b")
-        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        uuid_re = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     async def test_commits_after_insert(self, service, mock_db):
@@ -649,9 +663,13 @@ class TestCreateABTest:
         no_test = MagicMock()
         no_test.fetchone.return_value = None
         ver_a_result = MagicMock()
-        ver_a_result.fetchone.return_value = _make_version_row(id="ver-a", model_name="ensemble")
+        ver_a_result.fetchone.return_value = _make_version_row(
+            id="ver-a", model_name="ensemble"
+        )
         ver_b_result = MagicMock()
-        ver_b_result.fetchone.return_value = _make_version_row(id="ver-b", model_name="ensemble")
+        ver_b_result.fetchone.return_value = _make_version_row(
+            id="ver-b", model_name="ensemble"
+        )
         mock_db.execute.side_effect = [
             no_test,
             ver_a_result,
@@ -714,9 +732,9 @@ class TestGetABAssignment:
             assignment = await service.get_ab_assignment("ensemble", "stable-user-id")
             assignments.append(assignment.bucket)
 
-        assert len(set(assignments)) == 1, (
-            f"Expected all assignments to be the same bucket, got: {assignments}"
-        )
+        assert (
+            len(set(assignments)) == 1
+        ), f"Expected all assignments to be the same bucket, got: {assignments}"
 
     async def test_different_users_can_get_different_buckets(self, service, mock_db):
         """
@@ -762,7 +780,9 @@ class TestGetABAssignment:
                 bucket_a_count += 1
 
         ratio = bucket_a_count / total
-        assert ratio >= 0.70, f"Expected >= 70% in bucket A with 0.9 split, got {ratio:.2%}"
+        assert (
+            ratio >= 0.70
+        ), f"Expected >= 70% in bucket A with 0.9 split, got {ratio:.2%}"
 
     async def test_assignment_is_stable_across_calls_via_hash(self):
         """
@@ -834,7 +854,9 @@ class TestRecordABOutcome:
             user_id="user-1",
             outcome="success",
         )
-        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        uuid_re = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
         assert uuid_re.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     async def test_commits_after_insert(self, service, mock_db):

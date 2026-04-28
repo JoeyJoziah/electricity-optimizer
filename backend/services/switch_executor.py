@@ -124,9 +124,8 @@ class EnergyBotExecutor:
         ):
             try:
                 # Import here to avoid circular dependency
-                from services.energybot_service import (
-                    EnrollmentRequest as EBRequest,
-                )
+                from services.energybot_service import \
+                    EnrollmentRequest as EBRequest
 
                 eb_request = EBRequest(
                     plan_id=request.plan_id,
@@ -137,7 +136,9 @@ class EnergyBotExecutor:
                     idempotency_key=request.idempotency_key,
                 )
 
-                result = await self._service.create_enrollment(eb_request, request.idempotency_key)
+                result = await self._service.create_enrollment(
+                    eb_request, request.idempotency_key
+                )
 
                 return EnrollmentResult(
                     success=True,

@@ -212,11 +212,17 @@ class SwitchNotificationService:
                     current_plan_name=current_plan.get("plan_name", ""),
                     current_provider=current_plan.get("provider", ""),
                     current_rate_kwh=_to_float_or_none(current_plan.get("rate_kwh")),
-                    current_fixed_charge=_to_float_or_none(current_plan.get("fixed_charge")),
+                    current_fixed_charge=_to_float_or_none(
+                        current_plan.get("fixed_charge")
+                    ),
                     recommended_plan_name=proposed_plan.get("plan_name", ""),
                     recommended_provider=proposed_plan.get("provider", ""),
-                    recommended_rate_kwh=_to_float_or_none(proposed_plan.get("rate_kwh")),
-                    recommended_fixed_charge=_to_float_or_none(proposed_plan.get("fixed_charge")),
+                    recommended_rate_kwh=_to_float_or_none(
+                        proposed_plan.get("rate_kwh")
+                    ),
+                    recommended_fixed_charge=_to_float_or_none(
+                        proposed_plan.get("fixed_charge")
+                    ),
                     savings_monthly=savings_monthly,
                     savings_annual=savings_annual,
                     confidence=_to_float_or_none(confidence),

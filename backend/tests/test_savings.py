@@ -135,8 +135,12 @@ class _MockDB:
         month_ago = now - timedelta(days=30)
 
         total = sum(float(r["amount"]) for r in user_rows)
-        weekly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago)
-        monthly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago)
+        weekly = sum(
+            float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago
+        )
+        monthly = sum(
+            float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago
+        )
         currency = user_rows[0]["currency"] if user_rows else "USD"
 
         agg = {
@@ -163,8 +167,12 @@ class _MockDB:
         month_ago = now - timedelta(days=30)
 
         total = sum(float(r["amount"]) for r in user_rows)
-        weekly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago)
-        monthly = sum(float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago)
+        weekly = sum(
+            float(r["amount"]) for r in user_rows if r["created_at"] >= week_ago
+        )
+        monthly = sum(
+            float(r["amount"]) for r in user_rows if r["created_at"] >= month_ago
+        )
         currency = user_rows[0]["currency"] if user_rows else "USD"
 
         # Compute streak (consecutive days ending today)

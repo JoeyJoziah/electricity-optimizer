@@ -295,7 +295,9 @@ async def invalidate_sessions_for_banned_user(user_id: str, redis=None) -> bool:
             _BANNED_USER_MARKER_TTL,
             "1",
         )
-        logger.info("banned_user_marker_set", user_id=user_id, ttl=_BANNED_USER_MARKER_TTL)
+        logger.info(
+            "banned_user_marker_set", user_id=user_id, ttl=_BANNED_USER_MARKER_TTL
+        )
         return True
     except Exception:
         return False
@@ -339,9 +341,9 @@ async def get_current_user(
             session_token = request.cookies.get(SESSION_COOKIE_NAME_SECURE)
         else:
             # In dev/test, accept both cookie names (for local HTTP servers)
-            session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.cookies.get(
-                SESSION_COOKIE_NAME_SECURE
-            )
+            session_token = request.cookies.get(
+                SESSION_COOKIE_NAME
+            ) or request.cookies.get(SESSION_COOKIE_NAME_SECURE)
         from_cookie = True
 
     # Better Auth signs cookie values with HMAC-SHA256: "token.signature"

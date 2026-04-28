@@ -436,7 +436,9 @@ class SwitchSafeguardsService:
                 return results
 
             # 4. ETF guard (pure logic — no DB)
-            etf_result = self.check_etf_guard(etf_amount, annual_savings, contract_days_remaining)
+            etf_result = self.check_etf_guard(
+                etf_amount, annual_savings, contract_days_remaining
+            )
             results.append(etf_result)
             if not etf_result.passed:
                 return results

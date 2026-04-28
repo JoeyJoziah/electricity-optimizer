@@ -165,7 +165,9 @@ class TestLearnCycle:
     @patch("services.learning_service.LearningService")
     @patch("services.hnsw_vector_store.HNSWVectorStore")
     @patch("services.observation_service.ObservationService")
-    def test_learn_happy_path(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
+    def test_learn_happy_path(
+        self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client
+    ):
         """Learn with default params should run full cycle and return results."""
         mock_results = {
             "regions_processed": ["US"],
@@ -222,10 +224,14 @@ class TestLearnCycle:
     @patch("services.learning_service.LearningService")
     @patch("services.hnsw_vector_store.HNSWVectorStore")
     @patch("services.observation_service.ObservationService")
-    def test_learn_service_error(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
+    def test_learn_service_error(
+        self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client
+    ):
         """Service exception during learning should return 500 with generic message."""
         mock_learner = MagicMock()
-        mock_learner.run_full_cycle = AsyncMock(side_effect=RuntimeError("Redis unavailable"))
+        mock_learner.run_full_cycle = AsyncMock(
+            side_effect=RuntimeError("Redis unavailable")
+        )
         mock_learner_cls.return_value = mock_learner
 
         response = auth_client.post(f"{BASE_URL}/learn")
@@ -244,7 +250,9 @@ class TestLearnCycle:
     @patch("services.learning_service.LearningService")
     @patch("services.hnsw_vector_store.HNSWVectorStore")
     @patch("services.observation_service.ObservationService")
-    def test_learn_empty_results(self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client):
+    def test_learn_empty_results(
+        self, mock_obs_cls, mock_vs_cls, mock_learner_cls, auth_client
+    ):
         """Learning cycle that produces empty results should still return ok."""
         mock_learner = MagicMock()
         mock_learner.run_full_cycle = AsyncMock(return_value={})
@@ -318,7 +326,9 @@ class TestObservationStats:
     def test_stats_service_error(self, mock_obs_cls, auth_client):
         """Service exception during stats should return 500 with generic message."""
         mock_obs = MagicMock()
-        mock_obs.get_forecast_accuracy = AsyncMock(side_effect=RuntimeError("Query timeout"))
+        mock_obs.get_forecast_accuracy = AsyncMock(
+            side_effect=RuntimeError("Query timeout")
+        )
         mock_obs_cls.return_value = mock_obs
 
         response = auth_client.get(f"{BASE_URL}/observation-stats")

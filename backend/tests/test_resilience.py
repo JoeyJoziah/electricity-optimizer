@@ -126,12 +126,14 @@ class TestDatabaseResilience:
         A generic exception from db.execute() should be caught by the global
         exception handler and return HTTP 500 — not crash the process.
         """
-        client = self._client_with_erroring_db(Exception("DB connection refused"), "db-err")
+        client = self._client_with_erroring_db(
+            Exception("DB connection refused"), "db-err"
+        )
         try:
             response = client.get("/api/v1/savings/summary")
-            assert response.status_code == 500, (
-                f"Expected 500, got {response.status_code}: {response.text}"
-            )
+            assert (
+                response.status_code == 500
+            ), f"Expected 500, got {response.status_code}: {response.text}"
         finally:
             self._cleanup()
 
@@ -148,9 +150,10 @@ class TestDatabaseResilience:
             response = client.get("/api/v1/savings/summary")
             # 504 = RequestTimeoutMiddleware caught it
             # 500 = global exception handler caught it
-            assert response.status_code in (500, 504), (
-                f"Expected 500 or 504, got {response.status_code}: {response.text}"
-            )
+            assert response.status_code in (
+                500,
+                504,
+            ), f"Expected 500 or 504, got {response.status_code}: {response.text}"
             # Response body must be parseable JSON with a 'detail' key
             body = response.json()
             assert "detail" in body
@@ -162,7 +165,9 @@ class TestDatabaseResilience:
         The 500 error response must be valid JSON with a 'detail' key so that
         the frontend can display a sensible error message.
         """
-        client = self._client_with_erroring_db(RuntimeError("connection pool exhausted"), "db-json")
+        client = self._client_with_erroring_db(
+            RuntimeError("connection pool exhausted"), "db-json"
+        )
         try:
             response = client.get("/api/v1/savings/summary")
             assert response.status_code == 500
@@ -188,7 +193,9 @@ class TestDatabaseResilience:
         A ValueError raised inside the service layer (e.g. from malformed data)
         should also produce HTTP 500 rather than a 422 or crash.
         """
-        client = self._client_with_erroring_db(ValueError("unexpected DB value"), "db-val")
+        client = self._client_with_erroring_db(
+            ValueError("unexpected DB value"), "db-val"
+        )
         try:
             response = client.get("/api/v1/savings/summary")
             assert response.status_code == 500
@@ -224,7 +231,9 @@ class TestRateLimiterResilience:
 
         allowed = {200, 429, 500}
         unexpected = [s for s in statuses if s not in allowed]
-        assert not unexpected, f"Unexpected status codes in rapid-request test: {unexpected}"
+        assert (
+            not unexpected
+        ), f"Unexpected status codes in rapid-request test: {unexpected}"
 
     def test_rate_limit_or_success_on_burst(self, basic_auth_client):
         """

@@ -11,11 +11,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.switch_decision_engine import (
-    PlanDetails,
-    SwitchDecisionEngine,
-    UserContext,
-)
+from services.switch_decision_engine import (PlanDetails, SwitchDecisionEngine,
+                                             UserContext)
 
 # =============================================================================
 # Helpers
@@ -149,7 +146,9 @@ class TestKillSwitch:
 
         assert decision.action == "hold"
         assert decision.rule_stopped_at == "kill_switch"
-        assert "3" in decision.reason or "2" in decision.reason  # timedelta day boundary
+        assert (
+            "3" in decision.reason or "2" in decision.reason
+        )  # timedelta day boundary
 
     @pytest.mark.asyncio
     async def test_05_fully_enabled_passes_rule_1(self):
@@ -429,7 +428,9 @@ class TestPlanComparison:
 
         decision = await engine.evaluate(ctx)
 
-        assert decision.projected_savings_annual == decision.projected_savings_monthly * 12
+        assert (
+            decision.projected_savings_annual == decision.projected_savings_monthly * 12
+        )
 
 
 # =============================================================================
@@ -571,7 +572,9 @@ class TestEtfGuard:
         """Plan with no ETF passes Rule 5 without triggering it."""
         engine = _make_engine()
         ctx = _base_ctx(
-            current_plan=_current_plan(rate_kwh="0.20", fixed_charge="0", etf_amount="0"),
+            current_plan=_current_plan(
+                rate_kwh="0.20", fixed_charge="0", etf_amount="0"
+            ),
             available_plans=[_available_plan(rate_kwh="0.10", fixed_charge="0")],
             monthly_kwh=Decimal("500"),
             savings_threshold_pct=Decimal("1.0"),
@@ -591,7 +594,10 @@ class TestEtfGuard:
         far_future = datetime.now(UTC) + timedelta(days=365)
         ctx = _base_ctx(
             current_plan=_current_plan(
-                rate_kwh="0.20", fixed_charge="0", etf_amount="100", contract_end=far_future
+                rate_kwh="0.20",
+                fixed_charge="0",
+                etf_amount="100",
+                contract_end=far_future,
             ),
             available_plans=[_available_plan(rate_kwh="0.10", fixed_charge="0")],
             monthly_kwh=Decimal("500"),
@@ -612,7 +618,10 @@ class TestEtfGuard:
         far_contract = datetime.now(UTC) + timedelta(days=300)
         ctx = _base_ctx(
             current_plan=_current_plan(
-                rate_kwh="0.20", fixed_charge="0", etf_amount="500", contract_end=far_contract
+                rate_kwh="0.20",
+                fixed_charge="0",
+                etf_amount="500",
+                contract_end=far_contract,
             ),
             available_plans=[_available_plan(rate_kwh="0.18", fixed_charge="0")],
             monthly_kwh=Decimal("100"),
@@ -669,7 +678,9 @@ class TestEtfGuard:
         """ETF of exactly $0 passes Rule 5 (treated as no ETF)."""
         engine = _make_engine()
         ctx = _base_ctx(
-            current_plan=_current_plan(rate_kwh="0.20", fixed_charge="0", etf_amount="0.00"),
+            current_plan=_current_plan(
+                rate_kwh="0.20", fixed_charge="0", etf_amount="0.00"
+            ),
             available_plans=[_available_plan(rate_kwh="0.10", fixed_charge="0")],
             monthly_kwh=Decimal("500"),
             savings_threshold_pct=Decimal("1.0"),

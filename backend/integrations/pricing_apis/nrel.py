@@ -16,16 +16,9 @@ from typing import Any
 
 import structlog
 
-from .base import (
-    APIError,
-    BasePricingClient,
-    CircuitBreakerConfig,
-    PriceData,
-    PriceForecast,
-    PriceUnit,
-    PricingRegion,
-    RetryConfig,
-)
+from .base import (APIError, BasePricingClient, CircuitBreakerConfig,
+                   PriceData, PriceForecast, PriceUnit, PricingRegion,
+                   RetryConfig)
 from .cache import PricingCache
 from .rate_limiter import RateLimiter, create_api_rate_limiter
 
@@ -34,7 +27,9 @@ logger = structlog.get_logger(__name__)
 
 # Build NREL_REGION_MAP dynamically for all US regions.
 # PricingRegion is aliased to models.region.Region (all 50 states + DC).
-NREL_REGION_MAP: dict[PricingRegion, str] = {r: r.state_code for r in PricingRegion if r.is_us}
+NREL_REGION_MAP: dict[PricingRegion, str] = {
+    r: r.state_code for r in PricingRegion if r.is_us
+}
 
 # Representative ZIP codes for each state (for API calls).
 # Capital / major-city ZIP used for rate lookups.

@@ -40,7 +40,9 @@ class FeatureFlagService:
            hash decides inclusion.
         """
         result = await self._db.execute(
-            text("SELECT enabled, tier_required, percentage FROM feature_flags WHERE name = :name"),
+            text(
+                "SELECT enabled, tier_required, percentage FROM feature_flags WHERE name = :name"
+            ),
             {"name": flag_name},
         )
         row = result.fetchone()
@@ -60,9 +62,9 @@ class FeatureFlagService:
 
         if percentage < 100 and user_id:
             hash_val = int(
-                hashlib.md5(f"{flag_name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[
-                    :8
-                ],
+                hashlib.md5(
+                    f"{flag_name}:{user_id}".encode(), usedforsecurity=False
+                ).hexdigest()[:8],
                 16,
             )
             if (hash_val % 100) >= percentage:

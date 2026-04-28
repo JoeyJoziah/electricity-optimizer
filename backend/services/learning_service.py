@@ -74,7 +74,9 @@ class LearningService:
         Returns:
             Dict with mape, rmse, count, coverage.
         """
-        async with traced("ml.compute_accuracy", attributes={"ml.region": region, "ml.days": days}):
+        async with traced(
+            "ml.compute_accuracy", attributes={"ml.region": region, "ml.days": days}
+        ):
             return await self._obs.get_forecast_accuracy(region, days)
 
     async def detect_bias(
@@ -113,7 +115,9 @@ class LearningService:
         Returns:
             New weight dict, or None if insufficient data.
         """
-        async with traced("ml.update_weights", attributes={"ml.region": region, "ml.days": days}):
+        async with traced(
+            "ml.update_weights", attributes={"ml.region": region, "ml.days": days}
+        ):
             model_stats = await self._obs.get_model_accuracy_by_version(region, days)
 
         if not model_stats or len(model_stats) < 1:
@@ -207,7 +211,8 @@ class LearningService:
         try:
             from datetime import datetime
 
-            from repositories.model_config_repository import ModelConfigRepository
+            from repositories.model_config_repository import \
+                ModelConfigRepository
 
             repo = ModelConfigRepository(self._db)
             # Build a version string based on the best-performing model
@@ -292,7 +297,8 @@ class LearningService:
         if self._db is None:
             return None
         try:
-            from repositories.model_config_repository import ModelConfigRepository
+            from repositories.model_config_repository import \
+                ModelConfigRepository
 
             repo = ModelConfigRepository(self._db)
             config = await repo.get_active_config(model_name)

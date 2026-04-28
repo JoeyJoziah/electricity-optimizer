@@ -96,7 +96,9 @@ class TestOTLPExporterConfiguration:
             result = observability.init_telemetry(app)
 
         assert result is True
-        mock_exporter_cls.assert_called_once_with(endpoint="https://otlp-gateway.example.net/otlp")
+        mock_exporter_cls.assert_called_once_with(
+            endpoint="https://otlp-gateway.example.net/otlp"
+        )
 
         # Verify a real TracerProvider was installed
         provider = trace.get_tracer_provider()
@@ -203,11 +205,9 @@ class TestSpanExportPayload:
         from opentelemetry import trace
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            SimpleSpanProcessor,
-            SpanExporter,
-            SpanExportResult,
-        )
+        from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                    SpanExporter,
+                                                    SpanExportResult)
 
         class _InMemoryExporter(SpanExporter):
             def __init__(self):
@@ -246,11 +246,9 @@ class TestSpanExportPayload:
         from opentelemetry import trace
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            SimpleSpanProcessor,
-            SpanExporter,
-            SpanExportResult,
-        )
+        from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                    SpanExporter,
+                                                    SpanExportResult)
 
         class _InMemoryExporter(SpanExporter):
             def __init__(self):
@@ -264,7 +262,9 @@ class TestSpanExportPayload:
                 pass
 
         exporter = _InMemoryExporter()
-        provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "rateshift-backend"}))
+        provider = TracerProvider(
+            resource=Resource.create({SERVICE_NAME: "rateshift-backend"})
+        )
         provider.add_span_processor(SimpleSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
 
@@ -287,11 +287,9 @@ class TestSpanExportPayload:
         from opentelemetry import trace
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import (
-            SimpleSpanProcessor,
-            SpanExporter,
-            SpanExportResult,
-        )
+        from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                    SpanExporter,
+                                                    SpanExportResult)
         from opentelemetry.trace import StatusCode
 
         class _InMemoryExporter(SpanExporter):
@@ -306,7 +304,9 @@ class TestSpanExportPayload:
                 pass
 
         exporter = _InMemoryExporter()
-        provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "rateshift-backend"}))
+        provider = TracerProvider(
+            resource=Resource.create({SERVICE_NAME: "rateshift-backend"})
+        )
         provider.add_span_processor(SimpleSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
 

@@ -18,11 +18,7 @@ from uuid import uuid4
 
 import structlog
 
-from models.consent import (
-    ConsentPurpose,
-    ConsentRecord,
-    DeletionLog,
-)
+from models.consent import ConsentPurpose, ConsentRecord, DeletionLog
 
 logger = structlog.get_logger()
 
@@ -200,7 +196,10 @@ class GDPRComplianceService:
             ConsentError: If consent recording fails
         """
         logger.info(
-            "recording_consent", user_id=user_id, purpose=purpose, consent_given=consent_given
+            "recording_consent",
+            user_id=user_id,
+            purpose=purpose,
+            consent_given=consent_given,
         )
 
         try:
@@ -219,12 +218,22 @@ class GDPRComplianceService:
 
             await self.consent_repo.create(record)
 
-            logger.info("consent_recorded", consent_id=record.id, user_id=user_id, purpose=purpose)
+            logger.info(
+                "consent_recorded",
+                consent_id=record.id,
+                user_id=user_id,
+                purpose=purpose,
+            )
 
             return record
 
         except Exception as e:
-            logger.error("consent_recording_failed", user_id=user_id, purpose=purpose, error=str(e))
+            logger.error(
+                "consent_recording_failed",
+                user_id=user_id,
+                purpose=purpose,
+                error=str(e),
+            )
             raise ConsentError(f"Failed to record consent: {str(e)}") from e
 
     async def get_consent_history(
@@ -246,7 +255,9 @@ class GDPRComplianceService:
 
         try:
             if purpose:
-                records = await self.consent_repo.get_by_user_and_purpose(user_id, purpose)
+                records = await self.consent_repo.get_by_user_and_purpose(
+                    user_id, purpose
+                )
             else:
                 records = await self.consent_repo.get_by_user_id(user_id)
 
@@ -357,7 +368,9 @@ class GDPRComplianceService:
                             "user_agent": record.user_agent,
                             "consent_version": record.consent_version,
                             "withdrawal_ts": record.withdrawal_timestamp,
-                            "metadata": json.dumps(record.metadata) if record.metadata else None,
+                            "metadata": (
+                                json.dumps(record.metadata) if record.metadata else None
+                            ),
                         },
                     )
 
@@ -371,7 +384,9 @@ class GDPRComplianceService:
                     user_id=user_id,
                     error=str(e),
                 )
-                raise ConsentError(f"Failed to withdraw all consents atomically: {str(e)}") from e
+                raise ConsentError(
+                    f"Failed to withdraw all consents atomically: {str(e)}"
+                ) from e
         else:
             # Fallback: per-record path (each record_consent commits individually)
             try:
@@ -563,7 +578,9 @@ class GDPRComplianceService:
                                 "type": row["type"],
                                 "title": row["title"],
                                 "body": row.get("body"),
-                                "read_at": str(row["read_at"]) if row.get("read_at") else None,
+                                "read_at": (
+                                    str(row["read_at"]) if row.get("read_at") else None
+                                ),
                                 "created_at": str(row["created_at"]),
                             }
                         )
@@ -594,9 +611,11 @@ class GDPRComplianceService:
                                 "post_type": row["post_type"],
                                 "title": row["title"],
                                 "body": row["body"],
-                                "rate_per_unit": str(row["rate_per_unit"])
-                                if row.get("rate_per_unit")
-                                else None,
+                                "rate_per_unit": (
+                                    str(row["rate_per_unit"])
+                                    if row.get("rate_per_unit")
+                                    else None
+                                ),
                                 "supplier_name": row.get("supplier_name"),
                                 "created_at": str(row["created_at"]),
                             }
@@ -701,7 +720,11 @@ class GDPRComplianceService:
                 "community_posts": community_posts_data,
             }
 
-            logger.info("user_data_exported", user_id=user_id, data_categories=list(export.keys()))
+            logger.info(
+                "user_data_exported",
+                user_id=user_id,
+                data_categories=list(export.keys()),
+            )
 
             return export
 
@@ -761,7 +784,9 @@ class GDPRComplianceService:
             raise UserNotFoundError(user_id)
 
         if not self.db_session:
-            raise DataDeletionError("Database session required for atomic GDPR deletion")
+            raise DataDeletionError(
+                "Database session required for atomic GDPR deletion"
+            )
 
         from sqlalchemy import text as sa_text
 
@@ -795,7 +820,9 @@ class GDPRComplianceService:
             # 4. Handle activity logs
             if anonymize_retained:
                 await self.db_session.execute(
-                    sa_text("UPDATE activity_logs SET user_id = 'anonymized' WHERE user_id = :uid"),
+                    sa_text(
+                        "UPDATE activity_logs SET user_id = 'anonymized' WHERE user_id = :uid"
+                    ),
                     {"uid": user_id},
                 )
             else:
@@ -1006,7 +1033,9 @@ class GDPRComplianceService:
                     error=str(e),
                 )
 
-        logger.info("user_data_deleted", user_id=user_id, categories_deleted=deleted_categories)
+        logger.info(
+            "user_data_deleted", user_id=user_id, categories_deleted=deleted_categories
+        )
 
         return deletion_log
 

@@ -32,7 +32,10 @@ class TestLogSanitizer:
     # ------------------------------------------------------------------
 
     def test_redacts_postgresql_connection_string(self):
-        event = {"event": "db_error", "url": "postgresql://admin:s3cret@db.host:5432/mydb"}
+        event = {
+            "event": "db_error",
+            "url": "postgresql://admin:s3cret@db.host:5432/mydb",
+        }
         result = _sanitize_log_record(_LOGGER, _METHOD, event)
         assert "s3cret" not in result["url"]
         assert "[REDACTED]" in result["url"]
@@ -46,7 +49,10 @@ class TestLogSanitizer:
         assert "[REDACTED]" in result["dsn"]
 
     def test_redacts_redis_connection_string(self):
-        event = {"event": "cache_fail", "url": "redis://default:hunter2@redis.internal:6379"}
+        event = {
+            "event": "cache_fail",
+            "url": "redis://default:hunter2@redis.internal:6379",
+        }
         result = _sanitize_log_record(_LOGGER, _METHOD, event)
         assert "hunter2" not in result["url"]
         assert "[REDACTED]" in result["url"]
@@ -112,7 +118,10 @@ class TestLogSanitizer:
     # ------------------------------------------------------------------
 
     def test_redacts_google_api_key(self):
-        event = {"event": "gemini_init", "key": "AIzaSyD-fake-key-1234567890abcdefghijklm"}
+        event = {
+            "event": "gemini_init",
+            "key": "AIzaSyD-fake-key-1234567890abcdefghijklm",
+        }
         result = _sanitize_log_record(_LOGGER, _METHOD, event)
         assert "AIza" not in result["key"]
         assert "[REDACTED]" in result["key"]
@@ -221,9 +230,9 @@ class TestLogSanitizer:
         """Pattern should be a single pre-compiled re.Pattern (alternation of all sub-patterns)."""
         import re
 
-        assert isinstance(_SANITIZER_PATTERN, re.Pattern), (
-            f"Expected re.Pattern, got {type(_SANITIZER_PATTERN)}"
-        )
+        assert isinstance(
+            _SANITIZER_PATTERN, re.Pattern
+        ), f"Expected re.Pattern, got {type(_SANITIZER_PATTERN)}"
         # The combined alternation should contain at least 7 sub-patterns
         # (postgresql, redis, sk_live, sk_test, re_, gsk_, AIza, Bearer, Authorization)
         assert _SANITIZER_PATTERN.groups >= 0  # Valid compiled regex

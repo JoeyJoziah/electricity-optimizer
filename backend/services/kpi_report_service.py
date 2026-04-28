@@ -42,8 +42,7 @@ class KPIReportService:
             weather_freshness_hours
         """
         # Single CTE query for all scalar metrics (was 5 sequential queries)
-        scalars = await self._db.execute(
-            text("""
+        scalars = await self._db.execute(text("""
                 WITH active AS (
                     SELECT COUNT(DISTINCT "userId") AS val
                     FROM neon_auth.session
@@ -70,8 +69,7 @@ class KPIReportService:
                     (SELECT val FROM prices) AS prices_tracked,
                     (SELECT val FROM alerts) AS alerts_sent_today,
                     (SELECT val FROM freshness) AS weather_freshness
-            """)
-        )
+            """))
         row = scalars.mappings().one()
 
         # Two lightweight GROUP BY queries (breakdown results need row iteration)
@@ -89,29 +87,27 @@ class KPIReportService:
             "connections_active": connections,
             "subscription_breakdown": subscriptions,
             "estimated_mrr": mrr,
-            "weather_freshness_hours": round(float(weather), 1) if weather is not None else None,
+            "weather_freshness_hours": (
+                round(float(weather), 1) if weather is not None else None
+            ),
         }
 
     async def _connection_status_breakdown(self) -> dict[str, int]:
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT status, COUNT(*) AS cnt
                 FROM user_connections
                 GROUP BY status
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return {row["status"]: row["cnt"] for row in rows}
 
     async def _subscription_breakdown(self) -> dict[str, int]:
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT COALESCE(subscription_tier, 'free') AS tier, COUNT(*) AS cnt
                 FROM users
                 WHERE is_active = TRUE
                 GROUP BY subscription_tier
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return {row["tier"]: row["cnt"] for row in rows}
 

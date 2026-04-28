@@ -16,11 +16,8 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from api.dependencies import get_db_session, get_redis
-from models.supplier import (
-    SupplierDetailResponse,
-    SupplierResponse,
-    TariffResponse,
-)
+from models.supplier import (SupplierDetailResponse, SupplierResponse,
+                             TariffResponse)
 from repositories.supplier_repository import SupplierRegistryRepository
 
 logger = structlog.get_logger(__name__)
@@ -89,7 +86,9 @@ class SupplierTariffsResponse(BaseModel):
     },
 )
 async def list_suppliers(
-    region: str | None = Query(None, description="Filter by region (e.g., us_ct, us_ma)"),
+    region: str | None = Query(
+        None, description="Filter by region (e.g., us_ct, us_ma)"
+    ),
     utility_type: str | None = Query(
         None,
         description="Filter by utility type (electricity, natural_gas, heating_oil, propane, community_solar)",
@@ -169,7 +168,9 @@ async def list_registry_suppliers(
                 "id": s["id"],
                 "name": s["name"],
                 "region": s["regions"][0] if s.get("regions") else None,
-                "utility_type": s["utility_types"][0] if s.get("utility_types") else "electricity",
+                "utility_type": (
+                    s["utility_types"][0] if s.get("utility_types") else "electricity"
+                ),
             }
             for s in api_suppliers
         ]
@@ -361,7 +362,9 @@ async def get_suppliers_by_region(
 )
 async def compare_suppliers(
     region: str = Path(..., description="Region code"),
-    utility_type: str | None = Query("electricity", description="Utility type to compare"),
+    utility_type: str | None = Query(
+        "electricity", description="Utility type to compare"
+    ),
     tariff_type: str | None = Query(None, description="Filter by tariff type"),
     db=Depends(get_db_session),
     redis=Depends(get_redis),

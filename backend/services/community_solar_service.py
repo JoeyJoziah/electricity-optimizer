@@ -69,13 +69,17 @@ class CommunitySolarService:
                 "state": r["state"],
                 "program_name": r["program_name"],
                 "provider": r["provider"],
-                "savings_percent": str(r["savings_percent"]) if r["savings_percent"] else None,
+                "savings_percent": (
+                    str(r["savings_percent"]) if r["savings_percent"] else None
+                ),
                 "capacity_kw": str(r["capacity_kw"]) if r["capacity_kw"] else None,
                 "spots_available": r["spots_available"],
                 "enrollment_url": r["enrollment_url"],
                 "enrollment_status": r["enrollment_status"],
                 "description": r["description"],
-                "min_bill_amount": str(r["min_bill_amount"]) if r["min_bill_amount"] else None,
+                "min_bill_amount": (
+                    str(r["min_bill_amount"]) if r["min_bill_amount"] else None
+                ),
                 "contract_months": r["contract_months"],
                 "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
             }
@@ -104,13 +108,17 @@ class CommunitySolarService:
             "state": r["state"],
             "program_name": r["program_name"],
             "provider": r["provider"],
-            "savings_percent": str(r["savings_percent"]) if r["savings_percent"] else None,
+            "savings_percent": (
+                str(r["savings_percent"]) if r["savings_percent"] else None
+            ),
             "capacity_kw": str(r["capacity_kw"]) if r["capacity_kw"] else None,
             "spots_available": r["spots_available"],
             "enrollment_url": r["enrollment_url"],
             "enrollment_status": r["enrollment_status"],
             "description": r["description"],
-            "min_bill_amount": str(r["min_bill_amount"]) if r["min_bill_amount"] else None,
+            "min_bill_amount": (
+                str(r["min_bill_amount"]) if r["min_bill_amount"] else None
+            ),
             "contract_months": r["contract_months"],
             "created_at": r["created_at"].isoformat() if r["created_at"] else None,
             "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
@@ -135,8 +143,12 @@ class CommunitySolarService:
         monthly_savings = (monthly_bill * savings_rate).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
-        annual_savings = (monthly_savings * 12).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        five_year_savings = (annual_savings * 5).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        annual_savings = (monthly_savings * 12).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        five_year_savings = (annual_savings * 5).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
         new_monthly_bill = (monthly_bill - monthly_savings).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
@@ -152,14 +164,12 @@ class CommunitySolarService:
 
     async def get_state_program_count(self) -> dict:
         """Get count of open community solar programs per state."""
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT state, COUNT(*) as program_count
                 FROM community_solar_programs
                 WHERE enrollment_status IN ('open', 'waitlist')
                 GROUP BY state
                 ORDER BY program_count DESC
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return {r["state"]: r["program_count"] for r in rows}

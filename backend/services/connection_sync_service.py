@@ -99,7 +99,9 @@ class ConnectionSyncService:
         The connection's ``last_sync_at`` / ``last_sync_error`` / ``status``
         columns are updated before returning.
         """
-        async with traced("sync.connection", attributes={"sync.connection_id": connection_id}):
+        async with traced(
+            "sync.connection", attributes={"sync.connection_id": connection_id}
+        ):
             log = logger.bind(connection_id=connection_id)
             log.info("sync_connection_start")
 
@@ -226,7 +228,9 @@ class ConnectionSyncService:
                 await self._batch_insert_extracted_rates(connection_id, new_rates)
 
             # ---- 7. Update sync state ------------------------------------------
-            combined_error = "; ".join(rate_errors) if rate_errors and not new_rates else None
+            combined_error = (
+                "; ".join(rate_errors) if rate_errors and not new_rates else None
+            )
             success = len(rate_errors) == 0 or len(new_rates) > 0
 
             await self._persist_sync_result(
@@ -368,7 +372,9 @@ class ConnectionSyncService:
             return None
 
         last_sync_at: datetime | None = row.get("last_sync_at")
-        freq: int = int(row.get("sync_frequency_hours") or _DEFAULT_SYNC_FREQUENCY_HOURS)
+        freq: int = int(
+            row.get("sync_frequency_hours") or _DEFAULT_SYNC_FREQUENCY_HOURS
+        )
 
         next_sync_at: datetime | None = None
         if last_sync_at is not None:
@@ -423,7 +429,9 @@ class ConnectionSyncService:
         placeholders = []
         params: dict = {}
         for i, rate_data in enumerate(rate_records):
-            placeholders.append(f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})")
+            placeholders.append(
+                f"(:id{i}, :cid{i}, :rate{i}, :eff_date{i}, :source{i}, :label{i})"
+            )
             params[f"id{i}"] = str(uuid4())
             params[f"cid{i}"] = connection_id
             params[f"rate{i}"] = rate_data["rate_per_kwh"]

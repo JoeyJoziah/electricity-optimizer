@@ -36,7 +36,9 @@ class UpsertPreferenceRequest(BaseModel):
     utility_type: str = Field(
         description="Utility type: electricity, natural_gas, heating_oil, etc."
     )
-    enabled: bool | None = Field(default=None, description="Enable/disable alerts for this utility")
+    enabled: bool | None = Field(
+        default=None, description="Enable/disable alerts for this utility"
+    )
     channels: list[str] | None = Field(
         default=None,
         description="Notification channels: email, push, in_app",
@@ -58,7 +60,9 @@ class UpsertPreferenceRequest(BaseModel):
     response_description="Recent rate changes across utility types",
 )
 async def get_rate_changes(
-    utility_type: str | None = Query(default=None, description="Filter by utility type"),
+    utility_type: str | None = Query(
+        default=None, description="Filter by utility type"
+    ),
     region: str | None = Query(default=None, description="Filter by region/state"),
     days: int = Query(default=7, ge=1, le=90, description="Look back N days"),
     limit: int = Query(default=50, ge=1, le=200, description="Max results"),
@@ -124,7 +128,13 @@ async def upsert_preference(
             detail="Database unavailable",
         )
 
-    valid_types = {"electricity", "natural_gas", "heating_oil", "propane", "community_solar"}
+    valid_types = {
+        "electricity",
+        "natural_gas",
+        "heating_oil",
+        "propane",
+        "community_solar",
+    }
     if body.utility_type not in valid_types:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

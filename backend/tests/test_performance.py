@@ -66,7 +66,9 @@ class TestRecommendationQueryCount:
             }
         ]
 
-    async def test_daily_recommendations_max_3_queries(self, mock_user, mock_prices, mock_windows):
+    async def test_daily_recommendations_max_3_queries(
+        self, mock_user, mock_prices, mock_windows
+    ):
         """get_daily_recommendations should make at most 3 service/repo calls."""
         from services.recommendation_service import RecommendationService
 
@@ -119,7 +121,9 @@ class TestRecommendationQueryCount:
         assert result["switching_recommendation"] is None
         assert result["usage_recommendations"] == []
 
-    async def test_individual_methods_still_work(self, mock_user, mock_prices, mock_windows):
+    async def test_individual_methods_still_work(
+        self, mock_user, mock_prices, mock_windows
+    ):
         """Public methods get_switching_recommendation and get_usage_recommendation
         still work independently (they fetch their own data)."""
         from services.recommendation_service import RecommendationService
@@ -163,7 +167,10 @@ class TestAnalyticsCaching:
     def mock_repo(self):
         repo = AsyncMock()
         repo.get_hourly_price_averages = AsyncMock(
-            return_value=[{"hour": h, "avg_price": Decimal("0.20"), "count": 10} for h in range(24)]
+            return_value=[
+                {"hour": h, "avg_price": Decimal("0.20"), "count": 10}
+                for h in range(24)
+            ]
         )
         repo.get_supplier_price_stats = AsyncMock(
             return_value=[
@@ -192,7 +199,8 @@ class TestAnalyticsCaching:
         data_calls = [
             c
             for c in mock_cache.set.call_args_list
-            if c.kwargs.get("ex") == 900 or (len(c.args) > 1 and c.kwargs.get("ex") == 900)
+            if c.kwargs.get("ex") == 900
+            or (len(c.args) > 1 and c.kwargs.get("ex") == 900)
         ]
         assert len(data_calls) == 1
 
@@ -228,7 +236,9 @@ class TestAnalyticsCaching:
         await service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
 
         # Find the data caching call (the one with ex=3600)
-        data_calls = [c for c in mock_cache.set.call_args_list if c.kwargs.get("ex") == 3600]
+        data_calls = [
+            c for c in mock_cache.set.call_args_list if c.kwargs.get("ex") == 3600
+        ]
         assert len(data_calls) == 1
 
     async def test_price_trend_caches_result(self, mock_repo, mock_cache):
@@ -247,7 +257,9 @@ class TestAnalyticsCaching:
         await service.get_price_trend(PriceRegion.US_CT, days=7)
 
         # Find the data caching call (the one with ex=900)
-        data_calls = [c for c in mock_cache.set.call_args_list if c.kwargs.get("ex") == 900]
+        data_calls = [
+            c for c in mock_cache.set.call_args_list if c.kwargs.get("ex") == 900
+        ]
         assert len(data_calls) == 1
 
     async def test_no_cache_still_works(self, mock_repo):
@@ -350,7 +362,9 @@ class TestStripeNonBlocking:
         with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
             mock_to_thread.return_value = mock_sub
 
-            result = await stripe_service.cancel_subscription("sub_test", cancel_immediately=True)
+            result = await stripe_service.cancel_subscription(
+                "sub_test", cancel_immediately=True
+            )
 
             mock_to_thread.assert_called_once()
             assert result["status"] == "canceled"
@@ -367,7 +381,9 @@ class TestStripeNonBlocking:
         with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
             mock_to_thread.return_value = mock_sub
 
-            result = await stripe_service.cancel_subscription("sub_test", cancel_immediately=False)
+            result = await stripe_service.cancel_subscription(
+                "sub_test", cancel_immediately=False
+            )
 
             mock_to_thread.assert_called_once()
             assert result["cancel_at_period_end"] is True
@@ -422,7 +438,10 @@ class TestSQLAggregation:
 
         repo = AsyncMock()
         repo.get_hourly_price_averages = AsyncMock(
-            return_value=[{"hour": h, "avg_price": Decimal("0.20"), "count": 10} for h in range(24)]
+            return_value=[
+                {"hour": h, "avg_price": Decimal("0.20"), "count": 10}
+                for h in range(24)
+            ]
         )
 
         service = AnalyticsService(repo)
@@ -450,7 +469,9 @@ class TestSQLAggregation:
         )
 
         service = AnalyticsService(repo)
-        result = await service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
+        result = await service.get_supplier_comparison_analytics(
+            PriceRegion.US_CT, days=30
+        )
 
         repo.get_supplier_price_stats.assert_called_once()
         repo.get_historical_prices.assert_not_called()
@@ -496,8 +517,20 @@ class TestLearningServiceSQLAggregation:
         from services.learning_service import LearningService
 
         mock_obs.get_model_accuracy_by_version.return_value = [
-            {"model_version": "v2.1", "mape": 3.5, "rmse": 0.011, "coverage": 91.0, "count": 120},
-            {"model_version": "v2.0", "mape": 6.2, "rmse": 0.019, "coverage": 84.0, "count": 95},
+            {
+                "model_version": "v2.1",
+                "mape": 3.5,
+                "rmse": 0.011,
+                "coverage": 91.0,
+                "count": 120,
+            },
+            {
+                "model_version": "v2.0",
+                "mape": 6.2,
+                "rmse": 0.019,
+                "coverage": 84.0,
+                "count": 95,
+            },
         ]
 
         service = LearningService(
@@ -521,7 +554,13 @@ class TestLearningServiceSQLAggregation:
         from services.learning_service import LearningService
 
         returned_stats = [
-            {"model_version": "v2.1", "mape": 4.0, "rmse": 0.012, "coverage": 88.5, "count": 60},
+            {
+                "model_version": "v2.1",
+                "mape": 4.0,
+                "rmse": 0.012,
+                "coverage": 88.5,
+                "count": 60,
+            },
         ]
         mock_obs.get_model_accuracy_by_version.return_value = returned_stats
 
@@ -718,7 +757,8 @@ class TestForecastObservationBatchInsert:
 
     @pytest.fixture
     def repo(self, db):
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         return ForecastObservationRepository(db)
 
@@ -775,6 +815,7 @@ class TestForecastObservationBatchInsert:
 
     async def test_batch_size_constant(self, repo):
         """_INSERT_BATCH_SIZE should be 20."""
-        from repositories.forecast_observation_repository import ForecastObservationRepository
+        from repositories.forecast_observation_repository import \
+            ForecastObservationRepository
 
         assert ForecastObservationRepository._INSERT_BATCH_SIZE == 20

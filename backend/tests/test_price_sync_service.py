@@ -125,7 +125,8 @@ class TestSyncPrices:
                 return_value=mock_pricing_svc,
             ),
         ):
-            from services.price_sync_service import DEFAULT_REGIONS, sync_prices
+            from services.price_sync_service import (DEFAULT_REGIONS,
+                                                     sync_prices)
 
             await sync_prices(mock_db, regions=None)
 
@@ -216,7 +217,9 @@ class TestSyncPrices:
         mock_pricing_svc = AsyncMock()
         mock_pricing_svc.__aenter__ = AsyncMock(return_value=mock_pricing_svc)
         mock_pricing_svc.__aexit__ = AsyncMock(return_value=False)
-        mock_pricing_svc.compare_prices = AsyncMock(side_effect=RuntimeError("Connection reset"))
+        mock_pricing_svc.compare_prices = AsyncMock(
+            side_effect=RuntimeError("Connection reset")
+        )
 
         mock_logger = MagicMock()
 

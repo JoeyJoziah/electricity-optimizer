@@ -196,7 +196,9 @@ class PlanScorer:
                 }
 
             monthly_cost = monthly_cost.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
-            annual_cost = (monthly_cost * 12).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+            annual_cost = (monthly_cost * 12).quantize(
+                _TWO_PLACES, rounding=ROUND_HALF_UP
+            )
             confidence = self._calc_confidence(usage)
 
             logger.debug(
@@ -268,9 +270,9 @@ class PlanScorer:
         annual_savings = monthly_savings * 12
 
         if current_score.projected_monthly_cost > 0:
-            savings_pct = (monthly_savings / current_score.projected_monthly_cost * 100).quantize(
-                _TWO_PLACES, rounding=ROUND_HALF_UP
-            )
+            savings_pct = (
+                monthly_savings / current_score.projected_monthly_cost * 100
+            ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
         else:
             savings_pct = Decimal("0")
 
@@ -393,7 +395,9 @@ class PlanScorer:
         confidence = min(confidence, Decimal("1.0"))
         return confidence.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
-    def _tou_breakdown(self, rate: RateStructure, usage: UsageProfile) -> dict[str, Any]:
+    def _tou_breakdown(
+        self, rate: RateStructure, usage: UsageProfile
+    ) -> dict[str, Any]:
         """Build a cost breakdown dict for a TOU plan.
 
         Args:
@@ -405,7 +409,11 @@ class PlanScorer:
         """
         return {
             "peak_cost": float(usage.monthly_kwh * usage.peak_kwh_pct * rate.peak_rate),
-            "off_peak_cost": float(usage.monthly_kwh * usage.off_peak_kwh_pct * rate.off_peak_rate),
-            "shoulder_cost": float(usage.monthly_kwh * usage.shoulder_kwh_pct * rate.shoulder_rate),
+            "off_peak_cost": float(
+                usage.monthly_kwh * usage.off_peak_kwh_pct * rate.off_peak_rate
+            ),
+            "shoulder_cost": float(
+                usage.monthly_kwh * usage.shoulder_kwh_pct * rate.shoulder_rate
+            ),
             "fixed_charge": float(rate.fixed_charge),
         }

@@ -57,13 +57,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-from models.model_version import (
-    ABAssignment,
-    ABOutcome,
-    ABTest,
-    ModelVersion,
-    VersionComparisonResult,
-)
+from models.model_version import (ABAssignment, ABOutcome, ABTest,
+                                  ModelVersion, VersionComparisonResult)
 
 logger = structlog.get_logger(__name__)
 
@@ -173,8 +168,12 @@ class ModelVersionService:
         Returns:
             The persisted ModelVersion with a generated UUID id.
         """
-        async with traced("ml.create_version", attributes={"ml.model_name": model_name}):
-            return await self._create_version_inner(model_name, config, metrics, version_tag)
+        async with traced(
+            "ml.create_version", attributes={"ml.model_name": model_name}
+        ):
+            return await self._create_version_inner(
+                model_name, config, metrics, version_tag
+            )
 
     async def _create_version_inner(
         self,
@@ -294,7 +293,9 @@ class ModelVersionService:
         Raises:
             ValueError: If the version_id does not exist.
         """
-        async with traced("ml.promote_version", attributes={"ml.version_id": version_id}):
+        async with traced(
+            "ml.promote_version", attributes={"ml.version_id": version_id}
+        ):
             return await self._promote_version_inner(version_id)
 
     async def _promote_version_inner(self, version_id: str) -> ModelVersion:

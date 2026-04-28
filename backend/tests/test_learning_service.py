@@ -148,7 +148,9 @@ class TestUpdateEnsembleWeights:
 
         assert result is None
 
-    async def test_single_model_gets_clamped_weight(self, service, mock_obs, mock_redis):
+    async def test_single_model_gets_clamped_weight(
+        self, service, mock_obs, mock_redis
+    ):
         """A single model should get weight=1.0 (full share after clamping+normalization)."""
         mock_obs.get_model_accuracy_by_version.return_value = [
             {"model_version": "v2.1", "mape": 5.0, "rmse": 0.01, "count": 50},
@@ -162,7 +164,9 @@ class TestUpdateEnsembleWeights:
         # Re-normalized: 0.8/0.8 = 1.0
         assert result["v2.1"] == 1.0
 
-    async def test_two_models_inverse_mape_weighting(self, service, mock_obs, mock_redis):
+    async def test_two_models_inverse_mape_weighting(
+        self, service, mock_obs, mock_redis
+    ):
         """Two models: lower MAPE should get higher weight."""
         mock_obs.get_model_accuracy_by_version.return_value = [
             {"model_version": "v2.1", "mape": 5.0, "rmse": 0.01, "count": 50},
@@ -271,7 +275,9 @@ class TestUpdateEnsembleWeights:
         assert result is not None
         mock_logger.warning.assert_called_once()
 
-    async def test_weights_are_rounded_to_four_decimals(self, service, mock_obs, mock_redis):
+    async def test_weights_are_rounded_to_four_decimals(
+        self, service, mock_obs, mock_redis
+    ):
         """All weight values should be rounded to 4 decimal places."""
         mock_obs.get_model_accuracy_by_version.return_value = [
             {"model_version": "v2.1", "mape": 3.0, "count": 40},
@@ -450,7 +456,9 @@ class TestRunFullCycle:
         # get_forecast_accuracy called 3 times
         assert mock_obs.get_forecast_accuracy.await_count == 3
 
-    async def test_weights_updated_populated(self, service, mock_obs, mock_vs, mock_redis):
+    async def test_weights_updated_populated(
+        self, service, mock_obs, mock_vs, mock_redis
+    ):
         """Should populate weights_updated when model stats available."""
         mock_obs.get_forecast_accuracy.return_value = {
             "total": 100,
@@ -522,7 +530,9 @@ class TestRunFullCycle:
         assert len(mape_calls) == 1
         assert mape_calls[0][0][1] == "4.5"
 
-    async def test_redis_mape_skipped_when_none(self, service, mock_obs, mock_vs, mock_redis):
+    async def test_redis_mape_skipped_when_none(
+        self, service, mock_obs, mock_vs, mock_redis
+    ):
         """Should NOT write MAPE to Redis when accuracy returns None."""
         mock_obs.get_forecast_accuracy.return_value = {
             "total": 0,
@@ -540,7 +550,9 @@ class TestRunFullCycle:
         mape_calls = [c for c in calls if c[0][0] == "model:recent_mape"]
         assert len(mape_calls) == 0
 
-    async def test_redis_mape_error_does_not_raise(self, service, mock_obs, mock_vs, mock_redis):
+    async def test_redis_mape_error_does_not_raise(
+        self, service, mock_obs, mock_vs, mock_redis
+    ):
         """Redis failure during MAPE store should not crash the cycle."""
         mock_obs.get_forecast_accuracy.return_value = {
             "total": 100,

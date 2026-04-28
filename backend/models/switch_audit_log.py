@@ -18,7 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # Enums (expressed as Literal types to stay Pydantic-native)
 # ---------------------------------------------------------------------------
 
-TriggerType = Literal["market_scan", "price_spike", "contract_expiry", "rate_change", "manual"]
+TriggerType = Literal[
+    "market_scan", "price_spike", "contract_expiry", "rate_change", "manual"
+]
 DecisionAction = Literal["switch", "recommend", "hold", "monitor"]
 UserTier = Literal["pro", "business"]
 
