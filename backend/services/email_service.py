@@ -138,7 +138,9 @@ class EmailService:
 
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
-            msg["From"] = f"{self._settings.email_from_name} <{self._settings.email_from_address}>"
+            msg["From"] = (
+                f"{self._settings.email_from_name} <{self._settings.email_from_address}>"
+            )
             msg["To"] = to
 
             if text_body:

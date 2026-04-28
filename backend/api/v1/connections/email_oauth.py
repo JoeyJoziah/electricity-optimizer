@@ -23,11 +23,8 @@ from starlette.responses import RedirectResponse
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
-from models.connections import (
-    CreateEmailConnectionRequest,
-    EmailConnectionInitResponse,
-    EmailScanResponse,
-)
+from models.connections import (CreateEmailConnectionRequest,
+                                EmailConnectionInitResponse, EmailScanResponse)
 
 logger = structlog.get_logger(__name__)
 
@@ -54,23 +51,25 @@ async def create_email_connection(
     Initiate an email-import connection.
     Creates a pending connection and returns the OAuth consent URL.
     """
-    from services.email_oauth_service import (
-        get_gmail_consent_url,
-        get_outlook_consent_url,
-    )
-    from services.email_oauth_service import (
-        settings as _oauth_settings,
-    )
+    from services.email_oauth_service import (get_gmail_consent_url,
+                                              get_outlook_consent_url)
+    from services.email_oauth_service import settings as _oauth_settings
 
     # Fail fast if OAuth credentials are not configured for the requested provider
     if payload.provider == "gmail":
-        if not _oauth_settings.gmail_client_id or not _oauth_settings.gmail_client_secret:
+        if (
+            not _oauth_settings.gmail_client_id
+            or not _oauth_settings.gmail_client_secret
+        ):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Gmail connection is not yet configured. Please try bill upload instead.",
             )
     else:
-        if not _oauth_settings.outlook_client_id or not _oauth_settings.outlook_client_secret:
+        if (
+            not _oauth_settings.outlook_client_id
+            or not _oauth_settings.outlook_client_secret
+        ):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Outlook connection is not yet configured. Please try bill upload instead.",
@@ -79,9 +78,13 @@ async def create_email_connection(
     connection_id = str(uuid4())
 
     if payload.provider == "gmail":
-        redirect_url = get_gmail_consent_url(connection_id, user_id=current_user.user_id)
+        redirect_url = get_gmail_consent_url(
+            connection_id, user_id=current_user.user_id
+        )
     else:
-        redirect_url = get_outlook_consent_url(connection_id, user_id=current_user.user_id)
+        redirect_url = get_outlook_consent_url(
+            connection_id, user_id=current_user.user_id
+        )
 
     await db.execute(
         text("""
@@ -90,7 +93,11 @@ async def create_email_connection(
             VALUES
                 (:id, :uid, 'email_import', :provider, 'pending', NOW())
         """),
-        {"id": connection_id, "uid": current_user.user_id, "provider": payload.provider},
+        {
+            "id": connection_id,
+            "uid": current_user.user_id,
+            "provider": payload.provider,
+        },
     )
     await db.commit()
 
@@ -125,12 +132,10 @@ async def email_oauth_callback(
     """
     import httpx as _httpx
 
-    from services.email_oauth_service import (
-        encrypt_tokens,
-        exchange_gmail_code,
-        exchange_outlook_code,
-        verify_oauth_state,
-    )
+    from services.email_oauth_service import (encrypt_tokens,
+                                              exchange_gmail_code,
+                                              exchange_outlook_code,
+                                              verify_oauth_state)
 
     # Verify state (includes timestamp expiry and HMAC integrity)
     connection_id, state_user_id = verify_oauth_state(state)
@@ -139,7 +144,9 @@ async def email_oauth_callback(
 
     # Look up connection (include user_id for ownership verification)
     result = await db.execute(
-        text("SELECT id, user_id, email_provider, status FROM user_connections WHERE id = :cid"),
+        text(
+            "SELECT id, user_id, email_provider, status FROM user_connections WHERE id = :cid"
+        ),
         {"cid": connection_id},
     )
     row = result.mappings().first()
@@ -260,14 +267,12 @@ async def trigger_email_scan(
     """
     import httpx as _httpx
 
-    from services.email_scanner_service import (
-        download_gmail_attachments,
-        download_outlook_attachments,
-        extract_rates_from_attachments,
-        extract_rates_from_email,
-        scan_gmail_inbox,
-        scan_outlook_inbox,
-    )
+    from services.email_scanner_service import (download_gmail_attachments,
+                                                download_outlook_attachments,
+                                                extract_rates_from_attachments,
+                                                extract_rates_from_email,
+                                                scan_gmail_inbox,
+                                                scan_outlook_inbox)
     from utils.encryption import decrypt_field as _decrypt_field
 
     result = await db.execute(
@@ -289,17 +294,19 @@ async def trigger_email_scan(
     raw_access = row["oauth_access_token"]
     enc_access = bytes(raw_access) if raw_access is not None else None
     if not enc_access:
-        raise HTTPException(status_code=409, detail="No OAuth token found for connection")
+        raise HTTPException(
+            status_code=409, detail="No OAuth token found for connection"
+        )
     access_token = _decrypt_field(enc_access)
 
     # Check if token expired and refresh if needed
-    if row["oauth_token_expires_at"] and row["oauth_token_expires_at"] < datetime.now(UTC):
+    if row["oauth_token_expires_at"] and row["oauth_token_expires_at"] < datetime.now(
+        UTC
+    ):
         if row["oauth_refresh_token"]:
-            from services.email_oauth_service import (
-                encrypt_tokens,
-                refresh_gmail_token,
-                refresh_outlook_token,
-            )
+            from services.email_oauth_service import (encrypt_tokens,
+                                                      refresh_gmail_token,
+                                                      refresh_outlook_token)
 
             enc_refresh = bytes(row["oauth_refresh_token"])
             try:
@@ -364,7 +371,9 @@ async def trigger_email_scan(
     for bill in utility_bills:
         # 1. Extract rates from email body text
         try:
-            body_rates = await extract_rates_from_email(provider, access_token, bill.email_id)
+            body_rates = await extract_rates_from_email(
+                provider, access_token, bill.email_id
+            )
             if body_rates.get("rate_per_kwh") is not None:
                 extracted_rates.append(
                     {
@@ -387,9 +396,13 @@ async def trigger_email_scan(
         if bill.attachment_count > 0:
             try:
                 if provider == "gmail":
-                    attachments = await download_gmail_attachments(access_token, bill.email_id)
+                    attachments = await download_gmail_attachments(
+                        access_token, bill.email_id
+                    )
                 else:
-                    attachments = await download_outlook_attachments(access_token, bill.email_id)
+                    attachments = await download_outlook_attachments(
+                        access_token, bill.email_id
+                    )
 
                 if attachments:
                     att_results = await extract_rates_from_attachments(attachments)
@@ -426,15 +439,13 @@ async def trigger_email_scan(
     if extracted_rates:
         try:
             await db.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO connection_extracted_rates
                         (id, connection_id, rate_per_kwh, effective_date, source, raw_label)
                     VALUES
                         (:id, :cid, :rate, NOW(), :source, :label)
                     ON CONFLICT (id) DO NOTHING
-                    """
-                ),
+                    """),
                 extracted_rates,
             )
             await db.commit()

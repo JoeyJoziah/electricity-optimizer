@@ -55,7 +55,9 @@ class Settings(BaseSettings):
     db_pool_size: int = Field(default=5, validation_alias="DB_POOL_SIZE")
     db_max_overflow: int = Field(default=10, validation_alias="DB_MAX_OVERFLOW")
     # Redis connection pool
-    redis_max_connections: int = Field(default=20, validation_alias="REDIS_MAX_CONNECTIONS")
+    redis_max_connections: int = Field(
+        default=20, validation_alias="REDIS_MAX_CONNECTIONS"
+    )
 
     # Redis
     redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
@@ -68,13 +70,19 @@ class Settings(BaseSettings):
     )
 
     # Service-to-service API key (must NOT be the same as jwt_secret)
-    internal_api_key: str | None = Field(default=None, validation_alias="INTERNAL_API_KEY")
+    internal_api_key: str | None = Field(
+        default=None, validation_alias="INTERNAL_API_KEY"
+    )
 
     # Better Auth session token signing secret
-    better_auth_secret: str | None = Field(default=None, validation_alias="BETTER_AUTH_SECRET")
+    better_auth_secret: str | None = Field(
+        default=None, validation_alias="BETTER_AUTH_SECRET"
+    )
 
     # External APIs
-    flatpeak_api_key: str | None = Field(default=None, validation_alias="FLATPEAK_API_KEY")
+    flatpeak_api_key: str | None = Field(
+        default=None, validation_alias="FLATPEAK_API_KEY"
+    )
     nrel_api_key: str | None = Field(default=None, validation_alias="NREL_API_KEY")
     nrel_api_base_url: str = Field(
         default="https://developer.nrel.gov/api/utility_rates/v3",
@@ -83,45 +91,67 @@ class Settings(BaseSettings):
     iea_api_key: str | None = Field(default=None, validation_alias="IEA_API_KEY")
     eia_api_key: str | None = Field(default=None, validation_alias="EIA_API_KEY")
     utilityapi_key: str | None = Field(default=None, validation_alias="UTILITYAPI_KEY")
-    openvolt_api_key: str | None = Field(default=None, validation_alias="OPENVOLT_API_KEY")
+    openvolt_api_key: str | None = Field(
+        default=None, validation_alias="OPENVOLT_API_KEY"
+    )
     openweathermap_api_key: str | None = Field(
         default=None, validation_alias="OPENWEATHERMAP_API_KEY"
     )
 
     # Auto Rate Switcher (EnergyBot — plan comparison/enrollment, Arcadia — meter data)
-    energybot_api_key: str | None = Field(default=None, validation_alias="ENERGYBOT_API_KEY")
-    arcadia_api_key: str | None = Field(default=None, validation_alias="ARCADIA_API_KEY")
+    energybot_api_key: str | None = Field(
+        default=None, validation_alias="ENERGYBOT_API_KEY"
+    )
+    arcadia_api_key: str | None = Field(
+        default=None, validation_alias="ARCADIA_API_KEY"
+    )
 
     # Rate Scraping (Diffbot — free tier, 10K credits/month)
-    diffbot_api_token: str | None = Field(default=None, validation_alias="DIFFBOT_API_TOKEN")
+    diffbot_api_token: str | None = Field(
+        default=None, validation_alias="DIFFBOT_API_TOKEN"
+    )
 
     # Market Intelligence (Tavily — free tier, 1K searches/month)
     tavily_api_key: str | None = Field(default=None, validation_alias="TAVILY_API_KEY")
 
     # Geocoding (Google Maps — free tier, 10K geocodes/month, card required)
-    google_maps_api_key: str | None = Field(default=None, validation_alias="GOOGLE_MAPS_API_KEY")
+    google_maps_api_key: str | None = Field(
+        default=None, validation_alias="GOOGLE_MAPS_API_KEY"
+    )
 
     # Push Notifications (OneSignal — free tier, unlimited mobile push)
-    onesignal_app_id: str | None = Field(default=None, validation_alias="ONESIGNAL_APP_ID")
+    onesignal_app_id: str | None = Field(
+        default=None, validation_alias="ONESIGNAL_APP_ID"
+    )
     onesignal_rest_api_key: str | None = Field(
         default=None, validation_alias="ONESIGNAL_REST_API_KEY"
     )
 
     # Uptime Monitoring (UptimeRobot — free tier, 50 monitors)
-    uptimerobot_api_key: str | None = Field(default=None, validation_alias="UPTIMEROBOT_API_KEY")
+    uptimerobot_api_key: str | None = Field(
+        default=None, validation_alias="UPTIMEROBOT_API_KEY"
+    )
 
     # Rate Limiting
-    rate_limit_per_minute: int = Field(default=100, validation_alias="RATE_LIMIT_PER_MINUTE")
-    rate_limit_per_hour: int = Field(default=1000, validation_alias="RATE_LIMIT_PER_HOUR")
+    rate_limit_per_minute: int = Field(
+        default=100, validation_alias="RATE_LIMIT_PER_MINUTE"
+    )
+    rate_limit_per_hour: int = Field(
+        default=1000, validation_alias="RATE_LIMIT_PER_HOUR"
+    )
 
     # GDPR & Compliance
-    data_retention_days: int = Field(default=730, validation_alias="DATA_RETENTION_DAYS")
+    data_retention_days: int = Field(
+        default=730, validation_alias="DATA_RETENTION_DAYS"
+    )
     consent_required: bool = Field(default=True, validation_alias="CONSENT_REQUIRED")
     data_residency: str = Field(default="US", validation_alias="DATA_RESIDENCY")
 
     # ML Model Configuration
     model_path: str | None = Field(default=None, validation_alias="MODEL_PATH")
-    model_forecast_hours: int = Field(default=24, validation_alias="MODEL_FORECAST_HOURS")
+    model_forecast_hours: int = Field(
+        default=24, validation_alias="MODEL_FORECAST_HOURS"
+    )
     model_retrain_interval_days: int = Field(
         default=7, validation_alias="MODEL_RETRAIN_INTERVAL_DAYS"
     )
@@ -140,14 +170,20 @@ class Settings(BaseSettings):
     email_from_address: str = Field(
         default="noreply@rateshift.app", validation_alias="EMAIL_FROM_ADDRESS"
     )
-    email_from_name: str = Field(default="RateShift", validation_alias="EMAIL_FROM_NAME")
+    email_from_name: str = Field(
+        default="RateShift", validation_alias="EMAIL_FROM_NAME"
+    )
 
     # Stripe Billing
-    stripe_secret_key: str | None = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
+    stripe_secret_key: str | None = Field(
+        default=None, validation_alias="STRIPE_SECRET_KEY"
+    )
     stripe_webhook_secret: str | None = Field(
         default=None, validation_alias="STRIPE_WEBHOOK_SECRET"
     )
-    stripe_price_pro: str | None = Field(default=None, validation_alias="STRIPE_PRICE_PRO")
+    stripe_price_pro: str | None = Field(
+        default=None, validation_alias="STRIPE_PRICE_PRO"
+    )
     stripe_price_business: str | None = Field(
         default=None, validation_alias="STRIPE_PRICE_BUSINESS"
     )
@@ -158,7 +194,9 @@ class Settings(BaseSettings):
     # code changes (set STRIPE_MRR_PRICE_PRO / STRIPE_MRR_PRICE_BUSINESS on Render).
     # These are the amounts billed in USD cents (4.99 and 14.99 dollars respectively)
     # used only for KPI report MRR estimation; they do NOT affect Stripe billing.
-    stripe_mrr_price_pro: float = Field(default=4.99, validation_alias="STRIPE_MRR_PRICE_PRO")
+    stripe_mrr_price_pro: float = Field(
+        default=4.99, validation_alias="STRIPE_MRR_PRICE_PRO"
+    )
     stripe_mrr_price_business: float = Field(
         default=14.99, validation_alias="STRIPE_MRR_PRICE_BUSINESS"
     )
@@ -185,7 +223,9 @@ class Settings(BaseSettings):
         return [domain.strip() for domain in raw.split(",") if domain.strip()]
 
     # Field-level encryption (AES-256-GCM for account numbers etc.)
-    field_encryption_key: str | None = Field(default=None, validation_alias="FIELD_ENCRYPTION_KEY")
+    field_encryption_key: str | None = Field(
+        default=None, validation_alias="FIELD_ENCRYPTION_KEY"
+    )
     # Previous encryption key for seamless key rotation (decryption-only fallback).
     # Set this to the old key when rotating FIELD_ENCRYPTION_KEY to a new value.
     field_encryption_key_previous: str | None = Field(
@@ -195,12 +235,16 @@ class Settings(BaseSettings):
     # OAuth state HMAC signing — dedicated secret so compromise of INTERNAL_API_KEY
     # does not allow forging OAuth callback state tokens (and vice-versa).
     # Falls back to INTERNAL_API_KEY in dev if unset; MUST be set in production.
-    oauth_state_secret: str | None = Field(default=None, validation_alias="OAUTH_STATE_SECRET")
+    oauth_state_secret: str | None = Field(
+        default=None, validation_alias="OAUTH_STATE_SECRET"
+    )
 
     # ML model integrity signing key — centralised here so production validators
     # apply.  The ML package falls back to os.environ when backend settings are
     # not importable (e.g. standalone ML training environments).
-    ml_model_signing_key: str | None = Field(default=None, validation_alias="ML_MODEL_SIGNING_KEY")
+    ml_model_signing_key: str | None = Field(
+        default=None, validation_alias="ML_MODEL_SIGNING_KEY"
+    )
 
     # GitHub Webhook
     github_webhook_secret: str | None = Field(
@@ -208,27 +252,43 @@ class Settings(BaseSettings):
     )
 
     # Email OAuth (Gmail + Outlook)
-    gmail_client_id: str | None = Field(default=None, validation_alias="GMAIL_CLIENT_ID")
-    gmail_client_secret: str | None = Field(default=None, validation_alias="GMAIL_CLIENT_SECRET")
-    outlook_client_id: str | None = Field(default=None, validation_alias="OUTLOOK_CLIENT_ID")
+    gmail_client_id: str | None = Field(
+        default=None, validation_alias="GMAIL_CLIENT_ID"
+    )
+    gmail_client_secret: str | None = Field(
+        default=None, validation_alias="GMAIL_CLIENT_SECRET"
+    )
+    outlook_client_id: str | None = Field(
+        default=None, validation_alias="OUTLOOK_CLIENT_ID"
+    )
     outlook_client_secret: str | None = Field(
         default=None, validation_alias="OUTLOOK_CLIENT_SECRET"
     )
     oauth_redirect_base_url: str = Field(
         default="http://localhost:8000", validation_alias="OAUTH_REDIRECT_BASE_URL"
     )
-    frontend_url: str = Field(default="http://localhost:3000", validation_alias="FRONTEND_URL")
+    frontend_url: str = Field(
+        default="http://localhost:3000", validation_alias="FRONTEND_URL"
+    )
 
     # AI Agent (Gemini primary + Groq fallback + Composio tools)
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     groq_api_key: str | None = Field(default=None, validation_alias="GROQ_API_KEY")
-    composio_api_key: str | None = Field(default=None, validation_alias="COMPOSIO_API_KEY")
+    composio_api_key: str | None = Field(
+        default=None, validation_alias="COMPOSIO_API_KEY"
+    )
     enable_ai_agent: bool = Field(default=False, validation_alias="ENABLE_AI_AGENT")
-    agent_free_daily_limit: int = Field(default=3, validation_alias="AGENT_FREE_DAILY_LIMIT")
-    agent_pro_daily_limit: int = Field(default=20, validation_alias="AGENT_PRO_DAILY_LIMIT")
+    agent_free_daily_limit: int = Field(
+        default=3, validation_alias="AGENT_FREE_DAILY_LIMIT"
+    )
+    agent_pro_daily_limit: int = Field(
+        default=20, validation_alias="AGENT_PRO_DAILY_LIMIT"
+    )
 
     # Feature Flags
-    enable_auto_switching: bool = Field(default=False, validation_alias="ENABLE_AUTO_SWITCHING")
+    enable_auto_switching: bool = Field(
+        default=False, validation_alias="ENABLE_AUTO_SWITCHING"
+    )
     enable_load_optimization: bool = Field(
         default=True, validation_alias="ENABLE_LOAD_OPTIMIZATION"
     )
@@ -246,7 +306,9 @@ class Settings(BaseSettings):
     # http://localhost:4318).  When the endpoint is absent but OTEL_ENABLED
     # is true, traces are written to stdout (debug) or discarded (prod).
     otel_enabled: bool = Field(default=False, validation_alias="OTEL_ENABLED")
-    otel_endpoint: str | None = Field(default=None, validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_endpoint: str | None = Field(
+        default=None, validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -369,7 +431,9 @@ class Settings(BaseSettings):
                     'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
                 )
             if len(v) < 32:
-                raise ValueError("INTERNAL_API_KEY must be at least 32 characters in production.")
+                raise ValueError(
+                    "INTERNAL_API_KEY must be at least 32 characters in production."
+                )
         return v
 
     @field_validator("oauth_state_secret")
@@ -389,7 +453,9 @@ class Settings(BaseSettings):
                     'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
                 )
             if len(v) < 32:
-                raise ValueError("OAUTH_STATE_SECRET must be at least 32 characters in production.")
+                raise ValueError(
+                    "OAUTH_STATE_SECRET must be at least 32 characters in production."
+                )
         return v
 
     @field_validator("ml_model_signing_key")
@@ -416,9 +482,13 @@ class Settings(BaseSettings):
         env = os.environ.get("ENVIRONMENT", "development")
         if env == "production":
             if not v:
-                raise ValueError("CRITICAL: STRIPE_SECRET_KEY must be set in production.")
+                raise ValueError(
+                    "CRITICAL: STRIPE_SECRET_KEY must be set in production."
+                )
             if not v.startswith("sk_"):
-                raise ValueError("STRIPE_SECRET_KEY must start with 'sk_' (live or test key).")
+                raise ValueError(
+                    "STRIPE_SECRET_KEY must start with 'sk_' (live or test key)."
+                )
         return v
 
     @field_validator("database_url")
@@ -430,7 +500,9 @@ class Settings(BaseSettings):
             if not v:
                 raise ValueError("CRITICAL: DATABASE_URL must be set in production.")
             if not v.startswith("postgresql://"):
-                raise ValueError("DATABASE_URL must start with 'postgresql://' in production.")
+                raise ValueError(
+                    "DATABASE_URL must start with 'postgresql://' in production."
+                )
         return v
 
     @field_validator("resend_api_key")
@@ -461,7 +533,11 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_api_key_differs_from_jwt(self) -> "Settings":
         """Ensure INTERNAL_API_KEY and JWT_SECRET are not identical."""
-        if self.internal_api_key and self.jwt_secret and self.internal_api_key == self.jwt_secret:
+        if (
+            self.internal_api_key
+            and self.jwt_secret
+            and self.internal_api_key == self.jwt_secret
+        ):
             raise ValueError(
                 "INTERNAL_API_KEY must differ from JWT_SECRET to maintain "
                 "separation of concerns between user auth and service auth."

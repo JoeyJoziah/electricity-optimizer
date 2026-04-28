@@ -200,7 +200,8 @@ class TestCompareModelVersions:
 
     def test_returns_200_with_comparison_result(self, api_client):
         """Should return 200 with metric deltas when both versions exist."""
-        from models.model_version import ModelVersionResponse, VersionComparisonResult
+        from models.model_version import (ModelVersionResponse,
+                                          VersionComparisonResult)
 
         client, db = api_client
 
@@ -291,7 +292,8 @@ class TestCompareModelVersions:
 
     def test_returns_comparison_with_metric_comparison_key(self, api_client):
         """Response must include a metric_comparison dict."""
-        from models.model_version import ModelVersionResponse, VersionComparisonResult
+        from models.model_version import (ModelVersionResponse,
+                                          VersionComparisonResult)
 
         client, db = api_client
 

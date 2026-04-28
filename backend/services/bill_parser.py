@@ -672,7 +672,9 @@ class BillParserService:
 # ---------------------------------------------------------------------------
 
 
-def build_storage_key(connection_id: str, upload_id: str, original_filename: str) -> str:
+def build_storage_key(
+    connection_id: str, upload_id: str, original_filename: str
+) -> str:
     """
     Construct a storage key (relative path within uploads_dir) that:
       - Namespaces by connection_id to avoid collisions

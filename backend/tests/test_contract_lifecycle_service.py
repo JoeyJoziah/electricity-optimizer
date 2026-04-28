@@ -202,7 +202,9 @@ class TestIsInRescission:
     async def test_rescission_active_returns_true_and_days(self, service, mock_db):
         """Returns (True, N) when rescission_ends is in the future."""
         rescission_ends = datetime.now(UTC) + timedelta(days=5)
-        mock_db.execute.return_value = _make_db_result({"rescission_ends": rescission_ends})
+        mock_db.execute.return_value = _make_db_result(
+            {"rescission_ends": rescission_ends}
+        )
 
         in_rescission, days_remaining = await service.is_in_rescission("user-resc")
 
@@ -213,7 +215,9 @@ class TestIsInRescission:
     async def test_rescission_expired_returns_false_zero(self, service, mock_db):
         """Returns (False, 0) when rescission_ends is in the past."""
         rescission_ends = datetime.now(UTC) - timedelta(days=3)
-        mock_db.execute.return_value = _make_db_result({"rescission_ends": rescission_ends})
+        mock_db.execute.return_value = _make_db_result(
+            {"rescission_ends": rescission_ends}
+        )
 
         in_rescission, days_remaining = await service.is_in_rescission("user-past")
 

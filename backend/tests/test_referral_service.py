@@ -29,7 +29,9 @@ NOW = datetime(2026, 3, 11, 12, 0, 0, tzinfo=UTC)
 def _make_session_data(user_id=USER_ID, email="test@example.com"):
     from auth.neon_auth import SessionData
 
-    return SessionData(user_id=user_id, email=email, name="Test User", email_verified=True)
+    return SessionData(
+        user_id=user_id, email=email, name="Test User", email_verified=True
+    )
 
 
 def _mock_db():
@@ -129,7 +131,9 @@ class TestReferralServiceUnit:
 
         db = _mock_db()
         lookup_result = MagicMock()
-        lookup_result.mappings.return_value.first.return_value = _referral_row(referrer_id=USER_ID)
+        lookup_result.mappings.return_value.first.return_value = _referral_row(
+            referrer_id=USER_ID
+        )
         db.execute.return_value = lookup_result
 
         svc = ReferralService(db)
@@ -185,7 +189,9 @@ class TestReferralServiceUnit:
 
         db = _mock_db()
         completed_row = {
-            **_referral_row(referee_id=OTHER_USER_ID, status_val="completed", reward_applied=True),
+            **_referral_row(
+                referee_id=OTHER_USER_ID, status_val="completed", reward_applied=True
+            ),
             "completed_at": NOW,
         }
         result = MagicMock()

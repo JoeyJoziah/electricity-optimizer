@@ -12,10 +12,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from services.optimization_report_service import (
-    AVG_MONTHLY_CONSUMPTION,
-    OptimizationReportService,
-)
+from services.optimization_report_service import (AVG_MONTHLY_CONSUMPTION,
+                                                  OptimizationReportService)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -89,12 +87,17 @@ class TestReportStructure:
 
     async def test_annual_spend_is_12x_monthly(self):
         # CTE query returns electricity rows with utility_type
-        elec_rows = [{"price_per_kwh": 0.15, "supplier": "ACME", "utility_type": "ELECTRICITY"}]
+        elec_rows = [
+            {"price_per_kwh": 0.15, "supplier": "ACME", "utility_type": "ELECTRICITY"}
+        ]
         db = _make_db([elec_rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
 
-        assert abs(result["total_annual_spend"] - result["total_monthly_spend"] * 12) < 0.01
+        assert (
+            abs(result["total_annual_spend"] - result["total_monthly_spend"] * 12)
+            < 0.01
+        )
 
 
 # =============================================================================
@@ -104,7 +107,9 @@ class TestReportStructure:
 
 class TestElectricitySpend:
     async def test_monthly_cost_calculation(self):
-        rows = [{"price_per_kwh": 0.20, "supplier": "Test", "utility_type": "ELECTRICITY"}]
+        rows = [
+            {"price_per_kwh": 0.20, "supplier": "Test", "utility_type": "ELECTRICITY"}
+        ]
         db = _make_db([rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
@@ -115,7 +120,11 @@ class TestElectricitySpend:
 
     async def test_savings_generated_when_price_spread(self):
         rows = [
-            {"price_per_kwh": 0.25, "supplier": "Expensive", "utility_type": "ELECTRICITY"},
+            {
+                "price_per_kwh": 0.25,
+                "supplier": "Expensive",
+                "utility_type": "ELECTRICITY",
+            },
             {"price_per_kwh": 0.15, "supplier": "Cheap", "utility_type": "ELECTRICITY"},
         ]
         db = _make_db([rows, [], []])

@@ -148,7 +148,10 @@ class TestCreateFeedback:
     def test_create_bug_feedback_returns_201(self, client):
         resp = client.post(
             self.URL,
-            json={"type": "bug", "message": "The dashboard chart does not render on mobile."},
+            json={
+                "type": "bug",
+                "message": "The dashboard chart does not render on mobile.",
+            },
         )
         assert resp.status_code == 201
         assert resp.json()["type"] == "bug"
@@ -156,7 +159,10 @@ class TestCreateFeedback:
     def test_create_feature_feedback_returns_201(self, client):
         resp = client.post(
             self.URL,
-            json={"type": "feature", "message": "Please add CSV export for price history."},
+            json={
+                "type": "feature",
+                "message": "Please add CSV export for price history.",
+            },
         )
         assert resp.status_code == 201
         assert resp.json()["type"] == "feature"

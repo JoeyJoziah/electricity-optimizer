@@ -53,7 +53,9 @@ def _row_to_user(row) -> User:
     # Pydantic model expects list[str] | None.  Split the string on read.
     raw_utility_types = data.get("utility_types")
     if isinstance(raw_utility_types, str) and raw_utility_types:
-        parsed_utility_types = [t.strip() for t in raw_utility_types.split(",") if t.strip()]
+        parsed_utility_types = [
+            t.strip() for t in raw_utility_types.split(",") if t.strip()
+        ]
     elif isinstance(raw_utility_types, list):
         parsed_utility_types = raw_utility_types
     else:
@@ -167,7 +169,9 @@ class UserRepository(BaseRepository[User]):
                     "email": entity.email,
                     "name": entity.name,
                     "region": entity.region,
-                    "preferences": json.dumps(entity.preferences) if entity.preferences else "{}",
+                    "preferences": (
+                        json.dumps(entity.preferences) if entity.preferences else "{}"
+                    ),
                     "current_supplier": entity.current_supplier,
                     "is_active": entity.is_active,
                     "is_verified": entity.is_verified,
@@ -175,13 +179,17 @@ class UserRepository(BaseRepository[User]):
                     "stripe_customer_id": entity.stripe_customer_id,
                     "email_verified": entity.email_verified,
                     "current_tariff": entity.current_tariff,
-                    "average_daily_kwh": float(entity.average_daily_kwh)
-                    if entity.average_daily_kwh is not None
-                    else None,
+                    "average_daily_kwh": (
+                        float(entity.average_daily_kwh)
+                        if entity.average_daily_kwh is not None
+                        else None
+                    ),
                     "household_size": entity.household_size,
                     "consent_given": entity.consent_given,
                     "data_processing_agreed": entity.data_processing_agreed,
-                    "consent_date": now if entity.consent_given else entity.consent_date,
+                    "consent_date": (
+                        now if entity.consent_given else entity.consent_date
+                    ),
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -278,7 +286,9 @@ class UserRepository(BaseRepository[User]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete user: {str(e)}", e)
 
-    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> list[User]:
+    async def list(
+        self, page: int = 1, page_size: int = 10, **filters: Any
+    ) -> list[User]:
         """List users with pagination."""
         try:
             page_size = max(1, min(MAX_PAGE_SIZE, page_size))
@@ -338,7 +348,9 @@ class UserRepository(BaseRepository[User]):
     # User-specific methods
     # ==========================================================================
 
-    async def update_preferences(self, user_id: str, preferences: UserPreferences) -> User | None:
+    async def update_preferences(
+        self, user_id: str, preferences: UserPreferences
+    ) -> User | None:
         """Update user preferences."""
         try:
             result = await self._db.execute(
@@ -400,7 +412,10 @@ class UserRepository(BaseRepository[User]):
             raise RepositoryError(f"Failed to verify email: {str(e)}", e)
 
     async def record_consent(
-        self, user_id: str, consent_given: bool = True, data_processing_agreed: bool = True
+        self,
+        user_id: str,
+        consent_given: bool = True,
+        data_processing_agreed: bool = True,
     ) -> bool:
         """Record user's GDPR consent (direct UPDATE, no SELECT)."""
         try:
@@ -441,7 +456,9 @@ class UserRepository(BaseRepository[User]):
             return _row_to_user(row) if row else None
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get user by Stripe customer ID: {str(e)}", e)
+            raise RepositoryError(
+                f"Failed to get user by Stripe customer ID: {str(e)}", e
+            )
 
     async def get_users_by_region(
         self, region: str, active_only: bool = True

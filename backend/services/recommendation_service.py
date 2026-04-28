@@ -74,7 +74,9 @@ class RecommendationService:
         self._user_repo = user_repo
         self._vector_store = vector_store
 
-    async def get_switching_recommendation(self, user_id: str) -> SwitchingRecommendation | None:
+    async def get_switching_recommendation(
+        self, user_id: str
+    ) -> SwitchingRecommendation | None:
         """
         Generate supplier switching recommendation for a user.
 
@@ -132,13 +134,17 @@ class RecommendationService:
 
         # Get peak price for comparison
         prices = await self._price_service.get_current_prices(region)
-        peak_price = max(p.price_per_kwh for p in prices) if prices else best_window["avg_price"]
+        peak_price = (
+            max(p.price_per_kwh for p in prices) if prices else best_window["avg_price"]
+        )
         cost_at_peak = appliance_kwh * peak_price
 
         reasons = []
         if best_window["avg_price"] < peak_price * Decimal("0.7"):
             reasons.append("Running during off-peak hours saves significantly")
-        reasons.append(f"Optimal window has average price of {best_window['avg_price']:.4f}/kWh")
+        reasons.append(
+            f"Optimal window has average price of {best_window['avg_price']:.4f}/kWh"
+        )
 
         return {
             "user_id": user_id,
@@ -220,7 +226,9 @@ class RecommendationService:
 
         usage_recommendations = []
         for appliance in appliances:
-            rec = self._compute_usage(user_id, appliance, 2, windows, prices, peak_price)
+            rec = self._compute_usage(
+                user_id, appliance, 2, windows, prices, peak_price
+            )
             if rec:
                 usage_recommendations.append(rec)
 
@@ -259,7 +267,9 @@ class RecommendationService:
         green_only = preferences.get("green_energy_only", False)
 
         if green_only:
-            green_prices = [p for p in prices if getattr(p, "green_energy_percentage", 0) >= 50]
+            green_prices = [
+                p for p in prices if getattr(p, "green_energy_percentage", 0) >= 50
+            ]
             if green_prices:
                 cheapest = green_prices[0]
 
@@ -373,7 +383,9 @@ class RecommendationService:
         reasons = []
         if best_window["avg_price"] < effective_peak * Decimal("0.7"):
             reasons.append("Running during off-peak hours saves significantly")
-        reasons.append(f"Optimal window has average price of {best_window['avg_price']:.4f}/kWh")
+        reasons.append(
+            f"Optimal window has average price of {best_window['avg_price']:.4f}/kWh"
+        )
 
         return {
             "user_id": user_id,

@@ -36,10 +36,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.portal_scraper_service import (
-    SUPPORTED_UTILITIES,
-    PortalScraperService,
-)
+from services.portal_scraper_service import (SUPPORTED_UTILITIES,
+                                             PortalScraperService)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,7 +71,9 @@ class TestScrapeKnownUtility:
         """Happy path: login succeeds, billing page contains a rate."""
         client = AsyncMock()
 
-        login_html = "<html><body><input type='hidden' name='csrf' value='abc'></body></html>"
+        login_html = (
+            "<html><body><input type='hidden' name='csrf' value='abc'></body></html>"
+        )
         post_html = "<html><body>Welcome! Your rate is 0.1234 per kWh.</body></html>"
         billing_html = "<html><body>Current rate: $0.1234 / kWh</body></html>"
 
@@ -101,7 +101,9 @@ class TestScrapeKnownUtility:
         """Login page returned after POST (invalid credentials indicator)."""
         client = AsyncMock()
 
-        login_html = "<html><body><input type='hidden' name='token' value='x'></body></html>"
+        login_html = (
+            "<html><body><input type='hidden' name='token' value='x'></body></html>"
+        )
         # POST response still contains a password field → login failed heuristic
         failed_post_html = (
             "<html><body><p>Invalid credentials</p>"
@@ -121,7 +123,10 @@ class TestScrapeKnownUtility:
 
         assert result["success"] is False
         assert result["error"] is not None
-        assert "credentials" in result["error"].lower() or "login failed" in result["error"].lower()
+        assert (
+            "credentials" in result["error"].lower()
+            or "login failed" in result["error"].lower()
+        )
 
     async def test_known_utility_http_error(self):
         """HTTP exception during POST → graceful failure dict."""
@@ -380,7 +385,13 @@ class TestSupportedUtilitiesRegistry:
     @pytest.mark.parametrize("key", ["duke_energy", "pge", "coned", "comed", "fpl"])
     def test_each_utility_has_required_fields(self, key):
         config = SUPPORTED_UTILITIES[key]
-        for field in ("login_url", "name", "form_action", "username_field", "password_field"):
+        for field in (
+            "login_url",
+            "name",
+            "form_action",
+            "username_field",
+            "password_field",
+        ):
             assert field in config, f"{key} missing field {field!r}"
 
     @pytest.mark.parametrize("key", ["duke_energy", "pge", "coned", "comed", "fpl"])

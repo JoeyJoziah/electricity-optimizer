@@ -6,12 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.rate_change_detector import (
-    DEFAULT_THRESHOLDS,
-    LOOKBACK_DAYS,
-    AlertPreferenceService,
-    RateChangeDetector,
-)
+from services.rate_change_detector import (DEFAULT_THRESHOLDS, LOOKBACK_DAYS,
+                                           AlertPreferenceService,
+                                           RateChangeDetector)
 
 
 def _mock_db():
@@ -337,9 +334,21 @@ class TestIsEnabled:
 
 class TestDefaultThresholds:
     def test_all_utility_types_have_thresholds(self):
-        for ut in ["electricity", "natural_gas", "heating_oil", "propane", "community_solar"]:
+        for ut in [
+            "electricity",
+            "natural_gas",
+            "heating_oil",
+            "propane",
+            "community_solar",
+        ]:
             assert ut in DEFAULT_THRESHOLDS
 
     def test_all_utility_types_have_lookback(self):
-        for ut in ["electricity", "natural_gas", "heating_oil", "propane", "community_solar"]:
+        for ut in [
+            "electricity",
+            "natural_gas",
+            "heating_oil",
+            "propane",
+            "community_solar",
+        ]:
             assert ut in LOOKBACK_DAYS

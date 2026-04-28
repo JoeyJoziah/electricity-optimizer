@@ -111,7 +111,8 @@ def _configure_tracer_provider(
     from opentelemetry import trace
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export import (BatchSpanProcessor,
+                                                SimpleSpanProcessor)
 
     # ------------------------------------------------------------------
     # Guard: only initialise once per process.
@@ -137,9 +138,8 @@ def _configure_tracer_provider(
     # ------------------------------------------------------------------
     if endpoint:
         # OTLP/HTTP exporter — sends to a real collector.
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-            OTLPSpanExporter,
-        )
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import \
+            OTLPSpanExporter
 
         exporter = OTLPSpanExporter(endpoint=endpoint)
         # BatchSpanProcessor for production-grade throughput.
@@ -161,7 +161,8 @@ def _configure_tracer_provider(
         # ``NoOpSpanExporter`` was removed from the SDK in 1.x — we define
         # a minimal inline implementation that satisfies the SpanExporter
         # interface and silently discards every span.
-        from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+        from opentelemetry.sdk.trace.export import (SpanExporter,
+                                                    SpanExportResult)
 
         class _SilentSpanExporter(SpanExporter):
             """Silently discard spans — used in production without a collector."""
@@ -245,7 +246,8 @@ def instrument_sqlalchemy_engine(engine: AsyncEngine) -> None:
         return  # OTEL not active
 
     try:
-        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+        from opentelemetry.instrumentation.sqlalchemy import \
+            SQLAlchemyInstrumentor
 
         # The SQLAlchemy instrumentation supports both sync and async engines.
         SQLAlchemyInstrumentor().instrument(engine=engine)

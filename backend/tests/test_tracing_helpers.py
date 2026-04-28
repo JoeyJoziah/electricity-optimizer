@@ -55,11 +55,8 @@ def _install_recording_provider():
     from opentelemetry import trace
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import (
-        SimpleSpanProcessor,
-        SpanExporter,
-        SpanExportResult,
-    )
+    from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                SpanExporter, SpanExportResult)
 
     class _InMemoryExporter(SpanExporter):
         def __init__(self):
@@ -106,7 +103,9 @@ class TestTracedAsyncContextManager:
 
         from lib.tracing import traced
 
-        async with traced("price.fetch", attributes={"price.region": "NY", "price.source": "eia"}):
+        async with traced(
+            "price.fetch", attributes={"price.region": "NY", "price.source": "eia"}
+        ):
             pass
 
         span = exporter.spans[0]

@@ -111,7 +111,9 @@ class Supplier(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     regions: list[str] = Field(..., min_length=1)
     tariff_types: list[str] = Field(..., min_length=1)
-    utility_types: list[UtilityType] = Field(default_factory=lambda: [UtilityType.ELECTRICITY])
+    utility_types: list[UtilityType] = Field(
+        default_factory=lambda: [UtilityType.ELECTRICITY]
+    )
 
     # API integration
     api_available: bool = False

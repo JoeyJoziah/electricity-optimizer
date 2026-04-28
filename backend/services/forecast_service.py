@@ -23,7 +23,9 @@ TREND_LOOKBACK_DAYS = 90
 FORECAST_HORIZON_DAYS = 30
 
 # Allowlists for SQL identifiers to prevent injection
-_ALLOWED_TABLES = frozenset({"electricity_prices", "heating_oil_prices", "propane_prices"})
+_ALLOWED_TABLES = frozenset(
+    {"electricity_prices", "heating_oil_prices", "propane_prices"}
+)
 _ALLOWED_COLS = frozenset(
     {
         "price_per_kwh",
@@ -184,16 +186,22 @@ class ForecastService:
 
         # Time filter — use fetched_at or period_date depending on table
         time_col = (
-            "fetched_at" if table in ("heating_oil_prices", "propane_prices") else "timestamp"
+            "fetched_at"
+            if table in ("heating_oil_prices", "propane_prices")
+            else "timestamp"
         )
         _validate_sql_identifier(time_col, _ALLOWED_COLS, "column")
-        conditions.append(f"{time_col} >= NOW() - make_interval(days => :lookback_days)")
+        conditions.append(
+            f"{time_col} >= NOW() - make_interval(days => :lookback_days)"
+        )
 
         if where_clause:
             conditions.append(where_clause)
 
         if state:
-            state_value = f"{state_prefix}{state.lower()}" if state_prefix else state.upper()
+            state_value = (
+                f"{state_prefix}{state.lower()}" if state_prefix else state.upper()
+            )
             conditions.append(f"{state_col} = :state")
             params["state"] = state_value
 
@@ -297,7 +305,9 @@ class ForecastService:
 
         # Trend direction
         pct_change = (
-            ((forecasted_rate - current_rate) / current_rate * 100) if current_rate > 0 else 0
+            ((forecasted_rate - current_rate) / current_rate * 100)
+            if current_rate > 0
+            else 0
         )
         if pct_change > 1:
             trend = "increasing"

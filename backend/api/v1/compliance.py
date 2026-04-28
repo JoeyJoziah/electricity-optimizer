@@ -18,15 +18,10 @@ logger = logging.getLogger(__name__)
 from api.dependencies import SessionData, get_current_user, get_db_session
 from compliance.gdpr import GDPRComplianceService, UserNotFoundError
 from compliance.repositories import ConsentRepository
-from models.consent import (
-    ConsentHistoryResponse,
-    ConsentRequest,
-    ConsentResponse,
-    ConsentStatusResponse,
-    DataDeletionRequest,
-    DataDeletionResponse,
-    UserDataExport,
-)
+from models.consent import (ConsentHistoryResponse, ConsentRequest,
+                            ConsentResponse, ConsentStatusResponse,
+                            DataDeletionRequest, DataDeletionResponse,
+                            UserDataExport)
 from repositories.user_repository import UserRepository
 
 router = APIRouter(tags=["Compliance"])
@@ -149,10 +144,14 @@ async def get_consent_status(
     Returns the latest consent decision for each purpose.
     """
     try:
-        status_dict = await gdpr_service.get_current_consent_status(current_user.user_id)
+        status_dict = await gdpr_service.get_current_consent_status(
+            current_user.user_id
+        )
 
         return ConsentStatusResponse(
-            user_id=current_user.user_id, consents=status_dict, last_updated=datetime.now(UTC)
+            user_id=current_user.user_id,
+            consents=status_dict,
+            last_updated=datetime.now(UTC),
         )
 
     except Exception:
@@ -208,7 +207,9 @@ async def export_user_data(
         )
 
     except UserNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     except Exception:
         logger.error("gdpr_export_failed", exc_info=True)
         raise HTTPException(
@@ -274,7 +275,9 @@ async def delete_user_data(
         )
 
     except UserNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     except Exception as e:
         logger.error("gdpr_deletion_failed", error=str(e))
         raise HTTPException(
@@ -328,7 +331,9 @@ async def delete_account(
         )
 
     except UserNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     except Exception as e:
         logger.error("gdpr_deletion_failed", error=str(e))
         raise HTTPException(

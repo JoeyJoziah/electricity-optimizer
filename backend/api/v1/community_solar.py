@@ -21,7 +21,9 @@ router = APIRouter(tags=["Community Solar"])
 @router.get("/programs")
 async def get_community_solar_programs(
     state: str = Query(..., description="2-letter state code (e.g. NY, MA)"),
-    enrollment_status: str | None = Query(None, description="Filter: open, waitlist, closed"),
+    enrollment_status: str | None = Query(
+        None, description="Filter: open, waitlist, closed"
+    ),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -57,8 +59,12 @@ async def get_community_solar_programs(
 
 @router.get("/savings")
 async def estimate_community_solar_savings(
-    monthly_bill: str = Query(..., description="Current monthly electricity bill in dollars"),
-    savings_percent: str = Query(..., description="Program savings percentage (e.g. 10)"),
+    monthly_bill: str = Query(
+        ..., description="Current monthly electricity bill in dollars"
+    ),
+    savings_percent: str = Query(
+        ..., description="Program savings percentage (e.g. 10)"
+    ),
 ):
     """Estimate savings from a community solar program."""
     try:
@@ -73,7 +79,9 @@ async def estimate_community_solar_savings(
     if bill <= 0:
         raise HTTPException(status_code=400, detail="monthly_bill must be positive")
     if pct <= 0 or pct > 100:
-        raise HTTPException(status_code=400, detail="savings_percent must be between 0 and 100")
+        raise HTTPException(
+            status_code=400, detail="savings_percent must be between 0 and 100"
+        )
 
     savings = CommunitySolarService.calculate_savings(
         monthly_bill=bill,
@@ -107,5 +115,7 @@ async def get_community_solar_states(
 
     return {
         "total_states": len(counts),
-        "states": [{"state": state, "program_count": count} for state, count in counts.items()],
+        "states": [
+            {"state": state, "program_count": count} for state, count in counts.items()
+        ],
     }

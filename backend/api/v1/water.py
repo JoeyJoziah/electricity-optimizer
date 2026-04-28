@@ -70,5 +70,7 @@ async def get_water_tips():
     return {
         "tips": tips,
         "count": len(tips),
-        "estimated_annual_savings_gallons": sum(t["estimated_savings_gallons"] for t in tips),
+        "estimated_annual_savings_gallons": sum(
+            t["estimated_savings_gallons"] for t in tips
+        ),
     }

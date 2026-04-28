@@ -20,7 +20,8 @@ Patching behaviour:
 """
 
 from api.v1.connections.bill_upload import _run_background_parse
-from api.v1.connections.common import _UPLOADS_DIR, require_paid_tier, sign_callback_state
+from api.v1.connections.common import (_UPLOADS_DIR, require_paid_tier,
+                                       sign_callback_state)
 from api.v1.connections.router import router
 from config.settings import settings  # re-exported so tests can patch it here
 

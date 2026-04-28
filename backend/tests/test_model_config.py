@@ -43,7 +43,10 @@ def _make_row(
     row.model_name = model_name
     row.model_version = model_version
     # Simulate asyncpg returning a dict (JSON column already parsed)
-    row.weights_json = weights_json or {"cnn_lstm": {"weight": 0.5}, "xgboost": {"weight": 0.5}}
+    row.weights_json = weights_json or {
+        "cnn_lstm": {"weight": 0.5},
+        "xgboost": {"weight": 0.5},
+    }
     row.training_metadata = training_metadata or {}
     row.accuracy_metrics = accuracy_metrics or {}
     row.is_active = is_active
@@ -198,7 +201,9 @@ class TestSaveConfig:
             version="v1.0",
             weights={"cnn_lstm": {"weight": 1.0}},
         )
-        uuid_pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        uuid_pattern = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
         assert uuid_pattern.match(result.id), f"Expected UUID, got: {result.id!r}"
 
     async def test_defaults_metadata_and_metrics_to_empty_dict(self, repo, mock_db):
@@ -450,7 +455,9 @@ class TestWeightVersioning:
         params = mock_db.execute.call_args[0][1]
         assert params["model_name"] == "custom_model"
 
-    async def test_weights_json_serialised_as_json_string_in_insert(self, repo, mock_db):
+    async def test_weights_json_serialised_as_json_string_in_insert(
+        self, repo, mock_db
+    ):
         """weights_json must be serialised to a JSON string for the INSERT."""
         weights = {
             "cnn_lstm": {"weight": 0.5},
@@ -605,7 +612,9 @@ class TestLearningServiceDbPersistence:
 
         MockRepo = MagicMock()
         instance = MockRepo.return_value
-        instance.get_active_config = AsyncMock(side_effect=Exception("connection reset"))
+        instance.get_active_config = AsyncMock(
+            side_effect=Exception("connection reset")
+        )
         with patch(
             "repositories.model_config_repository.ModelConfigRepository",
             MockRepo,

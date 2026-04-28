@@ -110,10 +110,14 @@ class _MockAlertDB:
             "region": params.get("region", "us_ct"),
             "currency": params.get("currency", "USD"),
             "price_below": (
-                Decimal(str(params["price_below"])) if params.get("price_below") else None
+                Decimal(str(params["price_below"]))
+                if params.get("price_below")
+                else None
             ),
             "price_above": (
-                Decimal(str(params["price_above"])) if params.get("price_above") else None
+                Decimal(str(params["price_above"]))
+                if params.get("price_above")
+                else None
             ),
             "notify_optimal_windows": params.get("notify_optimal_windows", True),
             "is_active": True,
@@ -211,7 +215,9 @@ class _MockAlertDB:
             "alert_config_id": params.get("alert_config_id"),
             "alert_type": params["alert_type"],
             "current_price": Decimal(str(params["current_price"])),
-            "threshold": (Decimal(str(params["threshold"])) if params.get("threshold") else None),
+            "threshold": (
+                Decimal(str(params["threshold"])) if params.get("threshold") else None
+            ),
             "region": params["region"],
             "supplier": params.get("supplier"),
             "currency": params.get("currency", "USD"),
@@ -298,8 +304,12 @@ class _MockAlertDB:
             "user_id": user_id,
             "region": region,
             "currency": "USD",
-            "price_below": Decimal(str(price_below)) if price_below is not None else None,
-            "price_above": Decimal(str(price_above)) if price_above is not None else None,
+            "price_below": (
+                Decimal(str(price_below)) if price_below is not None else None
+            ),
+            "price_above": (
+                Decimal(str(price_above)) if price_above is not None else None
+            ),
             "notify_optimal_windows": notify_optimal_windows,
             "is_active": is_active,
             "created_at": now,
@@ -473,7 +483,9 @@ class TestAlertServiceDBMethods:
             self.db.seed_history(user_id=TEST_USER_ID)
         self.db.seed_history(user_id=OTHER_USER_ID)  # should not appear
 
-        result = await self.service.get_alert_history(TEST_USER_ID, self.db, page=1, page_size=2)
+        result = await self.service.get_alert_history(
+            TEST_USER_ID, self.db, page=1, page_size=2
+        )
         assert result["total"] == 5
         assert len(result["items"]) == 2
         assert result["pages"] == 3

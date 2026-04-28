@@ -17,11 +17,14 @@ from pathlib import Path
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 
 # Skip the whole package if postgres is not configured. CI sets this; local
 # devs can opt in by exporting DATABASE_URL=postgresql+asyncpg://localhost/...
-DATABASE_URL = os.environ.get("INTEGRATION_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+DATABASE_URL = os.environ.get("INTEGRATION_TEST_DATABASE_URL") or os.environ.get(
+    "DATABASE_URL"
+)
 
 
 pytestmark = pytest.mark.skipif(
@@ -61,13 +64,17 @@ async def db(engine) -> AsyncGenerator[AsyncSession, None]:
     discarded after the test returns, so the order of test execution does not
     matter.
     """
-    SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    SessionLocal = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
     async with engine.begin() as conn:
         # Use a SAVEPOINT so the test can call session.commit() without
         # actually persisting beyond the outer transaction we will roll back.
         async with SessionLocal(bind=conn) as session:
 
-            @session.sync_session.event.listens_for(session.sync_session, "after_transaction_end")
+            @session.sync_session.event.listens_for(
+                session.sync_session, "after_transaction_end"
+            )
             def _restart_savepoint(s, transaction):  # pragma: no cover — fixture wiring
                 if transaction.nested and not transaction._parent.nested:
                     s.begin_nested()

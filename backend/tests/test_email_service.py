@@ -247,7 +247,9 @@ class TestErrorHandling:
         with patch.dict("sys.modules", {"aiosmtplib": MagicMock()}):
             import sys
 
-            sys.modules["aiosmtplib"].send = AsyncMock(side_effect=Exception("SMTP connect failed"))
+            sys.modules["aiosmtplib"].send = AsyncMock(
+                side_effect=Exception("SMTP connect failed")
+            )
             result = await service._send_via_smtp(
                 to="user@example.com",
                 subject="Test",

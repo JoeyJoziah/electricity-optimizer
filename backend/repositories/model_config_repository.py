@@ -76,7 +76,9 @@ class ModelConfigRepository:
                 return None
             return self._row_to_model(row)
         except Exception as exc:
-            raise RepositoryError(f"Failed to get active config for {model_name!r}: {exc}", exc)
+            raise RepositoryError(
+                f"Failed to get active config for {model_name!r}: {exc}", exc
+            )
 
     async def list_versions(
         self,
@@ -102,7 +104,9 @@ class ModelConfigRepository:
             )
             return [self._row_to_model(row) for row in result.fetchall()]
         except Exception as exc:
-            raise RepositoryError(f"Failed to list versions for {model_name!r}: {exc}", exc)
+            raise RepositoryError(
+                f"Failed to list versions for {model_name!r}: {exc}", exc
+            )
 
     # ------------------------------------------------------------------
     # Write helpers

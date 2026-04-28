@@ -103,8 +103,12 @@ class SwitchExecutionService:
             plan_name = proposed_plan.plan_name if proposed_plan else ""
             provider_name = proposed_plan.provider_name if proposed_plan else ""
             rate_kwh = float(proposed_plan.rate_kwh) if proposed_plan else 0.0
-            savings_monthly = float(getattr(decision, "projected_savings_monthly", Decimal("0")))
-            savings_annual = float(getattr(decision, "projected_savings_annual", Decimal("0")))
+            savings_monthly = float(
+                getattr(decision, "projected_savings_monthly", Decimal("0"))
+            )
+            savings_annual = float(
+                getattr(decision, "projected_savings_annual", Decimal("0"))
+            )
             confidence = float(getattr(decision, "confidence", Decimal("0")))
             action = getattr(decision, "action", "")
             reason = getattr(decision, "reason", "")
@@ -175,7 +179,9 @@ class SwitchExecutionService:
                 # Step 5 — plan availability
                 available = await executor.check_plan_available(plan_id)
                 if not available:
-                    raise RuntimeError(f"Plan {plan_id} is not available for enrollment.")
+                    raise RuntimeError(
+                        f"Plan {plan_id} is not available for enrollment."
+                    )
 
                 # Step 6 — execute enrollment
                 from services.switch_executor import EnrollmentRequest
@@ -302,7 +308,9 @@ class SwitchExecutionService:
                 # Attempt status refresh from executor
                 try:
                     executor = get_executor("us_tx")  # default region for status check
-                    status_result = await executor.check_enrollment_status(enrollment_id)
+                    status_result = await executor.check_enrollment_status(
+                        enrollment_id
+                    )
                     new_status = status_result.status
 
                     if new_status != execution["status"]:
@@ -365,7 +373,9 @@ class SwitchExecutionService:
                 raise ValueError(f"Execution {execution_id} not found.")
 
             if str(row["user_id"]) != user_id:
-                raise ValueError(f"Execution {execution_id} does not belong to user {user_id}.")
+                raise ValueError(
+                    f"Execution {execution_id} does not belong to user {user_id}."
+                )
 
             if row["status"] != "active":
                 raise ValueError(
@@ -468,7 +478,9 @@ class SwitchExecutionService:
                 raise ValueError(f"Audit log {audit_log_id} not found.")
 
             if str(row["user_id"]) != user_id:
-                raise ValueError(f"Audit log {audit_log_id} does not belong to user {user_id}.")
+                raise ValueError(
+                    f"Audit log {audit_log_id} does not belong to user {user_id}."
+                )
 
             if row["decision"] != "recommend":
                 raise ValueError(
@@ -480,7 +492,8 @@ class SwitchExecutionService:
                 raise ValueError(f"Audit log {audit_log_id} has already been executed.")
 
             # Step 2 — build a minimal SwitchDecision-compatible object from the log
-            from services.switch_decision_engine import PlanDetails, SwitchDecision
+            from services.switch_decision_engine import (PlanDetails,
+                                                         SwitchDecision)
 
             plan = PlanDetails(
                 plan_id=row["plan_id"] or "",
@@ -492,8 +505,12 @@ class SwitchExecutionService:
                 action="switch",  # User approved — override to switch
                 reason=row["reason"] or "",
                 proposed_plan=plan,
-                projected_savings_monthly=Decimal(str(row["projected_savings_monthly"] or "0")),
-                projected_savings_annual=Decimal(str(row["projected_savings_annual"] or "0")),
+                projected_savings_monthly=Decimal(
+                    str(row["projected_savings_monthly"] or "0")
+                ),
+                projected_savings_annual=Decimal(
+                    str(row["projected_savings_annual"] or "0")
+                ),
                 confidence=Decimal(str(row["confidence"] or "0")),
                 data_source=row["data_source"] or "unknown",
             )

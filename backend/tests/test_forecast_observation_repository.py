@@ -60,7 +60,8 @@ def mock_session():
 @pytest.fixture
 def repo(mock_session):
     """ForecastObservationRepository bound to the mock session."""
-    from repositories.forecast_observation_repository import ForecastObservationRepository
+    from repositories.forecast_observation_repository import \
+        ForecastObservationRepository
 
     return ForecastObservationRepository(mock_session)
 
@@ -135,9 +136,7 @@ class TestInsertForecasts:
         assert count == 1
         # Verify the row passed to execute has forecast_hour=14
         call_args = mock_session.execute.call_args
-        rows = call_args[
-            0
-        ][
+        rows = call_args[0][
             1
         ]  # second positional arg is the flat params dict (keys use numeric suffix: forecast_hour0, etc.)
         assert rows["forecast_hour0"] == 14
@@ -162,7 +161,9 @@ class TestInsertForecasts:
         )
 
         assert count == 1
-        rows = mock_session.execute.call_args[0][1]  # flat params dict with numeric-suffix keys
+        rows = mock_session.execute.call_args[0][
+            1
+        ]  # flat params dict with numeric-suffix keys
         assert rows["forecast_hour0"] == 9
         assert rows["model_version0"] == "v2.0"
         assert rows["region0"] == "us_ct"
@@ -284,7 +285,9 @@ class TestUpdateRecommendationResponse:
         assert params["accepted"] is False
         assert params["actual_savings"] == 0.0
 
-    async def test_update_recommendation_response_already_responded(self, repo, mock_session):
+    async def test_update_recommendation_response_already_responded(
+        self, repo, mock_session
+    ):
         """When rowcount=0 (already responded), returns False (idempotency guard)."""
         mock_session.execute.return_value = _make_result(rowcount=0)
 
@@ -355,7 +358,9 @@ class TestGetAccuracyByVersion:
     async def test_single_version_returned(self, repo, mock_session):
         """Single model version row is mapped to the expected dict shape."""
         rows = [
-            _row(model_version="v2.1", count=50, mape=4.25, rmse=0.012345, coverage=88.5),
+            _row(
+                model_version="v2.1", count=50, mape=4.25, rmse=0.012345, coverage=88.5
+            ),
         ]
         mock_session.execute.return_value = _make_result(fetchall_value=rows)
 
@@ -389,7 +394,13 @@ class TestGetAccuracyByVersion:
     async def test_mape_rounded_to_two_decimals(self, repo, mock_session):
         """MAPE values are rounded to 2 decimal places on return."""
         rows = [
-            _row(model_version="v2.1", count=10, mape=3.456789, rmse=0.0123456789, coverage=90.123),
+            _row(
+                model_version="v2.1",
+                count=10,
+                mape=3.456789,
+                rmse=0.0123456789,
+                coverage=90.123,
+            ),
         ]
         mock_session.execute.return_value = _make_result(fetchall_value=rows)
 

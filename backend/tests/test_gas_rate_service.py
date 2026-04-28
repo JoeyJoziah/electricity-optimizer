@@ -69,7 +69,8 @@ class TestGasRateService:
 
     async def test_fetch_gas_rates_success(self):
         """Fetching gas rates stores prices for each state."""
-        from integrations.pricing_apis.base import PriceData, PriceUnit, PricingRegion
+        from integrations.pricing_apis.base import (PriceData, PriceUnit,
+                                                    PricingRegion)
         from services.gas_rate_service import GasRateService
 
         mock_db = AsyncMock()
@@ -96,7 +97,8 @@ class TestGasRateService:
 
     async def test_fetch_gas_rates_partial_failure(self):
         """Partial failure should not crash the entire batch."""
-        from integrations.pricing_apis.base import APIError, PriceData, PriceUnit
+        from integrations.pricing_apis.base import (APIError, PriceData,
+                                                    PriceUnit)
         from services.gas_rate_service import GasRateService
 
         mock_db = AsyncMock()

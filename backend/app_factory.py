@@ -358,7 +358,9 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
                     logger.warning("otel_sqlalchemy_wire_failed", error=str(_sa_exc))
         except Exception as e:
             logger.error("database_init_failed", error=str(e))
-            logger.warning("continuing_without_full_db", environment=settings.environment)
+            logger.warning(
+                "continuing_without_full_db", environment=settings.environment
+            )
 
         # Wire Redis into the rate limiter for distributed rate limiting.
         # Skipped in the test environment to prevent cross-test state leakage.
@@ -543,14 +545,18 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     # ------------------------------------------------------------------
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ):
         """Handle validation errors — never echo back potentially sensitive input."""
         sanitized_errors = []
         for err in exc.errors():
             sanitized = {k: v for k, v in err.items() if k not in ("input", "ctx")}
             sanitized_errors.append(sanitized)
 
-        logger.warning("validation_error", errors=sanitized_errors, path=request.url.path)
+        logger.warning(
+            "validation_error", errors=sanitized_errors, path=request.url.path
+        )
 
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -601,12 +607,15 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
             # Fail-closed: block when internal_api_key is unconfigured
             if not settings.internal_api_key:
                 return JSONResponse(
-                    status_code=503, content={"detail": "Metrics authentication not configured"}
+                    status_code=503,
+                    content={"detail": "Metrics authentication not configured"},
                 )
             # Constant-time comparison to prevent timing attacks
             import hmac
 
-            if not api_key or not hmac.compare_digest(api_key, settings.internal_api_key):
+            if not api_key or not hmac.compare_digest(
+                api_key, settings.internal_api_key
+            ):
                 return JSONResponse(status_code=403, content={"detail": "Forbidden"})
         return await call_next(request)
 

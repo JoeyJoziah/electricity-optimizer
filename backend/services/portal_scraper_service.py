@@ -80,7 +80,12 @@ def _validate_portal_url(url: str) -> None:
     # Block private/internal IP ranges
     try:
         addr = ipaddress.ip_address(hostname)
-        if addr.is_private or addr.is_loopback or addr.is_reserved or addr.is_link_local:
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_reserved
+            or addr.is_link_local
+        ):
             raise ValueError("Portal URL must not point to private/internal addresses")
     except ValueError as e:
         if "private" in str(e) or "internal" in str(e):
@@ -89,7 +94,9 @@ def _validate_portal_url(url: str) -> None:
 
     # Validate against allowlist (if caller supplied a custom URL)
     # Known utility URLs from the registry are already trusted
-    if hostname and not any(hostname == d or hostname.endswith(f".{d}") for d in _ALLOWED_DOMAINS):
+    if hostname and not any(
+        hostname == d or hostname.endswith(f".{d}") for d in _ALLOWED_DOMAINS
+    ):
         logger.warning(
             "portal_url_not_in_allowlist",
             hostname=hostname,
@@ -151,7 +158,9 @@ SUPPORTED_UTILITIES: dict[str, dict[str, str]] = {
 
 _DEFAULT_TIMEOUT = 30  # seconds
 _DEFAULT_HEADERS = {
-    "User-Agent": ("Mozilla/5.0 (compatible; RateShift/1.0; +https://rateshift.app/bot)"),
+    "User-Agent": (
+        "Mozilla/5.0 (compatible; RateShift/1.0; +https://rateshift.app/bot)"
+    ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
 }
@@ -322,7 +331,9 @@ class PortalScraperService:
                         client, utility_config, username, password, login_url
                     )
                 else:
-                    result = await self._scrape_generic(client, login_url, username, password)
+                    result = await self._scrape_generic(
+                        client, login_url, username, password
+                    )
 
                 log.info(
                     "portal_scrape_complete",

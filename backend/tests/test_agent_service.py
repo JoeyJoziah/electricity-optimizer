@@ -104,7 +104,9 @@ async def test_missing_gemini_key_yields_error(agent_service, mock_db, user_cont
 async def test_query_with_user_context(agent_service, mock_db, user_context):
     """Agent should incorporate user context (region, supplier) into the query."""
     mock_response = MagicMock()
-    mock_response.text = "Based on rates in Connecticut from Eversource, you could save $15/month."
+    mock_response.text = (
+        "Based on rates in Connecticut from Eversource, you could save $15/month."
+    )
 
     with patch("services.agent_service.settings") as mock_settings:
         mock_settings.gemini_api_key = "test-key"
@@ -161,7 +163,9 @@ async def test_gemini_429_falls_back_to_groq(agent_service, mock_db, user_contex
 
         # Gemini raises 429
         mock_gemini = MagicMock()
-        mock_gemini.models.generate_content.side_effect = Exception("429 Resource Exhausted")
+        mock_gemini.models.generate_content.side_effect = Exception(
+            "429 Resource Exhausted"
+        )
         agent_service._gemini_client = mock_gemini
 
         # Groq returns successfully
@@ -198,7 +202,9 @@ async def test_gemini_non_429_error_no_fallback(agent_service, mock_db, user_con
         mock_settings.agent_pro_daily_limit = 20
 
         mock_gemini = MagicMock()
-        mock_gemini.models.generate_content.side_effect = Exception("500 Internal Server Error")
+        mock_gemini.models.generate_content.side_effect = Exception(
+            "500 Internal Server Error"
+        )
         agent_service._gemini_client = mock_gemini
 
         messages = []
@@ -324,7 +330,9 @@ async def test_get_job_result_not_found(agent_service):
         mock_redis.get = AsyncMock(return_value=None)
         mock_dbm.get_redis_client = AsyncMock(return_value=mock_redis)
 
-        result = await agent_service.get_job_result("nonexistent-job-id", user_id=str(uuid.uuid4()))
+        result = await agent_service.get_job_result(
+            "nonexistent-job-id", user_id=str(uuid.uuid4())
+        )
         assert result["status"] == "not_found"
 
 
@@ -388,7 +396,9 @@ async def test_groq_empty_choices_raises_value_error(agent_service):
         await agent_service._query_groq("system prompt", "user prompt")
 
 
-async def test_groq_empty_choices_surfaced_as_error_message(agent_service, mock_db, user_context):
+async def test_groq_empty_choices_surfaced_as_error_message(
+    agent_service, mock_db, user_context
+):
     """S3-2: When Groq returns empty choices during a streaming query the caller
     receives an 'error' role message, not an unhandled 500."""
     with patch("services.agent_service.settings") as mock_settings:
@@ -400,7 +410,9 @@ async def test_groq_empty_choices_surfaced_as_error_message(agent_service, mock_
 
         # Gemini raises 429 so we fall through to Groq
         mock_gemini = MagicMock()
-        mock_gemini.models.generate_content.side_effect = Exception("429 Resource Exhausted")
+        mock_gemini.models.generate_content.side_effect = Exception(
+            "429 Resource Exhausted"
+        )
         agent_service._gemini_client = mock_gemini
 
         # Groq returns a response with no choices
@@ -420,7 +432,9 @@ async def test_groq_empty_choices_surfaced_as_error_message(agent_service, mock_
         ):
             messages.append(msg)
 
-    assert any(m.role == "error" for m in messages), "Expected error role when choices is empty"
+    assert any(
+        m.role == "error" for m in messages
+    ), "Expected error role when choices is empty"
     # Must not have raised IndexError — reaching this line proves it
     error_msgs = [m for m in messages if m.role == "error"]
     assert error_msgs, "Should have at least one error message"
@@ -485,7 +499,9 @@ async def test_increment_usage_atomic_denied_at_limit(agent_service, mock_db):
         select_result = MagicMock()
         select_result.scalar = MagicMock(return_value=3)
 
-        mock_db.execute = AsyncMock(side_effect=[insert_result, update_result, select_result])
+        mock_db.execute = AsyncMock(
+            side_effect=[insert_result, update_result, select_result]
+        )
 
         allowed, current_count = await agent_service.increment_usage_atomic(
             str(uuid.uuid4()), "free", mock_db
@@ -554,12 +570,12 @@ async def test_run_async_job_docstring_documents_no_db_contract(agent_service):
     """S3-5: The no-DB contract must be documented in the method docstring so
     future developers understand the session lifecycle constraint."""
     docstring = agent_service._run_async_job.__doc__ or ""
-    assert "db" in docstring.lower() or "session" in docstring.lower(), (
-        "_run_async_job docstring should reference the DB/session lifecycle contract"
-    )
-    assert "request" in docstring.lower() or "background" in docstring.lower(), (
-        "_run_async_job docstring should mention it is a background task"
-    )
+    assert (
+        "db" in docstring.lower() or "session" in docstring.lower()
+    ), "_run_async_job docstring should reference the DB/session lifecycle contract"
+    assert (
+        "request" in docstring.lower() or "background" in docstring.lower()
+    ), "_run_async_job docstring should mention it is a background task"
 
 
 async def test_run_async_job_completes_without_db_session(agent_service):
@@ -596,10 +612,14 @@ async def test_run_async_job_stores_failure_without_db_session(agent_service):
 
     with (
         patch.object(
-            agent_service, "_query_gemini", new=AsyncMock(side_effect=Exception("Gemini down"))
+            agent_service,
+            "_query_gemini",
+            new=AsyncMock(side_effect=Exception("Gemini down")),
         ),
         patch.object(
-            agent_service, "_query_groq", new=AsyncMock(side_effect=Exception("Groq down"))
+            agent_service,
+            "_query_groq",
+            new=AsyncMock(side_effect=Exception("Groq down")),
         ),
     ):
         await agent_service._run_async_job(

@@ -73,7 +73,9 @@ class TestPriceRepository:
         assert isinstance(prices, list)
         assert len(prices) >= 0
 
-    async def test_get_current_prices_filters_by_region(self, mock_db_session, mock_redis):
+    async def test_get_current_prices_filters_by_region(
+        self, mock_db_session, mock_redis
+    ):
         """Test current prices are filtered by region"""
         from models.price import PriceRegion
         from repositories.price_repository import PriceRepository
@@ -113,7 +115,9 @@ class TestPriceRepository:
 
         assert price is not None
 
-    async def test_get_price_by_id_returns_none_for_missing(self, mock_db_session, mock_redis):
+    async def test_get_price_by_id_returns_none_for_missing(
+        self, mock_db_session, mock_redis
+    ):
         """Test get_by_id returns None for non-existent price"""
         from repositories.price_repository import PriceRepository
 
@@ -358,7 +362,9 @@ class TestUserRepository:
 
         user_data = User(email="new@example.com", name="New User", region="us_ct")
 
-        row = self._make_user_row(email="new@example.com", name="New User", region="us_ct")
+        row = self._make_user_row(
+            email="new@example.com", name="New User", region="us_ct"
+        )
         mock_db_session.execute.return_value = self._mock_result_with_row(row)
 
         repo = UserRepository(mock_db_session)

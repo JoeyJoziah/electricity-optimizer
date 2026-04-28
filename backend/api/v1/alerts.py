@@ -43,12 +43,18 @@ class CreateAlertRequest(BaseModel):
     """Body for POST /alerts."""
 
     region: str = Field(description="Region code (e.g. 'us_ct')")
-    currency: str = Field(default="USD", max_length=10, description="ISO 4217 currency code")
+    currency: str = Field(
+        default="USD", max_length=10, description="ISO 4217 currency code"
+    )
     price_below: float | None = Field(
-        default=None, gt=0, description="Alert when price drops to/below this value ($/kWh)"
+        default=None,
+        gt=0,
+        description="Alert when price drops to/below this value ($/kWh)",
     )
     price_above: float | None = Field(
-        default=None, gt=0, description="Alert when price rises to/above this value ($/kWh)"
+        default=None,
+        gt=0,
+        description="Alert when price rises to/above this value ($/kWh)",
     )
     notify_optimal_windows: bool = Field(
         default=True, description="Notify when an optimal usage window is detected"
@@ -58,7 +64,9 @@ class CreateAlertRequest(BaseModel):
     @classmethod
     def validate_region(cls, v: str) -> str:
         if not _REGION_RE.match(v):
-            raise ValueError(f"Invalid region code: '{v}'. Expected format: 'us_ct', 'uk', 'de'")
+            raise ValueError(
+                f"Invalid region code: '{v}'. Expected format: 'us_ct', 'uk', 'de'"
+            )
         return v
 
     @model_validator(mode="after")
@@ -153,18 +161,26 @@ async def create_alert(
             db=db,
             region=body.region,
             currency=body.currency,
-            price_below=Decimal(str(body.price_below)) if body.price_below is not None else None,
-            price_above=Decimal(str(body.price_above)) if body.price_above is not None else None,
+            price_below=(
+                Decimal(str(body.price_below)) if body.price_below is not None else None
+            ),
+            price_above=(
+                Decimal(str(body.price_above)) if body.price_above is not None else None
+            ),
             notify_optimal_windows=body.notify_optimal_windows,
         )
     except PermissionError as exc:
-        logger.warning("alert_create_forbidden", user_id=current_user.user_id, error=str(exc))
+        logger.warning(
+            "alert_create_forbidden", user_id=current_user.user_id, error=str(exc)
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Alert limit reached for your subscription tier.",
         ) from exc
     except ValueError as exc:
-        logger.warning("alert_create_invalid", user_id=current_user.user_id, error=str(exc))
+        logger.warning(
+            "alert_create_invalid", user_id=current_user.user_id, error=str(exc)
+        )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Invalid alert configuration. Check thresholds and region.",
@@ -181,7 +197,9 @@ async def create_alert(
 )
 async def get_alert_history(
     page: int = Query(default=1, ge=1, description="1-based page number"),
-    page_size: int = Query(default=20, ge=1, le=100, description="Records per page (max 100)"),
+    page_size: int = Query(
+        default=20, ge=1, le=100, description="Records per page (max 100)"
+    ),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:

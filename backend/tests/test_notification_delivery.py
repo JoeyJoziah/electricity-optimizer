@@ -59,9 +59,9 @@ class TestMigration029Structure:
     def test_targets_notifications_table(self):
         """Migration must operate on the notifications table."""
         sql = _read_migration_029()
-        assert "notifications" in sql.lower(), (
-            "Migration 029 must reference the 'notifications' table"
-        )
+        assert (
+            "notifications" in sql.lower()
+        ), "Migration 029 must reference the 'notifications' table"
 
     def test_alter_table_uses_if_not_exists(self):
         """Every ADD COLUMN statement must include IF NOT EXISTS."""
@@ -73,7 +73,9 @@ class TestMigration029Structure:
                 continue
             if "ADD COLUMN" in stripped and "IF NOT EXISTS" not in stripped:
                 violations.append(f"line {i}: {line.strip()}")
-        assert not violations, "ADD COLUMN without IF NOT EXISTS:\n" + "\n".join(violations)
+        assert not violations, "ADD COLUMN without IF NOT EXISTS:\n" + "\n".join(
+            violations
+        )
 
     def test_index_uses_if_not_exists(self):
         """CREATE INDEX must include IF NOT EXISTS."""
@@ -89,58 +91,70 @@ class TestMigration029Structure:
                 and "CONCURRENTLY" not in stripped
             ):
                 violations.append(f"line {i}: {line.strip()}")
-        assert not violations, "CREATE INDEX without IF NOT EXISTS:\n" + "\n".join(violations)
+        assert not violations, "CREATE INDEX without IF NOT EXISTS:\n" + "\n".join(
+            violations
+        )
 
     def test_no_serial_columns(self):
         """Migration must not use SERIAL or BIGSERIAL (violates project conventions)."""
         sql = _read_migration_029()
-        assert "SERIAL" not in sql.upper(), (
-            "Migration 029 must not use SERIAL/BIGSERIAL — use INTEGER DEFAULT 0 instead"
-        )
+        assert (
+            "SERIAL" not in sql.upper()
+        ), "Migration 029 must not use SERIAL/BIGSERIAL — use INTEGER DEFAULT 0 instead"
 
     def test_contains_grant_to_neondb_owner(self):
         """Migration must include a GRANT to neondb_owner."""
         sql = _read_migration_029()
-        assert "neondb_owner" in sql, "Migration 029 must GRANT permissions to neondb_owner"
+        assert (
+            "neondb_owner" in sql
+        ), "Migration 029 must GRANT permissions to neondb_owner"
 
     def test_delivery_channel_column_present(self):
         """SQL must add the delivery_channel column."""
         sql = _read_migration_029()
-        assert "delivery_channel" in sql.lower(), (
-            "Migration 029 must add a 'delivery_channel' column"
-        )
+        assert (
+            "delivery_channel" in sql.lower()
+        ), "Migration 029 must add a 'delivery_channel' column"
 
     def test_delivery_status_column_present(self):
         """SQL must add the delivery_status column with default 'pending'."""
         sql = _read_migration_029()
-        assert "delivery_status" in sql.lower(), "Migration 029 must add a 'delivery_status' column"
-        assert "pending" in sql.lower(), "delivery_status column must DEFAULT to 'pending'"
+        assert (
+            "delivery_status" in sql.lower()
+        ), "Migration 029 must add a 'delivery_status' column"
+        assert (
+            "pending" in sql.lower()
+        ), "delivery_status column must DEFAULT to 'pending'"
 
     def test_delivered_at_column_present(self):
         """SQL must add the delivered_at TIMESTAMPTZ column."""
         sql = _read_migration_029()
-        assert "delivered_at" in sql.lower(), "Migration 029 must add a 'delivered_at' column"
+        assert (
+            "delivered_at" in sql.lower()
+        ), "Migration 029 must add a 'delivered_at' column"
 
     def test_delivery_metadata_column_present(self):
         """SQL must add the delivery_metadata JSONB column."""
         sql = _read_migration_029()
-        assert "delivery_metadata" in sql.lower(), (
-            "Migration 029 must add a 'delivery_metadata' column"
-        )
+        assert (
+            "delivery_metadata" in sql.lower()
+        ), "Migration 029 must add a 'delivery_metadata' column"
 
     def test_retry_count_column_present(self):
         """SQL must add the retry_count INTEGER column."""
         sql = _read_migration_029()
-        assert "retry_count" in sql.lower(), "Migration 029 must add a 'retry_count' column"
+        assert (
+            "retry_count" in sql.lower()
+        ), "Migration 029 must add a 'retry_count' column"
 
     def test_index_on_user_id_delivery_status(self):
         """SQL must create an index covering (user_id, delivery_status)."""
         sql = _read_migration_029()
         # Normalise whitespace for pattern matching
         normalised = re.sub(r"\s+", " ", sql.lower())
-        assert "user_id" in normalised and "delivery_status" in normalised, (
-            "Migration 029 must create an index on (user_id, delivery_status)"
-        )
+        assert (
+            "user_id" in normalised and "delivery_status" in normalised
+        ), "Migration 029 must create an index on (user_id, delivery_status)"
         # Confirm the index exists by finding a CREATE INDEX … ON notifications block
         assert re.search(
             r"create index if not exists\s+\w+\s+on notifications\s*\(",
@@ -185,10 +199,18 @@ class TestNotificationModelFields:
         """All pre-029 columns should still be present."""
         from models.notification import Notification
 
-        for field in ("id", "user_id", "type", "title", "body", "read_at", "created_at"):
-            assert field in Notification.model_fields, (
-                f"Core field '{field}' missing from Notification model"
-            )
+        for field in (
+            "id",
+            "user_id",
+            "type",
+            "title",
+            "body",
+            "read_at",
+            "created_at",
+        ):
+            assert (
+                field in Notification.model_fields
+            ), f"Core field '{field}' missing from Notification model"
 
     def test_model_has_metadata_field(self):
         """Metadata column from migration 026 must be preserved."""
@@ -250,7 +272,9 @@ class TestNotificationModelDefaults:
 class TestDeliveryStatusTransitions:
     """All valid delivery_status values must be accepted by the model."""
 
-    @pytest.mark.parametrize("status", ["pending", "sent", "delivered", "failed", "bounced"])
+    @pytest.mark.parametrize(
+        "status", ["pending", "sent", "delivered", "failed", "bounced"]
+    )
     def test_valid_status_accepted(self, status):
         from models.notification import Notification
 
@@ -314,7 +338,9 @@ class TestDeliveryStatusTransitions:
     def test_status_transition_failed_increments_retry(self):
         from models.notification import Notification
 
-        n = Notification(user_id="u1", title="T", delivery_status="pending", retry_count=0)
+        n = Notification(
+            user_id="u1", title="T", delivery_status="pending", retry_count=0
+        )
         updated = n.model_copy(update={"delivery_status": "failed", "retry_count": 1})
         assert updated.delivery_status == "failed"
         assert updated.retry_count == 1
@@ -466,7 +492,12 @@ class TestNotificationResponseSchema:
         from models.notification import NotificationResponse
 
         fields = NotificationResponse.model_fields
-        for field in ("delivery_channel", "delivery_status", "delivered_at", "retry_count"):
+        for field in (
+            "delivery_channel",
+            "delivery_status",
+            "delivered_at",
+            "retry_count",
+        ):
             assert field in fields, f"NotificationResponse missing field '{field}'"
 
     def test_response_defaults(self):
@@ -491,21 +522,24 @@ class TestNotificationResponseSchema:
 
         fields = set(NotificationResponse.model_fields.keys())
         # These are internal — not part of the public response
-        assert "delivery_metadata" not in fields, (
-            "delivery_metadata should not be in NotificationResponse (internal use only)"
-        )
-        assert "metadata" not in fields, (
-            "metadata (dedup/internal) should not be in NotificationResponse"
-        )
+        assert (
+            "delivery_metadata" not in fields
+        ), "delivery_metadata should not be in NotificationResponse (internal use only)"
+        assert (
+            "metadata" not in fields
+        ), "metadata (dedup/internal) should not be in NotificationResponse"
 
     def test_notification_list_response(self):
         from datetime import datetime
 
-        from models.notification import NotificationListResponse, NotificationResponse
+        from models.notification import (NotificationListResponse,
+                                         NotificationResponse)
 
         now = datetime.now(UTC)
         items = [
-            NotificationResponse(id=f"id-{i}", type="info", title=f"Notif {i}", created_at=now)
+            NotificationResponse(
+                id=f"id-{i}", type="info", title=f"Notif {i}", created_at=now
+            )
             for i in range(3)
         ]
         resp = NotificationListResponse(notifications=items, total=3)

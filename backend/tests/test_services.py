@@ -68,7 +68,9 @@ class TestPriceService:
 
         # Service now delegates to repo.get_cheapest_price() (SQL LIMIT 1)
         mock_price_repo.get_cheapest_price = AsyncMock(
-            return_value=MagicMock(supplier="Cheap Energy", price_per_kwh=Decimal("0.18"))
+            return_value=MagicMock(
+                supplier="Cheap Energy", price_per_kwh=Decimal("0.18")
+            )
         )
 
         service = PriceService(mock_price_repo, mock_cache)
@@ -129,7 +131,9 @@ class TestPriceService:
         from services.price_service import PriceService
 
         mock_price_repo.get_current_prices.return_value = [
-            MagicMock(price_per_kwh=Decimal("0.26"), supplier="Test Supplier", currency="USD")
+            MagicMock(
+                price_per_kwh=Decimal("0.26"), supplier="Test Supplier", currency="USD"
+            )
         ]
 
         service = PriceService(mock_price_repo, mock_cache)
@@ -151,7 +155,10 @@ class TestPriceService:
         mock_result = MagicMock()
         mock_result.mappings.return_value.all.return_value = [
             {"window_start": base_time, "window_avg": Decimal("0.1200")},
-            {"window_start": base_time + timedelta(hours=1), "window_avg": Decimal("0.1500")},
+            {
+                "window_start": base_time + timedelta(hours=1),
+                "window_avg": Decimal("0.1500"),
+            },
         ]
         mock_price_repo._db = AsyncMock()
         mock_price_repo._db.execute.return_value = mock_result
@@ -187,13 +194,18 @@ class TestRecommendationService:
         """Create a mock user repository"""
         return AsyncMock()
 
-    async def test_generate_switching_recommendation(self, mock_price_service, mock_user_repo):
+    async def test_generate_switching_recommendation(
+        self, mock_price_service, mock_user_repo
+    ):
         """Test generating supplier switching recommendation"""
         from services.recommendation_service import RecommendationService
 
         # User is on expensive supplier
         mock_user_repo.get_by_id.return_value = MagicMock(
-            id="user_123", current_supplier="Expensive Energy", region="us_ct", preferences={}
+            id="user_123",
+            current_supplier="Expensive Energy",
+            region="us_ct",
+            preferences={},
         )
 
         mock_price_service.get_price_comparison.return_value = [
@@ -207,7 +219,9 @@ class TestRecommendationService:
         assert recommendation.recommended_supplier == "Cheap Energy"
         assert recommendation.potential_savings > Decimal("0")
 
-    async def test_generate_usage_recommendation(self, mock_price_service, mock_user_repo):
+    async def test_generate_usage_recommendation(
+        self, mock_price_service, mock_user_repo
+    ):
         """Test generating usage timing recommendation"""
         from services.recommendation_service import RecommendationService
 
@@ -247,7 +261,9 @@ class TestRecommendationService:
 
         mock_price_service.get_price_comparison.return_value = [
             MagicMock(
-                supplier="Dirty Cheap", price_per_kwh=Decimal("0.10"), green_energy_percentage=0
+                supplier="Dirty Cheap",
+                price_per_kwh=Decimal("0.10"),
+                green_energy_percentage=0,
             ),
             MagicMock(
                 supplier="Green Energy Co",
@@ -316,7 +332,9 @@ class TestAnalyticsService:
         )
 
         service = AnalyticsService(mock_price_repo)
-        volatility = await service.calculate_volatility(region=PriceRegion.US_CT, days=7)
+        volatility = await service.calculate_volatility(
+            region=PriceRegion.US_CT, days=7
+        )
 
         assert volatility > 0  # High variance prices
         assert isinstance(volatility, Decimal)
@@ -359,7 +377,9 @@ class TestAnalyticsService:
         mock_price_repo.get_hourly_price_averages = AsyncMock(return_value=hourly_rows)
 
         service = AnalyticsService(mock_price_repo)
-        analysis = await service.get_peak_hours_analysis(region=PriceRegion.US_CT, days=7)
+        analysis = await service.get_peak_hours_analysis(
+            region=PriceRegion.US_CT, days=7
+        )
 
         assert "peak_hours" in analysis
         assert "off_peak_hours" in analysis

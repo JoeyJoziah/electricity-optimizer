@@ -386,7 +386,9 @@ class TestJWTSecretValidation:
         """A strong 64-char hex secret must be accepted in production."""
         from config.settings import Settings
 
-        strong_secret = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+        strong_secret = (
+            "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+        )
         env = {
             "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
             "ENVIRONMENT": "production",

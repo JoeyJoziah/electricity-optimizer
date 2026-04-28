@@ -1,44 +1,44 @@
 # FastAPI and ASGI Server
-fastapi==0.125.0
-uvicorn[standard]==0.42.0
-pydantic==2.12.5
-pydantic-settings==2.13.1
+fastapi==0.136.1
+uvicorn[standard]==0.46.0
+pydantic==2.13.3
+pydantic-settings==2.14.0
 
 # Database
 asyncpg==0.31.0
 sqlalchemy[asyncio]==2.0.49
 
 # Redis
-redis[hiredis]==7.0
+redis[hiredis]==7.4.0
 
 # HTTP Client
-httpx==0.27.2
+httpx==0.28.1
 
 # Authentication & Security
 PyJWT[crypto]==2.12.1
 cryptography==46.0.6
-python-multipart==0.0.22
+python-multipart==0.0.27
 bcrypt==4.1.2
 
 # Environment & Configuration
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 
 # Data Validation & Serialization
 email-validator==2.3.0
 python-dateutil==2.9.0.post0
 
 # Monitoring & Logging
-prometheus-client==0.24.1
-sentry-sdk[fastapi]==2.54.0
+prometheus-client==0.25.0
+sentry-sdk[fastapi]==2.58.0
 structlog==25.5.0
 
 # OpenTelemetry — opt-in distributed tracing (OTEL_ENABLED=true activates)
-opentelemetry-api==1.40.0
-opentelemetry-sdk==1.40.0
-opentelemetry-instrumentation-fastapi==0.61b0
-opentelemetry-instrumentation-sqlalchemy==0.61b0
-opentelemetry-instrumentation-httpx==0.61b0
-opentelemetry-exporter-otlp-proto-http==1.40.0
+opentelemetry-api==1.41.1
+opentelemetry-sdk==1.41.1
+opentelemetry-instrumentation-fastapi==0.62b1
+opentelemetry-instrumentation-sqlalchemy==0.62b1
+opentelemetry-instrumentation-httpx==0.62b1
+opentelemetry-exporter-otlp-proto-http==1.41.1
 
 # Note: CORS is built into FastAPI, no extra package needed
 
@@ -46,12 +46,12 @@ opentelemetry-exporter-otlp-proto-http==1.40.0
 stripe==14.4.1
 
 # Email
-resend==2.23.0
+resend==2.29.0
 aiosmtplib==3.0.2
 jinja2==3.1.6
 
 # ML Dependencies
-numpy==2.4.3
+numpy==2.4.4
 pandas==2.3.3
 scikit-learn==1.8.0
 
@@ -59,9 +59,9 @@ scikit-learn==1.8.0
 hnswlib==0.8.0
 
 # XSS Sanitization (Rust-based, replaces deprecated bleach)
-nh3==0.3.3
+nh3==0.3.5
 
 # AI Agent (Gemini primary + Groq fallback + Composio tools)
-google-genai==1.2.0
-composio-gemini==0.11.2
-groq==1.1.0
+google-genai==1.73.1
+composio-gemini==0.11.6
+groq==1.2.0

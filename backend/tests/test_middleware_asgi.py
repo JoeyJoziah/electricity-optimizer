@@ -70,7 +70,10 @@ class TestSecurityHeadersASGI:
     def test_cache_headers_on_api_path(self, client):
         """API paths get cache-control headers."""
         resp = client.get("/api/v1/prices/current?region=us_ct")
-        assert resp.headers.get("cache-control") == "no-store, no-cache, must-revalidate, private"
+        assert (
+            resp.headers.get("cache-control")
+            == "no-store, no-cache, must-revalidate, private"
+        )
         assert resp.headers.get("pragma") == "no-cache"
         assert resp.headers.get("expires") == "0"
 
@@ -147,12 +150,16 @@ class TestTimeoutASGI:
         a streaming response (200 with text/event-stream) rather than 504.
         """
         with (
-            patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1),
+            patch(
+                "api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1
+            ),
             patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock),
             patch("api.dependencies.get_current_user", return_value=mock_auth),
         ):
             # Use stream=True to not wait for full response
-            with client.stream("GET", "/api/v1/prices/stream?region=us_ct&interval=10") as resp:
+            with client.stream(
+                "GET", "/api/v1/prices/stream?region=us_ct&interval=10"
+            ) as resp:
                 # If timeout middleware were applied, we'd get 504
                 # SSE should start streaming (200 with text/event-stream)
                 assert resp.status_code in (200, 401, 503)
@@ -171,11 +178,15 @@ class TestSSEMiddlewareStack:
     def test_sse_gets_security_headers(self, client, mock_auth):
         """SSE response includes security headers from the middleware stack."""
         with (
-            patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1),
+            patch(
+                "api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1
+            ),
             patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock),
             patch("api.dependencies.get_current_user", return_value=mock_auth),
         ):
-            with client.stream("GET", "/api/v1/prices/stream?region=us_ct&interval=10") as resp:
+            with client.stream(
+                "GET", "/api/v1/prices/stream?region=us_ct&interval=10"
+            ) as resp:
                 if resp.status_code == 200:
                     assert resp.headers.get("x-frame-options") == "DENY"
                     assert resp.headers.get("x-content-type-options") == "nosniff"
@@ -183,10 +194,14 @@ class TestSSEMiddlewareStack:
     def test_sse_gets_rate_limit_headers(self, client, mock_auth):
         """SSE response includes rate limit headers."""
         with (
-            patch("api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1),
+            patch(
+                "api.v1.prices_sse._sse_incr", new_callable=AsyncMock, return_value=1
+            ),
             patch("api.v1.prices_sse._sse_decr", new_callable=AsyncMock),
             patch("api.dependencies.get_current_user", return_value=mock_auth),
         ):
-            with client.stream("GET", "/api/v1/prices/stream?region=us_ct&interval=10") as resp:
+            with client.stream(
+                "GET", "/api/v1/prices/stream?region=us_ct&interval=10"
+            ) as resp:
                 if resp.status_code == 200:
                     assert "x-ratelimit-limit" in resp.headers

@@ -110,7 +110,9 @@ class TestPriceEndpoints:
 
     def test_get_price_history(self, client):
         """Test GET /api/v1/prices/history endpoint"""
-        response = client.get("/api/v1/prices/history", params={"region": "uk", "days": 7})
+        response = client.get(
+            "/api/v1/prices/history", params={"region": "uk", "days": 7}
+        )
 
         assert response.status_code in [200, 404]
 
@@ -231,7 +233,9 @@ class TestPriceEndpoints:
 
     def test_get_price_forecast(self, client):
         """Test GET /api/v1/prices/forecast endpoint"""
-        response = client.get("/api/v1/prices/forecast", params={"region": "uk", "hours": 24})
+        response = client.get(
+            "/api/v1/prices/forecast", params={"region": "uk", "hours": 24}
+        )
 
         # Unauthenticated request: 401 because no auth token is present.
         # The tier gate (403) only fires after auth succeeds.
@@ -366,7 +370,8 @@ class TestAuthenticationEndpoints:
     def test_protected_endpoint_with_invalid_token(self, client):
         """Test protected endpoints reject invalid tokens"""
         response = client.get(
-            "/api/v1/user/preferences", headers={"Authorization": "Bearer invalid_token"}
+            "/api/v1/user/preferences",
+            headers={"Authorization": "Bearer invalid_token"},
         )
 
         # 401 = auth rejected (token invalid/expired)
@@ -376,7 +381,9 @@ class TestAuthenticationEndpoints:
 
     def test_user_preferences_endpoint(self, client):
         """Test POST /api/v1/user/preferences requires auth"""
-        response = client.post("/api/v1/user/preferences", json={"notification_enabled": True})
+        response = client.post(
+            "/api/v1/user/preferences", json={"notification_enabled": True}
+        )
 
         assert response.status_code == 401
 
@@ -481,7 +488,10 @@ class TestCORS:
 
         assert response.status_code == 200
         # Access-Control-Allow-Origin should be present
-        assert "access-control-allow-origin" in response.headers or response.status_code == 200
+        assert (
+            "access-control-allow-origin" in response.headers
+            or response.status_code == 200
+        )
 
 
 # =============================================================================
@@ -595,4 +605,6 @@ class TestGeneralExceptionHandlerSanitization:
         assert response.status_code == 500
         data = response.json()
         # The exact exception string must not appear verbatim in the response
-        assert "this_is_a_very_specific_internal_error_xyz123" not in data.get("detail", "")
+        assert "this_is_a_very_specific_internal_error_xyz123" not in data.get(
+            "detail", ""
+        )

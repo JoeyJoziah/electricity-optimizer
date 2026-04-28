@@ -603,7 +603,9 @@ class TestMaintenanceEndpoint:
         mock_svc.cleanup_expired_uploads = AsyncMock(
             return_value={"deleted": 0, "retention_days": 730}
         )
-        mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0, "retention_days": 365})
+        mock_svc.cleanup_old_prices = AsyncMock(
+            return_value={"deleted": 0, "retention_days": 365}
+        )
         mock_svc.cleanup_old_observations = AsyncMock(
             return_value={"deleted": 0, "retention_days": 90}
         )

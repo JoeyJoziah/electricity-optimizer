@@ -160,7 +160,16 @@ class TestPriceRegionEnum:
         """Test all expected regions are defined"""
         from models.price import PriceRegion
 
-        expected_regions = ["UK", "GERMANY", "FRANCE", "SPAIN", "US_CA", "US_TX", "US_NY", "US_CT"]
+        expected_regions = [
+            "UK",
+            "GERMANY",
+            "FRANCE",
+            "SPAIN",
+            "US_CA",
+            "US_TX",
+            "US_NY",
+            "US_CT",
+        ]
 
         for region in expected_regions:
             assert hasattr(PriceRegion, region)
@@ -230,7 +239,9 @@ class TestUserModel:
         """Test User model can be created with valid data"""
         from models.user import User
 
-        user = User(id="user_123", email="test@example.com", name="Test User", region="us_ct")
+        user = User(
+            id="user_123", email="test@example.com", name="Test User", region="us_ct"
+        )
 
         assert user.email == "test@example.com"
         assert user.name == "Test User"
@@ -397,7 +408,10 @@ class TestSupplierModel:
         )
 
         supplier = Supplier(
-            name="Eversource Energy", regions=["us_ct"], tariff_types=["variable"], contact=contact
+            name="Eversource Energy",
+            regions=["us_ct"],
+            tariff_types=["variable"],
+            contact=contact,
         )
 
         assert supplier.contact.email == "support@eversource.com"
@@ -563,7 +577,9 @@ class TestUserCreateGdprConsent:
 
         from models.user import UserCreate
 
-        payload = {k: v for k, v in self._VALID_BASE.items() if k != "data_processing_agreed"}
+        payload = {
+            k: v for k, v in self._VALID_BASE.items() if k != "data_processing_agreed"
+        }
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**payload)
 
@@ -598,7 +614,11 @@ class TestUserCreateGdprConsent:
 
         with pytest.raises(ValidationError):
             UserCreate(
-                **{**self._VALID_BASE, "consent_given": False, "data_processing_agreed": False}
+                **{
+                    **self._VALID_BASE,
+                    "consent_given": False,
+                    "data_processing_agreed": False,
+                }
             )
 
     def test_user_create_error_message_mentions_gdpr(self):

@@ -126,13 +126,17 @@ class TestCreatePost:
         # Extra MagicMock for moderation UPDATE + commit path
         mock_db.execute = AsyncMock(side_effect=[rate_result, mock_result, MagicMock()])
 
-        post = await service.create_post(mock_db, user_id, sample_post_data, mock_agent_service)
+        post = await service.create_post(
+            mock_db, user_id, sample_post_data, mock_agent_service
+        )
 
         assert post["id"] is not None
         assert post["is_pending_moderation"] is True
         assert post["user_id"] == user_id
 
-    async def test_create_post_sanitizes_xss(self, service, mock_db, mock_agent_service):
+    async def test_create_post_sanitizes_xss(
+        self, service, mock_db, mock_agent_service
+    ):
         """<script> and onerror must be stripped from title/body by nh3 BEFORE the INSERT.
 
         The mock DB returns the raw unsanitized strings to prove the service is
@@ -193,7 +197,9 @@ class TestCreatePost:
         # Confirm the real nh3 library strips these attack vectors
         assert "<script>" not in sanitized_title, "Script tag not stripped from title"
         assert 'alert("xss")' not in sanitized_title, "JS alert not stripped from title"
-        assert "onerror" not in sanitized_body, "onerror attribute not stripped from body"
+        assert (
+            "onerror" not in sanitized_body
+        ), "onerror attribute not stripped from body"
 
         # Cross-check: nh3.clean produces the same result (proves real sanitizer was used)
         assert sanitized_title == nh3.clean(xss_title)
@@ -227,9 +233,13 @@ class TestCreatePost:
             "updated_at": datetime.now(UTC),
         }
 
-        mock_db.execute = AsyncMock(side_effect=[rate_result, insert_result, AsyncMock()])
+        mock_db.execute = AsyncMock(
+            side_effect=[rate_result, insert_result, AsyncMock()]
+        )
 
-        await service.create_post(mock_db, user_id, sample_post_data, mock_agent_service)
+        await service.create_post(
+            mock_db, user_id, sample_post_data, mock_agent_service
+        )
 
         mock_agent_service.classify_content.assert_called_once()
 
@@ -262,9 +272,13 @@ class TestCreatePost:
             "updated_at": datetime.now(UTC),
         }
 
-        mock_db.execute = AsyncMock(side_effect=[rate_result, insert_result, AsyncMock()])
+        mock_db.execute = AsyncMock(
+            side_effect=[rate_result, insert_result, AsyncMock()]
+        )
 
-        post = await service.create_post(mock_db, user_id, sample_post_data, mock_agent_service)
+        post = await service.create_post(
+            mock_db, user_id, sample_post_data, mock_agent_service
+        )
 
         # Fail-closed: post is pending until moderation completes
         assert post["is_pending_moderation"] is True
@@ -370,7 +384,10 @@ class TestCreatePost:
             mock_db,
             user_id,
             post_id,
-            {"title": "Edited title", "body": "Edited body content that is now compliant."},
+            {
+                "title": "Edited title",
+                "body": "Edited body content that is now compliant.",
+            },
             mock_agent,
         )
 
@@ -580,7 +597,9 @@ class TestModeratePost:
         update_result = MagicMock()
         mock_db.execute = AsyncMock(side_effect=[select_result, update_result])
 
-    async def test_moderation_hides_flagged_post(self, service, mock_db, mock_agent_service):
+    async def test_moderation_hides_flagged_post(
+        self, service, mock_db, mock_agent_service
+    ):
         """Groq returns 'flagged' → post should be hidden."""
         post_id = str(uuid4())
         mock_agent_service.classify_content = AsyncMock(return_value="flagged")
@@ -599,7 +618,9 @@ class TestModeratePost:
 
         # Agent with both groq and gemini methods
         mock_agent = _AgentServiceStub()
-        mock_agent.classify_content_groq = AsyncMock(side_effect=Exception("429 Too Many Requests"))
+        mock_agent.classify_content_groq = AsyncMock(
+            side_effect=Exception("429 Too Many Requests")
+        )
         mock_agent.classify_content_gemini = AsyncMock(return_value="safe")
 
         self._mock_post_select(mock_db, post_id)
@@ -615,7 +636,9 @@ class TestModeratePost:
         post_id = str(uuid4())
 
         mock_agent = _AgentServiceStub()
-        mock_agent.classify_content_groq = AsyncMock(side_effect=Exception("429 Too Many Requests"))
+        mock_agent.classify_content_groq = AsyncMock(
+            side_effect=Exception("429 Too Many Requests")
+        )
         mock_agent.classify_content_gemini = AsyncMock(side_effect=asyncio.TimeoutError)
 
         # SELECT returns post, then UPDATE for clearing pending
@@ -658,7 +681,9 @@ class TestRetroactiveModeration:
         # Both posts classified in parallel via asyncio.gather
         assert mock_agent_service.classify_content.call_count == 2
 
-    async def test_retroactive_moderate_gather_collects_flagged_ids(self, service, mock_db):
+    async def test_retroactive_moderate_gather_collects_flagged_ids(
+        self, service, mock_db
+    ):
         """flagged_ids are collected from asyncio.gather return values, not from
         concurrent appends to a shared list (race-condition-free).
 
@@ -720,7 +745,9 @@ class TestRetroactiveModeration:
 
 
 class TestEditAndResubmit:
-    async def test_flagged_post_edit_resubmit(self, service, mock_db, mock_agent_service):
+    async def test_flagged_post_edit_resubmit(
+        self, service, mock_db, mock_agent_service
+    ):
         """Author can edit a flagged post and resubmit for moderation."""
         user_id = str(uuid4())
         post_id = str(uuid4())
@@ -734,7 +761,9 @@ class TestEditAndResubmit:
             "hidden_reason": "flagged_by_ai",
         }
         select_result = MagicMock()
-        select_result.mappings.return_value.fetchone.return_value = existing_post._mapping
+        select_result.mappings.return_value.fetchone.return_value = (
+            existing_post._mapping
+        )
 
         update_result = MagicMock()
         update_result.mappings.return_value.fetchone.return_value = {
@@ -755,7 +784,9 @@ class TestEditAndResubmit:
             "updated_at": datetime.now(UTC),
         }
 
-        mock_db.execute = AsyncMock(side_effect=[select_result, update_result, MagicMock()])
+        mock_db.execute = AsyncMock(
+            side_effect=[select_result, update_result, MagicMock()]
+        )
 
         edit_data = {
             "title": "Edited title for resubmission",
@@ -813,7 +844,9 @@ class TestCommunityStats:
 
 
 class TestRateLimiting:
-    async def test_rate_limit_posts(self, service, mock_db, mock_agent_service, sample_post_data):
+    async def test_rate_limit_posts(
+        self, service, mock_db, mock_agent_service, sample_post_data
+    ):
         """11th post in an hour should raise a rate limit error."""
         user_id = str(uuid4())
 
@@ -824,4 +857,6 @@ class TestRateLimiting:
         mock_db.execute = AsyncMock(return_value=rate_result)
 
         with pytest.raises(Exception, match="rate limit|too many"):
-            await service.create_post(mock_db, user_id, sample_post_data, mock_agent_service)
+            await service.create_post(
+                mock_db, user_id, sample_post_data, mock_agent_service
+            )

@@ -138,7 +138,9 @@ class EnergyBotService:
                 response = await client.request(method, path, **kwargs)
 
                 if response.status_code == 401:
-                    raise EnergyBotAuthError("Invalid EnergyBot API key", status_code=401)
+                    raise EnergyBotAuthError(
+                        "Invalid EnergyBot API key", status_code=401
+                    )
                 if response.status_code == 429:
                     raise EnergyBotRateLimitError(
                         "EnergyBot API rate limit exceeded", status_code=429
@@ -413,7 +415,9 @@ class EnergyBotService:
             attributes={"energybot.enrollment_id": enrollment_id},
         ):
             try:
-                result = await self._request("POST", f"/enrollments/{enrollment_id}/cancel")
+                result = await self._request(
+                    "POST", f"/enrollments/{enrollment_id}/cancel"
+                )
                 cancelled: bool = result.get("cancelled", False)
                 logger.info(
                     "energybot_enrollment_cancelled",

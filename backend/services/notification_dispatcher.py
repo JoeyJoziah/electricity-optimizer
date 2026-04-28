@@ -167,7 +167,11 @@ class NotificationDispatcher:
         # 1. Deduplication check
         # ------------------------------------------------------------------
         if dedup_key:
-            window = cooldown_seconds if cooldown_seconds is not None else _DEFAULT_COOLDOWN_SECONDS
+            window = (
+                cooldown_seconds
+                if cooldown_seconds is not None
+                else _DEFAULT_COOLDOWN_SECONDS
+            )
             duplicate = await self._is_duplicate(user_id, dedup_key, window)
             if duplicate:
                 logger.info(

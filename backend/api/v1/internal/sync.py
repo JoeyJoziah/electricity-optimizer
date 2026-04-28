@@ -86,7 +86,9 @@ async def sync_neon_users(db: AsyncSession = Depends(get_db_session)):
             else:
                 skipped += 1
         except Exception as exc:
-            logger.error("user_sync_row_failed", user_id=neon_id, email=email, error=str(exc))
+            logger.error(
+                "user_sync_row_failed", user_id=neon_id, email=email, error=str(exc)
+            )
             errors.append({"user_id": neon_id, "email": email, "error": str(exc)})
             # Continue with remaining rows — don't let one failure abort the batch
             await db.rollback()
@@ -129,4 +131,6 @@ async def sync_connections(db: AsyncSession = Depends(get_db_session)):
         }
     except Exception as exc:
         logger.error("sync_connections_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="Connection sync failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="Connection sync failed. See server logs."
+        )

@@ -4,11 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
-from services.geocoding_service import (
-    _STATE_NAME_TO_ABBR,
-    _US_STATES,
-    GeocodingService,
-)
+from services.geocoding_service import (_STATE_NAME_TO_ABBR, _US_STATES,
+                                        GeocodingService)
 
 
 def _make_settings(owm_key="test-owm-key"):
@@ -17,7 +14,9 @@ def _make_settings(owm_key="test-owm-key"):
     return s
 
 
-def _owm_response(name="Los Angeles", lat=34.05, lon=-118.24, state="California", country="US"):
+def _owm_response(
+    name="Los Angeles", lat=34.05, lon=-118.24, state="California", country="US"
+):
     """Build a mock OWM /geo/1.0/direct JSON response."""
     return [{"name": name, "lat": lat, "lon": lon, "state": state, "country": country}]
 
@@ -55,7 +54,9 @@ class TestGeocodeViaOWM:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.geocoding_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", return_value=mock_client
+        ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("Los Angeles, CA")
 
@@ -80,7 +81,9 @@ class TestGeocodeViaOWM:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.geocoding_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", return_value=mock_client
+        ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("Los Angeles, CA")
 
@@ -109,7 +112,8 @@ class TestGeocodeNominatimFallback:
 
         clients = iter([mock_client_owm, mock_client_nom])
         with patch(
-            "services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)
+            "services.geocoding_service.httpx.AsyncClient",
+            side_effect=lambda **kw: next(clients),
         ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("Los Angeles, CA")
@@ -130,7 +134,9 @@ class TestGeocodeNominatimFallback:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.geocoding_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", return_value=mock_client
+        ):
             svc = GeocodingService(settings=_make_settings(owm_key=None))
             result = await svc.geocode("Los Angeles, CA")
 
@@ -155,7 +161,8 @@ class TestGeocodeNominatimFallback:
 
         clients = iter([mock_client_owm, mock_client_nom])
         with patch(
-            "services.geocoding_service.httpx.AsyncClient", side_effect=lambda **kw: next(clients)
+            "services.geocoding_service.httpx.AsyncClient",
+            side_effect=lambda **kw: next(clients),
         ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("New York, NY")
@@ -171,7 +178,9 @@ class TestBothProvidersFail:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.geocoding_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", return_value=mock_client
+        ):
             svc = GeocodingService(settings=_make_settings())
             result = await svc.geocode("Nowhere, XX")
 
@@ -190,7 +199,9 @@ class TestAddressToRegion:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.geocoding_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", return_value=mock_client
+        ):
             svc = GeocodingService(settings=_make_settings())
             region = await svc.address_to_region("Albany, NY")
 
@@ -199,7 +210,9 @@ class TestAddressToRegion:
     async def test_address_to_region_non_us_returns_none(self):
         """Non-US address (no matching state) returns None."""
         mock_resp = MagicMock()
-        mock_resp.json.return_value = _owm_response(name="London", state="England", country="GB")
+        mock_resp.json.return_value = _owm_response(
+            name="London", state="England", country="GB"
+        )
         mock_resp.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
@@ -207,7 +220,9 @@ class TestAddressToRegion:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.geocoding_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", return_value=mock_client
+        ):
             svc = GeocodingService(settings=_make_settings())
             region = await svc.address_to_region("London, UK")
 
@@ -226,13 +241,17 @@ class TestNominatimUserAgent:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("services.geocoding_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.geocoding_service.httpx.AsyncClient", return_value=mock_client
+        ):
             svc = GeocodingService(settings=_make_settings(owm_key=None))
             await svc.geocode("Test Address")
 
         # Verify the Nominatim call included User-Agent header
         call_kwargs = mock_client.get.call_args
-        assert call_kwargs.kwargs.get("headers", {}).get("User-Agent") == "RateShift/1.0"
+        assert (
+            call_kwargs.kwargs.get("headers", {}).get("User-Agent") == "RateShift/1.0"
+        )
 
 
 class TestStateMapping:

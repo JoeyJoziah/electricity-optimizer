@@ -32,8 +32,12 @@ class CheckoutSessionRequest(BaseModel):
     """Request to create a checkout session."""
 
     tier: str = Field(..., pattern=r"^(pro|business)$", description="Subscription tier")
-    success_url: HttpUrl = Field(..., description="URL to redirect after successful checkout")
-    cancel_url: HttpUrl = Field(..., description="URL to redirect if checkout is cancelled")
+    success_url: HttpUrl = Field(
+        ..., description="URL to redirect after successful checkout"
+    )
+    cancel_url: HttpUrl = Field(
+        ..., description="URL to redirect if checkout is cancelled"
+    )
 
     @field_validator("success_url", "cancel_url")
     @classmethod
@@ -59,7 +63,9 @@ class CheckoutSessionResponse(BaseModel):
 class PortalSessionRequest(BaseModel):
     """Request to create a customer portal session."""
 
-    return_url: HttpUrl = Field(..., description="URL to return to after portal session")
+    return_url: HttpUrl = Field(
+        ..., description="URL to return to after portal session"
+    )
 
     @field_validator("return_url")
     @classmethod
@@ -492,7 +498,9 @@ async def handle_stripe_webhook(
             try:
                 await db.rollback()
                 await db.execute(
-                    text("DELETE FROM stripe_processed_events WHERE event_id = :event_id"),
+                    text(
+                        "DELETE FROM stripe_processed_events WHERE event_id = :event_id"
+                    ),
                     {"event_id": event_id},
                 )
                 await db.commit()
@@ -522,7 +530,9 @@ async def handle_stripe_webhook(
             try:
                 await db.rollback()
                 await db.execute(
-                    text("DELETE FROM stripe_processed_events WHERE event_id = :event_id"),
+                    text(
+                        "DELETE FROM stripe_processed_events WHERE event_id = :event_id"
+                    ),
                     {"event_id": event_id},
                 )
                 await db.commit()

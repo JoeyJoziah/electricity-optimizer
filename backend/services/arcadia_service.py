@@ -284,7 +284,9 @@ class ArcadiaService:
                 logger.info("arcadia_no_connection", user_id=user_id)
                 return 0
 
-            account_id: str = (conn_row.get("metadata") or {}).get("arcadia_account_id", "")
+            account_id: str = (conn_row.get("metadata") or {}).get(
+                "arcadia_account_id", ""
+            )
             if not account_id:
                 logger.info(
                     "arcadia_no_account_id",

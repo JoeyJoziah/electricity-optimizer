@@ -78,7 +78,8 @@ class TestExtractRateFromDiffbotData:
 
     def _fn(self, data):
         """Import lazily so tests don't depend on module-load order."""
-        from api.v1.internal.data_pipeline import _extract_rate_from_diffbot_data
+        from api.v1.internal.data_pipeline import \
+            _extract_rate_from_diffbot_data
 
         return _extract_rate_from_diffbot_data(data)
 
@@ -113,16 +114,19 @@ class TestExtractRateFromDiffbotData:
         for kwh_variant in ("kWh", "kwh", "KWH"):
             data = {"text": f"Rate: 0.1111 per {kwh_variant}"}
             result = self._fn(data)
-            assert result == pytest.approx(0.1111, abs=1e-6), (
-                f"Failed for kWh variant '{kwh_variant}'"
-            )
+            assert result == pytest.approx(
+                0.1111, abs=1e-6
+            ), f"Failed for kWh variant '{kwh_variant}'"
 
     def test_extracts_from_objects_list(self):
         """When ``text`` is absent, concatenated object texts are searched."""
         data = {
             "objects": [
                 {"type": "article", "text": "Company overview and service areas."},
-                {"type": "price", "text": "Electricity rate: 0.1350 /kWh during off-peak."},
+                {
+                    "type": "price",
+                    "text": "Electricity rate: 0.1350 /kWh during off-peak.",
+                },
             ]
         }
         result = self._fn(data)
@@ -143,9 +147,7 @@ class TestExtractRateFromDiffbotData:
         """Top-level ``text`` is preferred over the ``objects`` list."""
         data = {
             "text": "Rate: 0.2000 per kWh",
-            "objects": [
-                {"text": "rate: 0.9999 per kWh"}  # should NOT be used
-            ],
+            "objects": [{"text": "rate: 0.9999 per kWh"}],  # should NOT be used
         }
         result = self._fn(data)
         assert result == pytest.approx(0.2000, abs=1e-6)
@@ -202,7 +204,8 @@ class TestExtractRateFromDiffbotData:
         # Use monkeypatching to inject a bad capture group
         import re
 
-        from api.v1.internal.data_pipeline import _extract_rate_from_diffbot_data
+        from api.v1.internal.data_pipeline import \
+            _extract_rate_from_diffbot_data
 
         original_search = re.search
 
@@ -230,7 +233,9 @@ class TestScrapeRatesRateExtraction:
     """Endpoint tests verifying the ``rates_found`` field in the response."""
 
     @patch("services.rate_scraper_service.RateScraperService")
-    def test_rates_found_zero_when_no_rate_text(self, mock_svc_cls, auth_client, mock_db):
+    def test_rates_found_zero_when_no_rate_text(
+        self, mock_svc_cls, auth_client, mock_db
+    ):
         """When extracted_data has no rate text, rates_found must be 0."""
         mock_svc = MagicMock()
         mock_svc.scrape_supplier_rates = AsyncMock(
@@ -262,7 +267,9 @@ class TestScrapeRatesRateExtraction:
         assert data["rates_found"] == 0
 
     @patch("services.rate_scraper_service.RateScraperService")
-    def test_rates_found_one_when_single_rate_detected(self, mock_svc_cls, auth_client, mock_db):
+    def test_rates_found_one_when_single_rate_detected(
+        self, mock_svc_cls, auth_client, mock_db
+    ):
         """When one result has a detectable rate, rates_found = 1."""
         mock_svc = MagicMock()
         mock_svc.scrape_supplier_rates = AsyncMock(
@@ -346,7 +353,9 @@ class TestScrapeRatesRateExtraction:
         assert data["rates_found"] == 2  # s1 + s3, not s2
 
     @patch("services.rate_scraper_service.RateScraperService")
-    def test_rates_found_zero_when_all_results_fail(self, mock_svc_cls, auth_client, mock_db):
+    def test_rates_found_zero_when_all_results_fail(
+        self, mock_svc_cls, auth_client, mock_db
+    ):
         """Failed scrapes (success=False, extracted_data=None) → rates_found = 0."""
         mock_svc = MagicMock()
         mock_svc.scrape_supplier_rates = AsyncMock(
@@ -382,7 +391,9 @@ class TestScrapeRatesRateExtraction:
         assert data["rates_found"] == 0
 
     @patch("services.rate_scraper_service.RateScraperService")
-    def test_response_always_includes_rates_found_key(self, mock_svc_cls, auth_client, mock_db):
+    def test_response_always_includes_rates_found_key(
+        self, mock_svc_cls, auth_client, mock_db
+    ):
         """The ``rates_found`` key must always be present in the response body."""
         mock_svc = MagicMock()
         mock_svc.scrape_supplier_rates = AsyncMock(
@@ -391,7 +402,9 @@ class TestScrapeRatesRateExtraction:
                 "succeeded": 1,
                 "failed": 0,
                 "errors": [],
-                "results": [{"supplier_id": "x", "success": True, "extracted_data": {}}],
+                "results": [
+                    {"supplier_id": "x", "success": True, "extracted_data": {}}
+                ],
             }
         )
         mock_svc_cls.return_value = mock_svc
@@ -430,7 +443,9 @@ class TestScrapeRatesRateExtraction:
                     {
                         "supplier_id": "s1",
                         "success": True,
-                        "extracted_data": {"text": "Rate: $0.1375 per kWh residential."},
+                        "extracted_data": {
+                            "text": "Rate: $0.1375 per kWh residential."
+                        },
                     }
                 ],
             }
@@ -444,20 +459,24 @@ class TestScrapeRatesRateExtraction:
         ):
             response = auth_client.post(
                 f"{BASE_URL}/scrape-rates",
-                json={"supplier_urls": [{"supplier_id": "s1", "url": "https://s1.com"}]},
+                json={
+                    "supplier_urls": [{"supplier_id": "s1", "url": "https://s1.com"}]
+                },
             )
 
         assert response.status_code == 200
         assert len(captured_rows) == 1
 
         stored_data = json.loads(captured_rows[0]["data"])
-        assert "_detected_rate_kwh" in stored_data, (
-            "Expected _detected_rate_kwh to be embedded in stored extracted_data"
-        )
+        assert (
+            "_detected_rate_kwh" in stored_data
+        ), "Expected _detected_rate_kwh to be embedded in stored extracted_data"
         assert stored_data["_detected_rate_kwh"] == pytest.approx(0.1375, abs=1e-6)
 
     @patch("services.rate_scraper_service.RateScraperService")
-    def test_no_detection_key_when_rate_not_found(self, mock_svc_cls, auth_client, mock_db):
+    def test_no_detection_key_when_rate_not_found(
+        self, mock_svc_cls, auth_client, mock_db
+    ):
         """When no rate is detected, ``_detected_rate_kwh`` must NOT be embedded."""
         captured_rows: list[dict] = []
 
@@ -490,7 +509,9 @@ class TestScrapeRatesRateExtraction:
         ):
             response = auth_client.post(
                 f"{BASE_URL}/scrape-rates",
-                json={"supplier_urls": [{"supplier_id": "s1", "url": "https://s1.com"}]},
+                json={
+                    "supplier_urls": [{"supplier_id": "s1", "url": "https://s1.com"}]
+                },
             )
 
         assert response.status_code == 200
@@ -499,7 +520,9 @@ class TestScrapeRatesRateExtraction:
         assert "_detected_rate_kwh" not in stored_data
 
     @patch("services.rate_scraper_service.RateScraperService")
-    def test_rates_found_in_objects_list_format(self, mock_svc_cls, auth_client, mock_db):
+    def test_rates_found_in_objects_list_format(
+        self, mock_svc_cls, auth_client, mock_db
+    ):
         """Diffbot nested objects-list format is handled for rate extraction."""
         mock_svc = MagicMock()
         mock_svc.scrape_supplier_rates = AsyncMock(

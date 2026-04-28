@@ -208,11 +208,13 @@ class DunningService:
                         type="dunning",
                         title=subject,
                         body=(
-                            f"Payment of {currency} {amount:.2f} could not be processed. "
-                            "Please update your payment method."
-                        )
-                        if amount
-                        else subject,
+                            (
+                                f"Payment of {currency} {amount:.2f} could not be processed. "
+                                "Please update your payment method."
+                            )
+                            if amount
+                            else subject
+                        ),
                         channels=[
                             NotificationChannel.EMAIL,
                             NotificationChannel.PUSH,
@@ -239,7 +241,9 @@ class DunningService:
                         # the record when the 24 h window is already covered.
                         return True
                     channel_results = dispatch_result.get("channels", {})
-                    success = channel_results.get(NotificationChannel.EMAIL.value, False)
+                    success = channel_results.get(
+                        NotificationChannel.EMAIL.value, False
+                    )
                 except Exception as dispatch_exc:
                     logger.warning(
                         "dunning_dispatcher_failed_falling_back",

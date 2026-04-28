@@ -40,7 +40,9 @@ router = APIRouter()
 async def get_rates(
     connection_id: uuid.UUID,
     page: int = Query(1, ge=1, description="Page number (1-based)"),
-    page_size: int = Query(20, ge=1, le=100, description="Records per page (1-100, default 20)"),
+    page_size: int = Query(
+        20, ge=1, le=100, description="Records per page (1-100, default 20)"
+    ),
     current_user: SessionData = Depends(require_paid_tier),
     db: AsyncSession = Depends(get_db_session),
 ) -> ExtractedRateListResponse:
@@ -87,7 +89,9 @@ async def get_rates(
     # Sequential execution — asyncio.gather on a shared AsyncSession
     # can corrupt internal state (see SA docs on session concurrency)
     count_result = await db.execute(count_query, params)
-    data_result = await db.execute(data_query, {**params, "limit": page_size, "offset": offset})
+    data_result = await db.execute(
+        data_query, {**params, "limit": page_size, "offset": offset}
+    )
 
     total: int = count_result.scalar() or 0
     rows = data_result.mappings().all()

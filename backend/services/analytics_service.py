@@ -75,7 +75,9 @@ class AnalyticsService:
             except Exception:
                 pass
 
-    async def calculate_average_price(self, region: PriceRegion, days: int = 7) -> Decimal:
+    async def calculate_average_price(
+        self, region: PriceRegion, days: int = 7
+    ) -> Decimal:
         """
         Calculate average price for a region over a period.
 
@@ -115,7 +117,9 @@ class AnalyticsService:
             return Decimal("0")
         return stats["stddev_price"]
 
-    async def get_price_trend(self, region: PriceRegion, days: int = 7) -> dict[str, Any]:
+    async def get_price_trend(
+        self, region: PriceRegion, days: int = 7
+    ) -> dict[str, Any]:
         """
         Analyze price trend over a period.
 
@@ -168,7 +172,9 @@ class AnalyticsService:
 
         # Calculate change
         if first_third_avg > 0:
-            change_percent = ((last_third_avg - first_third_avg) / first_third_avg) * Decimal("100")
+            change_percent = (
+                (last_third_avg - first_third_avg) / first_third_avg
+            ) * Decimal("100")
         else:
             change_percent = Decimal("0")
 
@@ -191,7 +197,9 @@ class AnalyticsService:
         await self._set_cached(cache_key, result, ttl=900)  # 15 min
         return result
 
-    async def get_peak_hours_analysis(self, region: PriceRegion, days: int = 7) -> dict[str, Any]:
+    async def get_peak_hours_analysis(
+        self, region: PriceRegion, days: int = 7
+    ) -> dict[str, Any]:
         """
         Analyze peak and off-peak hours based on pricing.
 
@@ -273,9 +281,11 @@ class AnalyticsService:
             "off_peak_hours": sorted(off_peak_hours),
             "average_by_hour": hourly_avg,
             "overall_average": overall_avg,
-            "peak_premium_percent": ((max_avg / overall_avg - 1) * 100).quantize(Decimal("0.1"))
-            if overall_avg > 0
-            else Decimal("0"),
+            "peak_premium_percent": (
+                ((max_avg / overall_avg - 1) * 100).quantize(Decimal("0.1"))
+                if overall_avg > 0
+                else Decimal("0")
+            ),
         }
 
         await self._set_cached(cache_key, result, ttl=900)  # 15 min
@@ -346,10 +356,14 @@ class AnalyticsService:
             "region": region.value,
             "period_days": days,
             "suppliers": supplier_stats,
-            "cheapest_supplier": supplier_stats[0]["supplier"] if supplier_stats else None,
-            "most_stable": min(supplier_stats, key=lambda s: s["volatility"])["supplier"]
-            if supplier_stats
-            else None,
+            "cheapest_supplier": (
+                supplier_stats[0]["supplier"] if supplier_stats else None
+            ),
+            "most_stable": (
+                min(supplier_stats, key=lambda s: s["volatility"])["supplier"]
+                if supplier_stats
+                else None
+            ),
         }
 
         await self._set_cached(cache_key, result, ttl=3600)  # 1 hour

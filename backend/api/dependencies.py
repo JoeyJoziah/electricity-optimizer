@@ -11,11 +11,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
 
 # Re-export auth dependencies from neon_auth module.
-from auth.neon_auth import (  # noqa: F401
-    SessionData,
-    get_current_user,
-    get_current_user_optional,
-)
+from auth.neon_auth import (SessionData, get_current_user,  # noqa: F401
+                            get_current_user_optional)
 from config.database import db_manager
 from config.settings import settings
 
@@ -68,7 +65,9 @@ async def verify_api_key(api_key: str | None = Depends(api_key_header)) -> bool:
         HTTPException: If API key is missing or invalid
     """
     if not api_key:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="API key required"
+        )
 
     # Validate against a dedicated API key (never reuse the JWT signing secret)
     if not settings.internal_api_key:
@@ -81,7 +80,9 @@ async def verify_api_key(api_key: str | None = Depends(api_key_header)) -> bool:
     import hmac
 
     if not hmac.compare_digest(api_key, settings.internal_api_key):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key"
+        )
 
     return True
 
@@ -193,7 +194,9 @@ def _build_tier_check(min_tier: str):
 # for an authorization primitive because the cached closures captured
 # worker-local state (Redis client, metrics) and a future capture would
 # silently grant the wrong tier (security H-5 / code-quality P0-5).
-_TIER_DEPENDENCIES: dict[str, Any] = {tier: _build_tier_check(tier) for tier in _TIER_ORDER}
+_TIER_DEPENDENCIES: dict[str, Any] = {
+    tier: _build_tier_check(tier) for tier in _TIER_ORDER
+}
 
 
 def require_tier(min_tier: str):
@@ -241,7 +244,9 @@ async def get_price_service(db=Depends(get_db_session), redis=Depends(get_redis)
     return PriceService(repo, redis)
 
 
-async def get_recommendation_service(db=Depends(get_db_session), redis=Depends(get_redis)):
+async def get_recommendation_service(
+    db=Depends(get_db_session), redis=Depends(get_redis)
+):
     """
     Get RecommendationService instance.
 

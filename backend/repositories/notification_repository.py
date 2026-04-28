@@ -21,12 +21,8 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.notification import (
-    DeliveryChannel,
-    DeliveryStatus,
-    Notification,
-    NotificationDeliveryUpdate,
-)
+from models.notification import (DeliveryChannel, DeliveryStatus, Notification,
+                                 NotificationDeliveryUpdate)
 from repositories.base import RepositoryError
 
 logger = structlog.get_logger(__name__)
@@ -77,7 +73,9 @@ class NotificationRepository:
     # Read operations
     # =========================================================================
 
-    async def get_by_id(self, notification_id: str, user_id: str) -> Notification | None:
+    async def get_by_id(
+        self, notification_id: str, user_id: str
+    ) -> Notification | None:
         """Return the notification row for the given ID owned by user_id, or None."""
         try:
             result = await self._db.execute(
@@ -99,7 +97,9 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to fetch notification {notification_id}", exc)
+            raise RepositoryError(
+                f"Failed to fetch notification {notification_id}", exc
+            )
 
     async def get_by_delivery_status(
         self,
@@ -135,7 +135,9 @@ class NotificationRepository:
                 status=status,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to query notifications by status={status}", exc)
+            raise RepositoryError(
+                f"Failed to query notifications by status={status}", exc
+            )
 
     async def get_by_channel(
         self,
@@ -172,7 +174,9 @@ class NotificationRepository:
                 channel=channel,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to query notifications by channel={channel}", exc)
+            raise RepositoryError(
+                f"Failed to query notifications by channel={channel}", exc
+            )
 
     # =========================================================================
     # Write operations
@@ -204,7 +208,10 @@ class NotificationRepository:
             False — no row matched ``notification_id``.
         """
         set_clauses: list[str] = ["delivery_status = :delivery_status"]
-        params: dict[str, Any] = {"nid": notification_id, "delivery_status": update.delivery_status}
+        params: dict[str, Any] = {
+            "nid": notification_id,
+            "delivery_status": update.delivery_status,
+        }
 
         if update.delivery_channel is not None:
             set_clauses.append("delivery_channel = :delivery_channel")
@@ -255,4 +262,6 @@ class NotificationRepository:
                 notification_id=notification_id,
                 error=str(exc),
             )
-            raise RepositoryError(f"Failed to update delivery tracking for {notification_id}", exc)
+            raise RepositoryError(
+                f"Failed to update delivery tracking for {notification_id}", exc
+            )

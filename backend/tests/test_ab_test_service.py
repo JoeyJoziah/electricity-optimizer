@@ -91,7 +91,9 @@ def _side_effect_fetchones(mock_db, rows_sequence):
 class TestAssignUser:
     """Tests for ABTestService.assign_user"""
 
-    async def test_returns_existing_assignment_without_new_insert(self, service, mock_db):
+    async def test_returns_existing_assignment_without_new_insert(
+        self, service, mock_db
+    ):
         """If a persistent assignment exists it should be returned immediately."""
         _mock_fetchone(mock_db, _make_assignment_row("v2.0"))
 
@@ -116,7 +118,8 @@ class TestAssignUser:
         Multiple calls for the same user_id should return the same version
         deterministically — hash is stable so same inputs produce same output.
         """
-        from services.ab_test_service import ABTestService, _hash_user_to_bucket
+        from services.ab_test_service import (ABTestService,
+                                              _hash_user_to_bucket)
 
         user_id = "stable-user"
         version_a, version_b = "v1.0", "v2.0"
@@ -185,7 +188,9 @@ class TestAssignUser:
                 version_a_count += 1
 
         ratio = version_a_count / total
-        assert ratio >= 0.70, f"Expected >= 70% assigned to v1.0 with 0.9 split, got {ratio:.2%}"
+        assert (
+            ratio >= 0.70
+        ), f"Expected >= 70% assigned to v1.0 with 0.9 split, got {ratio:.2%}"
 
 
 # =============================================================================
@@ -235,7 +240,9 @@ class TestRecordPrediction:
         import re
 
         result = await service.record_prediction("u1", "v1.0", "NY", 0.15)
-        uuid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        uuid_re = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
         assert uuid_re.match(result), f"Expected UUID, got: {result!r}"
 
     async def test_commits_after_insert(self, service, mock_db):
@@ -376,8 +383,12 @@ class TestGetSplitMetrics:
     async def test_returns_metrics_per_version(self, service, mock_db):
         """Should return a list with one entry per model_version."""
         rows = [
-            _make_metrics_row("v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180),
-            _make_metrics_row("v2.0", mape=4.2, mae=0.008, total_count=190, observed_count=175),
+            _make_metrics_row(
+                "v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180
+            ),
+            _make_metrics_row(
+                "v2.0", mape=4.2, mae=0.008, total_count=190, observed_count=175
+            ),
         ]
         _mock_fetchall(mock_db, rows)
 
@@ -393,7 +404,9 @@ class TestGetSplitMetrics:
 
     async def test_mape_is_none_when_no_observed(self, service, mock_db):
         """If mape is NULL in DB (no observed rows), it should be None in result."""
-        row = _make_metrics_row("v1.0", mape=None, mae=None, total_count=50, observed_count=0)
+        row = _make_metrics_row(
+            "v1.0", mape=None, mae=None, total_count=50, observed_count=0
+        )
         _mock_fetchall(mock_db, [row])
 
         result = await service.get_split_metrics()
@@ -403,7 +416,9 @@ class TestGetSplitMetrics:
 
     async def test_metrics_dict_has_required_keys(self, service, mock_db):
         """Each metrics entry must include model_version, mape, mae, count, observed."""
-        row = _make_metrics_row("v1.0", mape=4.5, mae=0.009, total_count=100, observed_count=90)
+        row = _make_metrics_row(
+            "v1.0", mape=4.5, mae=0.009, total_count=100, observed_count=90
+        )
         _mock_fetchall(mock_db, [row])
 
         result = await service.get_split_metrics()
@@ -431,72 +446,110 @@ class TestAutoPromote:
     async def test_returns_none_when_version_a_missing(self, service, mock_db):
         """Should return None when version_a has no metrics."""
         rows = [
-            _make_metrics_row("v2.0", mape=3.0, mae=0.005, total_count=200, observed_count=150),
+            _make_metrics_row(
+                "v2.0", mape=3.0, mae=0.005, total_count=200, observed_count=150
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.05, min_predictions=100)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.05, min_predictions=100
+        )
 
         assert result is None
 
     async def test_returns_none_when_version_b_missing(self, service, mock_db):
         """Should return None when version_b has no metrics."""
         rows = [
-            _make_metrics_row("v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180),
+            _make_metrics_row(
+                "v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.05, min_predictions=100)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.05, min_predictions=100
+        )
 
         assert result is None
 
-    async def test_returns_none_when_challenger_insufficient_observations(self, service, mock_db):
+    async def test_returns_none_when_challenger_insufficient_observations(
+        self, service, mock_db
+    ):
         """Should return None when version_b has fewer than min_predictions observations."""
         rows = [
-            _make_metrics_row("v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180),
-            _make_metrics_row("v2.0", mape=4.0, mae=0.008, total_count=50, observed_count=50),
+            _make_metrics_row(
+                "v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180
+            ),
+            _make_metrics_row(
+                "v2.0", mape=4.0, mae=0.008, total_count=50, observed_count=50
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.05, min_predictions=100)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.05, min_predictions=100
+        )
 
         assert result is None
 
-    async def test_returns_challenger_when_improvement_exceeds_threshold(self, service, mock_db):
+    async def test_returns_challenger_when_improvement_exceeds_threshold(
+        self, service, mock_db
+    ):
         """Should return version_b when it beats version_a by > threshold."""
         # version_b MAPE is 4.0 vs version_a MAPE 5.0 → improvement = 0.20 > 0.05
         rows = [
-            _make_metrics_row("v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180),
-            _make_metrics_row("v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150),
+            _make_metrics_row(
+                "v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180
+            ),
+            _make_metrics_row(
+                "v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.05, min_predictions=100)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.05, min_predictions=100
+        )
 
         assert result == "v2.0"
 
-    async def test_returns_none_when_improvement_below_threshold(self, service, mock_db):
+    async def test_returns_none_when_improvement_below_threshold(
+        self, service, mock_db
+    ):
         """Should return None when challenger improvement is below threshold."""
         # version_b MAPE is 4.96 vs version_a 5.0 → improvement = 0.008 < 0.05
         rows = [
-            _make_metrics_row("v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180),
-            _make_metrics_row("v2.0", mape=4.96, mae=0.0098, total_count=150, observed_count=150),
+            _make_metrics_row(
+                "v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180
+            ),
+            _make_metrics_row(
+                "v2.0", mape=4.96, mae=0.0098, total_count=150, observed_count=150
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.05, min_predictions=100)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.05, min_predictions=100
+        )
 
         assert result is None
 
     async def test_returns_none_when_mape_is_none_for_either(self, service, mock_db):
         """Should return None when either version's MAPE is None (no observed data)."""
         rows = [
-            _make_metrics_row("v1.0", mape=None, mae=None, total_count=100, observed_count=0),
-            _make_metrics_row("v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150),
+            _make_metrics_row(
+                "v1.0", mape=None, mae=None, total_count=100, observed_count=0
+            ),
+            _make_metrics_row(
+                "v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.05, min_predictions=100)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.05, min_predictions=100
+        )
 
         assert result is None
 
@@ -504,24 +557,36 @@ class TestAutoPromote:
         """A custom threshold=0.25 should require a larger improvement to promote."""
         # improvement = (5.0 - 4.0) / 5.0 = 0.20, which is < 0.25
         rows = [
-            _make_metrics_row("v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180),
-            _make_metrics_row("v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150),
+            _make_metrics_row(
+                "v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180
+            ),
+            _make_metrics_row(
+                "v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.25, min_predictions=100)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.25, min_predictions=100
+        )
 
         assert result is None
 
     async def test_custom_min_predictions_respected(self, service, mock_db):
         """Custom min_predictions=200 should block promotion when observed=150."""
         rows = [
-            _make_metrics_row("v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180),
-            _make_metrics_row("v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150),
+            _make_metrics_row(
+                "v1.0", mape=5.0, mae=0.01, total_count=200, observed_count=180
+            ),
+            _make_metrics_row(
+                "v2.0", mape=4.0, mae=0.008, total_count=150, observed_count=150
+            ),
         ]
         self._setup_metrics(mock_db, rows)
 
-        result = await service.auto_promote("v1.0", "v2.0", threshold=0.05, min_predictions=200)
+        result = await service.auto_promote(
+            "v1.0", "v2.0", threshold=0.05, min_predictions=200
+        )
 
         assert result is None
 

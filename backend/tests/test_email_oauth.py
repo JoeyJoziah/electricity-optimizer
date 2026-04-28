@@ -64,7 +64,9 @@ def _mapping_result(rows: list) -> MagicMock:
     result = MagicMock()
     mock_rows = [_DictRow(r) for r in rows]
     result.mappings.return_value.all.return_value = mock_rows
-    result.mappings.return_value.first.return_value = mock_rows[0] if mock_rows else None
+    result.mappings.return_value.first.return_value = (
+        mock_rows[0] if mock_rows else None
+    )
     result.fetchone.return_value = mock_rows[0] if mock_rows else None
     return result
 
@@ -209,7 +211,8 @@ class TestOAuthState:
 
     def test_verify_roundtrip(self):
         """Sign then verify returns the original connection_id and user_id."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID, user_id="user-abc")
@@ -220,7 +223,8 @@ class TestOAuthState:
 
     def test_verify_roundtrip_no_user_id(self):
         """State without user_id still works (backwards compatible)."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -231,7 +235,8 @@ class TestOAuthState:
 
     def test_tampered_hmac_rejected(self):
         """Modifying the HMAC part causes verify to return (None, None)."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -246,7 +251,8 @@ class TestOAuthState:
 
     def test_tampered_connection_id_rejected(self):
         """Modifying the connection_id causes verify to return (None, None)."""
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -300,7 +306,8 @@ class TestOAuthState:
         """State older than 10 minutes is rejected."""
         import time
 
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -327,7 +334,8 @@ class TestOAuthState:
         """State with a future timestamp is rejected (clock skew attack)."""
         import time
 
-        from services.email_oauth_service import generate_oauth_state, verify_oauth_state
+        from services.email_oauth_service import (generate_oauth_state,
+                                                  verify_oauth_state)
 
         with self._patch_settings():
             state = generate_oauth_state(TEST_CONNECTION_ID)
@@ -455,7 +463,9 @@ class TestTokenEncryption:
 
         with patch("utils.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = TEST_ENCRYPTION_KEY
-            enc_access, enc_refresh = encrypt_tokens("access_token_value", "refresh_token_value")
+            enc_access, enc_refresh = encrypt_tokens(
+                "access_token_value", "refresh_token_value"
+            )
 
         assert isinstance(enc_access, bytes)
         assert isinstance(enc_refresh, bytes)
@@ -1123,7 +1133,9 @@ class TestEmailOAuthCallbackOwnership:
         with patch("services.email_oauth_service.settings") as mock_settings:
             mock_settings.internal_api_key = "test-key"
             # State was signed with TEST_USER_ID (the attacker)
-            state = self._valid_state(TEST_CONNECTION_ID, user_id=TEST_USER_ID, api_key="test-key")
+            state = self._valid_state(
+                TEST_CONNECTION_ID, user_id=TEST_USER_ID, api_key="test-key"
+            )
 
             response = client.get(
                 f"{BASE}/email/callback",
@@ -1175,7 +1187,9 @@ class TestEmailOAuthCallbackOwnership:
             conn_settings.frontend_url = "http://localhost:3000"
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
 
-            state = self._valid_state(TEST_CONNECTION_ID, user_id=TEST_USER_ID, api_key="test-key")
+            state = self._valid_state(
+                TEST_CONNECTION_ID, user_id=TEST_USER_ID, api_key="test-key"
+            )
 
             response = client.get(
                 f"{BASE}/email/callback",
@@ -1291,7 +1305,8 @@ class TestTriggerEmailScan:
         with (
             patch("utils.encryption.settings") as enc_settings,
             patch(
-                "services.email_scanner_service.scan_gmail_inbox", return_value=[mock_scan_result]
+                "services.email_scanner_service.scan_gmail_inbox",
+                return_value=[mock_scan_result],
             ) as mock_scan,
         ):
             enc_settings.field_encryption_key = TEST_ENCRYPTION_KEY
@@ -1398,7 +1413,9 @@ class TestScanInboxAsync:
         }
 
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=[mock_list_response, mock_detail_response])
+        mock_client.get = AsyncMock(
+            side_effect=[mock_list_response, mock_detail_response]
+        )
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -1454,7 +1471,9 @@ class TestScanInboxAsync:
         mock_list_response = MagicMock()
         mock_list_response.status_code = 200
         mock_list_response.raise_for_status = MagicMock()
-        mock_list_response.json.return_value = {"messages": [{"id": "msg_001"}, {"id": "msg_002"}]}
+        mock_list_response.json.return_value = {
+            "messages": [{"id": "msg_001"}, {"id": "msg_002"}]
+        }
 
         # First detail: 200 OK
         mock_detail_ok = MagicMock()
@@ -1551,7 +1570,9 @@ class TestExtractRatesFromEmail:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch("httpx.AsyncClient", return_value=mock_client):
-            result = await extract_rates_from_email("outlook", "fake_token", "outlook_msg_001")
+            result = await extract_rates_from_email(
+                "outlook", "fake_token", "outlook_msg_001"
+            )
 
         assert isinstance(result, dict)
         assert "total_amount" in result

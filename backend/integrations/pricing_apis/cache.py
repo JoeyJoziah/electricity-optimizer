@@ -624,7 +624,9 @@ class InMemoryCache(PricingCache):
         deleted = 0
 
         async with self._lock:
-            keys_to_delete = [k for k in self._cache if fnmatch.fnmatch(k, full_pattern)]
+            keys_to_delete = [
+                k for k in self._cache if fnmatch.fnmatch(k, full_pattern)
+            ]
             for key in keys_to_delete:
                 del self._cache[key]
                 deleted += 1

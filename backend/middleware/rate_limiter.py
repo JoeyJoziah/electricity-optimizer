@@ -452,8 +452,8 @@ class RateLimitMiddleware:
                 return
 
         # Check both minute and hour limits in a single round-trip
-        minute_ok, remaining, hour_ok = await self.rate_limiter.check_rate_limits_combined(
-            identifier
+        minute_ok, remaining, hour_ok = (
+            await self.rate_limiter.check_rate_limits_combined(identifier)
         )
 
         if not minute_ok:
