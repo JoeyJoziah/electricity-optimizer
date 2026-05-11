@@ -111,11 +111,15 @@ These tasks can be implemented by agents or manually.
 
 ## Sprint 2: Verification & Cleanup (Day 2, ~1h)
 
-- [ ] Task 2.1: Run visual regression baseline workflow
+- [x] Task 2.1: Run visual regression baseline workflow
   - **Source:** Roadmap 1.2 — "INFRA READY, needs CI trigger"
   - **Priority:** P2
-  - **Action:** GitHub Actions UI → "Update Visual Regression Baselines" → Run workflow → Select `chromium`
-  - **Verify:** Check that snapshot PNGs are committed to repo
+  - **Resolution (2026-05-11):** Workflow was broken on 3 distinct issues, all fixed:
+    1. Build crashed on missing `NEXT_PUBLIC_APP_URL` (commit `e539b59`)
+    2. Snapshots dir was blanket-gitignored, blocking the commit step — narrowed ignore to `*-darwin.png` only (commit `8be4c8b`)
+    3. `github-actions[bot]` got 403 on push — added explicit `permissions: contents: write` (commit `cadc1c3`)
+  - Run `25686854360` succeeded; bot committed 12 chromium-linux baselines as `23792d9c`
+  - **Verify:** `frontend/e2e/visual-regression.spec.ts-snapshots/*-linux.png` present (12 files committed)
 
 - [ ] Task 2.2: Create status page
   - **Source:** LAUNCHGAP-009, Launch checklist line 166
