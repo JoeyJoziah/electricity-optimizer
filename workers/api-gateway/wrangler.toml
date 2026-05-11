@@ -59,3 +59,7 @@ crons = [
 # logs at index.ts:215-234 are dropped.
 [observability]
 enabled = true
+# head_sampling_rate controls what fraction of requests are captured in
+# Workers Logs. 1.0 = 100% (default, costly at scale), 0.25 = 25%. Errors
+# and console.error are still captured at 100% regardless of this rate.
+head_sampling_rate = 0.25
