@@ -27,9 +27,9 @@
 
 | [x] | audit-remediation_20260323 | Codebase Audit Remediation 2026-03-23 (~560 findings, 75 tasks, 9 sprints) | 2026-03-23 | 2026-03-23 |
 
-| [~] | pre-launch-completion_20260407 | Pre-Launch Completion — Infra, GA4, Code TODOs, CF Data Quality. **9/10 done** (Sprint 2 manual tasks remain: visual regression baseline, status page, social media) | 2026-04-07 | 2026-04-08 |
-| [~] | launch-execution_20260407 | Product Hunt Launch Execution — Campaign, Content, Launch Day. **2/10 done** (PH account created, launch date Tue Apr 14, FINAL_COPY.md drafted). PAUSED: need production auth/screenshot debugging | 2026-04-07 | 2026-04-08 |
-| [ ] | post-launch-growth_20260407 | Post-Launch Growth & Scaling — Infra Triggers, Product Expansion, Community (17 tasks, trigger-gated, starts post-launch) | 2026-04-07 | 2026-04-07 |
+| [~] | pre-launch-completion_20260407 | Pre-Launch Completion — Infra, GA4, Code TODOs, CF Data Quality. **9/10 done** (Sprint 2 manual tasks remain: visual regression baseline [workflow failing], status page, social media accounts — all verified still pending 2026-05-11) | 2026-04-07 | 2026-05-11 |
+| [~] | launch-execution_20260407 | Product Hunt Launch Execution — Campaign, Content, Launch Day. **2/10 done** (PH account + date selection). **POSTPONED INDEFINITELY** — original Apr 14 2026 date passed. Audit + hardening sprint ran Apr 27 in lieu of launch. No new target date set. Resume requires: Sprint 2 items closed, P0-6/P1-7/P1-19/P1-20 infra items addressed, new launch date | 2026-04-07 | 2026-05-11 |
+| [ ] | post-launch-growth_20260407 | Post-Launch Growth & Scaling — Infra Triggers, Product Expansion, Community (17 tasks, trigger-gated, starts post-launch). Gate still closed pending launch-execution resumption | 2026-04-07 | 2026-05-11 |
 
 | [x] | zenith-p0-fixes_20260312 | Zenith P0 — Production Safety Fixes (superseded by audit-remediation line) | 2026-03-12 | 2026-05-11 |
 | [x] | codebase-audit-remediation_20260316 | Codebase Audit Remediation 2026-03-16 (5 sprints: security, reliability, tests/deps, correctness, polish) | 2026-03-16 | 2026-05-11 |
