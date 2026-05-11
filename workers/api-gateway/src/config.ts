@@ -90,12 +90,11 @@ export const ROUTES: RouteConfig[] = [
     rateLimit: "standard",
   },
 
-  // Health check — short cache
+  // Health check — never cache. Liveness/readiness probes must hit origin
+  // every time. Caching is also vulnerable to HEAD/GET cache-key collision
+  // (HEAD has empty body → cached empty body served to subsequent GETs).
   {
     pattern: /^\/health$/,
-    cache: {
-      ttlSeconds: 30,
-    },
     rateLimit: "bypass",
   },
 

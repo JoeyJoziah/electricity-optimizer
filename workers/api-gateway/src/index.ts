@@ -165,8 +165,16 @@ export default {
       // 7. Proxy to origin
       let response = await proxyToOrigin(request, env, requestId, clientIp);
 
-      // Cache the response if cacheable
-      if (route.cache && !route.passthrough && response.status === 200) {
+      // Cache the response if cacheable. Never cache non-GET responses —
+      // HEAD has an empty body, and the cache key doesn't include the
+      // request method, so a cached HEAD response would poison subsequent
+      // GETs with an empty body.
+      if (
+        request.method === "GET" &&
+        route.cache &&
+        !route.passthrough &&
+        response.status === 200
+      ) {
         recordCacheWrite();
         ctx.waitUntil(storeInCache(response, route.cache, url, env, ctx));
       }

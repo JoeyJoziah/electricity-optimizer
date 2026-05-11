@@ -5,7 +5,8 @@ describe("matchRoute", () => {
   it("matches /health", () => {
     const route = matchRoute("/health");
     expect(route.rateLimit).toBe("bypass");
-    expect(route.cache?.ttlSeconds).toBe(30);
+    // /health must never be cached — liveness probes need fresh origin every time
+    expect(route.cache).toBeUndefined();
   });
 
   it("matches /api/v1/prices/current", () => {
