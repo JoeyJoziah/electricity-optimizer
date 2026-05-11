@@ -18,6 +18,9 @@ concurrency:
   group: visual-baselines
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 env:
   NODE_VERSION: '20'
 
