@@ -3,8 +3,8 @@
 Automatically shift consumers to lower utility rates across all 50 US states. Multi-utility price comparison (electricity, natural gas, propane, heating oil, water), AI-powered recommendations, smart alerts, and real-time price tracking.
 
 [![CI Status](https://github.com/JoeyJoziah/electricity-optimizer/workflows/test/badge.svg)](https://github.com/JoeyJoziah/electricity-optimizer/actions)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-3325%20passing-brightgreen)](docs/TESTING.md)
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-2022%20passing-brightgreen)](docs/TESTING.md)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-3437%20passing-brightgreen)](docs/TESTING.md)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-2069%20passing-brightgreen)](docs/TESTING.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## What is RateShift?

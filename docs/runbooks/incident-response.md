@@ -148,7 +148,7 @@ NEXT UPDATE
 
 ### 2. User-Facing Status Page Template
 
-Post to `status.rateshift.app` (if it exists; otherwise skip or use Twitter):
+Public status page is live at **https://stats.uptimerobot.com/d4sbPJ124X** (UptimeRobot, activated 2026-05-11). Add an incident there for any user-visible disruption; mirror to Twitter for reach.
 
 **Title**: [Service] - Service Disruption
 
@@ -185,7 +185,7 @@ What we're doing:
 We'll post updates every 30 minutes.
 ```
 
-**Note**: Status page may not exist yet. Create `status.rateshift.app` as future work if outages become frequent.
+**Note**: UptimeRobot status page is live at https://stats.uptimerobot.com/d4sbPJ124X. A vanity CNAME (`status.rateshift.app`) is still future work.
 
 ### 3. Email Template for Affected Users (P0 Billing/Data Loss)
 

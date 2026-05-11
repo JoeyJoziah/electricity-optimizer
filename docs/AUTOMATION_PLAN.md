@@ -1,7 +1,7 @@
 # Automation Workflows — Implementation Plan
 
-> Generated: 2026-03-05 | Last updated: 2026-03-16
-> Status: **ALL COMPLETE** — Phase 0-3 DONE, Self-Healing CI/CD DONE, All 5 post-deployment items DONE (NotificationDispatcher, ML Weight Persistence, Full-Scale Rate Scraping, In-App Notifications, Custom Email Domain)
+> Generated: 2026-03-05 | Last updated: 2026-05-11
+> Status: **ALL COMPLETE** — Phase 0-3 DONE, Self-Healing CI/CD DONE, All 5 post-deployment items DONE (NotificationDispatcher, ML Weight Persistence, Full-Scale Rate Scraping, In-App Notifications, Custom Email Domain). Backend image auto-build added 2026-05-11 (`build-and-push-backend.yml`) — closes the 34-day production deploy gap by pushing `dmpcg/electricity-optimizer-backend:latest` on every `backend/**` change to `main` and triggering the Render deploy hook.
 > Source: Multi-agent brainstorming (5 agents: Designer, Skeptic, Constraint Guardian, User Advocate, Arbiter)
 
 ## Executive Summary

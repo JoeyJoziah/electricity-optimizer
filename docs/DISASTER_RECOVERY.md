@@ -61,7 +61,7 @@
 5. Confirm redeploy. Render will start the backend in ~30–60 seconds.
 6. Check Slack #deployments for auto-notification (Rube `rcp_9f8mVE2Z_DSP` fires every hour)
 
-**Option B: Trigger via RENDER_DEPLOY_HOOK (scriptable)**
+**Option B: Trigger via RENDER_DEPLOY_HOOK (scriptable, fast — pulls current `:latest` from Docker Hub)**
 ```bash
 curl -X POST https://api.render.com/deploy/srv-d649uhur433s73d557cg \
   -H "Authorization: Bearer ${RENDER_DEPLOY_HOOK}" \
@@ -69,6 +69,14 @@ curl -X POST https://api.render.com/deploy/srv-d649uhur433s73d557cg \
   -d '{"ref":"main"}'
 ```
 (RENDER_DEPLOY_HOOK stored in 1Password "RateShift" vault under "Render Deploy Hook")
+
+> ⚠️ This only redeploys whatever `dmpcg/electricity-optimizer-backend:latest` is currently on Docker Hub. If the incident requires a code fix to ship, use Option C to force an image rebuild first.
+
+**Option C: Force fresh image build + push + deploy (when a code fix must ship)**
+```bash
+gh workflow run build-and-push-backend.yml --ref main --repo JoeyJoziah/electricity-optimizer
+```
+This is the same pipeline that runs automatically on every `backend/**` merge to `main` (added 2026-05-11). It rebuilds the Docker image, pushes `:latest` to Docker Hub, then hits the Render deploy hook. ~5–8 minutes end-to-end.
 
 **If persisting after redeploy**:
 1. Check Render system status: https://status.render.com

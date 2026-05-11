@@ -1,6 +1,8 @@
 # RateShift Launch Posting Schedule — April 8-21, 2026
 
-**Purpose**: Day-by-day schedule for Reddit, Hacker News, and Twitter coordinated with Product Hunt launch (Tuesday, April 14, 2026 at 12:01 AM PT / 3:01 AM ET).
+> ⚠️ **LAUNCH POSTPONED INDEFINITELY (2026-05-11)** — Schedule is keyed to the April 14 2026 PH launch which did not occur. Re-anchor the day offsets (T-6, T-1, launch day, T+1, …) to the new launch date when scheduled.
+
+**Purpose**: Day-by-day schedule for Reddit, Hacker News, and Twitter coordinated with Product Hunt launch (originally Tuesday, April 14, 2026 at 12:01 AM PT / 3:01 AM ET).
 
 **Solo Founder Reality**: Devin cannot monitor PH + Reddit + HN simultaneously during first 24-48 hours. This schedule prioritizes PH, then strategically deploys to other channels when PH needs are lowest.
 

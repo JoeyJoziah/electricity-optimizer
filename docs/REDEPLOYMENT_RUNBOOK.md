@@ -637,6 +637,10 @@ composio action execute RENDER_UPDATE_ENV_VAR \
 
 ### Step 2.3: Deploy Backend
 
+**Default path (automatic, since 2026-05-11)**: pushing to `main` with any change under `backend/**` triggers `.github/workflows/build-and-push-backend.yml`, which builds and pushes `dmpcg/electricity-optimizer-backend:latest` to Docker Hub and then hits the Render deploy hook. This closed a 34-day production deploy gap where CI built the image with `push=false` and Render kept redeploying a stale `:latest`. No manual action needed for normal merges.
+
+Use the manual options below only for cold-start redeployment, rollbacks, or out-of-band hotfixes.
+
 **Option A: Manual Deploy via Render Dashboard**
 
 1. Go to https://dashboard.render.com/services/srv-d649uhur433s73d557cg
@@ -648,20 +652,24 @@ composio action execute RENDER_UPDATE_ENV_VAR \
 **Option B: Trigger Deploy via GitHub Actions**
 
 ```bash
-# Trigger the production deploy workflow with a version number
+# Re-run the auto build+push+deploy pipeline (preferred — guarantees image freshness)
+gh workflow run build-and-push-backend.yml --ref main --repo JoeyJoziah/electricity-optimizer
+
+# Or trigger the production deploy workflow with a version number (image must already be on Docker Hub)
 gh workflow run deploy-production.yml \
   --ref main \
   -f version=v1.0.0 \
   --repo JoeyJoziah/electricity-optimizer
 ```
 
-**Option C: Trigger Deploy via Composio**
+**Option C: Trigger Deploy via Composio / curl (deploy hook only — no image rebuild)**
 
 ```bash
 # Fetch the Render deploy hook URL
 RENDER_DEPLOY_HOOK=$(op item get "GitHub Secrets" --vault "RateShift" --fields RENDER_DEPLOY_HOOK_BACKEND)
 
-# Trigger the deploy
+# Trigger the deploy. WARNING: this only pulls whatever :latest tag is currently on Docker Hub.
+# If you need a code change to ship, use Option B (build-and-push-backend.yml) instead.
 curl -X POST "$RENDER_DEPLOY_HOOK"
 ```
 

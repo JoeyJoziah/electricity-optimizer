@@ -1,5 +1,8 @@
 # RateShift Social Media Launch Drafts
-**For Product Hunt Launch: Tuesday, April 14, 2026**
+
+> ⚠️ **LAUNCH POSTPONED INDEFINITELY (2026-05-11)** — Originally drafted for the April 14 2026 PH launch which did not occur. Copy is reusable; substitute the new date in the scheduled posts and remove the explicit "April 14" / "Tuesday" references before publishing.
+
+**Originally for Product Hunt Launch: Tuesday, April 14, 2026** *(superseded — date TBD)*
 
 ---
 

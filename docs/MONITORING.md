@@ -80,7 +80,7 @@ Alert contact type: Slack (type 11). Alert threshold: 2 consecutive failures bef
 | Method | URL |
 |--------|-----|
 | UptimeRobot dashboard | https://dashboard.uptimerobot.com |
-| Public status page (if configured) | https://status.rateshift.app (set up via UptimeRobot dashboard) |
+| Public status page | https://stats.uptimerobot.com/d4sbPJ124X (live, activated 2026-05-11) |
 | Programmatic (API) | `GET https://api.uptimerobot.com/v2/getMonitors` with API key |
 
 To check current monitor status via the API:
