@@ -106,7 +106,7 @@ def _check_external_apis() -> dict[str, dict[str, str]]:
 # =============================================================================
 
 
-@router.get("", tags=["Health"], summary="Basic health check")
+@router.api_route("", methods=["GET", "HEAD"], tags=["Health"], summary="Basic health check")
 async def health_check():
     """Basic health check endpoint with deployment metadata and uptime.
 
