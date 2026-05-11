@@ -31,4 +31,8 @@
 | [~] | launch-execution_20260407 | Product Hunt Launch Execution — Campaign, Content, Launch Day. **2/10 done** (PH account created, launch date Tue Apr 14, FINAL_COPY.md drafted). PAUSED: need production auth/screenshot debugging | 2026-04-07 | 2026-04-08 |
 | [ ] | post-launch-growth_20260407 | Post-Launch Growth & Scaling — Infra Triggers, Product Expansion, Community (17 tasks, trigger-gated, starts post-launch) | 2026-04-07 | 2026-04-07 |
 
+| [x] | zenith-p0-fixes_20260312 | Zenith P0 — Production Safety Fixes (superseded by audit-remediation line) | 2026-03-12 | 2026-05-11 |
+| [x] | codebase-audit-remediation_20260316 | Codebase Audit Remediation 2026-03-16 (5 sprints: security, reliability, tests/deps, correctness, polish) | 2026-03-16 | 2026-05-11 |
+| [x] | launch-readiness_20260323 | Launch-Gap Analysis | 2026-03-23 | 2026-05-11 |
+
 <!-- Tracks registered by /conductor:new-track -->
