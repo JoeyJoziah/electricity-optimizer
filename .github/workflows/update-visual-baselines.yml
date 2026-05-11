@@ -58,6 +58,7 @@ jobs:
         run: cd frontend && npm run build
         env:
           NEXT_PUBLIC_API_URL: /api/v1
+          NEXT_PUBLIC_APP_URL: https://rateshift.app
 
       - name: Generate visual regression baselines
         run: |
