@@ -115,6 +115,14 @@ coverage/
 .nyc_output/
 test-results/
 playwright-report/
+# Playwright visual-regression baselines are dev-machine-specific
+# (darwin vs linux PNG diffs) — generated locally, never committed.
+frontend/e2e/visual-regression.spec.ts-snapshots/
+
+# Local working docs / scratch
+.audit-*/
+cf-data-quality-plan.md
+testing_plan.md
 
 # OS
 .DS_Store
