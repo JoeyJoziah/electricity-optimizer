@@ -1,0 +1,83 @@
+name: Build & Push Backend Image
+
+# Automatically builds and pushes dmpcg/electricity-optimizer-backend whenever
+# backend code lands on main, then triggers a Render deploy. Closes the gap
+# where CI built the image with push=false and left :latest stale on Docker Hub.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/build-and-push-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-push-backend
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    name: Build, push, deploy backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
+        with:
+          username: dmpcg
+          password: ${{ secrets.DOCKERHUB_DMPCG_PAT }}
+
+      - name: Compute short SHA
+        id: tags
+        run: echo "sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: production
+          platforms: linux/amd64
+          push: true
+          tags: |
+            dmpcg/electricity-optimizer-backend:latest
+            dmpcg/electricity-optimizer-backend:${{ steps.tags.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger Render deploy
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}" \
+            | tee /tmp/deploy.json
+          DEPLOY_ID=$(python3 -c "import json,sys; print(json.load(open('/tmp/deploy.json'))['deploy']['id'])")
+          echo "Render deploy id: $DEPLOY_ID"
+          echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+        id: deploy
+
+      - name: Wait for deploy to go live
+        timeout-minutes: 10
+        run: |
+          for i in $(seq 1 30); do
+            sleep 20
+            code=$(curl -sI -m 5 -o /dev/null -w "%{http_code}" "https://api.rateshift.app/health" || echo "000")
+            uptime=$(curl -s -m 5 "https://api.rateshift.app/health" 2>/dev/null \
+              | python3 -c "import sys,json;print(int(json.load(sys.stdin).get('uptime_seconds',0)))" 2>/dev/null || echo "?")
+            echo "[$i] HEAD=$code uptime=${uptime}s"
+            # New deploy = uptime resets to < 600s and HEAD returns 200
+            if [ "$code" = "200" ] && [ "$uptime" != "?" ] && [ "$uptime" -lt 600 ] 2>/dev/null; then
+              echo "✅ Deploy live"
+              exit 0
+            fi
+          done
+          echo "❌ Deploy did not go live within 10 minutes"
+          exit 1

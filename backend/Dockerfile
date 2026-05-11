@@ -1,7 +1,10 @@
 # Multi-stage build for FastAPI backend
 # Optimized for production with minimal image size
+# syntax=docker/dockerfile:1.7
 
-FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b as base
+ARG PYTHON_IMAGE=python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b
+
+FROM ${PYTHON_IMAGE} AS base
 
 # Set working directory
 WORKDIR /app
@@ -18,12 +21,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (with BuildKit cache mount for faster rebuilds)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install -r requirements.txt
 
 # Development stage
-FROM base as development
+FROM base AS development
 
 # Copy application code
 COPY . .
@@ -39,7 +43,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # Production build stage
-FROM base as builder
+FROM base AS builder
 
 # Copy application code
 COPY . .
@@ -48,7 +52,7 @@ COPY . .
 RUN python -m compileall -b .
 
 # Production stage
-FROM python:3.12-slim@sha256:0bbd3d5f3abb2024c1b92ce69e8bdfefa17c248999827c34e2ed52ba0772da1b as production
+FROM ${PYTHON_IMAGE} AS production
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -69,8 +73,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=base /usr/local/bin /usr/local/bin
 
-# Create non-root user for security
-RUN useradd -m -u 1000 -s /bin/bash appuser && \
+# Create non-root user for security (no home dir, no shell — service account only)
+RUN groupadd appuser -g 1000 && \
+    useradd -u 1000 -g appuser -s /usr/sbin/nologin -M appuser && \
     chown -R appuser:appuser /app
 
 # Copy application code

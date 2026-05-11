@@ -121,11 +121,17 @@ These tasks can be implemented by agents or manually.
   - Run `25686854360` succeeded; bot committed 12 chromium-linux baselines as `23792d9c`
   - **Verify:** `frontend/e2e/visual-regression.spec.ts-snapshots/*-linux.png` present (12 files committed)
 
-- [ ] Task 2.2: Create status page
+- [x] Task 2.2: Create status page
   - **Source:** LAUNCHGAP-009, Launch checklist line 166
   - **Priority:** P2
-  - **Action:** Set up at statuspage.io or similar (Atlassian Statuspage free tier, or BetterStack status page). Configure monitors for: `rateshift.app` (frontend), `api.rateshift.app` (backend/CF Worker), Neon DB health
-  - **Verify:** Visit status page URL, confirm all monitors green
+  - **Resolution (2026-05-11):** UptimeRobot public status page already existed at `https://stats.uptimerobot.com/d4sbPJ124X` (PSP id 984675) from earlier monitoring setup. Renamed PSP from "Status page" → "RateShift Status". Fixed 4 monitors:
+    - Frontend: `electricity-optimizer.vercel.app` → `https://rateshift.app/` (UP)
+    - Backend Health: `electricity-optimizer.onrender.com/health` → `https://api.rateshift.app/health` (UP after HEAD support added in `881635aa` + manual docker push)
+    - API Smoke Test: `electricity-optimizer.onrender.com/api/v1/prices/current?region=US` → `https://api.rateshift.app/openapi.json` (UP)
+    - Neon DB Pooler: unchanged (UP)
+  - All 4 monitors green as of 2026-05-11 20:00 UTC
+  - **Follow-up (not blocking):** point `status.rateshift.app` CNAME → `stats.uptimerobot.com` via Cloudflare Registrar for branded URL (currently docs reference status.rateshift.app but it 404s)
+  - **Verify:** `https://stats.uptimerobot.com/d4sbPJ124X` shows 4 UP monitors
 
 - [ ] Task 2.3: Verify/create social media accounts
   - **Source:** LAUNCHGAP-015
