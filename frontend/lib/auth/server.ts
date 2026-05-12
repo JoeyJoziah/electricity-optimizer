@@ -14,6 +14,7 @@ import { magicLink } from "better-auth/plugins/magic-link";
 import { Pool } from "@neondatabase/serverless";
 import { APP_URL } from "@/lib/config/env";
 import { sendEmail } from "@/lib/email/send";
+import { enrollUserInDrip } from "@/lib/auth/drip-enroll";
 
 function buildConnectionString(): string {
   const baseUrl = process.env.DATABASE_URL || "";
@@ -141,26 +142,7 @@ function createAuth() {
       user: {
         create: {
           after: async (user) => {
-            const backendUrl = process.env.BACKEND_URL;
-            const apiKey = process.env.INTERNAL_API_KEY;
-            if (!backendUrl || !apiKey) return;
-            try {
-              await fetch(`${backendUrl}/api/v1/internal/drip/enroll`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "X-API-Key": apiKey,
-                },
-                body: JSON.stringify({
-                  user_id: user.id,
-                  email: user.email,
-                  name: user.name ?? null,
-                }),
-                signal: AbortSignal.timeout(5000),
-              });
-            } catch {
-              // Enrollment failure must never surface to the user
-            }
+            await enrollUserInDrip(user.id, user.email, user.name ?? null);
           },
         },
       },
