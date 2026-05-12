@@ -482,6 +482,69 @@ Tomorrow's Priorities:
 
 ---
 
+## Appendix D: Slip Communication Template (Scope #17)
+
+**Trigger**: Fri May 29 2026 go/no-go gate returns NO-GO, or any later abort decision before launch day.
+**Audience**: All existing app signups (`users` table where `email_verified_at IS NOT NULL AND unsubscribed_at IS NULL` on `user_drip_state`). Waitlist branch removed — `beta_signups` count = 0 per Scope #6 audit.
+**SLA**: Send within 24h of slip decision. Subject + body locked here so we don't write defensive copy under pressure.
+**Channel**: Resend, `noreply@rateshift.app`, reply-to `devmcgrath@gmail.com`.
+
+### Subject
+```
+RateShift launch update — new date inside
+```
+
+### Body (markdown source, rendered HTML in `backend/templates/email/slip_notification.html` when implemented)
+```
+Hi {{first_name|default:"there"}},
+
+A quick, honest update on RateShift's Product Hunt launch.
+
+**What slipped**: We were targeting Tuesday June 2 for our public Product Hunt launch. We're moving that to **{{new_date}}** because {{reason_one_sentence}}. Shipping a half-ready launch hurts you more than it hurts us — we'd rather take the extra week.
+
+**What you get in the meantime**:
+- Your account stays active. Free-tier forecasts, the dashboard, and bill upload continue to work normally.
+- The 3-email value drip continues — you'll still get your savings preview on Day 2 if you've connected a meter or uploaded a bill.
+- If you upgraded to Pro: nothing changes. Your subscription is unaffected.
+
+**What we ask**: Nothing. No re-confirmation, no action needed. We'll send one more email when the new date is locked.
+
+If you want to reach me directly, just reply to this email.
+
+— Devin
+Founder, RateShift
+
+---
+PO Box 12345, Hartford CT 06101
+[Unsubscribe]({{unsubscribe_url}})
+```
+
+### Variables
+| Token | Source |
+|---|---|
+| `{{first_name}}` | `users.first_name` if present, else literal "there" |
+| `{{new_date}}` | Manually filled at send time (e.g., "Tuesday June 9 2026") |
+| `{{reason_one_sentence}}` | Manually filled. **Constraint**: one sentence, no jargon, no blame. Examples: "we want one more week of load-test data before the spike", "a Render incident on May 28 reset our deploy soak window", "the gallery screenshots need a refresh after Friday's UI fix" |
+| `{{unsubscribe_url}}` | Existing `/api/v1/public/unsubscribe?uid=&tok=` endpoint (Scope #13) |
+
+### Send checklist (≤30 min)
+1. Confirm new date is real (not aspirational) — must already be on the calendar with a re-rehearsal slot booked.
+2. Fill `new_date` + `reason_one_sentence`. Read aloud once. If it sounds defensive, rewrite.
+3. Render preview against 1 internal address + 1 external test address.
+4. Hit send via Resend audiences. Capture send-time count for post-launch retro.
+5. Post identical content (sans personalization) to:
+   - X/Bluesky: short version ("Pushing our PH launch to {{new_date}}. {{reason}}. Account access unchanged.")
+   - LinkedIn: full body
+   - GitHub README banner: one-line strip at top
+6. Update PRD `Status` line + `MEMORY.md` Recent section with the slip + new date.
+
+### Do NOT
+- Do NOT promise a discount, free month, or "make-good" credit. Erodes pricing integrity for a problem most readers won't have noticed.
+- Do NOT explain in three paragraphs. One sentence per section. The brevity *is* the credibility.
+- Do NOT slip twice silently. If a second slip is needed, the second email leads with "This is our second slip — here's what's actually wrong" and re-evaluates whether a public launch is the right move at all.
+
+---
+
 ## Appendix A: Key Timing Reference
 
 | Event | PT | ET | UTC |
