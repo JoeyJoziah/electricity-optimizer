@@ -31,7 +31,7 @@ jobs:
         with:
           url: ${{ secrets.BACKEND_URL }}/api/v1/internal/drip/process
           headers: |
-            X-Internal-API-Key: ${{ secrets.INTERNAL_API_KEY }}
+            X-API-Key: ${{ secrets.INTERNAL_API_KEY }}
             Content-Type: application/json
           body: '{}'
           timeout: '120'
