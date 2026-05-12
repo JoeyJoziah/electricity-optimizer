@@ -65,27 +65,35 @@ describe("TermsPage", () => {
       screen.getByRole("heading", { level: 2, name: /5\. user accounts/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: /6\. acceptable use/i }),
+      screen.getByRole("heading", {
+        level: 2,
+        name: /6\. utility data and utilityapi/i,
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: /7\. api usage/i }),
+      screen.getByRole("heading", { level: 2, name: /7\. acceptable use/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /8\. api usage/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: /8\. limitation of liability/i,
+        name: /9\. limitation of liability/i,
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: /9\. changes to terms/i }),
+      screen.getByRole("heading", { level: 2, name: /10\. changes to terms/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: /10\. contact/i }),
+      screen.getByRole("heading", { level: 2, name: /11\. contact/i }),
     ).toBeInTheDocument();
   });
 
   it("renders Pro and Business tier references in billing section", () => {
-    expect(screen.getByText(/Pro and Business/i)).toBeInTheDocument();
+    // Both tiers are named in section 4 ("Pro at $4.99/mo and Business at $14.99/mo")
+    expect(screen.getByText(/\$4\.99\/mo/)).toBeInTheDocument();
+    expect(screen.getByText(/\$14\.99\/mo/)).toBeInTheDocument();
     expect(screen.getByText(/Stripe/i)).toBeInTheDocument();
   });
 
