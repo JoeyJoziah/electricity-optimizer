@@ -18,6 +18,7 @@ const customJestConfig = {
     'lib/**/*.{ts,tsx}',
     'app/**/*.{ts,tsx}',
     '!**/*.d.ts',
+    '!**/*.stories.{ts,tsx}',
     '!**/node_modules/**',
   ],
   coverageThreshold: {

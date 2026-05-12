@@ -2,6 +2,15 @@ import {
   getSuppliers,
   getSupplier,
   compareSuppliers,
+  getRecommendation,
+  initiateSwitch,
+  getSwitchStatus,
+  setUserSupplier,
+  getUserSupplier,
+  removeUserSupplier,
+  linkSupplierAccount,
+  getUserSupplierAccounts,
+  unlinkSupplierAccount,
 } from "@/lib/api/suppliers";
 import { ApiClientError, _resetRedirectState } from "@/lib/api/client";
 import "@testing-library/jest-dom";
@@ -189,5 +198,158 @@ describe("error handling", () => {
     expect(calledOptions.headers).toEqual(
       expect.objectContaining({ "Content-Type": "application/json" }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSuppliers — annualUsage branch
+// ---------------------------------------------------------------------------
+
+describe("getSuppliers with annualUsage", () => {
+  it("includes annual_usage param when provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ suppliers: [] }));
+    await getSuppliers("us_ct", 12000);
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("annual_usage=12000");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRecommendation
+// ---------------------------------------------------------------------------
+
+describe("getRecommendation", () => {
+  it("POSTs to /suppliers/recommend with correct body", async () => {
+    const mockRec = { recommendedSupplierId: "sup-2", estimatedSavings: 250 };
+    mockFetch.mockResolvedValue(mockJsonResponse(mockRec));
+    const result = await getRecommendation("sup-1", 10500, "us_ct");
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/suppliers/recommend");
+    const body = JSON.parse(
+      (mockFetch.mock.calls[0]![1] as RequestInit).body as string,
+    );
+    expect(body).toMatchObject({
+      currentSupplierId: "sup-1",
+      annualUsage: 10500,
+      region: "us_ct",
+    });
+    expect(result).toEqual(mockRec);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// initiateSwitch
+// ---------------------------------------------------------------------------
+
+describe("initiateSwitch", () => {
+  it("POSTs to /suppliers/switch", async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ referenceNumber: "ref-42", status: "pending" }),
+    );
+    const result = await initiateSwitch({
+      supplierId: "sup-2",
+      currentSupplierId: "sup-1",
+      annualUsage: 10500,
+      region: "us_ct",
+    });
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/suppliers/switch");
+    expect((mockFetch.mock.calls[0]![1] as RequestInit).method).toBe("POST");
+    expect(result.referenceNumber).toBe("ref-42");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSwitchStatus
+// ---------------------------------------------------------------------------
+
+describe("getSwitchStatus", () => {
+  it("GETs /suppliers/switch/{referenceNumber}", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ status: "completed" }));
+    const result = await getSwitchStatus("ref-42");
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/suppliers/switch/ref-42");
+    expect(result.status).toBe("completed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setUserSupplier / getUserSupplier / removeUserSupplier
+// ---------------------------------------------------------------------------
+
+describe("setUserSupplier", () => {
+  it("PUTs to /user/supplier with supplier_id", async () => {
+    const mockResp = { supplier_id: "sup-3", supplier_name: "Spark Energy" };
+    mockFetch.mockResolvedValue(mockJsonResponse(mockResp));
+    const result = await setUserSupplier("sup-3");
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/user/supplier");
+    expect((mockFetch.mock.calls[0]![1] as RequestInit).method).toBe("PUT");
+    expect(result.supplier_id).toBe("sup-3");
+  });
+});
+
+describe("getUserSupplier", () => {
+  it("GETs /user/supplier", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ supplier: null }));
+    const result = await getUserSupplier();
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/user/supplier");
+    expect(result.supplier).toBeNull();
+  });
+});
+
+describe("removeUserSupplier", () => {
+  it("DELETEs /user/supplier", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ message: "removed" }));
+    const result = await removeUserSupplier();
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/user/supplier");
+    expect((mockFetch.mock.calls[0]![1] as RequestInit).method).toBe("DELETE");
+    expect(result.message).toBe("removed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// linkSupplierAccount / getUserSupplierAccounts / unlinkSupplierAccount
+// ---------------------------------------------------------------------------
+
+describe("linkSupplierAccount", () => {
+  it("POSTs to /user/supplier/link", async () => {
+    const mockAccount = {
+      supplier_id: "sup-3",
+      supplier_name: "Spark",
+      account_number_masked: "****1234",
+    };
+    mockFetch.mockResolvedValue(mockJsonResponse(mockAccount));
+    const result = await linkSupplierAccount({
+      supplier_id: "sup-3",
+      account_number: "1234567890",
+      consent_given: true,
+    });
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/user/supplier/link");
+    expect(result.supplier_id).toBe("sup-3");
+  });
+});
+
+describe("getUserSupplierAccounts", () => {
+  it("GETs /user/supplier/accounts", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ accounts: [] }));
+    const result = await getUserSupplierAccounts();
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/user/supplier/accounts");
+    expect(result.accounts).toEqual([]);
+  });
+});
+
+describe("unlinkSupplierAccount", () => {
+  it("DELETEs /user/supplier/accounts/{supplierId}", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ message: "unlinked" }));
+    const result = await unlinkSupplierAccount("sup-3");
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("/api/v1/user/supplier/accounts/sup-3");
+    expect((mockFetch.mock.calls[0]![1] as RequestInit).method).toBe("DELETE");
+    expect(result.message).toBe("unlinked");
   });
 });
