@@ -579,3 +579,21 @@ PO Box 12345, Hartford CT 06101
 - Do NOT deploy new features during launch day. Code freeze from April 13, 6 PM ET through April 14, 8 PM ET. Hotfixes only.
 - Do NOT forget to eat. Schedule meals at 6:30 PM (pre-launch), 11:30 AM, and 7:00 PM.
 - Do NOT check competitor launches on PH during your launch. It will only distract you.
+
+## Appendix E: Abort Thresholds (canonical for PRD Scope #15)
+
+These are the **abort thresholds** for the launch day window. If ANY trigger,
+follow Appendix D slip-communication template and abort the launch:
+
+| Signal | Trigger | Window | Action |
+|--------|---------|--------|--------|
+| Signup failure rate | > 5 % | rolling 10 min | Disable PH bot signups + pause Reddit/HN posts |
+| `/health` p95 | > 3 000 ms | rolling 10 min | Page on-call, check Render + Neon dashboards |
+| Payment failure rate | > 10 % | rolling 15 min | Disable Stripe checkout button, post status page |
+| Application error rate | > 2 % | rolling 15 min | Page on-call, freeze deploys |
+| Drip dispatch error rate | > 2 % | rolling 30 min | Pause drip cron, manual review of last 100 sends |
+| CF Worker 5xx rate | > 1 % | rolling 10 min | Toggle frontend circuit breaker to Render origin |
+| Neon pool wait p95 | > 1 000 ms | rolling 15 min | Throttle non-essential workers, escalate to Neon support |
+
+Reset criteria for re-launch: two consecutive 30-minute windows below threshold
+plus root-cause note in incident channel.
