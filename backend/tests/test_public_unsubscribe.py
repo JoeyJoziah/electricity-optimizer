@@ -10,6 +10,7 @@ Covers:
 - GET /public/unsubscribe is idempotent (second call is a no-op, still redirects)
 - GET /public/unsubscribe when INTERNAL_API_KEY is not set returns 500
 - DripService._make_unsubscribe_url produces URL containing uid and tok
+- Settings.effective_unsubscribe_secret falls back to internal_api_key when UNSUBSCRIBE_SECRET not set
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -73,7 +74,7 @@ def test_drip_service_make_unsubscribe_url():
 
     uid = str(uuid4())
     with patch("services.drip_service.get_settings") as mock_settings:
-        mock_settings.return_value.internal_api_key = "test-secret"
+        mock_settings.return_value.effective_unsubscribe_secret = "test-secret"
         url = _make_unsubscribe_url(uid)
 
     assert f"uid={uid}" in url
@@ -116,7 +117,7 @@ class TestUnsubscribeEndpoint:
         app = _make_app(db)
 
         with patch("api.v1.public_unsubscribe._settings") as ms:
-            ms.internal_api_key = "test-secret"
+            ms.effective_unsubscribe_secret = "test-secret"
             client = TestClient(app, follow_redirects=False)
             resp = client.get(f"/api/v1/public/unsubscribe?uid={uid}&tok={tok}")
 
@@ -130,7 +131,7 @@ class TestUnsubscribeEndpoint:
         app = _make_app(db)
 
         with patch("api.v1.public_unsubscribe._settings") as ms:
-            ms.internal_api_key = "test-secret"
+            ms.effective_unsubscribe_secret = "test-secret"
             client = TestClient(app, follow_redirects=False)
             resp = client.get(
                 f"/api/v1/public/unsubscribe?uid={uid}&tok=badtoken123456789012345678901234"
@@ -145,7 +146,7 @@ class TestUnsubscribeEndpoint:
         app = _make_app(db)
 
         with patch("api.v1.public_unsubscribe._settings") as ms:
-            ms.internal_api_key = "test-secret"
+            ms.effective_unsubscribe_secret = "test-secret"
             client = TestClient(app, follow_redirects=False)
             resp = client.get(f"/api/v1/public/unsubscribe?uid={uid}&tok={tok}")
 
@@ -158,8 +159,42 @@ class TestUnsubscribeEndpoint:
         app = _make_app(db)
 
         with patch("api.v1.public_unsubscribe._settings") as ms:
-            ms.internal_api_key = ""
+            ms.effective_unsubscribe_secret = ""
             client = TestClient(app, follow_redirects=False)
             resp = client.get(f"/api/v1/public/unsubscribe?uid={uid}&tok={tok}")
 
         assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# Settings.effective_unsubscribe_secret fallback behavior
+# ---------------------------------------------------------------------------
+
+
+def test_effective_unsubscribe_secret_uses_dedicated_key_when_set():
+    from config.settings import Settings
+
+    s = Settings(
+        INTERNAL_API_KEY="internal-key",
+        UNSUBSCRIBE_SECRET="dedicated-unsub-key",
+        DATABASE_URL="postgresql://x",
+    )
+    assert s.effective_unsubscribe_secret == "dedicated-unsub-key"
+
+
+def test_effective_unsubscribe_secret_falls_back_to_internal_api_key():
+    from config.settings import Settings
+
+    s = Settings(
+        INTERNAL_API_KEY="internal-key",
+        DATABASE_URL="postgresql://x",
+    )
+    # No UNSUBSCRIBE_SECRET set — must fall back
+    assert s.effective_unsubscribe_secret == "internal-key"
+
+
+def test_effective_unsubscribe_secret_empty_when_neither_set():
+    from config.settings import Settings
+
+    s = Settings(DATABASE_URL="postgresql://x")
+    assert s.effective_unsubscribe_secret == ""

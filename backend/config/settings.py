@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     # mismatch this value — effectively IP-locks the backend to CF Worker traffic.
     cf_origin_secret: str | None = Field(default=None, validation_alias="CF_ORIGIN_SECRET")
 
+    # Dedicated HMAC signing key for one-click unsubscribe tokens.
+    # Falls back to internal_api_key when not set (backward compatible).
+    # Stored separately so INTERNAL_API_KEY rotation doesn't break outstanding
+    # unsubscribe links sent in drip emails.
+    unsubscribe_secret: str | None = Field(default=None, validation_alias="UNSUBSCRIBE_SECRET")
+
     # Better Auth session token signing secret
     better_auth_secret: str | None = Field(default=None, validation_alias="BETTER_AUTH_SECRET")
 
@@ -504,6 +510,17 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development"""
         return self.environment == "development"
+
+    @property
+    def effective_unsubscribe_secret(self) -> str:
+        """HMAC key for one-click unsubscribe tokens.
+
+        Uses UNSUBSCRIBE_SECRET when set; falls back to INTERNAL_API_KEY so that
+        existing deployments without UNSUBSCRIBE_SECRET continue to work. Set
+        UNSUBSCRIBE_SECRET before rotating INTERNAL_API_KEY to avoid invalidating
+        outstanding unsubscribe links in drip emails.
+        """
+        return self.unsubscribe_secret or self.internal_api_key or ""
 
 
 # Global settings instance

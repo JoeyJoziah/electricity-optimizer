@@ -37,8 +37,8 @@ _UNSUBSCRIBE_BASE = "https://rateshift.app/api/v1/public/unsubscribe"
 
 
 def _make_unsubscribe_url(user_id: str) -> str:
-    """Return a one-click unsubscribe URL signed with the internal API key."""
-    secret = (get_settings().internal_api_key or "").encode()
+    """Return a one-click unsubscribe URL signed with the unsubscribe secret."""
+    secret = get_settings().effective_unsubscribe_secret.encode()
     tok = hmac.new(secret, user_id.encode(), hashlib.sha256).hexdigest()[:32]
     return f"{_UNSUBSCRIBE_BASE}?uid={user_id}&tok={tok}"
 

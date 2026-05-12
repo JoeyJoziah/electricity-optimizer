@@ -50,7 +50,7 @@ async def unsubscribe(
     tok: str = Query(..., description="HMAC verification token"),
     db: AsyncSession = Depends(get_db_session),
 ) -> RedirectResponse:
-    secret = _settings.internal_api_key or ""
+    secret = _settings.effective_unsubscribe_secret
     if not secret:
         logger.error("unsubscribe_no_secret")
         raise HTTPException(status_code=500, detail="Service misconfigured")
