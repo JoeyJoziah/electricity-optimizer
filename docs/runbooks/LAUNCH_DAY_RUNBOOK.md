@@ -1,8 +1,9 @@
 # RateShift Launch-Day Rehearsal Plan & Execution Runbook
 
-> ⚠️ **LAUNCH POSTPONED INDEFINITELY (2026-05-11)** — The April 14 2026 Product Hunt launch did not occur and the new date is TBD. All times/dates below are kept as-is so they can be re-used; substitute the future launch date when scheduling. Status, copy, and infra checks are still valid.
+> **NEW LAUNCH DATE: Tuesday, June 2, 2026 12:01 AM PT** — Rescheduled from April 14. Dress rehearsal: **Tue May 26, 2026**. April dates below are kept as scheduling templates; substitute May 31–Jun 2 when executing. See `docs/launch/PRE_LAUNCH_VERIFICATION.md` for go/no-go gate.
 
-**Original Launch Date**: Tuesday, April 14, 2026 at 12:01 AM PT / 3:01 AM ET *(superseded — see banner)*
+**Confirmed Launch Date**: Tuesday, June 2, 2026 at 12:01 AM PT / 3:01 AM ET
+**Dress Rehearsal**: Tuesday, May 26, 2026
 **Launch Platform**: Product Hunt
 **Operator**: Devin (solo founder -- one person doing everything)
 **Companion Docs**: `FINAL_COPY.md` (copy), `PRODUCT_HUNT.md` (playbook), `MONITORING_RUNBOOK.md` (infra), `HN_REDDIT_POSTS.md` (social)
