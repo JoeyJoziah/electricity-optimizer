@@ -174,3 +174,45 @@ describe("Cache-Control on KV cache hits", () => {
     expect(response.headers.get("X-Cache")).toBe("STALE");
   });
 });
+
+describe("HEAD method cache isolation", () => {
+  it("HEAD requests bypass cache and do not return a cached GET response", async () => {
+    // Prime KV with a fresh GET response
+    const kvEntry = makeFreshKvEntry(300, 10);
+    const env = makeEnv(kvEntry);
+    const ctx = { waitUntil: vi.fn() } as unknown as ExecutionContext;
+
+    const worker = await import("../src/index");
+    const response = await worker.default.fetch(
+      new Request("https://api.rateshift.app/api/v1/prices/current?region=NY", {
+        method: "HEAD",
+        headers: { "CF-Connecting-IP": "1.2.3.4" },
+      }),
+      env,
+      ctx
+    );
+
+    // tryCache returns MISS for non-GET, so X-Cache must not be HIT
+    expect(response.headers.get("X-Cache")).not.toBe("HIT");
+  });
+
+  it("HEAD requests do not store their empty-body response in KV (no cache poisoning)", async () => {
+    // No KV entry — HEAD goes to origin
+    const env = makeEnv(null);
+    const kvPut = env.CACHE.put as ReturnType<typeof vi.fn>;
+    const ctx = { waitUntil: vi.fn() } as unknown as ExecutionContext;
+
+    const worker = await import("../src/index");
+    await worker.default.fetch(
+      new Request("https://api.rateshift.app/api/v1/prices/current?region=NY", {
+        method: "HEAD",
+        headers: { "CF-Connecting-IP": "1.2.3.4" },
+      }),
+      env,
+      ctx
+    );
+
+    // storeInCache is guarded by request.method === "GET", so KV.put must not be called
+    expect(kvPut).not.toHaveBeenCalled();
+  });
+});
