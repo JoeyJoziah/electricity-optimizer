@@ -412,3 +412,105 @@ class TestHealthIntegrationsEdgeCases:
 
         app.dependency_overrides.pop(get_db_session, None)
         app.dependency_overrides.pop(verify_api_key, None)
+
+
+# =============================================================================
+# Basic /health endpoint — GET and HEAD
+# UptimeRobot uses HEAD probes by default; both methods must return 200.
+# =============================================================================
+
+
+def _mock_db_manager_connected():
+    """Return a db_manager mock where the DB appears connected."""
+    m = MagicMock()
+    m.async_session_maker = True  # truthy → skip reconnect branch
+    m.pg_engine = MagicMock()
+    m.pg_pool = None
+    m._execute_raw_query = AsyncMock(return_value=MagicMock())
+    return m
+
+
+def _mock_db_manager_disconnected():
+    """Return a db_manager mock where the DB appears disconnected."""
+    m = MagicMock()
+    m.async_session_maker = True
+    m.pg_engine = MagicMock()
+    m.pg_pool = None
+    m._execute_raw_query = AsyncMock(side_effect=Exception("DB unreachable"))
+    return m
+
+
+class TestBasicHealthEndpoint:
+    """Tests for GET /health and HEAD /health (no API key required)."""
+
+    def test_get_health_returns_200_when_db_connected(self):
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_connected()):
+            with TestClient(app) as client:
+                response = client.get("/health")
+        assert response.status_code == 200
+
+    def test_head_health_returns_200_when_db_connected(self):
+        """HEAD /health must return 200 — this is what UptimeRobot probes."""
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_connected()):
+            with TestClient(app) as client:
+                response = client.head("/health")
+        assert response.status_code == 200
+
+    def test_head_health_returns_empty_body(self):
+        """HEAD responses must have no body per HTTP spec."""
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_connected()):
+            with TestClient(app) as client:
+                response = client.head("/health")
+        assert response.content == b""
+
+    def test_get_health_response_shape(self):
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_connected()):
+            with TestClient(app) as client:
+                response = client.get("/health")
+        data = response.json()
+        for key in ("status", "version", "environment", "uptime_seconds", "database_status"):
+            assert key in data, f"Missing key in /health response: {key}"
+
+    def test_get_health_status_healthy_when_db_connected(self):
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_connected()):
+            with TestClient(app) as client:
+                response = client.get("/health")
+        assert response.json()["status"] == "healthy"
+        assert response.json()["database_status"] == "connected"
+
+    def test_get_health_status_degraded_when_db_disconnected(self):
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_disconnected()):
+            with TestClient(app) as client:
+                response = client.get("/health")
+        data = response.json()
+        assert data["status"] == "degraded"
+        assert data["database_status"] == "disconnected"
+
+    def test_head_health_200_even_when_db_disconnected(self):
+        """HEAD /health always returns 200 regardless of DB state (uptime check)."""
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_disconnected()):
+            with TestClient(app) as client:
+                response = client.head("/health")
+        assert response.status_code == 200
+
+    def test_get_health_uptime_seconds_is_non_negative(self):
+        from main import app
+
+        with patch("api.v1.health.db_manager", _mock_db_manager_connected()):
+            with TestClient(app) as client:
+                response = client.get("/health")
+        assert response.json()["uptime_seconds"] >= 0
