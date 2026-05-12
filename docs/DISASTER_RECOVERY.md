@@ -844,3 +844,121 @@ To ensure these procedures work under pressure, run a quarterly DR test:
 7. File a PR with updates to this runbook
 
 **Last DR test**: [PLACEHOLDER — add date and notes from your test run]
+
+---
+
+## Appendix: Key Rotation Runbook (PRD Scope #3 — due 2026-05-20)
+
+> **Prerequisite**: Scope #4 (CF Worker origin-secret header middleware) must be **deployed** before executing key rotation, but **not yet activated** (both CF and Render sides unset). Activate ORIGIN_SECRET as the final step below after all other secrets have soaked for 24h.
+>
+> **Soak rule**: ≥13 days between rotation completion and PH launch (2026-06-02). Rotation must complete by 2026-05-20.
+
+### Secrets to Rotate
+
+| Secret | Current location | Rotation method | Rollback method |
+|--------|-----------------|-----------------|-----------------|
+| `INTERNAL_API_KEY` | Render env + CF Worker secret + 1Password | Generate new; deploy Render first, then CF Worker | Restore old value from 1Password; redeploy both |
+| `ML_MODEL_SIGNING_KEY` | Render env + 1Password | Generate new; deploy Render | Restore from 1Password |
+| `OAUTH_STATE_SECRET` | Render env + 1Password | Generate new; deploy Render | Restore from 1Password; in-flight OAuth sessions will fail once (acceptable) |
+| `CF_ORIGIN_SECRET` / `ORIGIN_SECRET` | Render env (not yet set) + CF Worker secret (not yet set) | Set both simultaneously (see activation step) | Remove both sides; middleware falls back to no-op |
+
+> **Not rotating at this time**: Stripe keys (separate rotation cadence, requires Stripe dashboard), Neon connection string (requires coordinated migration), Resend API key (separate rotation, requires domain re-verification).
+
+### Pre-rotation Checklist
+
+- [ ] Confirm last green deploy on `build-and-push-backend.yml` within 24h (pipeline is trusted)
+- [ ] Note current `INTERNAL_API_KEY` value in 1Password (Vault: "RateShift", item: "Render Env Vars") as rollback point
+- [ ] Confirm UptimeRobot monitors are UP (all 4 green)
+- [ ] Pin current git SHA: `git rev-parse HEAD` → record in this doc as `PRE_ROTATION_SHA`
+
+**PRE_ROTATION_SHA**: `[fill in before execution]`
+
+### Rotation Procedure
+
+**Step 1 — Generate new secrets**
+
+```bash
+# Run locally; never commit output
+NEW_INTERNAL_KEY=$(openssl rand -hex 32)
+NEW_ML_SIGNING_KEY=$(openssl rand -hex 32)
+NEW_OAUTH_STATE=$(openssl rand -hex 32)
+NEW_ORIGIN_SECRET=$(openssl rand -hex 32)
+
+echo "INTERNAL_API_KEY=$NEW_INTERNAL_KEY"
+echo "ML_MODEL_SIGNING_KEY=$NEW_ML_SIGNING_KEY"
+echo "OAUTH_STATE_SECRET=$NEW_OAUTH_STATE"
+echo "CF_ORIGIN_SECRET=$NEW_ORIGIN_SECRET"
+echo "ORIGIN_SECRET=$NEW_ORIGIN_SECRET  (same value for CF Worker)"
+```
+
+Save all four values in 1Password (Vault: "RateShift") as "Key Rotation 2026-05-20 (new)" before proceeding.
+
+**Step 2 — Rotate INTERNAL_API_KEY**
+
+1. Render Dashboard → `electricity-optimizer-backend` → Environment → update `INTERNAL_API_KEY` to `$NEW_INTERNAL_KEY` → Save (triggers redeploy)
+2. Wait for redeploy green (≤5 min); confirm `/health` 200
+3. `wrangler secret put INTERNAL_API_KEY` → paste `$NEW_INTERNAL_KEY`
+4. Verify CF Worker still routes correctly: `curl -s https://api.rateshift.app/health | jq .`
+5. Update 1Password item with new value
+
+**Step 3 — Rotate ML_MODEL_SIGNING_KEY**
+
+1. Render → update `ML_MODEL_SIGNING_KEY` → Save (triggers redeploy)
+2. Wait for green; confirm `/health` 200
+3. Update 1Password
+
+**Step 4 — Rotate OAUTH_STATE_SECRET**
+
+> ⚠️ In-flight OAuth sessions (Google/GitHub/Outlook) will fail once the old secret expires. Schedule during off-peak hours (e.g., 02:00–04:00 PT).
+
+1. Render → update `OAUTH_STATE_SECRET` → Save (triggers redeploy)
+2. Wait for green; test a full OAuth login flow (Google) to confirm new secret works
+3. Update 1Password
+
+**Step 5 — Activate ORIGIN_SECRET (Scope #4 activation)**
+
+This is the final step — only execute after Steps 2–4 have soaked for ≥24h:
+
+1. `wrangler secret put ORIGIN_SECRET` → paste `$NEW_ORIGIN_SECRET`
+2. Render → add `CF_ORIGIN_SECRET` env var = `$NEW_ORIGIN_SECRET` → Save (triggers redeploy)
+3. Wait for green; test: `curl -s https://api.rateshift.app/health | jq .` (should still return 200 — CF Worker injects the header automatically)
+4. Test a direct Render URL (without CF Worker): should get 403 (origin-secret middleware rejecting direct access)
+5. Update 1Password
+
+### Post-rotation Validation
+
+```bash
+# 1. Backend health
+curl -s https://api.rateshift.app/health
+
+# 2. Internal API key works (drip enrollment dry run)
+curl -X POST https://api.rateshift.app/api/v1/internal/drip/process \
+  -H "X-Internal-API-Key: $NEW_INTERNAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq .summary
+
+# 3. CF Worker passes origin secret (no 403 on CF-proxied request)
+curl -s -o /dev/null -w "%{http_code}" https://api.rateshift.app/api/v1/health
+
+# 4. Direct Render URL blocked (expects 403)
+curl -s -o /dev/null -w "%{http_code}" https://electricity-optimizer.onrender.com/api/v1/health
+# Expected: 403 (CF_ORIGIN_SECRET not present in direct request)
+```
+
+All checks must pass before soak window begins.
+
+### Rollback Procedure
+
+If any rotation step causes a production outage:
+
+1. Revert the changed secret in Render (restore from 1Password "Key Rotation 2026-05-20 (old)" item) → Save → wait for redeploy green
+2. If CF Worker secret was changed: `wrangler secret put <SECRET_NAME>` with old value
+3. If ORIGIN_SECRET was activated and is causing 403s: remove `CF_ORIGIN_SECRET` from Render env; the middleware falls back to no-op
+4. Verify `/health` 200 and run post-rotation validation checks above
+5. Document the failure in this runbook under "Rotation Issues Log" before re-attempting
+
+### Rotation Issues Log
+
+| Date | Secret | Issue | Resolution |
+|------|--------|-------|------------|
+| *(none yet)* | — | — | — |
