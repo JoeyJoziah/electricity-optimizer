@@ -7,13 +7,18 @@ POST /drip/process — run Day-2 and Day-7 batches; called daily by drip-process
 Inherits router-level verify_api_key dependency from the parent internal router.
 """
 
+try:
+    import sentry_sdk
+except ImportError:  # pragma: no cover
+    sentry_sdk = None  # type: ignore[assignment]
+
 import structlog
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_db_session
-from services.drip_service import DripService
+from services.drip_service import DISPATCH_ERROR_RATE_THRESHOLD, DripService
 
 logger = structlog.get_logger(__name__)
 
@@ -67,13 +72,33 @@ async def process_drip_batches(
     total_sent = day2["sent_a"] + day2["sent_b"] + day7["sent"]
     total_attempted = day2["total"] + day7["total"]
 
+    error_rate = total_errors / total_attempted if total_attempted > 0 else 0.0
+
     logger.info(
         "drip_process_complete",
         day2=day2,
         day7=day7,
         total_sent=total_sent,
         total_errors=total_errors,
+        error_rate=round(error_rate, 4),
     )
+
+    if total_attempted > 0 and error_rate > DISPATCH_ERROR_RATE_THRESHOLD:
+        try:
+            if sentry_sdk is not None:
+                sentry_sdk.capture_message(
+                    f"Drip dispatch error rate {error_rate:.1%} exceeds {DISPATCH_ERROR_RATE_THRESHOLD:.0%} threshold",
+                    level="error",
+                    extras={
+                        "total_attempted": total_attempted,
+                        "total_errors": total_errors,
+                        "error_rate": error_rate,
+                        "day2": day2,
+                        "day7": day7,
+                    },
+                )
+        except Exception:
+            logger.exception("drip_sentry_alert_failed")
 
     return {
         "day2": day2,
@@ -82,5 +107,6 @@ async def process_drip_batches(
             "total_attempted": total_attempted,
             "total_sent": total_sent,
             "total_errors": total_errors,
+            "error_rate": round(error_rate, 4),
         },
     }
