@@ -1060,3 +1060,71 @@ class TestPostParseSavings:
             mock_gen_fn.return_value.aclose = AsyncMock()
 
             await _run_background_post_parse_savings("conn-abc", 900.0)
+
+    async def test_post_parse_savings_records_monthly_amount_on_happy_path(self):
+        """Happy path: estimate has data + positive savings → SavingsService.record_savings called.
+
+        NOTE: _run_background_post_parse_savings imports get_db_session via
+        ``from api.dependencies import get_db_session as _get_db`` inside the
+        function body.  The correct patch target is ``api.dependencies.get_db_session``,
+        NOT the bill_upload module path.
+        """
+        from api.v1.connections.bill_upload import _run_background_post_parse_savings
+
+        mock_db = AsyncMock()
+        mock_db.execute.return_value = MagicMock(fetchone=MagicMock(return_value=("user-xyz",)))
+
+        mock_record = AsyncMock()
+        with (
+            patch("api.dependencies.get_db_session") as mock_gen_fn,
+            patch(
+                "services.connection_analytics_service.ConnectionAnalyticsService.get_savings_estimate",
+                new=AsyncMock(
+                    return_value={
+                        "has_data": True,
+                        "estimated_annual_savings_vs_average": 120.0,
+                    }
+                ),
+            ),
+            patch("services.savings_service.SavingsService.record_savings", new=mock_record),
+        ):
+            mock_gen_fn.return_value.__anext__ = AsyncMock(return_value=mock_db)
+            mock_gen_fn.return_value.aclose = AsyncMock()
+
+            await _run_background_post_parse_savings("conn-xyz", 900.0)
+
+        mock_record.assert_awaited_once()
+        call_kwargs = mock_record.call_args.kwargs
+        assert call_kwargs["savings_type"] == "bill_estimate"
+        # Annual $120 / 12 = $10.00/month
+        assert call_kwargs["amount"] == 10.0
+        assert call_kwargs["currency"] == "USD"
+        assert call_kwargs["user_id"] == "user-xyz"
+
+    async def test_post_parse_savings_skips_zero_savings(self):
+        """When estimated annual savings is 0 or negative, record_savings is not called."""
+        from api.v1.connections.bill_upload import _run_background_post_parse_savings
+
+        mock_db = AsyncMock()
+        mock_db.execute.return_value = MagicMock(fetchone=MagicMock(return_value=("user-xyz",)))
+
+        mock_record = AsyncMock()
+        with (
+            patch("api.dependencies.get_db_session") as mock_gen_fn,
+            patch(
+                "services.connection_analytics_service.ConnectionAnalyticsService.get_savings_estimate",
+                new=AsyncMock(
+                    return_value={
+                        "has_data": True,
+                        "estimated_annual_savings_vs_average": 0.0,
+                    }
+                ),
+            ),
+            patch("services.savings_service.SavingsService.record_savings", new=mock_record),
+        ):
+            mock_gen_fn.return_value.__anext__ = AsyncMock(return_value=mock_db)
+            mock_gen_fn.return_value.aclose = AsyncMock()
+
+            await _run_background_post_parse_savings("conn-xyz", 900.0)
+
+        mock_record.assert_not_awaited()
