@@ -1,0 +1,106 @@
+name: Cost-Cap Alerts
+
+on:
+  schedule:
+    # Daily at 09:00 UTC (5 AM ET)
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  check-cost-caps:
+    name: Check service cost caps
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call cost-caps check endpoint
+        id: check
+        run: |
+          RESPONSE=$(curl -sf \
+            -X POST \
+            -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            "${{ vars.BACKEND_URL }}/api/v1/internal/cost-caps/check")
+
+          echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
+
+          BREACH_COUNT=$(echo "$RESPONSE" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          print(len(data.get('breaches', [])))
+          ")
+          echo "breach_count=$BREACH_COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack on breach
+        if: steps.check.outputs.breach_count != '0'
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request, urllib.error
+
+          response = json.loads(os.environ["RESPONSE"])
+          webhook = os.environ["SLACK_METRICS_WEBHOOK_URL"]
+
+          LEVEL_EMOJI = {
+              "critical":     ":red_circle:",
+              "warning_high": ":large_orange_circle:",
+              "warning_low":  ":large_yellow_circle:",
+          }
+          LEVEL_LABEL = {
+              "critical":     "CRITICAL (≥100%)",
+              "warning_high": "HIGH WARNING (≥80%)",
+              "warning_low":  "WARNING (≥50%)",
+          }
+
+          breaches = response.get("breaches", [])
+          checked_at = response.get("checked_at", "")
+
+          blocks = [
+              {
+                  "type": "header",
+                  "text": {"type": "plain_text", "text": ":money_with_wings: RateShift Cost-Cap Alert"}
+              },
+              {
+                  "type": "section",
+                  "text": {"type": "mrkdwn", "text": f"*{len(breaches)} service(s)* breached budget thresholds at `{checked_at[:19]}Z`"}
+              },
+          ]
+
+          for b in breaches:
+              level = b.get("breach_level") or "unknown"
+              emoji = LEVEL_EMOJI.get(level, ":white_circle:")
+              label = LEVEL_LABEL.get(level, level)
+              pct = f"{(b.get('fraction', 0) * 100):.1f}%"
+              cost = b.get("estimated_cost_usd")
+              cap = b.get("budget_cap_usd")
+              cost_str = f"${cost:.2f} / ${cap:.2f}" if cost is not None else "N/A"
+              blocks.append({
+                  "type": "section",
+                  "text": {
+                      "type": "mrkdwn",
+                      "text": f"{emoji} *{b['service'].upper()}* — {label}\n"
+                              f"Usage: {pct} of budget  |  Est. cost: {cost_str}"
+                  }
+              })
+
+          blocks.append({
+              "type": "context",
+              "elements": [{
+                  "type": "mrkdwn",
+                  "text": "50% → yellow warning  |  80% → orange alert  |  100% → red critical. "
+                          "Verify against service dashboards before taking action."
+              }]
+          })
+
+          payload = json.dumps({"blocks": blocks}).encode()
+          req = urllib.request.Request(webhook, data=payload, headers={"Content-Type": "application/json"})
+          with urllib.request.urlopen(req, timeout=10) as r:
+              print(f"Slack response: {r.status}")
+          EOF
+        env:
+          RESPONSE: ${{ steps.check.outputs.response }}
+          SLACK_METRICS_WEBHOOK_URL: ${{ secrets.SLACK_METRICS_WEBHOOK_URL }}
+
+      - name: Log result
+        if: always()
+        run: |
+          echo "Breach count: ${{ steps.check.outputs.breach_count }}"
+          echo "Response: ${{ steps.check.outputs.response }}"
