@@ -443,6 +443,45 @@ describe("proxyToOrigin", () => {
     });
   });
 
+  describe("origin secret injection (Scope #4)", () => {
+    it("should inject X-CF-Origin-Secret header when ORIGIN_SECRET is set", async () => {
+      mockFetch.mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+      const env = createMockEnv({ ORIGIN_SECRET: "super-secret-value" });
+      const request = makeRequest("https://api.rateshift.app/api/v1/prices/current");
+      await proxyToOrigin(request, env, "req-1", "1.2.3.4");
+
+      const [, fetchInit] = mockFetch.mock.calls[0];
+      const headers = fetchInit.headers as Headers;
+      expect(headers.get("X-CF-Origin-Secret")).toBe("super-secret-value");
+    });
+
+    it("should NOT inject X-CF-Origin-Secret when ORIGIN_SECRET is not set", async () => {
+      mockFetch.mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+      const env = createMockEnv({ ORIGIN_SECRET: undefined });
+      const request = makeRequest("https://api.rateshift.app/api/v1/prices/current");
+      await proxyToOrigin(request, env, "req-1", "1.2.3.4");
+
+      const [, fetchInit] = mockFetch.mock.calls[0];
+      const headers = fetchInit.headers as Headers;
+      expect(headers.get("X-CF-Origin-Secret")).toBeNull();
+    });
+
+    it("should not expose ORIGIN_SECRET to clients in the response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response("{}", { status: 200, headers: {} })
+      );
+
+      const env = createMockEnv({ ORIGIN_SECRET: "super-secret-value" });
+      const request = makeRequest("https://api.rateshift.app/api/v1/prices/current");
+      const response = await proxyToOrigin(request, env, "req-1", "1.2.3.4");
+
+      // The secret must never appear in the response headers returned to the client
+      expect(response.headers.get("X-CF-Origin-Secret")).toBeNull();
+    });
+  });
+
   describe("header preservation", () => {
     it("should forward Authorization header from client to origin", async () => {
       mockFetch.mockResolvedValueOnce(new Response("{}", { status: 200 }));
