@@ -857,6 +857,7 @@ To ensure these procedures work under pressure, run a quarterly DR test:
 
 | Secret | Current location | Rotation method | Rollback method |
 |--------|-----------------|-----------------|-----------------|
+| `UNSUBSCRIBE_SECRET` | Render env + 1Password | **Set this FIRST** (before rotating INTERNAL_API_KEY); changing INTERNAL_API_KEY without setting this invalidates all outstanding unsubscribe links (CAN-SPAM) | Restore from 1Password; outstanding links use the stored value |
 | `INTERNAL_API_KEY` | Render env + CF Worker secret + 1Password | Generate new; deploy Render first, then CF Worker | Restore old value from 1Password; redeploy both |
 | `ML_MODEL_SIGNING_KEY` | Render env + 1Password | Generate new; deploy Render | Restore from 1Password |
 | `OAUTH_STATE_SECRET` | Render env + 1Password | Generate new; deploy Render | Restore from 1Password; in-flight OAuth sessions will fail once (acceptable) |
@@ -879,11 +880,13 @@ To ensure these procedures work under pressure, run a quarterly DR test:
 
 ```bash
 # Run locally; never commit output
+NEW_UNSUB_SECRET=$(openssl rand -hex 32)
 NEW_INTERNAL_KEY=$(openssl rand -hex 32)
 NEW_ML_SIGNING_KEY=$(openssl rand -hex 32)
 NEW_OAUTH_STATE=$(openssl rand -hex 32)
 NEW_ORIGIN_SECRET=$(openssl rand -hex 32)
 
+echo "UNSUBSCRIBE_SECRET=$NEW_UNSUB_SECRET"
 echo "INTERNAL_API_KEY=$NEW_INTERNAL_KEY"
 echo "ML_MODEL_SIGNING_KEY=$NEW_ML_SIGNING_KEY"
 echo "OAUTH_STATE_SECRET=$NEW_OAUTH_STATE"
@@ -891,7 +894,15 @@ echo "CF_ORIGIN_SECRET=$NEW_ORIGIN_SECRET"
 echo "ORIGIN_SECRET=$NEW_ORIGIN_SECRET  (same value for CF Worker)"
 ```
 
-Save all four values in 1Password (Vault: "RateShift") as "Key Rotation 2026-05-20 (new)" before proceeding.
+Save all five values in 1Password (Vault: "RateShift") as "Key Rotation 2026-05-20 (new)" before proceeding.
+
+**Step 1.5 — Set UNSUBSCRIBE_SECRET (MUST precede INTERNAL_API_KEY rotation)**
+
+> ⚠️ Rotating INTERNAL_API_KEY without first setting UNSUBSCRIBE_SECRET will invalidate all outstanding unsubscribe links in drip emails (CAN-SPAM violation). Complete this step first.
+
+1. Render Dashboard → `electricity-optimizer-backend` → Environment → add `UNSUBSCRIBE_SECRET` = `$NEW_UNSUB_SECRET` → Save (triggers redeploy)
+2. Wait for green; confirm `/health` 200
+3. Update 1Password item with new value
 
 **Step 2 — Rotate INTERNAL_API_KEY**
 
@@ -933,7 +944,7 @@ curl -s https://api.rateshift.app/health
 
 # 2. Internal API key works (drip enrollment dry run)
 curl -X POST https://api.rateshift.app/api/v1/internal/drip/process \
-  -H "X-Internal-API-Key: $NEW_INTERNAL_KEY" \
+  -H "X-API-Key: $NEW_INTERNAL_KEY" \
   -H "Content-Type: application/json" \
   -d '{}' | jq .summary
 
