@@ -119,7 +119,9 @@ class TestEnrollUser:
     async def test_none_name_handled(self, svc, mock_db, mock_email):
         mock_db.execute.return_value.fetchone.return_value = ("uid",)
         await svc.enroll_user(user_id="uid", email="a@b.com", name=None)
-        mock_email.render_template.assert_called_once_with("welcome_signup.html", name="")
+        call_kwargs = mock_email.render_template.call_args
+        assert call_kwargs.args[0] == "welcome_signup.html"
+        assert call_kwargs.kwargs.get("name") == ""
 
 
 # =============================================================================
@@ -237,3 +239,79 @@ class TestDay7Batch:
 
         assert result["errors"] == 1
         assert result["sent"] == 0
+
+
+# =============================================================================
+# CAN-SPAM / unsubscribe
+# =============================================================================
+
+
+class TestUnsubscribeCompliance:
+    """Verify unsubscribe_url is injected into every send helper."""
+
+    def _make_user_row(self, has_connection: bool = True) -> MagicMock:
+        from typing import Any
+
+        row: dict[str, Any] = {
+            "user_id": uuid4(),
+            "email": "u@example.com",
+            "name": "User",
+            "region": "CT",
+            "has_connection": has_connection,
+            "has_bill": False,
+            "potential_savings_annual": None,
+        }
+        m = MagicMock()
+        m.__getitem__ = lambda self, k: row[k]
+        return m
+
+    def _make_day7_row(self) -> MagicMock:
+        from typing import Any
+
+        row: dict[str, Any] = {"user_id": uuid4(), "email": "u@example.com", "name": "User"}
+        m = MagicMock()
+        m.__getitem__ = lambda self, k: row[k]
+        return m
+
+    async def test_welcome_passes_unsubscribe_url(self, svc, mock_db, mock_email):
+        with patch("services.drip_service.get_settings") as ms:
+            ms.return_value.internal_api_key = "test"
+            mock_db.execute.return_value.fetchone.return_value = ("uid",)
+            await svc.enroll_user(user_id="uid", email="a@b.com", name="Alice")
+
+        kwargs = mock_email.render_template.call_args.kwargs
+        assert "unsubscribe_url" in kwargs
+        assert "uid=uid" in kwargs["unsubscribe_url"]
+
+    async def test_day2_connected_passes_unsubscribe_url(self, svc, mock_db, mock_email):
+        row = self._make_user_row(has_connection=True)
+        mock_db.execute.return_value = _make_execute_result(mappings_rows=[row])
+
+        with patch("services.drip_service.get_settings") as ms:
+            ms.return_value.internal_api_key = "test"
+            await svc.process_day2_batch()
+
+        kwargs = mock_email.render_template.call_args.kwargs
+        assert "unsubscribe_url" in kwargs
+        assert "uid=" in kwargs["unsubscribe_url"]
+
+    async def test_day2_pending_passes_unsubscribe_url(self, svc, mock_db, mock_email):
+        row = self._make_user_row(has_connection=False)
+        mock_db.execute.return_value = _make_execute_result(mappings_rows=[row])
+
+        with patch("services.drip_service.get_settings") as ms:
+            ms.return_value.internal_api_key = "test"
+            await svc.process_day2_batch()
+
+        kwargs = mock_email.render_template.call_args.kwargs
+        assert "unsubscribe_url" in kwargs
+
+    async def test_day7_passes_unsubscribe_url(self, svc, mock_db, mock_email):
+        mock_db.execute.return_value = _make_execute_result(mappings_rows=[self._make_day7_row()])
+
+        with patch("services.drip_service.get_settings") as ms:
+            ms.return_value.internal_api_key = "test"
+            await svc.process_day7_batch()
+
+        kwargs = mock_email.render_template.call_args.kwargs
+        assert "unsubscribe_url" in kwargs

@@ -6,11 +6,13 @@ Drip Email Service
   #2  Day-2 value  — Template A (connected) or Template B (pending); snapshotted at batch time
   #3  Day-7 nudge  — Pro upgrade framing, no discount
 
-State machine lives in user_drip_state table (migration 067).
+State machine lives in user_drip_state table (migration 067 + 068).
 
 All SQL uses parameterised text() statements; no string interpolation.
 """
 
+import hashlib
+import hmac
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -18,6 +20,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.settings import get_settings
 from services.email_service import EmailService
 
 logger = structlog.get_logger(__name__)
@@ -29,6 +32,15 @@ DAY7_DELAY = timedelta(days=7)
 # Sentry-alertable error rate threshold (raised externally via Sentry alert rules)
 # exposed here so tests and callers can reference the constant
 DISPATCH_ERROR_RATE_THRESHOLD = 0.02  # 2%
+
+_UNSUBSCRIBE_BASE = "https://rateshift.app/api/v1/public/unsubscribe"
+
+
+def _make_unsubscribe_url(user_id: str) -> str:
+    """Return a one-click unsubscribe URL signed with the internal API key."""
+    secret = (get_settings().internal_api_key or "").encode()
+    tok = hmac.new(secret, user_id.encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{_UNSUBSCRIBE_BASE}?uid={user_id}&tok={tok}"
 
 
 class DripService:
@@ -128,6 +140,7 @@ class DripService:
                 JOIN users u ON u.id = ds.user_id
                 WHERE ds.enrolled_at <= :cutoff
                   AND ds.day2_sent_at IS NULL
+                  AND ds.unsubscribed_at IS NULL
             """),
             {"cutoff": cutoff},
         )
@@ -140,6 +153,7 @@ class DripService:
             template_key = "connected" if is_connected else "pending"
 
             try:
+                unsub_url = _make_unsubscribe_url(user_id)
                 if is_connected:
                     annual_savings = row["potential_savings_annual"]
                     ok = await self._send_day2_connected(
@@ -148,6 +162,7 @@ class DripService:
                         name=row["name"],
                         region=row["region"],
                         potential_savings_annual=float(annual_savings) if annual_savings else None,
+                        unsubscribe_url=unsub_url,
                     )
                     if ok:
                         sent_a += 1
@@ -156,6 +171,7 @@ class DripService:
                         user_id=user_id,
                         email=row["email"],
                         name=row["name"],
+                        unsubscribe_url=unsub_url,
                     )
                     if ok:
                         sent_b += 1
@@ -204,6 +220,7 @@ class DripService:
                 JOIN users u ON u.id = ds.user_id
                 WHERE ds.enrolled_at <= :cutoff
                   AND ds.day7_sent_at IS NULL
+                  AND ds.unsubscribed_at IS NULL
             """),
             {"cutoff": cutoff},
         )
@@ -217,6 +234,7 @@ class DripService:
                     user_id=user_id,
                     email=row["email"],
                     name=row["name"],
+                    unsubscribe_url=_make_unsubscribe_url(user_id),
                 )
                 if ok:
                     sent += 1
@@ -242,7 +260,11 @@ class DripService:
     # ------------------------------------------------------------------
 
     async def _send_welcome(self, user_id: str, email: str, name: str | None) -> bool:
-        html = self.email.render_template("welcome_signup.html", name=name or "")
+        html = self.email.render_template(
+            "welcome_signup.html",
+            name=name or "",
+            unsubscribe_url=_make_unsubscribe_url(user_id),
+        )
         ok = await self.email.send(
             to=email,
             subject="Welcome to RateShift",
@@ -258,12 +280,14 @@ class DripService:
         name: str | None,
         region: str | None,
         potential_savings_annual: float | None = None,
+        unsubscribe_url: str | None = None,
     ) -> bool:
         html = self.email.render_template(
             "drip_day2_connected.html",
             name=name or "",
             region=region or "your region",
             potential_savings_annual=potential_savings_annual,
+            unsubscribe_url=unsubscribe_url or _make_unsubscribe_url(user_id),
         )
         ok = await self.email.send(
             to=email,
@@ -281,12 +305,14 @@ class DripService:
         user_id: str,
         email: str,
         name: str | None,
+        unsubscribe_url: str | None = None,
     ) -> bool:
         html = self.email.render_template(
             "drip_day2_pending.html",
             name=name or "",
             zip_code=None,
             sample_annual_savings=180,
+            unsubscribe_url=unsubscribe_url or _make_unsubscribe_url(user_id),
         )
         ok = await self.email.send(
             to=email,
@@ -299,8 +325,18 @@ class DripService:
         )
         return ok
 
-    async def _send_day7_upgrade(self, user_id: str, email: str, name: str | None) -> bool:
-        html = self.email.render_template("drip_day7_upgrade.html", name=name or "")
+    async def _send_day7_upgrade(
+        self,
+        user_id: str,
+        email: str,
+        name: str | None,
+        unsubscribe_url: str | None = None,
+    ) -> bool:
+        html = self.email.render_template(
+            "drip_day7_upgrade.html",
+            name=name or "",
+            unsubscribe_url=unsubscribe_url or _make_unsubscribe_url(user_id),
+        )
         ok = await self.email.send(
             to=email,
             subject="A week in — what Pro adds for you — RateShift",

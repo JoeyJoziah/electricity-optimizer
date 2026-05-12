@@ -660,6 +660,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
     from api.v1 import prices_sse as prices_sse_v1
     from api.v1 import propane as propane_v1
     from api.v1 import public_rates as public_rates_v1
+    from api.v1 import public_unsubscribe as public_unsubscribe_v1
     from api.v1 import rate_changes as rate_changes_v1
     from api.v1 import recommendations as recommendations_v1
     from api.v1 import referrals as referrals_v1
@@ -845,6 +846,11 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         public_rates_v1.router,
         prefix=f"{settings.api_prefix}",
         tags=["Public Rates"],
+    )
+    app.include_router(
+        public_unsubscribe_v1.router,
+        prefix=f"{settings.api_prefix}",
+        tags=["Unsubscribe"],
     )
     app.include_router(
         affiliate_v1.router,
