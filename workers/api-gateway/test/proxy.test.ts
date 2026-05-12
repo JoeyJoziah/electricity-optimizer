@@ -524,4 +524,84 @@ describe("proxyToOrigin", () => {
       expect(headers.get("Content-Type")).toBe("application/json");
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Origin timeout and client abort handling
+  // -------------------------------------------------------------------------
+
+  describe("origin timeout and abort handling", () => {
+    it("returns 504 with JSON body when origin fetch throws TimeoutError", async () => {
+      const timeoutError = Object.assign(new Error("timeout"), {
+        name: "TimeoutError",
+      });
+      mockFetch.mockRejectedValueOnce(timeoutError);
+
+      const request = makeRequest("https://api.rateshift.app/api/v1/prices/current");
+      const response = await proxyToOrigin(
+        request,
+        createMockEnv(),
+        "req-timeout",
+        "1.2.3.4"
+      );
+
+      expect(response.status).toBe(504);
+      const body = await response.json() as { error: string; requestId: string };
+      expect(body.error).toBe("Gateway Timeout");
+      expect(body.requestId).toBe("req-timeout");
+    });
+
+    it("returns 504 with Retry-After header on timeout", async () => {
+      const timeoutError = Object.assign(new Error("timeout"), {
+        name: "TimeoutError",
+      });
+      mockFetch.mockRejectedValueOnce(timeoutError);
+
+      const request = makeRequest("https://api.rateshift.app/api/v1/prices/current");
+      const response = await proxyToOrigin(
+        request,
+        createMockEnv(),
+        "req-t",
+        "1.2.3.4"
+      );
+
+      expect(response.headers.get("Retry-After")).toBe("10");
+    });
+
+    it("returns 499 when client disconnects (AbortError)", async () => {
+      const abortError = Object.assign(new Error("aborted"), {
+        name: "AbortError",
+      });
+      mockFetch.mockRejectedValueOnce(abortError);
+
+      const request = makeRequest("https://api.rateshift.app/api/v1/prices/current");
+      const response = await proxyToOrigin(
+        request,
+        createMockEnv(),
+        "req-abort",
+        "1.2.3.4"
+      );
+
+      expect(response.status).toBe(499);
+    });
+
+    it("re-throws non-abort, non-timeout errors", async () => {
+      const networkError = new Error("ECONNREFUSED");
+      mockFetch.mockRejectedValueOnce(networkError);
+
+      const request = makeRequest("https://api.rateshift.app/api/v1/prices/current");
+      await expect(
+        proxyToOrigin(request, createMockEnv(), "req-net", "1.2.3.4")
+      ).rejects.toThrow("ECONNREFUSED");
+    });
+
+    it("passes a signal to fetch so origin fetch can be cancelled", async () => {
+      mockFetch.mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+      const request = makeRequest("https://api.rateshift.app/api/v1/test");
+      await proxyToOrigin(request, createMockEnv(), "req-sig", "1.2.3.4");
+
+      const [, fetchInit] = mockFetch.mock.calls[0];
+      expect(fetchInit.signal).toBeDefined();
+    });
+  });
 });
