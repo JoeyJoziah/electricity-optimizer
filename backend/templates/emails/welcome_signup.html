@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to RateShift</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+        .cta-block {
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 24px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .button {
+            display: block;
+            background: #667eea;
+            color: white !important;
+            padding: 14px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+            box-sizing: border-box;
+        }
+        .option-row {
+            display: flex;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .option {
+            flex: 1;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .option-icon {
+            font-size: 22px;
+            margin-bottom: 6px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .footer a { color: #667eea; text-decoration: none; }
+        .unsubscribe { font-size: 12px; color: #9ca3af; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 26px;">Welcome to RateShift</h1>
+        <p style="margin: 8px 0 0; opacity: 0.9;">Your electricity bill, finally under control.</p>
+    </div>
+
+    <div class="content">
+        <p>Hi{% if name %} {{ name }}{% endif %},</p>
+
+        <p>You're in. Your RateShift account is ready — here's how to see your savings number.</p>
+
+        <div class="cta-block">
+            <strong>Next step: connect your utility data</strong><br>
+            <span style="color:#6b7280; font-size:14px;">Once you connect a meter or upload a bill, you'll see your personalized savings number — typically within 24 hours.</span>
+        </div>
+
+        <div class="option-row">
+            <div class="option">
+                <div class="option-icon">⚡</div>
+                <strong>UtilityAPI sync</strong>
+                <p style="margin: 6px 0 0; font-size: 13px; color: #6b7280;">Auto-sync your usage. Real-time alerts, set-and-forget. ($2.25/meter/mo)</p>
+            </div>
+            <div class="option">
+                <div class="option-icon">📄</div>
+                <strong>Upload a bill</strong>
+                <p style="margin: 6px 0 0; font-size: 13px; color: #6b7280;">Free one-time analysis. Re-upload monthly for fresh forecasts.</p>
+            </div>
+        </div>
+
+        <a href="https://rateshift.app/connect-utility" class="button">
+            Connect my utility →
+        </a>
+
+        <p style="color:#6b7280; font-size:14px;">
+            Not ready to connect yet? You can explore the dashboard first — and connect whenever you're ready.
+        </p>
+
+        <p>— Devin, RateShift</p>
+    </div>
+
+    <div class="footer">
+        <p>
+            <a href="https://rateshift.app">rateshift.app</a> ·
+            <a href="https://rateshift.app/privacy">Privacy</a> ·
+            <a href="https://rateshift.app/terms">Terms</a>
+        </p>
+        <p class="unsubscribe">
+            You're receiving this because you created a RateShift account.<br>
+            <a href="https://rateshift.app/settings/notifications">Manage email preferences</a>
+        </p>
+        <p style="margin-top:8px; font-size:12px;">© 2026 RateShift. All rights reserved.</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Pro unlocks for you — RateShift</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+        .feature-list {
+            margin: 20px 0;
+        }
+        .feature-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .feature-row:last-child { border-bottom: none; }
+        .feature-icon { font-size: 20px; flex-shrink: 0; padding-top: 2px; }
+        .feature-text strong { display: block; }
+        .feature-text span { font-size: 13px; color: #6b7280; }
+        .price-block {
+            background: #f9fafb;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            margin: 24px 0;
+        }
+        .price-amount {
+            font-size: 36px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .price-sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+        .button {
+            display: block;
+            background: #667eea;
+            color: white !important;
+            padding: 14px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .footer a { color: #667eea; text-decoration: none; }
+        .unsubscribe { font-size: 12px; color: #9ca3af; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 24px;">A week in — here's what Pro adds</h1>
+        <p style="margin: 8px 0 0; opacity: 0.9;">No fluff. Here's the concrete difference.</p>
+    </div>
+
+    <div class="content">
+        <p>Hi{% if name %} {{ name }}{% endif %},</p>
+
+        <p>You've been on RateShift for a week. Here's what Pro unlocks that the free tier doesn't:</p>
+
+        <div class="feature-list">
+            <div class="feature-row">
+                <div class="feature-icon">🔮</div>
+                <div class="feature-text">
+                    <strong>Full forecast horizon</strong>
+                    <span>See price projections for your full data window — not just today's snapshot.</span>
+                </div>
+            </div>
+            <div class="feature-row">
+                <div class="feature-icon">💡</div>
+                <div class="feature-text">
+                    <strong>Personalized switching recommendations</strong>
+                    <span>We surface the best local rate for your exact usage profile, updated daily.</span>
+                </div>
+            </div>
+            <div class="feature-row">
+                <div class="feature-icon">🔔</div>
+                <div class="feature-text">
+                    <strong>Unlimited price alerts</strong>
+                    <span>Free tier caps at 1 alert. Pro removes the cap — set as many thresholds as you want.</span>
+                </div>
+            </div>
+            <div class="feature-row">
+                <div class="feature-icon">📊</div>
+                <div class="feature-text">
+                    <strong>Historical cost breakdown</strong>
+                    <span>See exactly where your money went — by month, appliance category, or time-of-use window.</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="price-block">
+            <div class="price-amount">$4.99</div>
+            <div class="price-sub">per month · cancel anytime · no contracts</div>
+        </div>
+
+        <a href="https://rateshift.app/upgrade" class="button">
+            Upgrade to Pro →
+        </a>
+
+        <p style="font-size:14px; color:#6b7280;">
+            Happy with the free tier? No problem — you can keep using RateShift at no cost.
+            This is just in case the Pro features would be useful.
+        </p>
+
+        <p>— Devin, RateShift</p>
+    </div>
+
+    <div class="footer">
+        <p>
+            <a href="https://rateshift.app">rateshift.app</a> ·
+            <a href="https://rateshift.app/privacy">Privacy</a> ·
+            <a href="https://rateshift.app/terms">Terms</a>
+        </p>
+        <p class="unsubscribe">
+            <a href="https://rateshift.app/settings/notifications">Manage email preferences</a>
+        </p>
+        <p style="margin-top:8px; font-size:12px;">© 2026 RateShift. All rights reserved.</p>
+    </div>
+</body>
+</html>

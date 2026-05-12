@@ -135,6 +135,37 @@ function createAuth() {
       },
     },
 
+    // Enroll new users in the 3-email drip sequence immediately after creation.
+    // Fire-and-forget: failure must not block sign-up.
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            const backendUrl = process.env.BACKEND_URL;
+            const apiKey = process.env.INTERNAL_API_KEY;
+            if (!backendUrl || !apiKey) return;
+            try {
+              await fetch(`${backendUrl}/api/v1/internal/drip/enroll`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-Internal-API-Key": apiKey,
+                },
+                body: JSON.stringify({
+                  user_id: user.id,
+                  email: user.email,
+                  name: user.name ?? null,
+                }),
+                signal: AbortSignal.timeout(5000),
+              });
+            } catch {
+              // Enrollment failure must never surface to the user
+            }
+          },
+        },
+      },
+    },
+
     // Re-throw API errors so our wrapper catches them with full detail
     // (Better Auth's default onError silently swallows DB schema errors)
     onAPIError: {

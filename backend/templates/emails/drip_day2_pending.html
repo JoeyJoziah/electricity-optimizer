@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>See what neighbours in {{ zip_code | default('your area') }} pay — RateShift</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+        .sample-card {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+        .sample-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .sample-stat {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1e40af;
+        }
+        .sample-sub {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        .cta-block {
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 24px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .button {
+            display: block;
+            background: #667eea;
+            color: white !important;
+            padding: 14px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .footer a { color: #667eea; text-decoration: none; }
+        .unsubscribe { font-size: 12px; color: #9ca3af; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 24px;">What are people in {{ zip_code | default('your area') }} paying?</h1>
+        <p style="margin: 8px 0 0; opacity: 0.9;">Here's a sample forecast while your data processes.</p>
+    </div>
+
+    <div class="content">
+        <p>Hi{% if name %} {{ name }}{% endif %},</p>
+
+        <p>We're still waiting for your utility data — if you've already connected, your real number is on its way. Check the dashboard.</p>
+
+        <p>In the meantime, here's what we're seeing for households in <strong>{{ zip_code | default('your area') }}</strong>:</p>
+
+        <div class="sample-card">
+            <div class="sample-label">Sample — {{ zip_code | default('area') }} average household</div>
+            <div class="sample-stat">${{ sample_annual_savings | default('180') }}/year</div>
+            <div class="sample-sub">estimated savings by switching to the best local rate</div>
+        </div>
+
+        <div class="cta-block">
+            <strong>Get your real number in two minutes</strong><br>
+            <span style="color:#6b7280; font-size:14px;">Connect your meter or upload a bill — your personalized savings estimate will be ready within 24 hours.</span>
+        </div>
+
+        <a href="https://rateshift.app/connect-utility" class="button">
+            Connect utility data →
+        </a>
+
+        <p style="font-size:14px; color:#6b7280;">
+            If you just connected, no action needed — we'll email you when your real forecast is ready.
+        </p>
+
+        <p>— Devin, RateShift</p>
+    </div>
+
+    <div class="footer">
+        <p>
+            <a href="https://rateshift.app">rateshift.app</a> ·
+            <a href="https://rateshift.app/privacy">Privacy</a> ·
+            <a href="https://rateshift.app/terms">Terms</a>
+        </p>
+        <p class="unsubscribe">
+            <a href="https://rateshift.app/settings/notifications">Manage email preferences</a>
+        </p>
+        <p style="margin-top:8px; font-size:12px;">© 2026 RateShift. All rights reserved.</p>
+    </div>
+</body>
+</html>

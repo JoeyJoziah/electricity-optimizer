@@ -17,6 +17,7 @@ from .alerts import router as alerts_router
 from .billing import router as billing_router
 from .data_pipeline import router as data_pipeline_router
 from .data_quality import router as data_quality_router
+from .drip import router as drip_router
 from .email_scan import router as email_scan_router
 from .ml import router as ml_router
 from .operations import router as operations_router
@@ -34,5 +35,6 @@ router.include_router(email_scan_router)
 router.include_router(portal_scan_router)
 router.include_router(data_quality_router)
 router.include_router(agent_switcher_internal_router)
+router.include_router(drip_router)
 
 __all__ = ["router"]
