@@ -1,10 +1,10 @@
 # RateShift — Infrastructure Upgrade Runbook
-# Product Hunt Launch: Tuesday April 14, 2026 *(POSTPONED — date TBD)*
+# Product Hunt Launch: Tuesday June 2, 2026
 
-> ⚠️ **LAUNCH POSTPONED INDEFINITELY (2026-05-11)** — Upgrade window and go-live times below are keyed to the April 14 2026 PH launch which did not occur. Re-anchor T-1 / T-0 timing to the new launch date when scheduled. Render Starter ($7) and Resend Starter ($20) upgrades are still the recommended pre-launch infra moves.
+> **Confirmed new launch date: Tuesday, June 2, 2026.** Upgrade window: Sunday May 31 / Monday Jun 1, no later than 18:00 ET. Target go-live: Tuesday Jun 2, 00:01 PT (Product Hunt reset). Render Starter ($7) and Resend Starter ($20) upgrades per Scope #2.
 
-> **Original upgrade window**: Monday April 13, 2026, starting no later than 18:00 ET *(superseded)*
-> **Original target go-live**: Tuesday April 14, 2026, 00:01 PT (Product Hunt reset) *(superseded)*
+> **Upgrade window**: Sunday May 31 – Monday Jun 1, starting no later than 18:00 ET *(updated 2026-05-12)*
+> **Target go-live**: Tuesday June 2, 2026, 00:01 PT (Product Hunt reset) *(updated 2026-05-12)*
 > **Owner**: Solo founder (Devin McGrath)
 > **Budget impact**: +$27/mo (Render Starter $7 + Resend Starter $20)
 > **Companion docs**: `docs/CAPACITY_AUDIT.md`, `docs/launch/MONITORING_RUNBOOK.md`, `docs/SCALING_PLAN.md`
