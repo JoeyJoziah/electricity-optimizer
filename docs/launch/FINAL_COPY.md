@@ -1,8 +1,8 @@
 # RateShift Product Hunt Launch Copy
 
-> ⚠️ **LAUNCH POSTPONED INDEFINITELY (2026-05-11)** — Originally written for the April 14 2026 PH launch which did not occur. Copy is reusable; remove the explicit April 14 / "Tuesday" anchors before publishing on the new date.
+> **CONFIRMED NEW DATE: Tuesday, June 2, 2026** — Update "April 14" / "Tuesday" date anchors in checklist below to Jun 2/Jun 3 before publishing. Copy content (taglines, PH post, FAQ) is still valid.
 
-**Final Version | Original launch date: Tuesday, April 14, 2026** *(superseded)*
+**Final Version | Confirmed launch date: Tuesday, June 2, 2026** *(updated 2026-05-12)*
 
 ---
 
