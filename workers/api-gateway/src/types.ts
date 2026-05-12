@@ -25,6 +25,9 @@ export interface Env {
   // Code that reads them must always guard against undefined.
   INTERNAL_API_KEY?: string;
   RATE_LIMIT_BYPASS_KEY?: string;
+  // Shared secret sent on every request to the Render origin so the backend
+  // can reject requests that did not pass through the CF Worker (Scope #4).
+  ORIGIN_SECRET?: string;
 }
 
 export interface RouteConfig {

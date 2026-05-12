@@ -324,6 +324,7 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
         that callers can wire in Redis after the application has started and
         reset state between tests without reaching into middleware internals.
     """
+    from middleware.origin_secret import CFOriginSecretMiddleware
     from middleware.rate_limiter import RateLimitMiddleware, UserRateLimiter
     from middleware.security_headers import SecurityHeadersMiddleware
     from middleware.tracing import TracingMiddleware
@@ -498,6 +499,10 @@ def create_app() -> tuple[FastAPI, "UserRateLimiter"]:
 
     # Per-request timeout (30 s; /prices/stream is excluded)
     app.add_middleware(RequestTimeoutMiddleware)
+
+    # CF Worker origin-secret validation — outermost, runs first.
+    # No-op when CF_ORIGIN_SECRET is not set (dev / staging).
+    app.add_middleware(CFOriginSecretMiddleware)
 
     # ------------------------------------------------------------------
     # Request timing middleware (decorator style — runs inside all ASGI

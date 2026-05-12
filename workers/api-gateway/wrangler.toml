@@ -43,6 +43,7 @@ ALLOWED_ORIGINS = "https://rateshift.app,https://www.rateshift.app"
 # - ORIGIN_URL          (Render backend URL — MUST be a secret to prevent bypass of CF Worker security layer)
 # - INTERNAL_API_KEY
 # - RATE_LIMIT_BYPASS_KEY
+# - ORIGIN_SECRET       (shared secret sent as X-CF-Origin-Secret; backend validates via CF_ORIGIN_SECRET env var)
 
 # Cron Triggers — replaces GHA crons for check-alerts, price-sync, observe-forecasts
 [triggers]

@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # Service-to-service API key (must NOT be the same as jwt_secret)
     internal_api_key: str | None = Field(default=None, validation_alias="INTERNAL_API_KEY")
 
+    # Shared secret sent by the CF Worker on every proxied request as
+    # X-CF-Origin-Secret. When set, the backend rejects requests that lack or
+    # mismatch this value — effectively IP-locks the backend to CF Worker traffic.
+    cf_origin_secret: str | None = Field(default=None, validation_alias="CF_ORIGIN_SECRET")
+
     # Better Auth session token signing secret
     better_auth_secret: str | None = Field(default=None, validation_alias="BETTER_AUTH_SECRET")
 

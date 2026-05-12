@@ -35,6 +35,12 @@ export async function proxyToOrigin(
   // Host header manipulation. The client-supplied Host header must not
   // reach the origin — the origin should only see its own hostname.
   headers.set("Host", originUrl.hostname);
+  // Shared secret: proves the request arrived via the CF Worker, not directly
+  // to the Render origin. The backend validates this header and rejects 403
+  // any request that lacks it when CF_ORIGIN_SECRET is configured.
+  if (env.ORIGIN_SECRET) {
+    headers.set("X-CF-Origin-Secret", env.ORIGIN_SECRET);
+  }
   // Remove CF-specific headers that shouldn't reach origin
   headers.delete("cf-connecting-ip");
   headers.delete("cf-ipcountry");
