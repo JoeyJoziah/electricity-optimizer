@@ -149,7 +149,7 @@ function createAuth() {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  "X-Internal-API-Key": apiKey,
+                  "X-API-Key": apiKey,
                 },
                 body: JSON.stringify({
                   user_id: user.id,
