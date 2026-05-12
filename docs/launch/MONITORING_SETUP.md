@@ -1,8 +1,8 @@
 # Launch Day Monitoring Setup
 
-> ⚠️ **LAUNCH POSTPONED INDEFINITELY (2026-05-11)** — Originally keyed to April 14 2026 PH launch which did not occur. UptimeRobot status page is now live at https://stats.uptimerobot.com/d4sbPJ124X regardless of launch timing.
+> **CONFIRMED NEW DATE: Tuesday, June 2, 2026.** Complete this checklist before June 1, 2026 (T-24h). UptimeRobot status page is live at https://stats.uptimerobot.com/d4sbPJ124X — already verified 2026-05-11, all 4 monitors UP.
 
-**Originally: Complete before April 13, 2026 (T-24h)** *(superseded — re-anchor to new launch date)*
+**Complete before: June 1, 2026 (T-24h)** *(updated 2026-05-12)*
 
 ---
 
