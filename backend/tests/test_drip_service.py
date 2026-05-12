@@ -128,7 +128,12 @@ class TestEnrollUser:
 
 
 class TestDay2TemplateSelection:
-    def _make_user_row(self, has_connection: bool, has_bill: bool) -> MagicMock:
+    def _make_user_row(
+        self,
+        has_connection: bool,
+        has_bill: bool,
+        potential_savings_annual: float | None = None,
+    ) -> MagicMock:
         row: dict[str, Any] = {
             "user_id": uuid4(),
             "email": "u@example.com",
@@ -136,6 +141,7 @@ class TestDay2TemplateSelection:
             "region": "CT",
             "has_connection": has_connection,
             "has_bill": has_bill,
+            "potential_savings_annual": potential_savings_annual,
         }
         m = MagicMock()
         m.__getitem__ = lambda self, k: row[k]

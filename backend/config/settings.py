@@ -49,9 +49,9 @@ class Settings(BaseSettings):
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     # Connection pool sizing (configurable for scaling without code changes).
     # Defaults raised from 3+5 to 5+10 to reduce connection-wait latency under
-    # moderate concurrency. Neon free tier allows ~10 total connections; the
-    # pooler endpoint handles >10 by multiplexing. Increase DB_MAX_OVERFLOW
-    # further only when upgrading to a paid Neon plan with higher connection limits.
+    # moderate concurrency. Neon pooler (PgBouncer) endpoint reports 901 max_connections;
+    # 2 uvicorn workers × (pool_size=5 + max_overflow=10) = 30 steady-state connections
+    # → 97% headroom. Safe to increase DB_POOL_SIZE / DB_MAX_OVERFLOW if needed.
     db_pool_size: int = Field(default=5, validation_alias="DB_POOL_SIZE")
     db_max_overflow: int = Field(default=10, validation_alias="DB_MAX_OVERFLOW")
     # Redis connection pool

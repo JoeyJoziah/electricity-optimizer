@@ -53,6 +53,78 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 
+async def _run_background_post_parse_savings(
+    connection_id: str,
+    monthly_kwh: float,
+) -> None:
+    """
+    Fire-and-forget: compute savings estimate after a successful bill parse
+    and record it in user_savings (savings_type='bill_estimate') so the
+    Day-2 drip email can show an actual number and the dashboard is populated
+    without the user manually navigating to /recommendations.
+
+    Opens its own DB session so it is safe to call after the parse session
+    has been closed.  Failure must not affect parse_status.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import text as _text
+
+    from api.dependencies import get_db_session as _get_db
+    from services.connection_analytics_service import ConnectionAnalyticsService
+    from services.savings_service import SavingsService
+
+    try:
+        gen = _get_db()
+        db: AsyncSession = await gen.__anext__()
+        try:
+            result = await db.execute(
+                _text("SELECT user_id FROM user_connections WHERE id = :cid"),
+                {"cid": connection_id},
+            )
+            row = result.fetchone()
+            if not row:
+                logger.warning("post_parse_savings_no_connection", connection_id=connection_id)
+                return
+            user_id = str(row[0])
+
+            analytics = ConnectionAnalyticsService(db)
+            estimate = await analytics.get_savings_estimate(user_id, monthly_kwh=monthly_kwh)
+
+            if not estimate.get("has_data"):
+                logger.debug("post_parse_savings_no_data", user_id=user_id)
+                return
+
+            annual_savings = float(estimate.get("estimated_annual_savings_vs_average") or 0)
+            if annual_savings <= 0:
+                logger.debug("post_parse_no_positive_savings", user_id=user_id)
+                return
+
+            now = datetime.now(UTC)
+            svc = SavingsService(db)
+            await svc.record_savings(
+                user_id=user_id,
+                savings_type="bill_estimate",
+                amount=round(annual_savings / 12, 2),
+                currency="USD",
+                description="Monthly savings estimate from bill analysis",
+                period_start=now,
+                period_end=now + timedelta(days=30),
+            )
+            logger.info(
+                "post_parse_savings_recorded",
+                user_id=user_id,
+                annual_savings=round(annual_savings, 2),
+            )
+        finally:
+            try:
+                await gen.aclose()
+            except Exception:
+                pass
+    except Exception as exc:
+        logger.warning("post_parse_savings_error", connection_id=connection_id, error=str(exc))
+
+
 async def _run_background_parse(
     upload_id: str,
     connection_id: str,
@@ -67,13 +139,14 @@ async def _run_background_parse(
 
     uploads_dir = _pkg._UPLOADS_DIR
 
+    parse_result: dict | None = None
     try:
         # get_db_session is an async generator — iterate it manually
         gen = _get_db()
         db: AsyncSession = await gen.__anext__()
         try:
             parser = BillParserService(db=db, uploads_dir=uploads_dir)
-            await parser.parse(
+            parse_result = await parser.parse(
                 upload_id=upload_id,
                 connection_id=connection_id,
                 storage_key=storage_key,
@@ -123,6 +196,12 @@ async def _run_background_parse(
                 upload_id=upload_id,
                 error=str(inner_exc),
             )
+
+    # Trigger savings estimation after the parse session is fully closed.
+    # Resolved through the package namespace so tests can patch it.
+    if parse_result and parse_result.get("parse_status") == "complete":
+        monthly_kwh = float(parse_result.get("detected_total_kwh") or 900.0)
+        await _pkg._run_background_post_parse_savings(connection_id, monthly_kwh)
 
 
 # ---------------------------------------------------------------------------

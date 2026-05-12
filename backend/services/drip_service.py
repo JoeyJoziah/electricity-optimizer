@@ -116,7 +116,14 @@ class DripService:
                         SELECT 1 FROM bill_uploads bu
                         WHERE bu.user_id = ds.user_id AND bu.status = 'completed'
                         LIMIT 1
-                    ) AS has_bill
+                    ) AS has_bill,
+                    (
+                        SELECT ROUND(COALESCE(SUM(amount), 0) * 12, 0)
+                        FROM user_savings us
+                        WHERE us.user_id = ds.user_id
+                          AND us.savings_type = 'bill_estimate'
+                          AND us.created_at >= NOW() - INTERVAL '30 days'
+                    ) AS potential_savings_annual
                 FROM user_drip_state ds
                 JOIN users u ON u.id = ds.user_id
                 WHERE ds.enrolled_at <= :cutoff
@@ -134,11 +141,13 @@ class DripService:
 
             try:
                 if is_connected:
+                    annual_savings = row["potential_savings_annual"]
                     ok = await self._send_day2_connected(
                         user_id=user_id,
                         email=row["email"],
                         name=row["name"],
                         region=row["region"],
+                        potential_savings_annual=float(annual_savings) if annual_savings else None,
                     )
                     if ok:
                         sent_a += 1
@@ -248,12 +257,13 @@ class DripService:
         email: str,
         name: str | None,
         region: str | None,
+        potential_savings_annual: float | None = None,
     ) -> bool:
         html = self.email.render_template(
             "drip_day2_connected.html",
             name=name or "",
             region=region or "your region",
-            potential_savings_annual=None,  # populated by caller if available
+            potential_savings_annual=potential_savings_annual,
         )
         ok = await self.email.send(
             to=email,

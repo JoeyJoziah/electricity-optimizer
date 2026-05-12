@@ -924,3 +924,139 @@ class TestBuildStorageKey:
 
         key = build_storage_key("conn-abc", "upload-xyz", "BILL.PDF")
         assert key.endswith(".pdf")
+
+
+# ---------------------------------------------------------------------------
+# 10. Post-parse savings trigger
+# ---------------------------------------------------------------------------
+
+
+class TestPostParseSavings:
+    """Unit tests for _run_background_post_parse_savings and its integration
+    with _run_background_parse."""
+
+    async def test_savings_triggered_on_complete_parse(self):
+        """_run_background_parse calls savings trigger when parse_status==complete."""
+        from api.v1.connections.bill_upload import _run_background_parse
+
+        parse_result = {
+            "parse_status": "complete",
+            "detected_total_kwh": 847.0,
+        }
+
+        mock_savings = AsyncMock()
+
+        with (
+            patch("api.v1.connections.bill_upload.BillParserService") as mock_parser_cls,
+            patch("api.v1.connections._run_background_post_parse_savings", mock_savings),
+            patch("api.v1.connections._UPLOADS_DIR", Path("/tmp")),
+        ):
+            mock_parser = AsyncMock()
+            mock_parser.parse.return_value = parse_result
+            mock_parser_cls.return_value = mock_parser
+
+            with patch("api.v1.connections.bill_upload.get_db_session") as mock_gen_fn:
+                mock_db = AsyncMock()
+                mock_gen_fn.return_value.__aiter__ = AsyncMock()
+                mock_gen_fn.return_value.__anext__ = AsyncMock(return_value=mock_db)
+                mock_gen_fn.return_value.aclose = AsyncMock()
+
+                await _run_background_parse(
+                    upload_id="u1",
+                    connection_id="c1",
+                    storage_key="c1/u1.pdf",
+                )
+
+        mock_savings.assert_awaited_once_with("c1", 847.0)
+
+    async def test_savings_not_triggered_on_failed_parse(self):
+        """_run_background_parse does NOT call savings trigger on failed parse."""
+        from api.v1.connections.bill_upload import _run_background_parse
+
+        parse_result = {"parse_status": "failed", "parse_error": "no text"}
+        mock_savings = AsyncMock()
+
+        with (
+            patch("api.v1.connections.bill_upload.BillParserService") as mock_parser_cls,
+            patch("api.v1.connections._run_background_post_parse_savings", mock_savings),
+            patch("api.v1.connections._UPLOADS_DIR", Path("/tmp")),
+        ):
+            mock_parser = AsyncMock()
+            mock_parser.parse.return_value = parse_result
+            mock_parser_cls.return_value = mock_parser
+
+            with patch("api.v1.connections.bill_upload.get_db_session") as mock_gen_fn:
+                mock_db = AsyncMock()
+                mock_gen_fn.return_value.__anext__ = AsyncMock(return_value=mock_db)
+                mock_gen_fn.return_value.aclose = AsyncMock()
+
+                await _run_background_parse(
+                    upload_id="u1",
+                    connection_id="c1",
+                    storage_key="c1/u1.pdf",
+                )
+
+        mock_savings.assert_not_awaited()
+
+    async def test_savings_uses_default_kwh_when_missing(self):
+        """Falls back to 900 kWh when detected_total_kwh is None."""
+        from api.v1.connections.bill_upload import _run_background_parse
+
+        parse_result = {"parse_status": "complete", "detected_total_kwh": None}
+        mock_savings = AsyncMock()
+
+        with (
+            patch("api.v1.connections.bill_upload.BillParserService") as mock_parser_cls,
+            patch("api.v1.connections._run_background_post_parse_savings", mock_savings),
+            patch("api.v1.connections._UPLOADS_DIR", Path("/tmp")),
+        ):
+            mock_parser = AsyncMock()
+            mock_parser.parse.return_value = parse_result
+            mock_parser_cls.return_value = mock_parser
+
+            with patch("api.v1.connections.bill_upload.get_db_session") as mock_gen_fn:
+                mock_db = AsyncMock()
+                mock_gen_fn.return_value.__anext__ = AsyncMock(return_value=mock_db)
+                mock_gen_fn.return_value.aclose = AsyncMock()
+
+                await _run_background_parse(
+                    upload_id="u1",
+                    connection_id="c1",
+                    storage_key="c1/u1.pdf",
+                )
+
+        mock_savings.assert_awaited_once_with("c1", 900.0)
+
+    async def test_post_parse_savings_no_connection_exits_cleanly(self):
+        """Returns early (no error) when connection_id not found in DB."""
+        from api.v1.connections.bill_upload import _run_background_post_parse_savings
+
+        mock_db = AsyncMock()
+        # fetchone returns None → no row
+        mock_db.execute.return_value = MagicMock(fetchone=MagicMock(return_value=None))
+
+        with patch("api.v1.connections.bill_upload.get_db_session") as mock_gen_fn:
+            mock_gen_fn.return_value.__anext__ = AsyncMock(return_value=mock_db)
+            mock_gen_fn.return_value.aclose = AsyncMock()
+
+            # Should complete without raising
+            await _run_background_post_parse_savings("nonexistent-conn", 900.0)
+
+    async def test_post_parse_savings_no_estimate_data_exits_cleanly(self):
+        """Returns early when ConnectionAnalyticsService.get_savings_estimate returns no data."""
+        from api.v1.connections.bill_upload import _run_background_post_parse_savings
+
+        mock_db = AsyncMock()
+        mock_db.execute.return_value = MagicMock(fetchone=MagicMock(return_value=("user-abc",)))
+
+        with (
+            patch("api.v1.connections.bill_upload.get_db_session") as mock_gen_fn,
+            patch(
+                "services.connection_analytics_service.ConnectionAnalyticsService.get_savings_estimate",
+                new=AsyncMock(return_value={"has_data": False}),
+            ),
+        ):
+            mock_gen_fn.return_value.__anext__ = AsyncMock(return_value=mock_db)
+            mock_gen_fn.return_value.aclose = AsyncMock()
+
+            await _run_background_post_parse_savings("conn-abc", 900.0)
