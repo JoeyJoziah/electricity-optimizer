@@ -5,6 +5,7 @@ import { Zap, CheckCircle } from "lucide-react";
 export const metadata: Metadata = {
   title: "Unsubscribed — RateShift",
   description: "You have been unsubscribed from RateShift onboarding emails.",
+  robots: { index: false, follow: false },
 };
 
 export default function UnsubscribedPage() {
