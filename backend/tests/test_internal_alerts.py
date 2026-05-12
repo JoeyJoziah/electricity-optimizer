@@ -113,7 +113,9 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_no_active_configs_returns_zeros(self, mock_repo_cls, mock_svc_cls, auth_client):
+    def test_no_active_configs_returns_zeros(
+        self, mock_repo_cls, mock_svc_cls, auth_client
+    ):
         """When there are no active alert configs the endpoint returns all zeros."""
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[])
@@ -131,7 +133,9 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_alert_triggered_and_sent(self, mock_repo_cls, mock_svc_cls, auth_client, mock_db):
+    def test_alert_triggered_and_sent(
+        self, mock_repo_cls, mock_svc_cls, auth_client, mock_db
+    ):
         """A triggered alert that passes dedup should be sent and recorded."""
         from datetime import datetime
         from decimal import Decimal
@@ -160,7 +164,9 @@ class TestCheckAlerts:
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(return_value=[cfg])
         mock_svc.check_thresholds = MagicMock(return_value=[(threshold, alert)])
-        mock_svc._batch_should_send_alerts = AsyncMock(return_value=set())  # nothing in cooldown
+        mock_svc._batch_should_send_alerts = AsyncMock(
+            return_value=set()
+        )  # nothing in cooldown
         # send_alerts now returns List[bool] — one True for the single successful send
         mock_svc.send_alerts = AsyncMock(return_value=[True])
         mock_svc.record_triggered_alert = AsyncMock(return_value={})
@@ -251,7 +257,9 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_no_prices_returns_zero_triggered(self, mock_repo_cls, mock_svc_cls, auth_client):
+    def test_no_prices_returns_zero_triggered(
+        self, mock_repo_cls, mock_svc_cls, auth_client
+    ):
         """When the price repo returns empty lists, no alerts are triggered."""
         cfg = self._make_config(price_below=0.25)
 
@@ -281,7 +289,9 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_price_fetch_error_is_tolerated(self, mock_repo_cls, mock_svc_cls, auth_client):
+    def test_price_fetch_error_is_tolerated(
+        self, mock_repo_cls, mock_svc_cls, auth_client
+    ):
         """A price fetch error for a region should be logged and skipped, not 500."""
         cfg = self._make_config(region="us_ct")
 
@@ -310,7 +320,9 @@ class TestCheckAlerts:
 
     @patch("services.alert_service.AlertService")
     @patch("repositories.price_repository.PriceRepository")
-    def test_service_exception_returns_500(self, mock_repo_cls, mock_svc_cls, auth_client):
+    def test_service_exception_returns_500(
+        self, mock_repo_cls, mock_svc_cls, auth_client
+    ):
         """An unhandled exception inside get_active_alert_configs should return 500."""
         mock_svc = MagicMock()
         mock_svc.get_active_alert_configs = AsyncMock(

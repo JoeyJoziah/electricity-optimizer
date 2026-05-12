@@ -329,5 +329,7 @@ class WaterRateService:
                 row["effective_date"].isoformat() if row["effective_date"] else None
             ),
             "source_url": row["source_url"],
-            "updated_at": (row["updated_at"].isoformat() if row["updated_at"] else None),
+            "updated_at": (
+                row["updated_at"].isoformat() if row["updated_at"] else None
+            ),
         }

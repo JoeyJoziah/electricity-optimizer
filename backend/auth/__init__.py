@@ -16,7 +16,8 @@ __all__ = [
 def __getattr__(name):
     """Lazy load submodules to avoid import issues during testing"""
     if name in ("SessionData", "get_current_user", "get_current_user_optional"):
-        from auth.neon_auth import SessionData, get_current_user, get_current_user_optional
+        from auth.neon_auth import (SessionData, get_current_user,
+                                    get_current_user_optional)
 
         return locals()[name]
     elif name == "validate_password":

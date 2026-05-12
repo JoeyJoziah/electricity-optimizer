@@ -96,7 +96,9 @@ async def update_preferences(
             detail="Failed to update preferences",
         )
 
-    logger.info("preferences_updated", user_id=current_user.user_id, fields=list(updates.keys()))
+    logger.info(
+        "preferences_updated", user_id=current_user.user_id, fields=list(updates.keys())
+    )
 
     return {
         "user_id": current_user.user_id,

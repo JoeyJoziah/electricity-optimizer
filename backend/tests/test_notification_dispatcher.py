@@ -22,11 +22,9 @@ from uuid import uuid4
 
 import pytest
 
-from services.notification_dispatcher import (
-    ALL_CHANNELS,
-    NotificationChannel,
-    NotificationDispatcher,
-)
+from services.notification_dispatcher import (ALL_CHANNELS,
+                                              NotificationChannel,
+                                              NotificationDispatcher)
 
 # =============================================================================
 # Fixtures
@@ -71,7 +69,9 @@ def mock_email_service():
 
 
 @pytest.fixture
-def dispatcher(mock_db, mock_notification_service, mock_push_service, mock_email_service):
+def dispatcher(
+    mock_db, mock_notification_service, mock_push_service, mock_email_service
+):
     """NotificationDispatcher with all mocked dependencies."""
     return NotificationDispatcher(
         db=mock_db,
@@ -112,7 +112,11 @@ def _insert_result() -> MagicMock:
 
 class TestSendAllChannels:
     async def test_sends_to_all_three_channels_by_default(
-        self, dispatcher, mock_notification_service, mock_push_service, mock_email_service
+        self,
+        dispatcher,
+        mock_notification_service,
+        mock_push_service,
+        mock_email_service,
     ):
         """When channels is None, all three channels should be attempted."""
         result = await dispatcher.send(
@@ -129,7 +133,9 @@ class TestSendAllChannels:
         assert NotificationChannel.PUSH.value in channels
         assert NotificationChannel.EMAIL.value in channels
 
-    async def test_all_channels_succeed(self, dispatcher, mock_push_service, mock_email_service):
+    async def test_all_channels_succeed(
+        self, dispatcher, mock_push_service, mock_email_service
+    ):
         """All three channels should report True on success."""
         mock_push_service.send_push.return_value = True
         mock_email_service.send.return_value = True
@@ -161,7 +167,11 @@ class TestSendAllChannels:
 
 class TestChannelRouting:
     async def test_only_in_app_when_specified(
-        self, dispatcher, mock_notification_service, mock_push_service, mock_email_service
+        self,
+        dispatcher,
+        mock_notification_service,
+        mock_push_service,
+        mock_email_service,
     ):
         """Only in_app channel should fire when [IN_APP] is passed."""
         result = await dispatcher.send(
@@ -177,7 +187,9 @@ class TestChannelRouting:
         mock_push_service.send_push.assert_not_awaited()
         mock_email_service.send.assert_not_awaited()
 
-    async def test_only_push_when_specified(self, dispatcher, mock_db, mock_push_service):
+    async def test_only_push_when_specified(
+        self, dispatcher, mock_db, mock_push_service
+    ):
         """Only push channel should fire when [PUSH] is passed."""
         result = await dispatcher.send(
             user_id=TEST_USER_ID,
@@ -263,7 +275,9 @@ class TestDeduplication:
         assert result["skipped_dedup"] is False
         assert result["channels"][NotificationChannel.IN_APP.value] is True
 
-    async def test_dedup_uses_default_cooldown_when_not_specified(self, dispatcher, mock_db):
+    async def test_dedup_uses_default_cooldown_when_not_specified(
+        self, dispatcher, mock_db
+    ):
         """When cooldown_seconds is omitted, _DEFAULT_COOLDOWN_SECONDS is used."""
         mock_db.execute.return_value = _dup_found_result()
 
@@ -306,9 +320,9 @@ class TestDeduplication:
         mock_db.execute.assert_awaited_once()
         # The single execute call should be an INSERT, not a dedup SELECT
         call_sql = str(mock_db.execute.call_args.args[0])
-        assert "INSERT" in call_sql.upper(), (
-            "Expected the sole db.execute call to be an INSERT, not a dedup SELECT"
-        )
+        assert (
+            "INSERT" in call_sql.upper()
+        ), "Expected the sole db.execute call to be an INSERT, not a dedup SELECT"
 
     async def test_dedup_key_stored_in_metadata(self, dispatcher, mock_db):
         """The dedup_key should be written into the notification metadata column."""
@@ -326,7 +340,11 @@ class TestDeduplication:
         # The second execute call should be the INSERT with metadata
         insert_call = mock_db.execute.call_args_list[1]
         # params dict is positional arg index 1
-        params = insert_call.args[1] if insert_call.args else insert_call.kwargs.get("params", {})
+        params = (
+            insert_call.args[1]
+            if insert_call.args
+            else insert_call.kwargs.get("params", {})
+        )
         import json
 
         meta = json.loads(params["meta"])
@@ -397,7 +415,9 @@ class TestFallbackChain:
         assert result["channels"][NotificationChannel.PUSH.value] is True
         assert result["channels"][NotificationChannel.EMAIL.value] is False
 
-    async def test_push_exception_is_caught_and_returns_false(self, dispatcher, mock_push_service):
+    async def test_push_exception_is_caught_and_returns_false(
+        self, dispatcher, mock_push_service
+    ):
         """An exception raised by push_service.send_push is caught and returns False."""
         mock_push_service.send_push.side_effect = Exception("OneSignal unreachable")
 
@@ -417,7 +437,9 @@ class TestFallbackChain:
 
 
 class TestPushNotConfigured:
-    async def test_push_skipped_when_not_configured(self, dispatcher, mock_push_service):
+    async def test_push_skipped_when_not_configured(
+        self, dispatcher, mock_push_service
+    ):
         """Push channel should return False without calling send_push when not configured."""
         mock_push_service.is_configured = False
 
@@ -438,7 +460,9 @@ class TestPushNotConfigured:
 
 
 class TestEmailChannel:
-    async def test_email_skipped_when_no_address_provided(self, dispatcher, mock_email_service):
+    async def test_email_skipped_when_no_address_provided(
+        self, dispatcher, mock_email_service
+    ):
         """EMAIL channel should report False and not call send() when email_to is missing."""
         result = await dispatcher.send(
             user_id=TEST_USER_ID,
@@ -465,7 +489,9 @@ class TestEmailChannel:
         call_kwargs = mock_email_service.send.call_args.kwargs
         assert call_kwargs.get("subject") == "Custom Subject Line"
 
-    async def test_email_falls_back_to_title_as_subject(self, dispatcher, mock_email_service):
+    async def test_email_falls_back_to_title_as_subject(
+        self, dispatcher, mock_email_service
+    ):
         """When email_subject is not provided, title should be used as subject."""
         await dispatcher.send(
             user_id=TEST_USER_ID,

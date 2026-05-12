@@ -332,7 +332,9 @@ class TestGetSavingsHistory:
         """Page 2 with page_size=10 should produce offset=10."""
         db.execute = AsyncMock(return_value=_make_mapping_all([]))
 
-        result = await service.get_savings_history(user_id="user-2", page=2, page_size=10)
+        result = await service.get_savings_history(
+            user_id="user-2", page=2, page_size=10
+        )
 
         assert result["page"] == 2
         assert result["page_size"] == 10
@@ -398,7 +400,8 @@ class TestGetSavingsHistory:
     async def test_multiple_items_serialised(self, service, db):
         """Multiple rows should all appear as serialised dicts."""
         rows = [
-            {**_make_savings_row(user_id="u", amount=float(i)), "total_count": 5} for i in range(5)
+            {**_make_savings_row(user_id="u", amount=float(i)), "total_count": 5}
+            for i in range(5)
         ]
         db.execute = AsyncMock(return_value=_make_mapping_all(rows))
 

@@ -54,7 +54,9 @@ async def mark_all_notifications_read(
 
 @router.put("/{notification_id}/read")
 async def mark_notification_read(
-    notification_id: uuid.UUID = Path(..., description="UUID of the notification to mark read"),
+    notification_id: uuid.UUID = Path(
+        ..., description="UUID of the notification to mark read"
+    ),
     current_user: SessionData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):

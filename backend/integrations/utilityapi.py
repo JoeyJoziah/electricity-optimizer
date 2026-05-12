@@ -152,7 +152,9 @@ class UtilityAPIClient:
         # Zenith H-16-02: fast-fail if the circuit breaker is open
         cb = self._circuit_breaker
         if cb.state.value == "open":
-            raise UtilityAPIError(f"Circuit breaker open for UtilityAPI — skipping {method} {path}")
+            raise UtilityAPIError(
+                f"Circuit breaker open for UtilityAPI — skipping {method} {path}"
+            )
 
         client = await self._get_client()
         try:
@@ -175,7 +177,9 @@ class UtilityAPIClient:
                 error=str(exc),
             )
             await cb.record_failure()
-            raise UtilityAPIError(f"Request to UtilityAPI timed out: {method} {path}") from exc
+            raise UtilityAPIError(
+                f"Request to UtilityAPI timed out: {method} {path}"
+            ) from exc
         except httpx.RequestError as exc:
             logger.warning(
                 "utilityapi_request_error",
@@ -214,7 +218,9 @@ class UtilityAPIClient:
         try:
             return response.json()
         except Exception as exc:
-            raise UtilityAPIError(f"Could not parse UtilityAPI JSON response: {exc}") from exc
+            raise UtilityAPIError(
+                f"Could not parse UtilityAPI JSON response: {exc}"
+            ) from exc
 
     # ------------------------------------------------------------------
     # Authorization form

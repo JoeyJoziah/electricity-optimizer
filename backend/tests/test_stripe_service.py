@@ -116,7 +116,9 @@ async def test_create_checkout_session_with_existing_customer(
     stripe_service, mock_checkout_session
 ):
     """Test checkout session creation with existing customer."""
-    with patch("stripe.checkout.Session.create", return_value=mock_checkout_session) as mock_create:
+    with patch(
+        "stripe.checkout.Session.create", return_value=mock_checkout_session
+    ) as mock_create:
         await stripe_service.create_checkout_session(
             user_id="user_123",
             email="user@example.com",
@@ -198,7 +200,9 @@ async def test_create_checkout_session_not_configured():
 
 async def test_create_portal_session_success(stripe_service, mock_portal_session):
     """Test successful portal session creation."""
-    with patch("stripe.billing_portal.Session.create", return_value=mock_portal_session):
+    with patch(
+        "stripe.billing_portal.Session.create", return_value=mock_portal_session
+    ):
         result = await stripe_service.create_customer_portal_session(
             customer_id="cus_test_456",
             return_url="https://example.com/account",
@@ -612,7 +616,9 @@ async def test_apply_webhook_action_activate_invalidates_tier_cache():
         "customer_id": "cus_test_456",
     }
 
-    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+    with patch(
+        "api.dependencies.invalidate_tier_cache", new_callable=AsyncMock
+    ) as mock_invalidate:
         applied = await apply_webhook_action(result, user_repo)
 
     assert applied is True
@@ -635,7 +641,9 @@ async def test_apply_webhook_action_update_invalidates_tier_cache():
         "status": "active",
     }
 
-    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+    with patch(
+        "api.dependencies.invalidate_tier_cache", new_callable=AsyncMock
+    ) as mock_invalidate:
         applied = await apply_webhook_action(result, user_repo)
 
     assert applied is True
@@ -657,7 +665,9 @@ async def test_apply_webhook_action_deactivate_invalidates_tier_cache():
         "customer_id": "cus_test_456",
     }
 
-    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+    with patch(
+        "api.dependencies.invalidate_tier_cache", new_callable=AsyncMock
+    ) as mock_invalidate:
         applied = await apply_webhook_action(result, user_repo)
 
     assert applied is True
@@ -682,7 +692,9 @@ async def test_apply_webhook_action_payment_failed_does_not_invalidate_cache():
         "currency": "USD",
     }
 
-    with patch("api.dependencies.invalidate_tier_cache", new_callable=AsyncMock) as mock_invalidate:
+    with patch(
+        "api.dependencies.invalidate_tier_cache", new_callable=AsyncMock
+    ) as mock_invalidate:
         # No db supplied — triggers the warning path, no dunning called
         applied = await apply_webhook_action(result, user_repo, db=None)
 
@@ -719,7 +731,9 @@ async def test_handle_webhook_payment_failed_amount_is_decimal(stripe_service):
     assert result["amount_due"] == Decimal("4.99")
 
 
-async def test_handle_webhook_payment_failed_large_amount_no_float_error(stripe_service):
+async def test_handle_webhook_payment_failed_large_amount_no_float_error(
+    stripe_service,
+):
     """Large cent amounts (e.g. $14.99) convert exactly with Decimal."""
     event = {
         "id": "evt_test_large",

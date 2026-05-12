@@ -107,7 +107,9 @@ class SavingsService:
         weekly = float(row["weekly"]) if row and row["weekly"] is not None else 0.0
         monthly = float(row["monthly"]) if row and row["monthly"] is not None else 0.0
         currency = (row["currency"] if row and row["currency"] else "USD") or "USD"
-        streak_days = int(row["streak_days"]) if row and row["streak_days"] is not None else 0
+        streak_days = (
+            int(row["streak_days"]) if row and row["streak_days"] is not None else 0
+        )
 
         logger.debug(
             "savings_summary_computed",
@@ -268,7 +270,9 @@ class SavingsService:
             "currency": row["currency"],
             "description": row["description"],
             "region": row["region"],
-            "period_start": row["period_start"].isoformat() if row["period_start"] else None,
+            "period_start": (
+                row["period_start"].isoformat() if row["period_start"] else None
+            ),
             "period_end": row["period_end"].isoformat() if row["period_end"] else None,
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         }

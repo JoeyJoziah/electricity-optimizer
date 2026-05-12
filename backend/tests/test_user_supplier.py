@@ -24,7 +24,9 @@ def _make_session_data(user_id="test-user-123", email="test@example.com"):
     """Create a mock SessionData for auth."""
     from auth.neon_auth import SessionData
 
-    return SessionData(user_id=user_id, email=email, name="Test User", email_verified=True)
+    return SessionData(
+        user_id=user_id, email=email, name="Test User", email_verified=True
+    )
 
 
 def _mock_db():
@@ -327,7 +329,9 @@ class TestLinkAccount:
 
         insert_result = MagicMock()
 
-        self._db.execute = AsyncMock(side_effect=[user_check, supplier_result, insert_result])
+        self._db.execute = AsyncMock(
+            side_effect=[user_check, supplier_result, insert_result]
+        )
 
         with patch("api.v1.user_supplier.encrypt_field", return_value=b"encrypted"):
             response = client.post(

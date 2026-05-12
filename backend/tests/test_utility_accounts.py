@@ -31,7 +31,9 @@ NOW = datetime(2026, 3, 11, 12, 0, 0, tzinfo=UTC)
 def _make_session_data(user_id=USER_ID, email="test@example.com"):
     from auth.neon_auth import SessionData
 
-    return SessionData(user_id=user_id, email=email, name="Test User", email_verified=True)
+    return SessionData(
+        user_id=user_id, email=email, name="Test User", email_verified=True
+    )
 
 
 def _mock_db():
@@ -255,7 +257,9 @@ class TestGetAccount:
         result.mappings.return_value.first.return_value = None
         self._db.execute.return_value = result
 
-        resp = client.get("/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000")
+        resp = client.get(
+            "/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000"
+        )
         assert resp.status_code == 404
 
     def test_get_invalid_uuid_account(self, client):
@@ -266,7 +270,9 @@ class TestGetAccount:
     def test_get_other_users_account(self, client):
         """403 when trying to access another user's account."""
         result = MagicMock()
-        result.mappings.return_value.first.return_value = _account_row(user_id=OTHER_USER_ID)
+        result.mappings.return_value.first.return_value = _account_row(
+            user_id=OTHER_USER_ID
+        )
         self._db.execute.return_value = result
 
         resp = client.get(f"/api/v1/utility-accounts/{ACCOUNT_ID}")
@@ -318,7 +324,9 @@ class TestUpdateAccount:
     def test_update_other_users_account(self, client):
         """403 when trying to update another user's account."""
         result = MagicMock()
-        result.mappings.return_value.first.return_value = _account_row(user_id=OTHER_USER_ID)
+        result.mappings.return_value.first.return_value = _account_row(
+            user_id=OTHER_USER_ID
+        )
         self._db.execute.return_value = result
 
         resp = client.put(
@@ -379,13 +387,17 @@ class TestDeleteAccount:
         result.mappings.return_value.first.return_value = None
         self._db.execute.return_value = result
 
-        resp = client.delete("/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000")
+        resp = client.delete(
+            "/api/v1/utility-accounts/00000000-0000-0000-0000-000000000000"
+        )
         assert resp.status_code == 404
 
     def test_delete_other_users_account(self, client):
         """403 when trying to delete another user's account."""
         result = MagicMock()
-        result.mappings.return_value.first.return_value = _account_row(user_id=OTHER_USER_ID)
+        result.mappings.return_value.first.return_value = _account_row(
+            user_id=OTHER_USER_ID
+        )
         self._db.execute.return_value = result
 
         resp = client.delete(f"/api/v1/utility-accounts/{ACCOUNT_ID}")

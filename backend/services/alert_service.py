@@ -140,7 +140,9 @@ class AlertService:
         triggered = []
 
         for threshold in thresholds:
-            matching_prices = prices_by_region.get(threshold.region, []) + no_region_prices
+            matching_prices = (
+                prices_by_region.get(threshold.region, []) + no_region_prices
+            )
 
             for price in matching_prices:
                 current = Decimal(str(price.price_per_kwh))
@@ -206,7 +208,9 @@ class AlertService:
         window_end_price = forecast_prices[best_start + window_hours - 1]
 
         # Calculate average price across all hours for savings estimate
-        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(forecast_prices)
+        all_avg = sum(Decimal(str(p.price_per_kwh)) for p in forecast_prices) / len(
+            forecast_prices
+        )
         estimated_savings = (all_avg - best_avg) * window_hours
 
         triggered = []
@@ -221,8 +225,12 @@ class AlertService:
                 region=threshold.region,
                 supplier=getattr(window_start_price, "supplier", "Unknown"),
                 timestamp=datetime.now(UTC),
-                optimal_window_start=getattr(window_start_price, "timestamp", datetime.now(UTC)),
-                optimal_window_end=getattr(window_end_price, "timestamp", datetime.now(UTC))
+                optimal_window_start=getattr(
+                    window_start_price, "timestamp", datetime.now(UTC)
+                ),
+                optimal_window_end=getattr(
+                    window_end_price, "timestamp", datetime.now(UTC)
+                )
                 + timedelta(hours=1),
                 estimated_savings=max(estimated_savings, Decimal("0")),
             )
@@ -266,9 +274,7 @@ class AlertService:
 
                     if self._dispatcher is not None:
                         try:
-                            dedup_key = (
-                                f"price_alert:{threshold.user_id}:{alert.alert_type}:{alert.region}"
-                            )
+                            dedup_key = f"price_alert:{threshold.user_id}:{alert.alert_type}:{alert.region}"
                             dispatch_result = await self._dispatcher.send(
                                 user_id=threshold.user_id,
                                 type="price_alert",
@@ -288,7 +294,11 @@ class AlertService:
                                     "alert_type": alert.alert_type,
                                     "region": alert.region,
                                     "current_price": str(alert.current_price),
-                                    "threshold": str(alert.threshold) if alert.threshold else None,
+                                    "threshold": (
+                                        str(alert.threshold)
+                                        if alert.threshold
+                                        else None
+                                    ),
                                     "supplier": alert.supplier,
                                 },
                                 dedup_key=dedup_key,
@@ -539,12 +549,16 @@ class AlertService:
                 "email": row["email"],
                 "region": row["region"],
                 "currency": row["currency"],
-                "price_below": Decimal(str(row["price_below"]))
-                if row["price_below"] is not None
-                else None,
-                "price_above": Decimal(str(row["price_above"]))
-                if row["price_above"] is not None
-                else None,
+                "price_below": (
+                    Decimal(str(row["price_below"]))
+                    if row["price_below"] is not None
+                    else None
+                ),
+                "price_above": (
+                    Decimal(str(row["price_above"]))
+                    if row["price_above"] is not None
+                    else None
+                ),
                 "notify_optimal_windows": row["notify_optimal_windows"],
                 "notification_frequency": row["notification_frequency"] or "daily",
             }
@@ -677,7 +691,8 @@ class AlertService:
             PermissionError: If free-tier limit (1 alert) is exceeded.
         """
         async with traced(
-            "alert.create", attributes={"alert.type": alert_type, "alert.region": region}
+            "alert.create",
+            attributes={"alert.type": alert_type, "alert.region": region},
         ):
             # Resolve threshold into price_below/price_above based on alert_type
             if threshold is not None:
@@ -689,7 +704,11 @@ class AlertService:
             # Use injected db session if no explicit one provided
             db = db or self._db
 
-            if price_below is None and price_above is None and not notify_optimal_windows:
+            if (
+                price_below is None
+                and price_above is None
+                and not notify_optimal_windows
+            ):
                 raise ValueError(
                     "At least one of price_below, price_above, or notify_optimal_windows "
                     "must be specified."
@@ -698,7 +717,9 @@ class AlertService:
             # Atomic free-tier limit enforcement: lock user row then count alerts
             # within the same transaction to prevent race conditions.
             tier_result = await db.execute(
-                text("SELECT subscription_tier FROM public.users WHERE id = :id FOR UPDATE"),
+                text(
+                    "SELECT subscription_tier FROM public.users WHERE id = :id FOR UPDATE"
+                ),
                 {"id": user_id},
             )
             user_tier = tier_result.scalar_one_or_none() or "free"
@@ -734,8 +755,12 @@ class AlertService:
                         "user_id": user_id,
                         "region": region,
                         "currency": currency,
-                        "price_below": str(price_below) if price_below is not None else None,
-                        "price_above": str(price_above) if price_above is not None else None,
+                        "price_below": (
+                            str(price_below) if price_below is not None else None
+                        ),
+                        "price_above": (
+                            str(price_above) if price_above is not None else None
+                        ),
                         "notify_optimal_windows": notify_optimal_windows,
                     },
                 )
@@ -903,7 +928,9 @@ class AlertService:
                     "alert_config_id": alert_config_id,
                     "alert_type": alert.alert_type,
                     "current_price": str(alert.current_price),
-                    "threshold": str(alert.threshold) if alert.threshold is not None else None,
+                    "threshold": (
+                        str(alert.threshold) if alert.threshold is not None else None
+                    ),
                     "region": alert.region,
                     "supplier": alert.supplier,
                     "currency": currency,
@@ -937,12 +964,20 @@ class AlertService:
             "user_id": str(row["user_id"]),
             "region": row["region"],
             "currency": row["currency"],
-            "price_below": float(row["price_below"]) if row["price_below"] is not None else None,
-            "price_above": float(row["price_above"]) if row["price_above"] is not None else None,
+            "price_below": (
+                float(row["price_below"]) if row["price_below"] is not None else None
+            ),
+            "price_above": (
+                float(row["price_above"]) if row["price_above"] is not None else None
+            ),
             "notify_optimal_windows": row["notify_optimal_windows"],
             "is_active": row["is_active"],
-            "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
-            "updated_at": row["updated_at"].isoformat() if row.get("updated_at") else None,
+            "created_at": (
+                row["created_at"].isoformat() if row.get("created_at") else None
+            ),
+            "updated_at": (
+                row["updated_at"].isoformat() if row.get("updated_at") else None
+            ),
         }
 
     @staticmethod
@@ -951,22 +986,34 @@ class AlertService:
         return {
             "id": str(row["id"]),
             "user_id": str(row["user_id"]),
-            "alert_config_id": (str(row["alert_config_id"]) if row["alert_config_id"] else None),
+            "alert_config_id": (
+                str(row["alert_config_id"]) if row["alert_config_id"] else None
+            ),
             "alert_type": row["alert_type"],
             "current_price": float(row["current_price"]),
-            "threshold": float(row["threshold"]) if row["threshold"] is not None else None,
+            "threshold": (
+                float(row["threshold"]) if row["threshold"] is not None else None
+            ),
             "region": row["region"],
             "supplier": row["supplier"],
             "currency": row["currency"],
             "optimal_window_start": (
-                row["optimal_window_start"].isoformat() if row.get("optimal_window_start") else None
+                row["optimal_window_start"].isoformat()
+                if row.get("optimal_window_start")
+                else None
             ),
             "optimal_window_end": (
-                row["optimal_window_end"].isoformat() if row.get("optimal_window_end") else None
+                row["optimal_window_end"].isoformat()
+                if row.get("optimal_window_end")
+                else None
             ),
             "estimated_savings": (
-                float(row["estimated_savings"]) if row["estimated_savings"] is not None else None
+                float(row["estimated_savings"])
+                if row["estimated_savings"] is not None
+                else None
             ),
-            "triggered_at": (row["triggered_at"].isoformat() if row.get("triggered_at") else None),
+            "triggered_at": (
+                row["triggered_at"].isoformat() if row.get("triggered_at") else None
+            ),
             "email_sent": row["email_sent"],
         }

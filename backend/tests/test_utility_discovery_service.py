@@ -70,7 +70,9 @@ class TestDiscover:
         """Minnesota has community solar but regulated electricity."""
         results = UtilityDiscoveryService.discover("MN")
 
-        solar = next((r for r in results if r["utility_type"] == "community_solar"), None)
+        solar = next(
+            (r for r in results if r["utility_type"] == "community_solar"), None
+        )
         assert solar is not None
         assert solar["status"] == "available"
 

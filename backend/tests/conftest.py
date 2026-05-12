@@ -70,7 +70,8 @@ def mock_httpx_client():
 @pytest.fixture
 def sample_price_data():
     """Sample price data for testing"""
-    from integrations.pricing_apis.base import PriceData, PriceUnit, PricingRegion
+    from integrations.pricing_apis.base import (PriceData, PriceUnit,
+                                                PricingRegion)
 
     return PriceData(
         region=PricingRegion.US_CT,
@@ -96,12 +97,8 @@ def sample_forecast_data():
     """Sample forecast data for testing"""
     from datetime import timedelta
 
-    from integrations.pricing_apis.base import (
-        PriceData,
-        PriceForecast,
-        PriceUnit,
-        PricingRegion,
-    )
+    from integrations.pricing_apis.base import (PriceData, PriceForecast,
+                                                PriceUnit, PricingRegion)
 
     base_time = datetime(2024, 1, 15, 0, 0, tzinfo=UTC)
 
@@ -448,7 +445,9 @@ def mock_sqlalchemy_select(monkeypatch):
     try:
         import sqlalchemy
 
-        monkeypatch.setattr(sqlalchemy, "any_", lambda *a, **kw: MagicMock(), raising=False)
+        monkeypatch.setattr(
+            sqlalchemy, "any_", lambda *a, **kw: MagicMock(), raising=False
+        )
     except (ImportError, AttributeError):
         pass
 
@@ -496,7 +495,13 @@ def mock_sqlalchemy_select(monkeypatch):
             ],
         },
         "models.supplier": {
-            "Supplier": ["id", "name", "regions", "is_active", "average_renewable_percentage"],
+            "Supplier": [
+                "id",
+                "name",
+                "regions",
+                "is_active",
+                "average_renewable_percentage",
+            ],
             "Tariff": ["id", "name", "supplier_id", "is_available"],
         },
     }

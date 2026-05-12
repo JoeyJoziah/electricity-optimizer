@@ -235,7 +235,9 @@ class TestDatabaseUnhealthy:
 
 
 class TestRedisNotConfigured:
-    def test_overall_status_healthy_when_redis_not_configured(self, redis_not_configured_client):
+    def test_overall_status_healthy_when_redis_not_configured(
+        self, redis_not_configured_client
+    ):
         """
         Redis is not configured in many dev / free-tier deployments.
         The endpoint should still return 200/healthy (not_configured counts as OK).

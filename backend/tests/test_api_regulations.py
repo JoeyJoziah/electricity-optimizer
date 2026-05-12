@@ -115,7 +115,11 @@ class TestListRegulations:
     @patch("api.v1.regulations.StateRegulationRepository")
     def test_list_no_filters_returns_all(self, mock_repo_cls, client):
         """Listing without filters should return all states."""
-        all_states = [_make_ct_regulation(), _make_tx_regulation(), _make_fl_regulation()]
+        all_states = [
+            _make_ct_regulation(),
+            _make_tx_regulation(),
+            _make_fl_regulation(),
+        ]
 
         mock_repo = MagicMock()
         mock_repo.list_deregulated = AsyncMock(return_value=all_states)
@@ -192,7 +196,9 @@ class TestListRegulations:
         mock_repo.list_deregulated = AsyncMock(return_value=[_make_ct_regulation()])
         mock_repo_cls.return_value = mock_repo
 
-        response = client.get(f"{BASE_URL}?electricity=true&gas=true&community_solar=true")
+        response = client.get(
+            f"{BASE_URL}?electricity=true&gas=true&community_solar=true"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -212,7 +218,9 @@ class TestListRegulations:
         mock_repo.list_deregulated = AsyncMock(return_value=[])
         mock_repo_cls.return_value = mock_repo
 
-        response = client.get(f"{BASE_URL}?electricity=true&gas=true&oil=true&community_solar=true")
+        response = client.get(
+            f"{BASE_URL}?electricity=true&gas=true&oil=true&community_solar=true"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -441,4 +449,6 @@ class TestResponseSchema:
             "bond_required",
         ]
         for field in bool_fields:
-            assert isinstance(data[field], bool), f"{field} should be bool, got {type(data[field])}"
+            assert isinstance(
+                data[field], bool
+            ), f"{field} should be bool, got {type(data[field])}"

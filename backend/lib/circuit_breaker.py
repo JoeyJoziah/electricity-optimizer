@@ -126,7 +126,10 @@ class CircuitBreaker:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
             current = self.state
-            if current == CircuitState.HALF_OPEN or self._failure_count >= self.failure_threshold:
+            if (
+                current == CircuitState.HALF_OPEN
+                or self._failure_count >= self.failure_threshold
+            ):
                 self._transition_to_open()
 
     async def reset(self) -> None:

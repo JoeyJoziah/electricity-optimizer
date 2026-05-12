@@ -51,13 +51,11 @@ def fresh_user_id() -> str:
 async def _seed_user(db: AsyncSession, user_id: str) -> None:
     """Insert a minimal users row so foreign keys resolve."""
     await db.execute(
-        text(
-            """
+        text("""
             INSERT INTO users (id, email, subscription_tier, created_at)
             VALUES (:id, :email, 'pro', NOW())
             ON CONFLICT (id) DO NOTHING
-            """
-        ),
+            """),
         {"id": user_id, "email": f"{user_id}@test.invalid"},
     )
 
@@ -73,8 +71,7 @@ async def _seed_settings(
 ) -> None:
     now = datetime.now(UTC)
     await db.execute(
-        text(
-            """
+        text("""
             INSERT INTO user_agent_settings
                 (user_id, enabled, loa_signed_at, loa_revoked_at, paused_until,
                  savings_threshold_pct, savings_threshold_min, cooldown_days,
@@ -88,8 +85,7 @@ async def _seed_settings(
                 loa_revoked_at = EXCLUDED.loa_revoked_at,
                 paused_until = EXCLUDED.paused_until,
                 updated_at = EXCLUDED.updated_at
-            """
-        ),
+            """),
         {
             "uid": user_id,
             "enabled": enabled,
@@ -147,7 +143,9 @@ class TestCheckKillSwitchAgainstRealSchema:
         from services.switch_safeguards import SwitchSafeguardsService
 
         await _seed_user(db, fresh_user_id)
-        await _seed_settings(db, fresh_user_id, enabled=True, loa_signed=True, loa_revoked=True)
+        await _seed_settings(
+            db, fresh_user_id, enabled=True, loa_signed=True, loa_revoked=True
+        )
 
         svc = SwitchSafeguardsService(db)
         result = await svc.check_kill_switch(fresh_user_id)
@@ -165,7 +163,9 @@ class TestCheckKillSwitchAgainstRealSchema:
         result = await svc.check_kill_switch(fresh_user_id)
 
         assert result.passed is False
-        assert "not signed" in result.reason.lower() or "signed" in result.reason.lower()
+        assert (
+            "not signed" in result.reason.lower() or "signed" in result.reason.lower()
+        )
 
     async def test_blocks_when_paused_in_future(self, db, schema_ready, fresh_user_id):
         from services.switch_safeguards import SwitchSafeguardsService
@@ -182,7 +182,9 @@ class TestCheckKillSwitchAgainstRealSchema:
         assert result.passed is False
         assert "paused" in result.reason.lower()
 
-    async def test_passes_when_pause_window_expired(self, db, schema_ready, fresh_user_id):
+    async def test_passes_when_pause_window_expired(
+        self, db, schema_ready, fresh_user_id
+    ):
         """A paused_until in the past should NOT block — the window has elapsed."""
         from services.switch_safeguards import SwitchSafeguardsService
 
@@ -223,14 +225,10 @@ class TestAuditLogSchemaInvariants:
     }
 
     async def test_required_columns_present(self, db, schema_ready):
-        result = await db.execute(
-            text(
-                """
+        result = await db.execute(text("""
                 SELECT column_name FROM information_schema.columns
                 WHERE table_schema = 'public' AND table_name = 'switch_audit_log'
-                """
-            )
-        )
+                """))
         columns = {row[0] for row in result.fetchall()}
         missing = self.REQUIRED_COLUMNS - columns
         assert not missing, (
@@ -244,14 +242,12 @@ class TestAuditLogSchemaInvariants:
 
         audit_id = str(uuid.uuid4())
         await db.execute(
-            text(
-                """
+            text("""
                 INSERT INTO switch_audit_log
                     (id, user_id, trigger_type, decision, reason, executed, created_at)
                 VALUES
                     (:id, :uid, 'manual', 'hold', 'test', FALSE, NOW())
-                """
-            ),
+                """),
             {"id": audit_id, "uid": fresh_user_id},
         )
 
@@ -265,19 +261,19 @@ class TestAuditLogSchemaInvariants:
 
 
 class TestSwitchExecutionsSchemaInvariants:
-    async def test_required_status_values_accepted(self, db, schema_ready, fresh_user_id):
+    async def test_required_status_values_accepted(
+        self, db, schema_ready, fresh_user_id
+    ):
         """rollback_switch reads status in (active, initiated, submitted, accepted)."""
         await _seed_user(db, fresh_user_id)
         for status_val in ("active", "initiated", "submitted", "accepted"):
             exec_id = str(uuid.uuid4())
             await db.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO switch_executions
                         (id, user_id, status, created_at, enacted_at)
                     VALUES (:id, :uid, :status, NOW(), NOW())
-                    """
-                ),
+                    """),
                 {"id": exec_id, "uid": fresh_user_id, "status": status_val},
             )
             row = (

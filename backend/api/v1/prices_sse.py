@@ -223,7 +223,9 @@ async def stream_prices(
     async def event_stream():
         nonlocal incremented
         try:
-            async for event in _price_event_generator(region, price_service, interval, request):
+            async for event in _price_event_generator(
+                region, price_service, interval, request
+            ):
                 yield event
         except asyncio.CancelledError:
             pass

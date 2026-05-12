@@ -12,12 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
 from models.utility import UtilityType
-from models.utility_account import (
-    UtilityAccount,
-    UtilityAccountCreate,
-    UtilityAccountResponse,
-    UtilityAccountUpdate,
-)
+from models.utility_account import (UtilityAccount, UtilityAccountCreate,
+                                    UtilityAccountResponse,
+                                    UtilityAccountUpdate)
 from repositories.utility_account_repository import UtilityAccountRepository
 from utils.encryption import encrypt_field
 
@@ -41,7 +38,9 @@ async def list_utility_accounts(
     return [UtilityAccountResponse.model_validate(a) for a in accounts]
 
 
-@router.post("/", response_model=UtilityAccountResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=UtilityAccountResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_utility_account(
     body: UtilityAccountCreate,
     current_user: SessionData = Depends(get_current_user),
@@ -58,9 +57,9 @@ async def create_utility_account(
         provider_name=body.provider_name,
         is_primary=body.is_primary,
         metadata=body.metadata,
-        account_number_encrypted=encrypt_field(body.account_number)
-        if body.account_number
-        else None,
+        account_number_encrypted=(
+            encrypt_field(body.account_number) if body.account_number else None
+        ),
     )
 
     created = await repo.create(account)
@@ -76,7 +75,10 @@ async def create_utility_account(
 @router.get("/types")
 async def list_utility_types():
     """List all supported utility types."""
-    return [{"value": t.value, "label": t.value.replace("_", " ").title()} for t in UtilityType]
+    return [
+        {"value": t.value, "label": t.value.replace("_", " ").title()}
+        for t in UtilityType
+    ]
 
 
 @router.get("/{account_id}", response_model=UtilityAccountResponse)
@@ -94,7 +96,9 @@ async def get_utility_account(
             status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found"
         )
     if account.user_id != current_user.user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+        )
 
     return UtilityAccountResponse.model_validate(account)
 
@@ -117,7 +121,9 @@ async def update_utility_account(
             status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found"
         )
     if existing.user_id != current_user.user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+        )
 
     # Build partial update entity
     update_entity = UtilityAccount(
@@ -126,7 +132,9 @@ async def update_utility_account(
         utility_type=existing.utility_type,
         region=existing.region,
         provider_name=body.provider_name or existing.provider_name,
-        is_primary=body.is_primary if body.is_primary is not None else existing.is_primary,
+        is_primary=(
+            body.is_primary if body.is_primary is not None else existing.is_primary
+        ),
         metadata=body.metadata if body.metadata is not None else existing.metadata,
     )
 
@@ -136,7 +144,11 @@ async def update_utility_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Update failed"
         )
 
-    logger.info("utility_account_updated", user_id=current_user.user_id, account_id=account_id_str)
+    logger.info(
+        "utility_account_updated",
+        user_id=current_user.user_id,
+        account_id=account_id_str,
+    )
     return UtilityAccountResponse.model_validate(updated)
 
 
@@ -157,7 +169,9 @@ async def delete_utility_account(
             status_code=status.HTTP_404_NOT_FOUND, detail="Utility account not found"
         )
     if existing.user_id != current_user.user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+        )
 
     deleted = await repo.delete(account_id_str)
     if not deleted:
@@ -165,4 +179,8 @@ async def delete_utility_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Delete failed"
         )
 
-    logger.info("utility_account_deleted", user_id=current_user.user_id, account_id=account_id_str)
+    logger.info(
+        "utility_account_deleted",
+        user_id=current_user.user_id,
+        account_id=account_id_str,
+    )

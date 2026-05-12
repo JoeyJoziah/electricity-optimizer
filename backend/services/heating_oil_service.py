@@ -69,7 +69,9 @@ class HeatingOilService:
                 "state": r["state"],
                 "price_per_gallon": float(r["price_per_gallon"]),
                 "source": r["source"],
-                "period_date": r["period_date"].isoformat() if r["period_date"] else None,
+                "period_date": (
+                    r["period_date"].isoformat() if r["period_date"] else None
+                ),
                 "fetched_at": r["fetched_at"].isoformat() if r["fetched_at"] else None,
             }
             for r in rows
@@ -101,7 +103,9 @@ class HeatingOilService:
                 "state": r["state"],
                 "price_per_gallon": float(r["price_per_gallon"]),
                 "source": r["source"],
-                "period_date": r["period_date"].isoformat() if r["period_date"] else None,
+                "period_date": (
+                    r["period_date"].isoformat() if r["period_date"] else None
+                ),
                 "fetched_at": r["fetched_at"].isoformat() if r["fetched_at"] else None,
             }
             for r in rows

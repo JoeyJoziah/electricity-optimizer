@@ -177,7 +177,10 @@ class TestCheckoutSession:
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
             stripe_instance.create_checkout_session = AsyncMock(
-                return_value={"id": "cs_local", "url": "https://checkout.stripe.com/pay/cs_local"}
+                return_value={
+                    "id": "cs_local",
+                    "url": "https://checkout.stripe.com/pay/cs_local",
+                }
             )
 
             response = auth_client.post(
@@ -619,7 +622,9 @@ class TestWebhook:
 
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 return_value={
                     "handled": True,
@@ -652,7 +657,9 @@ class TestWebhook:
         with patch("api.v1.billing.StripeService") as MockStripe:
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 return_value={
                     "handled": False,
@@ -743,7 +750,9 @@ class TestWebhook:
 
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 return_value={
                     "handled": True,
@@ -784,7 +793,9 @@ class TestWebhook:
         with patch("api.v1.billing.StripeService") as MockStripe:
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             # Simulate a DB error or bug during processing
             stripe_instance.handle_webhook_event = AsyncMock(
                 side_effect=RuntimeError("DB connection pool exhausted")
@@ -802,7 +813,9 @@ class TestWebhook:
         assert data["received"] is True
         assert data["event_id"] == "evt_processing_error"
 
-    def test_webhook_stripe_api_error_during_processing_still_returns_200(self, auth_client):
+    def test_webhook_stripe_api_error_during_processing_still_returns_200(
+        self, auth_client
+    ):
         """
         S1-07: stripe.StripeError raised during event processing (e.g. an
         API call inside handle_webhook_event) must also return 200 so Stripe
@@ -819,7 +832,9 @@ class TestWebhook:
         with patch("api.v1.billing.StripeService") as MockStripe:
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 side_effect=_stripe.StripeError("upstream stripe issue")
             )
@@ -859,7 +874,9 @@ class TestWebhook:
         ):
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 return_value={
                     "handled": True,
@@ -903,7 +920,9 @@ class TestWebhook:
 
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 return_value={
                     "handled": True,
@@ -950,7 +969,9 @@ class TestWebhookIdempotency:
         with patch("api.v1.billing.StripeService") as MockStripe:
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             # handle_webhook_event should NOT be called for a duplicate
             stripe_instance.handle_webhook_event = AsyncMock()
 
@@ -995,7 +1016,9 @@ class TestWebhookIdempotency:
 
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 return_value={
                     "handled": True,
@@ -1034,7 +1057,9 @@ class TestWebhookIdempotency:
         with patch("api.v1.billing.StripeService") as MockStripe:
             stripe_instance = MockStripe.return_value
             stripe_instance.is_configured = True
-            stripe_instance.verify_webhook_signature = MagicMock(return_value=mock_event)
+            stripe_instance.verify_webhook_signature = MagicMock(
+                return_value=mock_event
+            )
             stripe_instance.handle_webhook_event = AsyncMock(
                 return_value={
                     "handled": False,

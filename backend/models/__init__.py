@@ -6,70 +6,33 @@ Supports electricity, natural gas, heating oil, propane, and community solar.
 """
 
 from models.available_plan import AvailablePlan, AvailablePlanResponse
-from models.community import (
-    CommunityPost,
-    CommunityPostCreate,
-    CommunityPostResponse,
-    CommunityPostUpdate,
-    CommunityReport,
-    CommunityStatsResponse,
-    CommunityUtilityType,
-    CommunityVote,
-    PaginatedPostsResponse,
-    PostType,
-)
-from models.meter_reading import MeterReading, MeterReadingBatch, MeterReadingCreate
-from models.observation import (
-    AccuracyMetrics,
-    ForecastObservation,
-    HourlyBias,
-    RecommendationOutcome,
-)
-from models.price import (
-    EnergySource,
-    Price,
-    PriceComparisonResponse,
-    PriceForecast,
-    PriceForecastResponse,
-    PriceHistoryResponse,
-    PriceListResponse,
-    PriceRegion,
-    PriceResponse,
-    PriceUnit,
-)
+from models.community import (CommunityPost, CommunityPostCreate,
+                              CommunityPostResponse, CommunityPostUpdate,
+                              CommunityReport, CommunityStatsResponse,
+                              CommunityUtilityType, CommunityVote,
+                              PaginatedPostsResponse, PostType)
+from models.meter_reading import (MeterReading, MeterReadingBatch,
+                                  MeterReadingCreate)
+from models.observation import (AccuracyMetrics, ForecastObservation,
+                                HourlyBias, RecommendationOutcome)
+from models.price import (EnergySource, Price, PriceComparisonResponse,
+                          PriceForecast, PriceForecastResponse,
+                          PriceHistoryResponse, PriceListResponse, PriceRegion,
+                          PriceResponse, PriceUnit)
 from models.region import Region
-from models.regulation import (
-    StateRegulation,
-    StateRegulationListResponse,
-    StateRegulationResponse,
-)
-from models.supplier import (
-    ContractLength,
-    Supplier,
-    SupplierContact,
-    SupplierDetailResponse,
-    SupplierListResponse,
-    SupplierResponse,
-    Tariff,
-    TariffListResponse,
-    TariffResponse,
-    TariffType,
-)
+from models.regulation import (StateRegulation, StateRegulationListResponse,
+                               StateRegulationResponse)
+from models.supplier import (ContractLength, Supplier, SupplierContact,
+                             SupplierDetailResponse, SupplierListResponse,
+                             SupplierResponse, Tariff, TariffListResponse,
+                             TariffResponse, TariffType)
 from models.switch_audit_log import SwitchAuditLog, SwitchAuditLogResponse
 from models.switch_execution import SwitchExecution, SwitchExecutionResponse
-from models.user import (
-    User,
-    UserCreate,
-    UserPreferences,
-    UserPreferencesResponse,
-    UserResponse,
-    UserUpdate,
-)
-from models.user_agent_settings import (
-    UserAgentSettings,
-    UserAgentSettingsResponse,
-    UserAgentSettingsUpdate,
-)
+from models.user import (User, UserCreate, UserPreferences,
+                         UserPreferencesResponse, UserResponse, UserUpdate)
+from models.user_agent_settings import (UserAgentSettings,
+                                        UserAgentSettingsResponse,
+                                        UserAgentSettingsUpdate)
 from models.user_plan import UserPlan, UserPlanCreate, UserPlanResponse
 from models.utility import UtilityType
 

@@ -420,7 +420,9 @@ class TestCheckRescission:
         """rescission_ends > now → fail with days remaining."""
         future = datetime.now(UTC) + timedelta(days=7)
         db = AsyncMock()
-        db.execute = AsyncMock(return_value=_make_db_result({"rescission_ends": future}))
+        db.execute = AsyncMock(
+            return_value=_make_db_result({"rescission_ends": future})
+        )
         svc = _make_service(db)
         result = await svc.check_rescission(USER_ID)
         assert result.passed is False
@@ -480,7 +482,9 @@ class TestRunAllSafeguards:
         # No rescission record
         no_rescission_row = self._make_no_rescission_result()
 
-        db.execute = AsyncMock(side_effect=[kill_switch_row, no_switch_row, no_rescission_row])
+        db.execute = AsyncMock(
+            side_effect=[kill_switch_row, no_switch_row, no_rescission_row]
+        )
 
         svc = _make_service(db)
         results = await svc.run_all_safeguards(

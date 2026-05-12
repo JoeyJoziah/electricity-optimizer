@@ -197,7 +197,11 @@ class TestBetaSignup:
 
     def test_signup_us_zip_plus_four(self, auth_client):
         """ZIP+4 format (e.g. 12345-6789) should be accepted."""
-        payload = {**VALID_SIGNUP, "email": "zipfour@example.com", "postcode": "06510-1234"}
+        payload = {
+            **VALID_SIGNUP,
+            "email": "zipfour@example.com",
+            "postcode": "06510-1234",
+        }
         response = auth_client.post("/api/v1/beta/signup", json=payload)
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -207,7 +211,9 @@ class TestBetaSignup:
         response = auth_client.post("/api/v1/beta/signup", json=VALID_SIGNUP)
         assert response.status_code == 200
         message = response.json()["message"].lower()
-        assert "beta" not in message, f"Response message still contains 'beta': {message!r}"
+        assert (
+            "beta" not in message
+        ), f"Response message still contains 'beta': {message!r}"
 
 
 # =============================================================================

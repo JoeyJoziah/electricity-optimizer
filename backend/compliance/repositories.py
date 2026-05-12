@@ -33,7 +33,10 @@ class ConsentRecordORM(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
     )
     purpose: Mapped[str] = mapped_column(String(50), nullable=False)
     consent_given: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -60,9 +63,14 @@ class DeletionLogORM(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
     )
-    deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     deleted_by: Mapped[str] = mapped_column(String(100), nullable=False)
     deletion_type: Mapped[str] = mapped_column(String(20), nullable=False)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=False)
@@ -176,7 +184,9 @@ class ConsentRepository:
         """
         result = await self.session.execute(
             select(ConsentRecordORM)
-            .where(ConsentRecordORM.user_id == user_id, ConsentRecordORM.purpose == purpose)
+            .where(
+                ConsentRecordORM.user_id == user_id, ConsentRecordORM.purpose == purpose
+            )
             .order_by(ConsentRecordORM.timestamp.desc())
         )
         orm_records = result.scalars().all()
@@ -209,7 +219,9 @@ class ConsentRepository:
                 "WHERE user_id = :uid AND purpose = :purpose "
                 "ORDER BY purpose, timestamp DESC"
             )
-            result = await self.session.execute(query, {"uid": user_id, "purpose": purpose})
+            result = await self.session.execute(
+                query, {"uid": user_id, "purpose": purpose}
+            )
         else:
             query = text(
                 "SELECT DISTINCT ON (purpose) purpose, consent_given "
@@ -237,7 +249,8 @@ class ConsentRepository:
             Number of records deleted
         """
         result = await self.session.execute(
-            text("DELETE FROM consent_records WHERE user_id = :user_id"), {"user_id": user_id}
+            text("DELETE FROM consent_records WHERE user_id = :user_id"),
+            {"user_id": user_id},
         )
 
         return result.rowcount

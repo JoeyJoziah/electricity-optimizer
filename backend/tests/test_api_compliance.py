@@ -97,7 +97,9 @@ class TestRecordConsent:
 
     def test_record_consent_withdrawal(self, compliance_client, mock_gdpr_service):
         """Recording consent withdrawal should return appropriate message."""
-        mock_gdpr_service.record_consent.return_value = _make_consent_record(consent_given=False)
+        mock_gdpr_service.record_consent.return_value = _make_consent_record(
+            consent_given=False
+        )
 
         response = compliance_client.post(
             "/api/v1/compliance/consent",
@@ -221,7 +223,9 @@ class TestDataExport:
         """Should return 404 when user not found."""
         from compliance.gdpr import UserNotFoundError
 
-        mock_gdpr_service.export_user_data.side_effect = UserNotFoundError(TEST_USER.user_id)
+        mock_gdpr_service.export_user_data.side_effect = UserNotFoundError(
+            TEST_USER.user_id
+        )
 
         response = compliance_client.get("/api/v1/compliance/gdpr/export")
         assert response.status_code == 404
@@ -277,7 +281,9 @@ class TestDataDeletion:
         """Should return 404 when user not found."""
         from compliance.gdpr import UserNotFoundError
 
-        mock_gdpr_service.delete_user_data.side_effect = UserNotFoundError(TEST_USER.user_id)
+        mock_gdpr_service.delete_user_data.side_effect = UserNotFoundError(
+            TEST_USER.user_id
+        )
 
         response = compliance_client.request(
             "DELETE",
@@ -303,7 +309,9 @@ class TestWithdrawAllConsents:
         ]
         mock_gdpr_service.withdraw_all_consents.return_value = withdrawals
 
-        response = compliance_client.post("/api/v1/compliance/gdpr/withdraw-all-consents")
+        response = compliance_client.post(
+            "/api/v1/compliance/gdpr/withdraw-all-consents"
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["user_id"] == TEST_USER.user_id

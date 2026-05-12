@@ -182,11 +182,19 @@ class RateScraperService:
             if supplier_urls is None:
                 supplier_urls = []
             if not supplier_urls:
-                return {"total": 0, "succeeded": 0, "failed": 0, "errors": [], "results": []}
+                return {
+                    "total": 0,
+                    "succeeded": 0,
+                    "failed": 0,
+                    "errors": [],
+                    "results": [],
+                }
 
             semaphore = asyncio.Semaphore(max_concurrency)
             tasks = [self._scrape_one(item, semaphore) for item in supplier_urls]
-            raw_results: list[dict] = list(await asyncio.gather(*tasks, return_exceptions=False))
+            raw_results: list[dict] = list(
+                await asyncio.gather(*tasks, return_exceptions=False)
+            )
 
             succeeded = sum(1 for r in raw_results if r.get("success"))
             failed = len(raw_results) - succeeded

@@ -42,7 +42,11 @@ async def get_gas_rates(
                 "id": p.id,
                 "supplier": p.supplier,
                 "price": str(p.price_per_kwh),
-                "unit": UNIT_LABELS.get(PriceUnit(p.unit), "$/therm") if p.unit else "$/therm",
+                "unit": (
+                    UNIT_LABELS.get(PriceUnit(p.unit), "$/therm")
+                    if p.unit
+                    else "$/therm"
+                ),
                 "timestamp": p.timestamp.isoformat(),
                 "source": p.source_api,
             }

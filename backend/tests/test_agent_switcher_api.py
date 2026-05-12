@@ -26,7 +26,8 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import SessionData, get_current_user, get_db_session, require_tier
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              require_tier)
 
 # ---------------------------------------------------------------------------
 # Stable IDs
@@ -57,8 +58,16 @@ class _MockSwitcherDB:
         self._audit_log: list[dict] = []
         self._executions: list[dict] = []
         self._users: dict[str, dict] = {
-            TEST_USER_ID: {"id": TEST_USER_ID, "subscription_tier": "pro", "region": "us_ct"},
-            OTHER_USER_ID: {"id": OTHER_USER_ID, "subscription_tier": "free", "region": "us_ny"},
+            TEST_USER_ID: {
+                "id": TEST_USER_ID,
+                "subscription_tier": "pro",
+                "region": "us_ct",
+            },
+            OTHER_USER_ID: {
+                "id": OTHER_USER_ID,
+                "subscription_tier": "free",
+                "region": "us_ny",
+            },
         }
         self.commit = AsyncMock()
         self.rollback = AsyncMock()
@@ -123,9 +132,11 @@ class _MockSwitcherDB:
             "savings_threshold_min": params.get("savings_threshold_min", 10.0),
             "cooldown_days": params.get("cooldown_days", 5),
             "paused_until": params.get("paused_until"),
-            "loa_signed_at": params.get("loa_signed_at") or params.get("now")
-            if "loa_signed_at" in params
-            else None,
+            "loa_signed_at": (
+                params.get("loa_signed_at") or params.get("now")
+                if "loa_signed_at" in params
+                else None
+            ),
             "loa_revoked_at": params.get("loa_revoked_at"),
             "created_at": now,
             "updated_at": now,
@@ -557,9 +568,9 @@ class TestGetSettings:
             "created_at",
             "updated_at",
         }
-        assert expected_keys.issubset(set(data.keys())), (
-            f"Missing keys: {expected_keys - set(data.keys())}"
-        )
+        assert expected_keys.issubset(
+            set(data.keys())
+        ), f"Missing keys: {expected_keys - set(data.keys())}"
 
 
 class TestUpdateSettings:
@@ -826,8 +837,12 @@ class TestHistory:
         """Activity feed is ordered newest first."""
         old_time = datetime.now(UTC) - timedelta(hours=2)
         new_time = datetime.now(UTC)
-        mock_db.seed_audit_entry(user_id=TEST_USER_ID, decision="hold", created_at=old_time)
-        mock_db.seed_audit_entry(user_id=TEST_USER_ID, decision="recommend", created_at=new_time)
+        mock_db.seed_audit_entry(
+            user_id=TEST_USER_ID, decision="hold", created_at=old_time
+        )
+        mock_db.seed_audit_entry(
+            user_id=TEST_USER_ID, decision="recommend", created_at=new_time
+        )
         response = pro_client.get("/api/v1/agent-switcher/activity")
         assert response.status_code == 200
         data = response.json()
@@ -866,9 +881,9 @@ class TestCheckNow:
             "etf_cost",
             "confidence",
         }
-        assert required.issubset(set(decision.keys())), (
-            f"Missing: {required - set(decision.keys())}"
-        )
+        assert required.issubset(
+            set(decision.keys())
+        ), f"Missing: {required - set(decision.keys())}"
 
     def test_check_now_stores_audit_log(self, pro_client, mock_db):
         """Check-now writes an entry to switch_audit_log."""
@@ -962,7 +977,9 @@ class TestRollback:
 
     def test_rollback_rolled_back_status_returns_400(self, pro_client, mock_db):
         """Already rolled-back execution returns 400."""
-        row = mock_db.seed_execution(user_id=TEST_USER_ID, status="rolled_back", days_old=1)
+        row = mock_db.seed_execution(
+            user_id=TEST_USER_ID, status="rolled_back", days_old=1
+        )
         response = pro_client.post(f"/api/v1/agent-switcher/rollback/{row['id']}")
         assert response.status_code == 400
 
@@ -971,7 +988,10 @@ class TestRollback:
         row = mock_db.seed_execution(user_id=TEST_USER_ID, status="active", days_old=31)
         response = pro_client.post(f"/api/v1/agent-switcher/rollback/{row['id']}")
         assert response.status_code == 400
-        assert "30" in response.json()["detail"] or "window" in response.json()["detail"].lower()
+        assert (
+            "30" in response.json()["detail"]
+            or "window" in response.json()["detail"].lower()
+        )
 
 
 # =============================================================================
@@ -1005,7 +1025,9 @@ class TestApprove:
                 "message": "Recommendation approved. Switch execution initiated.",
             }
 
-        monkeypatch.setattr(SwitchExecutionService, "approve_recommendation", _fake_approve)
+        monkeypatch.setattr(
+            SwitchExecutionService, "approve_recommendation", _fake_approve
+        )
 
         response = pro_client.post(f"/api/v1/agent-switcher/approve/{entry['id']}")
         assert response.status_code == 200
@@ -1048,14 +1070,18 @@ class TestApprove:
 
     def test_approve_non_recommend_returns_400(self, pro_client, mock_db):
         """Approving a 'hold' decision returns 400."""
-        entry = mock_db.seed_audit_entry(user_id=TEST_USER_ID, decision="hold", executed=False)
+        entry = mock_db.seed_audit_entry(
+            user_id=TEST_USER_ID, decision="hold", executed=False
+        )
         response = pro_client.post(f"/api/v1/agent-switcher/approve/{entry['id']}")
         assert response.status_code == 400
         assert "recommend" in response.json()["detail"].lower()
 
     def test_approve_monitor_returns_400(self, pro_client, mock_db):
         """Approving a 'monitor' decision returns 400."""
-        entry = mock_db.seed_audit_entry(user_id=TEST_USER_ID, decision="monitor", executed=False)
+        entry = mock_db.seed_audit_entry(
+            user_id=TEST_USER_ID, decision="monitor", executed=False
+        )
         response = pro_client.post(f"/api/v1/agent-switcher/approve/{entry['id']}")
         assert response.status_code == 400
 

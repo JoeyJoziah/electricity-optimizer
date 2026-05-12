@@ -16,18 +16,10 @@ Features:
 - Data normalization to common schema
 """
 
-from .base import (
-    APIError,
-    AuthenticationError,
-    BasePricingClient,
-    ForecastData,
-    PriceData,
-    PriceForecast,  # backward-compat alias for ForecastData
-    PriceUnit,
-    PricingRegion,
-    RateLimitError,
-    ServiceUnavailableError,
-)
+from .base import PriceForecast  # backward-compat alias for ForecastData
+from .base import (APIError, AuthenticationError, BasePricingClient,
+                   ForecastData, PriceData, PriceUnit, PricingRegion,
+                   RateLimitError, ServiceUnavailableError)
 from .cache import PricingCache
 from .flatpeak import FlatpeakClient
 from .iea import IEAClient

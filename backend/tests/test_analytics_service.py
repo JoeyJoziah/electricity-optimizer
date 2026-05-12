@@ -379,7 +379,9 @@ class TestGetSupplierComparisonAnalytics:
         ]
         mock_repo.get_supplier_price_stats.return_value = rows
 
-        result = await service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
+        result = await service.get_supplier_comparison_analytics(
+            PriceRegion.US_CT, days=30
+        )
 
         assert "suppliers" in result
         assert len(result["suppliers"]) == 2
@@ -388,7 +390,9 @@ class TestGetSupplierComparisonAnalytics:
         # Lowest volatility is United Illuminating (0.02)
         assert result["most_stable"] == "United Illuminating"
 
-    async def test_get_supplier_comparison_cached(self, cached_service, mock_repo, mock_cache):
+    async def test_get_supplier_comparison_cached(
+        self, cached_service, mock_repo, mock_cache
+    ):
         """Cache hit returns stored payload without querying repository."""
         from models.price import PriceRegion
 
@@ -412,7 +416,9 @@ class TestGetSupplierComparisonAnalytics:
         )
         mock_cache.get.return_value = cached_payload
 
-        result = await cached_service.get_supplier_comparison_analytics(PriceRegion.US_CT, days=30)
+        result = await cached_service.get_supplier_comparison_analytics(
+            PriceRegion.US_CT, days=30
+        )
 
         assert result["cheapest_supplier"] == "Eversource"
         assert result["suppliers"][0]["average_price"] == Decimal("0.26")
@@ -444,7 +450,9 @@ class TestAcquireCacheLock:
         acquired = await svc._acquire_cache_lock("test:key")
         assert acquired is True
 
-    async def test_lock_not_acquired_when_redis_returns_falsy(self, mock_repo, mock_cache):
+    async def test_lock_not_acquired_when_redis_returns_falsy(
+        self, mock_repo, mock_cache
+    ):
         """SET NX returns falsy (lock already held) → returns False."""
         from services.analytics_service import AnalyticsService
 

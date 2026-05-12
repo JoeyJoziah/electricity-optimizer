@@ -39,9 +39,11 @@ def _row_to_price(row: dict) -> Price:
         is_peak=row.get("is_peak"),
         source_api=row.get("source_api"),
         created_at=row.get("created_at", datetime.now(UTC)),
-        carbon_intensity=float(row["carbon_intensity"])
-        if row.get("carbon_intensity") is not None
-        else None,
+        carbon_intensity=(
+            float(row["carbon_intensity"])
+            if row.get("carbon_intensity") is not None
+            else None
+        ),
         utility_type=row.get("utility_type", "electricity"),
     )
 
@@ -54,7 +56,9 @@ class PriceRepository(BaseRepository[Price]):
     Uses raw SQL queries against the electricity_prices table.
     """
 
-    def __init__(self, db_session: AsyncSession, cache: Any = None, cache_ttl: int = 60):
+    def __init__(
+        self, db_session: AsyncSession, cache: Any = None, cache_ttl: int = 60
+    ):
         """
         Initialize the price repository.
 
@@ -168,9 +172,11 @@ class PriceRepository(BaseRepository[Price]):
                 """),
                 {
                     "id": entity.id,
-                    "region": entity.region
-                    if isinstance(entity.region, str)
-                    else entity.region.value,
+                    "region": (
+                        entity.region
+                        if isinstance(entity.region, str)
+                        else entity.region.value
+                    ),
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -179,9 +185,11 @@ class PriceRepository(BaseRepository[Price]):
                     "source_api": entity.source_api,
                     "created_at": entity.created_at,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type
-                    if isinstance(entity.utility_type, str)
-                    else entity.utility_type.value,
+                    "utility_type": (
+                        entity.utility_type
+                        if isinstance(entity.utility_type, str)
+                        else entity.utility_type.value
+                    ),
                 },
             )
             await self._db.commit()
@@ -219,9 +227,11 @@ class PriceRepository(BaseRepository[Price]):
                 """),
                 {
                     "id": id,
-                    "region": entity.region
-                    if isinstance(entity.region, str)
-                    else entity.region.value,
+                    "region": (
+                        entity.region
+                        if isinstance(entity.region, str)
+                        else entity.region.value
+                    ),
                     "supplier": entity.supplier,
                     "price_per_kwh": entity.price_per_kwh,
                     "currency": entity.currency,
@@ -229,9 +239,11 @@ class PriceRepository(BaseRepository[Price]):
                     "is_peak": entity.is_peak,
                     "source_api": entity.source_api,
                     "carbon_intensity": entity.carbon_intensity,
-                    "utility_type": entity.utility_type
-                    if isinstance(entity.utility_type, str)
-                    else entity.utility_type.value,
+                    "utility_type": (
+                        entity.utility_type
+                        if isinstance(entity.utility_type, str)
+                        else entity.utility_type.value
+                    ),
                 },
             )
             await self._db.commit()
@@ -280,7 +292,9 @@ class PriceRepository(BaseRepository[Price]):
             await self._db.rollback()
             raise RepositoryError(f"Failed to delete price: {str(e)}", e)
 
-    async def list(self, page: int = 1, page_size: int = 10, **filters: Any) -> list[Price]:
+    async def list(
+        self, page: int = 1, page_size: int = 10, **filters: Any
+    ) -> list[Price]:
         """
         List prices with pagination.
 
@@ -336,7 +350,8 @@ class PriceRepository(BaseRepository[Price]):
         try:
             # Build region value list for IN clause
             region_params = {
-                f"r{i}": (r.value if hasattr(r, "value") else r) for i, r in enumerate(regions)
+                f"r{i}": (r.value if hasattr(r, "value") else r)
+                for i, r in enumerate(regions)
             }
             placeholders = ", ".join(f":{k}" for k in region_params)
 
@@ -355,7 +370,9 @@ class PriceRepository(BaseRepository[Price]):
             rows = result.mappings().all()
             return [_row_to_price(row) for row in rows]
         except Exception as e:
-            raise RepositoryError(f"Failed to list latest prices by regions: {str(e)}", e)
+            raise RepositoryError(
+                f"Failed to list latest prices by regions: {str(e)}", e
+            )
 
     async def count(self, **filters: Any) -> int:
         """
@@ -411,7 +428,9 @@ class PriceRepository(BaseRepository[Price]):
         """
         try:
             region_val = region.value if hasattr(region, "value") else region
-            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            ut_val = (
+                utility_type.value if hasattr(utility_type, "value") else utility_type
+            )
 
             # Check cache first (include limit in key to prevent stale data)
             cache_key = self._cache_key("current", region_val, ut_val, limit)
@@ -472,7 +491,9 @@ class PriceRepository(BaseRepository[Price]):
         """
         try:
             region_val = region.value if hasattr(region, "value") else region
-            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            ut_val = (
+                utility_type.value if hasattr(utility_type, "value") else utility_type
+            )
 
             cache_key = self._cache_key("cheapest", region_val, ut_val)
             cached = await self._get_from_cache(cache_key)
@@ -501,7 +522,9 @@ class PriceRepository(BaseRepository[Price]):
         except Exception as e:
             raise RepositoryError(f"Failed to get cheapest price: {str(e)}", e)
 
-    async def get_latest_by_supplier(self, region: PriceRegion, supplier: str) -> Price | None:
+    async def get_latest_by_supplier(
+        self, region: PriceRegion, supplier: str
+    ) -> Price | None:
         """
         Get the latest price for a specific supplier.
 
@@ -567,7 +590,9 @@ class PriceRepository(BaseRepository[Price]):
         """
         try:
             region_val = region.value if hasattr(region, "value") else region
-            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            ut_val = (
+                utility_type.value if hasattr(utility_type, "value") else utility_type
+            )
 
             sql = f"""
                 SELECT {_PRICE_COLUMNS}
@@ -633,7 +658,9 @@ class PriceRepository(BaseRepository[Price]):
             offset = (page - 1) * page_size
 
             region_val = region.value if hasattr(region, "value") else region
-            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            ut_val = (
+                utility_type.value if hasattr(utility_type, "value") else utility_type
+            )
 
             base_params: dict[str, Any] = {
                 "region": region_val,
@@ -680,7 +707,9 @@ class PriceRepository(BaseRepository[Price]):
             return prices, total
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get paginated historical prices: {str(e)}", e)
+            raise RepositoryError(
+                f"Failed to get paginated historical prices: {str(e)}", e
+            )
 
     async def bulk_create(self, prices: builtins.list[Price]) -> int:
         """
@@ -713,7 +742,9 @@ class PriceRepository(BaseRepository[Price]):
                     )
                     params[f"id{i}"] = entity.id
                     params[f"region{i}"] = (
-                        entity.region if isinstance(entity.region, str) else entity.region.value
+                        entity.region
+                        if isinstance(entity.region, str)
+                        else entity.region.value
                     )
                     params[f"supplier{i}"] = entity.supplier
                     params[f"price_per_kwh{i}"] = entity.price_per_kwh
@@ -764,7 +795,9 @@ class PriceRepository(BaseRepository[Price]):
         """
         try:
             region_val = region.value if hasattr(region, "value") else region
-            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            ut_val = (
+                utility_type.value if hasattr(utility_type, "value") else utility_type
+            )
             start_date = datetime.now(UTC) - timedelta(days=days)
 
             result = await self._db.execute(
@@ -779,16 +812,26 @@ class PriceRepository(BaseRepository[Price]):
                       AND utility_type = :utility_type
                       AND timestamp >= :start_date
                 """),
-                {"region": region_val, "utility_type": ut_val, "start_date": start_date},
+                {
+                    "region": region_val,
+                    "utility_type": ut_val,
+                    "start_date": start_date,
+                },
             )
             row = result.mappings().first()
 
             return {
-                "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
-                "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
-                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
-                if row["avg_price"]
-                else None,
+                "min_price": (
+                    Decimal(str(row["min_price"])) if row["min_price"] else None
+                ),
+                "max_price": (
+                    Decimal(str(row["max_price"])) if row["max_price"] else None
+                ),
+                "avg_price": (
+                    Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
+                    if row["avg_price"]
+                    else None
+                ),
                 "count": row["count"],
                 "period_days": days,
                 "utility_type": ut_val,
@@ -819,7 +862,9 @@ class PriceRepository(BaseRepository[Price]):
         """
         try:
             region_val = region.value if hasattr(region, "value") else region
-            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            ut_val = (
+                utility_type.value if hasattr(utility_type, "value") else utility_type
+            )
             start_date = datetime.now(UTC) - timedelta(days=days)
 
             result = await self._db.execute(
@@ -835,26 +880,40 @@ class PriceRepository(BaseRepository[Price]):
                       AND utility_type = :utility_type
                       AND timestamp >= :start_date
                 """),
-                {"region": region_val, "utility_type": ut_val, "start_date": start_date},
+                {
+                    "region": region_val,
+                    "utility_type": ut_val,
+                    "start_date": start_date,
+                },
             )
             row = result.mappings().first()
 
             return {
-                "min_price": Decimal(str(row["min_price"])) if row["min_price"] else None,
-                "max_price": Decimal(str(row["max_price"])) if row["max_price"] else None,
-                "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
-                if row["avg_price"]
-                else None,
-                "stddev_price": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
-                if row["stddev_price"]
-                else None,
+                "min_price": (
+                    Decimal(str(row["min_price"])) if row["min_price"] else None
+                ),
+                "max_price": (
+                    Decimal(str(row["max_price"])) if row["max_price"] else None
+                ),
+                "avg_price": (
+                    Decimal(str(row["avg_price"])).quantize(Decimal("0.0001"))
+                    if row["avg_price"]
+                    else None
+                ),
+                "stddev_price": (
+                    Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
+                    if row["stddev_price"]
+                    else None
+                ),
                 "count": row["count"],
                 "period_days": days,
                 "utility_type": ut_val,
             }
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get price statistics with stddev: {str(e)}", e)
+            raise RepositoryError(
+                f"Failed to get price statistics with stddev: {str(e)}", e
+            )
 
     async def get_price_trend_aggregates(
         self,
@@ -875,7 +934,9 @@ class PriceRepository(BaseRepository[Price]):
         """
         try:
             region_val = region.value if hasattr(region, "value") else region
-            ut_val = utility_type.value if hasattr(utility_type, "value") else utility_type
+            ut_val = (
+                utility_type.value if hasattr(utility_type, "value") else utility_type
+            )
 
             result = await self._db.execute(
                 text("""
@@ -912,15 +973,23 @@ class PriceRepository(BaseRepository[Price]):
             row = result.mappings().first()
 
             if not row or row["total_count"] is None or row["total_count"] < 2:
-                return {"first_third_avg": None, "last_third_avg": None, "total_count": 0}
+                return {
+                    "first_third_avg": None,
+                    "last_third_avg": None,
+                    "total_count": 0,
+                }
 
             return {
-                "first_third_avg": Decimal(str(row["first_third_avg"]))
-                if row["first_third_avg"]
-                else None,
-                "last_third_avg": Decimal(str(row["last_third_avg"]))
-                if row["last_third_avg"]
-                else None,
+                "first_third_avg": (
+                    Decimal(str(row["first_third_avg"]))
+                    if row["first_third_avg"]
+                    else None
+                ),
+                "last_third_avg": (
+                    Decimal(str(row["last_third_avg"]))
+                    if row["last_third_avg"]
+                    else None
+                ),
                 "total_count": row["total_count"],
             }
 
@@ -969,7 +1038,9 @@ class PriceRepository(BaseRepository[Price]):
             return [
                 {
                     "hour": int(row["hour"]),
-                    "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")),
+                    "avg_price": Decimal(str(row["avg_price"])).quantize(
+                        Decimal("0.0001")
+                    ),
                     "count": row["count"],
                 }
                 for row in rows
@@ -1023,12 +1094,20 @@ class PriceRepository(BaseRepository[Price]):
             return [
                 {
                     "supplier": row["supplier"],
-                    "avg_price": Decimal(str(row["avg_price"])).quantize(Decimal("0.0001")),
-                    "min_price": Decimal(str(row["min_price"])).quantize(Decimal("0.0001")),
-                    "max_price": Decimal(str(row["max_price"])).quantize(Decimal("0.0001")),
-                    "volatility": Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
-                    if row["stddev_price"]
-                    else Decimal("0"),
+                    "avg_price": Decimal(str(row["avg_price"])).quantize(
+                        Decimal("0.0001")
+                    ),
+                    "min_price": Decimal(str(row["min_price"])).quantize(
+                        Decimal("0.0001")
+                    ),
+                    "max_price": Decimal(str(row["max_price"])).quantize(
+                        Decimal("0.0001")
+                    ),
+                    "volatility": (
+                        Decimal(str(row["stddev_price"])).quantize(Decimal("0.0001"))
+                        if row["stddev_price"]
+                        else Decimal("0")
+                    ),
                     "count": row["count"],
                 }
                 for row in rows

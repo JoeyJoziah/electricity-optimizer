@@ -13,10 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-from services.forecast_service import (
-    FORECASTABLE_UTILITIES,
-    ForecastService,
-)
+from services.forecast_service import FORECASTABLE_UTILITIES, ForecastService
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -147,7 +144,9 @@ class TestExtrapolateTrend:
 
     def test_increasing_trend(self):
         base = datetime(2026, 1, 1, tzinfo=UTC)
-        rows = _make_rows([(base + timedelta(days=i), 0.10 + 0.002 * i) for i in range(30)])
+        rows = _make_rows(
+            [(base + timedelta(days=i), 0.10 + 0.002 * i) for i in range(30)]
+        )
         result = ForecastService._extrapolate_trend(
             utility_type="electricity",
             rows=rows,
@@ -163,7 +162,9 @@ class TestExtrapolateTrend:
 
     def test_decreasing_trend(self):
         base = datetime(2026, 1, 1, tzinfo=UTC)
-        rows = _make_rows([(base + timedelta(days=i), 0.20 - 0.003 * i) for i in range(30)])
+        rows = _make_rows(
+            [(base + timedelta(days=i), 0.20 - 0.003 * i) for i in range(30)]
+        )
         result = ForecastService._extrapolate_trend(
             utility_type="electricity",
             rows=rows,
@@ -192,7 +193,9 @@ class TestExtrapolateTrend:
 
     def test_negative_forecast_clamped_to_zero(self):
         base = datetime(2026, 1, 1, tzinfo=UTC)
-        rows = _make_rows([(base + timedelta(days=i), 0.05 - 0.005 * i) for i in range(10)])
+        rows = _make_rows(
+            [(base + timedelta(days=i), 0.05 - 0.005 * i) for i in range(10)]
+        )
         result = ForecastService._extrapolate_trend(
             utility_type="propane",
             rows=rows,
@@ -206,7 +209,9 @@ class TestExtrapolateTrend:
 
     def test_response_keys_complete(self):
         base = datetime(2026, 1, 1, tzinfo=UTC)
-        rows = _make_rows([(base + timedelta(days=i), 0.12 + 0.001 * i) for i in range(10)])
+        rows = _make_rows(
+            [(base + timedelta(days=i), 0.12 + 0.001 * i) for i in range(10)]
+        )
         result = ForecastService._extrapolate_trend(
             utility_type="natural_gas",
             rows=rows,

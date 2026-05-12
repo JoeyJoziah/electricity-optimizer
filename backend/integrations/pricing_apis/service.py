@@ -17,12 +17,7 @@ import structlog
 
 from lib.circuit_breaker import CircuitBreaker
 
-from .base import (
-    APIError,
-    PriceData,
-    PriceForecast,
-    PricingRegion,
-)
+from .base import APIError, PriceData, PriceForecast, PricingRegion
 from .cache import PricingCache
 from .eia import EIAClient
 from .flatpeak import FlatpeakClient
@@ -273,7 +268,9 @@ class PricingService:
                     )
                     fb_breaker = self._breakers.get(fallback_name)
                     if fb_breaker:
-                        return await fb_breaker.call(fallback_client.get_current_price(region))
+                        return await fb_breaker.call(
+                            fallback_client.get_current_price(region)
+                        )
                     else:
                         return await fallback_client.get_current_price(region)
                 except Exception as fallback_error:
@@ -311,7 +308,9 @@ class PricingService:
         try:
             breaker = self._breakers.get(primary_name)
             if breaker:
-                return await breaker.call(primary_client.get_price_forecast(region, hours))
+                return await breaker.call(
+                    primary_client.get_price_forecast(region, hours)
+                )
             else:
                 return await primary_client.get_price_forecast(region, hours)
         except Exception as e:

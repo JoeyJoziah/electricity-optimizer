@@ -51,7 +51,9 @@ def _mapping_result(rows: list) -> MagicMock:
     result = MagicMock()
     mock_rows = [_DictRow(r) for r in rows]
     result.mappings.return_value.all.return_value = mock_rows
-    result.mappings.return_value.first.return_value = mock_rows[0] if mock_rows else None
+    result.mappings.return_value.first.return_value = (
+        mock_rows[0] if mock_rows else None
+    )
     result.fetchone.return_value = mock_rows[0] if mock_rows else None
     result.scalar.return_value = len(mock_rows)
     result.scalar_one_or_none.return_value = None
@@ -183,7 +185,8 @@ class TestRateHistoryMultiSource:
 
     async def test_history_returns_email_scan_rates(self):
         """Rates with source='email_scan' appear in the history output."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         rows = [self._make_rate_row("email_scan", rate=0.1800)]
@@ -200,7 +203,8 @@ class TestRateHistoryMultiSource:
 
     async def test_history_returns_email_attachment_rates(self):
         """Rates with source='email_attachment' appear in the history output."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         rows = [self._make_rate_row("email_attachment", rate=0.2100)]
@@ -216,7 +220,8 @@ class TestRateHistoryMultiSource:
 
     async def test_history_returns_api_pull_rates(self):
         """Rates with source='api_pull' appear in the history output."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         rows = [self._make_rate_row("api_pull", rate=0.1650)]
@@ -232,7 +237,8 @@ class TestRateHistoryMultiSource:
 
     async def test_history_returns_bill_parse_rates(self):
         """Rates with source='bill_parse' appear in the history output."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         rows = [self._make_rate_row("bill_parse", rate=0.2250)]
@@ -248,7 +254,8 @@ class TestRateHistoryMultiSource:
 
     async def test_history_returns_all_sources_in_mixed_batch(self):
         """All four source types coexist correctly in a single result set."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         rows = [
@@ -266,11 +273,17 @@ class TestRateHistoryMultiSource:
 
         assert output["total"] == 4
         found_sources = {dp["source"] for dp in output["data_points"]}
-        assert found_sources == {"email_scan", "email_attachment", "api_pull", "bill_parse"}
+        assert found_sources == {
+            "email_scan",
+            "email_attachment",
+            "api_pull",
+            "bill_parse",
+        }
 
     async def test_history_sources_are_not_normalised(self):
         """Source strings are preserved verbatim — no remapping or normalisation."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         # Use the exact strings returned by the DB
@@ -282,13 +295,14 @@ class TestRateHistoryMultiSource:
 
             svc = ConnectionAnalyticsService(db)
             output = await svc.get_rate_history(TEST_USER_ID)
-            assert output["data_points"][0]["source"] == source, (
-                f"Source '{source}' was altered during history serialisation"
-            )
+            assert (
+                output["data_points"][0]["source"] == source
+            ), f"Source '{source}' was altered during history serialisation"
 
     async def test_history_multiple_connections_multi_source(self):
         """Multi-source rates across two connections are returned without filtering."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         rows = [
@@ -345,12 +359,15 @@ class TestRateComparisonMultiSource:
     @pytest.mark.parametrize("source", ALL_SOURCES)
     async def test_comparison_returns_has_data_for_each_source(self, source: str):
         """Comparison always returns has_data=True regardless of rate source."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
 
         rate_result = MagicMock()
-        rate_result.mappings.return_value.first.return_value = self._make_rate_region_row(source)
+        rate_result.mappings.return_value.first.return_value = (
+            self._make_rate_region_row(source)
+        )
 
         market_result = MagicMock()
         market_result.mappings.return_value.first.return_value = self._make_market_row()
@@ -360,7 +377,9 @@ class TestRateComparisonMultiSource:
         svc = ConnectionAnalyticsService(db)
         result = await svc.get_rate_comparison(TEST_USER_ID)
 
-        assert result["has_data"] is True, f"Expected has_data=True for source='{source}'"
+        assert (
+            result["has_data"] is True
+        ), f"Expected has_data=True for source='{source}'"
         assert result["user_rate"] == pytest.approx(0.2500, abs=1e-6)
 
 
@@ -475,7 +494,12 @@ class TestGetRatesEndpointMultiSource:
         assert body["total"] == 4
         assert len(body["rates"]) == 4
         returned_sources = {r["source"] for r in body["rates"]}
-        assert returned_sources == {"email_scan", "email_attachment", "api_pull", "bill_parse"}
+        assert returned_sources == {
+            "email_scan",
+            "email_attachment",
+            "api_pull",
+            "bill_parse",
+        }
 
     def test_get_rates_source_field_preserved_verbatim(self, client):
         """Source strings are never normalised or remapped in the API response."""
@@ -491,9 +515,9 @@ class TestGetRatesEndpointMultiSource:
 
             assert response.status_code == 200
             returned_source = response.json()["rates"][0]["source"]
-            assert returned_source == source, (
-                f"Source '{source}' was changed to '{returned_source}' in the response"
-            )
+            assert (
+                returned_source == source
+            ), f"Source '{source}' was changed to '{returned_source}' in the response"
 
     def test_get_rates_sources_can_be_differentiated_by_field(self, client):
         """Each rate in the response carries a ``source`` field consumers can use."""
@@ -514,7 +538,9 @@ class TestGetRatesEndpointMultiSource:
         body = response.json()
         for rate in body["rates"]:
             assert "source" in rate, "source field missing from rate response"
-            assert rate["source"] in ALL_SOURCES, f"Unexpected source value '{rate['source']}'"
+            assert (
+                rate["source"] in ALL_SOURCES
+            ), f"Unexpected source value '{rate['source']}'"
 
     def test_get_rates_pagination_works_with_multi_source_data(self, client):
         """Pagination metadata is correct with a multi-source dataset of 4 rates."""
@@ -580,7 +606,9 @@ class TestGetCurrentRateMultiSource:
         assert response.status_code == 200
         body = response.json()
         assert body is not None
-        assert body["source"] == source, f"Expected source='{source}', got '{body['source']}'"
+        assert (
+            body["source"] == source
+        ), f"Expected source='{source}', got '{body['source']}'"
 
     def test_current_rate_prefers_most_recent_regardless_of_source(self, client):
         """The current-rate endpoint returns the latest row, whatever its source."""

@@ -22,7 +22,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
-from api.dependencies import SessionData, _get_user_tier, get_current_user, get_db_session
+from api.dependencies import (SessionData, _get_user_tier, get_current_user,
+                              get_db_session)
 from config.settings import settings
 from services.agent_service import AgentService, get_agent_service
 
@@ -137,9 +138,15 @@ async def query_agent(
     tier = context["tier"]
 
     # Atomic rate-limit check + increment (prevents TOCTOU race)
-    allowed, count = await service.increment_usage_atomic(current_user.user_id, tier, db)
+    allowed, count = await service.increment_usage_atomic(
+        current_user.user_id, tier, db
+    )
     if not allowed:
-        limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
+        limit = (
+            settings.agent_pro_daily_limit
+            if tier == "pro"
+            else settings.agent_free_daily_limit
+        )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Daily query limit reached ({count}/{limit}). Upgrade your plan for more queries.",
@@ -166,7 +173,9 @@ async def query_agent(
             yield f"data: {data}\n\n"
         yield "data: [DONE]\n\n"
 
-    logger.info("agent_query_started", user_id=current_user.user_id, prompt_len=len(body.prompt))
+    logger.info(
+        "agent_query_started", user_id=current_user.user_id, prompt_len=len(body.prompt)
+    )
 
     return StreamingResponse(
         event_stream(),
@@ -215,9 +224,15 @@ async def submit_agent_task(
     tier = context["tier"]
 
     # Atomic rate-limit check + increment (prevents TOCTOU race)
-    allowed, count = await service.increment_usage_atomic(current_user.user_id, tier, db)
+    allowed, count = await service.increment_usage_atomic(
+        current_user.user_id, tier, db
+    )
     if not allowed:
-        limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
+        limit = (
+            settings.agent_pro_daily_limit
+            if tier == "pro"
+            else settings.agent_free_daily_limit
+        )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Daily query limit reached ({count}/{limit}).",

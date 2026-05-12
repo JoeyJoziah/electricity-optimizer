@@ -96,7 +96,9 @@ class OptimizationReportService:
             "utility_count": len(utilities),
         }
 
-    async def _get_electricity_and_gas_spend(self, state: str) -> tuple[dict | None, dict | None]:
+    async def _get_electricity_and_gas_spend(
+        self, state: str
+    ) -> tuple[dict | None, dict | None]:
         """Get electricity + natural gas spend in a single query (CTE merge).
 
         Both utility types live in electricity_prices, so one round trip suffices.

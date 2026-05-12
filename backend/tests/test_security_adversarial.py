@@ -198,7 +198,9 @@ def full_app_client():
         patch("config.database.db_manager.initialize", new_callable=AsyncMock),
         patch("config.database.db_manager.close", new_callable=AsyncMock),
         patch(
-            "config.database.db_manager.get_redis_client", new_callable=AsyncMock, return_value=None
+            "config.database.db_manager.get_redis_client",
+            new_callable=AsyncMock,
+            return_value=None,
         ),
         patch(
             "config.database.db_manager._execute_raw_query",
@@ -268,17 +270,21 @@ class TestSQLInjection:
         """
         for payload in SQL_INJECTION_PAYLOADS:
             response = full_app_client.get(f"/api/v1/suppliers/{payload}")
-            assert response.status_code in (404, 422, 400), (
-                f"SQL injection in supplier_id was not rejected. Got HTTP {response.status_code}."
-            )
+            assert response.status_code in (
+                404,
+                422,
+                400,
+            ), f"SQL injection in supplier_id was not rejected. Got HTTP {response.status_code}."
 
     def test_days_parameter_sql_injection(self, full_app_client):
         """The 'days' query parameter is typed as int; non-integer input must be 422."""
         for payload in ["1; DROP TABLE--", "' OR 1=1", "1 UNION SELECT 1"]:
-            response = full_app_client.get(f"/api/v1/prices/history?region=us_ct&days={payload}")
-            assert response.status_code == 422, (
-                f"Expected 422 for non-integer 'days={payload}', got {response.status_code}."
+            response = full_app_client.get(
+                f"/api/v1/prices/history?region=us_ct&days={payload}"
             )
+            assert (
+                response.status_code == 422
+            ), f"Expected 422 for non-integer 'days={payload}', got {response.status_code}."
 
 
 # =============================================================================
@@ -313,14 +319,16 @@ class TestXSSInputHandling:
         """
         for payload in XSS_PAYLOADS:
             response = client.post("/echo-name", json={"name": payload})
-            assert response.status_code in (200, 422, 400), (
-                f"XSS payload in 'name' field caused unexpected status {response.status_code}."
-            )
+            assert response.status_code in (
+                200,
+                422,
+                400,
+            ), f"XSS payload in 'name' field caused unexpected status {response.status_code}."
             # If accepted as 200, ensure Content-Type is application/json
             if response.status_code == 200:
-                assert "application/json" in response.headers.get("content-type", ""), (
-                    "Response to XSS input is not JSON."
-                )
+                assert "application/json" in response.headers.get(
+                    "content-type", ""
+                ), "Response to XSS input is not JSON."
 
     def test_xss_in_email_field_rejected(self, client):
         """
@@ -333,9 +341,11 @@ class TestXSSInputHandling:
             # Plain XSS strings are not valid email addresses; either 200
             # (if the echo endpoint has no EmailStr validator — it doesn't
             # in our minimal test app) or 422.
-            assert response.status_code in (200, 422, 400), (
-                f"XSS in email caused {response.status_code}."
-            )
+            assert response.status_code in (
+                200,
+                422,
+                400,
+            ), f"XSS in email caused {response.status_code}."
 
     def test_xss_in_password_check_field(self, full_app_client):
         """
@@ -362,9 +372,9 @@ class TestXSSInputHandling:
                     "/api/v1/auth/password/check-strength",
                     json={"password": payload},
                 )
-                assert response.status_code == 200, (
-                    f"XSS payload in password check caused {response.status_code}."
-                )
+                assert (
+                    response.status_code == 200
+                ), f"XSS payload in password check caused {response.status_code}."
                 assert "application/json" in response.headers.get("content-type", ""), (
                     f"Response to XSS-in-password is not JSON. "
                     f"Content-Type: {response.headers.get('content-type')}"
@@ -417,9 +427,9 @@ class TestRateLimitBypass:
         # The identifier must be based on the real client address
         identifier = middleware._get_identifier(req)
         # X-Forwarded-For is not in the headers, so bucket must use real IP
-        assert "1.2.3.4" in identifier or "ip:" in identifier, (
-            f"Rate limiter identifier does not include client IP: {identifier}"
-        )
+        assert (
+            "1.2.3.4" in identifier or "ip:" in identifier
+        ), f"Rate limiter identifier does not include client IP: {identifier}"
 
     def test_spoofed_x_forwarded_for_ignored(self):
         """
@@ -445,12 +455,12 @@ class TestRateLimitBypass:
         req = FakeRequest()
         identifier = middleware._get_identifier(req)
         # Must NOT use the spoofed 127.0.0.1
-        assert "127.0.0.1" not in identifier, (
-            f"Rate limiter trusted spoofed X-Forwarded-For: {identifier}"
-        )
-        assert "203.0.113.42" in identifier or "ip:" in identifier, (
-            f"Rate limiter did not use the real client IP: {identifier}"
-        )
+        assert (
+            "127.0.0.1" not in identifier
+        ), f"Rate limiter trusted spoofed X-Forwarded-For: {identifier}"
+        assert (
+            "203.0.113.42" in identifier or "ip:" in identifier
+        ), f"Rate limiter did not use the real client IP: {identifier}"
 
 
 # =============================================================================
@@ -474,9 +484,9 @@ class TestCORSValidation:
             },
         )
         acao = response.headers.get("access-control-allow-origin", "")
-        assert "evil-attacker.example.com" not in acao, (
-            f"Server reflected attacker origin in ACAO header: {acao!r}"
-        )
+        assert (
+            "evil-attacker.example.com" not in acao
+        ), f"Server reflected attacker origin in ACAO header: {acao!r}"
 
     def test_allowed_origin_receives_cors_header(self, client):
         """Requests from the allowed origin should receive the CORS header."""
@@ -488,9 +498,9 @@ class TestCORSValidation:
             },
         )
         acao = response.headers.get("access-control-allow-origin", "")
-        assert "localhost:3000" in acao or acao == "*", (
-            f"Allowed origin did not receive ACAO header. Got: {acao!r}"
-        )
+        assert (
+            "localhost:3000" in acao or acao == "*"
+        ), f"Allowed origin did not receive ACAO header. Got: {acao!r}"
 
     def test_cors_preflight_unknown_origin_rejected(self, full_app_client):
         """
@@ -506,9 +516,9 @@ class TestCORSValidation:
             },
         )
         acao = response.headers.get("access-control-allow-origin", "")
-        assert "malicious-site.io" not in acao, (
-            f"Preflight from unknown origin reflected in ACAO: {acao!r}"
-        )
+        assert (
+            "malicious-site.io" not in acao
+        ), f"Preflight from unknown origin reflected in ACAO: {acao!r}"
 
 
 # =============================================================================
@@ -584,13 +594,15 @@ class TestStripeWebhookSecurity:
             content=b'{"type": "checkout.session.completed"}',
             headers={"Content-Type": "application/json"},
         )
-        assert response.status_code == 400, (
-            f"Webhook without signature header returned {response.status_code}, expected 400."
-        )
+        assert (
+            response.status_code == 400
+        ), f"Webhook without signature header returned {response.status_code}, expected 400."
 
     def test_webhook_invalid_signature_returns_400(self, full_app_client):
         """Request with a malformed / incorrect stripe-signature must return 400."""
-        with patch("services.stripe_service.StripeService.verify_webhook_signature") as mock_verify:
+        with patch(
+            "services.stripe_service.StripeService.verify_webhook_signature"
+        ) as mock_verify:
             mock_verify.side_effect = ValueError("Invalid webhook signature")
 
             response = full_app_client.post(
@@ -601,11 +613,13 @@ class TestStripeWebhookSecurity:
                     "stripe-signature": "t=totally_wrong,v1=invalidsig",
                 },
             )
-            assert response.status_code == 400, (
-                f"Webhook with invalid signature returned {response.status_code}, expected 400."
-            )
+            assert (
+                response.status_code == 400
+            ), f"Webhook with invalid signature returned {response.status_code}, expected 400."
 
-    def test_webhook_replayed_event_without_stripe_configured_returns_503(self, full_app_client):
+    def test_webhook_replayed_event_without_stripe_configured_returns_503(
+        self, full_app_client
+    ):
         """
         When Stripe is not configured (no STRIPE_SECRET_KEY), the endpoint
         should return 503 rather than 500, signalling a configuration gap
@@ -623,9 +637,10 @@ class TestStripeWebhookSecurity:
                     "stripe-signature": "t=1,v1=sig",
                 },
             )
-            assert response.status_code in (400, 503), (
-                f"Unconfigured webhook returned {response.status_code}."
-            )
+            assert response.status_code in (
+                400,
+                503,
+            ), f"Unconfigured webhook returned {response.status_code}."
 
 
 # =============================================================================
@@ -639,9 +654,9 @@ class TestAPIKeyProtection:
     def test_price_refresh_no_api_key_returns_401(self, full_app_client):
         """Request without X-API-Key must return 401."""
         response = full_app_client.post("/api/v1/prices/refresh")
-        assert response.status_code == 401, (
-            f"Price refresh without API key returned {response.status_code}, expected 401."
-        )
+        assert (
+            response.status_code == 401
+        ), f"Price refresh without API key returned {response.status_code}, expected 401."
 
     def test_price_refresh_wrong_api_key_returns_401(self, full_app_client):
         """Request with incorrect API key must return 401."""
@@ -649,9 +664,9 @@ class TestAPIKeyProtection:
             "/api/v1/prices/refresh",
             headers={"X-API-Key": "totally-wrong-api-key"},
         )
-        assert response.status_code == 401, (
-            f"Price refresh with wrong API key returned {response.status_code}, expected 401."
-        )
+        assert (
+            response.status_code == 401
+        ), f"Price refresh with wrong API key returned {response.status_code}, expected 401."
 
     def test_price_refresh_empty_api_key_returns_401(self, full_app_client):
         """Empty API key header must be rejected."""
@@ -671,9 +686,9 @@ class TestAPIKeyProtection:
             "/api/v1/prices/refresh",
             headers={"X-API-Key": valid_jwt},
         )
-        assert response.status_code == 401, (
-            f"JWT accepted as API key on price refresh endpoint. Got {response.status_code}."
-        )
+        assert (
+            response.status_code == 401
+        ), f"JWT accepted as API key on price refresh endpoint. Got {response.status_code}."
 
 
 # =============================================================================
@@ -788,9 +803,12 @@ class TestOpenRedirect:
         # 503 = DB unavailable for session validation (test environment)
         # All are acceptable — the key security property is that the request
         # is NOT processed with a 200/201 success.
-        assert response.status_code in (422, 400, 401, 503), (
-            f"External success_url accepted in checkout. Got {response.status_code}."
-        )
+        assert response.status_code in (
+            422,
+            400,
+            401,
+            503,
+        ), f"External success_url accepted in checkout. Got {response.status_code}."
 
 
 # =============================================================================
@@ -820,6 +838,6 @@ class TestSecurityHeadersOnRealApp:
         of sensitive data in browsers and proxies."""
         response = full_app_client.get("/api/v1/prices/current?region=us_ct")
         cache = response.headers.get("cache-control", "")
-        assert "no-store" in cache, (
-            f"API endpoint missing 'no-store' cache directive. Cache-Control: {cache!r}"
-        )
+        assert (
+            "no-store" in cache
+        ), f"API endpoint missing 'no-store' cache directive. Cache-Control: {cache!r}"

@@ -9,16 +9,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from services.energybot_service import (
-    MAX_RETRIES,
-    EnergyBotAuthError,
-    EnergyBotError,
-    EnergyBotRateLimitError,
-    EnergyBotService,
-    EnrollmentRequest,
-    EnrollmentResult,
-    EnrollmentStatus,
-)
+from services.energybot_service import (MAX_RETRIES, EnergyBotAuthError,
+                                        EnergyBotError,
+                                        EnergyBotRateLimitError,
+                                        EnergyBotService, EnrollmentRequest,
+                                        EnrollmentResult, EnrollmentStatus)
 
 # =============================================================================
 # Helpers
@@ -140,7 +135,10 @@ def enrollment_request() -> EnrollmentRequest:
 class TestFetchPlansSuccess:
     @pytest.mark.asyncio
     async def test_returns_plans_on_success(
-        self, service: EnergyBotService, mock_client: AsyncMock, sample_plans: list[dict]
+        self,
+        service: EnergyBotService,
+        mock_client: AsyncMock,
+        sample_plans: list[dict],
     ) -> None:
         """fetch_plans returns the plans list from the API response."""
         service._client = mock_client
@@ -148,7 +146,9 @@ class TestFetchPlansSuccess:
             return_value=_make_httpx_response(200, {"plans": sample_plans})
         )
 
-        with patch.object(service, "_cache_plans", new_callable=AsyncMock) as mock_cache:
+        with patch.object(
+            service, "_cache_plans", new_callable=AsyncMock
+        ) as mock_cache:
             result = await service.fetch_plans("19103")
 
         assert result == sample_plans
@@ -160,9 +160,13 @@ class TestFetchPlansSuccess:
     ) -> None:
         """fetch_plans returns [] when the API returns no plans."""
         service._client = mock_client
-        mock_client.request = AsyncMock(return_value=_make_httpx_response(200, {"plans": []}))
+        mock_client.request = AsyncMock(
+            return_value=_make_httpx_response(200, {"plans": []})
+        )
 
-        with patch.object(service, "_cache_plans", new_callable=AsyncMock) as mock_cache:
+        with patch.object(
+            service, "_cache_plans", new_callable=AsyncMock
+        ) as mock_cache:
             result = await service.fetch_plans("99999")
 
         assert result == []
@@ -171,7 +175,10 @@ class TestFetchPlansSuccess:
 
     @pytest.mark.asyncio
     async def test_passes_utility_code_as_query_param(
-        self, service: EnergyBotService, mock_client: AsyncMock, sample_plans: list[dict]
+        self,
+        service: EnergyBotService,
+        mock_client: AsyncMock,
+        sample_plans: list[dict],
     ) -> None:
         """fetch_plans includes utility_code in the request params when provided."""
         service._client = mock_client
@@ -216,7 +223,10 @@ class TestFetchPlansSuccess:
 class TestFetchPlansRetry:
     @pytest.mark.asyncio
     async def test_retries_on_429_then_succeeds(
-        self, service: EnergyBotService, mock_client: AsyncMock, sample_plans: list[dict]
+        self,
+        service: EnergyBotService,
+        mock_client: AsyncMock,
+        sample_plans: list[dict],
     ) -> None:
         """fetch_plans retries on HTTP 429 and succeeds on the second attempt."""
         service._client = mock_client
@@ -238,7 +248,10 @@ class TestFetchPlansRetry:
 
     @pytest.mark.asyncio
     async def test_retries_on_503_then_succeeds(
-        self, service: EnergyBotService, mock_client: AsyncMock, sample_plans: list[dict]
+        self,
+        service: EnergyBotService,
+        mock_client: AsyncMock,
+        sample_plans: list[dict],
     ) -> None:
         """fetch_plans retries on HTTP 503 and succeeds on the second attempt."""
         service._client = mock_client
@@ -269,7 +282,11 @@ class TestGetPlanDetails:
         self, service: EnergyBotService, mock_client: AsyncMock
     ) -> None:
         """get_plan_details returns the full detail dict from the API."""
-        detail = {"id": "plan_abc123", "plan_name": "Green Energy 12", "rate_kwh": 0.0899}
+        detail = {
+            "id": "plan_abc123",
+            "plan_name": "Green Energy 12",
+            "rate_kwh": 0.0899,
+        }
         service._client = mock_client
         mock_client.request = AsyncMock(return_value=_make_httpx_response(200, detail))
 
@@ -280,7 +297,9 @@ class TestGetPlanDetails:
         assert call_args.args[1] == "/plans/plan_abc123"
 
     @pytest.mark.asyncio
-    async def test_raises_on_404(self, service: EnergyBotService, mock_client: AsyncMock) -> None:
+    async def test_raises_on_404(
+        self, service: EnergyBotService, mock_client: AsyncMock
+    ) -> None:
         """get_plan_details raises EnergyBotError when the plan is not found (404)."""
         service._client = mock_client
         # 404 triggers raise_for_status which raises HTTPStatusError,
@@ -439,7 +458,9 @@ class TestCheckEnrollmentStatus:
         assert status.enrollment_id == "enroll_sub"
 
     @pytest.mark.asyncio
-    async def test_accepted_status(self, service: EnergyBotService, mock_client: AsyncMock) -> None:
+    async def test_accepted_status(
+        self, service: EnergyBotService, mock_client: AsyncMock
+    ) -> None:
         """Returns EnrollmentStatus with status='accepted'."""
         service._client = mock_client
         mock_client.request = AsyncMock(
@@ -504,7 +525,9 @@ class TestCancelEnrollment:
     ) -> None:
         """cancel_enrollment returns True when the API confirms cancellation."""
         service._client = mock_client
-        mock_client.request = AsyncMock(return_value=_make_httpx_response(200, {"cancelled": True}))
+        mock_client.request = AsyncMock(
+            return_value=_make_httpx_response(200, {"cancelled": True})
+        )
 
         result = await service.cancel_enrollment("enroll_cancel")
 
@@ -517,7 +540,9 @@ class TestCancelEnrollment:
         """cancel_enrollment returns False when the API says cancelled=False (already processed)."""
         service._client = mock_client
         mock_client.request = AsyncMock(
-            return_value=_make_httpx_response(200, {"cancelled": False, "reason": "Already active"})
+            return_value=_make_httpx_response(
+                200, {"cancelled": False, "reason": "Already active"}
+            )
         )
 
         result = await service.cancel_enrollment("enroll_active")
@@ -574,7 +599,9 @@ class TestRequestErrorHandling:
         mock_client.request = AsyncMock(side_effect=httpx.TimeoutException("timed out"))
 
         with (
-            patch("services.energybot_service.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch(
+                "services.energybot_service.asyncio.sleep", new_callable=AsyncMock
+            ) as mock_sleep,
             pytest.raises(EnergyBotError, match="timed out"),
         ):
             await service._request("GET", "/plans")
@@ -589,7 +616,9 @@ class TestRequestErrorHandling:
     ) -> None:
         """After MAX_RETRIES exhausted on 429, the final EnergyBotRateLimitError propagates."""
         service._client = mock_client
-        mock_client.request = AsyncMock(side_effect=[_make_httpx_response(429)] * MAX_RETRIES)
+        mock_client.request = AsyncMock(
+            side_effect=[_make_httpx_response(429)] * MAX_RETRIES
+        )
 
         with (
             patch("services.energybot_service.asyncio.sleep", new_callable=AsyncMock),
@@ -654,7 +683,9 @@ class TestCreateEnrollmentTimeout:
     ) -> None:
         """A timeout during create_enrollment propagates as EnergyBotError after retries."""
         service._client = mock_client
-        mock_client.request = AsyncMock(side_effect=httpx.TimeoutException("connect timeout"))
+        mock_client.request = AsyncMock(
+            side_effect=httpx.TimeoutException("connect timeout")
+        )
 
         with (
             patch("services.energybot_service.asyncio.sleep", new_callable=AsyncMock),

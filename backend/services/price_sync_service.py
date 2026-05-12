@@ -13,7 +13,8 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.pricing_apis.base import APIError, RateLimitError
-from integrations.pricing_apis.service import create_pricing_service_from_settings
+from integrations.pricing_apis.service import \
+    create_pricing_service_from_settings
 from models.price import Price
 from models.region import Region as PricingRegion
 from repositories.price_repository import PriceRepository
@@ -113,7 +114,9 @@ async def sync_prices(
                 synced_count = await repo.bulk_create(prices_to_store)
 
     except RateLimitError as e:
-        logger.warning("price_sync_rate_limited", error=str(e), retry_after=e.retry_after)
+        logger.warning(
+            "price_sync_rate_limited", error=str(e), retry_after=e.retry_after
+        )
         errors.append(f"Rate limited: {e}")
     except APIError as e:
         logger.warning("price_sync_api_error", error=str(e))

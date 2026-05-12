@@ -14,13 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from services.arcadia_service import (
-    MAX_RETRIES,
-    ArcadiaAuthError,
-    ArcadiaError,
-    ArcadiaRateLimitError,
-    ArcadiaService,
-)
+from services.arcadia_service import (MAX_RETRIES, ArcadiaAuthError,
+                                      ArcadiaError, ArcadiaRateLimitError,
+                                      ArcadiaService)
 
 # =============================================================================
 # Helpers
@@ -85,7 +81,9 @@ def mock_client() -> AsyncMock:
 
 class TestConnectAccount:
     @pytest.mark.asyncio
-    async def test_success(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_success(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """Returns the parsed account object on 200."""
         mock_client.request.return_value = _make_httpx_response(
             200, {"account_id": "arc_acc_1", "status": "active"}
@@ -101,7 +99,9 @@ class TestConnectAccount:
         assert "/accounts/connect" in call_kwargs.args[1]
 
     @pytest.mark.asyncio
-    async def test_auth_failure_401(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_auth_failure_401(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """Raises ArcadiaAuthError on HTTP 401."""
         mock_client.request.return_value = _make_httpx_response(401)
         service._client = mock_client
@@ -116,7 +116,9 @@ class TestConnectAccount:
         self, service: ArcadiaService, mock_client: AsyncMock
     ) -> None:
         """An invalid auth code from Arcadia surfaces as ArcadiaAuthError."""
-        mock_client.request.return_value = _make_httpx_response(401, {"error": "invalid_code"})
+        mock_client.request.return_value = _make_httpx_response(
+            401, {"error": "invalid_code"}
+        )
         service._client = mock_client
 
         with pytest.raises(ArcadiaAuthError):
@@ -130,13 +132,17 @@ class TestConnectAccount:
 
 class TestFetchIntervalData:
     @pytest.mark.asyncio
-    async def test_success_with_data(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_success_with_data(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """Returns the intervals list from the response payload."""
         intervals = [
             {"timestamp": "2024-06-01T00:00:00", "kwh": 1.2, "interval_minutes": 60},
             {"timestamp": "2024-06-01T01:00:00", "kwh": 0.9, "interval_minutes": 60},
         ]
-        mock_client.request.return_value = _make_httpx_response(200, {"intervals": intervals})
+        mock_client.request.return_value = _make_httpx_response(
+            200, {"intervals": intervals}
+        )
         service._client = mock_client
 
         start = datetime(2024, 6, 1)
@@ -147,7 +153,9 @@ class TestFetchIntervalData:
         assert len(result) == 2
 
     @pytest.mark.asyncio
-    async def test_empty_result(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_empty_result(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """Returns an empty list when the API returns no intervals."""
         mock_client.request.return_value = _make_httpx_response(200, {"intervals": []})
         service._client = mock_client
@@ -236,7 +244,9 @@ class TestFetchIntervalData:
 
 class TestFetchBills:
     @pytest.mark.asyncio
-    async def test_success(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_success(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """Returns the bills list from the response payload."""
         bills = [
             {"bill_id": "b1", "amount": 120.50, "period_start": "2024-05-01"},
@@ -251,7 +261,9 @@ class TestFetchBills:
         assert len(result) == 2
 
     @pytest.mark.asyncio
-    async def test_empty_bills(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_empty_bills(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """Returns an empty list when there are no bills."""
         mock_client.request.return_value = _make_httpx_response(200, {"bills": []})
         service._client = mock_client
@@ -277,7 +289,10 @@ class TestSyncMeterReadings:
                 [
                     {
                         "id": "conn_1",
-                        "metadata": {"provider": "arcadia", "arcadia_account_id": "arc_1"},
+                        "metadata": {
+                            "provider": "arcadia",
+                            "arcadia_account_id": "arc_1",
+                        },
                     }
                 ]
             ),
@@ -288,8 +303,16 @@ class TestSyncMeterReadings:
             200,
             {
                 "intervals": [
-                    {"timestamp": "2024-06-01T00:00:00", "kwh": 1.2, "interval_minutes": 60},
-                    {"timestamp": "2024-06-01T01:00:00", "kwh": 0.9, "interval_minutes": 60},
+                    {
+                        "timestamp": "2024-06-01T00:00:00",
+                        "kwh": 1.2,
+                        "interval_minutes": 60,
+                    },
+                    {
+                        "timestamp": "2024-06-01T01:00:00",
+                        "kwh": 0.9,
+                        "interval_minutes": 60,
+                    },
                 ]
             },
         )
@@ -336,7 +359,10 @@ class TestSyncMeterReadings:
                 [
                     {
                         "id": "conn_3",
-                        "metadata": {"provider": "arcadia", "arcadia_account_id": "arc_3"},
+                        "metadata": {
+                            "provider": "arcadia",
+                            "arcadia_account_id": "arc_3",
+                        },
                     }
                 ]
             ),
@@ -364,7 +390,10 @@ class TestSyncMeterReadings:
                 [
                     {
                         "id": "conn_batch",
-                        "metadata": {"provider": "arcadia", "arcadia_account_id": "arc_b"},
+                        "metadata": {
+                            "provider": "arcadia",
+                            "arcadia_account_id": "arc_b",
+                        },
                     }
                 ]
             ),
@@ -372,7 +401,9 @@ class TestSyncMeterReadings:
             MagicMock(),  # first batch (500)
             MagicMock(),  # second batch (250)
         ]
-        mock_client.request.return_value = _make_httpx_response(200, {"intervals": intervals})
+        mock_client.request.return_value = _make_httpx_response(
+            200, {"intervals": intervals}
+        )
         service._client = mock_client
 
         count = await service.sync_meter_readings("user_batch")
@@ -394,7 +425,10 @@ class TestSyncMeterReadings:
                 [
                     {
                         "id": "conn_inc",
-                        "metadata": {"provider": "arcadia", "arcadia_account_id": "arc_i"},
+                        "metadata": {
+                            "provider": "arcadia",
+                            "arcadia_account_id": "arc_i",
+                        },
                     }
                 ]
             ),
@@ -405,7 +439,11 @@ class TestSyncMeterReadings:
             200,
             {
                 "intervals": [
-                    {"timestamp": "2024-05-15T13:00:00", "kwh": 1.1, "interval_minutes": 60}
+                    {
+                        "timestamp": "2024-05-15T13:00:00",
+                        "kwh": 1.1,
+                        "interval_minutes": 60,
+                    }
                 ]
             },
         )
@@ -425,7 +463,9 @@ class TestSyncMeterReadings:
 
 class TestRequestRetryLogic:
     @pytest.mark.asyncio
-    async def test_retries_on_429(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_retries_on_429(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """_request retries up to MAX_RETRIES on 429 responses."""
         # All attempts return 429 → should exhaust and raise.
         mock_client.request.return_value = _make_httpx_response(429)
@@ -438,7 +478,9 @@ class TestRequestRetryLogic:
         assert mock_client.request.await_count == MAX_RETRIES
 
     @pytest.mark.asyncio
-    async def test_retries_on_503(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_retries_on_503(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """_request retries up to MAX_RETRIES on 503 responses."""
         mock_client.request.return_value = _make_httpx_response(503)
         service._client = mock_client
@@ -451,7 +493,9 @@ class TestRequestRetryLogic:
         assert mock_client.request.await_count == MAX_RETRIES
 
     @pytest.mark.asyncio
-    async def test_no_retry_on_401(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_no_retry_on_401(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """_request does not retry on HTTP 401 — raises ArcadiaAuthError immediately."""
         mock_client.request.return_value = _make_httpx_response(401)
         service._client = mock_client
@@ -462,7 +506,9 @@ class TestRequestRetryLogic:
         mock_client.request.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_no_retry_on_400(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_no_retry_on_400(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """_request raises ArcadiaError immediately on 400 (bad request)."""
         bad_resp = _make_httpx_response(400)
         bad_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -491,7 +537,9 @@ class TestRequestRetryLogic:
         assert mock_client.request.await_count == MAX_RETRIES
 
     @pytest.mark.asyncio
-    async def test_timeout_handling(self, service: ArcadiaService, mock_client: AsyncMock) -> None:
+    async def test_timeout_handling(
+        self, service: ArcadiaService, mock_client: AsyncMock
+    ) -> None:
         """TimeoutException is wrapped in ArcadiaError after all retries."""
         mock_client.request.side_effect = httpx.TimeoutException("timeout")
         service._client = mock_client
@@ -522,7 +570,9 @@ class TestClose:
         mock_client.aclose.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_close_no_op_when_client_is_none(self, service: ArcadiaService) -> None:
+    async def test_close_no_op_when_client_is_none(
+        self, service: ArcadiaService
+    ) -> None:
         """close() is a no-op when no client has been initialised yet."""
         service._client = None
 

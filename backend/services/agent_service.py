@@ -114,7 +114,8 @@ async def drain_background_tasks(
         # Best-effort: mark any matching Redis job entries as failed so the
         # polling endpoint surfaces a clean terminal state.
         try:
-            from config.database import db_manager  # local import to avoid cycle
+            from config.database import \
+                db_manager  # local import to avoid cycle
 
             redis = await db_manager.get_redis_client()
             if redis:
@@ -253,13 +254,17 @@ class AgentService:
                 try:
                     from composio_gemini import ComposioToolset
 
-                    self._composio_toolset = ComposioToolset(api_key=settings.composio_api_key)
+                    self._composio_toolset = ComposioToolset(
+                        api_key=settings.composio_api_key
+                    )
                 except Exception as e:
                     logger.warning("composio_init_failed", error=str(e))
                     self._composio_toolset = False  # sentinel: don't retry
             else:
                 self._composio_toolset = False
-        toolset = self._composio_toolset if self._composio_toolset is not False else None
+        toolset = (
+            self._composio_toolset if self._composio_toolset is not False else None
+        )
         if toolset is None:
             return None
         # Mark the active tier on the toolset so any future tool dispatch
@@ -272,7 +277,9 @@ class AgentService:
             pass
         return toolset
 
-    async def check_rate_limit(self, user_id: str, tier: str, db) -> tuple[bool, int, int]:
+    async def check_rate_limit(
+        self, user_id: str, tier: str, db
+    ) -> tuple[bool, int, int]:
         """Check if user has remaining queries. Returns (allowed, used, limit).
 
         Uses a single upsert-and-return query to avoid the TOCTOU race that
@@ -284,7 +291,11 @@ class AgentService:
         if tier == "business":
             return True, 0, -1  # unlimited
 
-        limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
+        limit = (
+            settings.agent_pro_daily_limit
+            if tier == "pro"
+            else settings.agent_free_daily_limit
+        )
 
         # Single round-trip: INSERT row if absent (count=0), then return
         # current count atomically.  DO UPDATE with no-op ensures the row
@@ -302,7 +313,9 @@ class AgentService:
         current_count = count_result.scalar() or 0
         return current_count < limit, current_count, limit
 
-    async def increment_usage_atomic(self, user_id: str, tier: str, db) -> tuple[bool, int]:
+    async def increment_usage_atomic(
+        self, user_id: str, tier: str, db
+    ) -> tuple[bool, int]:
         """Atomically check-and-increment the daily usage counter.
 
         Returns (allowed, new_count).  Uses a single UPDATE ... RETURNING
@@ -320,7 +333,11 @@ class AgentService:
         if tier == "business":
             return True, 0
 
-        limit = settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
+        limit = (
+            settings.agent_pro_daily_limit
+            if tier == "pro"
+            else settings.agent_free_daily_limit
+        )
 
         # Ensure the row exists before attempting the atomic increment so
         # the UPDATE below always has a row to operate on.
@@ -400,7 +417,9 @@ class AgentService:
             -1
             if tier == "business"
             else (
-                settings.agent_pro_daily_limit if tier == "pro" else settings.agent_free_daily_limit
+                settings.agent_pro_daily_limit
+                if tier == "pro"
+                else settings.agent_free_daily_limit
             )
         )
         return {
@@ -477,12 +496,16 @@ class AgentService:
                     or "RESOURCE_EXHAUSTED" in err_str
                 )
                 if is_rate_limited and settings.groq_api_key:
-                    logger.info("gemini_rate_limited_falling_back_to_groq", user_id=user_id)
+                    logger.info(
+                        "gemini_rate_limited_falling_back_to_groq", user_id=user_id
+                    )
                     try:
                         response_text = await self._query_groq(system, prompt)
                         model_used = "llama-3.3-70b-versatile"
                     except Exception as groq_err:
-                        logger.error("groq_fallback_failed", error=str(groq_err), user_id=user_id)
+                        logger.error(
+                            "groq_fallback_failed", error=str(groq_err), user_id=user_id
+                        )
                         yield AgentMessage(
                             role="error",
                             content="AI service temporarily unavailable. Please try again later.",
@@ -572,7 +595,9 @@ class AgentService:
 
         return response.choices[0].message.content
 
-    async def query_async(self, user_id: str, prompt: str, context: dict, db) -> str:  # noqa: ARG002
+    async def query_async(
+        self, user_id: str, prompt: str, context: dict, db
+    ) -> str:  # noqa: ARG002
         """Submit an async job. Returns a job_id. Result stored in Redis."""
         async with traced("agent.query_async", attributes={"agent.provider": "gemini"}):
             job_id = str(uuid.uuid4())
@@ -595,7 +620,9 @@ class AgentService:
             # garbage-collected before it completes (asyncio holds only a weak
             # reference to tasks returned by create_task).  The done callback
             # removes the task from the set once it finishes.
-            task = asyncio.create_task(self._run_async_job(job_id, user_id, prompt, context, redis))
+            task = asyncio.create_task(
+                self._run_async_job(job_id, user_id, prompt, context, redis)
+            )
             # Tag the task with its job_id so the shutdown drain can mark the
             # right Redis entries as failed if it has to cancel.
             task._agent_job_id = job_id  # type: ignore[attr-defined]
@@ -603,7 +630,9 @@ class AgentService:
             task.add_done_callback(_background_tasks.discard)
             return job_id
 
-    async def _run_async_job(self, job_id: str, user_id: str, prompt: str, context: dict, redis):
+    async def _run_async_job(
+        self, job_id: str, user_id: str, prompt: str, context: dict, redis
+    ):
         """Execute the async job and store result in Redis.
 
         CONTRACT — NO REQUEST-SCOPED DB SESSION
@@ -659,7 +688,9 @@ class AgentService:
             if redis:
                 await redis.set(
                     f"agent:job:{job_id}",
-                    json.dumps({"status": "failed", "user_id": user_id, "error": str(e)}),
+                    json.dumps(
+                        {"status": "failed", "user_id": user_id, "error": str(e)}
+                    ),
                     ex=3600,
                 )
 

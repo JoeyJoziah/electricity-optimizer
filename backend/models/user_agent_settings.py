@@ -46,7 +46,9 @@ class UserAgentSettingsUpdate(BaseModel):
     """Request body for updating auto-switcher settings (all fields optional)."""
 
     enabled: bool | None = None
-    savings_threshold_pct: Decimal | None = Field(default=None, ge=Decimal("5"), le=Decimal("50"))
+    savings_threshold_pct: Decimal | None = Field(
+        default=None, ge=Decimal("5"), le=Decimal("50")
+    )
     savings_threshold_min: Decimal | None = Field(default=None, ge=Decimal("5"))
     cooldown_days: int | None = Field(default=None, ge=3, le=90)
     paused_until: datetime | None = None

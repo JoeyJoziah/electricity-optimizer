@@ -49,11 +49,8 @@ def _install_recording_provider():
     from opentelemetry import trace
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import (
-        SimpleSpanProcessor,
-        SpanExporter,
-        SpanExportResult,
-    )
+    from opentelemetry.sdk.trace.export import (SimpleSpanProcessor,
+                                                SpanExporter, SpanExportResult)
 
     class _InMemoryExporter(SpanExporter):
         def __init__(self):
@@ -96,7 +93,9 @@ class TestLearningServiceTracing:
         await svc.compute_rolling_accuracy("NY", days=7)
 
         ml_spans = [s for s in exporter.spans if s.name.startswith("ml.")]
-        assert len(ml_spans) >= 1, f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(ml_spans) >= 1
+        ), f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
         span = ml_spans[0]
         assert span.attributes.get("ml.region") == "NY"
 
@@ -118,7 +117,9 @@ class TestLearningServiceTracing:
         await svc.update_ensemble_weights("CA", days=7)
 
         ml_spans = [s for s in exporter.spans if s.name.startswith("ml.")]
-        assert len(ml_spans) >= 1, f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(ml_spans) >= 1
+        ), f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
         span = ml_spans[0]
         assert span.attributes.get("ml.region") == "CA"
 
@@ -137,7 +138,9 @@ class TestObservationServiceTracing:
 
         mock_db = AsyncMock()
         # Patch the repository to avoid DB calls
-        with patch("services.observation_service.ForecastObservationRepository") as MockRepo:
+        with patch(
+            "services.observation_service.ForecastObservationRepository"
+        ) as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.insert_forecasts = AsyncMock(return_value=5)
             MockRepo.return_value = mock_repo
@@ -148,7 +151,9 @@ class TestObservationServiceTracing:
             count = await svc.record_forecast("f1", "TX", [{"h": 1}])
 
         ml_spans = [s for s in exporter.spans if s.name.startswith("ml.")]
-        assert len(ml_spans) >= 1, f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(ml_spans) >= 1
+        ), f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
         span = ml_spans[0]
         assert span.attributes.get("ml.region") == "TX"
 
@@ -157,7 +162,9 @@ class TestObservationServiceTracing:
         exporter = _install_recording_provider()
 
         mock_db = AsyncMock()
-        with patch("services.observation_service.ForecastObservationRepository") as MockRepo:
+        with patch(
+            "services.observation_service.ForecastObservationRepository"
+        ) as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.backfill_actuals = AsyncMock(return_value=10)
             MockRepo.return_value = mock_repo
@@ -168,7 +175,9 @@ class TestObservationServiceTracing:
             await svc.observe_actuals_batch("FL")
 
         ml_spans = [s for s in exporter.spans if s.name.startswith("ml.")]
-        assert len(ml_spans) >= 1, f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(ml_spans) >= 1
+        ), f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
         span = ml_spans[0]
         assert span.attributes.get("ml.region") == "FL"
 
@@ -212,7 +221,9 @@ class TestModelVersionServiceTracing:
             pass  # DB mock may not perfectly match — we only care about span creation
 
         ml_spans = [s for s in exporter.spans if s.name.startswith("ml.")]
-        assert len(ml_spans) >= 1, f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(ml_spans) >= 1
+        ), f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
         span = ml_spans[0]
         assert span.attributes.get("ml.model_name") == "ensemble"
 
@@ -244,4 +255,6 @@ class TestModelVersionServiceTracing:
             pass
 
         ml_spans = [s for s in exporter.spans if s.name.startswith("ml.")]
-        assert len(ml_spans) >= 1, f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"
+        assert (
+            len(ml_spans) >= 1
+        ), f"Expected ml.* span, got: {[s.name for s in exporter.spans]}"

@@ -5,23 +5,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.bill_parser import (
-    _MAGIC_JPG,
-    _MAGIC_PDF,
-    _MAGIC_PNG,
-    BillParserService,
-    _parse_date_flexible,
-    _strip_commas,
-    _validate_magic_bytes,
-    build_storage_key,
-    extract_billing_period,
-    extract_rate_per_kwh,
-    extract_supplier,
-    extract_text,
-    extract_total_amount,
-    extract_total_kwh,
-    validate_upload_file,
-)
+from services.bill_parser import (_MAGIC_JPG, _MAGIC_PDF, _MAGIC_PNG,
+                                  BillParserService, _parse_date_flexible,
+                                  _strip_commas, _validate_magic_bytes,
+                                  build_storage_key, extract_billing_period,
+                                  extract_rate_per_kwh, extract_supplier,
+                                  extract_text, extract_total_amount,
+                                  extract_total_kwh, validate_upload_file)
 
 # ---------------------------------------------------------------------------
 # Magic bytes / helper tests
@@ -152,7 +142,9 @@ class TestExtractSupplier:
 
 class TestExtractBillingPeriod:
     def test_slash_date_range(self):
-        start, end, conf = extract_billing_period("Service period: 01/15/2025 - 02/14/2025")
+        start, end, conf = extract_billing_period(
+            "Service period: 01/15/2025 - 02/14/2025"
+        )
         assert start == "2025-01-15"
         assert end == "2025-02-14"
         assert conf == 0.85
@@ -172,7 +164,9 @@ class TestExtractBillingPeriod:
         assert conf == 0.85
 
     def test_billing_period_from_pattern(self):
-        start, end, conf = extract_billing_period("Billing period from: 01/15/2025 to 02/14/2025")
+        start, end, conf = extract_billing_period(
+            "Billing period from: 01/15/2025 to 02/14/2025"
+        )
         assert start == "2025-01-15"
         assert end == "2025-02-14"
 
@@ -295,7 +289,9 @@ class TestValidateUploadFile:
     def test_magic_bytes_mismatch_raises(self):
         # Extension says PDF but content is PNG magic bytes
         with pytest.raises(ValueError):
-            validate_upload_file("bill.pdf", "application/pdf", _MAGIC_PNG + b" content")
+            validate_upload_file(
+                "bill.pdf", "application/pdf", _MAGIC_PNG + b" content"
+            )
 
     def test_unknown_magic_bytes_raises(self):
         with pytest.raises(ValueError, match="File content does not match"):
@@ -383,7 +379,10 @@ async def test_parse_pdf_with_rate_extracts_data(mock_db, tmp_path):
     result = await service.parse("upload-1", "conn-1", "bill.pdf")
 
     # With no pypdf installed, fallback extractor should find text patterns
-    assert result["parse_status"] in ("complete", "failed")  # depends on pypdf availability
+    assert result["parse_status"] in (
+        "complete",
+        "failed",
+    )  # depends on pypdf availability
     # If complete, verify the detected fields are populated
     if result["parse_status"] == "complete":
         assert result["detected_rate_per_kwh"] is not None

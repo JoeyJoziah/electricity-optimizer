@@ -67,12 +67,16 @@ async def run_maintenance():
         weather_tag = await conn.execute(
             "DELETE FROM weather_cache WHERE fetched_at < now() - interval '30 days'"
         )
-        print(f"weather_cache retention (30d): deleted {_parse_delete_count(weather_tag)} rows")
+        print(
+            f"weather_cache retention (30d): deleted {_parse_delete_count(weather_tag)} rows"
+        )
 
         scraped_tag = await conn.execute(
             "DELETE FROM scraped_rates WHERE fetched_at < now() - interval '90 days'"
         )
-        print(f"scraped_rates retention (90d): deleted {_parse_delete_count(scraped_tag)} rows")
+        print(
+            f"scraped_rates retention (90d): deleted {_parse_delete_count(scraped_tag)} rows"
+        )
 
         market_tag = await conn.execute(
             "DELETE FROM market_intelligence WHERE fetched_at < now() - interval '180 days'"

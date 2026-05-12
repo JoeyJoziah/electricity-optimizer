@@ -79,7 +79,9 @@ def _mock_http_client(json_response: dict, status_code: int = 200) -> AsyncMock:
 class TestSearchEnergyNews:
     async def test_returns_none_when_no_api_key(self):
         svc = MarketIntelligenceService(settings=_settings_no_key())
-        with patch("services.market_intelligence_service.httpx.AsyncClient") as mock_cls:
+        with patch(
+            "services.market_intelligence_service.httpx.AsyncClient"
+        ) as mock_cls:
             result = await svc.search_energy_news("CT electricity rates")
             mock_cls.assert_not_called()
 
@@ -90,7 +92,8 @@ class TestSearchEnergyNews:
         mock_client = _mock_http_client(_tavily_response())
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             result = await svc.search_energy_news("CT electricity rates")
 
@@ -105,7 +108,8 @@ class TestSearchEnergyNews:
         mock_client = _mock_http_client(_tavily_response(n_results=1))
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             result = await svc.search_energy_news("query")
 
@@ -116,10 +120,13 @@ class TestSearchEnergyNews:
 
     async def test_content_truncated_to_500_chars(self):
         svc = MarketIntelligenceService(settings=_settings_with_key())
-        mock_client = _mock_http_client(_tavily_response(n_results=1, long_content=True))
+        mock_client = _mock_http_client(
+            _tavily_response(n_results=1, long_content=True)
+        )
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             result = await svc.search_energy_news("query")
 
@@ -131,7 +138,8 @@ class TestSearchEnergyNews:
         mock_client = _mock_http_client(_tavily_response(n_results=3))
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             await svc.search_energy_news("query", max_results=3)
 
@@ -143,7 +151,8 @@ class TestSearchEnergyNews:
         mock_client = _mock_http_client(_tavily_response())
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             await svc.search_energy_news("query")
 
@@ -155,7 +164,8 @@ class TestSearchEnergyNews:
         mock_client = _mock_http_client(_tavily_response())
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             await svc.search_energy_news("query")
 
@@ -168,7 +178,8 @@ class TestSearchEnergyNews:
 
         with (
             patch(
-                "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+                "services.market_intelligence_service.httpx.AsyncClient",
+                return_value=mock_client,
             ),
             pytest.raises(Exception),  # noqa: B017
         ):
@@ -179,7 +190,8 @@ class TestSearchEnergyNews:
         mock_client = _mock_http_client({"answer": "No data", "results": []})
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             result = await svc.search_energy_news("obscure query")
 
@@ -193,7 +205,8 @@ class TestSearchEnergyNews:
         mock_client = _mock_http_client({"results": []})
 
         with patch(
-            "services.market_intelligence_service.httpx.AsyncClient", return_value=mock_client
+            "services.market_intelligence_service.httpx.AsyncClient",
+            return_value=mock_client,
         ):
             result = await svc.search_energy_news("query")
 
@@ -215,7 +228,9 @@ class TestWeeklyMarketScan:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         regions = ["CT", "NY", "MA"]
 
-        with patch.object(svc, "search_energy_news", new_callable=AsyncMock) as mock_search:
+        with patch.object(
+            svc, "search_energy_news", new_callable=AsyncMock
+        ) as mock_search:
             mock_search.return_value = {"answer": "a", "results": []}
             result = await svc.weekly_market_scan(regions)
 
@@ -227,7 +242,9 @@ class TestWeeklyMarketScan:
         # Pass 15 regions; only the first 10 should be queried
         regions = [f"STATE_{i}" for i in range(15)]
 
-        with patch.object(svc, "search_energy_news", new_callable=AsyncMock) as mock_search:
+        with patch.object(
+            svc, "search_energy_news", new_callable=AsyncMock
+        ) as mock_search:
             mock_search.return_value = {"answer": "x", "results": []}
             result = await svc.weekly_market_scan(regions)
 
@@ -256,7 +273,9 @@ class TestWeeklyMarketScan:
         regions = ["CT", "NY"]
 
         # search_energy_news returns None when no API key configured
-        with patch.object(svc, "search_energy_news", new_callable=AsyncMock) as mock_search:
+        with patch.object(
+            svc, "search_energy_news", new_callable=AsyncMock
+        ) as mock_search:
             mock_search.return_value = None
             result = await svc.weekly_market_scan(regions)
 
@@ -268,7 +287,9 @@ class TestWeeklyMarketScan:
         regions = ["TX"]
         search_data = {"answer": "TX rates rising", "results": []}
 
-        with patch.object(svc, "search_energy_news", new_callable=AsyncMock) as mock_search:
+        with patch.object(
+            svc, "search_energy_news", new_callable=AsyncMock
+        ) as mock_search:
             mock_search.return_value = search_data
             result = await svc.weekly_market_scan(regions)
 
@@ -282,7 +303,9 @@ class TestWeeklyMarketScan:
         svc = MarketIntelligenceService(settings=_settings_with_key())
         regions = ["CA"]
 
-        with patch.object(svc, "search_energy_news", new_callable=AsyncMock) as mock_search:
+        with patch.object(
+            svc, "search_energy_news", new_callable=AsyncMock
+        ) as mock_search:
             mock_search.return_value = {"answer": "a", "results": []}
             await svc.weekly_market_scan(regions)
 

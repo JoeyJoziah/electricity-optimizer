@@ -382,7 +382,9 @@ class SwitchDecisionEngine:
 
         # Post-enactment cooldown
         if ctx.last_switch_enacted_at:
-            cooldown_end = ctx.last_switch_enacted_at + timedelta(days=ctx.cooldown_days)
+            cooldown_end = ctx.last_switch_enacted_at + timedelta(
+                days=ctx.cooldown_days
+            )
             if cooldown_end > now:
                 days_left = (cooldown_end - now).days
                 return SwitchDecision(
@@ -399,7 +401,9 @@ class SwitchDecisionEngine:
 
         return None
 
-    def _compare_plans(self, ctx: UserContext) -> tuple[PlanDetails | None, dict[str, Decimal]]:
+    def _compare_plans(
+        self, ctx: UserContext
+    ) -> tuple[PlanDetails | None, dict[str, Decimal]]:
         """Rule 3: Find the best available plan by projected monthly cost.
 
         Compares each available plan against the current plan using the user's
@@ -422,9 +426,9 @@ class SwitchDecisionEngine:
         if not ctx.available_plans:
             return None, _zero
 
-        current_monthly = ctx.monthly_kwh * (ctx.current_plan.rate_kwh or Decimal("0")) + (
-            ctx.current_plan.fixed_charge or Decimal("0")
-        )
+        current_monthly = ctx.monthly_kwh * (
+            ctx.current_plan.rate_kwh or Decimal("0")
+        ) + (ctx.current_plan.fixed_charge or Decimal("0"))
 
         best_plan: PlanDetails | None = None
         best_savings = Decimal("0")
@@ -452,7 +456,9 @@ class SwitchDecisionEngine:
 
         return best_plan, {
             "monthly": best_savings.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-            "annual": (best_savings * 12).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "annual": (best_savings * 12).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
         }
 
     def _check_savings_floor(
@@ -480,12 +486,14 @@ class SwitchDecisionEngine:
         """
         current_monthly = Decimal("0")
         if ctx.current_plan:
-            current_monthly = ctx.monthly_kwh * (ctx.current_plan.rate_kwh or Decimal("0")) + (
-                ctx.current_plan.fixed_charge or Decimal("0")
-            )
+            current_monthly = ctx.monthly_kwh * (
+                ctx.current_plan.rate_kwh or Decimal("0")
+            ) + (ctx.current_plan.fixed_charge or Decimal("0"))
 
         if current_monthly > 0:
-            savings_pct = (savings["monthly"] / current_monthly * 100).quantize(Decimal("0.01"))
+            savings_pct = (savings["monthly"] / current_monthly * 100).quantize(
+                Decimal("0.01")
+            )
         else:
             savings_pct = Decimal("0")
 

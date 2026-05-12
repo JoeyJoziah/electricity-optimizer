@@ -230,7 +230,9 @@ COMMON_PASSWORDS: frozenset[str] = frozenset(
 )
 
 
-def _has_consecutive_identical(password: str, max_run: int = MAX_CONSECUTIVE_IDENTICAL) -> bool:
+def _has_consecutive_identical(
+    password: str, max_run: int = MAX_CONSECUTIVE_IDENTICAL
+) -> bool:
     """Return True if *password* contains *max_run* or more identical consecutive chars."""
     if len(password) < max_run:
         return False
@@ -325,7 +327,9 @@ def validate_password(password: str) -> bool:
 
     # Check sequential characters (e.g., "abcd", "1234", "qwer")
     if _has_sequential_chars(password):
-        errors.append("Password must not contain sequential characters (e.g., abcd, 1234, qwer)")
+        errors.append(
+            "Password must not contain sequential characters (e.g., abcd, 1234, qwer)"
+        )
 
     if errors:
         raise ValueError("; ".join(errors))

@@ -251,7 +251,9 @@ class TestRecommendationsUsageTierGating:
     def test_free_user_gets_403(self):
         _install("free")
         client = _client()
-        resp = client.get("/api/v1/recommendations/usage?appliance=washer&duration_hours=1")
+        resp = client.get(
+            "/api/v1/recommendations/usage?appliance=washer&duration_hours=1"
+        )
         assert resp.status_code == 403
 
     def test_pro_user_allowed(self):
@@ -264,7 +266,9 @@ class TestRecommendationsUsageTierGating:
         app.dependency_overrides[get_recommendation_service] = lambda: mock_svc
 
         client = _client()
-        resp = client.get("/api/v1/recommendations/usage?appliance=washer&duration_hours=1")
+        resp = client.get(
+            "/api/v1/recommendations/usage?appliance=washer&duration_hours=1"
+        )
         assert resp.status_code != 403
 
 

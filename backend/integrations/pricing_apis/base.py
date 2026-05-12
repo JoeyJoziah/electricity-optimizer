@@ -181,8 +181,12 @@ class PriceData:
             supplier=data.get("supplier"),
             tariff_name=data.get("tariff_name"),
             source_api=data.get("source_api"),
-            energy_cost=Decimal(data["energy_cost"]) if data.get("energy_cost") else None,
-            network_cost=Decimal(data["network_cost"]) if data.get("network_cost") else None,
+            energy_cost=(
+                Decimal(data["energy_cost"]) if data.get("energy_cost") else None
+            ),
+            network_cost=(
+                Decimal(data["network_cost"]) if data.get("network_cost") else None
+            ),
             taxes=Decimal(data["taxes"]) if data.get("taxes") else None,
             levies=Decimal(data["levies"]) if data.get("levies") else None,
             is_peak=data.get("is_peak"),
@@ -248,8 +252,12 @@ class ForecastData:
             "prices": [p.to_dict() for p in self.prices],
             "model_version": self.model_version,
             "confidence_level": self.confidence_level,
-            "lower_bound": [str(b) for b in self.lower_bound] if self.lower_bound else None,
-            "upper_bound": [str(b) for b in self.upper_bound] if self.upper_bound else None,
+            "lower_bound": (
+                [str(b) for b in self.lower_bound] if self.lower_bound else None
+            ),
+            "upper_bound": (
+                [str(b) for b in self.upper_bound] if self.upper_bound else None
+            ),
         }
 
     @classmethod
@@ -263,12 +271,16 @@ class ForecastData:
             prices=[PriceData.from_dict(p) for p in data.get("prices", [])],
             model_version=data.get("model_version"),
             confidence_level=data.get("confidence_level"),
-            lower_bound=[Decimal(b) for b in data["lower_bound"]]
-            if data.get("lower_bound")
-            else None,
-            upper_bound=[Decimal(b) for b in data["upper_bound"]]
-            if data.get("upper_bound")
-            else None,
+            lower_bound=(
+                [Decimal(b) for b in data["lower_bound"]]
+                if data.get("lower_bound")
+                else None
+            ),
+            upper_bound=(
+                [Decimal(b) for b in data["upper_bound"]]
+                if data.get("upper_bound")
+                else None
+            ),
         )
 
 
@@ -417,7 +429,8 @@ class RetryConfig:
         import random
 
         delay = min(
-            self.base_delay_seconds * (self.exponential_base**attempt), self.max_delay_seconds
+            self.base_delay_seconds * (self.exponential_base**attempt),
+            self.max_delay_seconds,
         )
 
         if self.jitter:

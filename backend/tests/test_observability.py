@@ -341,7 +341,10 @@ class TestConfigureTracerProvider:
         """_configure_tracer_provider returns True when it succeeds."""
         from observability import _configure_tracer_provider
 
-        with patch("observability._instrument_fastapi"), patch("observability._instrument_httpx"):
+        with (
+            patch("observability._instrument_fastapi"),
+            patch("observability._instrument_httpx"),
+        ):
             result = _configure_tracer_provider(endpoint=None, is_production=False)
 
         assert result is True
@@ -372,7 +375,10 @@ class TestConfigureTracerProvider:
 
         from observability import _configure_tracer_provider
 
-        with patch("observability._instrument_fastapi"), patch("observability._instrument_httpx"):
+        with (
+            patch("observability._instrument_fastapi"),
+            patch("observability._instrument_httpx"),
+        ):
             result = _configure_tracer_provider(endpoint=None, is_production=True)
 
         assert result is True
@@ -386,9 +392,9 @@ class TestConfigureTracerProvider:
         for proc in provider._active_span_processor._span_processors:
             exporter = getattr(proc, "span_exporter", None)
             if exporter is not None:
-                assert not isinstance(exporter, ConsoleSpanExporter), (
-                    f"Production must not use ConsoleSpanExporter; got {type(exporter)}"
-                )
+                assert not isinstance(
+                    exporter, ConsoleSpanExporter
+                ), f"Production must not use ConsoleSpanExporter; got {type(exporter)}"
 
 
 # ---------------------------------------------------------------------------

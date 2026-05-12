@@ -14,12 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import (
-    SessionData,
-    get_current_user,
-    get_db_session,
-    get_recommendation_service,
-)
+from api.dependencies import (SessionData, get_current_user, get_db_session,
+                              get_recommendation_service)
 
 
 def _tier_db_mock(tier: str = "pro"):
@@ -55,7 +51,9 @@ def auth_client(mock_recommendation_service):
     test_user = SessionData(user_id="test-user-123", email="test@example.com")
     app.dependency_overrides[get_current_user] = lambda: test_user
     app.dependency_overrides[get_db_session] = lambda: _tier_db_mock("pro")
-    app.dependency_overrides[get_recommendation_service] = lambda: mock_recommendation_service
+    app.dependency_overrides[get_recommendation_service] = (
+        lambda: mock_recommendation_service
+    )
 
     client = TestClient(app)
     yield client
@@ -138,9 +136,13 @@ class TestSwitchingRecommendation:
         assert data["recommendation"]["recommended_supplier"] == "NextEra Energy"
         assert data["message"] is None
 
-    def test_switching_handles_service_error(self, auth_client, mock_recommendation_service):
+    def test_switching_handles_service_error(
+        self, auth_client, mock_recommendation_service
+    ):
         """When service raises an exception, endpoint returns graceful fallback."""
-        mock_recommendation_service.get_switching_recommendation.side_effect = Exception("DB error")
+        mock_recommendation_service.get_switching_recommendation.side_effect = (
+            Exception("DB error")
+        )
 
         response = auth_client.get("/api/v1/recommendations/switching")
         assert response.status_code == 200
@@ -248,9 +250,13 @@ class TestUsageRecommendation:
         assert data["optimal_start_time"] == "2026-02-23T02:00:00+00:00"
         assert data["message"] is None
 
-    def test_usage_handles_service_error(self, auth_client, mock_recommendation_service):
+    def test_usage_handles_service_error(
+        self, auth_client, mock_recommendation_service
+    ):
         """When service raises an exception, endpoint returns graceful fallback."""
-        mock_recommendation_service.get_usage_recommendation.side_effect = Exception("DB error")
+        mock_recommendation_service.get_usage_recommendation.side_effect = Exception(
+            "DB error"
+        )
 
         response = auth_client.get(
             "/api/v1/recommendations/usage",
@@ -293,19 +299,28 @@ class TestDailyRecommendations:
                 "potential_savings": "0.06",
             },
             "usage_recommendations": [
-                {"appliance": "dishwasher", "optimal_start_time": "2026-02-23T02:00:00+00:00"}
+                {
+                    "appliance": "dishwasher",
+                    "optimal_start_time": "2026-02-23T02:00:00+00:00",
+                }
             ],
         }
 
         response = auth_client.get("/api/v1/recommendations/daily")
         assert response.status_code == 200
         data = response.json()
-        assert data["switching_recommendation"]["recommended_supplier"] == "NextEra Energy"
+        assert (
+            data["switching_recommendation"]["recommended_supplier"] == "NextEra Energy"
+        )
         assert len(data["usage_recommendations"]) == 1
 
-    def test_daily_handles_service_error(self, auth_client, mock_recommendation_service):
+    def test_daily_handles_service_error(
+        self, auth_client, mock_recommendation_service
+    ):
         """When service raises an exception, endpoint returns graceful fallback."""
-        mock_recommendation_service.get_daily_recommendations.side_effect = Exception("DB error")
+        mock_recommendation_service.get_daily_recommendations.side_effect = Exception(
+            "DB error"
+        )
 
         response = auth_client.get("/api/v1/recommendations/daily")
         assert response.status_code == 200

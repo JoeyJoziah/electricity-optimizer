@@ -238,7 +238,9 @@ class TestMaintenanceCleanup:
         mock_svc.cleanup_market_intelligence = AsyncMock(
             return_value={"deleted": 0, "retention_days": 180}
         )
-        mock_svc.cleanup_stripe_processed_events = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_stripe_processed_events = AsyncMock(
+            return_value={"deleted": 0}
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")
@@ -253,7 +255,9 @@ class TestMaintenanceCleanup:
         """One task failing should not crash the entire endpoint."""
         mock_svc = MagicMock()
         mock_svc.cleanup_activity_logs = AsyncMock(return_value={"deleted": 5})
-        mock_svc.cleanup_expired_uploads = AsyncMock(side_effect=RuntimeError("DB timeout"))
+        mock_svc.cleanup_expired_uploads = AsyncMock(
+            side_effect=RuntimeError("DB timeout")
+        )
         mock_svc.cleanup_old_prices = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_old_observations = AsyncMock(return_value={"deleted": 0})
         mock_svc.cleanup_weather_cache = AsyncMock(
@@ -265,7 +269,9 @@ class TestMaintenanceCleanup:
         mock_svc.cleanup_market_intelligence = AsyncMock(
             return_value={"deleted": 0, "retention_days": 180}
         )
-        mock_svc.cleanup_stripe_processed_events = AsyncMock(return_value={"deleted": 0})
+        mock_svc.cleanup_stripe_processed_events = AsyncMock(
+            return_value={"deleted": 0}
+        )
         mock_svc_cls.return_value = mock_svc
 
         response = auth_client.post(f"{BASE_URL}/maintenance/cleanup")

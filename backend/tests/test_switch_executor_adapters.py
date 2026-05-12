@@ -10,15 +10,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.switch_executor import (
-    AdvisoryOnlyFallback,
-    EnergyBotExecutor,
-    EnrollmentRequest,
-    EnrollmentResult,
-    EnrollmentStatus,
-    SwitchExecutor,
-    get_executor,
-)
+from services.switch_executor import (AdvisoryOnlyFallback, EnergyBotExecutor,
+                                      EnrollmentRequest, EnrollmentResult,
+                                      EnrollmentStatus, SwitchExecutor,
+                                      get_executor)
 
 # =============================================================================
 # Helpers
@@ -112,7 +107,9 @@ class TestEnergyBotCheckPlanAvailable:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_returns_false_on_api_error(self, energybot_executor, mock_energybot_service):
+    async def test_returns_false_on_api_error(
+        self, energybot_executor, mock_energybot_service
+    ):
         """Returns False (never raises) when the upstream call raises an exception."""
         mock_energybot_service.get_plan_details.side_effect = RuntimeError("timeout")
 
@@ -129,7 +126,9 @@ class TestEnergyBotCheckPlanAvailable:
 
 class TestEnergyBotExecuteEnrollment:
     @pytest.mark.asyncio
-    async def test_execute_enrollment_success(self, energybot_executor, mock_energybot_service):
+    async def test_execute_enrollment_success(
+        self, energybot_executor, mock_energybot_service
+    ):
         """Returns EnrollmentResult with success=True on a happy-path enrollment."""
         switch_date = datetime(2026, 5, 1, tzinfo=UTC)
         eb_result = MagicMock(
@@ -146,10 +145,16 @@ class TestEnergyBotExecuteEnrollment:
             patch("services.switch_executor.traced", return_value=_make_traced_mock()),
             patch.dict(
                 "sys.modules",
-                {"services.energybot_service": MagicMock(EnrollmentRequest=mock_eb_request_cls)},
+                {
+                    "services.energybot_service": MagicMock(
+                        EnrollmentRequest=mock_eb_request_cls
+                    )
+                },
             ),
         ):
-            result = await energybot_executor.execute_enrollment(_make_enrollment_request())
+            result = await energybot_executor.execute_enrollment(
+                _make_enrollment_request()
+            )
 
         assert result.success is True
         assert result.enrollment_id == "eb-enroll-001"
@@ -162,17 +167,25 @@ class TestEnergyBotExecuteEnrollment:
         self, energybot_executor, mock_energybot_service
     ):
         """Returns EnrollmentResult with success=False when upstream call raises."""
-        mock_energybot_service.create_enrollment.side_effect = ValueError("account not found")
+        mock_energybot_service.create_enrollment.side_effect = ValueError(
+            "account not found"
+        )
 
         mock_eb_request_cls = MagicMock()
         with (
             patch("services.switch_executor.traced", return_value=_make_traced_mock()),
             patch.dict(
                 "sys.modules",
-                {"services.energybot_service": MagicMock(EnrollmentRequest=mock_eb_request_cls)},
+                {
+                    "services.energybot_service": MagicMock(
+                        EnrollmentRequest=mock_eb_request_cls
+                    )
+                },
             ),
         ):
-            result = await energybot_executor.execute_enrollment(_make_enrollment_request())
+            result = await energybot_executor.execute_enrollment(
+                _make_enrollment_request()
+            )
 
         assert result.success is False
         assert result.status == "failed"
@@ -209,7 +222,9 @@ class TestEnergyBotCheckEnrollmentStatus:
         assert status.status == "accepted"
         assert status.switch_date == switch_date
         assert status.rejection_reason is None
-        mock_energybot_service.check_enrollment_status.assert_awaited_once_with("eb-enroll-001")
+        mock_energybot_service.check_enrollment_status.assert_awaited_once_with(
+            "eb-enroll-001"
+        )
 
 
 # =============================================================================
@@ -219,7 +234,9 @@ class TestEnergyBotCheckEnrollmentStatus:
 
 class TestEnergyBotCancelEnrollment:
     @pytest.mark.asyncio
-    async def test_cancel_returns_true_on_success(self, energybot_executor, mock_energybot_service):
+    async def test_cancel_returns_true_on_success(
+        self, energybot_executor, mock_energybot_service
+    ):
         """Propagates True from the underlying service on successful cancellation."""
         mock_energybot_service.cancel_enrollment.return_value = True
 
@@ -227,7 +244,9 @@ class TestEnergyBotCancelEnrollment:
             result = await energybot_executor.cancel_enrollment("eb-enroll-001")
 
         assert result is True
-        mock_energybot_service.cancel_enrollment.assert_awaited_once_with("eb-enroll-001")
+        mock_energybot_service.cancel_enrollment.assert_awaited_once_with(
+            "eb-enroll-001"
+        )
 
     @pytest.mark.asyncio
     async def test_cancel_returns_false_when_service_returns_false(

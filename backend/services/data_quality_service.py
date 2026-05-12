@@ -50,16 +50,14 @@ class DataQualityService:
         Returns list of dicts with: utility_type, region, last_updated,
         threshold_hours, is_stale, hours_since_update.
         """
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT utility_type, region,
                        MAX(updated_at) as last_updated,
                        COUNT(*) as record_count
                 FROM electricity_prices
                 GROUP BY utility_type, region
                 ORDER BY utility_type, region
-            """)
-        )
+            """))
         rows = result.mappings().all()
         now = datetime.now(UTC)
         report = []
@@ -86,10 +84,11 @@ class DataQualityService:
                     "last_updated": last_updated.isoformat() if last_updated else None,
                     "record_count": r["record_count"],
                     "threshold_hours": threshold_hours,
-                    "alert_threshold_hours": threshold_hours * FRESHNESS_ALERT_MULTIPLIER,
-                    "hours_since_update": round(hours_since, 1)
-                    if hours_since != float("inf")
-                    else None,
+                    "alert_threshold_hours": threshold_hours
+                    * FRESHNESS_ALERT_MULTIPLIER,
+                    "hours_since_update": (
+                        round(hours_since, 1) if hours_since != float("inf") else None
+                    ),
                     "is_stale": is_stale,
                 }
             )
@@ -187,17 +186,25 @@ class DataQualityService:
                     "total_attempts": r["total"],
                     "successes": r["successes"],
                     "failures": r["failures"],
-                    "failure_rate": round(r["failures"] / r["total"], 3) if r["total"] > 0 else 0,
-                    "is_degraded": (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD
-                    if r["total"] > 0
-                    else False,
-                    "last_attempt": r["last_attempt"].isoformat() if r["last_attempt"] else None,
+                    "failure_rate": (
+                        round(r["failures"] / r["total"], 3) if r["total"] > 0 else 0
+                    ),
+                    "is_degraded": (
+                        (r["failures"] / r["total"]) > SOURCE_FAILURE_ALERT_THRESHOLD
+                        if r["total"] > 0
+                        else False
+                    ),
+                    "last_attempt": (
+                        r["last_attempt"].isoformat() if r["last_attempt"] else None
+                    ),
                 }
                 for r in rows
             ]
         except Exception:
             # Fallback: count records per source in electricity_prices
-            logger.info("scrape_results table not found, falling back to electricity_prices")
+            logger.info(
+                "scrape_results table not found, falling back to electricity_prices"
+            )
             result = await self._db.execute(
                 text("""
                     SELECT source,
@@ -221,7 +228,9 @@ class DataQualityService:
                     "failures": 0,
                     "failure_rate": 0.0,
                     "is_degraded": False,
-                    "last_attempt": r["last_attempt"].isoformat() if r["last_attempt"] else None,
+                    "last_attempt": (
+                        r["last_attempt"].isoformat() if r["last_attempt"] else None
+                    ),
                 }
                 for r in rows
             ]

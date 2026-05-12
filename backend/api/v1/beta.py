@@ -94,7 +94,9 @@ async def send_welcome_email(email: str, name: str, beta_code: str):
             logger.info("welcome_email_sent", recipient=email)
         else:
             logger.warning(
-                "welcome_email_skipped", recipient=email, reason="no provider configured"
+                "welcome_email_skipped",
+                recipient=email,
+                reason="no provider configured",
             )
 
     except Exception as e:
@@ -129,7 +131,9 @@ async def beta_signup(
         {"email": signup.email},
     )
     if existing.fetchone() is not None:
-        raise HTTPException(status_code=400, detail="Email already registered for early access")
+        raise HTTPException(
+            status_code=400, detail="Email already registered for early access"
+        )
 
     # Generate beta code
     beta_code = generate_beta_code()
@@ -213,7 +217,9 @@ async def verify_beta_code(
 
     # Search for the code in the interest field (stored as code=BETA-XXXX)
     result = await db.execute(
-        text("SELECT interest FROM beta_signups WHERE interest LIKE :pattern ESCAPE '\\'"),
+        text(
+            "SELECT interest FROM beta_signups WHERE interest LIKE :pattern ESCAPE '\\'"
+        ),
         {"pattern": f"%code={escaped_code}%"},
     )
     rows = result.fetchall()

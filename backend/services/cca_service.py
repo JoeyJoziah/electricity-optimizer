@@ -175,9 +175,11 @@ class CCAService:
             "program_name": row["program_name"],
             "provider": row["provider"],
             "generation_mix": row["generation_mix"],
-            "rate_vs_default_pct": float(row["rate_vs_default_pct"])
-            if row["rate_vs_default_pct"]
-            else None,
+            "rate_vs_default_pct": (
+                float(row["rate_vs_default_pct"])
+                if row["rate_vs_default_pct"]
+                else None
+            ),
             "opt_out_url": row["opt_out_url"],
             "program_url": row["program_url"],
             "status": row["status"],

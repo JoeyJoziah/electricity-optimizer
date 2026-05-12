@@ -84,13 +84,19 @@ class ConnectionAnalyticsService:
         market_row = market_result.mappings().first()
 
         market_avg = (
-            float(market_row["avg_price"]) if market_row and market_row["avg_price"] else user_rate
+            float(market_row["avg_price"])
+            if market_row and market_row["avg_price"]
+            else user_rate
         )
         market_min = (
-            float(market_row["min_price"]) if market_row and market_row["min_price"] else user_rate
+            float(market_row["min_price"])
+            if market_row and market_row["min_price"]
+            else user_rate
         )
         market_max = (
-            float(market_row["max_price"]) if market_row and market_row["max_price"] else user_rate
+            float(market_row["max_price"])
+            if market_row and market_row["max_price"]
+            else user_rate
         )
 
         delta = user_rate - market_avg
@@ -145,7 +151,11 @@ class ConnectionAnalyticsService:
         for row in rows:
             data_points.append(
                 {
-                    "date": row["effective_date"].isoformat() if row["effective_date"] else None,
+                    "date": (
+                        row["effective_date"].isoformat()
+                        if row["effective_date"]
+                        else None
+                    ),
                     "rate": float(row["rate_per_kwh"]) if row["rate_per_kwh"] else None,
                     "supplier": row["supplier_name"],
                     "connection_id": row["connection_id"],
@@ -185,9 +195,13 @@ class ConnectionAnalyticsService:
         annual_kwh = monthly_kwh * 12
 
         # Savings vs best available rate
-        savings_vs_best = (user_rate - market_min) * annual_kwh if user_rate > market_min else 0
+        savings_vs_best = (
+            (user_rate - market_min) * annual_kwh if user_rate > market_min else 0
+        )
         # Savings vs average rate
-        savings_vs_avg = (user_rate - market_avg) * annual_kwh if user_rate > market_avg else 0
+        savings_vs_avg = (
+            (user_rate - market_avg) * annual_kwh if user_rate > market_avg else 0
+        )
 
         return {
             "has_data": True,
@@ -231,13 +245,17 @@ class ConnectionAnalyticsService:
                 "connection_type": row["connection_type"],
                 "label": row["label"],
                 "email_provider": row["email_provider"],
-                "last_scan_at": row["last_scan_at"].isoformat() if row["last_scan_at"] else None,
+                "last_scan_at": (
+                    row["last_scan_at"].isoformat() if row["last_scan_at"] else None
+                ),
                 "days_since_sync": (
                     (datetime.now(UTC) - row["last_scan_at"]).days
                     if row["last_scan_at"]
-                    else (datetime.now(UTC) - row["created_at"]).days
-                    if row["created_at"]
-                    else None
+                    else (
+                        (datetime.now(UTC) - row["created_at"]).days
+                        if row["created_at"]
+                        else None
+                    )
                 ),
             }
             for row in rows
@@ -284,9 +302,11 @@ class ConnectionAnalyticsService:
                         "current_rate": round(current, 4),
                         "change_percentage": round(change_pct, 2),
                         "direction": "increase" if current > previous else "decrease",
-                        "detected_at": row["effective_date"].isoformat()
-                        if row["effective_date"]
-                        else None,
+                        "detected_at": (
+                            row["effective_date"].isoformat()
+                            if row["effective_date"]
+                            else None
+                        ),
                     }
                 )
 

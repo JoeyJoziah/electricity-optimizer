@@ -117,7 +117,9 @@ class TestNeonAuthSessionValidation:
     # get_current_user Tests
     # -------------------------------------------------------------------------
 
-    async def test_get_current_user_from_bearer_header(self, mock_db_session, mock_request):
+    async def test_get_current_user_from_bearer_header(
+        self, mock_db_session, mock_request
+    ):
         """Test extracting session token from Authorization header"""
         from fastapi.security import HTTPAuthorizationCredentials
 
@@ -165,7 +167,9 @@ class TestNeonAuthSessionValidation:
         assert result.user_id == "user-cookie"
         assert result.email == "cookie@example.com"
 
-    async def test_get_current_user_from_secure_cookie(self, mock_db_session, mock_request):
+    async def test_get_current_user_from_secure_cookie(
+        self, mock_db_session, mock_request
+    ):
         """Test extracting session token from __Secure- prefixed cookie (HTTPS/production)"""
         from auth.neon_auth import SESSION_COOKIE_NAME_SECURE, get_current_user
 
@@ -188,7 +192,9 @@ class TestNeonAuthSessionValidation:
         assert result.email == "secure@example.com"
         assert result.email_verified is True
 
-    async def test_get_current_user_no_token_raises_401(self, mock_db_session, mock_request):
+    async def test_get_current_user_no_token_raises_401(
+        self, mock_db_session, mock_request
+    ):
         """Test missing session token raises 401"""
         from fastapi import HTTPException
 
@@ -201,7 +207,9 @@ class TestNeonAuthSessionValidation:
 
         assert exc_info.value.status_code == 401
 
-    async def test_get_current_user_invalid_token_raises_401(self, mock_db_session, mock_request):
+    async def test_get_current_user_invalid_token_raises_401(
+        self, mock_db_session, mock_request
+    ):
         """Test invalid session token raises 401"""
         from fastapi import HTTPException
         from fastapi.security import HTTPAuthorizationCredentials
@@ -213,7 +221,9 @@ class TestNeonAuthSessionValidation:
         mock_result.fetchone.return_value = None
         mock_db_session.execute.return_value = mock_result
 
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="invalid-token")
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="invalid-token"
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(mock_request, credentials, mock_db_session)
@@ -227,7 +237,9 @@ class TestNeonAuthSessionValidation:
 
         from auth.neon_auth import get_current_user
 
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="valid-token")
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="valid-token"
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(mock_request, credentials, None)
@@ -238,7 +250,9 @@ class TestNeonAuthSessionValidation:
     # get_current_user_optional Tests
     # -------------------------------------------------------------------------
 
-    async def test_get_current_user_optional_returns_none(self, mock_db_session, mock_request):
+    async def test_get_current_user_optional_returns_none(
+        self, mock_db_session, mock_request
+    ):
         """Test optional auth returns None for unauthenticated request"""
         from auth.neon_auth import get_current_user_optional
 
@@ -248,9 +262,12 @@ class TestNeonAuthSessionValidation:
 
         assert result is None
 
-    async def test_get_current_user_optional_returns_user(self, mock_db_session, mock_request):
+    async def test_get_current_user_optional_returns_user(
+        self, mock_db_session, mock_request
+    ):
         """Test optional auth returns SessionData when authenticated"""
-        from auth.neon_auth import SESSION_COOKIE_NAME, SessionData, get_current_user_optional
+        from auth.neon_auth import (SESSION_COOKIE_NAME, SessionData,
+                                    get_current_user_optional)
 
         mock_request.cookies = {SESSION_COOKIE_NAME: "token"}
 
@@ -329,7 +346,8 @@ class TestNeonAuthSessionValidation:
         """Verify Redis SET uses SHA-256 cache key on cache miss + DB hit."""
         import hashlib
 
-        from auth.neon_auth import _SESSION_CACHE_TTL, SessionData, _get_session_from_token
+        from auth.neon_auth import (_SESSION_CACHE_TTL, SessionData,
+                                    _get_session_from_token)
 
         mock_redis = AsyncMock()
         mock_redis.get.return_value = None
@@ -438,7 +456,8 @@ class TestAuthAPI:
 
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/auth/password/check-strength", json={"password": "ValidPass123!"}
+                "/api/v1/auth/password/check-strength",
+                json={"password": "ValidPass123!"},
             )
             assert response.status_code == 200
             data = response.json()
@@ -476,7 +495,9 @@ class TestAuthAPI:
         app.include_router(router, prefix="/api/v1/auth")
 
         with TestClient(app) as client:
-            response = client.post("/api/v1/auth/password/check-strength", json={"password": ""})
+            response = client.post(
+                "/api/v1/auth/password/check-strength", json={"password": ""}
+            )
             assert response.status_code == 422
 
 
@@ -520,11 +541,15 @@ class TestAuthRateLimiting:
 
         # First 3 requests should be allowed
         for _ in range(3):
-            allowed, remaining = await limiter.check_rate_limit(ip_identifier, limit_type="minute")
+            allowed, remaining = await limiter.check_rate_limit(
+                ip_identifier, limit_type="minute"
+            )
             assert allowed is True
 
         # 4th request should be rate limited
-        allowed, remaining = await limiter.check_rate_limit(ip_identifier, limit_type="minute")
+        allowed, remaining = await limiter.check_rate_limit(
+            ip_identifier, limit_type="minute"
+        )
         assert allowed is False
         assert remaining == 0
 
@@ -754,7 +779,8 @@ class TestAuthIntegration:
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from api.v1.auth import _get_current_user_with_brute_force_tracking, router
+        from api.v1.auth import (_get_current_user_with_brute_force_tracking,
+                                 router)
         from auth.neon_auth import SessionData
         from config.database import get_pg_session
 
@@ -774,8 +800,8 @@ class TestAuthIntegration:
             name="Me User",
             email_verified=True,
         )
-        app.dependency_overrides[_get_current_user_with_brute_force_tracking] = lambda: (
-            valid_session
+        app.dependency_overrides[_get_current_user_with_brute_force_tracking] = (
+            lambda: (valid_session)
         )
         app.dependency_overrides[get_pg_session] = lambda: mock_db
 
@@ -904,9 +930,7 @@ class TestBannedUserSessionBypass:
             side_effect=lambda key: (
                 cached_data
                 if key.startswith("session:")
-                else b"1"
-                if key == "banned_user:banned-user-123"
-                else None
+                else b"1" if key == "banned_user:banned-user-123" else None
             )
         )
         mock_redis.delete = AsyncMock()
@@ -954,15 +978,15 @@ class TestBannedUserSessionBypass:
 
     async def test_invalidate_sessions_for_banned_user_sets_marker(self):
         """invalidate_sessions_for_banned_user sets a Redis marker."""
-        from auth.neon_auth import (
-            _BANNED_USER_MARKER_TTL,
-            invalidate_sessions_for_banned_user,
-        )
+        from auth.neon_auth import (_BANNED_USER_MARKER_TTL,
+                                    invalidate_sessions_for_banned_user)
 
         mock_redis = AsyncMock()
         mock_redis.setex = AsyncMock()
 
-        result = await invalidate_sessions_for_banned_user("user-to-ban", redis=mock_redis)
+        result = await invalidate_sessions_for_banned_user(
+            "user-to-ban", redis=mock_redis
+        )
 
         assert result is True
         mock_redis.setex.assert_awaited_once_with(

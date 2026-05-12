@@ -55,7 +55,9 @@ def _mapping_result(rows: list) -> MagicMock:
     result = MagicMock()
     mock_rows = [_DictRow(r) for r in rows]
     result.mappings.return_value.all.return_value = mock_rows
-    result.mappings.return_value.first.return_value = mock_rows[0] if mock_rows else None
+    result.mappings.return_value.first.return_value = (
+        mock_rows[0] if mock_rows else None
+    )
     result.fetchone.return_value = mock_rows[0] if mock_rows else None
     return result
 
@@ -261,7 +263,9 @@ class TestDownloadGmailAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(side_effect=[msg_response, att_response])
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_gmail_attachments("token123", "msg-001")
 
         assert len(results) == 1
@@ -301,7 +305,9 @@ class TestDownloadGmailAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=msg_response)
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_gmail_attachments("token123", "msg-002")
 
         assert results == []
@@ -338,7 +344,9 @@ class TestDownloadGmailAttachments:
         # First call = msg fetch, subsequent = attachment fetches
         mock_client.get = AsyncMock(side_effect=[msg_response] + [att_response] * 5)
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_gmail_attachments("token123", "msg-003")
 
         assert len(results) <= 5
@@ -374,7 +382,9 @@ class TestDownloadGmailAttachments:
         # First attachment raises, second succeeds
         bad_att_response = MagicMock()
         bad_att_response.raise_for_status = MagicMock(
-            side_effect=httpx.HTTPStatusError("403", request=MagicMock(), response=MagicMock())
+            side_effect=httpx.HTTPStatusError(
+                "403", request=MagicMock(), response=MagicMock()
+            )
         )
 
         good_att_response = MagicMock()
@@ -384,9 +394,13 @@ class TestDownloadGmailAttachments:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(side_effect=[msg_response, bad_att_response, good_att_response])
+        mock_client.get = AsyncMock(
+            side_effect=[msg_response, bad_att_response, good_att_response]
+        )
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_gmail_attachments("token123", "msg-004")
 
         # Only the successful attachment should be returned
@@ -430,7 +444,9 @@ class TestDownloadGmailAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(side_effect=[msg_response, att_response])
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_gmail_attachments("token123", "msg-005")
 
         assert len(results) == 1
@@ -469,7 +485,9 @@ class TestDownloadOutlookAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=resp)
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_outlook_attachments("token456", "outlook-msg-001")
 
         assert len(results) == 1
@@ -505,7 +523,9 @@ class TestDownloadOutlookAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=resp)
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_outlook_attachments("token456", "outlook-msg-002")
 
         assert results == []
@@ -535,7 +555,9 @@ class TestDownloadOutlookAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=resp)
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_outlook_attachments("token456", "outlook-msg-003")
 
         assert len(results) <= 5
@@ -563,7 +585,9 @@ class TestDownloadOutlookAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=resp)
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_outlook_attachments("token456", "outlook-msg-004")
 
         assert results == []
@@ -592,7 +616,9 @@ class TestDownloadOutlookAttachments:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.get = AsyncMock(return_value=resp)
 
-        with patch("services.email_scanner_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.email_scanner_service.httpx.AsyncClient", return_value=mock_client
+        ):
             results = await download_outlook_attachments("token456", "outlook-msg-005")
 
         assert len(results) == 1
@@ -609,26 +635,39 @@ class TestExtractRatesFromAttachments:
 
     async def test_extracts_rate_from_pdf_attachment(self):
         """Should call bill_parser extractors and return rate data."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         fake_pdf_data = b"%PDF-1.4 fake"
         attachments = [
-            {"filename": "bill.pdf", "data": fake_pdf_data, "mime_type": "application/pdf"}
+            {
+                "filename": "bill.pdf",
+                "data": fake_pdf_data,
+                "mime_type": "application/pdf",
+            }
         ]
 
         with (
             patch(
-                "services.bill_parser.extract_text", return_value="Rate: $0.1850/kWh\nTotal: $95.00"
+                "services.bill_parser.extract_text",
+                return_value="Rate: $0.1850/kWh\nTotal: $95.00",
             ),
             patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
-            patch("services.bill_parser.extract_rate_per_kwh", return_value=(0.185, 1.0)),
-            patch("services.bill_parser.extract_supplier", return_value=("Eversource", 0.9)),
+            patch(
+                "services.bill_parser.extract_rate_per_kwh", return_value=(0.185, 1.0)
+            ),
+            patch(
+                "services.bill_parser.extract_supplier",
+                return_value=("Eversource", 0.9),
+            ),
             patch(
                 "services.bill_parser.extract_billing_period",
                 return_value=("2025-01-01", "2025-01-31", 0.85),
             ),
             patch("services.bill_parser.extract_total_kwh", return_value=(512.0, 0.85)),
-            patch("services.bill_parser.extract_total_amount", return_value=(95.00, 0.9)),
+            patch(
+                "services.bill_parser.extract_total_amount", return_value=(95.00, 0.9)
+            ),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -640,18 +679,26 @@ class TestExtractRatesFromAttachments:
 
     async def test_skips_attachment_with_empty_data(self):
         """Empty data bytes should produce no results."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
-        attachments = [{"filename": "empty.pdf", "data": b"", "mime_type": "application/pdf"}]
+        attachments = [
+            {"filename": "empty.pdf", "data": b"", "mime_type": "application/pdf"}
+        ]
         results = await extract_rates_from_attachments(attachments)
         assert results == []
 
     async def test_attachment_with_no_extractable_text_returns_partial_result(self):
         """An attachment whose text extraction yields blank should be skipped."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
-            {"filename": "scan.pdf", "data": b"%PDF-blank", "mime_type": "application/pdf"}
+            {
+                "filename": "scan.pdf",
+                "data": b"%PDF-blank",
+                "mime_type": "application/pdf",
+            }
         ]
 
         with (
@@ -665,10 +712,15 @@ class TestExtractRatesFromAttachments:
 
     async def test_rate_below_confidence_threshold_not_included(self):
         """Rates with confidence < 0.5 should be omitted from the result dict."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
-            {"filename": "bill.pdf", "data": b"%PDF-low-conf", "mime_type": "application/pdf"}
+            {
+                "filename": "bill.pdf",
+                "data": b"%PDF-low-conf",
+                "mime_type": "application/pdf",
+            }
         ]
 
         with (
@@ -679,9 +731,14 @@ class TestExtractRatesFromAttachments:
                 return_value=(0.12, 0.3),  # low confidence
             ),
             patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
-            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch(
+                "services.bill_parser.extract_billing_period",
+                return_value=(None, None, 0.0),
+            ),
             patch("services.bill_parser.extract_total_kwh", return_value=(500.0, 0.85)),
-            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
+            patch(
+                "services.bill_parser.extract_total_amount", return_value=(None, 0.0)
+            ),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -691,15 +748,23 @@ class TestExtractRatesFromAttachments:
 
     async def test_exception_in_extractor_returns_partial_result(self):
         """An exception in bill_parser should not crash — filename entry is returned."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
-            {"filename": "corrupt.pdf", "data": b"%PDF-corrupt", "mime_type": "application/pdf"}
+            {
+                "filename": "corrupt.pdf",
+                "data": b"%PDF-corrupt",
+                "mime_type": "application/pdf",
+            }
         ]
 
         with (
             patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
-            patch("services.bill_parser.extract_text", side_effect=RuntimeError("corrupt PDF")),
+            patch(
+                "services.bill_parser.extract_text",
+                side_effect=RuntimeError("corrupt PDF"),
+            ),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -709,11 +774,20 @@ class TestExtractRatesFromAttachments:
 
     async def test_multiple_attachments_all_processed(self):
         """All qualifying attachments in the list should be processed."""
-        from services.email_scanner_service import extract_rates_from_attachments
+        from services.email_scanner_service import \
+            extract_rates_from_attachments
 
         attachments = [
-            {"filename": "jan.pdf", "data": b"%PDF-jan", "mime_type": "application/pdf"},
-            {"filename": "feb.pdf", "data": b"%PDF-feb", "mime_type": "application/pdf"},
+            {
+                "filename": "jan.pdf",
+                "data": b"%PDF-jan",
+                "mime_type": "application/pdf",
+            },
+            {
+                "filename": "feb.pdf",
+                "data": b"%PDF-feb",
+                "mime_type": "application/pdf",
+            },
         ]
 
         rates = [0.185, 0.190]
@@ -727,11 +801,19 @@ class TestExtractRatesFromAttachments:
         with (
             patch("services.bill_parser._validate_magic_bytes", return_value="pdf"),
             patch("services.bill_parser.extract_text", return_value="Rate: $0.185/kWh"),
-            patch("services.bill_parser.extract_rate_per_kwh", side_effect=_rate_side_effect),
+            patch(
+                "services.bill_parser.extract_rate_per_kwh",
+                side_effect=_rate_side_effect,
+            ),
             patch("services.bill_parser.extract_supplier", return_value=(None, 0.0)),
-            patch("services.bill_parser.extract_billing_period", return_value=(None, None, 0.0)),
+            patch(
+                "services.bill_parser.extract_billing_period",
+                return_value=(None, None, 0.0),
+            ),
             patch("services.bill_parser.extract_total_kwh", return_value=(None, 0.0)),
-            patch("services.bill_parser.extract_total_amount", return_value=(None, 0.0)),
+            patch(
+                "services.bill_parser.extract_total_amount", return_value=(None, 0.0)
+            ),
         ):
             results = await extract_rates_from_attachments(attachments)
 
@@ -857,7 +939,10 @@ class TestTriggerEmailScanBodyExtraction:
         connection_id = str(uuid4())
         self._setup_scan(db, connection_id, "gmail", [])
 
-        bills = [_make_scan_result(email_id=f"msg-multi-{i}", attachment_count=0) for i in range(3)]
+        bills = [
+            _make_scan_result(email_id=f"msg-multi-{i}", attachment_count=0)
+            for i in range(3)
+        ]
 
         with (
             patch("utils.encryption.decrypt_field", return_value="fake_access_token"),
@@ -940,7 +1025,11 @@ class TestTriggerEmailScanAttachmentExtraction:
 
         bill = _make_scan_result(email_id="msg-att-gmail", attachment_count=1)
         fake_attachment = [
-            {"filename": "bill.pdf", "data": b"%PDF-fake", "mime_type": "application/pdf"}
+            {
+                "filename": "bill.pdf",
+                "data": b"%PDF-fake",
+                "mime_type": "application/pdf",
+            }
         ]
         parsed_result = [{"filename": "bill.pdf", "rate_per_kwh": 0.2150}]
 
@@ -982,7 +1071,11 @@ class TestTriggerEmailScanAttachmentExtraction:
 
         bill = _make_scan_result(email_id="msg-att-outlook", attachment_count=1)
         fake_attachment = [
-            {"filename": "invoice.pdf", "data": b"%PDF-fake", "mime_type": "application/pdf"}
+            {
+                "filename": "invoice.pdf",
+                "data": b"%PDF-fake",
+                "mime_type": "application/pdf",
+            }
         ]
         parsed_result = [{"filename": "invoice.pdf", "rate_per_kwh": 0.1890}]
 
@@ -1079,7 +1172,9 @@ class TestTriggerEmailScanAttachmentExtraction:
         assert resp.status_code == 200
         mock_download.assert_not_called()
 
-    async def test_attachment_without_rate_increments_parsed_not_extracted(self, client):
+    async def test_attachment_without_rate_increments_parsed_not_extracted(
+        self, client
+    ):
         """Parsed attachments with no extractable rate should increment attachments_parsed only."""
         db = _install_auth()
         connection_id = str(uuid4())
@@ -1087,7 +1182,11 @@ class TestTriggerEmailScanAttachmentExtraction:
 
         bill = _make_scan_result(email_id="msg-no-rate-att", attachment_count=1)
         fake_attachment = [
-            {"filename": "bill.pdf", "data": b"%PDF-fake", "mime_type": "application/pdf"}
+            {
+                "filename": "bill.pdf",
+                "data": b"%PDF-fake",
+                "mime_type": "application/pdf",
+            }
         ]
         # Parsed but no rate found
         parsed_result = [{"filename": "bill.pdf", "supplier": "Eversource"}]
@@ -1130,7 +1229,11 @@ class TestTriggerEmailScanAttachmentExtraction:
 
         bill = _make_scan_result(email_id="msg-combined", attachment_count=1)
         fake_attachment = [
-            {"filename": "bill.pdf", "data": b"%PDF-fake", "mime_type": "application/pdf"}
+            {
+                "filename": "bill.pdf",
+                "data": b"%PDF-fake",
+                "mime_type": "application/pdf",
+            }
         ]
         parsed_result = [{"filename": "bill.pdf", "rate_per_kwh": 0.2200}]
 
@@ -1225,7 +1328,9 @@ class TestTriggerEmailScanResponse:
         self._setup_db(db, connection_id)
 
         bills = [
-            _make_scan_result(email_id=f"msg-cap-{i}", is_utility_bill=True, attachment_count=0)
+            _make_scan_result(
+                email_id=f"msg-cap-{i}", is_utility_bill=True, attachment_count=0
+            )
             for i in range(25)
         ]
 

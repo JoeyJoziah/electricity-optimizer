@@ -323,7 +323,9 @@ class TestPredictionErrorSanitization:
         "routers.predictions.generate_price_forecast",
         side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
     )
-    def test_predict_price_error_does_not_leak_exception(self, _mock_gen, predictions_client):
+    def test_predict_price_error_does_not_leak_exception(
+        self, _mock_gen, predictions_client
+    ):
         """500 on /predict/price must not include raw exception text in the response body."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
@@ -344,7 +346,9 @@ class TestPredictionErrorSanitization:
         "routers.predictions.generate_price_forecast",
         side_effect=Exception("AES-256-GCM key derivation failed: invalid padding"),
     )
-    def test_predict_price_error_does_not_leak_crypto_details(self, _mock_gen, predictions_client):
+    def test_predict_price_error_does_not_leak_crypto_details(
+        self, _mock_gen, predictions_client
+    ):
         """Crypto exception details must not appear in the 500 response."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
@@ -376,7 +380,9 @@ class TestPredictionErrorSanitization:
         "routers.predictions.generate_price_forecast",
         side_effect=Exception("DATABASE_URL=postgresql://user:secret@host/db"),
     )
-    def test_predict_savings_error_does_not_leak_exception(self, _mock_gen, predictions_client):
+    def test_predict_savings_error_does_not_leak_exception(
+        self, _mock_gen, predictions_client
+    ):
         """500 on /predict/savings must not include raw exception text."""
         from datetime import UTC, datetime, timedelta
 
@@ -408,7 +414,9 @@ class TestPredictionErrorSanitization:
         "routers.predictions.generate_price_forecast",
         side_effect=Exception("internal db error with secret_key=sk_live_abc123"),
     )
-    def test_predict_price_error_detail_is_generic_message(self, _mock_gen, predictions_client):
+    def test_predict_price_error_detail_is_generic_message(
+        self, _mock_gen, predictions_client
+    ):
         """The detail field must be a generic human-readable message, not the raw error."""
         response = predictions_client.post(
             "/api/v1/ml/predict/price",
@@ -423,5 +431,9 @@ class TestPredictionErrorSanitization:
         detail_lower = data["detail"].lower()
         assert any(
             phrase in detail_lower
-            for phrase in ["see server logs", "internal server error", "prediction failed"]
+            for phrase in [
+                "see server logs",
+                "internal server error",
+                "prediction failed",
+            ]
         )

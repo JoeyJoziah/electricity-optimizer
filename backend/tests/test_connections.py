@@ -91,7 +91,9 @@ def _mapping_result(rows: list) -> MagicMock:
     result = MagicMock()
     mock_rows = [_DictRow(r) for r in rows]
     result.mappings.return_value.all.return_value = mock_rows
-    result.mappings.return_value.first.return_value = mock_rows[0] if mock_rows else None
+    result.mappings.return_value.first.return_value = (
+        mock_rows[0] if mock_rows else None
+    )
     result.fetchone.return_value = mock_rows[0] if mock_rows else None
     return result
 
@@ -350,7 +352,9 @@ class TestListConnections:
         call_args = db.execute.call_args
         assert call_args is not None
         # The second positional arg is the params dict
-        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("params", {})
+        params = (
+            call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("params", {})
+        )
         # params may be passed as second positional or keyword
         if isinstance(params, dict):
             assert params.get("uid") == TEST_USER_ID
@@ -381,7 +385,9 @@ class TestCreateDirectConnection:
         no_dup_result = _empty_mapping_result()
         insert_result = MagicMock()
 
-        db.execute = AsyncMock(side_effect=[supplier_result, no_dup_result, insert_result])
+        db.execute = AsyncMock(
+            side_effect=[supplier_result, no_dup_result, insert_result]
+        )
 
         # encrypt_field / mask_account_number are imported locally inside the
         # route handler, so we patch at the source module level.
@@ -1105,7 +1111,8 @@ class TestCallbackStateTimestampExpiry:
         with patch("api.v1.connections.settings") as mock_settings:
             mock_settings.internal_api_key = "test-signing-key-1234"
 
-            from api.v1.connections.common import sign_callback_state, verify_callback_state
+            from api.v1.connections.common import (sign_callback_state,
+                                                   verify_callback_state)
 
             state = sign_callback_state("conn-123", "user-456")
             connection_id, user_id = verify_callback_state(state)
@@ -1123,7 +1130,8 @@ class TestCallbackStateTimestampExpiry:
         with patch("api.v1.connections.settings") as mock_settings:
             mock_settings.internal_api_key = "test-signing-key-1234"
 
-            from api.v1.connections.common import OAUTH_STATE_TIMEOUT_SECONDS, verify_callback_state
+            from api.v1.connections.common import (OAUTH_STATE_TIMEOUT_SECONDS,
+                                                   verify_callback_state)
 
             # Forge a state with a timestamp 15 minutes in the past
             connection_id = "conn-old"
@@ -1131,7 +1139,9 @@ class TestCallbackStateTimestampExpiry:
             old_timestamp = str(int(time.time()) - OAUTH_STATE_TIMEOUT_SECONDS - 300)
             key = mock_settings.internal_api_key.encode("utf-8")
             payload = f"{connection_id}:{user_id}:{old_timestamp}"
-            sig = hmac_mod.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            sig = hmac_mod.HMAC(
+                key, payload.encode("utf-8"), hashlib.sha256
+            ).hexdigest()
             expired_state = f"{payload}:{sig}"
 
             with pytest.raises(HTTPException) as exc_info:
@@ -1157,7 +1167,9 @@ class TestCallbackStateTimestampExpiry:
             future_timestamp = str(int(time.time()) + 3600)  # 1 hour in the future
             key = mock_settings.internal_api_key.encode("utf-8")
             payload = f"{connection_id}:{user_id}:{future_timestamp}"
-            sig = hmac_mod.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            sig = hmac_mod.HMAC(
+                key, payload.encode("utf-8"), hashlib.sha256
+            ).hexdigest()
             future_state = f"{payload}:{sig}"
 
             with pytest.raises(HTTPException) as exc_info:
@@ -1182,7 +1194,9 @@ class TestCallbackStateTimestampExpiry:
             bad_timestamp = "not-a-number"
             key = mock_settings.internal_api_key.encode("utf-8")
             payload = f"{connection_id}:{user_id}:{bad_timestamp}"
-            sig = hmac_mod.HMAC(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            sig = hmac_mod.HMAC(
+                key, payload.encode("utf-8"), hashlib.sha256
+            ).hexdigest()
             bad_state = f"{payload}:{sig}"
 
             with pytest.raises(HTTPException) as exc_info:

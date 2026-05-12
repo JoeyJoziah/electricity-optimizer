@@ -13,7 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.tracing import traced
-from repositories.forecast_observation_repository import ForecastObservationRepository
+from repositories.forecast_observation_repository import \
+    ForecastObservationRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -36,7 +37,8 @@ class ObservationService:
     ) -> int:
         """Batch-INSERT forecast predictions into forecast_observations."""
         async with traced(
-            "ml.record_forecast", attributes={"ml.region": region, "ml.forecast_id": forecast_id}
+            "ml.record_forecast",
+            attributes={"ml.region": region, "ml.forecast_id": forecast_id},
         ):
             count = await self._repo.insert_forecasts(
                 forecast_id, region, predictions, model_version
@@ -55,7 +57,9 @@ class ObservationService:
         region: str | None = None,
     ) -> int:
         """Match unobserved forecast rows to actual prices."""
-        async with traced("ml.observe_actuals", attributes={"ml.region": region or "all"}):
+        async with traced(
+            "ml.observe_actuals", attributes={"ml.region": region or "all"}
+        ):
             count = await self._repo.backfill_actuals(region)
             logger.info("actuals_backfilled", region=region or "all", count=count)
             return count
@@ -130,7 +134,9 @@ class ObservationService:
 
         # Count before archival
         count_result = await self._repo._db.execute(
-            text("SELECT COUNT(*) FROM forecast_observations WHERE created_at < :cutoff"),
+            text(
+                "SELECT COUNT(*) FROM forecast_observations WHERE created_at < :cutoff"
+            ),
             {"cutoff": cutoff},
         )
         count = count_result.scalar() or 0
@@ -154,15 +160,13 @@ class ObservationService:
 
     async def get_observation_summary(self):
         """Get summary statistics for observations."""
-        result = await self._repo._db.execute(
-            text("""
+        result = await self._repo._db.execute(text("""
             SELECT
                 COUNT(*) as total,
                 MIN(created_at) as oldest,
                 MAX(created_at) as newest
             FROM forecast_observations
-        """)
-        )
+        """))
         row = result.fetchone()
         if not row or not row[0]:
             return {"total": 0, "oldest": None, "newest": None}

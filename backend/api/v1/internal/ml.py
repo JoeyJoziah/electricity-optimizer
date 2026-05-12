@@ -27,7 +27,9 @@ class ObserveRequest(BaseModel):
 
 
 class LearnRequest(BaseModel):
-    regions: list[str] | None = Field(None, description="Regions to process (defaults to ['US'])")
+    regions: list[str] | None = Field(
+        None, description="Regions to process (defaults to ['US'])"
+    )
     days: int = Field(default=7, ge=1, le=90, description="Lookback window in days")
 
 
@@ -68,7 +70,9 @@ async def observe_forecasts(
         }
     except Exception as e:
         logger.error("observe_forecasts_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Observation failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="Observation failed. See server logs."
+        )
 
 
 @router.post("/learn", tags=["Internal"])
@@ -102,7 +106,9 @@ async def run_learning_cycle(
         }
     except Exception as e:
         logger.error("learning_cycle_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Learning cycle failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="Learning cycle failed. See server logs."
+        )
 
 
 @router.get("/observation-stats", tags=["Internal"])

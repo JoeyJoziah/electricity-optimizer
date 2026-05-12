@@ -51,8 +51,12 @@ def _execute_mock(scalar_value=None, first_value=None, mappings_rows=None):
     result.rowcount = 1
 
     mappings_obj = MagicMock()
-    mappings_obj.first = MagicMock(return_value=mappings_rows[0] if mappings_rows else None)
-    mappings_obj.fetchone = MagicMock(return_value=mappings_rows[0] if mappings_rows else None)
+    mappings_obj.first = MagicMock(
+        return_value=mappings_rows[0] if mappings_rows else None
+    )
+    mappings_obj.fetchone = MagicMock(
+        return_value=mappings_rows[0] if mappings_rows else None
+    )
     mappings_obj.fetchall = MagicMock(return_value=mappings_rows or [])
     mappings_obj.all = MagicMock(return_value=mappings_rows or [])
     result.mappings = MagicMock(return_value=mappings_obj)
@@ -169,8 +173,12 @@ class TestStripePaymentFailedFlow:
 
         import services.dunning_service  # ensure module loaded before patching
 
-        with patch.object(services.dunning_service, "DunningService", return_value=dunning_mock):
-            applied = await apply_webhook_action(payment_failed_result, user_repo, db=mock_db)
+        with patch.object(
+            services.dunning_service, "DunningService", return_value=dunning_mock
+        ):
+            applied = await apply_webhook_action(
+                payment_failed_result, user_repo, db=mock_db
+            )
 
         assert applied is True
         user_repo.get_by_stripe_customer_id.assert_called_once_with("cus_test_abc")
@@ -248,7 +256,9 @@ class TestStripePaymentFailedFlow:
         with (
             patch("services.stripe_service.settings") as mock_settings,
             patch("services.stripe_service.traced") as mock_traced,
-            patch.object(services.dunning_service, "DunningService", return_value=dunning_mock),
+            patch.object(
+                services.dunning_service, "DunningService", return_value=dunning_mock
+            ),
         ):
             mock_settings.stripe_secret_key = "sk_test_mock"
             mock_ctx = AsyncMock()
@@ -402,7 +412,9 @@ class TestCommunityRateLimiting:
         db_b = AsyncMock()
         rate_result_b = MagicMock()
         rate_result_b.scalar = MagicMock(return_value=2)
-        db_b.execute = AsyncMock(side_effect=[rate_result_b, insert_result, MagicMock()])
+        db_b.execute = AsyncMock(
+            side_effect=[rate_result_b, insert_result, MagicMock()]
+        )
         db_b.commit = AsyncMock()
 
         agent = AsyncMock()
@@ -527,7 +539,9 @@ class TestAlertDeduplication:
         )
         assert can_send is False
 
-    async def test_cooldown_cutoff_uses_correct_window_for_each_frequency(self, alert_service):
+    async def test_cooldown_cutoff_uses_correct_window_for_each_frequency(
+        self, alert_service
+    ):
         """Verify that the cutoff parameter passed to the DB query matches the frequency."""
 
         for freq, expected_hours in [("immediate", 1), ("daily", 24), ("weekly", 168)]:
@@ -575,12 +589,18 @@ class TestAlertDeduplication:
         db = AsyncMock()
         # Simulate DB returning the row as in-cooldown
         cooldown_row = MagicMock()
-        cooldown_row.__iter__ = MagicMock(return_value=iter([user_id, "price_drop", "US_CT"]))
-        cooldown_row.__getitem__ = MagicMock(side_effect=[user_id, "price_drop", "US_CT"])
+        cooldown_row.__iter__ = MagicMock(
+            return_value=iter([user_id, "price_drop", "US_CT"])
+        )
+        cooldown_row.__getitem__ = MagicMock(
+            side_effect=[user_id, "price_drop", "US_CT"]
+        )
 
         # fetchall returns a list of rows with positional access [0], [1], [2]
         mock_row = MagicMock()
-        mock_row.__getitem__ = MagicMock(side_effect=lambda i: [user_id, "price_drop", "US_CT"][i])
+        mock_row.__getitem__ = MagicMock(
+            side_effect=lambda i: [user_id, "price_drop", "US_CT"][i]
+        )
 
         db_result = MagicMock()
         db_result.fetchall = MagicMock(return_value=[mock_row])
@@ -634,7 +654,9 @@ class TestAlertDeduplication:
 class TestDunningEscalationCycle:
     """Integration: payment fails → soft dunning → final dunning → downgrade."""
 
-    def _make_db_for_failure(self, existing_retries: int, email_in_cooldown: bool = False):
+    def _make_db_for_failure(
+        self, existing_retries: int, email_in_cooldown: bool = False
+    ):
         """
         Build a mock db for DunningService that:
         - Returns `existing_retries` for COUNT(*) on payment_retry_history
@@ -669,7 +691,9 @@ class TestDunningEscalationCycle:
 
         cooldown_result = MagicMock()
         # If email_in_cooldown, return a row (meaning we recently sent) → skip email
-        cooldown_result.first = MagicMock(return_value=MagicMock() if email_in_cooldown else None)
+        cooldown_result.first = MagicMock(
+            return_value=MagicMock() if email_in_cooldown else None
+        )
 
         update_result = MagicMock()
         update_result.rowcount = 1
@@ -772,7 +796,9 @@ class TestDunningEscalationCycle:
         user_repo.update = AsyncMock()
 
         svc = DunningService(db)
-        action = await svc.escalate_if_needed("user-1", retry_count=3, user_repo=user_repo)
+        action = await svc.escalate_if_needed(
+            "user-1", retry_count=3, user_repo=user_repo
+        )
 
         assert action == "downgraded_to_free"
         assert mock_user.subscription_tier == "free"
@@ -787,7 +813,9 @@ class TestDunningEscalationCycle:
         svc = DunningService(db)
 
         for count in [1, 2]:
-            action = await svc.escalate_if_needed("user-1", retry_count=count, user_repo=user_repo)
+            action = await svc.escalate_if_needed(
+                "user-1", retry_count=count, user_repo=user_repo
+            )
             assert action is None, f"Expected None for retry_count={count}"
 
         user_repo.get_by_id.assert_not_called()
@@ -805,7 +833,9 @@ class TestDunningEscalationCycle:
         user_repo.update = AsyncMock()
 
         svc = DunningService(db)
-        action = await svc.escalate_if_needed("user-1", retry_count=3, user_repo=user_repo)
+        action = await svc.escalate_if_needed(
+            "user-1", retry_count=3, user_repo=user_repo
+        )
 
         assert action is None
         user_repo.update.assert_not_called()
@@ -845,7 +875,9 @@ class TestDunningEscalationCycle:
 
         db = AsyncMock()
         db_result = MagicMock()
-        db_result.mappings = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+        db_result.mappings = MagicMock(
+            return_value=MagicMock(all=MagicMock(return_value=[]))
+        )
         db.execute = AsyncMock(return_value=db_result)
 
         svc = DunningService(db)

@@ -5,12 +5,9 @@ Given a region/state, determines which utility types are available
 and their deregulation status. Pure logic — no database required.
 """
 
-from models.region import (
-    COMMUNITY_SOLAR_STATES,
-    DEREGULATED_ELECTRICITY_STATES,
-    DEREGULATED_GAS_STATES,
-    HEATING_OIL_STATES,
-)
+from models.region import (COMMUNITY_SOLAR_STATES,
+                           DEREGULATED_ELECTRICITY_STATES,
+                           DEREGULATED_GAS_STATES, HEATING_OIL_STATES)
 
 
 class UtilityDiscoveryService:

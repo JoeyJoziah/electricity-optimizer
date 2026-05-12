@@ -187,7 +187,9 @@ class SupplierRegistryRepository:
                 count_sql += " AND green_energy = TRUE"
                 data_sql += " AND green_energy = TRUE"
 
-            data_sql += " ORDER BY rating DESC NULLS LAST, name LIMIT :limit OFFSET :offset"
+            data_sql += (
+                " ORDER BY rating DESC NULLS LAST, name LIMIT :limit OFFSET :offset"
+            )
 
             count_result = await self._db.execute(text(count_sql), params)
             total = count_result.scalar() or 0

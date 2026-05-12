@@ -4,14 +4,10 @@ Repository Pattern Implementations
 Data access layer for the Electricity Optimizer API.
 """
 
-from repositories.base import (
-    BaseRepository,
-    DuplicateError,
-    NotFoundError,
-    RepositoryError,
-    ValidationError,
-)
-from repositories.forecast_observation_repository import ForecastObservationRepository
+from repositories.base import (BaseRepository, DuplicateError, NotFoundError,
+                               RepositoryError, ValidationError)
+from repositories.forecast_observation_repository import \
+    ForecastObservationRepository
 from repositories.price_repository import PriceRepository
 from repositories.supplier_repository import SupplierRegistryRepository
 from repositories.user_repository import UserRepository

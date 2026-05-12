@@ -9,7 +9,8 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import (BaseModel, ConfigDict, EmailStr, Field, field_validator,
+                      model_validator)
 
 from models.region import Region
 

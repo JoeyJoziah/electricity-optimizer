@@ -20,11 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
 from api.v1.connections.common import verify_callback_state
-from models.connections import (
-    AuthorizationCallbackResponse,
-    SyncResultResponse,
-    SyncStatusResponse,
-)
+from models.connections import (AuthorizationCallbackResponse,
+                                SyncResultResponse, SyncStatusResponse)
 
 logger = structlog.get_logger(__name__)
 
@@ -294,7 +291,8 @@ async def utilityapi_callback(
     checkout_url: str | None = None
     meter_count = max((sync_result or {}).get("new_rates_found", 0), 1)
     try:
-        from services.utilityapi_billing_service import UtilityAPIBillingService
+        from services.utilityapi_billing_service import \
+            UtilityAPIBillingService
 
         billing_svc = UtilityAPIBillingService(db)
         billing_result = await billing_svc.add_meters(

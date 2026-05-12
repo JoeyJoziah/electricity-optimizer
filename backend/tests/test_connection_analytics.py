@@ -48,7 +48,9 @@ def _mapping_result(rows: list) -> MagicMock:
     result = MagicMock()
     mock_rows = [_DictRow(r) for r in rows]
     result.mappings.return_value.all.return_value = mock_rows
-    result.mappings.return_value.first.return_value = mock_rows[0] if mock_rows else None
+    result.mappings.return_value.first.return_value = (
+        mock_rows[0] if mock_rows else None
+    )
     result.fetchone.return_value = mock_rows[0] if mock_rows else None
     return result
 
@@ -157,7 +159,8 @@ class TestGetRateComparisonService:
 
         Uses 2 DB round-trips: (1) combined rate+region JOIN, (2) market aggregate.
         """
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(UTC)
@@ -206,7 +209,8 @@ class TestGetRateComparisonService:
 
     async def test_get_rate_comparison_no_data(self):
         """Returns has_data=False when no extracted rates exist."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         empty_result = _empty_mapping_result()
@@ -220,7 +224,8 @@ class TestGetRateComparisonService:
 
     async def test_get_rate_comparison_with_connection_id_filter(self):
         """Query includes connection_id filter when provided."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         empty_result = _empty_mapping_result()
@@ -240,7 +245,8 @@ class TestGetRateComparisonService:
 
         Uses 2-query pattern: combined rate+region, then market aggregate.
         """
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(UTC)
@@ -286,7 +292,8 @@ class TestGetRateHistoryService:
 
     async def test_get_rate_history_returns_data_points(self):
         """Returns list of data points from extracted rates."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(UTC)
@@ -330,7 +337,8 @@ class TestGetRateHistoryService:
 
     async def test_get_rate_history_empty(self):
         """Returns empty data_points when no history exists."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         result = MagicMock()
@@ -345,7 +353,8 @@ class TestGetRateHistoryService:
 
     async def test_get_rate_history_custom_days(self):
         """Custom days parameter is passed through."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         result = MagicMock()
@@ -361,7 +370,8 @@ class TestGetRateHistoryService:
 
     async def test_get_rate_history_with_connection_filter(self):
         """Connection ID filter is passed in query params."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         result = MagicMock()
@@ -380,7 +390,8 @@ class TestGetSavingsEstimateService:
 
     async def test_savings_user_above_market(self):
         """User rate above market → positive savings."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         svc = ConnectionAnalyticsService(db)
@@ -412,13 +423,16 @@ class TestGetSavingsEstimateService:
         assert result["annual_kwh"] == 10800
         # user_rate 0.25 > market_min 0.15 → savings = (0.25 - 0.15) * 10800 = 1080
         assert result["estimated_annual_savings_vs_best"] == 1080.0
-        assert result["estimated_monthly_savings_vs_best"] == pytest.approx(90.0, abs=0.01)
+        assert result["estimated_monthly_savings_vs_best"] == pytest.approx(
+            90.0, abs=0.01
+        )
         assert result["current_annual_cost"] == pytest.approx(0.25 * 10800, abs=0.01)
         assert result["best_annual_cost"] == pytest.approx(0.15 * 10800, abs=0.01)
 
     async def test_savings_user_below_market(self):
         """User rate below market best → zero savings vs best."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         svc = ConnectionAnalyticsService(db)
@@ -452,7 +466,8 @@ class TestGetSavingsEstimateService:
 
     async def test_savings_no_rate_data(self):
         """Returns has_data=False when no comparison data."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         svc = ConnectionAnalyticsService(db)
@@ -473,7 +488,8 @@ class TestCheckStaleConnectionsService:
 
     async def test_stale_connections_detected(self):
         """Returns stale connections when last_scan_at is old."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         old_scan = datetime.now(UTC) - timedelta(days=45)
@@ -507,7 +523,8 @@ class TestCheckStaleConnectionsService:
 
     async def test_no_stale_connections(self):
         """Returns empty list when no stale connections."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         result = MagicMock()
@@ -521,7 +538,8 @@ class TestCheckStaleConnectionsService:
 
     async def test_stale_connection_null_last_scan_at(self):
         """Connection with NULL last_scan_at falls back to created_at for days calculation."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         created = datetime.now(UTC) - timedelta(days=50)
@@ -557,7 +575,8 @@ class TestDetectRateChangesService:
 
     async def test_significant_rate_change_detected(self):
         """Rate change >=5% produces an alert."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(UTC)
@@ -589,7 +608,8 @@ class TestDetectRateChangesService:
 
     async def test_no_significant_rate_change(self):
         """Rate change <5% produces no alert."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(UTC)
@@ -617,7 +637,8 @@ class TestDetectRateChangesService:
 
     async def test_rate_change_skips_null_prev(self):
         """Rows with NULL prev_rate (first extraction) are skipped."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(UTC)
@@ -645,7 +666,8 @@ class TestDetectRateChangesService:
 
     async def test_rate_decrease_detected(self):
         """Rate decrease >=5% detected with direction='decrease'."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         now = datetime.now(UTC)
@@ -675,7 +697,8 @@ class TestDetectRateChangesService:
 
     async def test_rate_change_no_rows(self):
         """Empty result set produces no alerts."""
-        from services.connection_analytics_service import ConnectionAnalyticsService
+        from services.connection_analytics_service import \
+            ConnectionAnalyticsService
 
         db = _mock_db()
         result = MagicMock()
@@ -918,7 +941,9 @@ class TestAnalyticsSavingsEndpoint:
         """monthly_kwh > 50000 is rejected with 422."""
         _install_auth()
 
-        response = client.get(f"{BASE}/analytics/savings", params={"monthly_kwh": 99999})
+        response = client.get(
+            f"{BASE}/analytics/savings", params={"monthly_kwh": 99999}
+        )
         assert response.status_code == 422
 
     def test_savings_monthly_kwh_negative_rejected(self, client):

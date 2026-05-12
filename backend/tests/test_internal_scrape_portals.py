@@ -191,7 +191,9 @@ class TestScrapeAllPortals:
 
         with (
             patch("api.v1.internal.portal_scan.decrypt_field", return_value="s3cr3t!"),
-            patch("services.portal_scraper_service.PortalScraperService", autospec=True) as MockSvc,
+            patch(
+                "services.portal_scraper_service.PortalScraperService", autospec=True
+            ) as MockSvc,
         ):
             instance = MockSvc.return_value.__aenter__.return_value
             instance.scrape_portal = AsyncMock(return_value=scrape_result)
@@ -252,7 +254,9 @@ class TestScrapeAllPortals:
 
         with (
             patch("api.v1.internal.portal_scan.decrypt_field", return_value="s3cr3t!"),
-            patch("services.portal_scraper_service.PortalScraperService", autospec=True) as MockSvc,
+            patch(
+                "services.portal_scraper_service.PortalScraperService", autospec=True
+            ) as MockSvc,
         ):
             instance = MockSvc.return_value.__aenter__.return_value
             instance.scrape_portal = AsyncMock(return_value=scrape_result)
@@ -297,7 +301,9 @@ class TestScrapeAllPortals:
                 "api.v1.internal.portal_scan.decrypt_field",
                 side_effect=["s3cr3t!", Exception("bad base64")],
             ),
-            patch("services.portal_scraper_service.PortalScraperService", autospec=True) as MockSvc,
+            patch(
+                "services.portal_scraper_service.PortalScraperService", autospec=True
+            ) as MockSvc,
         ):
             instance = MockSvc.return_value.__aenter__.return_value
             instance.scrape_portal = AsyncMock(return_value=scrape_result_ok)
@@ -334,7 +340,9 @@ class TestScrapeAllPortals:
 
         with (
             patch("api.v1.internal.portal_scan.decrypt_field", return_value="s3cr3t!"),
-            patch("services.portal_scraper_service.PortalScraperService", autospec=True) as MockSvc,
+            patch(
+                "services.portal_scraper_service.PortalScraperService", autospec=True
+            ) as MockSvc,
         ):
             instance = MockSvc.return_value.__aenter__.return_value
             instance.scrape_portal = AsyncMock(return_value=scrape_result)
@@ -433,11 +441,15 @@ class TestPortalScanErrorSanitization:
             ]
         )
 
-        sensitive_exc_msg = "Connection failed: DATABASE_URL=postgresql://admin:hunter2@prod.db/app"
+        sensitive_exc_msg = (
+            "Connection failed: DATABASE_URL=postgresql://admin:hunter2@prod.db/app"
+        )
 
         with (
             patch("api.v1.internal.portal_scan.decrypt_field", return_value="s3cr3t!"),
-            patch("services.portal_scraper_service.PortalScraperService", autospec=True) as MockSvc,
+            patch(
+                "services.portal_scraper_service.PortalScraperService", autospec=True
+            ) as MockSvc,
         ):
             instance = MockSvc.return_value.__aenter__.return_value
             instance.scrape_portal = AsyncMock(side_effect=Exception(sensitive_exc_msg))
@@ -454,7 +466,9 @@ class TestPortalScanErrorSanitization:
         assert "postgresql://" not in full_body
         assert "DATABASE_URL" not in full_body
 
-    def test_decrypt_error_message_is_sanitized_not_raw_exception(self, auth_client, mock_db):
+    def test_decrypt_error_message_is_sanitized_not_raw_exception(
+        self, auth_client, mock_db
+    ):
         """The error message for a decrypt failure must be a generic string,
         not contain the raw exception type or AES internals."""
         conn_row = _make_conn_row()
@@ -466,7 +480,9 @@ class TestPortalScanErrorSanitization:
             ]
         )
 
-        sensitive_exc_msg = "AES-256-GCM tag verification failed: HMAC mismatch at offset 32"
+        sensitive_exc_msg = (
+            "AES-256-GCM tag verification failed: HMAC mismatch at offset 32"
+        )
 
         with patch(
             "api.v1.internal.portal_scan.decrypt_field",

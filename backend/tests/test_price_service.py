@@ -123,7 +123,9 @@ class TestGetCurrentPrice:
 
         await service.get_current_price(PriceRegion.US_MA, "National Grid")
 
-        mock_repo.get_latest_by_supplier.assert_called_once_with(PriceRegion.US_MA, "National Grid")
+        mock_repo.get_latest_by_supplier.assert_called_once_with(
+            PriceRegion.US_MA, "National Grid"
+        )
 
 
 # =============================================================================
@@ -168,7 +170,9 @@ class TestGetPriceComparison:
 
         result = await service.get_price_comparison(PriceRegion.US_CT)
 
-        assert result[0].price_per_kwh < result[1].price_per_kwh < result[2].price_per_kwh
+        assert (
+            result[0].price_per_kwh < result[1].price_per_kwh < result[2].price_per_kwh
+        )
 
     async def test_empty_region_returns_empty_list(self, service, mock_repo):
         mock_repo.get_current_prices.return_value = []
@@ -201,18 +205,28 @@ class TestCalculateDailyCost:
         mock_repo.get_historical_prices.return_value = [price]
 
         result = await service.calculate_daily_cost(
-            PriceRegion.US_CT, "Eversource Energy", Decimal("10"), datetime.now(UTC).date()
+            PriceRegion.US_CT,
+            "Eversource Energy",
+            Decimal("10"),
+            datetime.now(UTC).date(),
         )
 
         # 10 kWh * $0.20 = $2.00
         assert result == Decimal("2.00")
 
-    async def test_falls_back_to_current_price_when_no_history(self, service, mock_repo):
+    async def test_falls_back_to_current_price_when_no_history(
+        self, service, mock_repo
+    ):
         mock_repo.get_historical_prices.return_value = []
-        mock_repo.get_latest_by_supplier.return_value = _make_price(price_per_kwh="0.25")
+        mock_repo.get_latest_by_supplier.return_value = _make_price(
+            price_per_kwh="0.25"
+        )
 
         result = await service.calculate_daily_cost(
-            PriceRegion.US_CT, "Eversource Energy", Decimal("8"), datetime.now(UTC).date()
+            PriceRegion.US_CT,
+            "Eversource Energy",
+            Decimal("8"),
+            datetime.now(UTC).date(),
         )
 
         # 8 kWh * $0.25 = $2.00
@@ -228,14 +242,19 @@ class TestCalculateDailyCost:
 
         assert result == Decimal("0")
 
-    async def test_weighted_average_over_multiple_historical_prices(self, service, mock_repo):
+    async def test_weighted_average_over_multiple_historical_prices(
+        self, service, mock_repo
+    ):
         mock_repo.get_historical_prices.return_value = [
             _make_price(price_per_kwh="0.10"),
             _make_price(price_per_kwh="0.30"),
         ]
 
         result = await service.calculate_daily_cost(
-            PriceRegion.US_CT, "Eversource Energy", Decimal("10"), datetime.now(UTC).date()
+            PriceRegion.US_CT,
+            "Eversource Energy",
+            Decimal("10"),
+            datetime.now(UTC).date(),
         )
 
         # avg price = (0.10 + 0.30) / 2 = 0.20 ; 10 * 0.20 = 2.00
@@ -285,7 +304,9 @@ class TestSimpleForecast:
 
     def test_peak_hours_have_higher_price(self):
         # Force time so hour 18 is within the forecast window
-        now = datetime(2026, 4, 14, 12, 0, tzinfo=UTC)  # noon — ensures hour 16-20 appears
+        now = datetime(
+            2026, 4, 14, 12, 0, tzinfo=UTC
+        )  # noon — ensures hour 16-20 appears
         result = PriceService._simple_forecast(
             PriceRegion.US_CT, 24, now, Decimal("0.20"), "Eversource", "USD"
         )
@@ -367,7 +388,9 @@ class TestGetHistoricalPrices:
         end = datetime(2026, 1, 31, tzinfo=UTC)
         mock_repo.get_historical_prices.return_value = []
 
-        await service.get_historical_prices(PriceRegion.US_CT, start, end, supplier="Eversource")
+        await service.get_historical_prices(
+            PriceRegion.US_CT, start, end, supplier="Eversource"
+        )
 
         mock_repo.get_historical_prices.assert_called_once_with(
             region=PriceRegion.US_CT,

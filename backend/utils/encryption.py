@@ -36,7 +36,9 @@ def _get_key() -> bytes:
         )
     key_bytes = bytes.fromhex(key_hex)
     if len(key_bytes) != 32:
-        raise RuntimeError("FIELD_ENCRYPTION_KEY must be exactly 32 bytes (64 hex characters)")
+        raise RuntimeError(
+            "FIELD_ENCRYPTION_KEY must be exactly 32 bytes (64 hex characters)"
+        )
     return key_bytes
 
 

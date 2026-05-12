@@ -13,12 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_current_user, get_db_session
-from models.user_supplier import (
-    LinkAccountRequest,
-    LinkedAccountResponse,
-    SetSupplierRequest,
-    UserSupplierResponse,
-)
+from models.user_supplier import (LinkAccountRequest, LinkedAccountResponse,
+                                  SetSupplierRequest, UserSupplierResponse)
 from utils.encryption import decrypt_field, encrypt_field, mask_account_number
 
 logger = structlog.get_logger()
@@ -124,7 +120,9 @@ async def set_current_supplier(
     )
     await db.commit()
 
-    logger.info("supplier_set", user_id=current_user.user_id, supplier_id=supplier_id_str)
+    logger.info(
+        "supplier_set", user_id=current_user.user_id, supplier_id=supplier_id_str
+    )
 
     return UserSupplierResponse(
         supplier_id=str(supplier["id"]),
@@ -276,13 +274,17 @@ async def link_supplier_account(
             detail="Failed to link account. Please try again.",
         )
 
-    logger.info("account_linked", user_id=current_user.user_id, supplier_id=supplier_id_str)
+    logger.info(
+        "account_linked", user_id=current_user.user_id, supplier_id=supplier_id_str
+    )
 
     return LinkedAccountResponse(
         supplier_id=str(supplier["id"]),
         supplier_name=supplier["name"],
         account_number_masked=mask_account_number(body.account_number),
-        meter_number_masked=mask_account_number(body.meter_number) if body.meter_number else None,
+        meter_number_masked=(
+            mask_account_number(body.meter_number) if body.meter_number else None
+        ),
         service_zip=body.service_zip,
         account_nickname=body.account_nickname,
         is_primary=True,
@@ -381,6 +383,8 @@ async def unlink_supplier_account(
             detail="Linked account not found",
         )
 
-    logger.info("account_unlinked", user_id=current_user.user_id, supplier_id=str(supplier_id))
+    logger.info(
+        "account_unlinked", user_id=current_user.user_id, supplier_id=str(supplier_id)
+    )
 
     return {"message": "Account unlinked"}

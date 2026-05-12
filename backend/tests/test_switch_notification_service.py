@@ -23,11 +23,8 @@ from uuid import uuid4
 
 import pytest
 
-from services.switch_notification_service import (
-    SwitchNotificationService,
-    _to_float,
-    _to_float_or_none,
-)
+from services.switch_notification_service import (SwitchNotificationService,
+                                                  _to_float, _to_float_or_none)
 
 # =============================================================================
 # Shared test data
@@ -106,7 +103,9 @@ def notification_svc(mock_email_service, mock_push_service):
 
 
 class TestSendSwitchConfirmation:
-    async def test_sends_email_when_address_provided(self, notification_svc, mock_email_service):
+    async def test_sends_email_when_address_provided(
+        self, notification_svc, mock_email_service
+    ):
         result = await notification_svc.send_switch_confirmation(
             user_id=TEST_USER_ID,
             user_name=TEST_NAME,
@@ -138,7 +137,9 @@ class TestSendSwitchConfirmation:
         assert call_kwargs["user_id"] == TEST_USER_ID
         assert call_kwargs["data"]["type"] == "switch_confirmation"
 
-    async def test_email_skipped_when_no_address(self, notification_svc, mock_email_service):
+    async def test_email_skipped_when_no_address(
+        self, notification_svc, mock_email_service
+    ):
         result = await notification_svc.send_switch_confirmation(
             user_id=TEST_USER_ID,
             user_name=TEST_NAME,
@@ -151,7 +152,9 @@ class TestSendSwitchConfirmation:
         assert result["email"] is False
         mock_email_service.send.assert_not_awaited()
 
-    async def test_push_failure_does_not_block_email(self, notification_svc, mock_push_service):
+    async def test_push_failure_does_not_block_email(
+        self, notification_svc, mock_push_service
+    ):
         mock_push_service.send_push.side_effect = Exception("OneSignal timeout")
 
         result = await notification_svc.send_switch_confirmation(
@@ -167,7 +170,9 @@ class TestSendSwitchConfirmation:
         assert result["email"] is True
         assert result["push"] is False
 
-    async def test_includes_rescission_days_in_template(self, notification_svc, mock_email_service):
+    async def test_includes_rescission_days_in_template(
+        self, notification_svc, mock_email_service
+    ):
         await notification_svc.send_switch_confirmation(
             user_id=TEST_USER_ID,
             user_name=TEST_NAME,
@@ -183,7 +188,9 @@ class TestSendSwitchConfirmation:
         assert call_kwargs["rescission_days"] == 10
         assert "rollback_url" in call_kwargs
 
-    async def test_savings_monthly_in_push_data(self, notification_svc, mock_push_service):
+    async def test_savings_monthly_in_push_data(
+        self, notification_svc, mock_push_service
+    ):
         await notification_svc.send_switch_confirmation(
             user_id=TEST_USER_ID,
             user_name=TEST_NAME,
@@ -204,7 +211,9 @@ class TestSendSwitchConfirmation:
 
 
 class TestSendSwitchRecommendation:
-    async def test_approve_url_contains_audit_log_id(self, notification_svc, mock_email_service):
+    async def test_approve_url_contains_audit_log_id(
+        self, notification_svc, mock_email_service
+    ):
         audit_id = str(uuid4())
         await notification_svc.send_switch_recommendation(
             user_id=TEST_USER_ID,
@@ -235,7 +244,9 @@ class TestSendSwitchRecommendation:
         call_kwargs = mock_email_service.render_template.call_args.kwargs
         assert call_kwargs["approve_url"] == "https://rateshift.app/dashboard"
 
-    async def test_sends_push_with_recommendation_type(self, notification_svc, mock_push_service):
+    async def test_sends_push_with_recommendation_type(
+        self, notification_svc, mock_push_service
+    ):
         result = await notification_svc.send_switch_recommendation(
             user_id=TEST_USER_ID,
             user_name=TEST_NAME,
@@ -249,7 +260,9 @@ class TestSendSwitchRecommendation:
         push_data = mock_push_service.send_push.call_args.kwargs["data"]
         assert push_data["type"] == "switch_recommendation"
 
-    async def test_email_skipped_when_no_address(self, notification_svc, mock_email_service):
+    async def test_email_skipped_when_no_address(
+        self, notification_svc, mock_email_service
+    ):
         result = await notification_svc.send_switch_recommendation(
             user_id=TEST_USER_ID,
             user_name=TEST_NAME,
@@ -315,7 +328,9 @@ class TestSendContractExpiring:
         message = mock_push_service.send_push.call_args.kwargs["message"]
         assert "no cancellation fee" in message.lower()
 
-    async def test_email_skipped_when_no_address(self, notification_svc, mock_email_service):
+    async def test_email_skipped_when_no_address(
+        self, notification_svc, mock_email_service
+    ):
         result = await notification_svc.send_contract_expiring(
             user_id=TEST_USER_ID,
             user_name=TEST_NAME,
@@ -383,7 +398,9 @@ class TestTemplateRendering:
         assert "Green Saver 12" in html
         assert "18.50" in html
         assert "222" in html
-        assert "10-day" in html or "10 days" in html or "10</div>" in html or "10" in html
+        assert (
+            "10-day" in html or "10 days" in html or "10</div>" in html or "10" in html
+        )
 
     def test_switch_recommendation_template_renders(self):
         svc = self._real_email_svc()

@@ -111,7 +111,9 @@ class RateChangeDetector:
         )
         return self._process_changes(result.mappings().all(), "electricity", threshold)
 
-    async def _detect_gas_changes(self, threshold: float, cutoff: datetime) -> list[dict[str, Any]]:
+    async def _detect_gas_changes(
+        self, threshold: float, cutoff: datetime
+    ) -> list[dict[str, Any]]:
         """Detect natural gas price changes from utility_rates table."""
         result = await self._db.execute(
             text("""
@@ -239,7 +241,9 @@ class RateChangeDetector:
                         "previous_price": float(prev),
                         "current_price": float(curr),
                         "change_pct": round(change_pct, 2),
-                        "change_direction": "increase" if change_pct > 0 else "decrease",
+                        "change_direction": (
+                            "increase" if change_pct > 0 else "decrease"
+                        ),
                     }
                 )
         return changes
@@ -500,6 +504,10 @@ class AlertPreferenceService:
             "enabled": row["enabled"],
             "channels": list(row["channels"]) if row["channels"] else ["email"],
             "cadence": row["cadence"],
-            "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
-            "updated_at": row["updated_at"].isoformat() if row.get("updated_at") else None,
+            "created_at": (
+                row["created_at"].isoformat() if row.get("created_at") else None
+            ),
+            "updated_at": (
+                row["updated_at"].isoformat() if row.get("updated_at") else None
+            ),
         }

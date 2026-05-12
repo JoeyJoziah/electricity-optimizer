@@ -246,7 +246,11 @@ class TestAgentSwitcherScan:
 
         mock_exec = MagicMock()
         mock_exec.execute_switch = AsyncMock(
-            return_value={"execution_id": "exec-1", "status": "initiated", "enrollment_id": "enr-1"}
+            return_value={
+                "execution_id": "exec-1",
+                "status": "initiated",
+                "enrollment_id": "enr-1",
+            }
         )
         mock_exec_cls.return_value = mock_exec
 
@@ -510,7 +514,9 @@ class TestAgentSwitcherCleanupMeterData:
         # DROP and subsequent CREATE/GRANT calls all succeed
         generic_result = MagicMock()
 
-        mock_db.execute = AsyncMock(side_effect=[discover_result] + [generic_result] * 10)
+        mock_db.execute = AsyncMock(
+            side_effect=[discover_result] + [generic_result] * 10
+        )
         mock_db.commit = AsyncMock()
 
         response = auth_client.post(f"{BASE_URL}/cleanup-meter-data")
@@ -534,7 +540,9 @@ class TestAgentSwitcherCleanupMeterData:
         discover_result.fetchall.return_value = []
 
         generic_result = MagicMock()
-        mock_db.execute = AsyncMock(side_effect=[discover_result] + [generic_result] * 20)
+        mock_db.execute = AsyncMock(
+            side_effect=[discover_result] + [generic_result] * 20
+        )
         mock_db.commit = AsyncMock()
 
         response = auth_client.post(f"{BASE_URL}/cleanup-meter-data")
@@ -564,7 +572,9 @@ class TestAgentSwitcherCleanupMeterData:
         discover_result.fetchall.return_value = [(current_partition,)]
 
         generic_result = MagicMock()
-        mock_db.execute = AsyncMock(side_effect=[discover_result] + [generic_result] * 20)
+        mock_db.execute = AsyncMock(
+            side_effect=[discover_result] + [generic_result] * 20
+        )
         mock_db.commit = AsyncMock()
 
         response = auth_client.post(f"{BASE_URL}/cleanup-meter-data")

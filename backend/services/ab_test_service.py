@@ -147,7 +147,9 @@ class ABTestService:
             The assigned model version string (either version_a or version_b).
         """
         if not (0.0 < split_ratio < 1.0):
-            raise ValueError(f"split_ratio must be strictly between 0.0 and 1.0, got {split_ratio}")
+            raise ValueError(
+                f"split_ratio must be strictly between 0.0 and 1.0, got {split_ratio}"
+            )
 
         # Check for an existing persistent assignment first
         existing = await self.get_assignment(user_id)
@@ -205,7 +207,9 @@ class ABTestService:
             model_version string if a record exists, otherwise None.
         """
         result = await self._db.execute(
-            text("SELECT model_version  FROM model_ab_assignments WHERE user_id = :user_id"),
+            text(
+                "SELECT model_version  FROM model_ab_assignments WHERE user_id = :user_id"
+            ),
             {"user_id": user_id},
         )
         row = result.fetchone()
@@ -319,7 +323,9 @@ class ABTestService:
         """
         # Fetch the predicted_value so we can compute error_pct
         result = await self._db.execute(
-            text("SELECT predicted_value  FROM model_predictions WHERE id = :prediction_id"),
+            text(
+                "SELECT predicted_value  FROM model_predictions WHERE id = :prediction_id"
+            ),
             {"prediction_id": prediction_id},
         )
         row = result.fetchone()

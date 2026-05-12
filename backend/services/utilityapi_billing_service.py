@@ -33,7 +33,9 @@ _CENTS = Decimal("0.01")
 
 def _meter_total(meter_count: int) -> Decimal:
     """Return the monthly total for ``meter_count`` meters, rounded to cents."""
-    return (Decimal(meter_count) * PRICE_PER_METER_USD).quantize(_CENTS, rounding=ROUND_HALF_UP)
+    return (Decimal(meter_count) * PRICE_PER_METER_USD).quantize(
+        _CENTS, rounding=ROUND_HALF_UP
+    )
 
 
 class UtilityAPIBillingService:
@@ -111,8 +113,10 @@ class UtilityAPIBillingService:
                     connection_id=connection_id,
                     meter_count=meter_count,
                     price_id=price_id,
-                    success_url=success_url or f"{settings.frontend_url}/connections?addon=success",
-                    cancel_url=cancel_url or f"{settings.frontend_url}/connections?addon=cancelled",
+                    success_url=success_url
+                    or f"{settings.frontend_url}/connections?addon=success",
+                    cancel_url=cancel_url
+                    or f"{settings.frontend_url}/connections?addon=cancelled",
                 )
                 return result
 
@@ -120,7 +124,10 @@ class UtilityAPIBillingService:
         """Remove a connection's meters from billing."""
         async with traced(
             "billing.remove_meters",
-            attributes={"billing.user_id": user_id, "billing.connection_id": connection_id},
+            attributes={
+                "billing.user_id": user_id,
+                "billing.connection_id": connection_id,
+            },
         ):
             # Read connection's current billing info
             conn_result = await self._db.execute(
@@ -143,7 +150,9 @@ class UtilityAPIBillingService:
             si_id = conn_row["stripe_subscription_item_id"]
 
             # Calculate new total across all OTHER active connections
-            new_total = await self._get_total_meters(user_id, exclude_connection_id=connection_id)
+            new_total = await self._get_total_meters(
+                user_id, exclude_connection_id=connection_id
+            )
 
             try:
                 if new_total > 0:
@@ -226,7 +235,10 @@ class UtilityAPIBillingService:
             )
             conn_row = conn_result.mappings().first()
             if not conn_row:
-                logger.error("finalize_checkout_connection_not_found", connection_id=connection_id)
+                logger.error(
+                    "finalize_checkout_connection_not_found",
+                    connection_id=connection_id,
+                )
                 return
 
             user_id = str(conn_row["user_id"])

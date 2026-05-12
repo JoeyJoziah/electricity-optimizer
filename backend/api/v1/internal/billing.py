@@ -72,7 +72,11 @@ async def run_dunning_cycle(
                 user_email=account["email"],
                 user_name=account.get("name", ""),
                 retry_count=max(retry_count, 3),
-                amount=Decimal(str(account["amount_owed"])) if account.get("amount_owed") else None,
+                amount=(
+                    Decimal(str(account["amount_owed"]))
+                    if account.get("amount_owed")
+                    else None
+                ),
                 currency=account.get("currency", "USD"),
                 user_id=user_id,
             )
@@ -100,4 +104,6 @@ async def run_dunning_cycle(
 
     except Exception as exc:
         logger.error("dunning_cycle_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="Dunning cycle failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="Dunning cycle failed. See server logs."
+        )

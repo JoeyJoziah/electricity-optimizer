@@ -22,11 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.rate_scraper_service import (
-    _RATE_LIMIT_SLEEP_S,
-    DIFFBOT_EXTRACT_URL,
-    RateScraperService,
-)
+from services.rate_scraper_service import (_RATE_LIMIT_SLEEP_S,
+                                           DIFFBOT_EXTRACT_URL,
+                                           RateScraperService)
 
 # =============================================================================
 # Fixtures
@@ -63,7 +61,9 @@ def _make_client(resp: MagicMock) -> AsyncMock:
     return client
 
 
-def _supplier(supplier_id: str = "sup-1", url: str = "https://example.com/rates") -> dict:
+def _supplier(
+    supplier_id: str = "sup-1", url: str = "https://example.com/rates"
+) -> dict:
     return {"supplier_id": supplier_id, "url": url}
 
 
@@ -85,7 +85,9 @@ class TestExtractRatesFromUrl:
         extracted = {"objects": [{"text": "rate $0.12 per kWh"}]}
         mock_client = _make_client(_http_response(extracted))
 
-        with patch("services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client
+        ):
             result = await svc.extract_rates_from_url("https://example.com/rates")
 
         assert result == extracted
@@ -94,7 +96,9 @@ class TestExtractRatesFromUrl:
         svc = RateScraperService(settings=_settings_with_token())
         mock_client = _make_client(_http_response({}))
 
-        with patch("services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.extract_rates_from_url("https://example.com")
 
         call_kwargs = mock_client.get.call_args
@@ -107,7 +111,9 @@ class TestExtractRatesFromUrl:
         svc = RateScraperService(settings=_settings_with_token())
         mock_client = _make_client(_http_response({}))
 
-        with patch("services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client
+        ):
             await svc.extract_rates_from_url("https://example.com")
 
         url_called = mock_client.get.call_args.args[0]
@@ -117,7 +123,9 @@ class TestExtractRatesFromUrl:
         svc = RateScraperService(settings=_settings_with_token())
         mock_client = _make_client(_http_response({}, status_code=403))
 
-        with patch("services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client):
+        with patch(
+            "services.rate_scraper_service.httpx.AsyncClient", return_value=mock_client
+        ):
             with pytest.raises(Exception):  # noqa: B017
                 await svc.extract_rates_from_url("https://example.com")
 
@@ -133,7 +141,9 @@ class TestScrapeOne:
         extracted = {"objects": [{"text": "rate $0.10/kWh"}]}
         semaphore = asyncio.Semaphore(1)
 
-        with patch.object(svc, "extract_rates_from_url", new_callable=AsyncMock) as mock_extract:
+        with patch.object(
+            svc, "extract_rates_from_url", new_callable=AsyncMock
+        ) as mock_extract:
             mock_extract.return_value = extracted
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 result = await svc._scrape_one(_supplier(), semaphore)
@@ -146,7 +156,9 @@ class TestScrapeOne:
         svc = RateScraperService(settings=_settings_with_token())
         semaphore = asyncio.Semaphore(1)
 
-        with patch.object(svc, "extract_rates_from_url", new_callable=AsyncMock) as mock_extract:
+        with patch.object(
+            svc, "extract_rates_from_url", new_callable=AsyncMock
+        ) as mock_extract:
             mock_extract.side_effect = Exception("Connection refused")
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 result = await svc._scrape_one(_supplier("sup-fail"), semaphore)
@@ -175,7 +187,9 @@ class TestScrapeOne:
         svc = RateScraperService(settings=_settings_with_token())
         semaphore = asyncio.Semaphore(1)
 
-        with patch.object(svc, "extract_rates_from_url", new_callable=AsyncMock) as mock_extract:
+        with patch.object(
+            svc, "extract_rates_from_url", new_callable=AsyncMock
+        ) as mock_extract:
             mock_extract.side_effect = Exception("Network error")
             with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 await svc._scrape_one(_supplier(), semaphore)
@@ -187,7 +201,9 @@ class TestScrapeOne:
         svc = RateScraperService(settings=_settings_with_token())
         semaphore = asyncio.Semaphore(1)
 
-        with patch.object(svc, "extract_rates_from_url", new_callable=AsyncMock) as mock_extract:
+        with patch.object(
+            svc, "extract_rates_from_url", new_callable=AsyncMock
+        ) as mock_extract:
             mock_extract.return_value = {}
             with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 await svc._scrape_one(_supplier(), semaphore)
@@ -214,7 +230,13 @@ class TestScrapeSupplierRates:
     async def test_empty_list_returns_zero_counts(self):
         svc = RateScraperService(settings=_settings_with_token())
         result = await svc.scrape_supplier_rates([])
-        assert result == {"total": 0, "succeeded": 0, "failed": 0, "errors": [], "results": []}
+        assert result == {
+            "total": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "errors": [],
+            "results": [],
+        }
 
     async def test_none_input_treated_as_empty(self):
         svc = RateScraperService(settings=_settings_with_token())
@@ -224,12 +246,18 @@ class TestScrapeSupplierRates:
 
     async def test_all_succeed_counts_correctly(self):
         svc = RateScraperService(settings=_settings_with_token())
-        suppliers = [_supplier(f"sup-{i}", f"https://example.com/{i}") for i in range(3)]
+        suppliers = [
+            _supplier(f"sup-{i}", f"https://example.com/{i}") for i in range(3)
+        ]
 
         async def _ok_scrape(item, sem):
             async with sem:
                 await asyncio.sleep(0)  # Yield control to let queued coroutines advance
-                return {"supplier_id": item["supplier_id"], "extracted_data": {}, "success": True}
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": {},
+                    "success": True,
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_ok_scrape):
             result = await svc.scrape_supplier_rates(suppliers)
@@ -279,7 +307,11 @@ class TestScrapeSupplierRates:
                         "success": False,
                         "error": "http_error",
                     }
-                return {"supplier_id": item["supplier_id"], "extracted_data": {}, "success": True}
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": {},
+                    "success": True,
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_mixed_scrape):
             result = await svc.scrape_supplier_rates(suppliers)
@@ -341,7 +373,11 @@ class TestScrapeSupplierRates:
             captured_semaphores.append(sem)
             async with sem:
                 await asyncio.sleep(0)  # Yield control to let queued coroutines advance
-                return {"supplier_id": item["supplier_id"], "extracted_data": {}, "success": True}
+                return {
+                    "supplier_id": item["supplier_id"],
+                    "extracted_data": {},
+                    "success": True,
+                }
 
         with patch.object(svc, "_scrape_one", side_effect=_capture_scrape):
             await svc.scrape_supplier_rates(suppliers, max_concurrency=2)

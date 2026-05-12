@@ -63,17 +63,27 @@ class PriceForecastRequest(BaseModel):
     """Request for price forecast"""
 
     region: Region
-    hours_ahead: int = Field(default=24, ge=1, le=168, description="Hours to forecast (1-168)")
-    include_confidence: bool = Field(default=True, description="Include confidence intervals")
+    hours_ahead: int = Field(
+        default=24, ge=1, le=168, description="Hours to forecast (1-168)"
+    )
+    include_confidence: bool = Field(
+        default=True, description="Include confidence intervals"
+    )
 
 
 class PricePrediction(BaseModel):
     """Single price prediction"""
 
     timestamp: datetime
-    predicted_price: float = Field(description="Predicted price in local currency per kWh")
-    confidence_lower: float | None = Field(None, description="Lower bound (95% confidence)")
-    confidence_upper: float | None = Field(None, description="Upper bound (95% confidence)")
+    predicted_price: float = Field(
+        description="Predicted price in local currency per kWh"
+    )
+    confidence_lower: float | None = Field(
+        None, description="Lower bound (95% confidence)"
+    )
+    confidence_upper: float | None = Field(
+        None, description="Upper bound (95% confidence)"
+    )
     currency: str = Field(default="USD")
 
 
@@ -84,7 +94,9 @@ class PriceForecastResponse(BaseModel):
     forecast_time: datetime
     model_version: str
     predictions: list[PricePrediction]
-    accuracy_mape: float | None = Field(None, description="Recent model accuracy (MAPE %)")
+    accuracy_mape: float | None = Field(
+        None, description="Recent model accuracy (MAPE %)"
+    )
 
 
 class OptimalTimeSlot(BaseModel):
@@ -102,10 +114,16 @@ class OptimalTimesRequest(BaseModel):
     """Request for optimal time slots"""
 
     region: Region
-    duration_hours: float = Field(ge=0.25, le=24, description="Required duration (0.25-24 hours)")
-    earliest_start: datetime | None = Field(None, description="Earliest acceptable start time")
+    duration_hours: float = Field(
+        ge=0.25, le=24, description="Required duration (0.25-24 hours)"
+    )
+    earliest_start: datetime | None = Field(
+        None, description="Earliest acceptable start time"
+    )
     latest_end: datetime | None = Field(None, description="Latest acceptable end time")
-    num_slots: int = Field(default=3, ge=1, le=10, description="Number of optimal slots to return")
+    num_slots: int = Field(
+        default=3, ge=1, le=10, description="Number of optimal slots to return"
+    )
 
 
 class OptimalTimesResponse(BaseModel):
@@ -193,7 +211,11 @@ async def load_forecast_from_cache(
 
 
 async def store_forecast_in_cache(
-    redis_client, region: str, hours_ahead: int, forecast: list[dict], ttl_seconds: int = 3600
+    redis_client,
+    region: str,
+    hours_ahead: int,
+    forecast: list[dict],
+    ttl_seconds: int = 3600,
 ):
     """Store forecast in cache"""
     if not redis_client:
@@ -202,7 +224,9 @@ async def store_forecast_in_cache(
         import json
 
         cache_key = f"forecast:{region}:{hours_ahead}"
-        await redis_client.setex(cache_key, ttl_seconds, json.dumps(forecast, default=str))
+        await redis_client.setex(
+            cache_key, ttl_seconds, json.dumps(forecast, default=str)
+        )
     except Exception:
         pass
 
@@ -327,7 +351,9 @@ async def generate_price_forecast(
                                 "hour": r["timestamp"].hour,
                                 "day_of_week": r["timestamp"].weekday(),
                                 "is_peak": 1 if r.get("is_peak") else 0,
-                                "carbon_intensity": float(r.get("carbon_intensity") or 0.0),
+                                "carbon_intensity": float(
+                                    r.get("carbon_intensity") or 0.0
+                                ),
                             }
                             for r in reversed(rows)
                         ]
@@ -356,7 +382,9 @@ async def generate_price_forecast(
                     )
                 )
 
-            logger.info("ml_inference_success", region=region, predictions=len(predictions))
+            logger.info(
+                "ml_inference_success", region=region, predictions=len(predictions)
+            )
 
             # Store inference timestamp in Redis for model-info endpoint
             try:
@@ -407,7 +435,9 @@ async def generate_price_forecast(
 # ============================================================================
 
 
-@router.post("/predict/price", response_model=PriceForecastResponse, tags=["Predictions"])
+@router.post(
+    "/predict/price", response_model=PriceForecastResponse, tags=["Predictions"]
+)
 async def predict_prices(
     request: PriceForecastRequest,
     current_user: SessionData = Depends(get_current_user),
@@ -430,7 +460,9 @@ async def predict_prices(
     }
     ```
     """
-    logger.info("price_forecast_request", region=request.region, hours=request.hours_ahead)
+    logger.info(
+        "price_forecast_request", region=request.region, hours=request.hours_ahead
+    )
 
     try:
         # Check cache first (skip if redis not available)
@@ -484,7 +516,9 @@ async def predict_prices(
         )
 
 
-@router.post("/predict/optimal-times", response_model=OptimalTimesResponse, tags=["Predictions"])
+@router.post(
+    "/predict/optimal-times", response_model=OptimalTimesResponse, tags=["Predictions"]
+)
 async def find_optimal_times(
     request: OptimalTimesRequest,
     current_user: SessionData = Depends(get_current_user),
@@ -509,7 +543,9 @@ async def find_optimal_times(
     }
     ```
     """
-    logger.info("optimal_times_request", region=request.region, duration=request.duration_hours)
+    logger.info(
+        "optimal_times_request", region=request.region, duration=request.duration_hours
+    )
 
     try:
         # Get 24-hour forecast
@@ -531,7 +567,9 @@ async def find_optimal_times(
 
             avg_price = np.mean([p.predicted_price for p in window])
             total_cost = (
-                sum(p.predicted_price for p in window) * request.duration_hours / len(window)
+                sum(p.predicted_price for p in window)
+                * request.duration_hours
+                / len(window)
             )
 
             slots.append(
@@ -556,7 +594,9 @@ async def find_optimal_times(
         # Calculate potential savings
         worst_price = max(s.average_price for s in slots)
         best_price = top_slots[0].average_price
-        savings_percent = ((worst_price - best_price) / worst_price * 100) if worst_price > 0 else 0
+        savings_percent = (
+            ((worst_price - best_price) / worst_price * 100) if worst_price > 0 else 0
+        )
 
         return OptimalTimesResponse(
             region=request.region.value,
@@ -573,7 +613,9 @@ async def find_optimal_times(
         )
 
 
-@router.post("/predict/savings", response_model=SavingsEstimateResponse, tags=["Predictions"])
+@router.post(
+    "/predict/savings", response_model=SavingsEstimateResponse, tags=["Predictions"]
+)
 async def estimate_savings(
     request: SavingsEstimateRequest,
     current_user: SessionData = Depends(get_current_user),
@@ -605,7 +647,9 @@ async def estimate_savings(
     ```
     """
     logger.info(
-        "savings_estimate_request", region=request.region, num_appliances=len(request.appliances)
+        "savings_estimate_request",
+        region=request.region,
+        num_appliances=len(request.appliances),
     )
 
     try:
@@ -638,7 +682,9 @@ async def estimate_savings(
             )
 
             best_slot = optimal_result.optimal_slots[0]
-            appliance_cost = appliance.power_kw * appliance.duration_hours * best_slot.average_price
+            appliance_cost = (
+                appliance.power_kw * appliance.duration_hours * best_slot.average_price
+            )
 
             optimized_cost += appliance_cost
             optimized_schedule[appliance.name] = {
@@ -649,7 +695,9 @@ async def estimate_savings(
             }
 
         savings_amount = unoptimized_cost - optimized_cost
-        savings_percent = (savings_amount / unoptimized_cost * 100) if unoptimized_cost > 0 else 0
+        savings_percent = (
+            (savings_amount / unoptimized_cost * 100) if unoptimized_cost > 0 else 0
+        )
 
         return SavingsEstimateResponse(
             region=request.region.value,

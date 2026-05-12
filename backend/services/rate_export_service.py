@@ -190,7 +190,11 @@ class RateExportService:
         for row in rows:
             writer.writerow(
                 [
-                    row[col].isoformat() if hasattr(row[col], "isoformat") else str(row[col])
+                    (
+                        row[col].isoformat()
+                        if hasattr(row[col], "isoformat")
+                        else str(row[col])
+                    )
                     for col in columns
                 ]
             )

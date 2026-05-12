@@ -70,7 +70,9 @@ class PropaneService:
                 "state": r["state"],
                 "price_per_gallon": float(r["price_per_gallon"]),
                 "source": r["source"],
-                "period_date": r["period_date"].isoformat() if r["period_date"] else None,
+                "period_date": (
+                    r["period_date"].isoformat() if r["period_date"] else None
+                ),
                 "fetched_at": r["fetched_at"].isoformat() if r["fetched_at"] else None,
             }
             for r in rows
@@ -102,7 +104,9 @@ class PropaneService:
                 "state": r["state"],
                 "price_per_gallon": float(r["price_per_gallon"]),
                 "source": r["source"],
-                "period_date": r["period_date"].isoformat() if r["period_date"] else None,
+                "period_date": (
+                    r["period_date"].isoformat() if r["period_date"] else None
+                ),
                 "fetched_at": r["fetched_at"].isoformat() if r["fetched_at"] else None,
             }
             for r in rows
@@ -189,10 +193,14 @@ class PropaneService:
 
         if current <= avg * 0.95:
             timing = "good"
-            message = "Current prices are below the yearly average — good time to fill up."
+            message = (
+                "Current prices are below the yearly average — good time to fill up."
+            )
         elif current >= avg * 1.05:
             timing = "wait"
-            message = "Prices are above average. Consider waiting if your tank isn't low."
+            message = (
+                "Prices are above average. Consider waiting if your tank isn't low."
+            )
         else:
             timing = "neutral"
             message = "Prices are near the yearly average."

@@ -82,7 +82,9 @@ class TestGetPreferences:
         """Stored preferences should override defaults."""
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(
-            return_value=_make_mock_user({"notification_enabled": False, "green_energy_only": True})
+            return_value=_make_mock_user(
+                {"notification_enabled": False, "green_energy_only": True}
+            )
         )
         mock_repo_cls.return_value = mock_repo
 

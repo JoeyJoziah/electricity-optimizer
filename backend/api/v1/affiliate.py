@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user_optional, get_db_session, verify_api_key
+from api.dependencies import (get_current_user_optional, get_db_session,
+                              verify_api_key)
 
 logger = structlog.get_logger(__name__)
 
@@ -26,7 +27,9 @@ router = APIRouter(prefix="/affiliate", tags=["Affiliate"])
 class ClickRequest(BaseModel):
     supplier_name: str = Field(description="Supplier being clicked on")
     supplier_id: str | None = Field(default=None, description="Supplier UUID if known")
-    utility_type: str = Field(description="Utility type: electricity, natural_gas, etc.")
+    utility_type: str = Field(
+        description="Utility type: electricity, natural_gas, etc."
+    )
     region: str = Field(description="State/region code")
     source_page: str = Field(description="Page where click originated")
 

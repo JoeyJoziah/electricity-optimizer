@@ -12,7 +12,8 @@ from contextlib import asynccontextmanager
 import asyncpg
 import structlog
 from redis import asyncio as aioredis
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 from sqlalchemy.orm import declarative_base
 
 from config.settings import settings
@@ -117,7 +118,9 @@ class DatabaseManager:
             logger.info("database_pool_initialized")
         except Exception as e:
             logger.error("database_init_failed", error=str(e))
-            logger.warning("continuing_without_database", environment=settings.environment)
+            logger.warning(
+                "continuing_without_database", environment=settings.environment
+            )
 
     async def _init_redis(self):
         """Initialize Redis connection"""

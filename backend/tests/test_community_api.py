@@ -77,7 +77,10 @@ class _MockCommunityDB:
             return self._insert_post(params)
 
         # --- CTE: toggle_vote (INSERT + DELETE + COUNT on community_votes) ---
-        if "INSERT INTO COMMUNITY_VOTES" in sql and "DELETE FROM COMMUNITY_VOTES" in sql:
+        if (
+            "INSERT INTO COMMUNITY_VOTES" in sql
+            and "DELETE FROM COMMUNITY_VOTES" in sql
+        ):
             return self._toggle_vote(params)
 
         # --- CTE: report_post (INSERT community_reports + UPDATE community_posts) ---
@@ -89,7 +92,12 @@ class _MockCommunityDB:
             return self._update_post(sql, params)
 
         # --- SELECT post (moderate / edit) ---
-        if "FROM COMMUNITY_POSTS" in sql and "WHERE" in sql and "ID" in sql and "LIMIT" not in sql:
+        if (
+            "FROM COMMUNITY_POSTS" in sql
+            and "WHERE" in sql
+            and "ID" in sql
+            and "LIMIT" not in sql
+        ):
             return self._select_post(params)
 
         # --- List posts (with window function COUNT(*) OVER()) ---
@@ -214,8 +222,12 @@ class _MockCommunityDB:
         total = len(visible)
         # Add derived counts + window function total
         for p in page:
-            p["upvote_count"] = sum(1 for v in self._votes if str(v["post_id"]) == str(p["id"]))
-            p["report_count"] = sum(1 for r in self._reports if str(r["post_id"]) == str(p["id"]))
+            p["upvote_count"] = sum(
+                1 for v in self._votes if str(v["post_id"]) == str(p["id"])
+            )
+            p["report_count"] = sum(
+                1 for r in self._reports if str(r["post_id"]) == str(p["id"])
+            )
             p["_total_count"] = total
         result = MagicMock()
         result.mappings.return_value.fetchall.return_value = page
@@ -308,7 +320,8 @@ class _MockCommunityDB:
         threshold = params.get("threshold", 5)
         # Deduplicate insert
         exists = any(
-            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid) for r in self._reports
+            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid)
+            for r in self._reports
         )
         if not exists:
             self._reports.append(
@@ -333,7 +346,8 @@ class _MockCommunityDB:
         pid = params.get("post_id", "")
         # Deduplicate
         exists = any(
-            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid) for r in self._reports
+            str(r["user_id"]) == str(uid) and str(r["post_id"]) == str(pid)
+            for r in self._reports
         )
         if not exists:
             self._reports.append(
@@ -612,7 +626,9 @@ class TestReport:
             }
         )
 
-        auth_client.post(f"/api/v1/community/posts/{post_id}/report", json={"reason": "spam"})
+        auth_client.post(
+            f"/api/v1/community/posts/{post_id}/report", json={"reason": "spam"}
+        )
         resp = auth_client.post(
             f"/api/v1/community/posts/{post_id}/report", json={"reason": "spam"}
         )

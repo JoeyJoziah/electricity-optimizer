@@ -134,28 +134,34 @@ class TestMigration032Structure:
             if stripped.startswith("--"):
                 continue
             if "ADD COLUMN" in stripped and "IF NOT EXISTS" not in stripped:
-                pytest.fail(f"ADD COLUMN without IF NOT EXISTS at line {i}: {line.strip()}")
+                pytest.fail(
+                    f"ADD COLUMN without IF NOT EXISTS at line {i}: {line.strip()}"
+                )
 
     def test_error_message_column_present(self):
         sql = _read_migration_032()
-        assert "error_message" in sql.lower(), "Migration 032 must add the error_message column"
+        assert (
+            "error_message" in sql.lower()
+        ), "Migration 032 must add the error_message column"
 
     def test_error_message_is_text_type(self):
         sql = _read_migration_032()
         # Must have: ADD COLUMN IF NOT EXISTS error_message TEXT
         normalised = re.sub(r"\s+", " ", sql.lower())
-        assert re.search(r"add column if not exists error_message text", normalised), (
-            "error_message must be defined as TEXT"
-        )
+        assert re.search(
+            r"add column if not exists error_message text", normalised
+        ), "error_message must be defined as TEXT"
 
     def test_index_on_channel_created_at(self):
         sql = _read_migration_032()
         normalised = re.sub(r"\s+", " ", sql.lower())
         # Must have a CREATE INDEX covering delivery_channel and created_at
-        assert "delivery_channel" in normalised, (
-            "Migration 032 must reference delivery_channel in an index"
-        )
-        assert "created_at" in normalised, "Migration 032 must include created_at in an index"
+        assert (
+            "delivery_channel" in normalised
+        ), "Migration 032 must reference delivery_channel in an index"
+        assert (
+            "created_at" in normalised
+        ), "Migration 032 must include created_at in an index"
         assert re.search(
             r"create index if not exists\s+\w+\s+on notifications\s*\(",
             normalised,
@@ -168,7 +174,9 @@ class TestMigration032Structure:
             if stripped.startswith("--"):
                 continue
             if stripped.startswith("CREATE INDEX") and "IF NOT EXISTS" not in stripped:
-                pytest.fail(f"CREATE INDEX without IF NOT EXISTS at line {i}: {line.strip()}")
+                pytest.fail(
+                    f"CREATE INDEX without IF NOT EXISTS at line {i}: {line.strip()}"
+                )
 
     def test_no_serial_columns(self):
         sql = _read_migration_032()
@@ -232,7 +240,9 @@ class TestNotificationRepositoryGetById:
         nid = str(uuid4())
         uid = str(uuid4())
         db = _mock_db()
-        db.execute.return_value = _mapping_result([_notification_row(nid=nid, user_id=uid)])
+        db.execute.return_value = _mapping_result(
+            [_notification_row(nid=nid, user_id=uid)]
+        )
         repo = NotificationRepository(db)
 
         result = await repo.get_by_id(nid, user_id=uid)
@@ -269,7 +279,11 @@ class TestNotificationRepositoryGetById:
         uid = str(uuid4())
         db = _mock_db()
         db.execute.return_value = _mapping_result(
-            [_notification_row(nid=nid, user_id=uid, error_message="Push token expired")]
+            [
+                _notification_row(
+                    nid=nid, user_id=uid, error_message="Push token expired"
+                )
+            ]
         )
         repo = NotificationRepository(db)
 
@@ -356,7 +370,9 @@ class TestNotificationRepositoryGetByDeliveryStatus:
         with pytest.raises(RepositoryError):
             await repo.get_by_delivery_status(str(uuid4()), "sent")
 
-    @pytest.mark.parametrize("status", ["pending", "sent", "delivered", "failed", "bounced"])
+    @pytest.mark.parametrize(
+        "status", ["pending", "sent", "delivered", "failed", "bounced"]
+    )
     async def test_all_valid_statuses_accepted(self, status):
         from repositories.notification_repository import NotificationRepository
 
@@ -647,7 +663,9 @@ class TestDispatcherDeliveryTracking:
         assert "delivery_channel" in sql
         assert "delivery_status" in sql
 
-    async def test_notification_id_returned_for_in_app_channel(self, dispatcher_with_tracking):
+    async def test_notification_id_returned_for_in_app_channel(
+        self, dispatcher_with_tracking
+    ):
         """send() should return a non-None notification_id when IN_APP is included."""
         from services.notification_dispatcher import NotificationChannel
 
@@ -660,7 +678,9 @@ class TestDispatcherDeliveryTracking:
 
         assert result["notification_id"] is not None
 
-    async def test_notification_id_none_without_in_app_channel(self, dispatcher_with_tracking):
+    async def test_notification_id_none_without_in_app_channel(
+        self, dispatcher_with_tracking
+    ):
         """send() should return notification_id=None when IN_APP is not in channels."""
         from services.notification_dispatcher import NotificationChannel
 
@@ -694,7 +714,9 @@ class TestDispatcherDeliveryTracking:
         assert result["channels"]["push"] is False
         # Two execute calls expected: INSERT then UPDATE
         assert mock_db_for_dispatcher.execute.await_count == 2
-        update_call_sql = str(mock_db_for_dispatcher.execute.call_args_list[1].args[0]).upper()
+        update_call_sql = str(
+            mock_db_for_dispatcher.execute.call_args_list[1].args[0]
+        ).upper()
         assert "UPDATE" in update_call_sql
 
     async def test_push_success_records_sent_on_in_app_row(

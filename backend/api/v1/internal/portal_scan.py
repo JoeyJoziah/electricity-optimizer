@@ -63,8 +63,7 @@ async def scrape_all_portals(
     Returns a summary dict: ``{total, succeeded, failed, errors}``.
     """
     # 1. Fetch all active portal connections
-    result = await db.execute(
-        text("""
+    result = await db.execute(text("""
             SELECT
                 id,
                 user_id,
@@ -76,8 +75,7 @@ async def scrape_all_portals(
             WHERE connection_type = 'portal_scrape'
               AND status = 'active'
             ORDER BY portal_last_scraped_at ASC NULLS FIRST
-        """)
-    )
+        """))
     rows = result.fetchall()
 
     if not rows:
@@ -121,8 +119,12 @@ async def scrape_all_portals(
         conn_id = str(rows[i][0])
         if isinstance(res, Exception):
             failed += 1
-            errors.append(f"{conn_id}: Portal scrape task failed. See server logs for details.")
-            logger.exception("scrape_portals_task_exception", connection_id=conn_id, error=str(res))
+            errors.append(
+                f"{conn_id}: Portal scrape task failed. See server logs for details."
+            )
+            logger.exception(
+                "scrape_portals_task_exception", connection_id=conn_id, error=str(res)
+            )
         elif res.get("success"):
             succeeded += 1
         else:
@@ -285,4 +287,6 @@ async def _update_status(
             },
         )
     except Exception as exc:
-        logger.error("portal_update_status_error", connection_id=connection_id, error=str(exc))
+        logger.error(
+            "portal_update_status_error", connection_id=connection_id, error=str(exc)
+        )

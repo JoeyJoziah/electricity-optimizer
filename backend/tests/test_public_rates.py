@@ -6,10 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from api.v1.public_rates import (
-    get_available_states,
-    get_rate_summary,
-)
+from api.v1.public_rates import get_available_states, get_rate_summary
 
 
 def _mock_db():

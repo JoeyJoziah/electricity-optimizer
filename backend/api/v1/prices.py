@@ -14,23 +14,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import (
-    SessionData,
-    get_price_service,
-    require_tier,
-    verify_api_key,
-)
+from api.dependencies import (SessionData, get_price_service, require_tier,
+                              verify_api_key)
 from config.database import get_pg_session
 from config.settings import get_settings
-from models.price import (
-    Price,
-    PriceComparisonResponse,
-    PriceForecast,
-    PriceForecastResponse,
-    PriceHistoryResponse,
-    PriceRegion,
-    PriceResponse,
-)
+from models.price import (Price, PriceComparisonResponse, PriceForecast,
+                          PriceForecastResponse, PriceHistoryResponse,
+                          PriceRegion, PriceResponse)
 from services.price_service import PriceService
 
 logger = structlog.get_logger(__name__)
@@ -201,7 +191,9 @@ async def get_price_history(
     start_date: datetime | None = Query(
         None, description="Filter by start date (ISO 8601, inclusive)"
     ),
-    end_date: datetime | None = Query(None, description="Filter by end date (ISO 8601, inclusive)"),
+    end_date: datetime | None = Query(
+        None, description="Filter by end date (ISO 8601, inclusive)"
+    ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(
         24,
@@ -238,7 +230,11 @@ async def get_price_history(
             else datetime.now(UTC)
         )
         resolved_start = (
-            (start_date.replace(tzinfo=UTC) if start_date.tzinfo is None else start_date)
+            (
+                start_date.replace(tzinfo=UTC)
+                if start_date.tzinfo is None
+                else start_date
+            )
             if start_date is not None
             else resolved_end - timedelta(days=days)
         )
@@ -305,7 +301,9 @@ async def get_price_history(
         mock_all = _generate_mock_prices(region.value, days * 24)
         if supplier:
             mock_all = [p for p in mock_all if p.supplier == supplier]
-        mock_all = [p for p in mock_all if resolved_start <= p.timestamp <= resolved_end]
+        mock_all = [
+            p for p in mock_all if resolved_start <= p.timestamp <= resolved_end
+        ]
         if not mock_all:
             mock_all = _generate_mock_prices(region.value, days * 24)
 

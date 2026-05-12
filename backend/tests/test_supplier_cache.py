@@ -498,7 +498,8 @@ class TestCacheErrorResilience:
 class TestCacheTTL:
     async def test_list_suppliers_uses_3600s_ttl(self):
         """Cache entries for list_suppliers must be set with a 1-hour TTL."""
-        from repositories.supplier_repository import _SUPPLIER_CACHE_TTL, SupplierRegistryRepository
+        from repositories.supplier_repository import (
+            _SUPPLIER_CACHE_TTL, SupplierRegistryRepository)
 
         row = {
             "id": "00000000-0000-0000-0000-000000000040",
@@ -531,7 +532,8 @@ class TestCacheTTL:
 
     async def test_get_by_id_uses_3600s_ttl(self):
         """Cache entries for get_by_id must be set with a 1-hour TTL."""
-        from repositories.supplier_repository import _SUPPLIER_CACHE_TTL, SupplierRegistryRepository
+        from repositories.supplier_repository import (
+            _SUPPLIER_CACHE_TTL, SupplierRegistryRepository)
 
         row = MagicMock()
         row.__getitem__ = lambda self, k: {

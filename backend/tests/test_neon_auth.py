@@ -13,14 +13,9 @@ import json
 from base64 import b64encode
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from auth.neon_auth import (
-    _SESSION_CACHE_TTL,
-    _decrypt_session_cache,
-    _encrypt_session_cache,
-    _get_session_from_token,
-    _unsign_cookie_token,
-    invalidate_session_cache,
-)
+from auth.neon_auth import (_SESSION_CACHE_TTL, _decrypt_session_cache,
+                            _encrypt_session_cache, _get_session_from_token,
+                            _unsign_cookie_token, invalidate_session_cache)
 
 
 class TestUnsignCookieToken:
@@ -95,9 +90,9 @@ class TestSessionCacheTTL:
     """Zenith H-15-01: session cache TTL must be 60 seconds."""
 
     def test_session_cache_ttl_is_60(self):
-        assert _SESSION_CACHE_TTL == 60, (
-            f"Expected _SESSION_CACHE_TTL=60 (Zenith H-15-01), got {_SESSION_CACHE_TTL}"
-        )
+        assert (
+            _SESSION_CACHE_TTL == 60
+        ), f"Expected _SESSION_CACHE_TTL=60 (Zenith H-15-01), got {_SESSION_CACHE_TTL}"
 
     async def test_session_cached_with_correct_ttl(self):
         """Verify Redis setex is called with TTL=60 when caching a session."""
@@ -118,7 +113,9 @@ class TestSessionCacheTTL:
         mock_result.fetchone.return_value = mock_row
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        session = await _get_session_from_token("test-session-token", mock_db, redis=mock_redis)
+        session = await _get_session_from_token(
+            "test-session-token", mock_db, redis=mock_redis
+        )
 
         assert session is not None
         assert session.user_id == "user-123"
@@ -153,7 +150,9 @@ class TestSessionCacheTTL:
 
         mock_db = AsyncMock()
 
-        session = await _get_session_from_token("cached-token", mock_db, redis=mock_redis)
+        session = await _get_session_from_token(
+            "cached-token", mock_db, redis=mock_redis
+        )
 
         assert session is not None
         assert session.user_id == "cached-user"
@@ -242,7 +241,9 @@ class TestSessionCacheEncryption:
 
             mock_settings.field_encryption_key = secrets.token_hex(32)
 
-            session = await _get_session_from_token("enc-test-token", mock_db, redis=mock_redis)
+            session = await _get_session_from_token(
+                "enc-test-token", mock_db, redis=mock_redis
+            )
 
             assert session is not None
             assert session.user_id == "enc-user"
@@ -289,7 +290,9 @@ class TestSessionCacheEncryption:
         with patch("utils.encryption.settings") as mock_settings:
             mock_settings.field_encryption_key = test_key
 
-            session = await _get_session_from_token("enc-hit-token", mock_db, redis=mock_redis)
+            session = await _get_session_from_token(
+                "enc-hit-token", mock_db, redis=mock_redis
+            )
 
         assert session is not None
         assert session.user_id == "enc-cached"

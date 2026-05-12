@@ -32,7 +32,9 @@ class TestConstruction:
         mock_store = MagicMock()
         mock_vs_cls.return_value = mock_store
 
-        with patch("services.hnsw_vector_store.HNSWVectorStore._build_index") as mock_build:
+        with patch(
+            "services.hnsw_vector_store.HNSWVectorStore._build_index"
+        ) as mock_build:
             from services.hnsw_vector_store import HNSWVectorStore
 
             store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
@@ -50,7 +52,9 @@ class TestConstruction:
         mock_store = MagicMock()
         mock_vs_cls.return_value = mock_store
 
-        with patch("services.hnsw_vector_store.HNSWVectorStore._build_index") as mock_build:
+        with patch(
+            "services.hnsw_vector_store.HNSWVectorStore._build_index"
+        ) as mock_build:
             from services.hnsw_vector_store import HNSWVectorStore
 
             store = HNSWVectorStore(db_path="/tmp/test.db", dimension=24)
@@ -135,7 +139,9 @@ class TestBuildIndex:
 
         # HNSW index should have been initialized
         mock_hnswlib.Index.assert_called_with(space="cosine", dim=24)
-        mock_index.init_index.assert_called_once_with(max_elements=10000, ef_construction=200, M=16)
+        mock_index.init_index.assert_called_once_with(
+            max_elements=10000, ef_construction=200, M=16
+        )
         mock_index.set_ef.assert_called_once_with(50)
 
         # Two vectors should have been added
@@ -178,7 +184,9 @@ class TestBuildIndex:
     @patch("services.hnsw_vector_store.hnswlib")
     @patch("services.hnsw_vector_store.VectorStore")
     @patch("services.hnsw_vector_store.HNSW_AVAILABLE", True)
-    def test_build_index_skips_mismatched_dimensions(self, mock_vs_cls, mock_hnswlib, mock_sqlite):
+    def test_build_index_skips_mismatched_dimensions(
+        self, mock_vs_cls, mock_hnswlib, mock_sqlite
+    ):
         """Vectors with wrong dimension should be skipped during build."""
         mock_store = MagicMock()
         mock_store._db_path = "/tmp/test.db"
@@ -270,7 +278,9 @@ class TestInsert:
         store = self._make_store(mock_vs_cls, mock_index=mock_index)
 
         vec = np.random.rand(24).astype(np.float32)
-        result = store.insert("test_domain", vec, metadata={"key": "val"}, confidence=0.9)
+        result = store.insert(
+            "test_domain", vec, metadata={"key": "val"}, confidence=0.9
+        )
 
         # VectorStore.insert should be called
         store._store.insert.assert_called_once_with(
@@ -764,7 +774,8 @@ class TestSearch:
 
         # fetch_k should be min(10*3, 2) = 2
         knn_call_k = (
-            mock_index.knn_query.call_args[1].get("k") or mock_index.knn_query.call_args[0][1]
+            mock_index.knn_query.call_args[1].get("k")
+            or mock_index.knn_query.call_args[0][1]
         )
         assert knn_call_k == 2
 

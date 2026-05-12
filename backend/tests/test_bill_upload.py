@@ -62,7 +62,9 @@ def _mapping_result(rows: list) -> MagicMock:
     result = MagicMock()
     mock_rows = [_DictRow(r) for r in rows]
     result.mappings.return_value.all.return_value = mock_rows
-    result.mappings.return_value.first.return_value = mock_rows[0] if mock_rows else None
+    result.mappings.return_value.first.return_value = (
+        mock_rows[0] if mock_rows else None
+    )
     result.fetchone.return_value = mock_rows[0] if mock_rows else None
     return result
 
@@ -155,7 +157,9 @@ class TestValidateUploadFile:
     def test_valid_pdf(self):
         from services.bill_parser import validate_upload_file
 
-        result = validate_upload_file("bill.pdf", "application/pdf", PDF_MAGIC + b"content")
+        result = validate_upload_file(
+            "bill.pdf", "application/pdf", PDF_MAGIC + b"content"
+        )
         assert result == "pdf"
 
     def test_valid_png(self):
@@ -419,7 +423,9 @@ class TestBillParserService:
         db = _mock_db()
         service = self._make_service(db, tmp_path)
 
-        result = await service.parse(TEST_UPLOAD_ID, TEST_CONNECTION_ID, "nonexistent/file.pdf")
+        result = await service.parse(
+            TEST_UPLOAD_ID, TEST_CONNECTION_ID, "nonexistent/file.pdf"
+        )
 
         assert result["parse_status"] == "failed"
         assert "not found" in result["parse_error"].lower()
@@ -623,7 +629,9 @@ class TestUploadBillFileEndpoint:
         db = _mock_db()
         db.execute = AsyncMock(
             return_value=MagicMock(
-                fetchone=MagicMock(return_value=MagicMock(__getitem__=lambda s, k: "free"))
+                fetchone=MagicMock(
+                    return_value=MagicMock(__getitem__=lambda s, k: "free")
+                )
             )
         )
 
@@ -736,7 +744,9 @@ class TestListBillUploads:
         pending_row["detected_supplier"] = None
         pending_row["detected_rate_per_kwh"] = None
 
-        db.execute = AsyncMock(side_effect=[_found_result(), _mapping_result([pending_row])])
+        db.execute = AsyncMock(
+            side_effect=[_found_result(), _mapping_result([pending_row])]
+        )
 
         response = client.get(f"{BASE}/{TEST_CONNECTION_ID}/uploads")
 
@@ -787,7 +797,9 @@ class TestReparseBillUpload:
         )
 
         with patch("api.v1.connections._run_background_parse"):
-            response = client.post(f"{BASE}/{TEST_CONNECTION_ID}/uploads/{TEST_UPLOAD_ID}/reparse")
+            response = client.post(
+                f"{BASE}/{TEST_CONNECTION_ID}/uploads/{TEST_UPLOAD_ID}/reparse"
+            )
 
         assert response.status_code == 202
         data = response.json()
@@ -804,7 +816,9 @@ class TestReparseBillUpload:
             ]
         )
 
-        response = client.post(f"{BASE}/{TEST_CONNECTION_ID}/uploads/{str(uuid4())}/reparse")
+        response = client.post(
+            f"{BASE}/{TEST_CONNECTION_ID}/uploads/{str(uuid4())}/reparse"
+        )
 
         assert response.status_code == 404
 
@@ -813,7 +827,9 @@ class TestReparseBillUpload:
         db = _install_auth()
         db.execute = AsyncMock(return_value=_empty_result())
 
-        response = client.post(f"{BASE}/{str(uuid4())}/uploads/{TEST_UPLOAD_ID}/reparse")
+        response = client.post(
+            f"{BASE}/{str(uuid4())}/uploads/{TEST_UPLOAD_ID}/reparse"
+        )
 
         assert response.status_code == 404
 
@@ -867,7 +883,8 @@ class TestBillUploadModels:
         assert dumped["parse_error"] is None
 
     def test_bill_upload_list_response_valid(self):
-        from models.connections import BillUploadListResponse, BillUploadResponse
+        from models.connections import (BillUploadListResponse,
+                                        BillUploadResponse)
 
         now = datetime.now(UTC)
         uploads = [

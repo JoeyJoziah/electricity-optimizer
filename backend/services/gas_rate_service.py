@@ -96,16 +96,32 @@ class GasRateService:
                         "status": "ok",
                     }
                 except APIError as e:
-                    logger.warning("gas_rate_fetch_failed", state=state_code, error=str(e))
-                    return {"ok": False, "state": state_code, "status": "error", "error": str(e)}
+                    logger.warning(
+                        "gas_rate_fetch_failed", state=state_code, error=str(e)
+                    )
+                    return {
+                        "ok": False,
+                        "state": state_code,
+                        "status": "error",
+                        "error": str(e),
+                    }
                 except Exception as e:
-                    logger.error("gas_rate_fetch_unexpected", state=state_code, error=str(e))
-                    return {"ok": False, "state": state_code, "status": "error", "error": str(e)}
+                    logger.error(
+                        "gas_rate_fetch_unexpected", state=state_code, error=str(e)
+                    )
+                    return {
+                        "ok": False,
+                        "state": state_code,
+                        "status": "error",
+                        "error": str(e),
+                    }
 
         # Collect return values from gather instead of mutating a shared dict.
         # This avoids the race condition where concurrent coroutines increment
         # counters or append to a list without synchronisation.
-        state_results: list[dict] = await asyncio.gather(*[fetch_state(s) for s in target_states])
+        state_results: list[dict] = await asyncio.gather(
+            *[fetch_state(s) for s in target_states]
+        )
 
         fetched = sum(1 for r in state_results if r["ok"])
         errors = sum(1 for r in state_results if not r["ok"])
@@ -163,14 +179,12 @@ class GasRateService:
 
     async def get_deregulated_states(self) -> list[dict]:
         """Get list of gas-deregulated states with regulation details."""
-        result = await self._db.execute(
-            text("""
+        result = await self._db.execute(text("""
                 SELECT state_code, state_name, puc_name, puc_website,
                        comparison_tool_url
                 FROM state_regulations
                 WHERE gas_deregulated = TRUE
                 ORDER BY state_name
-            """)
-        )
+            """))
         rows = result.mappings().all()
         return [dict(r) for r in rows]

@@ -27,8 +27,12 @@ router = APIRouter()
 
 class FlagUpdateBody(BaseModel):
     enabled: bool | None = Field(None, description="Enable or disable the flag")
-    tier_required: str | None = Field(None, description="Minimum subscription tier required")
-    percentage: int | None = Field(None, ge=0, le=100, description="Rollout percentage (0-100)")
+    tier_required: str | None = Field(
+        None, description="Minimum subscription tier required"
+    )
+    percentage: int | None = Field(
+        None, ge=0, le=100, description="Rollout percentage (0-100)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +62,9 @@ async def update_feature_flag(
         percentage=body.percentage,
     )
     if not success:
-        raise HTTPException(status_code=404, detail="Flag not found or no changes provided")
+        raise HTTPException(
+            status_code=404, detail="Flag not found or no changes provided"
+        )
     return {"success": True}
 
 
@@ -145,9 +151,9 @@ async def data_health_check(
     _HEALTH_TABLES = frozenset(t[0] for t in tables)
     _HEALTH_COLS = frozenset(t[1] for t in tables)
     for table_name, ts_col in tables:
-        assert table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS, (
-            f"Unexpected health check identifier: {table_name}.{ts_col}"
-        )
+        assert (
+            table_name in _HEALTH_TABLES and ts_col in _HEALTH_COLS
+        ), f"Unexpected health check identifier: {table_name}.{ts_col}"
 
     health = {}
     for table_name, ts_col in tables:
@@ -157,7 +163,9 @@ async def data_health_check(
 
             last_write = None
             if count > 0:
-                ts_result = await db.execute(text(f"SELECT MAX({ts_col}) FROM {table_name}"))
+                ts_result = await db.execute(
+                    text(f"SELECT MAX({ts_col}) FROM {table_name}")
+                )
                 last_write_val = ts_result.scalar()
                 if last_write_val:
                     last_write = str(last_write_val)
@@ -213,4 +221,6 @@ async def generate_kpi_report(
 
     except Exception as exc:
         logger.error("kpi_report_failed", error=str(exc))
-        raise HTTPException(status_code=500, detail="KPI report failed. See server logs.")
+        raise HTTPException(
+            status_code=500, detail="KPI report failed. See server logs."
+        )

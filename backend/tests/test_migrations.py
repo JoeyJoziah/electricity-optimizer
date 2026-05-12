@@ -33,7 +33,9 @@ class TestMigrationFiles:
             if match:
                 numbers.append(match.group(1))
         duplicates = [n for n in numbers if numbers.count(n) > 1]
-        assert len(numbers) == len(set(numbers)), f"Duplicate migration numbers: {duplicates}"
+        assert len(numbers) == len(
+            set(numbers)
+        ), f"Duplicate migration numbers: {duplicates}"
 
     def test_create_table_has_if_not_exists(self):
         """All CREATE TABLE statements should use IF NOT EXISTS."""
@@ -45,9 +47,14 @@ class TestMigrationFiles:
                 content = fh.read()
             for i, line in enumerate(content.split("\n"), 1):
                 stripped = line.strip().upper()
-                if stripped.startswith("CREATE TABLE") and "IF NOT EXISTS" not in stripped:
+                if (
+                    stripped.startswith("CREATE TABLE")
+                    and "IF NOT EXISTS" not in stripped
+                ):
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, "CREATE TABLE without IF NOT EXISTS:\n" + "\n".join(violations)
+        assert not violations, "CREATE TABLE without IF NOT EXISTS:\n" + "\n".join(
+            violations
+        )
 
     def test_create_index_has_guard(self):
         """All CREATE INDEX statements should use IF NOT EXISTS or CONCURRENTLY."""
@@ -65,8 +72,10 @@ class TestMigrationFiles:
                     and "CONCURRENTLY" not in stripped
                 ):
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, (
-            "CREATE INDEX without guard (IF NOT EXISTS or CONCURRENTLY):\n" + "\n".join(violations)
+        assert (
+            not violations
+        ), "CREATE INDEX without guard (IF NOT EXISTS or CONCURRENTLY):\n" + "\n".join(
+            violations
         )
 
     def test_alter_table_add_column_has_if_not_exists(self):
@@ -84,7 +93,9 @@ class TestMigrationFiles:
                     continue
                 if "ADD COLUMN" in stripped and "IF NOT EXISTS" not in stripped:
                     violations.append(f"{f}:{i}: {line.strip()}")
-        assert not violations, "ADD COLUMN without IF NOT EXISTS:\n" + "\n".join(violations)
+        assert not violations, "ADD COLUMN without IF NOT EXISTS:\n" + "\n".join(
+            violations
+        )
 
     def test_no_drop_without_if_exists(self):
         """DROP statements should use IF EXISTS."""
@@ -151,7 +162,9 @@ class TestMigration017AdditionalIndexes:
             "idx_notifications_user_unread_created",
         }
         found = set(re.findall(r"IF NOT EXISTS\s+(idx_\w+)", content))
-        assert found == expected_indexes, f"Expected indexes {expected_indexes}, found {found}"
+        assert (
+            found == expected_indexes
+        ), f"Expected indexes {expected_indexes}, found {found}"
 
     def test_index_columns_reference_correct_tables(self):
         """Index ON clauses should reference the right tables and columns."""
@@ -159,7 +172,10 @@ class TestMigration017AdditionalIndexes:
         # Each index should reference its correct table
         assert "ON user_connections (user_id, connection_type)" in content
         assert "ON bill_uploads (user_id, created_at DESC, status)" in content
-        assert "ON forecast_observations (region, utility_type, created_at DESC)" in content
+        assert (
+            "ON forecast_observations (region, utility_type, created_at DESC)"
+            in content
+        )
         assert "ON notifications (user_id, created_at DESC)" in content
 
     def test_partial_index_has_where_clause(self):
@@ -170,9 +186,9 @@ class TestMigration017AdditionalIndexes:
         assert idx != -1, "Notifications index not found"
         # The WHERE clause should appear after the index definition
         after_idx = content[idx:]
-        assert "WHERE read_at IS NULL" in after_idx, (
-            "Partial index missing WHERE read_at IS NULL clause"
-        )
+        assert (
+            "WHERE read_at IS NULL" in after_idx
+        ), "Partial index missing WHERE read_at IS NULL clause"
 
 
 class TestMigration053NotificationDedupIndex:
@@ -201,9 +217,9 @@ class TestMigration053NotificationDedupIndex:
         # Find the ADD COLUMN line for alert_id
         for line in content.split("\n"):
             if "alert_id" in line and "ADD COLUMN" in line.upper():
-                assert "UUID" in line.upper(), (
-                    f"alert_id column should be UUID type, got: {line.strip()}"
-                )
+                assert (
+                    "UUID" in line.upper()
+                ), f"alert_id column should be UUID type, got: {line.strip()}"
                 break
 
     def test_fk_constraint_uses_set_null(self):
@@ -237,7 +253,9 @@ class TestMigration053NotificationDedupIndex:
         idx_start = content.find("idx_notifications_dedup_alert")
         assert idx_start != -1, "idx_notifications_dedup_alert not found"
         after_idx = content[idx_start:]
-        assert "dismissed" in after_idx, "Partial index should exclude dismissed notifications"
+        assert (
+            "dismissed" in after_idx
+        ), "Partial index should exclude dismissed notifications"
         assert "delivery_status" in after_idx
 
     def test_dedup_index_requires_alert_id_not_null(self):
@@ -475,9 +493,9 @@ class TestMigration019NationwideSuppliers:
     def test_uses_green_energy_not_provider(self):
         """Migration 019 should use 'green_energy' column, not 'green_energy_provider'."""
         content = _read_migration("019")
-        assert "green_energy_provider" not in content, (
-            "Migration 019 should use 'green_energy', not 'green_energy_provider'"
-        )
+        assert (
+            "green_energy_provider" not in content
+        ), "Migration 019 should use 'green_energy', not 'green_energy_provider'"
         assert "green_energy" in content
 
     def test_seeds_at_least_34_suppliers_across_13_states(self):
@@ -488,7 +506,9 @@ class TestMigration019NationwideSuppliers:
         assert supplier_count >= 34, f"Expected >= 34 suppliers, found {supplier_count}"
         # Extract all region values
         regions = set(re.findall(r"'(us_[a-z]{2})'", content))
-        assert len(regions) >= 13, f"Expected >= 13 state regions, found {len(regions)}: {regions}"
+        assert (
+            len(regions) >= 13
+        ), f"Expected >= 13 state regions, found {len(regions)}: {regions}"
 
     def test_all_region_values_are_valid_enum_members(self):
         """All region strings in migration 019 must be valid Region enum values."""
@@ -507,12 +527,12 @@ class TestMigration011CommentFix:
     def test_comment_says_migration_011(self):
         """Migration 011 header comment must reference 011, not 010."""
         content = _read_migration("011")
-        assert "Migration 010" not in content, (
-            "011_utilityapi_sync_columns.sql still contains stale 'Migration 010' comment"
-        )
-        assert "Migration 011" in content, (
-            "011_utilityapi_sync_columns.sql should have 'Migration 011' in comment header"
-        )
+        assert (
+            "Migration 010" not in content
+        ), "011_utilityapi_sync_columns.sql still contains stale 'Migration 010' comment"
+        assert (
+            "Migration 011" in content
+        ), "011_utilityapi_sync_columns.sql should have 'Migration 011' in comment header"
 
 
 class TestMigration028CommentFix:
@@ -521,12 +541,12 @@ class TestMigration028CommentFix:
     def test_comment_says_version_028(self):
         """Migration 028 version comment must read 028, not 026."""
         content = _read_migration("028")
-        assert "Version: 026" not in content, (
-            "028_feedback_table.sql still contains stale 'Version: 026' comment"
-        )
-        assert "Version: 028" in content, (
-            "028_feedback_table.sql should have 'Version: 028' in comment header"
-        )
+        assert (
+            "Version: 026" not in content
+        ), "028_feedback_table.sql still contains stale 'Version: 026' comment"
+        assert (
+            "Version: 028" in content
+        ), "028_feedback_table.sql should have 'Version: 028' in comment header"
 
 
 class TestMigration061AuditSchemaFixes:
@@ -721,13 +741,18 @@ class TestMigration061AuditSchemaFixes:
         assert commit_pos != -1, "COMMIT; not found in migration 061"
         # Only check CREATE INDEX CONCURRENTLY statements (not comment occurrences).
         concurrent_stmt_positions = [
-            m.start() for m in re.finditer(r"CREATE\s+INDEX\s+CONCURRENTLY", content, re.IGNORECASE)
-        ]
-        assert concurrent_stmt_positions, "No CREATE INDEX CONCURRENTLY statements found"
-        for pos in concurrent_stmt_positions:
-            assert pos > commit_pos, (
-                f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
+            m.start()
+            for m in re.finditer(
+                r"CREATE\s+INDEX\s+CONCURRENTLY", content, re.IGNORECASE
             )
+        ]
+        assert (
+            concurrent_stmt_positions
+        ), "No CREATE INDEX CONCURRENTLY statements found"
+        for pos in concurrent_stmt_positions:
+            assert (
+                pos > commit_pos
+            ), f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
 
     def test_all_new_constraints_use_idempotent_guards(self):
         """All new constraints must be wrapped in idempotency DO blocks."""
@@ -740,16 +765,18 @@ class TestMigration061AuditSchemaFixes:
             "uq_model_config_name_version",
         ]
         for constraint in new_constraints:
-            assert constraint in content, (
-                f"Expected constraint {constraint} not found in migration 061"
-            )
+            assert (
+                constraint in content
+            ), f"Expected constraint {constraint} not found in migration 061"
 
     def test_grants_included(self):
         """Migration must include GRANT statements for neondb_owner."""
         content = _read_migration("061")
         assert "neondb_owner" in content
         grant_count = content.count("TO neondb_owner")
-        assert grant_count >= 3, f"Expected at least 3 GRANT statements, found {grant_count}"
+        assert (
+            grant_count >= 3
+        ), f"Expected at least 3 GRANT statements, found {grant_count}"
 
 
 class TestMigration062AuditSchemaFixesRound2:
@@ -796,7 +823,9 @@ class TestMigration062AuditSchemaFixesRound2:
         """Migration must drop duplicate electricity_prices indexes."""
         content = _read_migration("062")
         assert "DROP INDEX IF EXISTS idx_prices_region_utilitytype_timestamp" in content
-        assert "DROP INDEX IF EXISTS idx_electricity_prices_region_utility_time" in content
+        assert (
+            "DROP INDEX IF EXISTS idx_electricity_prices_region_utility_time" in content
+        )
         assert "DROP INDEX IF EXISTS idx_prices_utility_type" in content
 
     # ---- P3-4: Redundant feature_flags index ----
@@ -829,20 +858,27 @@ class TestMigration062AuditSchemaFixesRound2:
         commit_pos = content.rfind("COMMIT;")
         assert commit_pos != -1, "COMMIT; not found in migration 062"
         concurrent_stmt_positions = [
-            m.start() for m in re.finditer(r"CREATE\s+INDEX\s+CONCURRENTLY", content, re.IGNORECASE)
-        ]
-        assert concurrent_stmt_positions, "No CREATE INDEX CONCURRENTLY statements found"
-        for pos in concurrent_stmt_positions:
-            assert pos > commit_pos, (
-                f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
+            m.start()
+            for m in re.finditer(
+                r"CREATE\s+INDEX\s+CONCURRENTLY", content, re.IGNORECASE
             )
+        ]
+        assert (
+            concurrent_stmt_positions
+        ), "No CREATE INDEX CONCURRENTLY statements found"
+        for pos in concurrent_stmt_positions:
+            assert (
+                pos > commit_pos
+            ), f"CREATE INDEX CONCURRENTLY at position {pos} is before COMMIT at {commit_pos}"
 
     def test_grants_included(self):
         """Migration must include GRANT statements for neondb_owner."""
         content = _read_migration("062")
         assert "neondb_owner" in content
         grant_count = content.count("TO neondb_owner")
-        assert grant_count >= 2, f"Expected at least 2 GRANT statements, found {grant_count}"
+        assert (
+            grant_count >= 2
+        ), f"Expected at least 2 GRANT statements, found {grant_count}"
 
     def test_all_drops_use_if_exists(self):
         """All DROP statements must use IF EXISTS."""
@@ -852,4 +888,6 @@ class TestMigration062AuditSchemaFixesRound2:
             if stripped.startswith("--"):
                 continue
             if stripped.startswith("DROP") and "IF EXISTS" not in stripped:
-                raise AssertionError(f"Line {i}: DROP without IF EXISTS: {line.strip()}")
+                raise AssertionError(
+                    f"Line {i}: DROP without IF EXISTS: {line.strip()}"
+                )

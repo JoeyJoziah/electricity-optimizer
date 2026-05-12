@@ -78,7 +78,9 @@ async def check_alerts(
 
         # Fetch latest prices for all needed regions in a single query
         try:
-            all_prices = await price_repo.list_latest_by_regions(regions, limit_per_region=20)
+            all_prices = await price_repo.list_latest_by_regions(
+                regions, limit_per_region=20
+            )
         except Exception as exc:
             logger.warning("check_alerts_price_fetch_failed", error=str(exc))
             all_prices = []
@@ -100,7 +102,9 @@ async def check_alerts(
         ]
 
         # Map user_id -> notification_frequency for fast lookup in dedup step
-        freq_by_user = {cfg["user_id"]: cfg["notification_frequency"] for cfg in configs}
+        freq_by_user = {
+            cfg["user_id"]: cfg["notification_frequency"] for cfg in configs
+        }
         # Map user_id -> alert_config_id for history records
         config_id_by_user = {cfg["user_id"]: cfg["id"] for cfg in configs}
 
@@ -118,7 +122,9 @@ async def check_alerts(
         # 5. Deduplication — batch check cooldown windows (single query per
         #    frequency tier instead of one query per triggered pair)
         # ------------------------------------------------------------------
-        in_cooldown = await service._batch_should_send_alerts(triggered_pairs, freq_by_user, db)
+        in_cooldown = await service._batch_should_send_alerts(
+            triggered_pairs, freq_by_user, db
+        )
         for threshold, alert in triggered_pairs:
             key = (threshold.user_id, alert.alert_type, alert.region)
             if key not in in_cooldown:

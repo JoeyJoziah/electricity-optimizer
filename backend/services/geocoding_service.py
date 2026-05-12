@@ -179,7 +179,9 @@ class GeocodingService:
                 "lat": item["lat"],
                 "lng": item["lon"],
                 "state": state_abbr,
-                "formatted_address": f"{item.get('name', '')}, {state_name}, {country}".strip(", "),
+                "formatted_address": f"{item.get('name', '')}, {state_name}, {country}".strip(
+                    ", "
+                ),
             }
         except Exception as e:
             logger.warning("geocode_owm_failed", error=str(e))

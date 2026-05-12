@@ -15,9 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models.utility_account import UtilityAccount
 from repositories.base import MAX_PAGE_SIZE, BaseRepository, RepositoryError
 
-_COLUMNS = (
-    "id, user_id, utility_type, region, provider_name, is_primary, metadata, created_at, updated_at"
-)
+_COLUMNS = "id, user_id, utility_type, region, provider_name, is_primary, metadata, created_at, updated_at"
 
 
 def _row_to_account(row: dict) -> UtilityAccount:
@@ -73,7 +71,9 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
                     "provider_name": entity.provider_name,
                     "account_number_encrypted": entity.account_number_encrypted,
                     "is_primary": entity.is_primary,
-                    "metadata": json.dumps(entity.metadata) if entity.metadata else "{}",
+                    "metadata": (
+                        json.dumps(entity.metadata) if entity.metadata else "{}"
+                    ),
                 },
             )
             await self._db.commit()
@@ -99,7 +99,9 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
                     "id": id,
                     "provider_name": entity.provider_name,
                     "is_primary": entity.is_primary,
-                    "metadata": json.dumps(entity.metadata) if entity.metadata else None,
+                    "metadata": (
+                        json.dumps(entity.metadata) if entity.metadata else None
+                    ),
                 },
             )
             await self._db.commit()
@@ -189,4 +191,6 @@ class UtilityAccountRepository(BaseRepository[UtilityAccount]):
         self, user_id: str, utility_type: str
     ) -> builtins.list[UtilityAccount]:
         """Get utility accounts for a user filtered by utility type."""
-        return await self.list(page=1, page_size=100, user_id=user_id, utility_type=utility_type)
+        return await self.list(
+            page=1, page_size=100, user_id=user_id, utility_type=utility_type
+        )

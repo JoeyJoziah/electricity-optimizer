@@ -65,7 +65,9 @@ class NotificationService:
     async def get_unread_count(self, user_id: str) -> int:
         """Return the count of unread notifications for the user."""
         result = await self._db.execute(
-            text("SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND read_at IS NULL"),
+            text(
+                "SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND read_at IS NULL"
+            ),
             {"uid": user_id},
         )
         return result.scalar() or 0

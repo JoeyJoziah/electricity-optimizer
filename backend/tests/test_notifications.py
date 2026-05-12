@@ -118,7 +118,13 @@ class TestGetNotifications:
     def test_returns_notifications(self, client):
         notif_id = str(uuid4())
         # Row: (id, type, title, body, created_at)
-        row = (notif_id, "info", "Price alert", "Your price is high", "2026-01-01T00:00:00+00:00")
+        row = (
+            notif_id,
+            "info",
+            "Price alert",
+            "Your price is high",
+            "2026-01-01T00:00:00+00:00",
+        )
         db = _mock_db()
         db.execute.return_value = _rows_result([row])
         _install_auth(db)

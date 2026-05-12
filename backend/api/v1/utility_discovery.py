@@ -14,7 +14,9 @@ router = APIRouter(tags=["Utility Discovery"])
 
 @router.get("/discover")
 async def discover_utilities(
-    state: str = Query(..., min_length=2, max_length=2, description="2-letter state code"),
+    state: str = Query(
+        ..., min_length=2, max_length=2, description="2-letter state code"
+    ),
 ):
     """Discover available utility types for a state."""
     state_upper = state.upper()
@@ -30,7 +32,9 @@ async def discover_utilities(
 
 @router.get("/completion")
 async def get_completion(
-    state: str = Query(..., min_length=2, max_length=2, description="2-letter state code"),
+    state: str = Query(
+        ..., min_length=2, max_length=2, description="2-letter state code"
+    ),
     tracked: str = Query(
         "electricity",
         description="Comma-separated list of tracked utility types",
@@ -41,7 +45,9 @@ async def get_completion(
     tracked_types = [t.strip() for t in tracked.split(",") if t.strip()]
 
     if not tracked_types:
-        raise HTTPException(status_code=400, detail="At least one tracked utility type required")
+        raise HTTPException(
+            status_code=400, detail="At least one tracked utility type required"
+        )
 
     result = UtilityDiscoveryService.get_completion_status(state_upper, tracked_types)
 

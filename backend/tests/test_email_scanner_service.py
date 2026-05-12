@@ -14,13 +14,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from services.email_scanner_service import (
-    EmailScanResult,
-    _extract_gmail_body_text,
-    _extract_rates_from_text,
-    _matches_utility_keywords,
-    extract_rates_from_attachments,
-)
+from services.email_scanner_service import (EmailScanResult,
+                                            _extract_gmail_body_text,
+                                            _extract_rates_from_text,
+                                            _matches_utility_keywords,
+                                            extract_rates_from_attachments)
 
 # =============================================================================
 # Fixtures
@@ -58,7 +56,9 @@ class TestBillClassifier:
         ],
     )
     def test_utility_text_is_classified_as_bill(self, text: str):
-        assert _matches_utility_keywords(text), f"Expected '{text}' to match as a utility bill"
+        assert _matches_utility_keywords(
+            text
+        ), f"Expected '{text}' to match as a utility bill"
 
     @pytest.mark.parametrize(
         "text",
@@ -71,9 +71,9 @@ class TestBillClassifier:
         ],
     )
     def test_non_utility_text_is_not_classified_as_bill(self, text: str):
-        assert not _matches_utility_keywords(text), (
-            f"Expected '{text}' NOT to match as a utility bill"
-        )
+        assert not _matches_utility_keywords(
+            text
+        ), f"Expected '{text}' NOT to match as a utility bill"
 
     def test_empty_string_returns_false(self):
         assert not _matches_utility_keywords("")
@@ -215,7 +215,10 @@ class TestGmailBodyExtraction:
         payload = {
             "mimeType": "multipart/mixed",
             "parts": [
-                {"mimeType": "text/html", "body": {"data": self._b64("<html>hi</html>")}},
+                {
+                    "mimeType": "text/html",
+                    "body": {"data": self._b64("<html>hi</html>")},
+                },
             ],
         }
         result = _extract_gmail_body_text(payload)
@@ -278,7 +281,9 @@ class TestAttachmentParsing:
         # ends up empty and the item is skipped.
         with patch("services.bill_parser._validate_magic_bytes", return_value=None):
             result = await extract_rates_from_attachments([att])
-        assert result == [], "text/plain attachment must not produce an extraction result"
+        assert (
+            result == []
+        ), "text/plain attachment must not produce an extraction result"
 
     async def test_pdf_exception_yields_filename_only_entry(self):
         """

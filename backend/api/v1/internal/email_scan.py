@@ -67,8 +67,7 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=503, detail="Database unavailable")
 
     # 1. Fetch all active email-import connections.
-    result = await db.execute(
-        text("""
+    result = await db.execute(text("""
             SELECT
                 id,
                 user_id,
@@ -80,8 +79,7 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
             WHERE connection_type = 'email_import'
               AND status = 'active'
             ORDER BY updated_at ASC
-        """)
-    )
+        """))
     connections = result.mappings().fetchall()
 
     if not connections:
@@ -105,10 +103,7 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
 
         try:
             from services.email_scanner_service import (
-                extract_rates_from_email,
-                scan_gmail_inbox,
-                scan_outlook_inbox,
-            )
+                extract_rates_from_email, scan_gmail_inbox, scan_outlook_inbox)
             from utils.encryption import decrypt_field
 
             # ----------------------------------------------------------------
@@ -146,10 +141,8 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                             "skipped": True,
                         }
                     from services.email_oauth_service import (
-                        encrypt_tokens,
-                        refresh_gmail_token,
-                        refresh_outlook_token,
-                    )
+                        encrypt_tokens, refresh_gmail_token,
+                        refresh_outlook_token)
 
                     enc_refresh = bytes(raw_refresh)
                     try:
@@ -228,7 +221,9 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
                             "cid": conn_id,
                             "source": f"email:{email_result.email_id}",
                             "rate": extracted.get("rate_per_kwh"),
-                            "date": email_result.date.date() if email_result.date else None,
+                            "date": (
+                                email_result.date.date() if email_result.date else None
+                            ),
                             "raw": str(extracted),
                         }
                     )
@@ -297,7 +292,9 @@ async def scan_all_emails(db: AsyncSession = Depends(get_db_session)):
     total_emails = sum(r.get("emails_found", 0) for r in results)
     total_rates = sum(r.get("rates_extracted", 0) for r in results)
     errors = [
-        {"connection_id": r["connection_id"], "error": r["error"]} for r in results if "error" in r
+        {"connection_id": r["connection_id"], "error": r["error"]}
+        for r in results
+        if "error" in r
     ]
 
     logger.info(

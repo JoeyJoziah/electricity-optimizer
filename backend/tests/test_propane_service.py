@@ -239,8 +239,18 @@ class TestGetSeasonalAdvice:
 class TestStorePrices:
     async def test_stores_multiple_prices(self, service, mock_db):
         prices = [
-            {"state": "CT", "price_per_gallon": 2.85, "source": "eia", "period_date": "2026-03-03"},
-            {"state": "US", "price_per_gallon": 2.60, "source": "eia", "period_date": "2026-03-03"},
+            {
+                "state": "CT",
+                "price_per_gallon": 2.85,
+                "source": "eia",
+                "period_date": "2026-03-03",
+            },
+            {
+                "state": "US",
+                "price_per_gallon": 2.60,
+                "source": "eia",
+                "period_date": "2026-03-03",
+            },
         ]
         stored = await service.store_prices(prices)
         assert stored == 2
@@ -250,8 +260,18 @@ class TestStorePrices:
     async def test_handles_store_error(self, service, mock_db):
         mock_db.execute.side_effect = [Exception("DB error"), None]
         prices = [
-            {"state": "CT", "price_per_gallon": 2.85, "source": "eia", "period_date": "2026-03-03"},
-            {"state": "US", "price_per_gallon": 2.60, "source": "eia", "period_date": "2026-03-03"},
+            {
+                "state": "CT",
+                "price_per_gallon": 2.85,
+                "source": "eia",
+                "period_date": "2026-03-03",
+            },
+            {
+                "state": "US",
+                "price_per_gallon": 2.60,
+                "source": "eia",
+                "period_date": "2026-03-03",
+            },
         ]
         stored = await service.store_prices(prices)
         assert stored == 1  # One succeeded, one failed

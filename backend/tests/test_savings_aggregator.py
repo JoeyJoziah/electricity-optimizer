@@ -76,7 +76,11 @@ class TestCombinedSavings:
                 "monthly_savings": Decimal("15.00"),
                 "savings_rank_pct": 0.85,
             },
-            {"utility_type": "water", "monthly_savings": Decimal("8.00"), "savings_rank_pct": 0.85},
+            {
+                "utility_type": "water",
+                "monthly_savings": Decimal("8.00"),
+                "savings_rank_pct": 0.85,
+            },
         ]
 
         mock_db.execute = AsyncMock(return_value=result_mock)

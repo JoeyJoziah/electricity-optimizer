@@ -126,7 +126,9 @@ class TestAlertService:
             )
         ]
 
-        triggered = self.service.check_optimal_windows(prices, thresholds, window_hours=2)
+        triggered = self.service.check_optimal_windows(
+            prices, thresholds, window_hours=2
+        )
         assert len(triggered) == 1
         _, alert = triggered[0]
         assert alert.alert_type == "optimal_window"
@@ -296,7 +298,9 @@ class TestAlertServiceWithDispatcher:
         """When the dispatcher deduplicates a send, the alert should NOT count as sent."""
         mock_email = MagicMock()
         mock_email.render_template = MagicMock(return_value="<html>alert</html>")
-        dispatcher = self._make_dispatcher(send_return={"skipped_dedup": True, "channels": {}})
+        dispatcher = self._make_dispatcher(
+            send_return={"skipped_dedup": True, "channels": {}}
+        )
 
         service = AlertService(email_service=mock_email, dispatcher=dispatcher)
         threshold = self._make_threshold()

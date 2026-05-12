@@ -66,7 +66,9 @@ class CommunityService:
         # 2. Sanitize XSS
         clean_title = nh3.clean(data["title"])
         clean_body = nh3.clean(data["body"])
-        clean_supplier = nh3.clean(data["supplier_name"]) if data.get("supplier_name") else None
+        clean_supplier = (
+            nh3.clean(data["supplier_name"]) if data.get("supplier_name") else None
+        )
 
         # 3. INSERT
         insert_sql = text("""
@@ -103,7 +105,9 @@ class CommunityService:
         post_id = post["id"]
         try:
             await asyncio.wait_for(
-                self._run_moderation(db, post_id, clean_title, clean_body, agent_service),
+                self._run_moderation(
+                    db, post_id, clean_title, clean_body, agent_service
+                ),
                 timeout=MODERATION_TIMEOUT_SECONDS,
             )
         except (TimeoutError, Exception) as exc:
@@ -145,11 +149,15 @@ class CommunityService:
             else:
                 classification = await agent_service.classify_content(content)
         except Exception as exc:
-            logger.warning("groq_moderation_failed", post_id=str(post_id), error=str(exc))
+            logger.warning(
+                "groq_moderation_failed", post_id=str(post_id), error=str(exc)
+            )
             # Fallback to Gemini
             try:
                 if hasattr(agent_service, "classify_content_gemini"):
-                    classification = await agent_service.classify_content_gemini(content)
+                    classification = await agent_service.classify_content_gemini(
+                        content
+                    )
                 else:
                     raise  # Re-raise if no fallback available
             except Exception as fallback_exc:
@@ -259,7 +267,9 @@ class CommunityService:
 
         # Extract total from window function (same for every row)
         total = rows[0]["_total_count"] if rows else 0
-        items = [{k: v for k, v in dict(row).items() if k != "_total_count"} for row in rows]
+        items = [
+            {k: v for k, v in dict(row).items() if k != "_total_count"} for row in rows
+        ]
 
         pages = max(1, (total + per_page - 1) // per_page)
 
@@ -316,7 +326,9 @@ class CommunityService:
                 (SELECT COUNT(*) FROM community_votes WHERE post_id = :post_id) AS upvote_count
         """)
         try:
-            result = await db.execute(toggle_sql, {"user_id": user_id, "post_id": post_id})
+            result = await db.execute(
+                toggle_sql, {"user_id": user_id, "post_id": post_id}
+            )
             row = result.mappings().fetchone()
             await db.commit()
         except Exception:
@@ -422,7 +434,9 @@ class CommunityService:
             # Fallback to Gemini
             try:
                 if hasattr(agent_service, "classify_content_gemini"):
-                    classification = await agent_service.classify_content_gemini(content)
+                    classification = await agent_service.classify_content_gemini(
+                        content
+                    )
             except Exception:
                 # Both failed — clear pending moderation
                 await self._clear_pending_moderation(db, post_id)
@@ -564,7 +578,8 @@ class CommunityService:
         """)
         try:
             update_result = await db.execute(
-                update_sql, {"title": clean_title, "body": clean_body, "post_id": post_id}
+                update_sql,
+                {"title": clean_title, "body": clean_body, "post_id": post_id},
             )
             updated = dict(update_result.mappings().fetchone())
             await db.commit()
@@ -575,13 +590,17 @@ class CommunityService:
         # Re-trigger moderation — fail-closed: post stays pending on timeout/error
         try:
             await asyncio.wait_for(
-                self._run_moderation(db, post_id, clean_title, clean_body, agent_service),
+                self._run_moderation(
+                    db, post_id, clean_title, clean_body, agent_service
+                ),
                 timeout=MODERATION_TIMEOUT_SECONDS,
             )
         except (TimeoutError, Exception) as exc:
             # Fail-closed: leave is_pending_moderation=true so the resubmitted post
             # stays invisible until an explicit moderation pass clears it.
-            logger.warning("resubmit_moderation_failed", post_id=str(post_id), error=str(exc))
+            logger.warning(
+                "resubmit_moderation_failed", post_id=str(post_id), error=str(exc)
+            )
 
         return updated
 

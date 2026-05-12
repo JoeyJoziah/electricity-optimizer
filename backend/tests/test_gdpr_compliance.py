@@ -150,7 +150,9 @@ class TestConsentRequestModels:
             user_agent="Test",
         )
 
-        response = ConsentHistoryResponse(user_id="user-123", consents=[record], total_count=1)
+        response = ConsentHistoryResponse(
+            user_id="user-123", consents=[record], total_count=1
+        )
 
         assert len(response.consents) == 1
         assert response.total_count == 1
@@ -247,7 +249,9 @@ class TestGDPRComplianceService:
         session = AsyncMock()
         session.execute = AsyncMock(
             return_value=MagicMock(
-                mappings=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+                mappings=MagicMock(
+                    return_value=MagicMock(all=MagicMock(return_value=[]))
+                )
             )
         )
         session.commit = AsyncMock()
@@ -255,7 +259,9 @@ class TestGDPRComplianceService:
         return session
 
     @pytest.fixture
-    def gdpr_service(self, mock_consent_repository, mock_user_repository, mock_db_session):
+    def gdpr_service(
+        self, mock_consent_repository, mock_user_repository, mock_db_session
+    ):
         """Create GDPR compliance service with mocked repositories"""
         from compliance.gdpr import GDPRComplianceService
 
@@ -282,7 +288,9 @@ class TestGDPRComplianceService:
         assert result is not None
         mock_consent_repository.create.assert_called_once()
 
-    async def test_record_consent_with_all_metadata(self, gdpr_service, mock_consent_repository):
+    async def test_record_consent_with_all_metadata(
+        self, gdpr_service, mock_consent_repository
+    ):
         """Test consent recording captures all required metadata"""
         await gdpr_service.record_consent(
             user_id="user-123",
@@ -302,7 +310,9 @@ class TestGDPRComplianceService:
         assert consent_record.user_agent == "Chrome/120"
         assert consent_record.timestamp is not None
 
-    async def test_record_consent_withdrawal(self, gdpr_service, mock_consent_repository):
+    async def test_record_consent_withdrawal(
+        self, gdpr_service, mock_consent_repository
+    ):
         """Test consent withdrawal is properly recorded"""
         # Record initial consent
         await gdpr_service.record_consent(
@@ -324,7 +334,9 @@ class TestGDPRComplianceService:
 
         assert mock_consent_repository.create.call_count == 2
 
-    async def test_record_consent_multiple_purposes(self, gdpr_service, mock_consent_repository):
+    async def test_record_consent_multiple_purposes(
+        self, gdpr_service, mock_consent_repository
+    ):
         """Test recording consent for multiple purposes"""
         purposes = ["data_processing", "marketing", "analytics", "price_alerts"]
 
@@ -367,7 +379,9 @@ class TestGDPRComplianceService:
         assert len(history) == 2
         mock_consent_repository.get_by_user_id.assert_called_once_with("user-123")
 
-    async def test_get_consent_history_empty(self, gdpr_service, mock_consent_repository):
+    async def test_get_consent_history_empty(
+        self, gdpr_service, mock_consent_repository
+    ):
         """Test consent history for user with no consents"""
         mock_consent_repository.get_by_user_id.return_value = []
 
@@ -375,7 +389,9 @@ class TestGDPRComplianceService:
 
         assert len(history) == 0
 
-    async def test_get_current_consent_status(self, gdpr_service, mock_consent_repository):
+    async def test_get_current_consent_status(
+        self, gdpr_service, mock_consent_repository
+    ):
         """Test getting current consent status for all purposes"""
         mock_consent_repository.get_latest_by_user_and_purpose.return_value = {
             "data_processing": True,
@@ -406,7 +422,9 @@ class TestGDPRComplianceService:
         assert "preferences_data" in export
         assert "consent_history" in export
 
-    async def test_export_user_data_includes_profile(self, gdpr_service, mock_user_repository):
+    async def test_export_user_data_includes_profile(
+        self, gdpr_service, mock_user_repository
+    ):
         """Test data export includes user profile"""
         mock_user = MagicMock(
             id="user-123",
@@ -427,7 +445,11 @@ class TestGDPRComplianceService:
     ):
         """Test data export includes consent history"""
         mock_consent_repository.get_by_user_id.return_value = [
-            MagicMock(purpose="data_processing", consent_given=True, timestamp=datetime.now(UTC))
+            MagicMock(
+                purpose="data_processing",
+                consent_given=True,
+                timestamp=datetime.now(UTC),
+            )
         ]
 
         export = await gdpr_service.export_user_data("user-123")
@@ -444,7 +466,9 @@ class TestGDPRComplianceService:
         json_str = json.dumps(export, default=str)
         assert json_str is not None
 
-    async def test_export_user_data_nonexistent_user(self, gdpr_service, mock_user_repository):
+    async def test_export_user_data_nonexistent_user(
+        self, gdpr_service, mock_user_repository
+    ):
         """Test data export for nonexistent user"""
         from compliance.gdpr import UserNotFoundError
 
@@ -466,7 +490,9 @@ class TestGDPRComplianceService:
         # (fix for 09-P0-3 — deletion log transaction isolation)
         assert mock_db_session.commit.call_count == 1
 
-    async def test_delete_user_data_deletes_all_categories(self, gdpr_service, mock_db_session):
+    async def test_delete_user_data_deletes_all_categories(
+        self, gdpr_service, mock_db_session
+    ):
         """Test deletion removes all user data categories atomically."""
         result = await gdpr_service.delete_user_data("user-123")
 
@@ -504,14 +530,20 @@ class TestGDPRComplianceService:
         assert result.deletion_type == "full"
         assert result.legal_basis == "user_request"
 
-    async def test_delete_user_data_anonymizes_retained_data(self, gdpr_service, mock_db_session):
+    async def test_delete_user_data_anonymizes_retained_data(
+        self, gdpr_service, mock_db_session
+    ):
         """Test that retained data (for legal reasons) is anonymized"""
-        result = await gdpr_service.delete_user_data("user-123", anonymize_retained=True)
+        result = await gdpr_service.delete_user_data(
+            "user-123", anonymize_retained=True
+        )
 
         assert result.deletion_type == "anonymization"
         assert "activity_logs" in result.data_categories_deleted
 
-    async def test_delete_user_data_nonexistent_user(self, gdpr_service, mock_user_repository):
+    async def test_delete_user_data_nonexistent_user(
+        self, gdpr_service, mock_user_repository
+    ):
         """Test deletion for nonexistent user"""
         from compliance.gdpr import UserNotFoundError
 
@@ -520,7 +552,9 @@ class TestGDPRComplianceService:
         with pytest.raises(UserNotFoundError):
             await gdpr_service.delete_user_data("nonexistent-user")
 
-    async def test_delete_user_data_rollback_on_failure(self, gdpr_service, mock_db_session):
+    async def test_delete_user_data_rollback_on_failure(
+        self, gdpr_service, mock_db_session
+    ):
         """Test that partial failure rolls back all changes (atomic)."""
         from compliance.gdpr import DataDeletionError
 
@@ -631,19 +665,25 @@ class TestConsentRepository:
 
         mock_db_session.execute.assert_called_once()
 
-    async def test_get_latest_consent_by_purpose(self, consent_repository, mock_db_session):
+    async def test_get_latest_consent_by_purpose(
+        self, consent_repository, mock_db_session
+    ):
         """Test getting latest consent for specific purpose via DISTINCT ON."""
         # Mock the raw SQL fetchall result (purpose, consent_given)
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [("marketing", True)]
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
-        result = await consent_repository.get_latest_by_user_and_purpose("user-123", "marketing")
+        result = await consent_repository.get_latest_by_user_and_purpose(
+            "user-123", "marketing"
+        )
 
         mock_db_session.execute.assert_called_once()
         assert result == {"marketing": True}
 
-    async def test_get_latest_consent_all_purposes(self, consent_repository, mock_db_session):
+    async def test_get_latest_consent_all_purposes(
+        self, consent_repository, mock_db_session
+    ):
         """Test getting latest consent for all purposes via DISTINCT ON."""
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [
@@ -672,7 +712,9 @@ class TestConsentRepository:
 
         assert result == {}
 
-    async def test_delete_consents_by_user_id(self, consent_repository, mock_db_session):
+    async def test_delete_consents_by_user_id(
+        self, consent_repository, mock_db_session
+    ):
         """Test deleting all consents for a user.
 
         Note: delete_by_user_id does NOT commit — the caller (GDPR atomic
@@ -1022,7 +1064,9 @@ class TestGDPRIntegration:
             user_agent="Test",
         )
         consent_repo.create.return_value = mock_record
-        consent_repo.get_latest_by_user_and_purpose.return_value = {"data_processing": mock_record}
+        consent_repo.get_latest_by_user_and_purpose.return_value = {
+            "data_processing": mock_record
+        }
 
         result = await service.record_consent(
             user_id="user-1",

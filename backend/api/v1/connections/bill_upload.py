@@ -24,24 +24,18 @@ import uuid
 from uuid import uuid4
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
+                     UploadFile, status)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import SessionData, get_db_session
 from api.v1.connections.common import require_paid_tier
-from models.connections import (
-    BillUploadListResponse,
-    BillUploadResponse,
-    ConnectionResponse,
-    CreateUploadConnectionRequest,
-)
-from services.bill_parser import (
-    MAX_FILE_SIZE_BYTES,
-    BillParserService,
-    build_storage_key,
-    validate_upload_file,
-)
+from models.connections import (BillUploadListResponse, BillUploadResponse,
+                                ConnectionResponse,
+                                CreateUploadConnectionRequest)
+from services.bill_parser import (MAX_FILE_SIZE_BYTES, BillParserService,
+                                  build_storage_key, validate_upload_file)
 
 logger = structlog.get_logger(__name__)
 
@@ -291,7 +285,9 @@ async def upload_bill_file(
     )
     await db.commit()
 
-    log.info("bill_upload_created", upload_id=upload_id, file_type=file_type, bytes=len(data))
+    log.info(
+        "bill_upload_created", upload_id=upload_id, file_type=file_type, bytes=len(data)
+    )
 
     # Schedule background parse (fire-and-forget; status queryable via GET)
     cid_str = str(connection_id)
@@ -357,12 +353,19 @@ async def list_bill_uploads(
     for row in rows:
         row_dict = dict(row)
         # Cast date columns to ISO string (may be date or str depending on driver)
-        for date_col in ("detected_billing_period_start", "detected_billing_period_end"):
+        for date_col in (
+            "detected_billing_period_start",
+            "detected_billing_period_end",
+        ):
             val = row_dict.get(date_col)
             if val is not None and not isinstance(val, str):
                 row_dict[date_col] = str(val)
         # Cast Decimal to float
-        for num_col in ("detected_rate_per_kwh", "detected_total_kwh", "detected_total_amount"):
+        for num_col in (
+            "detected_rate_per_kwh",
+            "detected_total_kwh",
+            "detected_total_amount",
+        ):
             val = row_dict.get(num_col)
             if val is not None:
                 row_dict[num_col] = float(val)
@@ -412,7 +415,11 @@ async def get_bill_upload(
         if val is not None:
             row_dict[date_col] = str(val)
     # Cast Decimal fields to float
-    for num_col in ("detected_rate_per_kwh", "detected_total_kwh", "detected_total_amount"):
+    for num_col in (
+        "detected_rate_per_kwh",
+        "detected_total_kwh",
+        "detected_total_amount",
+    ):
         val = row_dict.get(num_col)
         if val is not None:
             row_dict[num_col] = float(val)

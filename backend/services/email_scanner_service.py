@@ -34,7 +34,9 @@ UTILITY_KEYWORDS = [
 
 # Subject line patterns (case-insensitive)
 SUBJECT_PATTERNS = [
-    re.compile(r"(electric|energy|utility|power)\s*(bill|statement|invoice)", re.IGNORECASE),
+    re.compile(
+        r"(electric|energy|utility|power)\s*(bill|statement|invoice)", re.IGNORECASE
+    ),
     re.compile(r"(monthly|billing)\s*statement", re.IGNORECASE),
     re.compile(r"(your|new)\s*(bill|invoice)\s*(is|from)", re.IGNORECASE),
     re.compile(r"payment\s*(due|reminder)", re.IGNORECASE),
@@ -95,7 +97,9 @@ async def scan_gmail_inbox(
     within the lookback period.
     """
     results: list[EmailScanResult] = []
-    after_date = (datetime.now(UTC) - timedelta(days=lookback_days)).strftime("%Y/%m/%d")
+    after_date = (datetime.now(UTC) - timedelta(days=lookback_days)).strftime(
+        "%Y/%m/%d"
+    )
 
     # Build Gmail search query
     keyword_query = " OR ".join(f'"{kw}"' for kw in UTILITY_KEYWORDS[:6])
@@ -115,14 +119,18 @@ async def scan_gmail_inbox(
             msg_resp = await client.get(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_stub['id']}",
                 headers={"Authorization": f"Bearer {access_token}"},
-                params={"format": "metadata", "metadataHeaders": ["Subject", "From", "Date"]},
+                params={
+                    "format": "metadata",
+                    "metadataHeaders": ["Subject", "From", "Date"],
+                },
             )
             if msg_resp.status_code != 200:
                 continue
 
             msg_data = msg_resp.json()
             headers = {
-                h["name"]: h["value"] for h in msg_data.get("payload", {}).get("headers", [])
+                h["name"]: h["value"]
+                for h in msg_data.get("payload", {}).get("headers", [])
             }
 
             subject = headers.get("Subject", "")
@@ -133,7 +141,9 @@ async def scan_gmail_inbox(
             parts = msg_data.get("payload", {}).get("parts", [])
             attachment_count = sum(1 for p in parts if p.get("filename"))
 
-            is_bill = _matches_utility_keywords(subject) or _matches_utility_keywords(sender)
+            is_bill = _matches_utility_keywords(subject) or _matches_utility_keywords(
+                sender
+            )
 
             try:
                 email_date = datetime.now(UTC)  # Fallback
@@ -196,11 +206,15 @@ async def scan_outlook_inbox(
             sender = f"{sender_data.get('name', '')} <{sender_data.get('address', '')}>"
 
             try:
-                email_date = datetime.fromisoformat(msg["receivedDateTime"].replace("Z", "+00:00"))
+                email_date = datetime.fromisoformat(
+                    msg["receivedDateTime"].replace("Z", "+00:00")
+                )
             except (ValueError, KeyError):
                 email_date = datetime.now(UTC)
 
-            is_bill = _matches_utility_keywords(subject) or _matches_utility_keywords(sender)
+            is_bill = _matches_utility_keywords(subject) or _matches_utility_keywords(
+                sender
+            )
 
             results.append(
                 EmailScanResult(
@@ -422,15 +436,11 @@ async def extract_rates_from_attachments(
     billing_period_end).
     """
     # Lazy import to avoid circular deps
-    from services.bill_parser import (
-        _validate_magic_bytes,
-        extract_billing_period,
-        extract_rate_per_kwh,
-        extract_supplier,
-        extract_text,
-        extract_total_amount,
-        extract_total_kwh,
-    )
+    from services.bill_parser import (_validate_magic_bytes,
+                                      extract_billing_period,
+                                      extract_rate_per_kwh, extract_supplier,
+                                      extract_text, extract_total_amount,
+                                      extract_total_kwh)
 
     _MIME_TO_TYPE = {
         "application/pdf": "pdf",

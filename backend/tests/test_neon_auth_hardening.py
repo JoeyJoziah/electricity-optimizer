@@ -68,7 +68,9 @@ class TestSecureCookieEnforcement:
             # Should be a 401 because the plain cookie is not accepted
             assert exc_info.value.status_code == 401
 
-    async def test_production_accepts_secure_cookie(self, mock_db_session, mock_request):
+    async def test_production_accepts_secure_cookie(
+        self, mock_db_session, mock_request
+    ):
         """In production, the __Secure- prefixed cookie is accepted."""
         from auth.neon_auth import SESSION_COOKIE_NAME_SECURE, get_current_user
 
@@ -81,17 +83,17 @@ class TestSecureCookieEnforcement:
         assert result.user_id == "user-secure-test"
         assert result.email == "secure@example.com"
 
-    async def test_production_ignores_plain_when_both_present(self, mock_db_session, mock_request):
+    async def test_production_ignores_plain_when_both_present(
+        self, mock_db_session, mock_request
+    ):
         """In production, when both cookies exist, only __Secure- is used.
 
         This verifies the plain cookie value is never read in production,
         even if an attacker manages to inject it alongside the secure one.
         """
-        from auth.neon_auth import (
-            SESSION_COOKIE_NAME,
-            SESSION_COOKIE_NAME_SECURE,
-            get_current_user,
-        )
+        from auth.neon_auth import (SESSION_COOKIE_NAME,
+                                    SESSION_COOKIE_NAME_SECURE,
+                                    get_current_user)
 
         # Set both cookies -- the plain one has a different (attacker) token
         mock_request.cookies = {
@@ -112,7 +114,9 @@ class TestSecureCookieEnforcement:
     # Development/test mode: accept both cookie names
     # -------------------------------------------------------------------------
 
-    async def test_development_accepts_plain_cookie(self, mock_db_session, mock_request):
+    async def test_development_accepts_plain_cookie(
+        self, mock_db_session, mock_request
+    ):
         """In development, the plain cookie name is accepted."""
         from auth.neon_auth import SESSION_COOKIE_NAME, get_current_user
 
@@ -124,7 +128,9 @@ class TestSecureCookieEnforcement:
 
         assert result.user_id == "user-secure-test"
 
-    async def test_development_accepts_secure_cookie(self, mock_db_session, mock_request):
+    async def test_development_accepts_secure_cookie(
+        self, mock_db_session, mock_request
+    ):
         """In development, the __Secure- cookie is also accepted."""
         from auth.neon_auth import SESSION_COOKIE_NAME_SECURE, get_current_user
 
@@ -136,13 +142,13 @@ class TestSecureCookieEnforcement:
 
         assert result.user_id == "user-secure-test"
 
-    async def test_development_prefers_plain_cookie(self, mock_db_session, mock_request):
+    async def test_development_prefers_plain_cookie(
+        self, mock_db_session, mock_request
+    ):
         """In development, when both cookies are present, the plain one is used first."""
-        from auth.neon_auth import (
-            SESSION_COOKIE_NAME,
-            SESSION_COOKIE_NAME_SECURE,
-            get_current_user,
-        )
+        from auth.neon_auth import (SESSION_COOKIE_NAME,
+                                    SESSION_COOKIE_NAME_SECURE,
+                                    get_current_user)
 
         mock_request.cookies = {
             SESSION_COOKIE_NAME: "dev-plain-token",
@@ -162,13 +168,17 @@ class TestSecureCookieEnforcement:
     # Bearer token works in all environments
     # -------------------------------------------------------------------------
 
-    async def test_bearer_token_works_in_production(self, mock_db_session, mock_request):
+    async def test_bearer_token_works_in_production(
+        self, mock_db_session, mock_request
+    ):
         """Bearer token authentication works regardless of environment."""
         from fastapi.security import HTTPAuthorizationCredentials
 
         from auth.neon_auth import get_current_user
 
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="bearer-prod-token")
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="bearer-prod-token"
+        )
 
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = True
@@ -178,13 +188,17 @@ class TestSecureCookieEnforcement:
         call_args = mock_db_session.execute.call_args
         assert call_args[0][1]["token"] == "bearer-prod-token"
 
-    async def test_bearer_token_works_in_development(self, mock_db_session, mock_request):
+    async def test_bearer_token_works_in_development(
+        self, mock_db_session, mock_request
+    ):
         """Bearer token authentication works in development mode."""
         from fastapi.security import HTTPAuthorizationCredentials
 
         from auth.neon_auth import get_current_user
 
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="bearer-dev-token")
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="bearer-dev-token"
+        )
 
         with patch("auth.neon_auth.settings") as mock_settings:
             mock_settings.is_production = False
@@ -194,7 +208,9 @@ class TestSecureCookieEnforcement:
         call_args = mock_db_session.execute.call_args
         assert call_args[0][1]["token"] == "bearer-dev-token"
 
-    async def test_bearer_token_takes_precedence_over_cookie(self, mock_db_session, mock_request):
+    async def test_bearer_token_takes_precedence_over_cookie(
+        self, mock_db_session, mock_request
+    ):
         """Bearer token in header takes precedence over any cookie, in any environment."""
         from fastapi.security import HTTPAuthorizationCredentials
 
@@ -217,7 +233,9 @@ class TestSecureCookieEnforcement:
     # No credentials at all still raises 401
     # -------------------------------------------------------------------------
 
-    async def test_no_credentials_raises_401_in_production(self, mock_db_session, mock_request):
+    async def test_no_credentials_raises_401_in_production(
+        self, mock_db_session, mock_request
+    ):
         """No cookies and no Bearer token raises 401 in production."""
         from auth.neon_auth import get_current_user
 
@@ -229,7 +247,9 @@ class TestSecureCookieEnforcement:
                 await get_current_user(mock_request, None, mock_db_session)
             assert exc_info.value.status_code == 401
 
-    async def test_no_credentials_raises_401_in_development(self, mock_db_session, mock_request):
+    async def test_no_credentials_raises_401_in_development(
+        self, mock_db_session, mock_request
+    ):
         """No cookies and no Bearer token raises 401 in development."""
         from auth.neon_auth import get_current_user
 
@@ -382,7 +402,9 @@ class TestEncryptionFailHard:
                 side_effect=RuntimeError("FIELD_ENCRYPTION_KEY is not configured"),
             ):
                 # Should still return session data from DB (caching is non-fatal)
-                result = await _get_session_from_token("token-123", mock_db, redis=mock_redis)
+                result = await _get_session_from_token(
+                    "token-123", mock_db, redis=mock_redis
+                )
 
         assert result is not None
         assert result.user_id == "user-no-cache"

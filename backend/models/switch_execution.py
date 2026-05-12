@@ -18,7 +18,13 @@ from pydantic import BaseModel, ConfigDict, Field
 # ---------------------------------------------------------------------------
 
 ExecutionStatus = Literal[
-    "initiating", "initiated", "submitted", "accepted", "active", "failed", "rolled_back"
+    "initiating",
+    "initiated",
+    "submitted",
+    "accepted",
+    "active",
+    "failed",
+    "rolled_back",
 ]
 ExecutorType = Literal["energybot", "powerkiosk", "advisory_only"]
 

@@ -6,15 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from integrations.weather_service import (
-    CT_LAT,
-    CT_LON,
-    DEGREE_DAY_BASE_F,
-    CircuitState,
-    WeatherCircuitBreaker,
-    WeatherData,
-    WeatherService,
-)
+from integrations.weather_service import (CT_LAT, CT_LON, DEGREE_DAY_BASE_F,
+                                          CircuitState, WeatherCircuitBreaker,
+                                          WeatherData, WeatherService)
 
 
 class TestWeatherData:
@@ -143,7 +137,9 @@ class TestWeatherCircuitBreaker:
         assert await cb.can_execute() is True
 
     async def test_closes_after_success_threshold_in_half_open(self):
-        cb = WeatherCircuitBreaker(failure_threshold=2, timeout_seconds=0, success_threshold=2)
+        cb = WeatherCircuitBreaker(
+            failure_threshold=2, timeout_seconds=0, success_threshold=2
+        )
         await cb.record_failure()
         await cb.record_failure()
         # timeout_seconds=0 so it immediately becomes HALF_OPEN
@@ -226,7 +222,12 @@ class TestWeatherServiceCircuitBreaker:
         mock_response.raise_for_status = MagicMock()
         mock_response.json.return_value = {
             "dt": 1707696000,
-            "main": {"temp": 45.0, "humidity": 65, "feels_like": 40.0, "pressure": 1020},
+            "main": {
+                "temp": 45.0,
+                "humidity": 65,
+                "feels_like": 40.0,
+                "pressure": 1020,
+            },
             "wind": {"speed": 12.0},
             "clouds": {"all": 75},
         }

@@ -147,7 +147,9 @@ class TestCreatePortalConnection:
         }
 
         # Patch encrypt_field in the portal_scrape module's namespace (where it was imported)
-        with patch("api.v1.connections.portal_scrape.encrypt_field", return_value=b"\x00" * 28):
+        with patch(
+            "api.v1.connections.portal_scrape.encrypt_field", return_value=b"\x00" * 28
+        ):
             response = client.post(f"{BASE}/portal", json=payload)
 
         assert response.status_code == 201
@@ -252,7 +254,9 @@ class TestCreatePortalConnection:
             # portal_login_url deliberately omitted
         }
 
-        with patch("api.v1.connections.portal_scrape.encrypt_field", return_value=b"\x00" * 28):
+        with patch(
+            "api.v1.connections.portal_scrape.encrypt_field", return_value=b"\x00" * 28
+        ):
             response = client.post(f"{BASE}/portal", json=payload)
 
         assert response.status_code == 201
@@ -345,7 +349,9 @@ class TestTriggerPortalScrape:
         # PortalScraperService is imported lazily inside the endpoint function;
         # patch at the source module level so the import picks up the mock.
         with (
-            patch("api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"),
+            patch(
+                "api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"
+            ),
             patch(
                 "services.portal_scraper_service.PortalScraperService",
                 autospec=True,
@@ -401,7 +407,9 @@ class TestTriggerPortalScrape:
         }
 
         with (
-            patch("api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"),
+            patch(
+                "api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"
+            ),
             patch(
                 "services.portal_scraper_service.PortalScraperService",
                 autospec=True,
@@ -437,7 +445,9 @@ class TestTriggerPortalScrape:
         }
 
         with (
-            patch("api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"),
+            patch(
+                "api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"
+            ),
             patch(
                 "services.portal_scraper_service.PortalScraperService",
                 autospec=True,
@@ -474,7 +484,9 @@ class TestTriggerPortalScrape:
         }
 
         with (
-            patch("api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"),
+            patch(
+                "api.v1.connections.portal_scrape.decrypt_field", return_value="s3cr3t!"
+            ),
             patch(
                 "services.portal_scraper_service.PortalScraperService",
                 autospec=True,
