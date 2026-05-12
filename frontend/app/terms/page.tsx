@@ -21,9 +21,7 @@ export default function TermsPage() {
 
       <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900">Terms of Service</h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Last updated: February 12, 2026
-        </p>
+        <p className="mt-2 text-sm text-gray-500">Last updated: May 12, 2026</p>
 
         <div className="prose prose-gray mt-8 max-w-none">
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
@@ -41,9 +39,12 @@ export default function TermsPage() {
           <p className="mt-3 text-gray-600">
             RateShift provides AI-powered electricity price monitoring,
             forecasting, and optimization tools for US consumers in deregulated
-            electricity markets. Our service uses data from NREL, EIA, and other
-            sources to help users make informed decisions about electricity
-            usage.
+            electricity markets. Our service uses data from NREL, EIA,
+            UtilityAPI, and other sources to help users make informed decisions
+            about electricity usage and rate plans. Features include price
+            alerts, bill analysis, ML-powered forecasts, an AI assistant, and
+            (for Pro subscribers) an Auto Rate Switcher that can autonomously
+            evaluate and initiate plan changes on your behalf.
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
@@ -53,16 +54,21 @@ export default function TermsPage() {
             Price forecasts and optimization recommendations are provided for
             informational purposes only. We do not guarantee the accuracy of
             predictions or savings estimates. Actual electricity costs depend on
-            your provider, usage patterns, and market conditions.
+            your provider, usage patterns, and market conditions. The Auto Rate
+            Switcher acts on your behalf based on available data; RateShift is
+            not responsible for any rate plan outcomes resulting from automated
+            switches.
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
             4. Subscription and Billing
           </h2>
           <p className="mt-3 text-gray-600">
-            Paid plans (Pro and Business) are billed monthly through Stripe. You
-            may cancel at any time; access continues until the end of the
-            current billing period. Refunds are handled on a case-by-case basis.
+            Paid plans (Pro at $4.99/mo and Business at $14.99/mo) are billed
+            monthly through Stripe. The UtilityAPI meter connection add-on is
+            billed at $2.25 per connected meter per month. You may cancel at any
+            time; access continues until the end of the current billing period.
+            Refunds are handled on a case-by-case basis.
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
@@ -75,7 +81,18 @@ export default function TermsPage() {
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
-            6. Acceptable Use
+            6. Utility Data and UtilityAPI
+          </h2>
+          <p className="mt-3 text-gray-600">
+            When you connect a utility account, you authorize RateShift and
+            UtilityAPI (our meter data provider) to retrieve your utility usage
+            data on your behalf. You may disconnect your utility account at any
+            time from account settings. UtilityAPI&apos;s own terms and privacy
+            policy apply to data they collect; see utilityapi.com/terms.
+          </p>
+
+          <h2 className="text-xl font-semibold text-gray-900 mt-8">
+            7. Acceptable Use
           </h2>
           <p className="mt-3 text-gray-600">
             You agree not to misuse the service, including but not limited to:
@@ -85,7 +102,7 @@ export default function TermsPage() {
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
-            7. API Usage (Business Tier)
+            8. API Usage (Business Tier)
           </h2>
           <p className="mt-3 text-gray-600">
             Business tier API access is subject to rate limits. API keys are
@@ -94,7 +111,7 @@ export default function TermsPage() {
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
-            8. Limitation of Liability
+            9. Limitation of Liability
           </h2>
           <p className="mt-3 text-gray-600">
             RateShift is provided &quot;as is&quot; without warranty of any
@@ -104,7 +121,7 @@ export default function TermsPage() {
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
-            9. Changes to Terms
+            10. Changes to Terms
           </h2>
           <p className="mt-3 text-gray-600">
             We may update these terms from time to time. Continued use of the
@@ -112,7 +129,7 @@ export default function TermsPage() {
           </p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">
-            10. Contact
+            11. Contact
           </h2>
           <p className="mt-3 text-gray-600">
             For questions about these terms, contact us at legal@rateshift.app.
