@@ -199,6 +199,27 @@ class TestUnsubscribeEndpoint:
 
         assert resp.status_code == 302
 
+    def test_missing_uid_param_returns_422(self):
+        db = _make_db()
+        app = _make_app(db)
+        client = TestClient(app, follow_redirects=False)
+        resp = client.get("/api/v1/public/unsubscribe?tok=abc123")
+        assert resp.status_code == 422
+
+    def test_missing_tok_param_returns_422(self):
+        db = _make_db()
+        app = _make_app(db)
+        client = TestClient(app, follow_redirects=False)
+        resp = client.get(f"/api/v1/public/unsubscribe?uid={str(uuid4())}")
+        assert resp.status_code == 422
+
+    def test_missing_both_params_returns_422(self):
+        db = _make_db()
+        app = _make_app(db)
+        client = TestClient(app, follow_redirects=False)
+        resp = client.get("/api/v1/public/unsubscribe")
+        assert resp.status_code == 422
+
     def test_missing_secret_returns_500(self):
         uid = str(uuid4())
         tok = _make_unsubscribe_token(uid, "")
