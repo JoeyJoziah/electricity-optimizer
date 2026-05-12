@@ -122,3 +122,58 @@ class TestDripProcessErrorRateAlert:
 
         assert result["summary"]["error_rate"] == 0.03
         assert result["summary"]["total_errors"] == 3
+
+    async def test_sentry_capture_called_above_threshold(self, mock_drip_svc):
+        """Sentry capture_message fires when error rate > 2%."""
+        mock_drip_svc.process_day2_batch.return_value = _make_batch_result(
+            total=100, errors=5, sent_a=95
+        )
+        mock_drip_svc.process_day7_batch.return_value = _make_batch_result(0, 0)
+
+        mock_sdk = _mock_sentry()
+        with (
+            patch("api.v1.internal.drip.DripService", return_value=mock_drip_svc),
+            patch("api.v1.internal.drip.sentry_sdk", mock_sdk),
+        ):
+            from api.v1.internal.drip import process_drip_batches
+
+            mock_db = AsyncMock()
+            await process_drip_batches(db=mock_db)
+
+        mock_sdk.capture_message.assert_called_once()
+        call_args = mock_sdk.capture_message.call_args
+        assert "5.0%" in call_args.args[0]
+        assert call_args.kwargs["level"] == "error"
+
+    async def test_sentry_capture_not_called_below_threshold(self, mock_drip_svc):
+        """Sentry capture_message does NOT fire when error rate <= 2%."""
+        mock_drip_svc.process_day2_batch.return_value = _make_batch_result(
+            total=100, errors=2, sent_a=98
+        )  # exactly 2% — not above threshold
+        mock_drip_svc.process_day7_batch.return_value = _make_batch_result(0, 0)
+
+        mock_sdk = _mock_sentry()
+        with (
+            patch("api.v1.internal.drip.DripService", return_value=mock_drip_svc),
+            patch("api.v1.internal.drip.sentry_sdk", mock_sdk),
+        ):
+            from api.v1.internal.drip import process_drip_batches
+
+            mock_db = AsyncMock()
+            await process_drip_batches(db=mock_db)
+
+        mock_sdk.capture_message.assert_not_called()
+
+    async def test_sentry_capture_not_called_on_empty_batch(self, mock_drip_svc):
+        """Sentry capture_message does NOT fire when no users were processed."""
+        mock_sdk = _mock_sentry()
+        with (
+            patch("api.v1.internal.drip.DripService", return_value=mock_drip_svc),
+            patch("api.v1.internal.drip.sentry_sdk", mock_sdk),
+        ):
+            from api.v1.internal.drip import process_drip_batches
+
+            mock_db = AsyncMock()
+            await process_drip_batches(db=mock_db)
+
+        mock_sdk.capture_message.assert_not_called()
