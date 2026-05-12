@@ -1,7 +1,14 @@
 """
-Tests for /api/v1/internal/drip/process endpoint error-rate Sentry alerting.
+Tests for /api/v1/internal/drip/ endpoints.
 
-PRD Scope #5 requirement (b): Sentry alert fires when drip dispatch error rate > 2%.
+enroll_user (POST /drip/enroll):
+- Returns enrolled=True, welcome_sent=True on first enroll
+- Returns enrolled=True, welcome_sent=False on duplicate (idempotent)
+- Raises 422 on invalid email
+- Raises 422 on missing required fields
+
+process_drip_batches (POST /drip/process):
+- PRD Scope #5 requirement (b): Sentry alert fires when error rate > 2%
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -177,3 +184,78 @@ class TestDripProcessErrorRateAlert:
             await process_drip_batches(db=mock_db)
 
         mock_sdk.capture_message.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# enroll_user endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestEnrollUserEndpoint:
+    """Tests for POST /api/v1/internal/drip/enroll."""
+
+    @pytest.fixture
+    def mock_enroll_svc(self):
+        svc = AsyncMock()
+        svc.enroll_user = AsyncMock(return_value=True)
+        return svc
+
+    async def test_returns_enrolled_and_welcome_sent_on_new_user(self, mock_enroll_svc):
+        mock_enroll_svc.enroll_user.return_value = True
+        with patch("api.v1.internal.drip.DripService", return_value=mock_enroll_svc):
+            from api.v1.internal.drip import EnrollRequest, enroll_user
+
+            req = EnrollRequest(user_id="uid-1", email="alice@example.com", name="Alice")
+            result = await enroll_user(req=req, db=AsyncMock())
+
+        assert result == {"enrolled": True, "welcome_sent": True}
+
+    async def test_returns_welcome_sent_false_on_duplicate(self, mock_enroll_svc):
+        # DripService.enroll_user returns False when the user is already enrolled (ON CONFLICT DO NOTHING)
+        mock_enroll_svc.enroll_user.return_value = False
+        with patch("api.v1.internal.drip.DripService", return_value=mock_enroll_svc):
+            from api.v1.internal.drip import EnrollRequest, enroll_user
+
+            req = EnrollRequest(user_id="uid-1", email="alice@example.com", name="Alice")
+            result = await enroll_user(req=req, db=AsyncMock())
+
+        assert result == {"enrolled": True, "welcome_sent": False}
+
+    async def test_enroll_passes_all_fields_to_service(self, mock_enroll_svc):
+        with patch("api.v1.internal.drip.DripService", return_value=mock_enroll_svc):
+            from api.v1.internal.drip import EnrollRequest, enroll_user
+
+            req = EnrollRequest(user_id="uid-99", email="bob@example.com", name="Bob")
+            await enroll_user(req=req, db=AsyncMock())
+
+        mock_enroll_svc.enroll_user.assert_awaited_once_with(
+            user_id="uid-99",
+            email="bob@example.com",
+            name="Bob",
+        )
+
+    async def test_enroll_passes_none_name_to_service(self, mock_enroll_svc):
+        with patch("api.v1.internal.drip.DripService", return_value=mock_enroll_svc):
+            from api.v1.internal.drip import EnrollRequest, enroll_user
+
+            req = EnrollRequest(user_id="uid-99", email="bob@example.com", name=None)
+            await enroll_user(req=req, db=AsyncMock())
+
+        call_kwargs = mock_enroll_svc.enroll_user.call_args.kwargs
+        assert call_kwargs["name"] is None
+
+    def test_enroll_request_rejects_invalid_email(self):
+        from pydantic import ValidationError
+
+        from api.v1.internal.drip import EnrollRequest
+
+        with pytest.raises(ValidationError, match="email"):
+            EnrollRequest(user_id="uid-1", email="not-an-email", name="Alice")
+
+    def test_enroll_request_requires_user_id(self):
+        from pydantic import ValidationError
+
+        from api.v1.internal.drip import EnrollRequest
+
+        with pytest.raises(ValidationError):
+            EnrollRequest(email="alice@example.com")

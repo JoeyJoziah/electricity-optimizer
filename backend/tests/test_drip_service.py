@@ -5,6 +5,7 @@ Covers:
 - enroll_user inserts row and sends welcome email
 - enroll_user is idempotent (no double-send on conflict)
 - process_day2_batch selects Template A when connected, Template B otherwise
+- process_day2_batch forwards potential_savings_annual to Template A context (None when no data)
 - process_day2_batch skips users enrolled < 2 days ago
 - process_day2_batch records errors without aborting the batch
 - process_day7_batch sends upgrade nudge and marks sent
@@ -196,6 +197,42 @@ class TestDay2TemplateSelection:
 
         assert result["errors"] == 1
         assert result["sent_a"] == 0
+
+    async def test_template_a_forwards_potential_savings_annual(self, svc, mock_db, mock_email):
+        # Verifies that potential_savings_annual from the SQL row reaches the
+        # render_template call — this value drives the savings headline in Template A.
+        row = self._make_user_row(
+            has_connection=True, has_bill=False, potential_savings_annual=120.0
+        )
+        mock_db.execute.return_value = _make_execute_result(mappings_rows=[row])
+
+        await svc.process_day2_batch()
+
+        call_kwargs = mock_email.render_template.call_args.kwargs
+        assert call_kwargs.get("potential_savings_annual") == 120.0
+
+    async def test_template_a_forwards_none_when_no_savings_data(self, svc, mock_db, mock_email):
+        # No bill_estimate rows in user_savings → SQL returns NULL → passed as None.
+        # Template A must handle None gracefully (show generic copy, not "None savings").
+        row = self._make_user_row(
+            has_connection=True, has_bill=False, potential_savings_annual=None
+        )
+        mock_db.execute.return_value = _make_execute_result(mappings_rows=[row])
+
+        await svc.process_day2_batch()
+
+        call_kwargs = mock_email.render_template.call_args.kwargs
+        assert call_kwargs.get("potential_savings_annual") is None
+
+    async def test_template_a_forwards_region(self, svc, mock_db, mock_email):
+        # region drives rate-zone copy in Template A — must reach the template context.
+        row = self._make_user_row(has_connection=True, has_bill=False)
+        mock_db.execute.return_value = _make_execute_result(mappings_rows=[row])
+
+        await svc.process_day2_batch()
+
+        call_kwargs = mock_email.render_template.call_args.kwargs
+        assert call_kwargs.get("region") == "CT"
 
 
 # =============================================================================
