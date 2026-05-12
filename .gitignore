@@ -180,3 +180,6 @@ paperclip/
 .claude/commands/testing_plan_integration
 .claude/commands/todo
 .claude/commands/update-branch-name
+
+# Load test results (large JSON — scripts committed, results local)
+loadtest/results/
