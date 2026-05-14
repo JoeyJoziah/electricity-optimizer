@@ -387,6 +387,10 @@ class TestUserRepository:
         """Test deleting a user"""
         from repositories.user_repository import UserRepository
 
+        mock_delete_result = MagicMock()
+        mock_delete_result.first.return_value = MagicMock(id="user_123")
+        mock_db_session.execute.return_value = mock_delete_result
+
         repo = UserRepository(mock_db_session)
         result = await repo.delete("user_123")
 

@@ -1041,6 +1041,10 @@ class TestGDPRIntegration:
     async def test_full_data_export_flow(self):
         """Test complete data export flow"""
         mock_db = AsyncMock()
+        _mock_result = MagicMock()
+        _mock_result.mappings.return_value.all.return_value = []
+        _mock_result.first.return_value = None
+        mock_db.execute.return_value = _mock_result
         consent_repo = AsyncMock()
         user_repo = AsyncMock()
 

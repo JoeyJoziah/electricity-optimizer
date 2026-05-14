@@ -112,8 +112,11 @@ class TestLearningServiceTracing:
 
         from services.learning_service import LearningService
 
+        mock_db = AsyncMock()
+        mock_db.execute.return_value = MagicMock()
+
         svc = LearningService(
-            observation_service=mock_obs, vector_store=mock_vs, db_session=AsyncMock()
+            observation_service=mock_obs, vector_store=mock_vs, db_session=mock_db
         )
         await svc.update_ensemble_weights("CA", days=7)
 

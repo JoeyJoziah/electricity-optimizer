@@ -499,6 +499,7 @@ class TestLearningServiceDbPersistence:
     async def test_update_ensemble_weights_persists_to_db(self):
         """update_ensemble_weights should call save_config when db_session is provided."""
         mock_db = AsyncMock()
+        mock_db.execute.return_value = MagicMock()
         service, mock_obs, _ = self._make_service(mock_db)
         mock_obs.get_model_accuracy_by_version = AsyncMock(
             return_value=[
