@@ -42,20 +42,23 @@ The rollback drill must:
 - [ ] Rollback drill executed — see "Rollback Drill Procedure" below
 - [ ] All 4 soak deploys + rollback complete before 2026-05-26 at 09:00 PT
 
-## Status as of 2026-05-14 (Loki iteration #7)
+## Status as of 2026-05-14 (Loki iteration #8)
 
 `gh run list --workflow=build-and-push-backend.yml --status=success` → **1 success** (`33014f99`,
-2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because 3 new commits are
-**locally committed but not yet pushed to GitHub**. Once pushed, the pipeline will run 3 times
-in succession (one per backend commit touching `backend/**`).
+2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because 4 new backend commits
+are **locally committed but not yet pushed to GitHub**. Once pushed, the pipeline will run up to
+4 times in succession (one per backend commit touching `backend/**`).
 
-**3 commits queued for push** (iteration #7):
+**4 commits queued for push** (iterations #7–#8):
 - `6faeea8c` — fix(tests): eliminate 6 AsyncMock coroutine warnings (4 test files)
 - `8c196037` — test(backend): 14 tests for CAN-SPAM unsubscribe endpoint
 - `4e5d1045` — test(backend): 5 tests for GET /billing/addon-pricing endpoint
+- `f5fe543f` — test(backend): 8 API tests for /affiliate endpoints (iteration #8)
 
-**Next action required (human)**: `git push origin main` — this will trigger 3 pipeline runs,
-bringing the soak counter from 1 → 4 and satisfying the ≥3 additional deploys requirement.
+**Next action required (human)**: `git push origin main` — this will trigger ≥3 pipeline runs
+(GHA dedupes consecutive identical-path triggers but each new backend SHA produces a distinct
+image tag), bringing the soak counter from 1 → 4+ and satisfying the ≥3 additional deploys
+requirement.
 
 **Iteration #7 decision**: bundled 3 deliberate backend test commits (option 2 from below) as
 genuine backend improvements (coroutine-warning fixes = correctness; unsubscribe + addon-pricing
