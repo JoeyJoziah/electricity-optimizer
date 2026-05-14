@@ -42,22 +42,32 @@ The rollback drill must:
 - [ ] Rollback drill executed — see "Rollback Drill Procedure" below
 - [ ] All 4 soak deploys + rollback complete before 2026-05-26 at 09:00 PT
 
-## Status as of 2026-05-14 (Loki iteration #11)
+## Status as of 2026-05-14 (Loki iteration #11 complete)
 
 `gh run list --workflow=build-and-push-backend.yml --status=success` → **1 success** (`33014f99`,
-2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because 8 new backend commits
-are **locally committed but not yet pushed to GitHub**. Once pushed, the pipeline will run up to
-8 times in succession (one per backend commit touching `backend/**`).
+2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because **103 local commits**
+are **not yet pushed to GitHub**. Once pushed, the pipeline will run many times in succession.
 
-**8 commits queued for push** (iterations #7–#11):
-- `6faeea8c` — fix(tests): eliminate 6 AsyncMock coroutine warnings (4 test files)
+**Backend test commits queued for push** (iterations #7–#11, touches `backend/**`):
+- `6faeea8c` — fix(tests): eliminate 6 AsyncMock coroutine warnings
 - `8c196037` — test(backend): 14 tests for CAN-SPAM unsubscribe endpoint
 - `4e5d1045` — test(backend): 5 tests for GET /billing/addon-pricing endpoint
-- `f5fe543f` — test(backend): 8 API tests for /affiliate endpoints (iteration #8)
-- `0ea356bb` — test(backend): 14 API tests for /cca endpoints (iteration #9)
-- `c3bda590` — test(backend): 11 API tests for /rates/heating-oil endpoints (iteration #10)
-- _next_ — test(backend): 16 API tests for /savings endpoints (iteration #11)
-- _next_ — test(backend): 18 API tests for /forecast endpoints (iteration #11)
+- `f5fe543f` — test(backend): 8 API tests for /affiliate endpoints
+- `0ea356bb` — test(backend): 14 API tests for /cca endpoints
+- `c3bda590` — test(backend): 11 API tests for /rates/heating-oil endpoints
+- `c50c7f65` — test(backend): 34 API tests for /savings and /forecast
+- `4830240e` — test(backend): 38 API tests for /rates/natural-gas and /rates/propane
+- `26dea3ed` — test(backend): 26 API tests for /notifications and /referrals
+- `9ba77743` — test(backend): 28 API tests for /rate-changes and /feedback
+- `4d7813e3` — test(backend): 14 API tests for /reports and /suppliers
+- `c7a93672` — test(backend): 37 API tests for community/community-solar/neighborhood/public-rates
+- `db2d9df6` — test(backend): 26 API tests for /user/supplier and /utility-accounts
+- `e5801712` — test(backend): 15 API tests for /rates/water and /utility-discovery
+
+**New test coverage achieved (iteration #11)**: 197 new backend API tests across 14 commits
+covering all major endpoint modules. Total new test files: 14 (savings, forecast, gas_rates,
+propane, notifications, referrals, rate_changes, feedback, reports, suppliers, community,
+community_solar, neighborhood, public_rates, user_supplier, utility_accounts, water, utility_discovery)
 
 **Next action required (human)**: `git push origin main` — this will trigger ≥3 pipeline runs
 (GHA dedupes consecutive identical-path triggers but each new backend SHA produces a distinct
