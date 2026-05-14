@@ -147,7 +147,7 @@ If any soak deploy fails:
 
 ## Status
 
-**Current**: 1/4 deploys triggered (3 more queued, will run on next `git push origin main`).
+**Current**: 2/4 deploys triggered (iteration #13 adds 28 API tests for `/prices` CRUD endpoints — `f07c4ba7`; 2 more queued, will run on subsequent backend pushes).
 Rollback drill: NOT done.
 **Gate**: All 4 + rollback required before 2026-05-26 dress rehearsal.
 **To unblock**: `git push origin main` then schedule rollback drill (any time before 2026-05-26).
