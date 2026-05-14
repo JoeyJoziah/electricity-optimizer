@@ -42,24 +42,26 @@ The rollback drill must:
 - [ ] Rollback drill executed — see "Rollback Drill Procedure" below
 - [ ] All 4 soak deploys + rollback complete before 2026-05-26 at 09:00 PT
 
-## Status as of 2026-05-14 (Loki iteration #10)
+## Status as of 2026-05-14 (Loki iteration #11)
 
 `gh run list --workflow=build-and-push-backend.yml --status=success` → **1 success** (`33014f99`,
-2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because 6 new backend commits
+2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because 8 new backend commits
 are **locally committed but not yet pushed to GitHub**. Once pushed, the pipeline will run up to
-6 times in succession (one per backend commit touching `backend/**`).
+8 times in succession (one per backend commit touching `backend/**`).
 
-**6 commits queued for push** (iterations #7–#10):
+**8 commits queued for push** (iterations #7–#11):
 - `6faeea8c` — fix(tests): eliminate 6 AsyncMock coroutine warnings (4 test files)
 - `8c196037` — test(backend): 14 tests for CAN-SPAM unsubscribe endpoint
 - `4e5d1045` — test(backend): 5 tests for GET /billing/addon-pricing endpoint
 - `f5fe543f` — test(backend): 8 API tests for /affiliate endpoints (iteration #8)
 - `0ea356bb` — test(backend): 14 API tests for /cca endpoints (iteration #9)
-- _next_ — test(backend): 11 API tests for /rates/heating-oil endpoints (iteration #10)
+- `c3bda590` — test(backend): 11 API tests for /rates/heating-oil endpoints (iteration #10)
+- _next_ — test(backend): 16 API tests for /savings endpoints (iteration #11)
+- _next_ — test(backend): 18 API tests for /forecast endpoints (iteration #11)
 
 **Next action required (human)**: `git push origin main` — this will trigger ≥3 pipeline runs
 (GHA dedupes consecutive identical-path triggers but each new backend SHA produces a distinct
-image tag), bringing the soak counter from 1 → 4+ and satisfying the ≥3 additional deploys
+image tag), bringing the soak counter from 1 → 5+ and satisfying the ≥3 additional deploys
 requirement.
 
 **Iteration #7 decision**: bundled 3 deliberate backend test commits (option 2 from below) as
