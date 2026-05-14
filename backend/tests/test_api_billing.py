@@ -1121,3 +1121,94 @@ class TestUnauthenticatedAccess:
 
         # Webhook should succeed without auth - it uses stripe-signature instead
         assert response.status_code == 200
+
+
+# =============================================================================
+# GET /billing/addon-pricing
+# =============================================================================
+
+
+class TestAddonPricing:
+    """Tests for the GET /api/v1/billing/addon-pricing endpoint."""
+
+    def test_addon_pricing_returns_pricing_fields(self, auth_client):
+        """Authenticated user gets 200 with all required pricing fields."""
+        with patch("services.utilityapi_billing_service.UtilityAPIBillingService") as MockSvc:
+            svc_instance = MockSvc.return_value
+            svc_instance.get_addon_pricing = AsyncMock(
+                return_value={
+                    "price_per_meter": "2.25",
+                    "current_meters": 2,
+                    "monthly_total": "4.50",
+                    "currency": "usd",
+                }
+            )
+
+            response = auth_client.get(f"{BASE_URL}/addon-pricing")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["price_per_meter"] == "2.25"
+        assert data["currency"] == "usd"
+        assert "current_meters" in data
+        assert "monthly_total" in data
+
+    def test_addon_pricing_passes_user_id_to_service(self, auth_client):
+        """Service must be called with the authenticated user's user_id."""
+        with patch("services.utilityapi_billing_service.UtilityAPIBillingService") as MockSvc:
+            svc_instance = MockSvc.return_value
+            svc_instance.get_addon_pricing = AsyncMock(
+                return_value={
+                    "price_per_meter": "2.25",
+                    "current_meters": 0,
+                    "monthly_total": "0.00",
+                    "currency": "usd",
+                }
+            )
+
+            auth_client.get(f"{BASE_URL}/addon-pricing")
+
+        svc_instance.get_addon_pricing.assert_awaited_once_with(TEST_USER.user_id)
+
+    def test_addon_pricing_zero_meters(self, auth_client):
+        """User with zero connected meters gets monthly_total of 0.00."""
+        with patch("services.utilityapi_billing_service.UtilityAPIBillingService") as MockSvc:
+            svc_instance = MockSvc.return_value
+            svc_instance.get_addon_pricing = AsyncMock(
+                return_value={
+                    "price_per_meter": "2.25",
+                    "current_meters": 0,
+                    "monthly_total": "0.00",
+                    "currency": "usd",
+                }
+            )
+
+            response = auth_client.get(f"{BASE_URL}/addon-pricing")
+
+        assert response.status_code == 200
+        assert response.json()["monthly_total"] == "0.00"
+        assert response.json()["current_meters"] == 0
+
+    def test_addon_pricing_currency_values_are_strings(self, auth_client):
+        """price_per_meter and monthly_total must be strings (Decimal-safe), not floats."""
+        with patch("services.utilityapi_billing_service.UtilityAPIBillingService") as MockSvc:
+            svc_instance = MockSvc.return_value
+            svc_instance.get_addon_pricing = AsyncMock(
+                return_value={
+                    "price_per_meter": "2.25",
+                    "current_meters": 3,
+                    "monthly_total": "6.75",
+                    "currency": "usd",
+                }
+            )
+
+            response = auth_client.get(f"{BASE_URL}/addon-pricing")
+
+        data = response.json()
+        assert isinstance(data["price_per_meter"], str)
+        assert isinstance(data["monthly_total"], str)
+
+    def test_addon_pricing_unauthenticated_returns_401(self, unauth_client):
+        """Unauthenticated request must be rejected with 401."""
+        response = unauth_client.get(f"{BASE_URL}/addon-pricing")
+        assert response.status_code == 401
