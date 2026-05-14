@@ -42,10 +42,16 @@ The rollback drill must:
 - [ ] Rollback drill executed — see "Rollback Drill Procedure" below
 - [ ] All 4 soak deploys + rollback complete before 2026-05-26 at 09:00 PT
 
-## Status as of 2026-05-14 (Loki iteration #5)
+## Status as of 2026-05-14 (Loki iteration #6)
 
 `gh run list --workflow=build-and-push-backend.yml --status=success` → **1 success** (`33014f99`,
 2026-05-11). Soak counter unchanged since pipeline creation; verifier still fails (1/3 minimum).
+
+**Iteration #6 decision**: same as iteration #5 — no autonomous fire of dispatches. Iteration
+#6 focused on Scope #12 (gallery PNGs 4–6), the other remaining failing item, and left Scope
+#10 to organic backend traffic per options 1–2 below. With 12 days until the May 26 rehearsal,
+the soak counter has a hard sub-deadline of 2026-05-22 before option 2 (bundle deliberate
+backend cleanups) becomes the forced path.
 
 **Why no autonomous fire of soak deploys**: the soak measures confidence built through real
 organic backend merges, not synthetic `workflow_dispatch` triggers. Hand-firing 3 dispatches
