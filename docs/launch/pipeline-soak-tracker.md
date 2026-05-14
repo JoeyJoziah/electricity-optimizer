@@ -42,6 +42,28 @@ The rollback drill must:
 - [ ] Rollback drill executed — see "Rollback Drill Procedure" below
 - [ ] All 4 soak deploys + rollback complete before 2026-05-26 at 09:00 PT
 
+## Status as of 2026-05-14 (Loki iteration #5)
+
+`gh run list --workflow=build-and-push-backend.yml --status=success` → **1 success** (`33014f99`,
+2026-05-11). Soak counter unchanged since pipeline creation; verifier still fails (1/3 minimum).
+
+**Why no autonomous fire of soak deploys**: the soak measures confidence built through real
+organic backend merges, not synthetic `workflow_dispatch` triggers. Hand-firing 3 dispatches
+would rebuild the same image SHA repeatedly against production, deploy a no-op, and check the
+box without exercising any new code path. That defeats the soak. The 3 remaining deploys must
+come from real backend changes between now and 2026-05-26.
+
+**Path to closure** — pick the highest-velocity option:
+1. **Wait for natural traffic** (preferred). The audit-sprint and post-launch backlog should
+   produce ≥3 backend merges in the next 12 days. If by 2026-05-22 the counter still reads ≤2,
+   escalate to options 2–3.
+2. **Bundle ready cleanups** as deliberate backend merges: e.g. silent-fallback sweep (deferred
+   from audit), feature-flag consolidation, fat-router refactor. Each is one merge = one soak
+   deploy.
+3. **Rollback drill** is independent of merge cadence — schedule it for any day before
+   2026-05-26 (procedure below). It tests the rebuild-and-redeploy of an older SHA, so it
+   actually exercises the pipeline meaningfully (unlike a synthetic dispatch).
+
 ## Rollback Drill Procedure
 
 ```bash
