@@ -42,11 +42,19 @@ The rollback drill must:
 - [ ] Rollback drill executed — see "Rollback Drill Procedure" below
 - [ ] All 4 soak deploys + rollback complete before 2026-05-26 at 09:00 PT
 
-## Status as of 2026-05-14 (Loki iteration #11 complete)
+## Status as of 2026-05-14 (Loki iteration #12 complete)
 
 `gh run list --workflow=build-and-push-backend.yml --status=success` → **1 success** (`33014f99`,
-2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because **103 local commits**
-are **not yet pushed to GitHub**. Once pushed, the pipeline will run many times in succession.
+2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because **105 local commits**
+(was 103 at iter #11 — added 1 docs + 1 backend-tests this iteration) are **not yet pushed
+to GitHub**. Once pushed, the pipeline will run once for the push event and produce one new
+soak deploy (push events do not produce one workflow run per commit — they produce one run
+for the head SHA), so closing Scope #10 to 3 additional green deploys requires **3 separate
+push events**, not one batched push of N commits.
+
+**Iteration #12 added** `a5490c36 test(backend): 16 API tests for /export/rates and /export/types`
+— covers the Business-tier export router (last major uncovered router in api/v1/). Brings
+backend API router test coverage from 32→33 of 40.
 
 **Backend test commits queued for push** (iterations #7–#11, touches `backend/**`):
 - `6faeea8c` — fix(tests): eliminate 6 AsyncMock coroutine warnings
