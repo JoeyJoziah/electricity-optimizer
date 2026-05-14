@@ -243,6 +243,80 @@ describe("getOptimalPeriods", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Branch coverage — optional parameters
+// ---------------------------------------------------------------------------
+
+describe("getCurrentPrices — optional params", () => {
+  it("includes limit when provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ prices: [] }));
+    await getCurrentPrices({ region: "us_ct", limit: 5 });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("limit=5");
+  });
+});
+
+describe("getPriceHistory — optional params", () => {
+  it("includes supplier when provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ prices: [] }));
+    await getPriceHistory({ region: "us_ct", supplier: "sup-1" });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("supplier=sup-1");
+  });
+
+  it("includes startDate when provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ prices: [] }));
+    await getPriceHistory({ region: "us_ct", startDate: "2026-01-01" });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("start_date=2026-01-01");
+  });
+
+  it("includes endDate when provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ prices: [] }));
+    await getPriceHistory({ region: "us_ct", endDate: "2026-01-31" });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("end_date=2026-01-31");
+  });
+
+  it("omits optional params when not provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ prices: [] }));
+    await getPriceHistory({ region: "us_ct" });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).not.toContain("days=");
+    expect(url).not.toContain("supplier=");
+    expect(url).not.toContain("start_date=");
+  });
+});
+
+describe("getPriceForecast — optional params", () => {
+  it("includes hours when provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ forecast: {} }));
+    await getPriceForecast({ region: "us_ct", hours: 48 });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("hours=48");
+  });
+
+  it("includes supplier when provided", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ forecast: {} }));
+    await getPriceForecast({ region: "us_ct", supplier: "sup-2" });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("supplier=sup-2");
+  });
+});
+
+describe("comparePrices", () => {
+  it("calls /prices/compare with region param", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ comparisons: [] }));
+    const { comparePrices } = jest.requireActual("@/lib/api/prices");
+    // comparePrices is exported but not imported at top — import it now
+    const module = await import("@/lib/api/prices");
+    await module.comparePrices("us_ct");
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("/api/v1/prices/compare");
+    expect(url).toContain("region=us_ct");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Error handling
 // ---------------------------------------------------------------------------
 

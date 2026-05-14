@@ -452,4 +452,172 @@ describe("AlertsContent", () => {
 
     expect(screen.getByText("No alert history")).toBeInTheDocument();
   });
+
+  // --- History: unknown alert type (fallback label) ---
+
+  it("renders fallback label for unknown alert type in history", async () => {
+    mockGetAlertHistory.mockResolvedValue({
+      items: [
+        {
+          id: "hist-unk",
+          user_id: "user-1",
+          alert_config_id: "alert-1",
+          alert_type: "unknown_custom_type",
+          current_price: 0.2,
+          threshold: 0.25,
+          region: "us_ct",
+          supplier: null,
+          currency: "USD",
+          optimal_window_start: null,
+          optimal_window_end: null,
+          estimated_savings: null,
+          triggered_at: "2026-03-03T14:00:00Z",
+          email_sent: true,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    });
+
+    const user = userEvent.setup();
+    render(<AlertsContent />, { wrapper });
+
+    await user.click(screen.getByText("History"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("history-row")).toBeInTheDocument();
+    });
+
+    // The fallback label is the raw type value
+    expect(screen.getByText("unknown_custom_type")).toBeInTheDocument();
+  });
+
+  // --- History: unknown region fallback ---
+
+  it("renders region code fallback for unknown region in history", async () => {
+    mockGetAlertHistory.mockResolvedValue({
+      items: [
+        {
+          id: "hist-reg",
+          user_id: "user-1",
+          alert_config_id: "alert-1",
+          alert_type: "price_drop",
+          current_price: 0.15,
+          threshold: 0.2,
+          region: "us_xx",
+          supplier: null,
+          currency: "USD",
+          optimal_window_start: null,
+          optimal_window_end: null,
+          estimated_savings: null,
+          triggered_at: "2026-03-03T14:00:00Z",
+          email_sent: false,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    });
+
+    const user = userEvent.setup();
+    render(<AlertsContent />, { wrapper });
+
+    await user.click(screen.getByText("History"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("history-row")).toBeInTheDocument();
+    });
+
+    // Unknown region falls back to region.replace('us_', '').toUpperCase() = 'XX'
+    expect(screen.getByText("XX")).toBeInTheDocument();
+  });
+
+  // --- History: null current_price uses '--' ---
+
+  it("renders '--' for null price in history rows", async () => {
+    mockGetAlertHistory.mockResolvedValue({
+      items: [
+        {
+          id: "hist-null-price",
+          user_id: "user-1",
+          alert_config_id: "alert-1",
+          alert_type: "optimal_window",
+          current_price: null,
+          threshold: null,
+          region: "us_ct",
+          supplier: null,
+          currency: "USD",
+          optimal_window_start: "2026-03-03T02:00:00Z",
+          optimal_window_end: "2026-03-03T05:00:00Z",
+          estimated_savings: null,
+          triggered_at: null,
+          email_sent: true,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    });
+
+    const user = userEvent.setup();
+    render(<AlertsContent />, { wrapper });
+
+    await user.click(screen.getByText("History"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("history-row")).toBeInTheDocument();
+    });
+
+    // null price and null date both render as '--'
+    const dashes = screen.getAllByText("--");
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
+    // optimal_window type should show label
+    expect(screen.getByText("Optimal Window")).toBeInTheDocument();
+  });
+
+  // --- History: pagination renders when totalPages > 1 ---
+
+  it("renders pagination when history has multiple pages", async () => {
+    mockGetAlertHistory.mockResolvedValue({
+      items: [
+        {
+          id: "hist-pg",
+          user_id: "user-1",
+          alert_config_id: "alert-1",
+          alert_type: "price_spike",
+          current_price: 0.4,
+          threshold: 0.35,
+          region: "us_ny",
+          supplier: "ConEdison",
+          currency: "USD",
+          optimal_window_start: null,
+          optimal_window_end: null,
+          estimated_savings: null,
+          triggered_at: "2026-03-10T09:00:00Z",
+          email_sent: true,
+        },
+      ],
+      total: 25,
+      page: 1,
+      page_size: 20,
+      pages: 2,
+    });
+
+    const user = userEvent.setup();
+    render(<AlertsContent />, { wrapper });
+
+    await user.click(screen.getByText("History"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Page 1 of 2/)).toBeInTheDocument();
+    });
+
+    // Pagination buttons should be visible
+    expect(screen.getByLabelText("Previous page")).toBeInTheDocument();
+    expect(screen.getByLabelText("Next page")).toBeInTheDocument();
+  });
 });

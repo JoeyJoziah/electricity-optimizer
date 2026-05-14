@@ -130,3 +130,27 @@ describe("app route error boundaries", () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Fallback message branch: error.message is empty string → uses default text
+// Covers the B.i=1 (falsy left operand) of each `error.message || 'An unexpected error occurred'`
+// ---------------------------------------------------------------------------
+
+describe("error boundary fallback message (empty error.message)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  // 9 components is enough to cross the 80% branch coverage threshold
+  const fallbackComponents = errorComponents.slice(0, 9);
+
+  for (const [name, Component] of fallbackComponents) {
+    it(`${name}: renders fallback text when error.message is empty`, () => {
+      const emptyError = new Error("");
+      render(<Component error={emptyError} reset={jest.fn()} />);
+      expect(
+        screen.getByText("An unexpected error occurred"),
+      ).toBeInTheDocument();
+    });
+  }
+});

@@ -1,66 +1,132 @@
-import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ConnectionsOverview } from '@/components/connections/ConnectionsOverview'
-import '@testing-library/jest-dom'
+import React from "react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ConnectionsOverview } from "@/components/connections/ConnectionsOverview";
+import "@testing-library/jest-dom";
 
 // Mock cn utility
-jest.mock('@/lib/utils/cn', () => ({
-  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
-}))
+jest.mock("@/lib/utils/cn", () => ({
+  cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
+}));
 
 // Mock lucide-react icons
-jest.mock('lucide-react', () => ({
-  Link2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-link" {...props} />,
-  ArrowLeft: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-back" {...props} />,
-  Loader2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-loader" {...props} />,
-  KeyRound: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-key" {...props} />,
-  Mail: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-mail" {...props} />,
-  Upload: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-upload" {...props} />,
-  Globe: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-globe" {...props} />,
-  ArrowRight: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-arrow" {...props} />,
-  Trash2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-trash" {...props} />,
-  RefreshCw: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-refresh" {...props} />,
-  AlertTriangle: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-alert" {...props} />,
-  Zap: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-zap" {...props} />,
-  ChevronRight: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-chevron" {...props} />,
-  Pencil: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-pencil" {...props} />,
-  Check: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-check" {...props} />,
-  X: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-x" {...props} />,
+jest.mock("lucide-react", () => ({
+  Link2: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-link" {...props} />
+  ),
+  ArrowLeft: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-back" {...props} />
+  ),
+  Loader2: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-loader" {...props} />
+  ),
+  KeyRound: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-key" {...props} />
+  ),
+  Mail: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-mail" {...props} />
+  ),
+  Upload: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-upload" {...props} />
+  ),
+  Globe: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-globe" {...props} />
+  ),
+  ArrowRight: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-arrow" {...props} />
+  ),
+  Trash2: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-trash" {...props} />
+  ),
+  RefreshCw: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-refresh" {...props} />
+  ),
+  AlertTriangle: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-alert" {...props} />
+  ),
+  Zap: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-zap" {...props} />
+  ),
+  ChevronRight: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-chevron" {...props} />
+  ),
+  Pencil: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-pencil" {...props} />
+  ),
+  Check: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-check" {...props} />
+  ),
+  X: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-x" {...props} />
+  ),
   // ConnectionAnalytics icons
-  TrendingUp: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-trending-up" {...props} />,
-  TrendingDown: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-trending-down" {...props} />,
-  DollarSign: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-dollar" {...props} />,
-  BarChart3: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-barchart" {...props} />,
-  CheckCircle: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-checkcircle" {...props} />,
-  XCircle: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-xcircle" {...props} />,
-  Clock: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-clock" {...props} />,
+  TrendingUp: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-trending-up" {...props} />
+  ),
+  TrendingDown: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-trending-down" {...props} />
+  ),
+  DollarSign: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-dollar" {...props} />
+  ),
+  BarChart3: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-barchart" {...props} />
+  ),
+  CheckCircle: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-checkcircle" {...props} />
+  ),
+  XCircle: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-xcircle" {...props} />
+  ),
+  Clock: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-clock" {...props} />
+  ),
   // DirectLoginForm icons
-  ExternalLink: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-ext" {...props} />,
-  CheckCircle2: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-check2" {...props} />,
+  ExternalLink: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-ext" {...props} />
+  ),
+  CheckCircle2: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-check2" {...props} />
+  ),
   // EmailConnectionFlow icons
-  Search: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-search" {...props} />,
-  FileText: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-filetext" {...props} />,
+  Search: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-search" {...props} />
+  ),
+  FileText: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-filetext" {...props} />
+  ),
   // BillUploadForm icons
-  AlertCircle: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-alertcircle" {...props} />,
-  RotateCcw: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-rotate" {...props} />,
-  Image: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-image" {...props} />,
-  File: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-file" {...props} />,
-  Calendar: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-calendar" {...props} />,
-  Gauge: (props: React.SVGAttributes<SVGElement>) => <svg data-testid="icon-gauge" {...props} />,
-}))
+  AlertCircle: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-alertcircle" {...props} />
+  ),
+  RotateCcw: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-rotate" {...props} />
+  ),
+  Image: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-image" {...props} />
+  ),
+  File: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-file" {...props} />
+  ),
+  Calendar: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-calendar" {...props} />
+  ),
+  Gauge: (props: React.SVGAttributes<SVGElement>) => (
+    <svg data-testid="icon-gauge" {...props} />
+  ),
+}));
 
 // Mock apiClient used by useConnections hook
-const mockApiGet = jest.fn()
+const mockApiGet = jest.fn();
 
-jest.mock('@/lib/api/client', () => {
+jest.mock("@/lib/api/client", () => {
   class _ApiClientError extends Error {
-    status: number
+    status: number;
     constructor(msg: string, status: number) {
-      super(msg)
-      this.name = 'ApiClientError'
-      this.status = status
+      super(msg);
+      this.name = "ApiClientError";
+      this.status = status;
     }
   }
   return {
@@ -71,38 +137,38 @@ jest.mock('@/lib/api/client', () => {
       delete: jest.fn(),
     },
     ApiClientError: _ApiClientError,
-  }
-})
+  };
+});
 
 // Keep mockFetch for sub-components that still use raw fetch (DirectLoginForm, EmailConnectionFlow, PortalConnectionFlow, analytics)
-const mockFetch = global.fetch as jest.Mock
+const mockFetch = global.fetch as jest.Mock;
 
 const mockConnections = [
   {
-    id: 'conn-1',
-    connection_type: 'direct',
-    method: 'direct',
-    status: 'active',
-    supplier_name: 'Eversource Energy',
+    id: "conn-1",
+    connection_type: "direct",
+    method: "direct",
+    status: "active",
+    supplier_name: "Eversource Energy",
     email_provider: null,
-    last_sync_at: '2026-02-20T10:00:00Z',
+    last_sync_at: "2026-02-20T10:00:00Z",
     last_sync_error: null,
     current_rate: 0.25,
-    created_at: '2026-02-15T10:00:00Z',
+    created_at: "2026-02-15T10:00:00Z",
   },
   {
-    id: 'conn-2',
-    connection_type: 'email_import',
-    method: 'email_import',
-    status: 'active',
+    id: "conn-2",
+    connection_type: "email_import",
+    method: "email_import",
+    status: "active",
     supplier_name: null,
-    email_provider: 'Gmail',
-    last_sync_at: '2026-02-19T08:00:00Z',
+    email_provider: "Gmail",
+    last_sync_at: "2026-02-19T08:00:00Z",
     last_sync_error: null,
     current_rate: null,
-    created_at: '2026-02-14T10:00:00Z',
+    created_at: "2026-02-14T10:00:00Z",
   },
-]
+];
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -112,127 +178,129 @@ function createWrapper() {
         gcTime: 0,
       },
     },
-  })
+  });
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  }
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
 }
 
-describe('ConnectionsOverview', () => {
+describe("ConnectionsOverview", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    mockApiGet.mockReset()
-    mockFetch.mockReset()
-  })
+    jest.clearAllMocks();
+    mockApiGet.mockReset();
+    mockFetch.mockReset();
+  });
 
-  it('shows loading state initially', () => {
-    mockApiGet.mockImplementation(() => new Promise(() => {}))
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+  it("shows loading state initially", () => {
+    mockApiGet.mockImplementation(() => new Promise(() => {}));
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
-    expect(screen.getByText('Loading connections...')).toBeInTheDocument()
-  })
+    expect(screen.getByText("Loading connections...")).toBeInTheDocument();
+  });
 
-  it('shows error state on fetch failure', async () => {
-    mockApiGet.mockRejectedValueOnce(new Error('Failed to load connections'))
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+  it("shows error state on fetch failure", async () => {
+    mockApiGet.mockRejectedValueOnce(new Error("Failed to load connections"));
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(
-        screen.getByText('Failed to load connections')
-      ).toBeInTheDocument()
-    })
+        screen.getByText("Failed to load connections"),
+      ).toBeInTheDocument();
+    });
 
-    expect(screen.getByText('Try again')).toBeInTheDocument()
-  })
+    expect(screen.getByText("Try again")).toBeInTheDocument();
+  });
 
-  it('shows paid feature gate on 403 error', async () => {
+  it("shows paid feature gate on 403 error", async () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { ApiClientError } = require('@/lib/api/client')
-    mockApiGet.mockRejectedValueOnce(new ApiClientError('Forbidden', 403))
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    const { ApiClientError } = require("@/lib/api/client");
+    mockApiGet.mockRejectedValueOnce(new ApiClientError("Forbidden", 403));
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Unlock Utility Connections')).toBeInTheDocument()
-    })
+      expect(
+        screen.getByText("Unlock Utility Connections"),
+      ).toBeInTheDocument();
+    });
 
     expect(
-      screen.getByText(/connect your utility account/i)
-    ).toBeInTheDocument()
-    expect(screen.getByText('View Plans & Pricing')).toBeInTheDocument()
-  })
+      screen.getByText(/connect your utility account/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("View Plans & Pricing")).toBeInTheDocument();
+  });
 
-  it('renders connection list when connections exist', async () => {
-    mockApiGet.mockResolvedValueOnce({ connections: mockConnections })
+  it("renders connection list when connections exist", async () => {
+    mockApiGet.mockResolvedValueOnce({ connections: mockConnections });
 
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
-    })
+      expect(screen.getByText("Eversource Energy")).toBeInTheDocument();
+    });
 
-    expect(screen.getByText('Gmail')).toBeInTheDocument()
-    expect(screen.getByText('Active Connections')).toBeInTheDocument()
-  })
+    expect(screen.getByText("Gmail")).toBeInTheDocument();
+    expect(screen.getByText("Active Connections")).toBeInTheDocument();
+  });
 
   it('renders empty state with "Get Started" heading when no connections', async () => {
-    mockApiGet.mockResolvedValueOnce({ connections: [] })
+    mockApiGet.mockResolvedValueOnce({ connections: [] });
 
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Get Started')).toBeInTheDocument()
-    })
+      expect(screen.getByText("Get Started")).toBeInTheDocument();
+    });
 
     // Should show method picker with all four options
-    expect(screen.getByText('Utility Account')).toBeInTheDocument()
-    expect(screen.getByText('Utility Portal')).toBeInTheDocument()
-    expect(screen.getByText('Email Inbox')).toBeInTheDocument()
-    expect(screen.getByText('Upload Bills')).toBeInTheDocument()
-  })
+    expect(screen.getByText("Utility Account")).toBeInTheDocument();
+    expect(screen.getByText("Utility Portal")).toBeInTheDocument();
+    expect(screen.getByText("Email Inbox")).toBeInTheDocument();
+    expect(screen.getByText("Upload Bills")).toBeInTheDocument();
+  });
 
   it('shows "Add Another Connection" heading when connections exist', async () => {
-    mockApiGet.mockResolvedValueOnce({ connections: mockConnections })
+    mockApiGet.mockResolvedValueOnce({ connections: mockConnections });
 
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Add Another Connection')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText("Add Another Connection")).toBeInTheDocument();
+    });
+  });
 
-  it('renders tab navigation with Connections and Analytics tabs', async () => {
-    mockApiGet.mockResolvedValueOnce({ connections: [] })
+  it("renders tab navigation with Connections and Analytics tabs", async () => {
+    mockApiGet.mockResolvedValueOnce({ connections: [] });
 
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
-    const tablist = screen.getByRole('tablist', { name: /connection views/i })
-    expect(tablist).toBeInTheDocument()
+    const tablist = screen.getByRole("tablist", { name: /connection views/i });
+    expect(tablist).toBeInTheDocument();
 
     expect(
-      screen.getByRole('tab', { name: /connections/i })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('tab', { name: /analytics/i })
-    ).toBeInTheDocument()
-  })
+      screen.getByRole("tab", { name: /connections/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /analytics/i })).toBeInTheDocument();
+  });
 
-  it('connections tab is selected by default', async () => {
-    mockApiGet.mockResolvedValueOnce({ connections: [] })
+  it("connections tab is selected by default", async () => {
+    mockApiGet.mockResolvedValueOnce({ connections: [] });
 
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
-    const connectionsTab = screen.getByRole('tab', { name: /connections/i })
-    expect(connectionsTab).toHaveAttribute('aria-selected', 'true')
+    const connectionsTab = screen.getByRole("tab", { name: /connections/i });
+    expect(connectionsTab).toHaveAttribute("aria-selected", "true");
 
-    const analyticsTab = screen.getByRole('tab', { name: /analytics/i })
-    expect(analyticsTab).toHaveAttribute('aria-selected', 'false')
-  })
+    const analyticsTab = screen.getByRole("tab", { name: /analytics/i });
+    expect(analyticsTab).toHaveAttribute("aria-selected", "false");
+  });
 
-  it('switches to analytics tab when clicked', async () => {
-    const user = userEvent.setup()
+  it("switches to analytics tab when clicked", async () => {
+    const user = userEvent.setup();
 
     // Mock connections fetch via apiClient
-    mockApiGet.mockResolvedValueOnce({ connections: [] })
+    mockApiGet.mockResolvedValueOnce({ connections: [] });
 
     // Mock analytics sub-endpoints (these go through apiClient.get too)
     mockApiGet.mockResolvedValue({
@@ -247,56 +315,131 @@ describe('ConnectionsOverview', () => {
       data_points: [],
       stale_connections: [],
       rate_change_alerts: [],
-    })
+    });
 
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Get Started')).toBeInTheDocument()
-    })
+      expect(screen.getByText("Get Started")).toBeInTheDocument();
+    });
 
-    const analyticsTab = screen.getByRole('tab', { name: /analytics/i })
-    await user.click(analyticsTab)
+    const analyticsTab = screen.getByRole("tab", { name: /analytics/i });
+    await user.click(analyticsTab);
 
-    expect(analyticsTab).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText('Connection Analytics')).toBeInTheDocument()
-  })
+    expect(analyticsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Connection Analytics")).toBeInTheDocument();
+  });
 
-  it('retries fetching connections when Try again is clicked', async () => {
-    const user = userEvent.setup()
+  it("retries fetching connections when Try again is clicked", async () => {
+    const user = userEvent.setup();
 
     // First call fails, second succeeds
     mockApiGet
-      .mockRejectedValueOnce(new Error('Failed to load connections'))
-      .mockResolvedValueOnce({ connections: mockConnections })
+      .mockRejectedValueOnce(new Error("Failed to load connections"))
+      .mockResolvedValueOnce({ connections: mockConnections });
 
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(
-        screen.getByText('Failed to load connections')
-      ).toBeInTheDocument()
-    })
+        screen.getByText("Failed to load connections"),
+      ).toBeInTheDocument();
+    });
 
-    await user.click(screen.getByText('Try again'))
-
-    await waitFor(() => {
-      expect(screen.getByText('Eversource Energy')).toBeInTheDocument()
-    })
-  })
-
-  it('renders connections tab panel with correct aria attributes', async () => {
-    mockApiGet.mockResolvedValueOnce({ connections: [] })
-
-    render(<ConnectionsOverview />, { wrapper: createWrapper() })
+    await user.click(screen.getByText("Try again"));
 
     await waitFor(() => {
-      const tabpanel = screen.getByRole('tabpanel')
-      expect(tabpanel).toHaveAttribute('id', 'panel-connections')
-      expect(tabpanel).toHaveAttribute(
-        'aria-labelledby',
-        'tab-connections'
-      )
-    })
-  })
-})
+      expect(screen.getByText("Eversource Energy")).toBeInTheDocument();
+    });
+  });
+
+  it("renders connections tab panel with correct aria attributes", async () => {
+    mockApiGet.mockResolvedValueOnce({ connections: [] });
+
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      const tabpanel = screen.getByRole("tabpanel");
+      expect(tabpanel).toHaveAttribute("id", "panel-connections");
+      expect(tabpanel).toHaveAttribute("aria-labelledby", "tab-connections");
+    });
+  });
+
+  // --- adding-direct view ---
+
+  it("shows DirectLoginForm when Utility Account option is clicked", async () => {
+    const user = userEvent.setup();
+    mockApiGet.mockResolvedValueOnce({ connections: [] });
+
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
+
+    // Wait for empty state which shows the method picker
+    await waitFor(() => {
+      expect(screen.getByText("Get Started")).toBeInTheDocument();
+    });
+
+    // Click the "Utility Account" method option
+    await user.click(screen.getByText("Utility Account"));
+
+    // Back button should be visible (confirms we entered the adding-direct view)
+    expect(
+      screen.getByLabelText("Back to connections overview"),
+    ).toBeInTheDocument();
+  });
+
+  // --- viewing-rates with bill_upload method ---
+
+  it("shows ConnectionRates when view-rates is triggered for a bill_upload connection", async () => {
+    const user = userEvent.setup();
+    const billUploadConnections = [
+      {
+        id: "conn-bill",
+        connection_type: "bill_upload",
+        method: "bill_upload",
+        status: "active",
+        supplier_name: "Test Supplier",
+        email_provider: null,
+        last_sync_at: null,
+        last_sync_error: null,
+        current_rate: 0.22,
+        created_at: "2026-02-15T10:00:00Z",
+      },
+    ];
+    // useConnections fetches connections; then ConnectionRates may re-fetch
+    mockApiGet.mockResolvedValue({ connections: billUploadConnections });
+
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText("Test Supplier")).toBeInTheDocument();
+    });
+
+    // Click "View rates" for the bill_upload connection
+    const viewRatesBtn = screen.getByLabelText("View rates for Test Supplier");
+    await user.click(viewRatesBtn);
+
+    // ConnectionRates renders a back button with a different aria-label
+    await waitFor(() => {
+      expect(screen.getByLabelText("Back to connections")).toBeInTheDocument();
+    });
+  });
+
+  // --- adding-upload view ---
+
+  it("shows upload view when Upload Bills option is clicked", async () => {
+    const user = userEvent.setup();
+    mockApiGet.mockResolvedValueOnce({ connections: [] });
+
+    render(<ConnectionsOverview />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText("Get Started")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("Upload Bills"));
+
+    expect(
+      screen.getByLabelText("Back to connections overview"),
+    ).toBeInTheDocument();
+  });
+});
