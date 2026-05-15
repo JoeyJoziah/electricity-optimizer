@@ -122,6 +122,7 @@ frontend/e2e/visual-regression.spec.ts-snapshots/*-darwin.png
 
 # Local working docs / scratch
 .audit-*/
+.scratch/
 cf-data-quality-plan.md
 testing_plan.md
 
