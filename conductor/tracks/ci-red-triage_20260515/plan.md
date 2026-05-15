@@ -98,7 +98,8 @@ Last green CI run on main: `eb5df2ab` (gitignore-only commit, skipped most jobs)
 
 ## Phase 4: Backend Lint config drift (HUMAN DECISION REQUIRED)
 
-- [ ] Task 4.1: Decide canonical Python formatter
+- [x] Task 4.1: Decide canonical Python formatter — **DECIDED: ruff** (2026-05-15)
+  - Rationale per interview: pyproject.toml:134 already documents ruff as canonical (black config previously removed in audit P2-7); `requirements-dev.txt` already pins `ruff==0.15.6`; `.pre-commit-config.yaml` already runs ruff-format + ruff-check; `ruff format --check` reports 379/379 backend files already formatted. Switching CI is the smallest possible change to align all surfaces.
   - **Problem:** CI runs `black==26.3.1 isort==8.0.1` (ci.yml:79) but pre-commit runs `ruff format` + `ruff check` (.pre-commit-config.yaml). The two formatters disagree on 273 files. Local pre-commit passes; CI fails. Engineers running pre-commit hooks will keep producing red CI.
   - **Options:**
     - **A. Switch CI to ruff** (recommended) — small `ci.yml` diff (3 lines: replace pip install + format step), zero file churn, aligns with pre-commit and modern Python tooling. Risk: rule semantics differ slightly between black and ruff format
@@ -108,7 +109,7 @@ Last green CI run on main: `eb5df2ab` (gitignore-only commit, skipped most jobs)
   - **Output:** decision recorded in `execution.md` + ADR if Option A
   - **Halt point:** This task is the boundary of autonomy. Wait for explicit user approval before executing chosen option.
 
-- [ ] Task 4.2: Execute chosen option (after approval)
+- [x] Task 4.2: Execute chosen option — swap ci.yml lint block + Makefile format-backend target to ruff. Kept flake8 + mypy unchanged (separate concerns; ruff could replace flake8 in a follow-up). Left black/isort pins in `requirements-dev.txt` to avoid breaking anything that imports them — pure pin removal is a follow-up housekeeping task.
 - [ ] Task 4.3: Commit + push, verify Backend Lint green
 
 ---

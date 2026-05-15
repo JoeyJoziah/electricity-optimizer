@@ -76,14 +76,17 @@ jobs:
           working-directory: backend
 
       - name: Install linting tools
-        run: pip install black==26.3.1 isort==8.0.1 flake8==7.0.0 mypy==1.19.1
+        # Ruff is the canonical formatter + import-sorter (see backend/pyproject.toml:134
+        # and .pre-commit-config.yaml). Pinned to match requirements-dev.txt to keep
+        # CI / pre-commit / dev environments in lockstep.
+        run: pip install ruff==0.15.6 flake8==7.0.0 mypy==1.19.1
 
-      - name: Auto-format with Black and isort
+      - name: Auto-format + import-sort with ruff
         id: format
         run: |
           cd backend
-          black .
-          isort .
+          ruff format .
+          ruff check --select I --fix .
           if git diff --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
@@ -96,13 +99,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add backend/
-          git commit -m "style: auto-format with black + isort"
+          git commit -m "style: auto-format with ruff"
           git push
 
       - name: Fail on unformatted code pushed to main
         if: steps.format.outputs.has_changes == 'true' && github.event_name == 'push'
         run: |
-          echo "::error::Unformatted code pushed to main. Run 'black . && isort .' locally before pushing."
+          echo "::error::Unformatted code pushed to main. Run 'ruff format . && ruff check --select I --fix .' in backend/ before pushing (or let pre-commit handle it)."
           exit 1
 
       - name: Lint with flake8

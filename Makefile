@@ -127,7 +127,7 @@ format: ## Format all code
 
 format-backend: ## Format backend code
 	@echo "$(BLUE)Formatting backend...$(NC)"
-	cd backend && black . && isort .
+	cd backend && ruff format . && ruff check --select I --fix .
 
 format-frontend: ## Format frontend code
 	@echo "$(BLUE)Formatting frontend...$(NC)"

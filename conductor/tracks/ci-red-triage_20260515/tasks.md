@@ -8,6 +8,6 @@
 - [x] Task 2.2: Commit + push, verify Migration Validation **convention checks** green (job overall still red on separate apply step — see plan.md Discovered Latent Reds #5)
 - [~] Task 3.1: Run `npm audit fix` in `frontend/` — HALTED, no clean fix (see plan.md Phase 3)
 - [ ] Task 3.2: Commit + push, verify npm audit step green
-- [ ] Task 4.1: Decide canonical Python formatter (HUMAN DECISION REQUIRED)
-- [ ] Task 4.2: Execute chosen option (after approval)
+- [x] Task 4.1: Decide canonical Python formatter — DECIDED: ruff
+- [x] Task 4.2: Execute chosen option — ci.yml + Makefile swapped to ruff
 - [ ] Task 4.3: Commit + push, verify Backend Lint green
