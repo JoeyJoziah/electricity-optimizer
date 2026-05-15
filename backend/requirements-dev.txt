@@ -24,8 +24,12 @@ black==26.3.1
 isort==8.0.1
 
 # Security Scanning
+# Note: `safety` was removed 2026-05-15 (track ci-pydantic-import_20260515).
+# safety==3.0.0 transitively required pydantic<2, downgrading the production
+# pydantic 2.12.5 pin and breaking backend boot in CI. We use pip-audit
+# (in _backend-tests.yml) for python dep CVE scanning — same role, no
+# pydantic conflict.
 bandit==1.9.4
-safety==3.0.0
 
 # Documentation
 mkdocs==1.5.3
