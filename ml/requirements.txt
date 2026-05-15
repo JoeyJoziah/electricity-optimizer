@@ -2,9 +2,14 @@
 # This is the canonical ML requirements file (requirements-ml.txt was consolidated into this)
 
 # Deep Learning
-tensorflow==2.15.0
-keras==2.15.0
-tensorboard==2.15.0
+# TF 2.17.1 is the lowest stable release with Python 3.12 wheels. 2.15 had no
+# 3.12 wheels and broke ML Tests CI (ci-ml-tensorflow-py312_20260515).
+# TF 2.17 bundles Keras 3 by default; the tf-keras shim keeps the legacy
+# tf.keras (Keras 2) API working for price_forecaster.py and hyperparameter
+# tuning code. Set TF_USE_LEGACY_KERAS=1 to opt into the shim at runtime.
+tensorflow==2.17.1
+tf-keras==2.17.0
+tensorboard==2.17.1
 
 # ML Frameworks
 scikit-learn==1.4.0

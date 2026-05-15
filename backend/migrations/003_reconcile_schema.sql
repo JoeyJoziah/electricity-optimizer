@@ -225,6 +225,31 @@ ALTER TABLE deletion_logs
 -- Step iii: convert data_categories_deleted from TEXT[] to JSONB if it is still an array type.
 --     Converts each existing TEXT[] value to a JSON array via array_to_json().
 --     Example: '{"consents","profile"}'::text[] -> '["consents","profile"]'::jsonb
+--
+-- -----------------------------------------------------------------------------
+-- RETROACTIVE EDIT (2026-05-15) — track: ci-migration-apply-jsonb_20260515
+-- -----------------------------------------------------------------------------
+-- This DO block was patched after migration 003 had already been applied to
+-- production. The CI Migration Validation workflow's "apply from scratch"
+-- smoke-test replays every migration against an empty database with
+-- `psql -f`, and was failing here with:
+--
+--     ERROR: default for column "data_categories_deleted" cannot be cast
+--            automatically to type jsonb
+--
+-- Root cause: on a fresh replay, init_neon.sql creates `deleted_categories
+-- TEXT[] NOT NULL DEFAULT '{}'`. Migration 003 Step i renames it to
+-- `data_categories_deleted`, which carries the text[] DEFAULT '{}' forward.
+-- The subsequent `ALTER COLUMN ... TYPE JSONB USING ...` cannot auto-cast
+-- the existing text[] default expression to jsonb, so the statement aborts.
+--
+-- Fix: inside the `_text` branch (which only runs on fresh replays where the
+-- rename actually happened), explicitly DROP DEFAULT before the type change
+-- and SET a jsonb-typed DEFAULT after. The branch is gated on udt_name =
+-- '_text', so this is a strict no-op on the production database (where the
+-- column is already jsonb — the ELSIF branch is taken). Idempotency is
+-- preserved: replaying this migration against prod schema makes zero changes.
+-- -----------------------------------------------------------------------------
 DO $$
 DECLARE
     col_udt TEXT;
@@ -237,9 +262,18 @@ BEGIN
         -- Temporarily disable the immutability trigger so we can backfill the column
         ALTER TABLE deletion_logs DISABLE TRIGGER tr_prevent_deletion_log_update;
 
+        -- Drop the inherited text[] default ('{}') before retyping; Postgres
+        -- cannot auto-cast a text[] default expression to jsonb.
+        ALTER TABLE deletion_logs
+            ALTER COLUMN data_categories_deleted DROP DEFAULT;
+
         ALTER TABLE deletion_logs
             ALTER COLUMN data_categories_deleted
             TYPE JSONB USING array_to_json(data_categories_deleted)::jsonb;
+
+        -- Restore a jsonb-typed default that matches Step ii's intent.
+        ALTER TABLE deletion_logs
+            ALTER COLUMN data_categories_deleted SET DEFAULT '[]'::jsonb;
 
         ALTER TABLE deletion_logs ENABLE TRIGGER tr_prevent_deletion_log_update;
 
