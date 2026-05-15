@@ -135,18 +135,63 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 - **AI Agent** (prod 2026-03-11): "RateShift AI" — Gemini 3 Flash Preview (primary, free 10 RPM/250 RPD) + Groq Llama 3.3 70B (fallback on 429) + Composio tools (1K actions/month). Feature flag: `ENABLE_AI_AGENT=true`. Rate limits: Free=3/day, Pro=20/day, Business=unlimited. SSE streaming via `POST /agent/query`, async jobs via `POST /agent/task`, usage via `GET /agent/usage`. Service: `backend/services/agent_service.py`. API: `backend/api/v1/agent.py`. Frontend: `/assistant` page with `AgentChat` component. Migrations 031-033 applied. 13 tests in `test_agent_service.py`. Render env vars: 52 total (all real values, zero gaps as of 2026-04-08). OAuth: GitHub (set), Google (set), Gmail (set, same client as Google), Outlook (set, Azure app "RateShift Email Scanner"), UTILITYAPI_KEY (set). OAUTH_STATE_SECRET + ML_MODEL_SIGNING_KEY: SET (64-char hex each)
 - **Agent Orchestration**: Claude Flow + Loki Mode + Agentic-Flow (af-* namespace, 34 agents, 8 skills) + 2,099 skills via multi-repo integration
 - **Auto Rate Switcher** (2026-04-03): Autonomous plan switching for Pro tier. 6 tables (migration 066): user_agent_settings, user_plans, available_plans, meter_readings, switch_audit_log, switch_executions. 8 backend services. API: `/agent-switcher/*` (15 public + 2 internal). Frontend: `/auto-switcher` (3 pages). GHA: `agent-switcher-scan.yml` (daily), `sync-available-plans.yml` (daily), `db-maintenance.yml` (weekly). Self-healing monitor: 21 workflows (was 18)
-- **DSP (Data Structure Protocol)**: `.dsp/` codebase graph — 474 entities (436 source + 38 external), 940+ imports, 1 real cycle (alert_service↔alert_renderer). CLI: `python3 dsp-cli.py --root . <command>`. UID map: `.dsp/uid_map.json`. Auto-discovery bootstrap: `python3 scripts/dsp_auto_bootstrap.py` (rebuilds from scratch in ~1.2s). **Important**: wipe `.dsp/` before rebuilding (`rm -rf .dsp && python3 dsp-cli.py --root . init`) — the bootstrap script appends, doesn't replace. Use `search`, `get-recipients`, `get-children --depth N` before refactoring
+- **DSP (Data Structure Protocol)**: `.dsp/` codebase graph — 585 entities (543 source + 42 external), 1127 imports, 1 real cycle (alert_service↔alert_renderer). CLI: `python3 dsp-cli.py --root . <command>`. UID map: `.dsp/uid_map.json`. Auto-discovery bootstrap: `python3 scripts/dsp_auto_bootstrap.py` (rebuilds from scratch in ~1.5s). **Rebuild rule**: wipe `.dsp/` first (`rm -rf .dsp && python3 dsp-cli.py --root . init`) — bootstrap appends, doesn't replace. **Maintenance protocol below is mandatory** — see "DSP Maintenance Protocol"
 - **Slack**: Workspace `electricityoptimizer.slack.com` (T0AK0AJV5NE). Channels: `#incidents` (C0AKV2TK257), `#deployments` (C0AKCN6T02Z), `#metrics` (C0AKDD7P2HX). Webhook: `SLACK_INCIDENTS_WEBHOOK_URL` GHA secret + 1Password. Composio connection: `ca_jI3-cs-HrXPY` (Note: workspace named electricityoptimizer but project is RateShift)
 - **Board Sync**: GitHub Projects #4 (local hooks). Notion via Rube recipe only (every 6h, rcp_73Kc9K65YC5T). Hub page: `31bb9fc9-1d9d-813e-a108-fd7d4ef49fd7`, Tracker DB: `31bb9fc9-1d9d-81ed-815a-d6fb35ec0d3f`
 
 > See [REMINDERS.md](REMINDERS.md) for 22 critical reminders, cron jobs, and maintenance procedures.
 
+## DSP Maintenance Protocol (MANDATORY)
+
+The `.dsp/` graph is a first-class artifact. **It must stay in sync with the codebase on every change.** Before any non-trivial refactor, query the graph first (`search`, `find-by-source`, `get-recipients`, `get-children --depth N`) — this is cheaper than re-reading files and surfaces breakage upstream.
+
+### When code changes, update DSP in the same turn
+
+| Code change | Required DSP command |
+|---|---|
+| **New file/module** | `create-object <relpath> "<purpose>"` |
+| **New exported function** | `create-function <file>#<name> "<purpose>" --owner <obj-uid>` + `create-shared <owner> <func-uid>` |
+| **Added import** | `add-import <importer> <imported> "<why>"` (create `--kind external` first if new dep) |
+| **Removed import** | `remove-import <importer> <imported>` |
+| **Added export** | `create-shared <owner> <child>` |
+| **Removed export** | `remove-shared <owner> <child>` |
+| **Renamed/moved file** | `move-entity <uid> <new-relpath>` (UID stable) |
+| **Deleted file** | `remove-entity <uid>` (cascades) |
+| **Purpose changed** | `update-description <uid> "<new purpose>"` |
+| **Import reason changed** | `update-import-why <importer> <imported> "<new why>"` |
+| **Internal-only edit (no signature/import change)** | **No DSP update needed** |
+
+### Bulk-change escape hatch
+
+If a single task touches >15 files with structural changes (cross-cutting refactor, codemod, large rename, generated-code regen), incremental updates lose value — **wipe and rebuild instead**:
+```bash
+rm -rf .dsp && python3 dsp-cli.py --root . init && python3 scripts/dsp_auto_bootstrap.py
+```
+Then commit `.dsp/` separately from the code change with a descriptive `chore(dsp):` message.
+
+### Verification (run at end of any session that touched DSP)
+
+```bash
+python3 dsp-cli.py --root . get-stats        # entity/import counts should match scale of change
+python3 dsp-cli.py --root . detect-cycles    # only the known alert_service↔alert_renderer cycle is acceptable
+python3 dsp-cli.py --root . get-orphans | wc -l   # spike here = forgot to wire imports
+```
+
+### Pre-refactor query playbook
+
+Before changing any file with non-trivial fan-in:
+1. `find-by-source <relpath>` → get the UID
+2. `get-recipients <uid>` → list of importers + their reasons (this tells you the blast radius)
+3. `get-entity <uid>` → verify imports and shared list
+4. Plan the refactor against that map, not by re-reading files
+
 ## Autonomous Workflow (when Loki is driving)
 
 After every completed task, automatically:
 1. Run affected test suites
-2. Update docs/codemaps if code changed
-3. Trigger board sync (GitHub Projects only — Notion via Rube recipe)
-4. Persist memory to Claude Flow
-5. Extract learning patterns
-6. Commit with descriptive message + Co-Authored-By headers
+2. **Update `.dsp/` per DSP Maintenance Protocol** (incremental commands OR wipe-and-rebuild if >15 files changed)
+3. Update docs/codemaps if code changed
+4. Trigger board sync (GitHub Projects only — Notion via Rube recipe)
+5. Persist memory to Claude Flow
+6. Extract learning patterns
+7. Commit with descriptive message + Co-Authored-By headers (DSP changes in a separate `chore(dsp):` commit when bulk-rebuilding)
