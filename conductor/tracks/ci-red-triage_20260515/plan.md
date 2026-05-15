@@ -35,7 +35,9 @@ Last green CI run on main: `eb5df2ab` (gitignore-only commit, skipped most jobs)
     ```
   - **Test:** Re-run `_backend-tests.yml` step locally if pip-audit available; otherwise rely on CI
 
-- [ ] Task 1.2: Commit + push, verify CI green for pip-audit step
+- [x] Task 1.2: Commit + push, verify CI green for pip-audit step
+  - **Commits:** `8bc2c462` (deps bump) + `cc5b37dc` (track registration) pushed to main
+  - **CI confirmation:** Backend Tests job `76218939710` — pip-audit step output: `No known vulnerabilities found`. Backend Tests job overall still red but on a *different* later step (see Discovered Latent Reds below)
 
 ---
 
@@ -57,13 +59,20 @@ Last green CI run on main: `eb5df2ab` (gitignore-only commit, skipped most jobs)
   - **Risk:** Low. Exemption is narrow + documented in action.yml comments.
   - **Verify locally:** Run the action shell block against `backend/migrations` and confirm 0 violations
 
-- [ ] Task 2.2: Commit + push, verify Migration Validation green
+- [x] Task 2.2: Commit + push, verify Migration Validation **convention checks** green
+  - **Commit:** `c4fb2a14` pushed to main
+  - **CI confirmation:** Migration Validation job `76218939621` — convention check log: `(skipping SERIAL check for exempt file: 063_migration_history.sql)` followed by `All migration convention checks passed.`
+  - **Caveat:** Job overall still red because of a *separate* later step ("Apply all migrations sequentially") which fails on `psql:backend/migrations/003_reconcile_schema.sql:252: ERROR: default for column "data_categories_deleted" cannot be cast automatically to type jsonb`. This is a different latent red — see Discovered Latent Reds below.
 
 ---
 
 ## Phase 3: npm audit fix (semi-autonomous, needs verification)
 
-- [ ] Task 3.1: Run `npm audit fix` in `frontend/`
+- [~] Task 3.1: Run `npm audit fix` in `frontend/` — **HALTED, no clean fix available**
+  - **Attempt:** Ran `npm audit fix` against current Next 16.2.6 (already latest stable 16.x). Result: dep graph shifted slightly but vuln count went from 7 (5 mod, 2 high) to 10 (9 mod, 1 high). `--force` would downgrade Next.js to 9.3.3 (major regression).
+  - **Root cause:** All 14 Next.js advisories list 16.x as vulnerable but no stable 16.3.x patch is released yet (only canaries through 16.3.0-canary.20). DOMPurify + Excalidraw vulns also unfixable without major bumps.
+  - **Reverted:** `package-lock.json` restored to pre-attempt state.
+  - **Halt reason:** Plan's documented decision gate fired — `--force` and major bumps are out of scope without explicit approval.
   - **Source:** Security Scan failure from CI run `25925601093`
   - **Vulnerabilities (7 total: 5 mod, 2 high):**
     - `@excalidraw/excalidraw` — XSS via Mermaid sequence diagram labels
@@ -119,3 +128,24 @@ Last green CI run on main: `eb5df2ab` (gitignore-only commit, skipped most jobs)
 - The 5 *moderate* npm vulns that don't trip `--audit-level=high`
 - Mass refactor of pre-commit/ci.yml beyond the formatter alignment
 - Pinning policy review (Dependabot already groups minor+patch weekly)
+
+---
+
+## Discovered Latent Reds (out of original plan, surfaced by `cc5b37dc` push)
+
+The `7d6834c8` push (which was a `backend/**`-only diff) surfaced 4 reds. Pushing `cc5b37dc` triggered additional workflows that exposed 5 more pre-existing failures the path filters had been masking. Full latent-red inventory as of CI run `25929338762`:
+
+**Original 4 (in plan):**
+1. ✅ pip-audit — closed Phase 1
+2. ✅ Migration Validation convention checks — closed Phase 2 (job overall still red, see #5 below)
+3. ❌ npm audit — Phase 3 halted (no clean Next.js patch)
+4. ❌ Backend Lint formatter drift — Phase 4 awaiting human decision
+
+**Discovered 5 (need follow-up tracks or expansion):**
+5. **Migration apply step** — `psql:backend/migrations/003_reconcile_schema.sql:252: ERROR: default for column "data_categories_deleted" cannot be cast automatically to type jsonb`. Convention check (Phase 2) passes, but the `psql -f` smoke-test step fails on this old migration. Likely fix: `ALTER TABLE ... ALTER COLUMN ... TYPE jsonb USING data_categories_deleted::jsonb` rewrite of migration 003, or `DROP DEFAULT` then `ALTER TYPE` then `SET DEFAULT`. Risk: rewriting an applied migration breaks anyone who replays from scratch unless we also add a guard.
+6. **ML Tests** — `ERROR: No matching distribution found for tensorflow==2.15.0`. Likely cause: tensorflow 2.15 only ships wheels for Python ≤3.11; CI uses Python 3.12. Either pin tensorflow ≥2.16 or pin CI Python to 3.11 for ML matrix.
+7. **Frontend Build** — error in `next.config.js:12:9` during build. Need to inspect file; could be ESM/CJS issue or env-var access at build time.
+8. **Frontend Lint** — `Invalid project directory provided, no such directory: .../frontend/lint`. Looks like a workflow shell-quoting bug, e.g., `npm run lint` was rendered as `npm run` `lint` (positional arg parsed as project dir). Likely a `working-directory` + script-name typo in ci.yml.
+9. **Backend Tests post-pip-audit** — 10+ integration tests in `tests/integration/test_auto_switcher_db.py` fail at setup with `AttributeError: 'Session' object has no attribute 'event'`. SQLAlchemy fixture pattern incompatible with current sqlalchemy==2.0.49, OR the integration-test skip-if-no-DATABASE_URL pattern stopped firing because CI now provisions postgres. Either fix the fixture or restore the skip guard.
+
+**Implication for PH relaunch:** "Tests are sacred" + "all CI green" is the launch gate. With 9 latent reds across the pipeline, the gate is much further away than the 18-item PRD scope tracker suggests. The PH relaunch track should formally depend on this track being closed.
