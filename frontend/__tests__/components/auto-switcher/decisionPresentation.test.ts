@@ -69,6 +69,18 @@ describe("formatDate", () => {
 });
 
 describe("formatRelativeTime", () => {
+  // Freeze the clock so relative-time assertions don't race the real wall
+  // clock crossing minute/hour boundaries mid-test (e.g. "3h 30m" -> "3h 29m").
+  beforeEach(() => {
+    jest.useFakeTimers({
+      now: new Date("2026-05-15T12:00:00Z").getTime(),
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("returns '--' for null", () => {
     expect(formatRelativeTime(null)).toBe("--");
   });
@@ -103,6 +115,16 @@ describe("formatRelativeTime", () => {
 });
 
 describe("daysUntil", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({
+      now: new Date("2026-05-15T12:00:00Z").getTime(),
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("returns null for null input", () => {
     expect(daysUntil(null)).toBeNull();
   });

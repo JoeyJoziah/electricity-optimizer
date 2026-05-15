@@ -296,7 +296,7 @@ describe("ConnectionsOverview", () => {
   });
 
   it("switches to analytics tab when clicked", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     // Mock connections fetch via apiClient
     mockApiGet.mockResolvedValueOnce({ connections: [] });
@@ -330,7 +330,7 @@ describe("ConnectionsOverview", () => {
   });
 
   it("retries fetching connections when Try again is clicked", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     // First call fails, second succeeds
     mockApiGet
@@ -367,7 +367,7 @@ describe("ConnectionsOverview", () => {
   // --- adding-direct view ---
 
   it("shows DirectLoginForm when Utility Account option is clicked", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     mockApiGet.mockResolvedValueOnce({ connections: [] });
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() });
@@ -389,7 +389,7 @@ describe("ConnectionsOverview", () => {
   // --- viewing-rates with bill_upload method ---
 
   it("shows ConnectionRates when view-rates is triggered for a bill_upload connection", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const billUploadConnections = [
       {
         id: "conn-bill",
@@ -426,7 +426,7 @@ describe("ConnectionsOverview", () => {
   // --- adding-upload view ---
 
   it("shows upload view when Upload Bills option is clicked", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     mockApiGet.mockResolvedValueOnce({ connections: [] });
 
     render(<ConnectionsOverview />, { wrapper: createWrapper() });

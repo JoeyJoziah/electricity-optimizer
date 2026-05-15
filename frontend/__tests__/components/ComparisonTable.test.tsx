@@ -64,7 +64,7 @@ describe("ComparisonTable", () => {
   });
 
   it("allows sorting by different columns", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<ComparisonTable suppliers={mockSuppliers} />);
 
     // Sort by rating (first click = ascending, lowest first)
@@ -80,7 +80,7 @@ describe("ComparisonTable", () => {
   });
 
   it("toggles sort direction on repeated clicks", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<ComparisonTable suppliers={mockSuppliers} />);
 
     // Default sort is already estimatedAnnualCost ASC
@@ -120,7 +120,7 @@ describe("ComparisonTable", () => {
 
   it("calls onSelect when a row is clicked", async () => {
     const onSelect = jest.fn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(<ComparisonTable suppliers={mockSuppliers} onSelect={onSelect} />);
 
@@ -159,7 +159,7 @@ describe("ComparisonTable", () => {
   });
 
   it("supports filtering by green energy only", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<ComparisonTable suppliers={mockSuppliers} showFilters />);
 
     await user.click(

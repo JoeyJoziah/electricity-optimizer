@@ -75,7 +75,7 @@ describe("SupplierSelector", () => {
   });
 
   it("opens dropdown on click", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <SupplierSelector
@@ -103,7 +103,7 @@ describe("SupplierSelector", () => {
   });
 
   it("filters suppliers by search input", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <SupplierSelector
@@ -122,7 +122,7 @@ describe("SupplierSelector", () => {
 
   it("calls onChange when supplier selected", async () => {
     const onChange = jest.fn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <SupplierSelector
@@ -155,7 +155,7 @@ describe("SupplierSelector", () => {
   });
 
   it('shows "No suppliers found" when search has no matches', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <SupplierSelector
