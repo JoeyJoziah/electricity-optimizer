@@ -25,7 +25,9 @@ scipy==1.12.0
 
 # Data Processing
 numpy==1.26.0
-pandas==2.1.0
+# pandas 2.1.0 has no cp312 wheels on PyPI; 2.1.1 is the lowest patch with
+# Python 3.12 wheels (ci-pandas-py312_20260515).
+pandas==2.1.1
 holidays==0.40
 
 # Time Series
