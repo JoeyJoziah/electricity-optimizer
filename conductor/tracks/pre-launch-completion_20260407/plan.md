@@ -2,7 +2,7 @@
 
 **Track ID:** pre-launch-completion_20260407
 **Created:** 2026-04-07
-**Status:** [ ] In Progress
+**Status:** [~] In Progress
 
 ## Overview
 

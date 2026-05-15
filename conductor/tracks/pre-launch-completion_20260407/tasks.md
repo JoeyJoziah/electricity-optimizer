@@ -1,6 +1,6 @@
 # Tasks — pre-launch-completion_20260407
 
-> Extracted from plan.md on 2026-05-11. plan.md remains source of truth; this mirrors actionable checkboxes for conductor validator compliance.
+> Extracted from plan.md, last reconciled 2026-05-15. plan.md remains source of truth; this mirrors actionable checkboxes for conductor validator compliance.
 
 - [x] Task 0.1: Set `FRONTEND_URL` and `OAUTH_REDIRECT_BASE_URL` on Render dashboard
 - [x] Task 0.2: Recover or recreate Google OAuth client secret
@@ -12,8 +12,8 @@
 - [x] Task 1.5: Free-tier dashboard value-first redesign
 - [x] Task 1.6: Feature-flag Google OAuth button
 - [x] Task 1.7: Fix pricing page copy and geographic claims
-- [ ] Task 2.1: Run visual regression baseline workflow
-- [ ] Task 2.2: Create status page
+- [x] Task 2.1: Run visual regression baseline workflow
+- [x] Task 2.2: Create status page
 - [ ] Task 2.3: Verify/create social media accounts
 - [x] All P0 tasks (0.1) resolved
 - [x] All P1 tasks (0.2, 1.1, 1.5, 1.6, 1.7) resolved
