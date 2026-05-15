@@ -35,4 +35,6 @@
 | [x] | codebase-audit-remediation_20260316 | Codebase Audit Remediation 2026-03-16 (5 sprints: security, reliability, tests/deps, correctness, polish) | 2026-03-16 | 2026-05-11 |
 | [x] | launch-readiness_20260323 | Launch-Gap Analysis | 2026-03-23 | 2026-05-11 |
 
+| [~] | ci-red-triage_20260515 | CI Red Triage — 4 latent failures exposed by `7d6834c8` (pip-audit CVEs, migration SERIAL, npm audit, lint config drift) | 2026-05-15 | 2026-05-15 |
+
 <!-- Tracks registered by /conductor:new-track -->
