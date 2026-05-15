@@ -57,3 +57,17 @@ Net effect: launch-blocker pile is ~9 latent reds, not 4. PH relaunch track must
 - `8bc2c462` — fix(deps): patch CVEs in cryptography, python-multipart, python-dotenv
 - `c4fb2a14` — ci(migrations): exempt audit-log tables from SERIAL check
 - `cc5b37dc` — chore(conductor): register ci-red-triage_20260515 + mark Phase 1+2 complete
+
+## 2026-05-15 (later) — Latent reds split into independent tracks
+
+Discovered latent reds #5-9 were getting too varied (Postgres migration vs Python wheel availability vs Next.js config vs YAML shell quoting vs SQLAlchemy fixture) to keep gating a single parent track's closure on all five. Each has a distinct domain, owner, and risk profile, so the cleaner pattern is one track per root cause.
+
+Split off:
+
+- `ci-migration-apply-jsonb_20260515` — latent red #5 (jsonb cast at `003_reconcile_schema.sql:252`)
+- `ci-ml-tensorflow-py312_20260515` — latent red #6 (tensorflow 2.15 no Py3.12 wheel)
+- `ci-frontend-build-nextconfig_20260515` — latent red #7 (`next.config.js:12` build error)
+- `ci-frontend-lint-workflow_20260515` — latent red #8 (workflow shell-quoting parses `lint` as project dir)
+- `ci-integration-sqlalchemy-session_20260515` — latent red #9 (`Session.event` AttributeError in `test_auto_switcher_db.py`)
+
+This parent track (`ci-red-triage_20260515`) now has exactly one open item: **Phase 3 (npm audit)**, which remains halted pending Next 16.3 stable or an explicit `--force`/major-bump approval. All five split tracks are launch-blockers for `ph-relaunch-jun2_20260515`.
