@@ -1,24 +1,24 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { fetchEventSource } from '@microsoft/fetch-event-source'
-import { API_URL } from '@/lib/config/env'
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { API_URL } from "@/lib/config/env";
 
 export interface RealtimeConfig {
-  table: string
-  event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*'
-  filter?: string
+  table: string;
+  event?: "INSERT" | "UPDATE" | "DELETE" | "*";
+  filter?: string;
 }
 
 export interface PriceUpdate {
-  region: string
-  supplier: string
-  price_per_kwh: string
-  currency: string
-  is_peak: boolean
-  timestamp: string
-  source?: string
+  region: string;
+  supplier: string;
+  price_per_kwh: string;
+  currency: string;
+  is_peak: boolean;
+  timestamp: string;
+  source?: string;
 }
 
 /**
@@ -31,116 +31,124 @@ export interface PriceUpdate {
  * Connects to the SSE endpoint and invalidates React Query caches
  * when new price data arrives.
  */
-export function useRealtimePrices(region: string | null | undefined, interval: number = 30) {
-  const queryClient = useQueryClient()
-  const [isConnected, setIsConnected] = useState(false)
-  const [lastPrice, setLastPrice] = useState<PriceUpdate | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
-  const retryDelayRef = useRef(1000)
-  const mountedRef = useRef(true)
+export function useRealtimePrices(
+  region: string | null | undefined,
+  interval: number = 30,
+) {
+  const queryClient = useQueryClient();
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastPrice, setLastPrice] = useState<PriceUpdate | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const retryDelayRef = useRef(1000);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    mountedRef.current = true
-    if (typeof window === 'undefined' || !region) return
+    mountedRef.current = true;
+    if (typeof window === "undefined" || !region) return;
 
-    const url = `${API_URL}/prices/stream?region=${encodeURIComponent(region)}&interval=${interval}`
-    const MAX_RETRY_DELAY = 30_000
+    const url = `${API_URL}/prices/stream?region=${encodeURIComponent(region)}&interval=${interval}`;
+    const MAX_RETRY_DELAY = 30_000;
 
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
 
     fetchEventSource(url, {
-      credentials: 'include',
+      credentials: "include",
       signal: ctrl.signal,
 
       onopen: async (response) => {
         if (response.ok) {
-          if (!mountedRef.current) return
-          setIsConnected(true)
-          retryDelayRef.current = 1000 // Reset backoff on successful connect
+          if (!mountedRef.current) return;
+          setIsConnected(true);
+          retryDelayRef.current = 1000; // Reset backoff on successful connect
         } else if (response.status === 401 || response.status === 403) {
           // Auth failure — don't retry
-          throw new Error(`Auth failed: ${response.status}`)
+          throw new Error(`Auth failed: ${response.status}`);
         } else {
-          throw new Error(`SSE open failed: ${response.status}`)
+          throw new Error(`SSE open failed: ${response.status}`);
         }
       },
 
       onmessage: (event) => {
-        if (!event.data) return
+        if (!event.data) return;
         try {
-          const data: PriceUpdate = JSON.parse(event.data)
-          if (!mountedRef.current) return
-          setLastPrice(data)
+          const data: PriceUpdate = JSON.parse(event.data);
+          if (!mountedRef.current) return;
+          setLastPrice(data);
           // Partial-merge: update matching supplier entry in cache, preserve existing fields.
           // ApiCurrentPriceResponse shape: { price, prices, region }
           queryClient.setQueryData<Record<string, unknown>>(
-            ['prices', 'current', region],
+            ["prices", "current", region],
             (old) => {
-              if (!old) return old
-              const prices = old.prices
-              if (!Array.isArray(prices)) return old
+              if (!old) return old;
+              const prices = old.prices;
+              if (!Array.isArray(prices)) return old;
               return {
                 ...old,
                 prices: prices.map((entry: Record<string, unknown>) =>
                   entry.supplier === data.supplier
-                    ? { ...entry, price_per_kwh: Number(data.price_per_kwh), timestamp: data.timestamp, is_peak: data.is_peak }
-                    : entry
+                    ? {
+                        ...entry,
+                        price_per_kwh: Number(data.price_per_kwh),
+                        timestamp: data.timestamp,
+                        is_peak: data.is_peak,
+                      }
+                    : entry,
                 ),
-              }
-            }
-          )
+              };
+            },
+          );
         } catch {
           // Ignore parse errors for non-JSON events (heartbeats)
         }
       },
 
       onerror: (err) => {
-        if (!mountedRef.current) return
-        setIsConnected(false)
+        if (!mountedRef.current) return;
+        setIsConnected(false);
 
         // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s cap
-        const delay = retryDelayRef.current
-        retryDelayRef.current = Math.min(delay * 2, MAX_RETRY_DELAY)
+        const delay = retryDelayRef.current;
+        retryDelayRef.current = Math.min(delay * 2, MAX_RETRY_DELAY);
 
         // Return the delay so fetchEventSource retries after that many ms.
         // Throwing would stop retrying entirely.
-        if (err instanceof Error && err.message.startsWith('Auth failed')) {
-          throw err // Stop retrying on auth failures
+        if (err instanceof Error && err.message.startsWith("Auth failed")) {
+          throw err; // Stop retrying on auth failures
         }
 
-        return delay
+        return delay;
       },
 
       onclose: () => {
-        if (!mountedRef.current) return
-        setIsConnected(false)
+        if (!mountedRef.current) return;
+        setIsConnected(false);
       },
 
       // Pause SSE when browser tab is hidden to save bandwidth and server connections
       openWhenHidden: false,
     }).catch(() => {
       // fetchEventSource promise rejects when we throw from onerror or abort
-      if (mountedRef.current) setIsConnected(false)
-    })
+      if (mountedRef.current) setIsConnected(false);
+    });
 
     return () => {
-      mountedRef.current = false
-      ctrl.abort()
-      setIsConnected(false)
-    }
-  }, [region, interval, queryClient])
+      mountedRef.current = false;
+      ctrl.abort();
+      setIsConnected(false);
+    };
+  }, [region, interval, queryClient]);
 
   const disconnect = useCallback(() => {
-    mountedRef.current = false
+    mountedRef.current = false;
     if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
-      setIsConnected(false)
+      abortRef.current.abort();
+      abortRef.current = null;
+      setIsConnected(false);
     }
-  }, [])
+  }, []);
 
-  return { isConnected, lastPrice, disconnect }
+  return { isConnected, lastPrice, disconnect };
 }
 
 /**
@@ -148,24 +156,24 @@ export function useRealtimePrices(region: string | null | undefined, interval: n
  * Falls back to polling if SSE is not available.
  */
 export function useRealtimeOptimization() {
-  const queryClient = useQueryClient()
-  const [isConnected, setIsConnected] = useState(false)
+  const queryClient = useQueryClient();
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     // Poll for optimization updates every 60 seconds
     const timer = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['optimization'] })
-    }, 60_000)
+      queryClient.invalidateQueries({ queryKey: ["optimization"] });
+    }, 60_000);
 
-    setIsConnected(true)
+    setIsConnected(true);
 
     return () => {
-      clearInterval(timer)
-      setIsConnected(false)
-    }
-  }, [queryClient])
+      clearInterval(timer);
+      setIsConnected(false);
+    };
+  }, [queryClient]);
 
-  return { isConnected }
+  return { isConnected };
 }
 
 /**
@@ -177,33 +185,32 @@ export function useRealtimeOptimization() {
  */
 export function useRealtimeSubscription(
   config: RealtimeConfig,
-  onUpdate?: (payload: unknown) => void
+  onUpdate?: (payload: unknown) => void,
 ) {
-  const _queryClient = useQueryClient()
-  const [isConnected, setIsConnected] = useState(false)
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const _queryClient = useQueryClient();
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   // Keep a stable ref to the latest onUpdate so the interval never needs to
   // restart when the caller passes a new inline function reference.
-  const onUpdateRef = useRef(onUpdate)
-  onUpdateRef.current = onUpdate
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
 
   useEffect(() => {
     // Poll every 30 seconds as fallback
     const timer = setInterval(() => {
-      setLastUpdate(new Date())
-      onUpdateRef.current?.({ table: config.table, event: config.event })
-    }, 30_000)
+      setLastUpdate(new Date());
+      onUpdateRef.current?.({ table: config.table, event: config.event });
+    }, 30_000);
 
-    setIsConnected(true)
+    setIsConnected(true);
 
     return () => {
-      clearInterval(timer)
-      setIsConnected(false)
-    }
+      clearInterval(timer);
+      setIsConnected(false);
+    };
     // onUpdate intentionally excluded — accessed via ref to avoid interval resets
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.table, config.event, config.filter])
+  }, [config.table, config.event, config.filter]);
 
-  return { isConnected, lastUpdate }
+  return { isConnected, lastUpdate };
 }

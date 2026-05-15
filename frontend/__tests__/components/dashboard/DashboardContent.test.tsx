@@ -11,10 +11,9 @@ import React from "react";
 // in synchronous render.
 // ---------------------------------------------------------------------------
 jest.mock("next/dynamic", () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const PriceLineChartMock =
     require("@/components/charts/PriceLineChart").PriceLineChart;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+
   const ForecastChartMock =
     require("@/components/charts/ForecastChart").ForecastChart;
 

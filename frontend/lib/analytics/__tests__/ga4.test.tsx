@@ -13,7 +13,6 @@ import { render } from "@testing-library/react";
 // ---------------------------------------------------------------------------
 
 jest.mock("next/script", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const MockScript = (props: any) => (
     <script data-testid="next-script" {...props} />
   );
@@ -32,7 +31,6 @@ function renderGA4(measurementId: string | undefined) {
   jest.resetModules();
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID = measurementId ?? "";
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { GA4Analytics } = require("@/lib/analytics/ga4");
   return render(<GA4Analytics />);
 }

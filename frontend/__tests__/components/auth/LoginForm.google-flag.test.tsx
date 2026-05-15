@@ -23,7 +23,6 @@ jest.mock("@/components/auth/LoginForm", () => ({
   ),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { LoginForm } = require("@/components/auth/LoginForm");
 
 describe("LoginForm — Google OAuth button (feature flag enabled simulation)", () => {
