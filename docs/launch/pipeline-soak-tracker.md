@@ -23,10 +23,10 @@ The rollback drill must:
 
 | # | Date (UTC) | Trigger | SHA | Render deploy ID | `/health` 200? | Notes |
 |---|-----------|---------|-----|-----------------|----------------|-------|
-| 1 (baseline) | 2026-05-11 | Manual | `c7f95b3a` | — | ✅ Yes | Pipeline creation + first verified deploy |
-| 2 | _pending_ | | | | | |
-| 3 | _pending_ | | | | | |
-| 4 | _pending_ | | | | | |
+| 1 (baseline) | 2026-05-11 20:21 | Push to main | `33014f99` | — | ✅ Yes | First green build-and-push run (pipeline bootstrap). Two prior runs on `c7f95b3a` failed during workflow debugging |
+| 2 (soak) | 2026-05-14 16:56 | Push to main | `f57c9f10` | — | ✅ Yes | 108-commit batch push (migrations 067+068, drip pipeline, ~318 BE tests, iteration #13 docs). One workflow run covered the bundle (push events produce one run per head SHA) |
+| 3 (soak) | _pending_ | | | | | Needs independent backend merge — not a synthetic dispatch |
+| 4 (soak) | _pending_ | | | | | Needs independent backend merge |
 
 ## Rollback Drill Log
 
@@ -42,15 +42,19 @@ The rollback drill must:
 - [ ] Rollback drill executed — see "Rollback Drill Procedure" below
 - [ ] All 4 soak deploys + rollback complete before 2026-05-26 at 09:00 PT
 
-## Status as of 2026-05-14 (Loki iteration #12 complete)
+## Status as of 2026-05-15 (post-push reconciliation)
 
-`gh run list --workflow=build-and-push-backend.yml --status=success` → **1 success** (`33014f99`,
-2026-05-11) at last GHA check. Soak counter still reads 1 on GHA because **105 local commits**
-(was 103 at iter #11 — added 1 docs + 1 backend-tests this iteration) are **not yet pushed
-to GitHub**. Once pushed, the pipeline will run once for the push event and produce one new
-soak deploy (push events do not produce one workflow run per commit — they produce one run
-for the head SHA), so closing Scope #10 to 3 additional green deploys requires **3 separate
-push events**, not one batched push of N commits.
+`gh run list --workflow=build-and-push-backend.yml` → **2 successes, 2 failures, 4 total**.
+Successes: `33014f99` (2026-05-11 20:21 — first green), `f57c9f10` (2026-05-14 16:56 — the
+108-commit batch push). Failures: both 2026-05-11, against `c7f95b3a`, during initial pipeline
+bootstrap.
+
+**Honest count toward the PRD's ≥3 additional green deploys**: **1 of 3** (the 5/14 push is the
+first real post-baseline soak deploy; the 5/11 success was the baseline itself).
+
+The earlier "2/4 triggered" framing in iteration #13's tracker conflated the iteration's own
+documentation commit (which rode in the batch push that triggered the deploy) with independent
+soak progress. Resetting to the honest count above.
 
 **Iteration #12 added** `a5490c36 test(backend): 16 API tests for /export/rates and /export/types`
 — covers the Business-tier export router (last major uncovered router in api/v1/). Brings
@@ -147,7 +151,7 @@ If any soak deploy fails:
 
 ## Status
 
-**Current**: 2/4 deploys triggered (iteration #13 adds 28 API tests for `/prices` CRUD endpoints — `f07c4ba7`; 2 more queued, will run on subsequent backend pushes).
+**Current** (2026-05-15): 1 of 3 additional green soak deploys complete (`f57c9f10`, 2026-05-14).
 Rollback drill: NOT done.
-**Gate**: All 4 + rollback required before 2026-05-26 dress rehearsal.
-**To unblock**: `git push origin main` then schedule rollback drill (any time before 2026-05-26).
+**Gate**: 2 more independent backend merges + rollback drill required before 2026-05-26 dress rehearsal.
+**To unblock**: ship 2 more backend-touching merges (deliberate cleanups acceptable: silent-fallback sweep, feature-flag consolidation, fat-router refactor — each is one merge = one soak deploy). Schedule rollback drill any time before 2026-05-26 09:00 PT.
