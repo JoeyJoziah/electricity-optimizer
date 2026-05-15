@@ -37,6 +37,6 @@
 
 | [~] | ci-red-triage_20260515 | CI Red Triage — 4 originally-planned failures (Phase 1 pip-audit ✅, Phase 2 migration SERIAL ✅, Phase 3 npm audit HALTED on Next 16 unfixable, Phase 4 lint config drift ✅ ruff replaces black+flake8). +5 latent reds remain (migration apply jsonb, ML tensorflow pin, next.config.js:12, frontend lint typo, integration test fixture) — open as separate tracks before launch | 2026-05-15 | 2026-05-15 |
 | [~] | ph-relaunch-jun2_20260515 | Product Hunt Relaunch — Jun 2 2026 12:01am PT. Wraps remaining 6 PRD scope items + #4 activation + #13 residual + dress rehearsal + go/no-go gate. Depends on `ci-red-triage_20260515` (CI green) + `pre-launch-completion_20260407` Task 2.3 (social handles overlap). Slip rule: 1-week max to Jun 9, second slip → PRD v4 rewrite | 2026-05-15 | 2026-05-15 |
-| [~] | ci-pydantic-import_20260515 | CI Backend Cannot Boot — `pydantic==2.12.5` silently downgraded to 1.10.26 by `safety==3.0.0` transitive dep. Removes safety from `requirements-dev.txt` (unused; pip-audit covers same role). Affects Backend Tests, Security Tests, E2E Tests jobs | 2026-05-15 | 2026-05-15 |
+| [x] | ci-pydantic-import_20260515 | CI Backend Cannot Boot — ✅ FIXED 2026-05-15 (run `25932772064`). Removed `safety==3.0.0` from `requirements-dev.txt`; pydantic stays at 2.12.5; backend now boots in CI. Downstream failures (#9 integration fixture, new #11 rate-limit assertions) are unrelated and tracked separately | 2026-05-15 | 2026-05-15 |
 
 <!-- Tracks registered by /conductor:new-track -->

@@ -55,7 +55,16 @@ Alternative considered: bump to `safety>=3.5`. Rejected because adds maintenance
     Should show no pydantic downgrade attempt
   - **Risk:** Low. Nothing imports `safety` and pip-audit covers the same intent.
 
-- [ ] Task 1.2: Commit + push, verify CI green
+- [x] Task 1.2: Commit + push, verify CI green
+  - **Commit:** `17f21844` (safety removal) + `2a78670c` (track registration)
+  - **CI confirmation (run `25932772064`):**
+    - Install log: `Successfully installed ... pydantic-2.12.5 ...` — no v1 downgrade
+    - Backend Tests advances all the way to **test collection** (vs. previous run which exit-1'd at install)
+    - Security Tests sub-job: backend boots (`INFO: Application startup complete.`), 99-100% of SQL-injection tests PASSED
+    - E2E Tests: skipped this run because path filter only fires on `frontend/**` and this commit batch was backend/conductor only — manual workflow_dispatch (added in `0a7c6de1`) is the way to verify new E2E specs end-to-end
+  - **New downstream failures revealed (separate latent reds, NOT this fix's responsibility):**
+    - Backend Tests: still red on `'Session' object has no attribute 'event'` in `tests/integration/test_auto_switcher_db.py` (this is latent red #9 — pre-existing, separate track needed)
+    - Security Tests: 3 rate-limit test assertion failures in `test_rate_limiting.py` (latent red #11 — newly discovered; narrow scope)
   - **Success criteria:** Backend Tests job advances past collection (pydantic import succeeds); Security Tests `wait-for-service` completes (backend starts); E2E Tests can run
   - **Note:** Backend Tests will likely still fail downstream on the integration-test fixture issue (latent red #5: `'Session.event' AttributeError`). That's a separate track. This track only needs the import to succeed.
 
