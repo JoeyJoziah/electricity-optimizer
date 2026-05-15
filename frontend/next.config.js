@@ -1,15 +1,25 @@
-// Require NEXT_PUBLIC_APP_URL in production builds (skip during tests)
+// Require NEXT_PUBLIC_APP_URL in production builds (skip during tests and CI compile checks).
+// Vercel injects the var at deploy time; GitHub Actions Frontend Build is a compile-only
+// check that runs with NODE_ENV=production but has no deploy semantics, so we warn instead
+// of throwing. CI=true is set by GitHub Actions, Vercel, and most other CI providers.
 if (
   process.env.NODE_ENV === 'production' &&
   !process.env.NEXT_PUBLIC_APP_URL &&
   !process.env.JEST_WORKER_ID
 ) {
-  console.error(
-    '\x1b[31m[RateShift] NEXT_PUBLIC_APP_URL is not set. ' +
-    'This is required in production for canonical URLs, OG tags, and sitemap generation.\x1b[0m'
-  )
-  // Fail the build so deploys don't proceed with a missing URL
-  throw new Error('NEXT_PUBLIC_APP_URL environment variable is required in production')
+  if (process.env.CI && !process.env.VERCEL) {
+    console.warn(
+      '\x1b[33m[RateShift] NEXT_PUBLIC_APP_URL is not set in CI compile check. ' +
+      'This is expected for GHA Frontend Build; Vercel deploys must set it.\x1b[0m'
+    )
+  } else {
+    console.error(
+      '\x1b[31m[RateShift] NEXT_PUBLIC_APP_URL is not set. ' +
+      'This is required in production for canonical URLs, OG tags, and sitemap generation.\x1b[0m'
+    )
+    // Fail the build so deploys don't proceed with a missing URL
+    throw new Error('NEXT_PUBLIC_APP_URL environment variable is required in production')
+  }
 }
 
 /** @type {import('next').NextConfig} */
