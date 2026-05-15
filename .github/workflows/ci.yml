@@ -81,32 +81,24 @@ jobs:
         # CI / pre-commit / dev environments in lockstep.
         run: pip install ruff==0.15.6 flake8==7.0.0 mypy==1.19.1
 
-      - name: Auto-format + import-sort with ruff
-        id: format
+      - name: Verify ruff format clean
         run: |
           cd backend
-          ruff format .
-          ruff check --select I --fix .
-          if git diff --quiet; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-          fi
+          ruff format --check . || {
+            echo "::error::Code is not ruff-formatted. Run 'cd backend && ruff format .' locally and push the result, or let pre-commit handle it."
+            exit 1
+          }
 
-      - name: Commit formatting fixes (PR only)
-        if: steps.format.outputs.has_changes == 'true' && github.event_name == 'pull_request'
+      - name: Verify ruff lint clean
+        # Uses backend/pyproject.toml configured select+ignore (notably F821
+        # ignored for forward-ref string type hints). Same rule set as
+        # pre-commit's `ruff` hook — guarantees CI and local agree.
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add backend/
-          git commit -m "style: auto-format with ruff"
-          git push
-
-      - name: Fail on unformatted code pushed to main
-        if: steps.format.outputs.has_changes == 'true' && github.event_name == 'push'
-        run: |
-          echo "::error::Unformatted code pushed to main. Run 'ruff format . && ruff check --select I --fix .' in backend/ before pushing (or let pre-commit handle it)."
-          exit 1
+          cd backend
+          ruff check . || {
+            echo "::error::ruff check failed. Run 'cd backend && ruff check . --fix' locally to auto-fix where possible, or let pre-commit handle it."
+            exit 1
+          }
 
       - name: Lint with flake8
         run: |
