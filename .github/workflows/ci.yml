@@ -200,7 +200,7 @@ jobs:
         id: lint
         run: |
           cd frontend
-          npx next lint --fix || true
+          npx eslint . --fix || true
           if git diff --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
@@ -219,7 +219,7 @@ jobs:
       - name: Fail on unfixed lint pushed to main
         if: steps.lint.outputs.has_changes == 'true' && github.event_name == 'push'
         run: |
-          echo "::error::ESLint issues found on main. Run 'npx next lint --fix' locally before pushing."
+          echo "::error::ESLint issues found on main. Run 'cd frontend && npm run lint:fix' locally before pushing."
           exit 1
 
       - name: Verify lint passes
