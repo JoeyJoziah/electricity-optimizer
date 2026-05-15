@@ -32,6 +32,16 @@
 5. Copy summary numbers into the "Run Log" table below.
 6. Commit this file with results table populated; reference run timestamp.
 
+## Readiness Check — 2026-05-15
+
+- ✅ `loadtest/rateshift-staging.js` exists (282 LOC); k6/http import structure valid.
+- ✅ `scripts/load-test/k6-launch.js` re-exports the canonical scenarios (14 LOC).
+- ✅ `loadtest/run.sh` shellcheck-clean (`bash -n` passes); supports `--quick` smoke and full profile.
+- ⏳ k6 not installed on dev workstation — `brew install k6` required before first run.
+- ⏳ `STAGING_KEY` not in shell env — fetch from 1Password before run.
+
+Code-side ready. Execution blocked only on the two manual steps above.
+
 ## Run Log
 
 | Date (UTC) | RPS | p95 (ms) | Fail rate | CF hit % | Notes |
