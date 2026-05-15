@@ -308,8 +308,8 @@ describe("comparePrices", () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ comparisons: [] }));
     const { comparePrices } = jest.requireActual("@/lib/api/prices");
     // comparePrices is exported but not imported at top — import it now
-    const module = await import("@/lib/api/prices");
-    await module.comparePrices("us_ct");
+    const pricesModule = await import("@/lib/api/prices");
+    await pricesModule.comparePrices("us_ct");
     const url = mockFetch.mock.calls[0]![0] as string;
     expect(url).toContain("/api/v1/prices/compare");
     expect(url).toContain("region=us_ct");
