@@ -5,6 +5,18 @@ on:
     branches: [main, develop]
   push:
     branches: [main, develop]
+  workflow_dispatch:
+    # Manual trigger for dress rehearsals + ad-hoc verification.
+    # The push/PR triggers gate by `frontend/**` paths-filter (see
+    # `Detect Changes` job below), which means backend-only commits skip
+    # E2E entirely. workflow_dispatch bypasses the path filter and forces
+    # the full suite to run regardless of what changed.
+    inputs:
+      reason:
+        description: "Why are you running E2E manually? (dress-rehearsal, debug, etc.)"
+        required: false
+        default: "manual-verification"
+        type: string
 
 concurrency:
   group: e2e-${{ github.ref }}
@@ -43,7 +55,8 @@ jobs:
   e2e-tests:
     name: E2E Tests
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    # Run when frontend changed OR when manually dispatched (bypasses path filter)
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

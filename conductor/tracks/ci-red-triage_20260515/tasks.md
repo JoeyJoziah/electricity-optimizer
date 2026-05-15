@@ -10,4 +10,4 @@
 - [ ] Task 3.2: Commit + push, verify npm audit step green
 - [x] Task 4.1: Decide canonical Python formatter — DECIDED: ruff
 - [x] Task 4.2: Execute chosen option — ci.yml + Makefile swapped to ruff
-- [ ] Task 4.3: Commit + push, verify Backend Lint green
+- [x] Task 4.3: Commit + push, verify Backend Lint green (took 3 iterations; root cause was flake8 still running with conflicting rule set — removed)

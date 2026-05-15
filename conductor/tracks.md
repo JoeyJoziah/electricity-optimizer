@@ -35,7 +35,7 @@
 | [x] | codebase-audit-remediation_20260316 | Codebase Audit Remediation 2026-03-16 (5 sprints: security, reliability, tests/deps, correctness, polish) | 2026-03-16 | 2026-05-11 |
 | [x] | launch-readiness_20260323 | Launch-Gap Analysis | 2026-03-23 | 2026-05-11 |
 
-| [~] | ci-red-triage_20260515 | CI Red Triage — 4 originally-planned failures exposed by `7d6834c8` (Phase 1 pip-audit ✅, Phase 2 migration SERIAL ✅, Phase 3 npm audit HALTED, Phase 4 lint config drift HUMAN). +5 latent reds discovered (migration apply, ML tensorflow pin, next.config.js, frontend lint typo, integration test fixture) — see plan.md "Discovered Latent Reds" | 2026-05-15 | 2026-05-15 |
+| [~] | ci-red-triage_20260515 | CI Red Triage — 4 originally-planned failures (Phase 1 pip-audit ✅, Phase 2 migration SERIAL ✅, Phase 3 npm audit HALTED on Next 16 unfixable, Phase 4 lint config drift ✅ ruff replaces black+flake8). +5 latent reds remain (migration apply jsonb, ML tensorflow pin, next.config.js:12, frontend lint typo, integration test fixture) — open as separate tracks before launch | 2026-05-15 | 2026-05-15 |
 | [~] | ph-relaunch-jun2_20260515 | Product Hunt Relaunch — Jun 2 2026 12:01am PT. Wraps remaining 6 PRD scope items + #4 activation + #13 residual + dress rehearsal + go/no-go gate. Depends on `ci-red-triage_20260515` (CI green) + `pre-launch-completion_20260407` Task 2.3 (social handles overlap). Slip rule: 1-week max to Jun 9, second slip → PRD v4 rewrite | 2026-05-15 | 2026-05-15 |
 
 <!-- Tracks registered by /conductor:new-track -->
