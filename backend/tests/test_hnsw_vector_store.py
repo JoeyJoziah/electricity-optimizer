@@ -40,8 +40,8 @@ class TestConstruction:
             mock_build.assert_called_once()
             assert store._dimension == 24
             assert store._max_elements == 10000
-            assert store._ef_search == 50
-            assert store._M == 16
+            assert store._ef_search == 32
+            assert store._M == 12
 
     @patch("services.hnsw_vector_store.VectorStore")
     @patch("services.hnsw_vector_store.HNSW_AVAILABLE", False)
@@ -135,8 +135,8 @@ class TestBuildIndex:
 
         # HNSW index should have been initialized
         mock_hnswlib.Index.assert_called_with(space="cosine", dim=24)
-        mock_index.init_index.assert_called_once_with(max_elements=10000, ef_construction=200, M=16)
-        mock_index.set_ef.assert_called_once_with(50)
+        mock_index.init_index.assert_called_once_with(max_elements=10000, ef_construction=200, M=12)
+        mock_index.set_ef.assert_called_once_with(32)
 
         # Two vectors should have been added
         assert mock_index.add_items.called
@@ -857,6 +857,9 @@ class TestGetStats:
         mock_index.get_current_count.return_value = 42
         mock_index.get_max_elements.return_value = 10000
         store._index = mock_index
+        store._dimension = 24
+        store._ef_search = 32
+        store._M = 12
 
         stats = store.get_stats()
 
@@ -864,6 +867,10 @@ class TestGetStats:
         assert stats["hnsw_available"] is True
         assert stats["hnsw_count"] == 42
         assert stats["hnsw_max_elements"] == 10000
+        assert stats["hnsw_ef_search"] == 32
+        assert stats["hnsw_M"] == 12
+        # 42 vectors * 24 dim * 4 bytes + 42 * 12 * 8 * 2 = 4032 + 8064 = 12096
+        assert stats["hnsw_memory_estimate_bytes"] == 12096
 
     @patch("services.hnsw_vector_store.HNSW_AVAILABLE", False)
     def test_get_stats_without_hnsw(self):
@@ -1098,6 +1105,8 @@ class TestEdgeCases:
         store._store = MagicMock()
         store._store._db_path = "/tmp/test.db"
         store._dimension = 24
+        store._ef_search = 32
+        store._M = 12
         store._index = mock_index
         store._label_to_id = {0: "meta-vec"}
         store._id_to_label = {"meta-vec": 0}
@@ -1248,3 +1257,79 @@ class TestEdgeCases:
             confidence=1.0,
             vector_id=None,
         )
+
+
+# =============================================================================
+# RECALL CHECK
+# =============================================================================
+
+
+class TestRecallCheck:
+    """Tests for HNSWVectorStore.recall_check."""
+
+    def test_recall_check_no_index(self):
+        from services.hnsw_vector_store import HNSWVectorStore
+
+        store = HNSWVectorStore.__new__(HNSWVectorStore)
+        store._index = None
+
+        result = store.recall_check()
+        assert result["error"] == "hnsw_unavailable"
+        assert result["recall"] is None
+
+    def test_recall_check_empty_index(self):
+        from services.hnsw_vector_store import HNSWVectorStore
+
+        store = HNSWVectorStore.__new__(HNSWVectorStore)
+        mock_index = MagicMock()
+        mock_index.get_current_count.return_value = 0
+        store._index = mock_index
+
+        result = store.recall_check()
+        assert result["error"] == "empty_index"
+        assert result["recall"] is None
+        assert result["sample_size"] == 0
+
+    @patch("services.hnsw_vector_store.sqlite3")
+    def test_recall_check_perfect_recall_on_identical_queries(self, mock_sqlite):
+        """Querying with vectors that exist in the corpus should hit recall=1.0
+        when HNSW returns the same identity matches as brute-force."""
+        from services.hnsw_vector_store import HNSWVectorStore
+
+        store = HNSWVectorStore.__new__(HNSWVectorStore)
+        store._store = MagicMock()
+        store._store._db_path = "/tmp/test.db"
+        store._dimension = 4
+        store._ef_search = 32
+        store._M = 12
+        store._label_to_id = {0: "a", 1: "b", 2: "c"}
+
+        # Three orthogonal vectors -> brute-force top-1 for each is itself.
+        vecs = np.eye(4, dtype=np.float32)[:3]  # shape (3, 4)
+        store._store._bytes_to_vector.side_effect = lambda b: np.frombuffer(b, dtype=np.float32)
+        rows = [("a", vecs[0].tobytes()), ("b", vecs[1].tobytes()), ("c", vecs[2].tobytes())]
+
+        # Sample query call returns 2 rows; corpus call returns all 3.
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.side_effect = [rows[:2], rows]
+        mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+        mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_index = MagicMock()
+        mock_index.get_current_count.return_value = 3
+        # HNSW returns the correct label for each query
+        mock_index.knn_query.side_effect = [
+            (np.array([[0]]), np.array([[0.0]])),
+            (np.array([[1]]), np.array([[0.0]])),
+        ]
+        store._index = mock_index
+
+        result = store.recall_check(sample_size=2, k=1)
+        assert result["recall"] == 1.0
+        assert result["sample_size"] == 2
+        assert result["k"] == 1
+        assert result["corpus_size"] == 3
+        assert result["ef_search"] == 32
+        assert result["M"] == 12
+        assert result["p50_latency_ms"] is not None
+        assert result["p99_latency_ms"] is not None

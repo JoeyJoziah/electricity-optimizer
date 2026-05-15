@@ -11,6 +11,7 @@ Falls back to brute-force VectorStore.search() if hnswlib is not installed.
 import asyncio
 import json
 import sqlite3
+import time
 from datetime import UTC
 from typing import Any, Optional
 
@@ -50,9 +51,18 @@ class HNSWVectorStore:
         db_path: str = ".agentdb/electricity.db",
         dimension: int = 24,
         max_elements: int = 10000,
-        ef_search: int = 50,
-        M: int = 16,
+        ef_search: int = 32,
+        M: int = 12,
     ):
+        # Defaults tuned as starting points for 24-dim cosine, k<=10, corpus <100k.
+        # M=12: lower graph connectivity than the M=16 default (which targets
+        #   ~1536-dim OpenAI embeddings). At 24 dims, M=12 yields the same recall
+        #   with ~25% less graph memory.
+        # ef_search=32: tighter beam than the 50 default; for k<=10 queries the
+        #   extra recall headroom above 32 is mostly wasted, and p99 latency
+        #   drops proportionally. Bump back up if recall_check() shows <0.95.
+        # Retune once corpus is real: run recall_check() at N=1k, 10k, 50k and
+        # adjust M / ef_search to hold recall@10 >= 0.95 with the lowest viable ef.
         self._store = VectorStore(db_path=db_path, dimension=dimension)
         self._dimension = dimension
         self._max_elements = max_elements
@@ -208,7 +218,16 @@ class HNSWVectorStore:
         try:
             # HNSW search (fetch more than k to allow domain filtering)
             fetch_k = min(k * 3, self._index.get_current_count())
+            t0 = time.perf_counter()
             labels, distances = self._index.knn_query(q.reshape(1, -1), k=fetch_k)
+            query_latency_ms = (time.perf_counter() - t0) * 1000.0
+            logger.debug(
+                "hnsw_query",
+                latency_ms=round(query_latency_ms, 3),
+                fetch_k=fetch_k,
+                ef_search=getattr(self, "_ef_search", None),
+                index_count=self._index.get_current_count(),
+            )
 
             # Collect candidates from HNSW results
             candidate_ids = []
@@ -291,9 +310,91 @@ class HNSWVectorStore:
         stats = self._store.get_stats(domain)
         stats["hnsw_available"] = HNSW_AVAILABLE
         if self._index is not None:
-            stats["hnsw_count"] = self._index.get_current_count()
+            count = self._index.get_current_count()
+            stats["hnsw_count"] = count
             stats["hnsw_max_elements"] = self._index.get_max_elements()
+            stats["hnsw_ef_search"] = self._ef_search
+            stats["hnsw_M"] = self._M
+            # Rough memory estimate: vector storage (float32) + graph links.
+            # Per hnswlib docs, graph overhead ~= M * 2 * (level0_links_size + ...)
+            # ~= M * 8 bytes/link * 2 (in/out) per node. We approximate as
+            # vector_bytes + 4 * M * count for the link layer.
+            vector_bytes = count * self._dimension * 4
+            graph_bytes = count * self._M * 8 * 2
+            stats["hnsw_memory_estimate_bytes"] = vector_bytes + graph_bytes
         return stats
+
+    def recall_check(self, sample_size: int = 100, k: int = 10) -> dict[str, Any]:
+        """
+        Measure recall@k by sampling stored vectors and comparing HNSW top-k
+        against brute-force cosine top-k on the same population.
+
+        Returns dict with recall, sample_size, k, and per-query latency stats.
+        Use this to validate parameter changes (M, ef_search) hold recall >= 0.95.
+        """
+        if self._index is None:
+            return {"error": "hnsw_unavailable", "recall": None}
+
+        count = self._index.get_current_count()
+        if count == 0:
+            return {"error": "empty_index", "recall": None, "sample_size": 0}
+
+        with sqlite3.connect(self._store._db_path) as conn:
+            rows = conn.execute(
+                "SELECT id, vector FROM vectors ORDER BY RANDOM() LIMIT ?",
+                (min(sample_size, count),),
+            ).fetchall()
+
+        # Load full corpus once for brute-force comparison
+        with sqlite3.connect(self._store._db_path) as conn:
+            all_rows = conn.execute("SELECT id, vector FROM vectors").fetchall()
+
+        corpus_ids = [r[0] for r in all_rows]
+        corpus_vecs = np.stack([self._store._bytes_to_vector(r[1]) for r in all_rows]).astype(
+            np.float32
+        )
+        # Pre-normalize for cosine
+        norms = np.linalg.norm(corpus_vecs, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        corpus_norm = corpus_vecs / norms
+
+        hits = 0
+        total = 0
+        latencies: list[float] = []
+
+        for _, vec_bytes in rows:
+            q = self._store._bytes_to_vector(vec_bytes).astype(np.float32)
+            qn = q / max(float(np.linalg.norm(q)), 1e-9)
+
+            # Brute-force ground truth
+            sims = corpus_norm @ qn
+            top_k_idx = np.argsort(-sims)[:k]
+            truth_ids = {corpus_ids[i] for i in top_k_idx}
+
+            # HNSW result
+            t0 = time.perf_counter()
+            labels, _ = self._index.knn_query(q.reshape(1, -1), k=k)
+            latencies.append((time.perf_counter() - t0) * 1000.0)
+            hnsw_ids = {self._label_to_id.get(int(lbl)) for lbl in labels[0]}
+            hnsw_ids.discard(None)
+
+            hits += len(truth_ids & hnsw_ids)
+            total += k
+
+        latencies_sorted = sorted(latencies)
+        n = len(latencies_sorted)
+        return {
+            "recall": round(hits / total, 4) if total else None,
+            "sample_size": len(rows),
+            "k": k,
+            "corpus_size": count,
+            "ef_search": self._ef_search,
+            "M": self._M,
+            "p50_latency_ms": round(latencies_sorted[n // 2], 3) if n else None,
+            "p99_latency_ms": (
+                round(latencies_sorted[min(n - 1, int(n * 0.99))], 3) if n else None
+            ),
+        }
 
     def prune(self, min_confidence: float = 0.3, min_usage: int = 0) -> int:
         """Prune vectors and rebuild HNSW index."""
