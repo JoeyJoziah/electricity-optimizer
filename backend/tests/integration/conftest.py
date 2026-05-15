@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Skip the whole package if postgres is not configured. CI sets this; local
@@ -67,7 +68,7 @@ async def db(engine) -> AsyncGenerator[AsyncSession, None]:
         # actually persisting beyond the outer transaction we will roll back.
         async with SessionLocal(bind=conn) as session:
 
-            @session.sync_session.event.listens_for(session.sync_session, "after_transaction_end")
+            @event.listens_for(session.sync_session, "after_transaction_end")
             def _restart_savepoint(s, transaction):  # pragma: no cover — fixture wiring
                 if transaction.nested and not transaction._parent.nested:
                     s.begin_nested()
