@@ -28,7 +28,7 @@
 | [x] | audit-remediation_20260323 | Codebase Audit Remediation 2026-03-23 (~560 findings, 75 tasks, 9 sprints) | 2026-03-23 | 2026-03-23 |
 
 | [~] | pre-launch-completion_20260407 | Pre-Launch Completion — Infra, GA4, Code TODOs, CF Data Quality. **Sprint 2 partial: Task 2.1 visual regression baseline DONE 2026-05-11 (workflow fixed across 3 commits, 12 chromium-linux baselines committed). Remaining: 2.2 status page, 2.3 social media accounts** | 2026-04-07 | 2026-05-11 |
-| [~] | launch-execution_20260407 | Product Hunt Launch Execution — Campaign, Content, Launch Day. **2/10 done** (PH account + date selection). **POSTPONED INDEFINITELY** — original Apr 14 2026 date passed. Audit + hardening sprint ran Apr 27 in lieu of launch. No new target date set. Resume requires: Sprint 2 items closed, P0-6/P1-7/P1-19/P1-20 infra items addressed, new launch date | 2026-04-07 | 2026-05-11 |
+| [x] | launch-execution_20260407 | Product Hunt Launch Execution — SUPERSEDED 2026-05-15 by `ph-relaunch-jun2_20260515`. The Apr 14 2026 launch never happened; Phase 0 deliverables (PH account, date selection) preserved as historical record. Jun 2 2026 attempt is tracked in the new conductor track | 2026-04-07 | 2026-05-15 |
 | [ ] | post-launch-growth_20260407 | Post-Launch Growth & Scaling — Infra Triggers, Product Expansion, Community (17 tasks, trigger-gated, starts post-launch). Gate still closed pending launch-execution resumption | 2026-04-07 | 2026-05-11 |
 
 | [x] | zenith-p0-fixes_20260312 | Zenith P0 — Production Safety Fixes (superseded by audit-remediation line) | 2026-03-12 | 2026-05-11 |
@@ -37,5 +37,6 @@
 
 | [~] | ci-red-triage_20260515 | CI Red Triage — 4 originally-planned failures (Phase 1 pip-audit ✅, Phase 2 migration SERIAL ✅, Phase 3 npm audit HALTED on Next 16 unfixable, Phase 4 lint config drift ✅ ruff replaces black+flake8). +5 latent reds remain (migration apply jsonb, ML tensorflow pin, next.config.js:12, frontend lint typo, integration test fixture) — open as separate tracks before launch | 2026-05-15 | 2026-05-15 |
 | [~] | ph-relaunch-jun2_20260515 | Product Hunt Relaunch — Jun 2 2026 12:01am PT. Wraps remaining 6 PRD scope items + #4 activation + #13 residual + dress rehearsal + go/no-go gate. Depends on `ci-red-triage_20260515` (CI green) + `pre-launch-completion_20260407` Task 2.3 (social handles overlap). Slip rule: 1-week max to Jun 9, second slip → PRD v4 rewrite | 2026-05-15 | 2026-05-15 |
+| [~] | ci-pydantic-import_20260515 | CI Backend Cannot Boot — `pydantic==2.12.5` silently downgraded to 1.10.26 by `safety==3.0.0` transitive dep. Removes safety from `requirements-dev.txt` (unused; pip-audit covers same role). Affects Backend Tests, Security Tests, E2E Tests jobs | 2026-05-15 | 2026-05-15 |
 
 <!-- Tracks registered by /conductor:new-track -->
