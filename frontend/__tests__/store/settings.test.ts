@@ -425,7 +425,7 @@ describe("useSettingsStore", () => {
       const origWindow = globalThis.window;
 
       // Remove window to simulate SSR
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       delete (globalThis as any).window;
 
       // Re-require the module so createJSONStorage runs with window undefined.

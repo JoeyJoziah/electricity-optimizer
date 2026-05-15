@@ -208,16 +208,13 @@ jest.mock("next/dynamic", () => {
     const src = loader.toString();
     // DashboardContent (loaded by UtilityTabShell)
     if (src.includes("DashboardContent")) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require("@/components/dashboard/DashboardContent").default;
     }
     // Chart components (loaded by DashboardCharts / DashboardForecast)
     if (src.includes("PriceLineChart")) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require("@/components/charts/PriceLineChart").PriceLineChart;
     }
     if (src.includes("ForecastChart")) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require("@/components/charts/ForecastChart").ForecastChart;
     }
     // Fallback: noop stub for other dynamic imports (heating oil, propane, etc.)

@@ -535,7 +535,7 @@ test.describe("Billing Flow - Free → Pro tier promotion", () => {
     "billing-portal CTA appears once tier flips to pro",
     { tag: ["@regression"] },
     async ({ authenticatedPage: page }) => {
-      let currentTier: "free" | "pro" = "pro";
+      const currentTier: "free" | "pro" = "pro";
 
       await page.route("**/api/v1/billing/subscription", async (route) => {
         if (route.request().method() === "GET") {

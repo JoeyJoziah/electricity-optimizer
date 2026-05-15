@@ -214,7 +214,6 @@ describe("ConnectionsOverview", () => {
   });
 
   it("shows paid feature gate on 403 error", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { ApiClientError } = require("@/lib/api/client");
     mockApiGet.mockRejectedValueOnce(new ApiClientError("Forbidden", 403));
     render(<ConnectionsOverview />, { wrapper: createWrapper() });

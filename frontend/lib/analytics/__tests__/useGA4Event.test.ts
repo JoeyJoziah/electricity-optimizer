@@ -15,7 +15,7 @@ declare global {
   interface Window {
     // Match the production declaration in ../useGA4Event.ts to avoid a merged
     // declare global conflict between any[] and unknown[].
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     gtag?: (...args: any[]) => void;
     dataLayer?: unknown[];
   }
@@ -33,14 +33,12 @@ describe("useGA4Event hook", () => {
   });
 
   it("returns a trackEvent function", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useGA4Event } = require("@/lib/analytics/useGA4Event");
     const { result } = renderHook(() => useGA4Event());
     expect(typeof result.current.trackEvent).toBe("function");
   });
 
   it("calls window.gtag with event name and params when gtag is defined", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useGA4Event } = require("@/lib/analytics/useGA4Event");
     const mockGtag = jest.fn();
     window.gtag = mockGtag;
@@ -57,7 +55,6 @@ describe("useGA4Event hook", () => {
   });
 
   it("calls window.gtag without params when none provided", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useGA4Event } = require("@/lib/analytics/useGA4Event");
     const mockGtag = jest.fn();
     window.gtag = mockGtag;
@@ -72,7 +69,6 @@ describe("useGA4Event hook", () => {
   });
 
   it("is a no-op (does not throw) when window.gtag is not defined", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useGA4Event } = require("@/lib/analytics/useGA4Event");
     // Ensure gtag is absent
     delete window.gtag;
@@ -87,7 +83,6 @@ describe("useGA4Event hook", () => {
   });
 
   it("supports all documented event names without TypeScript errors at runtime", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useGA4Event } = require("@/lib/analytics/useGA4Event");
     const mockGtag = jest.fn();
     window.gtag = mockGtag;
@@ -111,7 +106,6 @@ describe("useGA4Event hook", () => {
   });
 
   it("passes arbitrary extra params through to gtag", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useGA4Event } = require("@/lib/analytics/useGA4Event");
     const mockGtag = jest.fn();
     window.gtag = mockGtag;
