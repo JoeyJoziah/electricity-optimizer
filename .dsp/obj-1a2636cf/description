@@ -1,0 +1,3 @@
+source: frontend/lib/auth/turnstile.ts
+kind: object
+purpose: Shared library utility for Turnstile

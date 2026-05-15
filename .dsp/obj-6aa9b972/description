@@ -1,0 +1,3 @@
+source: workers/api-gateway/src/handlers/proxy.ts
+kind: object
+purpose: Origin fetch timeout. Render Free tier cold-start + 30s app boot has been

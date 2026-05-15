@@ -1,0 +1,3 @@
+source: backend/services/drip_service.py
+kind: object
+purpose: Drip Email Service

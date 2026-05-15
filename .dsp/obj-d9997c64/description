@@ -1,0 +1,3 @@
+source: backend/api/v1/public_unsubscribe.py
+kind: object
+purpose: Public Unsubscribe Endpoint

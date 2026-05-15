@@ -1,0 +1,3 @@
+source: frontend/lib/analytics/useGA4Event.ts
+kind: object
+purpose: Shared library utility for Usega4Event

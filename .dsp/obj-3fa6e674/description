@@ -1,0 +1,3 @@
+source: frontend/components/auto-switcher/ProtectedBanner.tsx
+kind: object
+purpose: UI component for Protectedbanner

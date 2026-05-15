@@ -1,0 +1,3 @@
+source: backend/middleware/origin_secret.py
+kind: object
+purpose: CF Worker Origin-Secret Middleware

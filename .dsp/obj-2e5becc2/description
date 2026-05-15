@@ -1,0 +1,3 @@
+source: frontend/lib/analytics/ga4.tsx
+kind: object
+purpose: Shared library utility for Ga4
