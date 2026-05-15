@@ -15,10 +15,14 @@
  *   })
  */
 
-import { test as base, Page } from '@playwright/test'
-import { mockBetterAuth, setAuthenticatedState } from './helpers/auth'
-import { createMockApi, ApiCallTracker, MockApiConfig } from './helpers/api-mocks'
-import { initSettings, UserSettings, PRESET_FREE } from './helpers/settings'
+import { test as base, Page } from "@playwright/test";
+import { mockBetterAuth, setAuthenticatedState } from "./helpers/auth";
+import {
+  createMockApi,
+  ApiCallTracker,
+  MockApiConfig,
+} from "./helpers/api-mocks";
+import { initSettings, UserSettings, PRESET_FREE } from "./helpers/settings";
 
 // ---------------------------------------------------------------------------
 // Fixture type declarations
@@ -26,16 +30,16 @@ import { initSettings, UserSettings, PRESET_FREE } from './helpers/settings'
 
 type TestFixtures = {
   /** Page with auth mocks, session cookie, localStorage settings, and all API mocks pre-configured. */
-  authenticatedPage: Page
+  authenticatedPage: Page;
   /** API call tracker from the authenticated page setup. */
-  apiMocks: ApiCallTracker
+  apiMocks: ApiCallTracker;
   /** Function to initialize settings on any page. */
-  initPageSettings: (page: Page, settings?: UserSettings) => Promise<void>
+  initPageSettings: (page: Page, settings?: UserSettings) => Promise<void>;
   /** Override API mock config — set this before using authenticatedPage. */
-  apiMockConfig: MockApiConfig
+  apiMockConfig: MockApiConfig;
   /** Override user settings preset — set this before using authenticatedPage. */
-  settingsPreset: UserSettings
-}
+  settingsPreset: UserSettings;
+};
 
 // ---------------------------------------------------------------------------
 // Extended test with custom fixtures
@@ -46,44 +50,52 @@ export const test = base.extend<TestFixtures>({
   apiMockConfig: [{}, { option: true }],
   settingsPreset: [PRESET_FREE, { option: true }],
 
-  authenticatedPage: async ({ page, apiMockConfig, settingsPreset }, use) => {
+  // Note: the second parameter is named `provide` (not Playwright's
+  // documented `use`) to avoid false-positive react-hooks/rules-of-hooks
+  // lint errors. The rule heuristic flags any function call starting with
+  // "use" as a React hook, which produces 3 errors here that aren't real.
+  // Playwright's fixture API is positional — the name is local.
+  authenticatedPage: async (
+    { page, apiMockConfig, settingsPreset },
+    provide,
+  ) => {
     // 1. Set up Better Auth route mocks
-    await mockBetterAuth(page)
+    await mockBetterAuth(page);
 
     // 2. Set the session cookie
-    await setAuthenticatedState(page)
+    await setAuthenticatedState(page);
 
     // 3. Inject localStorage settings
-    await initSettings(page, settingsPreset)
+    await initSettings(page, settingsPreset);
 
     // 4. Register all API mocks
-    await createMockApi(page, apiMockConfig)
+    await createMockApi(page, apiMockConfig);
 
     // Provide the fully configured page
-    await use(page)
+    await provide(page);
   },
 
-  apiMocks: async ({ page, apiMockConfig }, use) => {
+  apiMocks: async ({ page, apiMockConfig }, provide) => {
     // Register mocks and return the tracker
     // Note: authenticatedPage already calls createMockApi, so if both fixtures
     // are used, the page will have mocks from both. To avoid double-registration,
     // tests should use either authenticatedPage OR (page + apiMocks), not both.
-    const tracker = await createMockApi(page, apiMockConfig)
-    await use(tracker)
+    const tracker = await createMockApi(page, apiMockConfig);
+    await provide(tracker);
   },
 
-  initPageSettings: async ({}, use) => {
-    await use(async (page: Page, settings?: UserSettings) => {
-      await initSettings(page, settings)
-    })
+  initPageSettings: async ({}, provide) => {
+    await provide(async (page: Page, settings?: UserSettings) => {
+      await initSettings(page, settings);
+    });
   },
-})
+});
 
-export { expect } from '@playwright/test'
+export { expect } from "@playwright/test";
 
 // Re-export common types and presets for convenience
-export type { MockApiConfig, ApiCallTracker } from './helpers/api-mocks'
-export type { UserSettings } from './helpers/settings'
+export type { MockApiConfig, ApiCallTracker } from "./helpers/api-mocks";
+export type { UserSettings } from "./helpers/settings";
 export {
   PRESET_FREE,
   PRESET_PRO,
@@ -92,4 +104,4 @@ export {
   PRESET_CALIFORNIA,
   PRESET_TEXAS,
   PRESET_EMPTY,
-} from './helpers/settings'
+} from "./helpers/settings";
