@@ -76,10 +76,11 @@ jobs:
           working-directory: backend
 
       - name: Install linting tools
-        # Ruff is the canonical formatter + import-sorter (see backend/pyproject.toml:134
+        # Ruff is the canonical formatter + linter (see backend/pyproject.toml:134
         # and .pre-commit-config.yaml). Pinned to match requirements-dev.txt to keep
-        # CI / pre-commit / dev environments in lockstep.
-        run: pip install ruff==0.15.6 flake8==7.0.0 mypy==1.19.1
+        # CI / pre-commit / dev environments in lockstep. Ruff replaces flake8;
+        # mypy stays separate (different category — type checking, not lint).
+        run: pip install ruff==0.15.6 mypy==1.19.1
 
       - name: Verify ruff format clean
         run: |
@@ -100,11 +101,13 @@ jobs:
             exit 1
           }
 
-      - name: Lint with flake8
-        run: |
-          cd backend
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      # NOTE: flake8 was removed 2026-05-15. Ruff covers the same rule families
+      # (E9, F63, F7, F82) via pyproject.toml's select=["E","W","F",...] and
+      # respects the project's `ignore` list (notably F821 for forward-ref
+      # string type hints). The "Verify ruff lint clean" step above replaces
+      # the flake8 invocation. Complexity warnings (--max-complexity=10) were
+      # advisory-only (--exit-zero); not currently enforced — re-add via ruff
+      # `C901` if you want to gate on it.
 
       - name: Type check with mypy
         run: cd backend && mypy . --ignore-missing-imports --no-strict-optional
