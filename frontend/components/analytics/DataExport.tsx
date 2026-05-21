@@ -50,7 +50,9 @@ export function DataExport({ state }: DataExportProps) {
       a.download = `rateshift_${selectedUtility}_rates.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      setExportTriggered(false);
+      // Reset the trigger on a microtask so the state update does not run
+      // synchronously within this effect (react-hooks/set-state-in-effect).
+      void Promise.resolve().then(() => setExportTriggered(false));
     }
   }, [exportData, format, selectedUtility]);
 

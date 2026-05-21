@@ -1,5 +1,3 @@
-import React from "react";
-
 // ---------------------------------------------------------------------------
 // These pages are thin wrappers that delegate entirely to a content component
 // that lives as a sibling file. We verify only the metadata export since the

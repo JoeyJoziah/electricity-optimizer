@@ -16,7 +16,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures";
 import { mockBetterAuth, clearAuthState } from "./helpers/auth";
-import { createMockApi } from "./helpers/api-mocks";
 
 // ---------------------------------------------------------------------------
 // Shared helper — run axe and surface a readable violation summary

@@ -1,24 +1,50 @@
-'use client'
+"use client";
 
-import React, { useMemo, useState, useCallback } from 'react'
-import { cn } from '@/lib/utils/cn'
-import { formatCurrency } from '@/lib/utils/format'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/input'
-import { Star, Leaf, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react'
-import type { Supplier } from '@/types'
+import React, { useMemo, useState, useCallback } from "react";
+import { cn } from "@/lib/utils/cn";
+import { formatCurrency } from "@/lib/utils/format";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/input";
+import { Star, Leaf, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
+import type { Supplier } from "@/types";
 
 export interface ComparisonTableProps {
-  suppliers: Supplier[]
-  currentSupplierId?: string
-  showFilters?: boolean
-  onSelect?: (supplier: Supplier) => void
-  className?: string
+  suppliers: Supplier[];
+  currentSupplierId?: string;
+  showFilters?: boolean;
+  onSelect?: (supplier: Supplier) => void;
+  className?: string;
 }
 
-type SortField = 'name' | 'avgPricePerKwh' | 'standingCharge' | 'estimatedAnnualCost' | 'rating'
-type SortDirection = 'asc' | 'desc'
+type SortField =
+  | "name"
+  | "avgPricePerKwh"
+  | "standingCharge"
+  | "estimatedAnnualCost"
+  | "rating";
+type SortDirection = "asc" | "desc";
+
+// Hoisted to module scope so it is not re-created on every ComparisonTable
+// render (react-hooks/static-components). Sort state is passed in as props.
+function SortIcon({
+  field,
+  sortField,
+  sortDirection,
+}: {
+  field: SortField;
+  sortField: SortField;
+  sortDirection: SortDirection;
+}) {
+  if (sortField !== field) {
+    return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+  }
+  return sortDirection === "asc" ? (
+    <ChevronUp className="h-4 w-4 text-primary-600" />
+  ) : (
+    <ChevronDown className="h-4 w-4 text-primary-600" />
+  );
+}
 
 export const ComparisonTable: React.FC<ComparisonTableProps> = ({
   suppliers,
@@ -27,87 +53,84 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
   onSelect,
   className,
 }) => {
-  const [sortField, setSortField] = useState<SortField>('estimatedAnnualCost')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [greenEnergyOnly, setGreenEnergyOnly] = useState(false)
+  const [sortField, setSortField] = useState<SortField>("estimatedAnnualCost");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [greenEnergyOnly, setGreenEnergyOnly] = useState(false);
 
   // Filter suppliers
   const filteredSuppliers = useMemo(() => {
-    if (!greenEnergyOnly) return suppliers
-    return suppliers.filter((s) => s.greenEnergy)
-  }, [suppliers, greenEnergyOnly])
+    if (!greenEnergyOnly) return suppliers;
+    return suppliers.filter((s) => s.greenEnergy);
+  }, [suppliers, greenEnergyOnly]);
 
   // Sort suppliers
   const sortedSuppliers = useMemo(() => {
     return [...filteredSuppliers].sort((a, b) => {
-      const aValue = a[sortField]
-      const bValue = b[sortField]
+      const aValue = a[sortField];
+      const bValue = b[sortField];
 
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc'
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return sortDirection === "asc"
           ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue)
+          : bValue.localeCompare(aValue);
       }
 
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
       }
 
-      return 0
-    })
-  }, [filteredSuppliers, sortField, sortDirection])
+      return 0;
+    });
+  }, [filteredSuppliers, sortField, sortDirection]);
 
   // Find cheapest supplier
   const cheapestId = useMemo(() => {
-    if (sortedSuppliers.length === 0) return null
+    if (sortedSuppliers.length === 0) return null;
     return sortedSuppliers.reduce((min, s) =>
-      s.estimatedAnnualCost < min.estimatedAnnualCost ? s : min
-    ).id
-  }, [sortedSuppliers])
+      s.estimatedAnnualCost < min.estimatedAnnualCost ? s : min,
+    ).id;
+  }, [sortedSuppliers]);
 
   // Get current supplier's annual cost for savings calculation
   const currentAnnualCost = useMemo(() => {
-    if (!currentSupplierId) return null
-    const current = suppliers.find((s) => s.id === currentSupplierId)
-    return current?.estimatedAnnualCost ?? null
-  }, [suppliers, currentSupplierId])
+    if (!currentSupplierId) return null;
+    const current = suppliers.find((s) => s.id === currentSupplierId);
+    return current?.estimatedAnnualCost ?? null;
+  }, [suppliers, currentSupplierId]);
 
-  const handleSort = useCallback((field: SortField) => {
-    if (sortField === field) {
-      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortField(field)
-      setSortDirection('asc')
-    }
-  }, [sortField])
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="h-4 w-4 text-gray-400" />
-    }
-    return sortDirection === 'asc' ? (
-      <ChevronUp className="h-4 w-4 text-primary-600" />
-    ) : (
-      <ChevronDown className="h-4 w-4 text-primary-600" />
-    )
-  }
+  const handleSort = useCallback(
+    (field: SortField) => {
+      if (sortField === field) {
+        setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+      } else {
+        setSortField(field);
+        setSortDirection("asc");
+      }
+    },
+    [sortField],
+  );
 
   // Empty state
   if (suppliers.length === 0) {
     return (
       <div
         className={cn(
-          'flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50',
-          className
+          "flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50",
+          className,
         )}
       >
         <p className="text-gray-500">No suppliers available</p>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-gray-200', className)}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border border-gray-200",
+        className,
+      )}
+    >
       {/* Filters */}
       {showFilters && (
         <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
@@ -130,10 +153,14 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
               >
                 <button
                   className="flex items-center gap-1"
-                  onClick={() => handleSort('name')}
+                  onClick={() => handleSort("name")}
                 >
                   Supplier
-                  <SortIcon field="name" />
+                  <SortIcon
+                    field="name"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </button>
               </th>
               <th
@@ -142,10 +169,14 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
               >
                 <button
                   className="flex items-center gap-1"
-                  onClick={() => handleSort('avgPricePerKwh')}
+                  onClick={() => handleSort("avgPricePerKwh")}
                 >
                   Price/kWh
-                  <SortIcon field="avgPricePerKwh" />
+                  <SortIcon
+                    field="avgPricePerKwh"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </button>
               </th>
               <th
@@ -154,10 +185,14 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
               >
                 <button
                   className="flex items-center gap-1"
-                  onClick={() => handleSort('standingCharge')}
+                  onClick={() => handleSort("standingCharge")}
                 >
                   Standing Charge
-                  <SortIcon field="standingCharge" />
+                  <SortIcon
+                    field="standingCharge"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </button>
               </th>
               <th
@@ -166,10 +201,14 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
               >
                 <button
                   className="flex items-center gap-1"
-                  onClick={() => handleSort('estimatedAnnualCost')}
+                  onClick={() => handleSort("estimatedAnnualCost")}
                 >
                   Annual Cost
-                  <SortIcon field="estimatedAnnualCost" />
+                  <SortIcon
+                    field="estimatedAnnualCost"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </button>
               </th>
               <th
@@ -178,34 +217,42 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
               >
                 <button
                   className="flex items-center gap-1"
-                  onClick={() => handleSort('rating')}
+                  onClick={() => handleSort("rating")}
                 >
                   Rating
-                  <SortIcon field="rating" />
+                  <SortIcon
+                    field="rating"
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                  />
                 </button>
               </th>
-              <th scope="col" className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+              <th
+                scope="col"
+                className="px-4 py-3 text-right text-sm font-semibold text-gray-900"
+              >
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {sortedSuppliers.map((supplier) => {
-              const isCheapest = supplier.id === cheapestId
-              const isCurrent = supplier.id === currentSupplierId
+              const isCheapest = supplier.id === cheapestId;
+              const isCurrent = supplier.id === currentSupplierId;
               const savings =
-                currentAnnualCost && currentAnnualCost > supplier.estimatedAnnualCost
+                currentAnnualCost &&
+                currentAnnualCost > supplier.estimatedAnnualCost
                   ? currentAnnualCost - supplier.estimatedAnnualCost
-                  : 0
+                  : 0;
 
               return (
                 <tr
                   key={supplier.id}
                   data-testid={`supplier-row-${supplier.id}`}
                   className={cn(
-                    'hover:bg-gray-50 cursor-pointer',
-                    isCheapest && 'bg-success-50',
-                    isCurrent && 'bg-primary-50'
+                    "hover:bg-gray-50 cursor-pointer",
+                    isCheapest && "bg-success-50",
+                    isCurrent && "bg-primary-50",
                   )}
                   onClick={() => onSelect?.(supplier)}
                 >
@@ -261,8 +308,8 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
                         size="sm"
                         variant="outline"
                         onClick={(e) => {
-                          e.stopPropagation()
-                          onSelect?.(supplier)
+                          e.stopPropagation();
+                          onSelect?.(supplier);
                         }}
                       >
                         Switch
@@ -270,11 +317,11 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
                     )}
                   </td>
                 </tr>
-              )
+              );
             })}
           </tbody>
         </table>
       </div>
     </div>
-  )
-}
+  );
+};

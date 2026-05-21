@@ -94,13 +94,12 @@ describe("useGeocoding", () => {
   });
 
   it("cancels the previous request when a new one is issued", async () => {
-    let firstResolve!: (v: unknown) => void;
     const firstAbortSignals: AbortSignal[] = [];
 
     mockPost.mockImplementation(
       (_url: string, _body: unknown, opts: { signal?: AbortSignal }) => {
         if (opts?.signal) firstAbortSignals.push(opts.signal);
-        return new Promise((r) => (firstResolve = r));
+        return new Promise(() => {});
       },
     );
 

@@ -228,7 +228,6 @@ describe("PortalConnectionFlow", () => {
   });
 
   it("shows validation errors when form is submitted empty", async () => {
-    const user = userEvent.setup();
     render(<PortalConnectionFlow {...defaultProps} />);
 
     await waitFor(() => {

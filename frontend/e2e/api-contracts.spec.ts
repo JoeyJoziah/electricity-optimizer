@@ -14,7 +14,6 @@
  */
 
 import { test, expect } from "./fixtures";
-import { expectApiCalled, expectApiNotCalled } from "./helpers/assertions";
 
 // ---------------------------------------------------------------------------
 // Helper — build an authenticatedPage and return its tracker
@@ -38,7 +37,7 @@ import { expectApiCalled, expectApiNotCalled } from "./helpers/assertions";
 test.describe("API Contracts — Dashboard", () => {
   test("dashboard calls prices/current on load @smoke", async ({
     authenticatedPage,
-    page,
+    page: _page,
   }) => {
     const calledUrls: string[] = [];
     authenticatedPage.on("request", (req) => {
@@ -501,7 +500,7 @@ test.describe("API Contracts — Retry Behavior", () => {
 test.describe("API Contracts — Community Page", () => {
   test("community page calls community/posts on load @smoke", async ({
     authenticatedPage,
-    apiMockConfig,
+    apiMockConfig: _apiMockConfig,
   }) => {
     const calledUrls: string[] = [];
     authenticatedPage.on("request", (req) => {

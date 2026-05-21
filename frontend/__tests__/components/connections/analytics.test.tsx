@@ -90,11 +90,8 @@ describe("RateComparisonCard", () => {
   it("renders populated data after fetch resolves", async () => {
     mockFetchAnalytics.mockResolvedValue(_comparison);
     render(<RateComparisonCard refreshKey={0} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("rate-comparison-card")).toBeInTheDocument(),
-    );
     // user_rate * 100 = 14.00 c/kWh
-    expect(screen.getByText(/14\.00/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/14\.00/)).toBeInTheDocument());
     expect(screen.getByText(/12\.00/)).toBeInTheDocument();
   });
 

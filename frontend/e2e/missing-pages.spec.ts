@@ -11,7 +11,7 @@
  * - /assistant (protected) — AI agent chat
  */
 
-import { test, expect, PRESET_PRO } from "./fixtures";
+import { test, expect } from "./fixtures";
 import { mockBetterAuth } from "./helpers/auth";
 import { createMockApi } from "./helpers/api-mocks";
 
@@ -302,7 +302,7 @@ test.describe("OAuth Callback Page", { tag: ["@regression"] }, () => {
     await createMockApi(page);
 
     // Block dashboard navigation so the fallback timer can fire
-    await page.route("**/dashboard**", async (route) => {
+    await page.route("**/dashboard**", async (_route) => {
       // Never fulfill — simulates a stuck redirect
       await new Promise(() => {});
     });

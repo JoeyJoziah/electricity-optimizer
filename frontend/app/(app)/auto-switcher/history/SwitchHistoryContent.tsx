@@ -23,7 +23,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Loader2,
   ArrowLeft,
 } from "lucide-react";
 

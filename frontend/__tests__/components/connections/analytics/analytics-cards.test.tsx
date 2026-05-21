@@ -79,9 +79,8 @@ jest.mock("@/lib/utils/cn", () => ({
 }));
 
 jest.mock("lucide-react", () => {
-  const icon =
-    (name: string) =>
-    ({
+  const icon = (name: string) => {
+    const Icon = ({
       className,
       "aria-hidden": ah,
     }: {
@@ -94,6 +93,9 @@ jest.mock("lucide-react", () => {
         aria-hidden={ah}
       />
     );
+    Icon.displayName = `Icon(${name})`;
+    return Icon;
+  };
   return {
     DollarSign: icon("dollar-sign"),
     Loader2: icon("loader-2"),

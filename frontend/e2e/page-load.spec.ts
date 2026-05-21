@@ -20,7 +20,7 @@
  */
 
 import { test, expect } from "./fixtures";
-import { type Page, type Route } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import {
   mockBetterAuth,
   setAuthenticatedState,

@@ -19,12 +19,7 @@
  */
 
 import { test, expect } from "./fixtures";
-import {
-  expectPagePerformance,
-  measureLCP,
-  measureCLS,
-  measureNavigation,
-} from "./helpers/assertions";
+import { expectPagePerformance, measureNavigation } from "./helpers/assertions";
 
 // LCP and CLS budgets
 const BUDGETS = {

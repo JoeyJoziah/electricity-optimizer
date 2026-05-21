@@ -81,7 +81,7 @@ test.describe(
   { tag: ["@regression"] },
   () => {
     test("internal drip endpoint is NOT reachable without API key from browser", async ({
-      page,
+      page: _page,
       request,
     }) => {
       // The /internal/drip/enroll endpoint requires X-API-Key (verified by

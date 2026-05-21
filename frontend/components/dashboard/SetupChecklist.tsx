@@ -1,79 +1,107 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
-import { useSettingsStore } from '@/lib/store/settings'
-import { useUserSupplier } from '@/lib/hooks/useSuppliers'
-import { CheckCircle2, Circle, ArrowRight, X, Sparkles } from 'lucide-react'
-import { STATE_LABELS } from '@/lib/constants/regions'
-import { cn } from '@/lib/utils/cn'
-import { useConnections } from '@/lib/hooks/useConnections'
+import React, { useSyncExternalStore } from "react";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { useSettingsStore } from "@/lib/store/settings";
+import { useUserSupplier } from "@/lib/hooks/useSuppliers";
+import { CheckCircle2, Circle, ArrowRight, X, Sparkles } from "lucide-react";
+import { STATE_LABELS } from "@/lib/constants/regions";
+import { cn } from "@/lib/utils/cn";
+import { useConnections } from "@/lib/hooks/useConnections";
 
-const DISMISSED_KEY = 'setup-checklist-dismissed'
+const DISMISSED_KEY = "setup-checklist-dismissed";
+
+// External store for the dismissed flag. Using useSyncExternalStore keeps the
+// localStorage read out of an effect (avoids react-hooks/set-state-in-effect)
+// while staying SSR-safe: the server snapshot is null (renders nothing) and the
+// client reconciles to the real value on hydration.
+const DISMISS_EVENT = "setup-checklist-dismissed-change";
+
+function subscribeDismissed(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", onChange);
+  window.addEventListener(DISMISS_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(DISMISS_EVENT, onChange);
+  };
+}
+
+function getDismissedSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(DISMISSED_KEY) === "true";
+}
+
+// Server snapshot signals "not yet known" so SSR renders nothing.
+function getDismissedServerSnapshot(): boolean | null {
+  return null;
+}
 
 interface ChecklistItem {
-  id: string
-  label: string
-  detail?: string
-  done: boolean
-  href?: string
-  cta?: string
+  id: string;
+  label: string;
+  detail?: string;
+  done: boolean;
+  href?: string;
+  cta?: string;
 }
 
 export function SetupChecklist() {
-  const [dismissed, setDismissed] = useState<boolean | null>(null) // null = not yet loaded
+  const dismissed = useSyncExternalStore(
+    subscribeDismissed,
+    getDismissedSnapshot,
+    getDismissedServerSnapshot,
+  );
 
-  const region = useSettingsStore((s) => s.region)
-  const currentSupplier = useSettingsStore((s) => s.currentSupplier)
-  const { data: supplierData } = useUserSupplier()
-  const { data: connectionsData } = useConnections()
+  const region = useSettingsStore((s) => s.region);
+  const currentSupplier = useSettingsStore((s) => s.currentSupplier);
+  const { data: supplierData } = useUserSupplier();
+  const { data: connectionsData } = useConnections();
 
-  // Check localStorage on mount
-  useEffect(() => {
-    setDismissed(localStorage.getItem(DISMISSED_KEY) === 'true')
-  }, [])
-
-  const hasSupplier = !!(currentSupplier || supplierData?.supplier)
+  const hasSupplier = !!(currentSupplier || supplierData?.supplier);
 
   const items: ChecklistItem[] = [
     {
-      id: 'region',
-      label: 'Select your state',
+      id: "region",
+      label: "Select your state",
       detail: region ? STATE_LABELS[region] || region : undefined,
       done: !!region,
-      href: '/settings',
-      cta: 'Go to Settings',
+      href: "/settings",
+      cta: "Go to Settings",
     },
     {
-      id: 'supplier',
-      label: 'Choose your energy supplier',
+      id: "supplier",
+      label: "Choose your energy supplier",
       done: hasSupplier,
-      href: '/suppliers',
-      cta: 'Browse Suppliers',
+      href: "/suppliers",
+      cta: "Browse Suppliers",
     },
     {
-      id: 'connection',
-      label: 'Connect your utility account',
+      id: "connection",
+      label: "Connect your utility account",
       done: (connectionsData?.connections?.length ?? 0) > 0,
-      href: '/connections',
-      cta: 'Set up Connection',
+      href: "/connections",
+      cta: "Set up Connection",
     },
-  ]
+  ];
 
-  const completedCount = items.filter((i) => i.done).length
-  const allDone = completedCount === items.length
+  const completedCount = items.filter((i) => i.done).length;
+  const allDone = completedCount === items.length;
 
   // Hide if all done or dismissed
-  if (allDone || dismissed || dismissed === null) return null
+  if (allDone || dismissed || dismissed === null) return null;
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, 'true')
-    setDismissed(true)
-  }
+    localStorage.setItem(DISMISSED_KEY, "true");
+    window.dispatchEvent(new Event(DISMISS_EVENT));
+  };
 
   return (
-    <Card className="border-primary-200 bg-gradient-to-r from-primary-50 to-blue-50" data-testid="setup-checklist">
+    <Card
+      className="border-primary-200 bg-gradient-to-r from-primary-50 to-blue-50"
+      data-testid="setup-checklist"
+    >
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
@@ -108,8 +136,8 @@ export function SetupChecklist() {
             <div
               key={item.id}
               className={cn(
-                'flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors',
-                item.done ? 'bg-white/60' : 'bg-white'
+                "flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors",
+                item.done ? "bg-white/60" : "bg-white",
               )}
             >
               <div className="flex items-center gap-3">
@@ -119,14 +147,20 @@ export function SetupChecklist() {
                   <Circle className="h-5 w-5 text-gray-300" />
                 )}
                 <div>
-                  <span className={cn(
-                    'text-sm font-medium',
-                    item.done ? 'text-gray-500 line-through' : 'text-gray-900'
-                  )}>
+                  <span
+                    className={cn(
+                      "text-sm font-medium",
+                      item.done
+                        ? "text-gray-500 line-through"
+                        : "text-gray-900",
+                    )}
+                  >
                     {item.label}
                   </span>
                   {item.detail && (
-                    <span className="ml-2 text-sm text-gray-500">({item.detail})</span>
+                    <span className="ml-2 text-sm text-gray-500">
+                      ({item.detail})
+                    </span>
                   )}
                 </div>
               </div>
@@ -144,5 +178,5 @@ export function SetupChecklist() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
