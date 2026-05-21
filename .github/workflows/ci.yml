@@ -306,13 +306,14 @@ jobs:
           cd ml
           bandit -r . -f json -o ../bandit-report-ml.json -lll
 
-      - name: Run npm audit (high + critical)
+      - name: Run npm audit (high + critical, with documented exceptions)
         run: |
           cd frontend
-          npm audit --audit-level=high || {
-            echo "::error::npm audit found high/critical vulnerabilities"
-            exit 1
-          }
+          # npm audit exits non-zero whenever any vuln exists; capture to a file so
+          # the allow-list script decides pass/fail. See .github/scripts/check_npm_audit.py
+          # for the documented `next`/`kysely` exceptions (review by 2026-07-01).
+          npm audit --json > /tmp/npm-audit.json || true
+          python3 ../.github/scripts/check_npm_audit.py < /tmp/npm-audit.json
 
       - name: Upload security reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
