@@ -94,6 +94,22 @@ Last green CI run on main: `eb5df2ab` (gitignore-only commit, skipped most jobs)
 
 - [ ] Task 3.2: Commit + push, verify npm audit step green
 
+### 2026-05-21 re-investigation + decision (npm audit)
+
+Re-checked 6 days later. Current state: **12 vulns (10 moderate, 2 high)**. The 2 highs:
+- **`next`** (high): advisory range covers up to `16.3.0-canary.5`. Installed is `16.2.2`; latest *stable* is now `16.2.6` — **still inside the vulnerable range**. The only fixed builds are canaries (`16.3.0-canary.6`+). So there is STILL no stable patch. `npm audit fix --force` would downgrade Next to 9.3.3 (catastrophic). **Confirmed unfixable without a major/canary jump.**
+- **`kysely`** (high, transitive): `fixAvailable=true`, likely a clean transitive bump.
+- **10 moderate**: `postcss` (<8.5.10), `ws` (via `miniflare`→`wrangler`) — `npm audit fix` reports these as fixable.
+
+**Decision / options (needs human call — this is a security-policy choice, so NOT auto-applied):**
+1. **Reduce surface now (low risk):** run a *targeted* `npm audit fix` for `kysely` + `postcss` + `ws`/`miniflare`/`wrangler` only (no `next`), verify build + tests. Clears 1 high + most moderates. Leaves only the `next` high.
+2. **Make CI green despite the unfixable `next` high:** switch the Security Scan step from raw `npm audit --audit-level=high` to an allow-list tool (`better-npm-audit` / `audit-ci`) with the specific Next.js GHSA IDs documented as accepted exceptions + an expiry/owner. This is the only way to a green job while Next has no stable patch.
+3. **Accept-risk + monitor:** leave CI red (or non-blocking) and add a watch for Next ≥ the first stable build that exits the advisory range; bump immediately when released.
+
+**Recommendation:** do (1) now to clear the easy high+moderates, AND (2) to unblock the CI gate with a documented, time-boxed exception for the residual Next advisories. (3) alone leaves CI permanently red, which erodes the "tests are sacred" signal.
+
+Status of this Phase remains **[~]** — analysis complete, but it stays open pending the human decision on (1)/(2)/(3); none applied unilaterally.
+
 ---
 
 ## Phase 4: Backend Lint config drift (HUMAN DECISION REQUIRED)
