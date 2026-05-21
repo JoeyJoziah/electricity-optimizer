@@ -523,7 +523,19 @@ class TestSaveAllVisualizations:
                     get_height=MagicMock(return_value=0.8),
                 ),
             ]
-            mock_subplots.return_value = (fig_mock, (ax_mock, ax_mock))
+
+            # plot_schedule_gantt and plot_power_profile call subplots() and
+            # expect a single axes object as the second element.
+            # plot_cost_breakdown calls subplots(1, 2, ...) and expects a
+            # tuple of two axes.  Use side_effect to return the right shape
+            # per call based on whether ncols=2 was requested.
+            def _subplots_side_effect(*args, **kwargs):
+                ncols = kwargs.get("ncols", args[1] if len(args) > 1 else 1)
+                if ncols == 2:
+                    return (fig_mock, (ax_mock, ax_mock))
+                return (fig_mock, ax_mock)
+
+            mock_subplots.side_effect = _subplots_side_effect
             saved = visualizer.save_all_visualizations(
                 result, price_profile, str(tmp_path)
             )

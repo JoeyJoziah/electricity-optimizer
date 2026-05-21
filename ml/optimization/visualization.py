@@ -181,7 +181,7 @@ class ScheduleVisualizer:
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches="tight")
+            fig.savefig(save_path, dpi=150, bbox_inches="tight")
 
         return fig
 
