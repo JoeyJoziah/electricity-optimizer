@@ -2,7 +2,7 @@
 
 **Track ID:** ci-frontend-lint-baseline_20260515
 **Created:** 2026-05-15
-**Status:** [~] Fixed + validated 2026-05-21, PUSH PENDING. `npm run lint` → 0 errors (from 91); 15 `no-console` warnings intentionally retained. Full FE suite 3437/3437. ESLint config untouched, no rules disabled, no tests weakened. Merged to LOCAL main; push gated to a separate user authorization (was not covered by the migration-push approval).
+**Status:** [x] Fixed + validated 2026-05-21, PUSH PENDING. `npm run lint` → 0 errors (from 91); 15 `no-console` warnings intentionally retained. Full FE suite 3437/3437. ESLint config untouched, no rules disabled, no tests weakened. Merged to LOCAL main; push gated to a separate user authorization (was not covered by the migration-push approval).
 **Predecessor:** `ci-frontend-lint-workflow_20260515` (ESLint 9 + flat-config migration)
 
 ## Background

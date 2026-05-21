@@ -2,7 +2,7 @@
 
 **Track ID:** ci-red-triage_20260515
 **Created:** 2026-05-15
-**Status:** [~] In Progress
+**Status:** [x] In Progress
 **Trigger:** Commit `7d6834c8` exposed 4 latent CI failures previously masked by `paths:` filters. All are launch blockers per "tests are sacred."
 
 ## Overview
