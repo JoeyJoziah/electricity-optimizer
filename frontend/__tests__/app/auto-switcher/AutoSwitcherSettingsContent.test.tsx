@@ -1,10 +1,4 @@
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 import "@testing-library/jest-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -197,11 +191,13 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("lucide-react", () => {
-  const icon =
-    (name: string) =>
-    ({ className }: { className?: string }) => (
+  const icon = (name: string) => {
+    const Icon = ({ className }: { className?: string }) => (
       <svg data-testid={`icon-${name}`} className={className} />
     );
+    Icon.displayName = `Icon(${name})`;
+    return Icon;
+  };
   return {
     ArrowLeft: icon("arrow-left"),
     ShieldCheck: icon("shield-check"),

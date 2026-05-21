@@ -1,4 +1,4 @@
-import { render, screen, act } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import React from "react";
 
@@ -61,7 +61,6 @@ describe("TurnstileWidget", () => {
         reset: jest.fn(),
       };
 
-      const onTokenChange = jest.fn();
       // Even without SITE_KEY the component still renders null, so we
       // test the window.turnstile mock setup directly
       expect(window.turnstile).toBeDefined();

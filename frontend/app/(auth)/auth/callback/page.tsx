@@ -20,15 +20,20 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     // Better Auth handles OAuth callbacks server-side via /api/auth/callback/*
     // If a user lands here, redirect them to dashboard
+    let replaceFailed = false;
     try {
       router.replace("/dashboard");
     } catch {
-      // If router.replace fails, show fallback link
-      setShowFallback(true);
+      // If router.replace fails, show fallback link (deferred so the state
+      // update does not run synchronously inside the effect).
+      replaceFailed = true;
     }
 
-    // If still on this page after 5 seconds, show a manual link
-    const timer = setTimeout(() => setShowFallback(true), 5000);
+    // Show fallback immediately on a failed redirect, otherwise after 5s.
+    const timer = setTimeout(
+      () => setShowFallback(true),
+      replaceFailed ? 0 : 5000,
+    );
     return () => clearTimeout(timer);
   }, [router]);
 

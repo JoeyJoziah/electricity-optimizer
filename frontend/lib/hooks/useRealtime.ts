@@ -157,15 +157,16 @@ export function useRealtimePrices(
  */
 export function useRealtimeOptimization() {
   const queryClient = useQueryClient();
-  const [isConnected, setIsConnected] = useState(false);
+  // Polling is set up synchronously on mount and never fails, so the hook is
+  // "connected" from the first render. Initializing to true avoids a synchronous
+  // setState inside the effect (react-hooks/set-state-in-effect).
+  const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
     // Poll for optimization updates every 60 seconds
     const timer = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["optimization"] });
     }, 60_000);
-
-    setIsConnected(true);
 
     return () => {
       clearInterval(timer);
@@ -188,13 +189,18 @@ export function useRealtimeSubscription(
   onUpdate?: (payload: unknown) => void,
 ) {
   const _queryClient = useQueryClient();
-  const [isConnected, setIsConnected] = useState(false);
+  // Polling starts synchronously on mount, so treat the hook as connected from
+  // the first render (avoids a synchronous setState inside the effect).
+  const [isConnected, setIsConnected] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   // Keep a stable ref to the latest onUpdate so the interval never needs to
-  // restart when the caller passes a new inline function reference.
+  // restart when the caller passes a new inline function reference. The ref is
+  // written in an effect (not during render) per react-hooks/refs.
   const onUpdateRef = useRef(onUpdate);
-  onUpdateRef.current = onUpdate;
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
 
   useEffect(() => {
     // Poll every 30 seconds as fallback
@@ -202,8 +208,6 @@ export function useRealtimeSubscription(
       setLastUpdate(new Date());
       onUpdateRef.current?.({ table: config.table, event: config.event });
     }, 30_000);
-
-    setIsConnected(true);
 
     return () => {
       clearInterval(timer);

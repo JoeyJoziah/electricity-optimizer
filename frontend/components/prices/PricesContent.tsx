@@ -54,6 +54,10 @@ const TIME_RANGE_HOURS: Record<TimeRange, number> = {
 
 export default function PricesContent() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>("24h");
+  // Capture "now" once per mount via a lazy state initializer so the
+  // forecast-time projection below stays a pure computation during render
+  // (react-hooks/purity); Date.now() must not be called directly during render.
+  const [mountedNow] = React.useState(() => Date.now());
   const region = useSettingsStore((s) => s.region);
   const priceAlerts = useSettingsStore((s) => s.priceAlerts);
   const addPriceAlert = useSettingsStore((s) => s.addPriceAlert);
@@ -122,7 +126,7 @@ export default function PricesContent() {
         // Use the price's own timestamp if available, otherwise project from now
         const forecastTime = p.timestamp
           ? p.timestamp
-          : new Date(Date.now() + (i + 1) * 60 * 60 * 1000).toISOString();
+          : new Date(mountedNow + (i + 1) * 60 * 60 * 1000).toISOString();
         history.push({
           time: forecastTime,
           price: null,
@@ -133,7 +137,7 @@ export default function PricesContent() {
     }
 
     return history;
-  }, [historyData, forecastData]);
+  }, [historyData, forecastData, mountedNow]);
 
   // Map current price from backend fields — pricesData.prices are ApiPriceResponse
   const rawPrice = pricesData?.prices?.[0] as ApiPriceResponse | undefined;

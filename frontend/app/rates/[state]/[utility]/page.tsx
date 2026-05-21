@@ -48,7 +48,7 @@ export async function generateMetadata({
 
 export async function generateStaticParams() {
   const params: { state: string; utility: string }[] = [];
-  for (const [code, name] of Object.entries(US_STATES)) {
+  for (const [, name] of Object.entries(US_STATES)) {
     for (const [, val] of Object.entries(UTILITY_TYPES)) {
       params.push({ state: stateToSlug(name), utility: val.slug });
     }

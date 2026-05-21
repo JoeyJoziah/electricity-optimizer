@@ -115,7 +115,6 @@ describe("useRealtimePrices", () => {
 
   it("updates lastPrice when a message arrives", async () => {
     const { wrapper, queryClient } = createWrapper();
-    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
     const setQueryDataSpy = jest.spyOn(queryClient, "setQueryData");
 
     const { result } = renderHook(() => useRealtimePrices("us_ct"), {

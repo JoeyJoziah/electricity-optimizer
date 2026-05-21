@@ -1,37 +1,45 @@
-'use client'
+"use client";
 
-import React, { useState, useCallback } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { DiagramList } from '@/components/dev/DiagramList'
-import { DiagramEditor } from '@/components/dev/DiagramEditor'
-import { useDiagramList, useDiagram, useSaveDiagram, useCreateDiagram } from '@/lib/hooks/useDiagrams'
+import React, { useState, useCallback } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { DiagramList } from "@/components/dev/DiagramList";
+import { DiagramEditor } from "@/components/dev/DiagramEditor";
+import {
+  useDiagramList,
+  useDiagram,
+  useSaveDiagram,
+  useCreateDiagram,
+} from "@/lib/hooks/useDiagrams";
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient();
 
 function ArchitectureContent() {
-  const [selected, setSelected] = useState<string | null>(null)
-  const { data: diagrams, isLoading: listLoading } = useDiagramList()
-  const { data: diagramDetail, isLoading: detailLoading } = useDiagram(selected)
-  const saveMutation = useSaveDiagram()
-  const createMutation = useCreateDiagram()
+  const [selected, setSelected] = useState<string | null>(null);
+  const { data: diagrams, isLoading: listLoading } = useDiagramList();
+  const { data: diagramDetail, isLoading: detailLoading } =
+    useDiagram(selected);
+  const saveMutation = useSaveDiagram();
+  const createMutation = useCreateDiagram();
 
   const handleSave = useCallback(
     (data: Record<string, unknown>) => {
       if (selected) {
-        saveMutation.mutate({ name: selected, data })
+        saveMutation.mutate({ name: selected, data });
       }
     },
-    [selected, saveMutation]
-  )
+    [selected, saveMutation],
+  );
 
   const handleCreate = useCallback(() => {
-    const name = window.prompt('Diagram name (letters, numbers, hyphens, underscores):')
+    const name = window.prompt(
+      "Diagram name (letters, numbers, hyphens, underscores):",
+    );
     if (name) {
       createMutation.mutate(name, {
         onSuccess: () => setSelected(name),
-      })
+      });
     }
-  }, [createMutation])
+  }, [createMutation]);
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -46,6 +54,7 @@ function ArchitectureContent() {
       </div>
       <div className="flex-1">
         <DiagramEditor
+          key={selected ?? "__none__"}
           name={selected}
           data={diagramDetail?.data}
           isLoading={detailLoading}
@@ -54,7 +63,7 @@ function ArchitectureContent() {
         />
       </div>
     </div>
-  )
+  );
 }
 
 export default function ArchitecturePage() {
@@ -62,5 +71,5 @@ export default function ArchitecturePage() {
     <QueryClientProvider client={queryClient}>
       <ArchitectureContent />
     </QueryClientProvider>
-  )
+  );
 }

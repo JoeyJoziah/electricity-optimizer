@@ -36,8 +36,10 @@ function makeWrapper() {
       queries: { retry: false },
     },
   });
-  return ({ children }: { children: React.ReactNode }) =>
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client }, children);
+  Wrapper.displayName = "TestWrapper";
+  return Wrapper;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,10 +143,8 @@ describe("useRefreshPrices", () => {
   });
 
   it("is stable across re-renders (same reference)", () => {
-    let renderCount = 0;
     const { result, rerender } = renderHook(
       () => {
-        renderCount++;
         return useRefreshPrices();
       },
       { wrapper: makeWrapper() },

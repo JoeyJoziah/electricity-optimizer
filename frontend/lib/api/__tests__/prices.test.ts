@@ -306,7 +306,6 @@ describe("getPriceForecast — optional params", () => {
 describe("comparePrices", () => {
   it("calls /prices/compare with region param", async () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ comparisons: [] }));
-    const { comparePrices } = jest.requireActual("@/lib/api/prices");
     // comparePrices is exported but not imported at top — import it now
     const pricesModule = await import("@/lib/api/prices");
     await pricesModule.comparePrices("us_ct");

@@ -1,10 +1,4 @@
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 
 // ---------------------------------------------------------------------------
@@ -85,10 +79,7 @@ describe("RateComparisonCard", () => {
   it("renders data on success", async () => {
     mockFetchAnalytics.mockResolvedValue(rateComparison);
     render(<RateComparisonCard refreshKey={0} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("rate-comparison-card")).toBeInTheDocument(),
-    );
-    expect(screen.getByText(/24.00/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/24.00/)).toBeInTheDocument());
     expect(screen.getByText(/20.00/)).toBeInTheDocument();
   });
 
@@ -184,10 +175,9 @@ describe("SavingsEstimateCard", () => {
   it("renders monthly kWh input", async () => {
     mockFetchAnalytics.mockResolvedValue(savingsEstimate);
     render(<SavingsEstimateCard refreshKey={0} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("savings-estimate-card")).toBeInTheDocument(),
+    const input = await waitFor(() =>
+      screen.getByLabelText(/monthly electricity usage/i),
     );
-    const input = screen.getByLabelText(/monthly electricity usage/i);
     expect(input).toBeInTheDocument();
     expect(input).toHaveValue(900);
   });

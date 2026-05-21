@@ -74,7 +74,11 @@ export function TurnstileWidget({
 }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
+  // Lazily seed from an already-present turnstile global so we don't have to
+  // call setState synchronously inside the effect below.
+  const [scriptLoaded, setScriptLoaded] = useState(
+    () => typeof window !== "undefined" && !!window.turnstile,
+  );
 
   // Inject the Turnstile script once per page lifetime. Idempotent — checks
   // for an existing script tag before injecting.
@@ -86,7 +90,7 @@ export function TurnstileWidget({
     }
 
     if (window.turnstile) {
-      setScriptLoaded(true);
+      // Already available — scriptLoaded was seeded from the global above.
       return;
     }
 

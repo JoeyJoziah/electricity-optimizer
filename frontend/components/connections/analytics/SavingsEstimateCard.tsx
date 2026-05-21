@@ -1,100 +1,129 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Card } from '@/components/ui/card'
-import { cn } from '@/lib/utils/cn'
-import { DollarSign, Loader2 } from 'lucide-react'
-import { fetchAnalytics } from './types'
-import type { SavingsEstimate, CardLoadingState } from './types'
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils/cn";
+import { DollarSign, Loader2 } from "lucide-react";
+import { fetchAnalytics } from "./types";
+import type { SavingsEstimate, CardLoadingState } from "./types";
 
 // ---------------------------------------------------------------------------
 // SavingsEstimateCard
 // ---------------------------------------------------------------------------
 
-export function SavingsEstimateCard({
-  refreshKey,
-}: {
-  refreshKey: number
-}) {
-  const [data, setData] = useState<SavingsEstimate | null>(null)
-  const [state, setState] = useState<CardLoadingState>('idle')
-  const [error, setError] = useState<string | null>(null)
-  const [monthlyKwh, setMonthlyKwh] = useState<number>(900)
-  const [inputValue, setInputValue] = useState<string>('900')
+export function SavingsEstimateCard({ refreshKey }: { refreshKey: number }) {
+  const [data, setData] = useState<SavingsEstimate | null>(null);
+  const [state, setState] = useState<CardLoadingState>("loading");
+  const [error, setError] = useState<string | null>(null);
+  const [monthlyKwh, setMonthlyKwh] = useState<number>(900);
+  const [inputValue, setInputValue] = useState<string>("900");
 
   const load = useCallback(async () => {
-    setState('loading')
-    setError(null)
     try {
-      const result = await fetchAnalytics<SavingsEstimate>('savings', {
+      const result = await fetchAnalytics<SavingsEstimate>("savings", {
         monthly_kwh: String(monthlyKwh),
-      })
-      setData(result)
-      setState('success')
+      });
+      setError(null);
+      setData(result);
+      setState("success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load')
-      setState('error')
+      setError(err instanceof Error ? err.message : "Failed to load");
+      setState("error");
     }
-  }, [monthlyKwh])
+  }, [monthlyKwh]);
 
   useEffect(() => {
-    load()
-  }, [load, refreshKey])
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await fetchAnalytics<SavingsEstimate>("savings", {
+          monthly_kwh: String(monthlyKwh),
+        });
+        if (cancelled) return;
+        setError(null);
+        setData(result);
+        setState("success");
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load");
+        setState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [monthlyKwh, refreshKey]);
 
   // Debounce kWh changes to avoid excessive API calls
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleKwhChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value
-    setInputValue(raw)
-    const parsed = parseInt(raw, 10)
+    const raw = e.target.value;
+    setInputValue(raw);
+    const parsed = parseInt(raw, 10);
     if (!isNaN(parsed) && parsed > 0 && parsed <= 99999) {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        setMonthlyKwh(parsed)
-      }, 500)
+        setMonthlyKwh(parsed);
+      }, 500);
     }
-  }
+  };
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [])
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
-  const safeSavings = data !== null ? Math.max(0, data.estimated_annual_savings_vs_best) : 0
-  const safeMonthlySavings = data !== null ? Math.max(0, data.estimated_monthly_savings_vs_best) : 0
-  const isPositiveSavings = safeSavings > 0
+  const safeSavings =
+    data !== null ? Math.max(0, data.estimated_annual_savings_vs_best) : 0;
+  const safeMonthlySavings =
+    data !== null ? Math.max(0, data.estimated_monthly_savings_vs_best) : 0;
+  const isPositiveSavings = safeSavings > 0;
 
   return (
     <Card data-testid="savings-estimate-card">
       <div className="flex items-center gap-2 mb-4">
         <DollarSign className="h-5 w-5 text-success-600" aria-hidden="true" />
-        <h3 className="text-lg font-semibold text-gray-900">Savings Estimate</h3>
+        <h3 className="text-lg font-semibold text-gray-900">
+          Savings Estimate
+        </h3>
       </div>
 
-      {state === 'loading' && (
-        <div className="flex items-center justify-center py-8" data-testid="savings-estimate-loading" role="status">
+      {state === "loading" && (
+        <div
+          className="flex items-center justify-center py-8"
+          data-testid="savings-estimate-loading"
+          role="status"
+        >
           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-          <span className="ml-2 text-sm text-gray-500">Calculating savings...</span>
+          <span className="ml-2 text-sm text-gray-500">
+            Calculating savings...
+          </span>
         </div>
       )}
 
-      {state === 'error' && (
-        <div className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center" role="alert">
+      {state === "error" && (
+        <div
+          className="rounded-lg bg-danger-50 border border-danger-200 p-4 text-center"
+          role="alert"
+        >
           <p className="text-sm text-danger-700">{error}</p>
           <button
-            onClick={load}
+            onClick={() => {
+              setState("loading");
+              void load();
+            }}
             className="mt-2 text-sm font-medium text-danger-600 hover:text-danger-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500 focus-visible:ring-offset-2 rounded"
             aria-label="Retry loading savings estimate"
           >
@@ -103,7 +132,7 @@ export function SavingsEstimateCard({
         </div>
       )}
 
-      {state === 'success' && data && (
+      {state === "success" && data && (
         <div className="space-y-4">
           {/* Big savings number */}
           <div className="text-center py-2">
@@ -112,8 +141,8 @@ export function SavingsEstimateCard({
             </p>
             <p
               className={cn(
-                'mt-1 text-4xl font-bold',
-                isPositiveSavings ? 'text-success-600' : 'text-gray-900'
+                "mt-1 text-4xl font-bold",
+                isPositiveSavings ? "text-success-600" : "text-gray-900",
               )}
               data-testid="annual-savings-amount"
             >
@@ -136,7 +165,8 @@ export function SavingsEstimateCard({
               <span className="text-gray-600">Best available annual cost</span>
               <span className="font-semibold text-success-700">
                 {formatCurrency(
-                  data.current_annual_cost - data.estimated_annual_savings_vs_best
+                  data.current_annual_cost -
+                    data.estimated_annual_savings_vs_best,
                 )}
               </span>
             </div>
@@ -164,5 +194,5 @@ export function SavingsEstimateCard({
         </div>
       )}
     </Card>
-  )
+  );
 }

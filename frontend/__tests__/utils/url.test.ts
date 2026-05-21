@@ -4,8 +4,6 @@ import {
   isSafeOAuthRedirect,
 } from "@/lib/utils/url";
 
-const { location } = window;
-
 beforeAll(() => {
   // jsdom sets window.location.origin to "http://localhost"
 });

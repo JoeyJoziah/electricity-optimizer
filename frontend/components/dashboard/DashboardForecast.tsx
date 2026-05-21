@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton, ChartSkeleton } from "@/components/ui/skeleton";
 import { SupplierCard } from "@/components/suppliers/SupplierCard";
 import { ForecastTeaser } from "@/components/dashboard/TeaserCards";
-import { ArrowRight } from "lucide-react";
 import { ApiClientError } from "@/lib/api/client";
 import dynamic from "next/dynamic";
 import type { RawForecastPriceEntry } from "@/types";

@@ -1,4 +1,4 @@
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -42,11 +42,9 @@ import {
   useCompareSuppliers,
   useInitiateSwitch,
   useSwitchStatus,
-  useUserSupplier,
   useSetSupplier,
   useRemoveSupplier,
   useUserSupplierAccounts,
-  useLinkAccount,
   useUnlinkAccount,
 } from "@/lib/hooks/useSuppliers";
 
@@ -61,8 +59,10 @@ function makeWrapper() {
       mutations: { retry: false },
     },
   });
-  return ({ children }: { children: React.ReactNode }) =>
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client }, children);
+  Wrapper.displayName = "TestWrapper";
+  return Wrapper;
 }
 
 // ---------------------------------------------------------------------------

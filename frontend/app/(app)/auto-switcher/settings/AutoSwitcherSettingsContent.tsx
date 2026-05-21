@@ -631,24 +631,10 @@ export default function AutoSwitcherSettingsContent() {
     string | null | undefined
   >(undefined);
 
-  // Sync from server when data arrives
-  useEffect(() => {
-    if (settings) {
-      if (localEnabled === null) setLocalEnabled(settings.enabled);
-      if (localPct === null) setLocalPct(settings.savings_threshold_pct);
-      if (localMin === null) setLocalMin(settings.savings_threshold_min);
-      if (localCooldown === null) setLocalCooldown(settings.cooldown_days);
-      if (localPausedUntil === undefined)
-        setLocalPausedUntil(settings.paused_until);
-    }
-  }, [
-    settings,
-    localEnabled,
-    localPct,
-    localMin,
-    localCooldown,
-    localPausedUntil,
-  ]);
+  // Local state is a purely optimistic override; the derived values below fall
+  // back to the server `settings` via `??`/sentinel checks, so no effect is
+  // needed to seed local state from the server (avoids
+  // react-hooks/set-state-in-effect).
 
   // Derived values (prefer local over server)
   const enabled = localEnabled ?? settings?.enabled ?? false;
