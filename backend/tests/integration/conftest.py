@@ -38,9 +38,16 @@ pytestmark = pytest.mark.skipif(
 _MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture
 async def engine():
-    """Create an async SQLAlchemy engine for the test database."""
+    """Create an async SQLAlchemy engine for the test database.
+
+    Function-scoped (NOT module-scoped): pytest-asyncio runs each test on its own
+    event loop, and an asyncpg engine/pool is bound to the loop it was created on.
+    A module-scoped engine therefore breaks on the 2nd+ test with
+    "got Future attached to a different loop" / "another operation is in progress".
+    A fresh engine per test keeps the connection and the loop in lockstep.
+    """
     if not DATABASE_URL:
         pytest.skip("DATABASE_URL not set")
 

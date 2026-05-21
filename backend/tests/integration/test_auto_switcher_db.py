@@ -53,12 +53,14 @@ async def _seed_user(db: AsyncSession, user_id: str) -> None:
     await db.execute(
         text(
             """
-            INSERT INTO users (id, email, subscription_tier, created_at)
-            VALUES (:id, :email, 'pro', NOW())
+            INSERT INTO users (id, email, name, subscription_tier, created_at)
+            VALUES (:id, :email, :name, 'pro', NOW())
             ON CONFLICT (id) DO NOTHING
             """
         ),
-        {"id": user_id, "email": f"{user_id}@test.invalid"},
+        # `name` is NOT NULL in the users schema; supply a value so the seed
+        # row inserts cleanly when the test runs against a real migrated DB.
+        {"id": user_id, "email": f"{user_id}@test.invalid", "name": "Integration Test User"},
     )
 
 
@@ -247,9 +249,9 @@ class TestAuditLogSchemaInvariants:
             text(
                 """
                 INSERT INTO switch_audit_log
-                    (id, user_id, trigger_type, decision, reason, executed, created_at)
+                    (id, user_id, trigger_type, decision, reason, tier, executed, created_at)
                 VALUES
-                    (:id, :uid, 'manual', 'hold', 'test', FALSE, NOW())
+                    (:id, :uid, 'manual', 'hold', 'test', 'pro', FALSE, NOW())
                 """
             ),
             {"id": audit_id, "uid": fresh_user_id},
@@ -268,17 +270,36 @@ class TestSwitchExecutionsSchemaInvariants:
     async def test_required_status_values_accepted(self, db, schema_ready, fresh_user_id):
         """rollback_switch reads status in (active, initiated, submitted, accepted)."""
         await _seed_user(db, fresh_user_id)
+        # switch_executions.audit_log_id (FK) and idempotency_key are NOT NULL, so
+        # seed a parent switch_audit_log row to reference.
+        audit_id = str(uuid.uuid4())
+        await db.execute(
+            text(
+                """
+                INSERT INTO switch_audit_log
+                    (id, user_id, trigger_type, decision, reason, tier, executed, created_at)
+                VALUES (:id, :uid, 'manual', 'hold', 'test', 'pro', FALSE, NOW())
+                """
+            ),
+            {"id": audit_id, "uid": fresh_user_id},
+        )
         for status_val in ("active", "initiated", "submitted", "accepted"):
             exec_id = str(uuid.uuid4())
             await db.execute(
                 text(
                     """
                     INSERT INTO switch_executions
-                        (id, user_id, status, created_at, enacted_at)
-                    VALUES (:id, :uid, :status, NOW(), NOW())
+                        (id, user_id, audit_log_id, idempotency_key, status, created_at, enacted_at)
+                    VALUES (:id, :uid, :audit_id, :idem, :status, NOW(), NOW())
                     """
                 ),
-                {"id": exec_id, "uid": fresh_user_id, "status": status_val},
+                {
+                    "id": exec_id,
+                    "uid": fresh_user_id,
+                    "audit_id": audit_id,
+                    "idem": str(uuid.uuid4()),
+                    "status": status_val,
+                },
             )
             row = (
                 await db.execute(
