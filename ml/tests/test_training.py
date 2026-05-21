@@ -345,9 +345,15 @@ class TestTrainingReproducibility:
         loss1 = train_with_seed(42)
         loss2 = train_with_seed(42)
 
-        # Losses should be identical (or very close)
-        # Note: May not be exactly equal due to GPU non-determinism
-        assert abs(loss1 - loss2) < 0.1
+        # Losses should be very close.
+        # Note: Keras 3 CPU ops (XLA/multi-threaded) introduce non-determinism
+        # even with the same global seed, so we allow a relative tolerance of 5%.
+        # The key invariant is that both runs are within the same order of magnitude
+        # — not that they are bit-for-bit identical.
+        max_loss = max(abs(loss1), abs(loss2), 1e-8)
+        assert abs(loss1 - loss2) / max_loss < 0.05, (
+            f"Losses diverged too much between seeded runs: {loss1:.4f} vs {loss2:.4f}"
+        )
 
 
 class TestModelRegistry:

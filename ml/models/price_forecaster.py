@@ -96,6 +96,7 @@ class ModelConfig:
             self.dense_units = [64, 32]
 
 
+@keras.utils.register_keras_serializable(package="price_forecaster")
 class AttentionLayer(layers.Layer):
     """
     Custom attention layer for time series.
@@ -138,6 +139,7 @@ class AttentionLayer(layers.Layer):
         return config
 
 
+@keras.utils.register_keras_serializable(package="price_forecaster")
 class QuantileLoss(Loss):
     """
     Quantile loss function for probabilistic forecasting.
@@ -171,6 +173,46 @@ class QuantileLoss(Loss):
 
         total_loss = tf.reduce_mean(tf.concat(losses, axis=-1))
         return total_loss
+
+
+@keras.utils.register_keras_serializable(package="price_forecaster")
+class MedianMAE(keras.metrics.Metric):
+    """
+    MAE metric that operates on the median quantile (index 1) of a
+    3-quantile output head.
+
+    In Keras 3 the built-in "mae" metric tries to compare
+    y_pred (batch, horizon, 3) directly against y_true (batch, horizon),
+    which raises a shape-mismatch error.  This class extracts the median
+    slice before computing the mean absolute error so the metric remains
+    meaningful while being compatible with the quantile output shape.
+    """
+
+    def __init__(self, name: str = "mae", **kwargs):
+        super().__init__(name=name, **kwargs)
+        self._total = self.add_weight(name="total", initializer="zeros")
+        self._count = self.add_weight(name="count", initializer="zeros")
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # y_pred may be (batch, horizon, quantiles) or (batch, horizon).
+        # Use tf.rank() for symbolic-tensor-safe rank check.
+        y_pred = tf.cast(y_pred, tf.float32)
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cond(
+            tf.equal(tf.rank(y_pred), 3),
+            lambda: y_pred[:, :, 1],  # median quantile
+            lambda: y_pred,
+        )
+        mae = tf.reduce_mean(tf.abs(y_true - y_pred))
+        self._total.assign_add(mae)
+        self._count.assign_add(1.0)
+
+    def result(self):
+        return self._total / self._count
+
+    def reset_state(self):
+        self._total.assign(0.0)
+        self._count.assign(0.0)
 
 
 class MAPECallback(Callback):
@@ -345,7 +387,7 @@ class ElectricityPriceForecaster:
         self.model.compile(
             optimizer=Adam(learning_rate=self.config.learning_rate),
             loss=QuantileLoss(quantiles=quantiles),
-            metrics=["mae"],
+            metrics=[MedianMAE()],
         )
 
         logger.info(f"Model built with {self.model.count_params():,} parameters")
@@ -455,6 +497,11 @@ class ElectricityPriceForecaster:
             lower_bound = predictions[:, :, 0]
             point_forecast = predictions[:, :, 1]
             upper_bound = predictions[:, :, 2]
+            # Enforce lower <= upper regardless of training convergence.
+            # Raw quantile outputs from an undertrained model may violate this
+            # ordering; clipping ensures interval validity for callers.
+            lower_bound = np.minimum(lower_bound, upper_bound)
+            upper_bound = np.maximum(lower_bound, upper_bound)
             return point_forecast, lower_bound, upper_bound
         else:
             return predictions[:, :, 1]  # Return median forecast

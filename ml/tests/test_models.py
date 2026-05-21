@@ -37,7 +37,8 @@ class TestCNNLSTMModelInitialization:
 
         assert model.model is not None
         assert model.config.sequence_length == 168
-        assert model.config.num_features == 15
+        # Default is 19: 15 base features + 4 weather features
+        assert model.config.num_features == 19
         assert model.config.forecast_horizon == 24
 
     @pytest.mark.requires_tf
@@ -636,7 +637,13 @@ class TestEnsembleModel:
             )
 
             ensemble = EnsembleForecaster(config=config)
-            ensemble.fit(X, y, X_val=X[:10], y_val=y[:10], cnn_lstm_epochs=1, verbose=0)
+            ensemble.fit(
+                X,
+                y,
+                X_val=X[:10],
+                y_val=y[:10],
+                cnn_lstm_kwargs={"epochs": 1, "verbose": 0},
+            )
 
             predictions = ensemble.predict(X[:5])
             assert predictions.shape == (5, y.shape[1])
