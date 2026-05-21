@@ -31,6 +31,15 @@
 
 
 -- ---------------------------------------------------------------------------
+-- 0. Ensure the column exists. In production it was added out-of-band before
+--    this migration ran; in a clean replay it is not added until 057. The
+--    IF NOT EXISTS guard makes this a no-op in production and lets the chain
+--    replay cleanly. (057 also uses ADD COLUMN IF NOT EXISTS, so it stays a
+--    no-op there too.)
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);
+
+-- ---------------------------------------------------------------------------
 -- 1. Add UNIQUE constraint on stripe_customer_id (NULLs excluded by default)
 -- ---------------------------------------------------------------------------
 

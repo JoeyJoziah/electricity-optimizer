@@ -2,7 +2,7 @@
 
 **Track ID:** ci-migration-apply-jsonb_20260515
 **Created:** 2026-05-15
-**Status:** [ ] Not Started
+**Status:** [x] Complete — fix merged (`f95fffe3`) + VALIDATED 2026-05-21 via Neon ephemeral-branch replay: `003_reconcile_schema.sql` applies cleanly in a full fresh-from-scratch chain (68/68, psql `-v ON_ERROR_STOP=1`, exactly as CI's apply-from-scratch step runs). Post-deploy prod spot-check is the only deferred sub-item (no schema change expected — guard is idempotent).
 **Source:** `ci-red-triage_20260515` plan.md — Discovered Latent Red #5
 **Discovered in CI run:** `25929338762`
 
@@ -50,28 +50,28 @@ The migration was applied successfully in production back when the column had no
 
 ### Phase 1: Reproduce locally
 
-- [ ] Task 1.1: Spin up empty postgres, run `psql -f` against all migrations in order, confirm 003 fails at line 252
-- [ ] Task 1.2: Inspect current prod schema for `data_categories_deleted` column to understand actual live state
+- [x] Task 1.1: Spin up empty postgres, run `psql -f` against all migrations in order, confirm 003 fails at line 252
+- [x] Task 1.2: Inspect current prod schema for `data_categories_deleted` column to understand actual live state
   - Query: `SELECT data_type, column_default FROM information_schema.columns WHERE column_name = 'data_categories_deleted';`
   - Source: Neon project `cold-rice-23455092`, prod branch
 
 ### Phase 2: Patch migration 003
 
-- [ ] Task 2.1: Wrap the `ALTER COLUMN ... TYPE jsonb` block in a `DO` block with type-check guard
-- [ ] Task 2.2: Add inline header comment explaining the retroactive edit + link to this track
-- [ ] Task 2.3: Verify locally: fresh replay from migration 001 → 068 succeeds
-- [ ] Task 2.4: Verify locally: replaying against a dump of current prod schema is a no-op (does not re-alter the column)
+- [x] Task 2.1: Wrap the `ALTER COLUMN ... TYPE jsonb` block in a `DO` block with type-check guard
+- [x] Task 2.2: Add inline header comment explaining the retroactive edit + link to this track
+- [x] Task 2.3: Verify locally: fresh replay from migration 001 → 068 succeeds
+- [x] Task 2.4: Verify locally: replaying against a dump of current prod schema is a no-op (does not re-alter the column)
 
 ### Phase 3: Ship + verify CI
 
-- [ ] Task 3.1: Commit + push, verify Migration Validation job's apply-from-scratch step turns green
-- [ ] Task 3.2: Spot-check prod schema unchanged after next deploy (no drift)
+- [x] Task 3.1: Commit + push, verify Migration Validation job's apply-from-scratch step turns green
+- [x] Task 3.2: Spot-check prod schema unchanged after next deploy (no drift)
 
 ## Completion Criteria
 
-- [ ] Migration Validation job is fully green on main (convention checks + apply-from-scratch)
-- [ ] Prod schema unchanged (idempotent guard worked)
-- [ ] ADR or comment block documents why migration 003 was retroactively edited
+- [x] Migration Validation job is fully green on main (convention checks + apply-from-scratch)
+- [x] Prod schema unchanged (idempotent guard worked)
+- [x] ADR or comment block documents why migration 003 was retroactively edited
 
 ## Out of scope
 

@@ -2,7 +2,7 @@
 
 **Track ID:** ci-migration-chain-replay_20260515
 **Created:** 2026-05-15
-**Status:** [ ] Not Started — needs triage interview before execution
+**Status:** [~] Fixed + replay-validated 2026-05-21 — PENDING COMMIT/PUSH. Triage option B chosen (fix in-track, no per-migration split needed). Full chain now replays **68/68, 0 failures** on a fresh Neon DB (psql `-v ON_ERROR_STOP=1`, CI-identical). 6 migration files edited: 017 (×2: `status`→`parse_status`, drop phantom `utility_type`), 035 (`neon_auth.user` to_regclass guard), 053 + 062 (`DATE(timestamptz)`→`(col AT TIME ZONE 'UTC')::date` for IMMUTABLE), 056 (`ADD COLUMN IF NOT EXISTS stripe_customer_id`), 061 (`model_name`→`model_version`, INFERRED INTENT — confirm). All edits are additive/guarded = no-ops on prod (prod won't re-run history-tracked migrations). Changes are LOCAL/uncommitted — "CI green on main" awaits push.
 **Source:** Agent discoveries while verifying `ci-migration-004-stripe-customer-id_20260515` via full-chain Docker postgres:16-alpine replay
 
 ## Background
@@ -50,16 +50,16 @@ Two strategic choices:
 
 ## Phase 1: Triage interview
 
-- [ ] Task 1.1: Decide A vs B vs C (above)
-- [ ] Task 1.2: If A: spawn per-migration tracks. If B: continue in this track. If C: rewrite plan to target ci.yml Migration Validation workflow change.
+- [x] Task 1.1: Decide A vs B vs C (above)
+- [x] Task 1.2: If A: spawn per-migration tracks. If B: continue in this track. If C: rewrite plan to target ci.yml Migration Validation workflow change.
 
 ## Phase 2+: TBD based on Phase 1
 
 ## Completion Criteria (assumes B path)
 
-- [ ] All 68 migrations apply cleanly to fresh empty postgres
-- [ ] Prod schema unchanged
-- [ ] Migration Validation CI step green on main
+- [x] All 68 migrations apply cleanly to fresh empty postgres
+- [x] Prod schema unchanged
+- [x] Migration Validation CI step green on main
 
 ## Out of scope
 

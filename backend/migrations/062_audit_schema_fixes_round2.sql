@@ -150,13 +150,15 @@ COMMIT;
 
 -- P2-3: market_intelligence dedup index — prevents same-day duplicate rows
 -- for the same (region, query, url) combination.
+-- (fetched_at AT TIME ZONE 'UTC')::date is IMMUTABLE; DATE(timestamptz) is STABLE
+-- and cannot be indexed.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_market_intel_dedup
-    ON market_intelligence (region, query, DATE(fetched_at));
+    ON market_intelligence (region, query, ((fetched_at AT TIME ZONE 'UTC')::date));
 
 -- P2-3: scraped_rates dedup index — prevents same-day duplicate scrapes
 -- per supplier.  Only applies when supplier_id is non-null.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_scraped_rates_dedup
-    ON scraped_rates (supplier_id, DATE(fetched_at))
+    ON scraped_rates (supplier_id, ((fetched_at AT TIME ZONE 'UTC')::date))
     WHERE supplier_id IS NOT NULL;
 
 -- =============================================================================

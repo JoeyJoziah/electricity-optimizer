@@ -59,41 +59,50 @@
 --   created_at   — approximate using neon_auth.user."createdAt"
 --   updated_at   — NOW()
 
-INSERT INTO public.users (id, email, name, region, is_active, created_at, updated_at)
-SELECT
-    u.id::uuid,
-    lower(u.email),
-    COALESCE(u.name, ''),
-    NULL,           -- region: user sets this during onboarding
-    true,
-    u."createdAt",  -- preserve original signup timestamp
-    NOW()
-FROM neon_auth."user" u
-WHERE NOT EXISTS (
-    SELECT 1 FROM public.users pu WHERE pu.id = u.id::uuid
-);
+-- NOTE: neon_auth.user is provisioned by the Neon Auth integration, not by these
+-- migrations, so it is absent on a fresh-from-scratch DB (e.g. CI migration replay).
+-- Guard the backfill on its existence so the chain replays cleanly; in production
+-- (where neon_auth.user exists) the backfill runs exactly as before.
+DO $backfill$
+BEGIN
+    IF to_regclass('neon_auth.user') IS NULL THEN
+        RAISE NOTICE 'Migration 035: neon_auth.user not present (no Neon Auth) — skipping backfill';
+        RETURN;
+    END IF;
 
--- ---------------------------------------------------------------------------
--- Step 2: Update email/name for rows that already exist but are stale
--- ---------------------------------------------------------------------------
--- Users may have changed their email or display name in the identity provider.
--- This updates only the fields that differ to avoid unnecessary writes.
+    INSERT INTO public.users (id, email, name, region, is_active, created_at, updated_at)
+    SELECT
+        u.id::uuid,
+        lower(u.email),
+        COALESCE(u.name, ''),
+        NULL,           -- region: user sets this during onboarding
+        true,
+        u."createdAt",  -- preserve original signup timestamp
+        NOW()
+    FROM neon_auth."user" u
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.users pu WHERE pu.id = u.id::uuid
+    );
 
-UPDATE public.users pu
-SET
-    email      = lower(nu.email),
-    name       = CASE
-                     WHEN nu.name IS NOT NULL AND nu.name <> ''
-                     THEN nu.name
-                     ELSE pu.name
-                 END,
-    updated_at = NOW()
-FROM neon_auth."user" nu
-WHERE pu.id = nu.id::uuid
-  AND (
-      pu.email <> lower(nu.email)
-      OR (nu.name IS NOT NULL AND nu.name <> '' AND pu.name <> nu.name)
-  );
+    -- Step 2: Update email/name for rows that already exist but are stale.
+    -- Users may have changed their email or display name in the identity provider.
+    UPDATE public.users pu
+    SET
+        email      = lower(nu.email),
+        name       = CASE
+                         WHEN nu.name IS NOT NULL AND nu.name <> ''
+                         THEN nu.name
+                         ELSE pu.name
+                     END,
+        updated_at = NOW()
+    FROM neon_auth."user" nu
+    WHERE pu.id = nu.id::uuid
+      AND (
+          pu.email <> lower(nu.email)
+          OR (nu.name IS NOT NULL AND nu.name <> '' AND pu.name <> nu.name)
+      );
+END
+$backfill$;
 
 -- ---------------------------------------------------------------------------
 -- Step 3: Sanity check — log counts (visible in migration output)
@@ -105,6 +114,11 @@ DECLARE
     app_count   INT;
     missing     INT;
 BEGIN
+    IF to_regclass('neon_auth.user') IS NULL THEN
+        RAISE NOTICE 'Migration 035: neon_auth.user not present — skipping sanity check';
+        RETURN;
+    END IF;
+
     SELECT COUNT(*) INTO neon_count FROM neon_auth."user";
     SELECT COUNT(*) INTO app_count  FROM public.users;
 
