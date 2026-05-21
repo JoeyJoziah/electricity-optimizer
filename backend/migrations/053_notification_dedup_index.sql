@@ -62,8 +62,11 @@ ALTER TABLE notifications
 -- (server timezone UTC).  If a user dismisses the notification they can
 -- receive a new one the same day for a re-triggered alert.
 
+-- NOTE: DATE(created_at) is STABLE (not IMMUTABLE) on a timestamptz column, so it
+-- cannot be used in an index expression. (created_at AT TIME ZONE 'UTC')::date is
+-- IMMUTABLE and preserves the same UTC-calendar-day semantics described above.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_dedup_alert
-    ON notifications (user_id, alert_id, type, DATE(created_at))
+    ON notifications (user_id, alert_id, type, ((created_at AT TIME ZONE 'UTC')::date))
     WHERE alert_id IS NOT NULL
       AND delivery_status != 'dismissed';
 

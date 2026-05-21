@@ -181,10 +181,15 @@ BEGIN
           AND  constraint_name = 'uq_model_ab_assignments_user_model'
           AND  constraint_type = 'UNIQUE'
     ) THEN
+        -- NOTE: model_ab_assignments has no `model_name` column (033 created it with
+        -- `model_version`). The original `model_name` reference made this constraint
+        -- fail on replay; `model_version` is the only matching column (cf. existing
+        -- idx_model_ab_assignments_version). INFERRED-INTENT FIX — confirm before
+        -- relying on this constraint's semantics.
         ALTER TABLE model_ab_assignments
             ADD CONSTRAINT uq_model_ab_assignments_user_model
-            UNIQUE (user_id, model_name);
-        RAISE NOTICE 'Added uq_model_ab_assignments_user_model (user_id, model_name)';
+            UNIQUE (user_id, model_version);
+        RAISE NOTICE 'Added uq_model_ab_assignments_user_model (user_id, model_version)';
     ELSE
         RAISE NOTICE 'uq_model_ab_assignments_user_model already exists — skipping';
     END IF;

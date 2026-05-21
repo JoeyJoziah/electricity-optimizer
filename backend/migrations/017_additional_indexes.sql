@@ -26,15 +26,23 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_connections_user_method
 -- Covering index for bill upload queries ordered by recency and filtered by status
 -- Supports: SELECT ... FROM bill_uploads WHERE user_id = ? ORDER BY created_at DESC
 --       and: SELECT ... FROM bill_uploads WHERE user_id = ? AND status = ? ...
+-- NOTE: bill_uploads has no `status` column (008 created it with `parse_status`).
+-- The original `status` reference made this index invalid on fresh replay; 055
+-- later corrects the deployed index to `parse_status`. Aligned here so the chain
+-- replays cleanly and matches the production index definition.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_bill_uploads_user_status
-    ON bill_uploads (user_id, created_at DESC, status);
+    ON bill_uploads (user_id, created_at DESC, parse_status);
 
 
 -- Compound index for time-series forecast lookups by region and utility type
 -- Supports: SELECT ... FROM forecast_observations
 --           WHERE region = ? AND utility_type = ? ORDER BY created_at DESC
+-- NOTE: forecast_observations has no `utility_type` column (005 never defines it
+-- and 006 only adds utility_type to other tables), so the original 3-column form
+-- was invalid on replay. Indexing (region, created_at DESC) preserves the intended
+-- region-scoped recency lookup.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_forecast_observations_region
-    ON forecast_observations (region, utility_type, created_at DESC);
+    ON forecast_observations (region, created_at DESC);
 
 
 -- Partial index on notifications for fast unread-by-user queries sorted by recency
