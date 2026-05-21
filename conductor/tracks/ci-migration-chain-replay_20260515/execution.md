@@ -28,3 +28,13 @@ Two flags:
 2. **Idempotency (re-run) is a separate, pre-existing problem**: re-applying the full chain on an already-migrated DB fails on 6 OTHER migrations I did not touch (init_neon, 049, 051, 059, 063, 064). CI does a one-shot fresh replay (not a re-run), so this does not block CI — but it's real tech debt worth a follow-up track.
 
 The 6 edited migration files are LOCAL/uncommitted. "CI green on main" is pending commit+push (awaiting user authorization).
+
+## 2026-05-21 (later) — pushed, then CI exposed a validation blind spot I had to fix
+
+Pushed the 6 migration fixes + test-assertion updates (commit `7e5485cd`). CI's **Migration Validation** job still FAILED: `005_observation_tables.sql:35: ERROR: role "neondb_owner" does not exist`.
+
+**My Neon-branch replay had a blind spot**: Neon's database owner *is* `neondb_owner`, so it always exists there — every `GRANT ... TO neondb_owner` succeeded silently. CI uses a vanilla `postgres:15-alpine` service with no such role. ~50 migrations reference `neondb_owner`; some wrap the GRANT in `EXCEPTION WHEN undefined_object` (002), many do not (005, …). This is exactly the original report's "pervasive `role neondb_owner does not exist`" item that I had **wrongly dismissed as a Docker-only artifact** — it is a real CI failure.
+
+**Fix (correct layer):** rather than edit ~50 migrations, provision the role in CI to mirror the Neon target. Added an idempotent `DO $$ BEGIN CREATE ROLE neondb_owner; EXCEPTION WHEN duplicate_object THEN NULL; END $$;` to `.github/workflows/ci.yml`'s "Apply all migrations sequentially" step, before init_neon. Since my Neon replay already proved the full chain applies 68/68 *with the role present*, providing it in CI should make the job green (pg15-vs-pg17 delta is irrelevant for these column/IMMUTABLE/guard fixes).
+
+**Status correction:** the schema fixes are done + replay-validated, but "CI green on main" is NOT yet confirmed — it requires this ci.yml change to be pushed and the Migration Validation job re-run. Lesson banked: when validating fresh-replay, replicate the CI role environment (no `neondb_owner`), not just Neon.

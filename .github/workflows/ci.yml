@@ -357,6 +357,14 @@ jobs:
       - name: Apply all migrations sequentially
         run: |
           echo "Applying all migrations to verify SQL syntax..."
+          # The migrations target Neon, where `neondb_owner` is the database owner
+          # and GRANT ... TO neondb_owner statements (in ~50 migrations) assume it
+          # exists. The vanilla postgres service has no such role, so provision it
+          # idempotently to mirror the production target before replaying.
+          PGPASSWORD=postgres psql -h localhost -U postgres -d migration_test \
+            -v ON_ERROR_STOP=1 \
+            -c "DO \$\$ BEGIN CREATE ROLE neondb_owner; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;"
+          echo "Ensured role: neondb_owner"
           # Apply init_neon first
           PGPASSWORD=postgres psql -h localhost -U postgres -d migration_test \
             -v ON_ERROR_STOP=1 -f backend/migrations/init_neon.sql
