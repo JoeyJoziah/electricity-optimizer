@@ -52,7 +52,7 @@ class TestExportConfigs:
     def test_natural_gas_config(self):
         cfg = EXPORT_CONFIGS["natural_gas"]
         assert cfg["table"] == "electricity_prices"
-        assert cfg["extra_where"] == "utility_type = 'NATURAL_GAS'"
+        assert cfg["extra_where"] == "utility_type = 'natural_gas'"
 
     def test_heating_oil_config(self):
         cfg = EXPORT_CONFIGS["heating_oil"]

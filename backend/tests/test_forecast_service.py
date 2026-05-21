@@ -254,3 +254,30 @@ class TestForecastEdgeCases:
         result = await service.get_forecast("electricity", state="CT")
         assert "error" in result
         assert result["data_points"] == 0
+
+
+# =============================================================================
+# Enum-case regression (audit 2026-05-21)
+# =============================================================================
+
+
+class TestForecastEnumCase:
+    """The DB ``utility_type`` enum stores LOWERCASE values. Uppercase SQL
+    literals ('ELECTRICITY') made Postgres raise ``invalid input value for
+    enum utility_type`` → unhandled 500 on /api/v1/forecast/electricity."""
+
+    async def test_electricity_query_uses_lowercase_enum(self):
+        db = _make_db([])
+        service = ForecastService(db)
+        await service.get_forecast("electricity", state="CT")
+        sql = str(db.execute.call_args.args[0])
+        assert "'electricity'" in sql.lower()
+        assert "'ELECTRICITY'" not in sql
+
+    async def test_natural_gas_query_uses_lowercase_enum(self):
+        db = _make_db([])
+        service = ForecastService(db)
+        await service.get_forecast("natural_gas", state="CT")
+        sql = str(db.execute.call_args.args[0])
+        assert "'natural_gas'" in sql.lower()
+        assert "'NATURAL_GAS'" not in sql

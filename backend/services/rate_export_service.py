@@ -27,7 +27,7 @@ EXPORT_CONFIGS = {
         "time_col": "timestamp",
         "state_col": "region",
         "state_prefix": "us_",
-        "extra_where": "utility_type = 'ELECTRICITY'",
+        "extra_where": "utility_type = 'electricity'",
         "unit": "$/kWh",
     },
     "natural_gas": {
@@ -37,7 +37,7 @@ EXPORT_CONFIGS = {
         "time_col": "timestamp",
         "state_col": "region",
         "state_prefix": "us_",
-        "extra_where": "utility_type = 'NATURAL_GAS'",
+        "extra_where": "utility_type = 'natural_gas'",
         "unit": "$/therm",
     },
     "heating_oil": {

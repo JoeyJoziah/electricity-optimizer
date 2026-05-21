@@ -110,21 +110,21 @@ class OptimizationReportService:
                            ) AS rn
                     FROM electricity_prices
                     WHERE region = :region
-                      AND utility_type IN ('ELECTRICITY', 'NATURAL_GAS')
+                      AND utility_type IN ('electricity', 'natural_gas')
                 )
                 SELECT price_per_kwh, supplier, utility_type
                 FROM recent_prices
-                WHERE (utility_type = 'ELECTRICITY' AND rn <= 10)
-                   OR (utility_type = 'NATURAL_GAS' AND rn <= 5)
+                WHERE (utility_type = 'electricity' AND rn <= 10)
+                   OR (utility_type = 'natural_gas' AND rn <= 5)
                 ORDER BY utility_type, rn
             """),
             {"region": f"us_{state.lower()}"},
         )
         rows = result.mappings().all()
 
-        # Partition results by utility_type
-        elec_rows = [r for r in rows if r["utility_type"] == "ELECTRICITY"]
-        gas_rows = [r for r in rows if r["utility_type"] == "NATURAL_GAS"]
+        # Partition results by utility_type (DB enum stores lowercase values)
+        elec_rows = [r for r in rows if r["utility_type"] == "electricity"]
+        gas_rows = [r for r in rows if r["utility_type"] == "natural_gas"]
 
         elec = self._build_electricity_result(elec_rows) if elec_rows else None
         gas = self._build_gas_result(gas_rows) if gas_rows else None

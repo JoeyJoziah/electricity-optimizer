@@ -89,7 +89,7 @@ class TestReportStructure:
 
     async def test_annual_spend_is_12x_monthly(self):
         # CTE query returns electricity rows with utility_type
-        elec_rows = [{"price_per_kwh": 0.15, "supplier": "ACME", "utility_type": "ELECTRICITY"}]
+        elec_rows = [{"price_per_kwh": 0.15, "supplier": "ACME", "utility_type": "electricity"}]
         db = _make_db([elec_rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
@@ -104,7 +104,7 @@ class TestReportStructure:
 
 class TestElectricitySpend:
     async def test_monthly_cost_calculation(self):
-        rows = [{"price_per_kwh": 0.20, "supplier": "Test", "utility_type": "ELECTRICITY"}]
+        rows = [{"price_per_kwh": 0.20, "supplier": "Test", "utility_type": "electricity"}]
         db = _make_db([rows, [], []])
         service = OptimizationReportService(db)
         result = await service.generate_report("CT")
@@ -115,8 +115,8 @@ class TestElectricitySpend:
 
     async def test_savings_generated_when_price_spread(self):
         rows = [
-            {"price_per_kwh": 0.25, "supplier": "Expensive", "utility_type": "ELECTRICITY"},
-            {"price_per_kwh": 0.15, "supplier": "Cheap", "utility_type": "ELECTRICITY"},
+            {"price_per_kwh": 0.25, "supplier": "Expensive", "utility_type": "electricity"},
+            {"price_per_kwh": 0.15, "supplier": "Cheap", "utility_type": "electricity"},
         ]
         db = _make_db([rows, [], []])
         service = OptimizationReportService(db)
@@ -137,8 +137,8 @@ class TestMultiUtilityAggregation:
     async def test_utility_count_matches_data(self):
         # CTE returns both electricity and gas rows in one query
         combined_rows = [
-            {"price_per_kwh": 0.15, "supplier": "A", "utility_type": "ELECTRICITY"},
-            {"price_per_kwh": 1.20, "supplier": None, "utility_type": "NATURAL_GAS"},
+            {"price_per_kwh": 0.15, "supplier": "A", "utility_type": "electricity"},
+            {"price_per_kwh": 1.20, "supplier": None, "utility_type": "natural_gas"},
         ]
         db = _make_db([combined_rows, [], []])
         service = OptimizationReportService(db)
@@ -151,8 +151,8 @@ class TestMultiUtilityAggregation:
 
     async def test_total_monthly_aggregates_all(self):
         combined_rows = [
-            {"price_per_kwh": 0.15, "supplier": "A", "utility_type": "ELECTRICITY"},
-            {"price_per_kwh": 1.50, "supplier": None, "utility_type": "NATURAL_GAS"},
+            {"price_per_kwh": 0.15, "supplier": "A", "utility_type": "electricity"},
+            {"price_per_kwh": 1.50, "supplier": None, "utility_type": "natural_gas"},
         ]
         db = _make_db([combined_rows, [], []])
         service = OptimizationReportService(db)
@@ -189,3 +189,37 @@ class TestPropaneSpend:
         prop = result["utilities"][0]
         assert prop["utility_type"] == "propane"
         assert abs(prop["monthly_cost"] - 176.40) < 0.01
+
+
+# =============================================================================
+# 6. Enum-case regression (audit 2026-05-21)
+# =============================================================================
+
+
+class TestEnumCaseSensitivity:
+    """The DB ``utility_type`` enum stores LOWERCASE values. SQL literals that
+    used uppercase ('ELECTRICITY') made Postgres raise ``invalid input value
+    for enum utility_type`` → unhandled 500 on /api/v1/reports/optimization.
+    These tests inspect the generated SQL so the regression can't return."""
+
+    async def test_cte_sql_uses_lowercase_enum_literals(self):
+        db = _make_db([[], [], []])
+        service = OptimizationReportService(db)
+        await service.generate_report("CT")
+
+        # First db.execute call is the electricity+gas CTE merge.
+        first_sql = str(db.execute.call_args_list[0].args[0])
+        assert "'electricity'" in first_sql.lower()
+        assert "'ELECTRICITY'" not in first_sql
+        assert "'NATURAL_GAS'" not in first_sql
+
+    async def test_lowercase_rows_are_not_filtered_out(self):
+        # Rows as the real DB returns them (lowercase) must be counted, not dropped.
+        combined_rows = [
+            {"price_per_kwh": 0.15, "supplier": "A", "utility_type": "electricity"},
+            {"price_per_kwh": 1.20, "supplier": None, "utility_type": "natural_gas"},
+        ]
+        db = _make_db([combined_rows, [], []])
+        service = OptimizationReportService(db)
+        result = await service.generate_report("CT")
+        assert result["utility_count"] == 2
