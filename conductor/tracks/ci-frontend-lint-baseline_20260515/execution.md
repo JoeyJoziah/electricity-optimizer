@@ -12,3 +12,17 @@ These are pre-existing debt, not migration regressions. Captured as a separate t
 Inventory captured in plan.md. Will be the **last** Frontend Lint CI green gate for `ph-relaunch-jun2_20260515`.
 
 Launch-blocker per "tests are sacred" — `ph-relaunch-jun2_20260515` depends on Frontend Lint CI being fully green.
+
+## 2026-05-21 — Fixed (isolated-worktree agent), validated on local main
+
+Dispatched a frontend agent in an isolated git worktree (relative paths only; `npx jest --ci`, never `npm test`). Result: **0 errors (from 91)**, 15 `no-console` warnings retained. ESLint config untouched, no rules disabled, no blanket eslint-disable, no tests deleted.
+
+**Actual breakdown differed from the 2026-05-15 prediction:**
+- No `no-require-imports` errors (cleared in a prior phase).
+- The "3 rules-of-hooks" prediction was wrong — eslint-config-next 16's react-hooks plugin surfaced **17** errors of newer kinds: `set-state-in-effect` ×10, `static-components` ×5, `purity` ×1, `refs` ×1. None were the Playwright `use`→`provide` false positive; **all 17 were genuine React-correctness bugs**, fixed at root cause (notably: a render-phase `ref.current` write in `useRealtime.ts`, render-phase `Date.now()` in `PricesContent.tsx`, a hoisted-to-module `SortIcon`, and several redundant/over-eager effects removed or guarded).
+- 39 `no-unused-vars` removed; 35 `react/display-name` fixed by naming wrappers (rule kept ON).
+- 3 weak `waitFor(getByTestId(card-wrapper))` test assertions corrected to await the real data element (they only passed before due to an incidental render flush from the old synchronous setState).
+
+Validation on main after merge: `npm run lint` → 0 errors / 15 warnings; `npx jest --ci` → **3437/3437**. 73 files, +1307/-1017.
+
+**Push pending**: merged to local main; the auto-mode classifier correctly gated the push as outside the migration-push authorization. Awaiting explicit OK to push (will turn Frontend Lint CI green on main).
