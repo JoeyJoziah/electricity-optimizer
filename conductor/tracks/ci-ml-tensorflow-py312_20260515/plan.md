@@ -2,7 +2,7 @@
 
 **Track ID:** ci-ml-tensorflow-py312_20260515
 **Created:** 2026-05-15
-**Status:** [~] FIXED + validated 2026-05-21, PUSH PENDING. Install fix (TF 2.17.1 cp312) was already merged; the runtime Keras-3 regression (30 failures) is now also fixed via a Keras 3 migration of the CNN-LSTM model (MedianMAE metric for the 3-quantile output, register_keras_serializable on custom classes, lower<=upper enforcement, fig.savefig). `ml/tests/` on main = **723 passed, 9 skipped, 0 failed, 0 errors** (py3.12.12). CI uses `testpaths=tests`, so the 4 script-style errors in `ml/test_forecaster.py` (pre-existing) are NOT collected → ML Tests CI expected green. Merged to LOCAL main; push pending.
+**Status:** [x] FIXED + validated 2026-05-21, PUSH PENDING. Install fix (TF 2.17.1 cp312) was already merged; the runtime Keras-3 regression (30 failures) is now also fixed via a Keras 3 migration of the CNN-LSTM model (MedianMAE metric for the 3-quantile output, register_keras_serializable on custom classes, lower<=upper enforcement, fig.savefig). `ml/tests/` on main = **723 passed, 9 skipped, 0 failed, 0 errors** (py3.12.12). CI uses `testpaths=tests`, so the 4 script-style errors in `ml/test_forecaster.py` (pre-existing) are NOT collected → ML Tests CI expected green. Merged to LOCAL main; push pending.
 **Source:** `ci-red-triage_20260515` plan.md — Discovered Latent Red #6
 **Discovered in CI run:** `25929338762`
 
