@@ -175,6 +175,13 @@ class SupplierResponse(BaseModel):
     rating: float | None = None
     green_energy_provider: bool
     is_active: bool
+    # Estimated pricing. There is no per-supplier tariff data yet (the tariffs
+    # table is empty and unlinked from supplier_registry), so these are derived
+    # from the regional electricity market rate — the same source the dashboard
+    # uses — rather than a per-supplier contract. Null when no market rate or
+    # annual usage is available.
+    avg_price_per_kwh: float | None = None
+    estimated_annual_cost: float | None = None
 
 
 class SupplierDetailResponse(BaseModel):

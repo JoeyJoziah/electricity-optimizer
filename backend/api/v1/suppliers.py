@@ -95,6 +95,9 @@ async def list_suppliers(
         description="Filter by utility type (electricity, natural_gas, heating_oil, propane, community_solar)",
     ),
     green_only: bool = Query(False, description="Filter for green energy providers"),
+    annual_usage: float | None = Query(
+        None, ge=0, description="Annual usage in kWh, used to estimate annual cost"
+    ),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db=Depends(get_db_session),
@@ -106,6 +109,12 @@ async def list_suppliers(
     Returns paginated list of suppliers, optionally filtered by region,
     utility type, or green energy status. Data is sourced from the
     supplier_registry table. Results are cached in Redis for 1 hour.
+
+    Pricing (``avg_price_per_kwh`` / ``estimated_annual_cost``) is estimated
+    from the regional electricity market rate when ``region`` (and, for the
+    cost, ``annual_usage``) are supplied. There is no per-supplier tariff data
+    yet, so all suppliers share the regional rate — same approach as the
+    dashboard. Fields stay null when no market rate is available.
     """
     repo = SupplierRegistryRepository(db, cache=redis)
     suppliers_data, total = await repo.list_suppliers(
@@ -119,6 +128,19 @@ async def list_suppliers(
 
     suppliers = [SupplierResponse(**s) for s in suppliers_data]
 
+    # Estimate pricing from the regional market rate (no per-supplier tariffs).
+    if region and suppliers:
+        try:
+            market_rate = await repo.get_region_market_rate(region)
+        except Exception:
+            logger.warning("supplier_market_rate_lookup_failed", region=region, exc_info=True)
+            market_rate = None
+        if market_rate is not None:
+            est_cost = round(market_rate * annual_usage, 2) if annual_usage else None
+            for supplier in suppliers:
+                supplier.avg_price_per_kwh = market_rate
+                supplier.estimated_annual_cost = est_cost
+
     return SuppliersResponse(
         suppliers=suppliers,
         total=total,
@@ -127,6 +149,35 @@ async def list_suppliers(
         region=region,
         utility_type=utility_type,
     )
+
+
+class RecommendRequest(BaseModel):
+    """Body for POST /suppliers/recommend (camelCase to match the frontend)."""
+
+    currentSupplierId: str | None = None
+    annualUsage: float | None = None
+    region: str | None = None
+
+
+@router.post("/recommend", summary="Get a supplier switching recommendation")
+async def recommend_supplier(
+    body: RecommendRequest,
+    db=Depends(get_db_session),
+    redis=Depends(get_redis),
+):
+    """Return a switching recommendation, or ``null`` when none can be computed.
+
+    Per-supplier tariff data does not exist yet (the ``tariffs`` table is empty
+    and not linked to ``supplier_registry``), so there is no basis for
+    supplier-specific savings — every supplier is priced at the same regional
+    market rate. We therefore return ``{"recommendation": null}`` (HTTP 200)
+    instead of fabricating a savings figure.
+
+    This route previously did not exist, so a POST fell through to
+    ``GET /{supplier_id}`` and returned 405. Defining it fixes the 405. When
+    real tariffs are seeded, compute and return the cheapest alternative here.
+    """
+    return {"recommendation": None}
 
 
 @router.get("/registry", summary="List suppliers with API integration")
