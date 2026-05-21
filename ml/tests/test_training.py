@@ -60,6 +60,7 @@ class TestTrainingConfiguration:
 class TestTrainingCallbacks:
     """Tests for training callbacks."""
 
+    @pytest.mark.slow  # epochs=100 training loop; >120s on CI CPU runners (deselected via -m "not slow")
     @pytest.mark.requires_tf
     def test_early_stopping_callback(self, sample_training_data, tmp_model_dir):
         """Test early stopping callback is applied."""
@@ -277,6 +278,7 @@ class TestValidationSplit:
 class TestLearningRateScheduling:
     """Tests for learning rate scheduling."""
 
+    @pytest.mark.slow  # epochs=20 training on large data; >120s on CI CPU runners (deselected via -m "not slow")
     @pytest.mark.requires_tf
     def test_reduce_lr_on_plateau(self, large_training_data, tmp_model_dir):
         """Test learning rate reduction on plateau."""

@@ -619,6 +619,7 @@ class TestEnsembleModel:
         except ImportError:
             pytest.skip("Ensemble model dependencies not installed")
 
+    @pytest.mark.slow  # trains an ensemble; >120s on CI CPU runners (deselected via -m "not slow")
     @pytest.mark.requires_tf
     def test_ensemble_prediction_combines_models(
         self, sample_training_data, tmp_model_dir
