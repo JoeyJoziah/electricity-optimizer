@@ -158,8 +158,11 @@ class TestMigration017AdditionalIndexes:
         content = _read_migration("017")
         # Each index should reference its correct table
         assert "ON user_connections (user_id, connection_type)" in content
-        assert "ON bill_uploads (user_id, created_at DESC, status)" in content
-        assert "ON forecast_observations (region, utility_type, created_at DESC)" in content
+        # bill_uploads has parse_status (not status); forecast_observations has no
+        # utility_type column. Corrected in ci-migration-chain-replay_20260515 so
+        # the chain replays cleanly and matches the production index definitions.
+        assert "ON bill_uploads (user_id, created_at DESC, parse_status)" in content
+        assert "ON forecast_observations (region, created_at DESC)" in content
         assert "ON notifications (user_id, created_at DESC)" in content
 
     def test_partial_index_has_where_clause(self):
@@ -227,8 +230,10 @@ class TestMigration053NotificationDedupIndex:
         assert "user_id" in content
         assert "alert_id" in content
         assert "type" in content
-        # Day partitioning via DATE()
-        assert "DATE(created_at)" in content
+        # Day partitioning via an IMMUTABLE UTC-day expression. DATE(timestamptz)
+        # is only STABLE and cannot be indexed; corrected in
+        # ci-migration-chain-replay_20260515.
+        assert "(created_at AT TIME ZONE 'UTC')::date" in content
 
     def test_dedup_index_excludes_dismissed(self):
         """Partial index WHERE clause must exclude dismissed delivery_status."""
@@ -592,8 +597,10 @@ class TestMigration061AuditSchemaFixes:
         """Migration must add UNIQUE (user_id, model_name) constraint."""
         content = _read_migration("061")
         assert "uq_model_ab_assignments_user_model" in content
-        # Verify the composite columns
-        assert "user_id, model_name" in content
+        # Verify the composite columns. model_ab_assignments has model_version, not
+        # model_name (corrected in ci-migration-chain-replay_20260515 — inferred
+        # intent; the original model_name column never existed on this table).
+        assert "user_id, model_version" in content
 
     # ---- P0-5 / P1-1 / P1-2 / P1-3 / P1-4: orphan row cleanup ----
 
@@ -813,7 +820,9 @@ class TestMigration062AuditSchemaFixesRound2:
         content = _read_migration("062")
         assert "idx_market_intel_dedup" in content
         assert "market_intelligence" in content
-        assert "DATE(fetched_at)" in content
+        # IMMUTABLE UTC-day expression (DATE(timestamptz) is only STABLE; corrected
+        # in ci-migration-chain-replay_20260515).
+        assert "(fetched_at AT TIME ZONE 'UTC')::date" in content
 
     def test_p2_3_scraped_rates_dedup_index(self):
         """Migration must create dedup index on scraped_rates."""
