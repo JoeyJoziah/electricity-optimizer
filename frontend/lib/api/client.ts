@@ -273,7 +273,12 @@ export const apiClient = {
     endpoint: string,
     params?: Record<
       string,
-      string | number | boolean | (string | number | boolean)[]
+      | string
+      | number
+      | boolean
+      | null
+      | undefined
+      | (string | number | boolean)[]
     >,
     options?: { signal?: AbortSignal },
   ): Promise<T> {
@@ -282,8 +287,12 @@ export const apiClient = {
     if (params && Object.keys(params).length > 0) {
       const searchParams = new URLSearchParams();
       for (const [k, v] of Object.entries(params)) {
+        // Skip nullish params so absent values are omitted from the query
+        // string rather than serialized as the literal "undefined"/"null".
+        if (v === undefined || v === null) continue;
         if (Array.isArray(v)) {
           for (const item of v) {
+            if (item === undefined || item === null) continue;
             searchParams.append(k, String(item));
           }
         } else {
@@ -291,7 +300,7 @@ export const apiClient = {
         }
       }
       const qs = searchParams.toString();
-      urlStr += `?${qs}`;
+      if (qs) urlStr += `?${qs}`;
     }
 
     return fetchWithRetry<T>(urlStr, {

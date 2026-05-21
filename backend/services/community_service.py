@@ -601,6 +601,7 @@ class CommunityService:
         stats_sql = text("""
             SELECT
                 COUNT(DISTINCT user_id) AS total_users,
+                COUNT(*) AS post_count,
                 MIN(created_at) AS earliest_post
             FROM community_posts
             WHERE region = :region
@@ -633,6 +634,7 @@ class CommunityService:
 
         return {
             "total_users": stats["total_users"] if stats else 0,
+            "post_count": stats["post_count"] if stats else 0,
             "region": region,
             "reporting_since": stats["earliest_post"] if stats else None,
             "top_tip": dict(top_tip) if top_tip else None,

@@ -32,6 +32,9 @@ export function PropaneDashboard() {
   const trackedStates = data?.tracked_states || [];
   const nationalPrice = prices.find((p) => p.state === "US");
   const statePrices = prices.filter((p) => p.state !== "US");
+  const visiblePrices = statePrices.filter(
+    (p) => !selectedState || p.state === selectedState,
+  );
 
   return (
     <div className="space-y-6">
@@ -75,49 +78,56 @@ export function PropaneDashboard() {
         </select>
       </div>
 
+      {/* Empty state — no price data available for the current view */}
+      {visiblePrices.length === 0 && (
+        <div className="rounded-lg border bg-gray-50 p-6 text-center text-sm text-gray-500">
+          {prices.length === 0
+            ? "No propane price data is available right now. Please check back soon."
+            : `No propane price data for ${US_STATES[selectedState ?? ""] || selectedState}.`}
+        </div>
+      )}
+
       {/* State price cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {statePrices
-          .filter((p) => !selectedState || p.state === selectedState)
-          .map((p) => {
-            const diff = nationalPrice
-              ? ((p.price_per_gallon - nationalPrice.price_per_gallon) /
-                  nationalPrice.price_per_gallon) *
-                100
-              : null;
+        {visiblePrices.map((p) => {
+          const diff = nationalPrice
+            ? ((p.price_per_gallon - nationalPrice.price_per_gallon) /
+                nationalPrice.price_per_gallon) *
+              100
+            : null;
 
-            return (
-              <button
-                type="button"
-                key={p.state}
-                className="rounded-lg border p-4 text-left cursor-pointer hover:border-primary-300 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                onClick={() => setSelectedState(p.state)}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-gray-900">
-                    {US_STATES[p.state] || p.state}
-                  </p>
-                  {diff !== null && (
-                    <span
-                      className={`text-xs font-medium ${
-                        diff < 0
-                          ? "text-success-600"
-                          : diff > 0
-                            ? "text-danger-600"
-                            : "text-gray-500"
-                      }`}
-                    >
-                      {diff > 0 ? "+" : ""}
-                      {diff.toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-                <p className="text-lg font-bold text-gray-900">
-                  ${p.price_per_gallon.toFixed(2)}/gal
+          return (
+            <button
+              type="button"
+              key={p.state}
+              className="rounded-lg border p-4 text-left cursor-pointer hover:border-primary-300 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              onClick={() => setSelectedState(p.state)}
+            >
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-900">
+                  {US_STATES[p.state] || p.state}
                 </p>
-              </button>
-            );
-          })}
+                {diff !== null && (
+                  <span
+                    className={`text-xs font-medium ${
+                      diff < 0
+                        ? "text-success-600"
+                        : diff > 0
+                          ? "text-danger-600"
+                          : "text-gray-500"
+                    }`}
+                  >
+                    {diff > 0 ? "+" : ""}
+                    {diff.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <p className="text-lg font-bold text-gray-900">
+                ${p.price_per_gallon.toFixed(2)}/gal
+              </p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Detail sections when a state is selected */}

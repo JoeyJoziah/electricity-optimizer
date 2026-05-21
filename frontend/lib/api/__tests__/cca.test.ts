@@ -62,6 +62,17 @@ describe("detectCCA", () => {
     expect(result.in_cca).toBe(false);
     expect(result.program).toBeNull();
   });
+
+  it("omits zip_code from the query when it is undefined (state-only detect)", async () => {
+    // Regression: an undefined zip must NOT be serialized as the literal
+    // string "undefined" (audit: GET /cca/detect?zip_code=undefined&state=CT).
+    mockFetch.mockResolvedValue(mockJson({ in_cca: false, program: null }));
+    await detectCCA({ zip_code: undefined, state: "CT" });
+    const url = mockFetch.mock.calls[0]![0] as string;
+    expect(url).toContain("state=CT");
+    expect(url).not.toContain("zip_code");
+    expect(url).not.toContain("undefined");
+  });
 });
 
 describe("compareCCARate", () => {

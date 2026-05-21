@@ -1,13 +1,13 @@
-'use client'
+"use client";
 
-import { useWaterBenchmark } from '@/lib/hooks/useWater'
+import { useWaterBenchmark } from "@/lib/hooks/useWater";
 
 interface WaterRateBenchmarkProps {
-  state: string
+  state: string;
 }
 
 export function WaterRateBenchmark({ state }: WaterRateBenchmarkProps) {
-  const { data, isLoading, error } = useWaterBenchmark(state)
+  const { data, isLoading, error } = useWaterBenchmark(state);
 
   if (isLoading) {
     return (
@@ -16,10 +16,19 @@ export function WaterRateBenchmark({ state }: WaterRateBenchmarkProps) {
           <div key={i} className="animate-pulse rounded-lg bg-gray-100 h-12" />
         ))}
       </div>
-    )
+    );
   }
 
-  if (error || !data) return null
+  if (error) {
+    return (
+      <div className="rounded-lg border border-warning-200 bg-warning-50 p-4 text-sm text-warning-800">
+        No water rate data is available for {state} yet. Check back as we add
+        more municipalities.
+      </div>
+    );
+  }
+
+  if (!data) return null;
 
   return (
     <div className="space-y-4">
@@ -32,45 +41,51 @@ export function WaterRateBenchmark({ state }: WaterRateBenchmarkProps) {
         <div className="rounded-lg border bg-cyan-50 p-4">
           <p className="text-sm font-medium text-cyan-700">Average Monthly</p>
           <p className="text-xl font-bold text-cyan-900">
-            ${data.avg_monthly_cost?.toFixed(2) ?? '—'}
+            ${data.avg_monthly_cost?.toFixed(2) ?? "—"}
           </p>
         </div>
         <div className="rounded-lg border bg-success-50 p-4">
           <p className="text-sm font-medium text-success-700">Lowest</p>
           <p className="text-xl font-bold text-success-900">
-            ${data.min_monthly_cost?.toFixed(2) ?? '—'}
+            ${data.min_monthly_cost?.toFixed(2) ?? "—"}
           </p>
         </div>
         <div className="rounded-lg border bg-danger-50 p-4">
           <p className="text-sm font-medium text-danger-700">Highest</p>
           <p className="text-xl font-bold text-danger-900">
-            ${data.max_monthly_cost?.toFixed(2) ?? '—'}
+            ${data.max_monthly_cost?.toFixed(2) ?? "—"}
           </p>
         </div>
       </div>
 
       <p className="text-xs text-gray-500">
-        Based on {data.usage_gallons.toLocaleString()} gallons/month typical household usage
-        across {data.municipalities} municipalities
+        Based on {data.usage_gallons.toLocaleString()} gallons/month typical
+        household usage across {data.municipalities} municipalities
       </p>
 
       {/* Municipality breakdown */}
       {data.rates.length > 0 && (
         <div className="rounded-lg border">
           <div className="border-b px-4 py-2 bg-gray-50">
-            <p className="text-sm font-medium text-gray-700">Municipality Comparison</p>
+            <p className="text-sm font-medium text-gray-700">
+              Municipality Comparison
+            </p>
           </div>
           <div className="divide-y">
             {data.rates.map((r) => {
-              const avgCost = data.avg_monthly_cost ?? 0
-              const diff = avgCost > 0
-                ? ((r.monthly_cost - avgCost) / avgCost) * 100
-                : 0
+              const avgCost = data.avg_monthly_cost ?? 0;
+              const diff =
+                avgCost > 0 ? ((r.monthly_cost - avgCost) / avgCost) * 100 : 0;
 
               return (
-                <div key={r.municipality} className="flex items-center justify-between px-4 py-3">
+                <div
+                  key={r.municipality}
+                  className="flex items-center justify-between px-4 py-3"
+                >
                   <div>
-                    <p className="font-medium text-gray-900">{r.municipality}</p>
+                    <p className="font-medium text-gray-900">
+                      {r.municipality}
+                    </p>
                     <p className="text-xs text-gray-500">
                       Base charge: ${r.base_charge.toFixed(2)}/mo
                     </p>
@@ -81,18 +96,23 @@ export function WaterRateBenchmark({ state }: WaterRateBenchmarkProps) {
                     </p>
                     <span
                       className={`text-xs font-medium ${
-                        diff < -2 ? 'text-success-600' : diff > 2 ? 'text-danger-600' : 'text-gray-500'
+                        diff < -2
+                          ? "text-success-600"
+                          : diff > 2
+                            ? "text-danger-600"
+                            : "text-gray-500"
                       }`}
                     >
-                      {diff > 0 ? '+' : ''}{diff.toFixed(1)}% vs avg
+                      {diff > 0 ? "+" : ""}
+                      {diff.toFixed(1)}% vs avg
                     </span>
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
