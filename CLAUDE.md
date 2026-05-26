@@ -1,6 +1,6 @@
 # RateShift — Project Instructions
 
-> Last validated: 2026-05-11. Tests: ~6,362 passing (3,437 BE + 2,069 FE + 729 ML + 127 Worker) + 10 integration skipped + ~1,642 E2E (Playwright, run separately) = ~8,014 total. 66 migrations, 64 tables (55 public + 9 neon_auth), 36 GHA workflows. See MEMORY.md for session-level detail.
+> Last validated: 2026-05-26. Tests: ~6,362 passing (3,437 BE + 2,069 FE + 729 ML + 127 Worker) + 10 integration skipped + ~1,642 E2E (Playwright, run separately) = ~8,014 total. 69 migrations, 70 tables (61 public + 9 neon_auth), 36 GHA workflows. See MEMORY.md for session-level detail.
 >
 > **PH Launch**: POSTPONED INDEFINITELY (original Apr 14 date passed). Conductor: 23 tracks, all with plan.md/tasks.md/execution.md in sync.
 
@@ -67,7 +67,7 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 ### Loki Agent Skills (project-specific)
 - **EnergyDataAgent**: EIA/NREL APIs, Region enum, utility types, state regulations
-- **NeonDBAgent**: 55 public + 9 neon_auth = 64 tables (66 migrations: init_neon through 066_auto_rate_switcher), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
+- **NeonDBAgent**: 61 public + 9 neon_auth = 70 tables (69 migrations: init_neon through 069_supplier_offers), Neon project `cold-rice-23455092`, UUID PKs, migration patterns
 - **StripeAgent**: Async billing, $4.99 Pro/$14.99 Business, webhook flow
 - **MLPipelineAgent**: Ensemble predictor, HNSW vector store, observation loop, nightly learning
 
@@ -120,7 +120,8 @@ Call mcp__claude-flow__memory_search with query "loki" to verify bidirectional s
 
 - **Backend**: FastAPI + Python 3.12 (`.venv/bin/python` for all pytest). **Deploy pipeline**: `.github/workflows/build-and-push-backend.yml` auto-builds Docker image on every push to main touching `backend/**`, pushes `dmpcg/electricity-optimizer-backend:{latest,short-sha}`, fires Render deploy hook, then polls `/health` for verification (closed the 34-day deploy gap). Dockerfile uses BuildKit pip cache mount, ARG PYTHON_IMAGE, appuser service account. FastAPI `/health` accepts both GET and HEAD (UptimeRobot defaults to HEAD probes)
 - **Frontend**: Next.js 16 + React 19 + TypeScript (proxied to backend via `/api/v1/*` rewrites). `.npmrc` has `legacy-peer-deps=true` (eslint 8 + eslint-config-next 16.x compat)
-- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 55 public + 9 neon_auth = 64 tables total (66 migrations: init_neon through 066_auto_rate_switcher)
+- **Database**: Neon PostgreSQL — project `cold-rice-23455092` ("energyoptimize"), endpoint `ep-withered-morning` (us-east-1), 61 public + 9 neon_auth = 70 tables total (69 migrations: init_neon through 069_supplier_offers)
+- **Supplier pricing**: Vendor-neutral via `supplier_offers` table (migration 069) + `SupplierOfferSource` adapter layer (`backend/services/pricing/` — `base.py` protocol, `regional_estimate.py`). Read path (`GET /suppliers`, `POST /suppliers/recommend`) is source-agnostic; only wired source is `RegionalEstimateSource` (`is_estimate=true`, computed live). Repo: `repositories/supplier_offer_repository.py`. Legacy `tariffs` table is DEPRECATED (empty, unlinked). EnergyBot is treated as a COMPETITOR — `energybot_service` + `available_plans` remain dormant.
 - **API URLs**: `NEXT_PUBLIC_API_URL=/api/v1` (relative, proxied); `BACKEND_URL=https://api.rateshift.app` (server-side, routes through CF Worker)
 - **Edge Layer**: Cloudflare Worker `rateshift-api-gateway` at `api.rateshift.app/*` — 2-tier caching (Cache API + KV with cacheTtl), native rate limiting bindings (120/30/600 per min, zero KV cost), bot detection, internal auth, CORS, security headers, graceful KV degradation (fail-open), per-isolate metrics counters, `/internal/gateway-stats` endpoint. CF Account: `b41be0d03c76c0b2cc91efccdb7a10df`. KV: CACHE only (rate limiting migrated to native bindings). SSL: Full (Strict). Deploy: `deploy-worker.yml`. Health: `gateway-health.yml` (12h). Cron: `[triggers] crons = ["*/10 * * * *", "0 */3 * * *", "0 */6 * * *", "30 */6 * * *"]` (keep-alive every 10min, check-alerts every 3h, price-sync every 6h, observe-forecasts 30min after price-sync). Secrets: ORIGIN_URL, INTERNAL_API_KEY, RATE_LIMIT_BYPASS_KEY. Proxy: Location header rewriting on redirects (prevents leaking Render origin URL). **Cache hygiene** (2026-05-11): `/health` is never cached (bypass), `storeInCache` gated to `method === "GET"` (HEAD/GET key collision was poisoning cache), origin fetch wrapped in `AbortSignal.timeout(25s)` + `AbortSignal.any([..., request.signal])` (504 on origin timeout, 499 on client disconnect). `head_sampling_rate=0.25` for observability. Source: `workers/api-gateway/` (19 files, 127 tests). Frontend circuit breaker: auto-fallback to Render on 502/503 (public endpoints only)
 - **ML**: Ensemble predictor with HNSW vector search, adaptive learning

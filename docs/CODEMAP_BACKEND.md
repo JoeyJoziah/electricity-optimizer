@@ -1,6 +1,6 @@
 # Backend Codemap
 
-> Last updated: 2026-04-07 (Production live. Test count: 3,325. Migrations: 66 (init_neon through 066_auto_rate_switcher). Tables: 64 = 55 public + 9 neon_auth. Services: 58. API routes: 57 files incl. connections/ + internal/ subdirectories.)
+> Last updated: 2026-04-07 (Production live. Test count: 3,325. Migrations: 69 (init_neon through 069_supplier_offers). Tables: 70 = 61 public + 9 neon_auth. Services: 58. API routes: 57 files incl. connections/ + internal/ subdirectories.)
 
 ## Directory Structure
 
@@ -98,7 +98,8 @@ backend/
 │   ├── consent.py                   # ConsentRecord, DeletionLog, GDPR request/response
 │   ├── model_version.py             # ModelVersion, ABTest, ABOutcome schemas for versioning and A/B testing
 │   ├── model_config.py              # ModelConfiguration for ML pipeline parameterization
-│   └── notification.py              # Notification schema with delivery tracking (channel, status, delivered_at, error_message)
+│   ├── notification.py              # Notification schema with delivery tracking (channel, status, delivered_at, error_message)
+│   └── supplier_offer.py            # SupplierOffer normalized model (vendor-neutral pricing read model)
 │
 ├── repositories/
 │   ├── base.py                      # BaseRepository[T], error classes
@@ -108,7 +109,8 @@ backend/
 │   ├── user_repository.py           # UserRepository: by-email, by-stripe-customer-id, preferences, consent
 │   ├── notification_repository.py    # NotificationRepository: CRUD + delivery_status tracking, update_delivery()
 │   ├── model_config_repository.py    # ModelConfigRepository: versioned ML config persistence
-│   └── utility_account_repository.py # UtilityAccountRepository: CRUD for utility account connections
+│   ├── utility_account_repository.py # UtilityAccountRepository: CRUD for utility account connections
+│   └── supplier_offer_repository.py # cheapest_available_by_supplier() + upsert_offers(); source-agnostic supplier_offers reads/writes
 │
 ├── services/
 │   ├── price_service.py             # Business logic: comparison, forecast, optimal windows
@@ -168,7 +170,8 @@ backend/
 │   ├── switch_notification_service.py # User notifications for switch lifecycle events
 │   ├── switch_safeguards.py         # Safety checks before plan switch (LOA, tier, rate limits)
 │   ├── plan_scorer.py               # Scores and ranks available plans against user's current plan
-│   └── utilityapi_billing_service.py # UtilityAPI meter monitoring add-on billing ($2.25/meter/mo)
+│   ├── utilityapi_billing_service.py # UtilityAPI meter monitoring add-on billing ($2.25/meter/mo)
+│   └── pricing/                     # SupplierOfferSource protocol (base.py) + RegionalEstimateSource (regional_estimate.py); pluggable supplier-pricing sources
 │
 ├── auth/
 │   ├── neon_auth.py                 # Neon Auth session validation; Redis cache (120s TTL, SHA-256 key)

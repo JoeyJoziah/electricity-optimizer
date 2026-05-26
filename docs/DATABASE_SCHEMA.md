@@ -1,8 +1,8 @@
 # Database Schema Reference
 
-RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 66 migrations (init_neon through 066_auto_rate_switcher), 55 public tables plus 9 neon_auth tables = 64 total.
+RateShift PostgreSQL schema — Neon project `cold-rice-23455092`, 69 migrations (init_neon through 069_supplier_offers), 61 public tables plus 9 neon_auth tables = 70 total.
 
-Last updated: 2026-04-07 (Migrations 065-066: UtilityAPI billing add-on + Auto Rate Switcher. All 66 migrations deployed to production.)
+Last updated: 2026-05-26 (Migrations 067-069 added: drip email state machine, CAN-SPAM unsubscribe, and the vendor-neutral `supplier_offers` read model. All 69 migrations deployed to production.)
 
 ## Overview
 
@@ -10,12 +10,12 @@ Last updated: 2026-04-07 (Migrations 065-066: UtilityAPI billing add-on + Auto R
 - **Project ID**: `cold-rice-23455092`
 - **Endpoint (Pooled)**: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech` (application use)
 - **Endpoint (Direct)**: `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech` (migrations only)
-- **Migrations**: Sequential init_neon through 066 (66 migrations, all deployed)
-- **Schema**: `public` (55 tables) + `neon_auth` (9 tables, managed by Better Auth)
+- **Migrations**: Sequential init_neon through 069 (69 migrations, all deployed)
+- **Schema**: `public` (61 tables) + `neon_auth` (9 tables, managed by Better Auth)
 - **Primary Keys**: All UUID type via `gen_random_uuid()`
 - **Ownership**: `neondb_owner` role (via GRANT statements)
 
-## Public Schema Tables (55 tables)
+## Public Schema Tables (61 tables)
 
 ### User & Authentication
 
@@ -178,6 +178,9 @@ updated_at              TIMESTAMPTZ DEFAULT now()
 Indexes: `idx_supplier_registry_name`, `idx_supplier_registry_api_available`
 
 #### `tariffs` (migration: init_neon)
+
+> **DEPRECATED (migration 069).** Empty and unlinked (its FK to a legacy `suppliers` table no longer exists). Superseded by the vendor-neutral `supplier_offers` read model. Do not add new writers/readers.
+
 Electricity tariffs per supplier.
 
 ```
@@ -192,6 +195,38 @@ created_at              TIMESTAMPTZ DEFAULT now()
 ```
 
 Indexes: `idx_tariffs_supplier_id`, `idx_tariffs_tariff_type`, `idx_tariffs_supplier_available`
+
+#### `supplier_offers` (migration 069)
+Vendor-neutral supplier pricing read model. Pluggable source adapters write normalized rows in one shape; the `/suppliers` and `/suppliers/recommend` read paths consume them without knowing the source. Sources: `regional_estimate` (live now); `ct_rate_board`, `arcadia`, `energybot`, `manual` (future). `is_estimate` flags derived/uniform rows vs. real obtainable offers. Supersedes the deprecated `tariffs` table.
+
+```
+id                  UUID PRIMARY KEY DEFAULT gen_random_uuid()
+region              TEXT NOT NULL — e.g. 'us_ct'
+zip_code            TEXT — optional finer grain (zip-keyed sources)
+utility_type        utility_type NOT NULL DEFAULT 'electricity'
+utility_territory   TEXT — e.g. 'Eversource' / 'United Illuminating'
+supplier_id         UUID REFERENCES supplier_registry(id) ON DELETE SET NULL — nullable; supplier may not be in registry
+supplier_name       TEXT NOT NULL — denormalized for display
+rate_per_kwh        NUMERIC(12,6) NOT NULL CHECK (>= 0)
+standing_charge     NUMERIC(12,6) NOT NULL DEFAULT 0 CHECK (>= 0)
+tariff_type         TEXT NOT NULL DEFAULT 'fixed' — fixed|variable|fixed_tiered
+intro_term_months   INT
+post_intro_rate     NUMERIC(12,6)
+cancellation_fee    NUMERIC(12,2)
+enrollment_fee      NUMERIC(12,2)
+renewable_pct       INT
+enroll_url          TEXT
+source              TEXT NOT NULL — 'regional_estimate'|'ct_rate_board'|'arcadia'|'energybot'|'manual'
+source_ref          TEXT — external id from the source
+is_estimate         BOOLEAN NOT NULL DEFAULT FALSE — true = derived/uniform, not an obtainable offer
+is_available        BOOLEAN NOT NULL DEFAULT TRUE
+effective_date      DATE
+expires_at          DATE
+fetched_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+raw                 JSONB
+```
+
+Indexes: `idx_offers_region_util` (region, utility_type, is_available), `idx_offers_supplier` (supplier_id), `uq_offers_source_ref` (UNIQUE on source, source_ref, region — partial WHERE source_ref IS NOT NULL, for idempotent upserts)
 
 ### Connections
 
@@ -1011,12 +1046,15 @@ Managed by Better Auth (Neon Auth). Do NOT modify directly.
 | 064 | 064_migration_history_uuid_pk.sql | 2026-03-24 | Convert migration_history PK from SERIAL to UUID |
 | 065 | 065_utilityapi_addon_billing.sql | 2026-04-02 | UtilityAPI add-on billing columns (stripe_subscription_item_id + utilityapi_meter_count on user_connections) |
 | 066 | 066_auto_rate_switcher.sql | 2026-04-03 | Auto Rate Switcher tables (user_agent_settings, user_plans, available_plans, meter_readings partitioned, switch_audit_log, switch_executions) |
+| 067 | 067_user_drip_state.sql | 2026-05-14 | Drip email state machine (user_drip_state) |
+| 068 | 068_drip_unsubscribe.sql | 2026-05-14 | CAN-SPAM unsubscribe (drip_unsubscribe) |
+| 069 | 069_supplier_offers.sql | 2026-05-26 | Vendor-neutral supplier_offers read model (supersedes deprecated tariffs) |
 
 ## Migration Conventions
 
 All migrations follow these patterns:
 
-1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 066)
+1. **Sequential Numbering**: `NNN_description.sql` (init_neon through 069)
 2. **IF NOT EXISTS**: All CREATE TABLE/INDEX statements are idempotent
 3. **Primary Keys**: UUID via `gen_random_uuid()` (no SERIAL/BIGSERIAL)
 4. **Foreign Keys**: ON DELETE CASCADE or ON DELETE RESTRICT with explicit choices

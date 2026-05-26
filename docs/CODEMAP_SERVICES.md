@@ -1,7 +1,7 @@
 # RateShift Backend Services Codemap
 
 **Last Updated**: 2026-04-07
-**Total Services**: 58
+**Total Services**: 59 (58 + 1 pricing-source adapter in the new `services/pricing/` package)
 **Total Test Files**: 105+
 **Repositories**: 1 (monorepo)
 
@@ -100,6 +100,15 @@ This document maps all 58 backend services across 10 functional domains. Use thi
   - `validate_export_quota(user_id: str) -> bool` — rate limit check (tier-gated)
 - **Dependencies**: `PriceRepository`, CSV writer, JSON serializer
 - **Tests**: `test_rate_export_service.py`, `test_public_rates.py`
+
+### pricing/ (vendor-neutral supplier-pricing adapter)
+- **Package**: `services/pricing/`
+- **Purpose**: Pluggable, source-agnostic supplier-pricing abstraction that feeds the `supplier_offers` read model
+- **Pattern**: `SupplierOfferSource` protocol (`base.py`) defines a uniform interface; concrete sources implement it and write normalized offers into `supplier_offers` via `SupplierOfferRepository.upsert_offers`
+- **Wired source**: `RegionalEstimateSource` (`regional_estimate.py`) — the only source currently wired. Computes offers live (`is_estimate=true`), not persisted from a vendor feed
+- **Future sources**: `ct_rate_board`, `arcadia`, `energybot`, `manual` — each would implement `SupplierOfferSource` and `upsert_offers` into `supplier_offers`
+- **Note**: EnergyBot / `available_plans` are **dormant** — EnergyBot is treated as a competitor (auto-switcher enrollment provider), not a data vendor feeding this read model
+- **Dependencies**: `SupplierOfferRepository`, `supplier_offers` table, `Region` enum
 
 ---
 

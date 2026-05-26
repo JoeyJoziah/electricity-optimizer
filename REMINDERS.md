@@ -4,7 +4,7 @@
 
 ## Critical Reminders
 
-1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 64 tables (55 public + 9 neon_auth), 66 migrations (latest: 066_auto_rate_switcher). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
+1. **Neon Project**: `cold-rice-23455092` ("energyoptimize"). Always use `projectId: "cold-rice-23455092"` with Neon MCP tools. Pooled endpoint: `ep-withered-morning-aix83cfw-pooler.c-4.us-east-1.aws.neon.tech`. Direct endpoint (for migrations): `ep-withered-morning-aix83cfw.c-4.us-east-1.aws.neon.tech`. Branches: `production` (default), `vercel-dev` (preview deployments). 70 tables (61 public + 9 neon_auth), 69 migrations (latest: 069_supplier_offers). Note: Stale project `holy-pine-81107663` still exists in account, needs manual deletion via Neon console
 2. **conftest.py**: `mock_sqlalchemy_select` fixture patches model attrs — MUST add new fields when adding columns
 3. **Tests**: Always use `.venv/bin/python -m pytest`, never system Python
 4. **Security**: Swagger/ReDoc disabled in prod, API keys via 1Password vault "RateShift"

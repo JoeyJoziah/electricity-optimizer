@@ -588,6 +588,7 @@ List energy suppliers with optional filtering.
 - `region` (optional): Filter by region code (e.g., `us_ct`, `us_ma`)
 - `utility_type` (optional): Filter by type (`electricity`, `natural_gas`, `heating_oil`, `propane`, `community_solar`)
 - `green_only` (optional): Filter for green energy providers (default false)
+- `annual_usage` (optional): Annual consumption in kWh (number). When provided, `estimated_annual_cost` is computed per supplier as `avg_price_per_kwh × annual_usage`.
 - `page` (optional): Page number (default 1)
 - `page_size` (optional): Items per page (1–100, default 20)
 
@@ -603,7 +604,11 @@ List energy suppliers with optional filtering.
       "api_available": true,
       "rating": 4.2,
       "review_count": 1254,
-      "is_active": true
+      "is_active": true,
+      "avg_price_per_kwh": 0.2845,
+      "estimated_annual_cost": 2845.00,
+      "pricing_source": "regional_estimate",
+      "is_estimate": true
     }
   ],
   "total": 127,
@@ -611,6 +616,12 @@ List energy suppliers with optional filtering.
   "page_size": 20
 }
 ```
+
+**Pricing fields** (backed by the `supplier_offers` read model — see [ADR-012](adr/012-vendor-neutral-supplier-pricing.md)):
+- `avg_price_per_kwh` (number | null): Average price per kWh for the supplier's best available offer. `null` when no offer is available.
+- `estimated_annual_cost` (number | null): Estimated annual cost in the response currency. Computed from `avg_price_per_kwh × annual_usage` when the `annual_usage` query param is supplied; otherwise `null`.
+- `pricing_source` (string | null): Origin of the pricing data, e.g. `"regional_estimate"`. Identifies which `SupplierOfferSource` adapter produced the offer.
+- `is_estimate` (bool): `true` when the price is a derived regional estimate rather than an obtainable, supplier-specific offer; `false` when it reflects a real (actionable) offer. Recommendations are only generated from non-estimate offers — see `POST /suppliers/recommend`.
 
 ---
 
@@ -623,6 +634,62 @@ List suppliers with API integration available.
 **Query Parameters:**
 - `region` (optional): Filter by region
 - `utility_type` (optional): Filter by utility type
+
+---
+
+### POST /suppliers/recommend
+
+Recommend a supplier to switch to, based on the `supplier_offers` read model. A recommendation is generated **only from real (non-estimate) offers** that beat the user's current supplier; derived regional estimates are never used as the basis for a recommendation (see [ADR-012](adr/012-vendor-neutral-supplier-pricing.md)).
+
+> **Note**: This endpoint replaced a prior `405 Method Not Allowed` response — the route did not previously exist.
+
+**Authentication**: Not required
+
+**Request Body** (camelCase):
+```json
+{
+  "currentSupplierId": "550e8400-e29b-41d4-a716-446655440001",
+  "annualUsage": 10000,
+  "region": "us_ct"
+}
+```
+
+- `currentSupplierId` (string, optional): UUID of the user's current supplier (used as the savings baseline).
+- `annualUsage` (number, optional): Annual consumption in kWh, used to estimate savings.
+- `region` (string, optional): Region code to scope candidate offers (e.g., `us_ct`).
+
+**Response — no actionable recommendation** (HTTP 200):
+
+Returned when only estimate offers exist (no real, obtainable offer to act on):
+```json
+{
+  "recommendation": null
+}
+```
+
+**Response — recommendation found** (HTTP 200):
+
+Returned only when a real (non-estimate) offer beats the current supplier:
+```json
+{
+  "recommendation": {
+    "supplier": {
+      "id": "550e8400-e29b-41d4-a716-446655440099",
+      "name": "NextEra Energy",
+      "avgPricePerKwh": 0.2410,
+      "estimatedAnnualCost": 2410.00,
+      "tariffType": "fixed",
+      "greenEnergy": true,
+      "enrollUrl": "https://example.com/enroll/nextera"
+    },
+    "estimatedSavings": 435.00,
+    "pricingSource": "ct_rate_board",
+    "termMonths": 12,
+    "cancellationFee": 0.00,
+    "expiresAt": "2026-06-30T00:00:00Z"
+  }
+}
+```
 
 ---
 
@@ -654,6 +721,8 @@ Get detailed information about a supplier.
 ### GET /suppliers/{supplier_id}/tariffs
 
 Get tariffs offered by a supplier.
+
+> **Deprecated**: `tariffs` is deprecated. Pricing now comes from the `supplier_offers`-backed `GET /suppliers` (pricing fields) and `POST /suppliers/recommend` — see [ADR-012](adr/012-vendor-neutral-supplier-pricing.md).
 
 **Authentication**: Not required
 
