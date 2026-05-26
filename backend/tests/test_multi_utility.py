@@ -262,9 +262,9 @@ class TestEIAClient:
         with pytest.raises(ValueError, match="US regions"):
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(
-                mock_eia_client.get_electricity_price(Region.UK)
-            )
+            # asyncio.run() creates and manages its own loop; get_event_loop()
+            # raises "no current event loop" on Python 3.12 under xdist workers.
+            asyncio.run(mock_eia_client.get_electricity_price(Region.UK))
 
     def test_eia_client_name(self, mock_eia_client):
         assert mock_eia_client.client_name == "eia"
