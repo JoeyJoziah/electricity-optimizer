@@ -424,6 +424,7 @@ jobs:
           target: production
           build-args: |
             NEXT_PUBLIC_API_URL=http://backend:8000
+            NEXT_PUBLIC_APP_URL=https://rateshift.app
 
   # ===========================================================================
   # Doc Coverage Check (warning only — never blocks CI)
