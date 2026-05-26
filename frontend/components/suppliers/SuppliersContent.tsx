@@ -174,6 +174,8 @@ export default function SuppliersContent() {
       exitFee: s.exitFee ?? s.exit_fee,
       contractLength: s.contractLength ?? s.contract_length,
       features: s.features ?? s.tariff_types,
+      pricingSource: s.pricing_source,
+      isEstimate: s.is_estimate ?? false,
     }),
   );
   const recommendation = recommendationData?.recommendation;

@@ -13,24 +13,24 @@
  */
 export interface RawPricePoint {
   /** Frontend-friendly field (normalized by price service) */
-  price?: number | null
+  price?: number | null;
   /** Database column name from electricity_prices table */
-  price_per_kwh?: number | null
+  price_per_kwh?: number | null;
   /** Backend alternative field name for current price */
-  current_price?: number | null
+  current_price?: number | null;
   /** Frontend-friendly timestamp field */
-  time?: string | number
+  time?: string | number;
   /** Database column name */
-  timestamp?: string | number
+  timestamp?: string | number;
   /** Forecast flag on history records */
-  forecast?: number | null
+  forecast?: number | null;
   /** Percentage change over 24 h (frontend-friendly) */
-  changePercent?: number | null
+  changePercent?: number | null;
   /** Percentage change over 24 h (backend field name) */
-  price_change_24h?: number | null
-  trend?: 'increasing' | 'decreasing' | 'stable'
-  region?: string
-  supplier?: string
+  price_change_24h?: number | null;
+  trend?: "increasing" | "decreasing" | "stable";
+  region?: string;
+  supplier?: string;
 }
 
 /**
@@ -39,9 +39,9 @@ export interface RawPricePoint {
  * a flat array of ForecastPoint objects (frontend shape).
  */
 export interface RawForecastPriceEntry {
-  price?: number | null
-  price_per_kwh?: number | null
-  timestamp?: string
+  price?: number | null;
+  price_per_kwh?: number | null;
+  timestamp?: string;
 }
 
 /**
@@ -52,49 +52,53 @@ export interface RawForecastPriceEntry {
  * the backend schema (backend returns null, not undefined).
  */
 export interface RawSupplierRecord {
-  id: string
-  name: string
+  id: string;
+  name: string;
   /** Backend snake_case list of region codes (e.g. ["us_ct"]) */
-  regions?: string[]
+  regions?: string[];
   /** Backend snake_case list of tariff type strings */
-  tariff_types?: string[]
+  tariff_types?: string[];
   /** Backend: whether a supplier API integration is available */
-  api_available?: boolean
+  api_available?: boolean;
   /** Backend snake_case */
-  green_energy_provider?: boolean
+  green_energy_provider?: boolean;
   /** Backend active status */
-  is_active?: boolean
+  is_active?: boolean;
   /** Backend field */
-  logo_url?: string
+  logo_url?: string;
   /** Frontend-normalized field */
-  logo?: string
+  logo?: string;
   /** Frontend camelCase */
-  avgPricePerKwh?: number
+  avgPricePerKwh?: number;
   /** Backend snake_case */
-  avg_price_per_kwh?: number
+  avg_price_per_kwh?: number;
   /** Frontend camelCase */
-  standingCharge?: number
+  standingCharge?: number;
   /** Backend snake_case */
-  standing_charge?: number
+  standing_charge?: number;
   /** Frontend camelCase */
-  greenEnergy?: boolean
+  greenEnergy?: boolean;
   /** Rating returned as number | null from the backend */
-  rating?: number | null
+  rating?: number | null;
   /** Frontend camelCase */
-  estimatedAnnualCost?: number
+  estimatedAnnualCost?: number;
   /** Backend snake_case */
-  estimated_annual_cost?: number
+  estimated_annual_cost?: number;
   /** Frontend camelCase */
-  tariffType?: 'fixed' | 'variable' | 'time-of-use'
+  tariffType?: "fixed" | "variable" | "time-of-use";
   /** Frontend camelCase */
-  exitFee?: number
+  exitFee?: number;
   /** Backend snake_case */
-  exit_fee?: number
+  exit_fee?: number;
   /** Frontend camelCase */
-  contractLength?: number
+  contractLength?: number;
   /** Backend snake_case */
-  contract_length?: number
-  features?: string[]
+  contract_length?: number;
+  features?: string[];
+  /** Backend: which source the pricing came from (e.g. 'regional_estimate', 'ct_rate_board') */
+  pricing_source?: string;
+  /** Backend: true when the price is a derived estimate, not an obtainable offer */
+  is_estimate?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,155 +106,159 @@ export interface RawSupplierRecord {
 // ---------------------------------------------------------------------------
 
 export interface PriceDataPoint {
-  time: string
-  price: number | null
-  forecast: number | null
-  isOptimal?: boolean
-  confidenceLow?: number
-  confidenceHigh?: number
+  time: string;
+  price: number | null;
+  forecast: number | null;
+  isOptimal?: boolean;
+  confidenceLow?: number;
+  confidenceHigh?: number;
 }
 
 export interface CurrentPrice {
-  region: string
-  price: number
-  timestamp: string
-  trend: 'increasing' | 'decreasing' | 'stable'
-  changePercent: number
+  region: string;
+  price: number;
+  timestamp: string;
+  trend: "increasing" | "decreasing" | "stable";
+  changePercent: number;
 }
 
 export interface PriceForecast {
-  hour: number
-  price: number
-  confidence: [number, number]
-  timestamp: string
+  hour: number;
+  price: number;
+  confidence: [number, number];
+  timestamp: string;
 }
 
 // Supplier types
 export interface Supplier {
-  id: string
-  name: string
-  logo?: string
-  avgPricePerKwh: number
-  standingCharge: number
-  greenEnergy: boolean
-  rating: number
-  estimatedAnnualCost: number
-  exitFee?: number
-  tariffType: 'fixed' | 'variable' | 'time-of-use'
-  contractLength?: number
-  features?: string[]
+  id: string;
+  name: string;
+  logo?: string;
+  avgPricePerKwh: number;
+  standingCharge: number;
+  greenEnergy: boolean;
+  rating: number;
+  estimatedAnnualCost: number;
+  exitFee?: number;
+  tariffType: "fixed" | "variable" | "time-of-use";
+  contractLength?: number;
+  features?: string[];
+  /** Pricing provenance: which source produced the rate. */
+  pricingSource?: string;
+  /** True when the rate is a derived estimate rather than an obtainable offer. */
+  isEstimate?: boolean;
 }
 
 export interface SupplierRecommendation {
-  supplier: Supplier
-  currentSupplier: Supplier
-  estimatedSavings: number
-  paybackMonths: number
-  confidence: number
+  supplier: Supplier;
+  currentSupplier: Supplier;
+  estimatedSavings: number;
+  paybackMonths: number;
+  confidence: number;
 }
 
 // Optimization types
 export interface Appliance {
-  id: string
-  name: string
-  powerKw: number
-  typicalDurationHours: number
-  isFlexible: boolean
+  id: string;
+  name: string;
+  powerKw: number;
+  typicalDurationHours: number;
+  isFlexible: boolean;
   preferredTimeRange?: {
-    start: number
-    end: number
-  }
-  priority: 'high' | 'medium' | 'low'
+    start: number;
+    end: number;
+  };
+  priority: "high" | "medium" | "low";
 }
 
 export interface OptimizationSchedule {
-  applianceId: string
-  applianceName: string
-  scheduledStart: string
-  scheduledEnd: string
-  estimatedCost: number
-  savings: number
-  reason: string
+  applianceId: string;
+  applianceName: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  estimatedCost: number;
+  savings: number;
+  reason: string;
 }
 
 export interface OptimizationResult {
-  schedules: OptimizationSchedule[]
-  totalSavings: number
-  totalCost: number
+  schedules: OptimizationSchedule[];
+  totalSavings: number;
+  totalCost: number;
   optimalPeriods: {
-    start: string
-    end: string
-    avgPrice: number
-  }[]
+    start: string;
+    end: string;
+    avgPrice: number;
+  }[];
 }
 
 // User settings types
 export interface UserSettings {
-  region: string
-  currentSupplier: Supplier | null
-  annualUsageKwh: number
-  peakDemandKw: number
-  appliances: Appliance[]
+  region: string;
+  currentSupplier: Supplier | null;
+  annualUsageKwh: number;
+  peakDemandKw: number;
+  appliances: Appliance[];
   notificationPreferences: {
-    priceAlerts: boolean
-    optimalTimes: boolean
-    supplierUpdates: boolean
-  }
+    priceAlerts: boolean;
+    optimalTimes: boolean;
+    supplierUpdates: boolean;
+  };
   displayPreferences: {
-    currency: 'USD' | 'GBP' | 'EUR'
-    theme: 'light' | 'dark' | 'system'
-    timeFormat: '12h' | '24h'
-  }
+    currency: "USD" | "GBP" | "EUR";
+    theme: "light" | "dark" | "system";
+    timeFormat: "12h" | "24h";
+  };
 }
 
 // Dashboard widget types
 export interface DashboardSummary {
-  currentPrice: CurrentPrice
-  todaySavings: number
-  monthSavings: number
-  totalSavings: number
+  currentPrice: CurrentPrice;
+  todaySavings: number;
+  monthSavings: number;
+  totalSavings: number;
   nextOptimalPeriod: {
-    start: string
-    end: string
-    price: number
-  } | null
-  supplierRecommendation: SupplierRecommendation | null
+    start: string;
+    end: string;
+    price: number;
+  } | null;
+  supplierRecommendation: SupplierRecommendation | null;
 }
 
 // API response types
 export interface ApiResponse<T> {
-  data: T
-  success: boolean
-  error?: string
-  timestamp: string
+  data: T;
+  success: boolean;
+  error?: string;
+  timestamp: string;
 }
 
 export interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  page: number
-  pageSize: number
-  hasMore: boolean
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
 }
 
 // Chart configuration types
 export interface ChartConfig {
-  showForecast?: boolean
-  highlightOptimal?: boolean
-  timeRange?: '6h' | '12h' | '24h' | '48h' | '7d'
-  showVolume?: boolean
-  showConfidence?: boolean
+  showForecast?: boolean;
+  highlightOptimal?: boolean;
+  timeRange?: "6h" | "12h" | "24h" | "48h" | "7d";
+  showVolume?: boolean;
+  showConfidence?: boolean;
 }
 
 // Form types
 export interface SwitchWizardState {
-  step: 1 | 2 | 3 | 4
-  recommendation: SupplierRecommendation
-  gdprConsent: boolean
-  contractAccepted: boolean
-  isSubmitting: boolean
-  error?: string
+  step: 1 | 2 | 3 | 4;
+  recommendation: SupplierRecommendation;
+  gdprConsent: boolean;
+  contractAccepted: boolean;
+  isSubmitting: boolean;
+  error?: string;
 }
 
 // Event types
-export type TimeRange = '6h' | '12h' | '24h' | '48h' | '7d'
+export type TimeRange = "6h" | "12h" | "24h" | "48h" | "7d";

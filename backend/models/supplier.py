@@ -175,13 +175,15 @@ class SupplierResponse(BaseModel):
     rating: float | None = None
     green_energy_provider: bool
     is_active: bool
-    # Estimated pricing. There is no per-supplier tariff data yet (the tariffs
-    # table is empty and unlinked from supplier_registry), so these are derived
-    # from the regional electricity market rate — the same source the dashboard
-    # uses — rather than a per-supplier contract. Null when no market rate or
-    # annual usage is available.
+    # Pricing comes from the vendor-neutral supplier_offers read model via a
+    # pluggable source. ``pricing_source`` names that source (e.g.
+    # 'regional_estimate', 'ct_rate_board', 'arcadia') and ``is_estimate``
+    # flags a derived/uniform figure vs. an actually obtainable offer so the UI
+    # can label it. Null when no rate is available.
     avg_price_per_kwh: float | None = None
     estimated_annual_cost: float | None = None
+    pricing_source: str | None = None
+    is_estimate: bool = False
 
 
 class SupplierDetailResponse(BaseModel):

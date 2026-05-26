@@ -21,11 +21,16 @@ from models.supplier import (
     SupplierResponse,
     TariffResponse,
 )
+from repositories.supplier_offer_repository import SupplierOfferRepository
 from repositories.supplier_repository import SupplierRegistryRepository
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Suppliers"])
+
+# Default annual consumption (kWh) for cost estimates when the caller omits
+# annual_usage — roughly the US residential average.
+DEFAULT_ANNUAL_USAGE_KWH = 10632
 
 # Regex for valid region codes (e.g. us_ct, uk, de, jp)
 _REGION_RE = re.compile(r"^[a-z]{2}(_[a-z]{2})?$")
@@ -110,11 +115,12 @@ async def list_suppliers(
     utility type, or green energy status. Data is sourced from the
     supplier_registry table. Results are cached in Redis for 1 hour.
 
-    Pricing (``avg_price_per_kwh`` / ``estimated_annual_cost``) is estimated
-    from the regional electricity market rate when ``region`` (and, for the
-    cost, ``annual_usage``) are supplied. There is no per-supplier tariff data
-    yet, so all suppliers share the regional rate — same approach as the
-    dashboard. Fields stay null when no market rate is available.
+    Pricing (``avg_price_per_kwh`` / ``estimated_annual_cost`` /
+    ``pricing_source`` / ``is_estimate``) comes from the vendor-neutral
+    ``supplier_offers`` read model. Today the only wired source is a regional
+    estimate (``is_estimate=true``); real per-supplier sources (state rate
+    boards, licensed APIs) drop in behind the same contract with no API change.
+    Fields stay null when no offer or rate is available.
     """
     repo = SupplierRegistryRepository(db, cache=redis)
     suppliers_data, total = await repo.list_suppliers(
@@ -128,18 +134,26 @@ async def list_suppliers(
 
     suppliers = [SupplierResponse(**s) for s in suppliers_data]
 
-    # Estimate pricing from the regional market rate (no per-supplier tariffs).
+    # Source-agnostic pricing: match each supplier to its cheapest offer.
     if region and suppliers:
         try:
-            market_rate = await repo.get_region_market_rate(region)
+            offer_repo = SupplierOfferRepository(db, cache=redis)
+            offers = await offer_repo.cheapest_available_by_supplier(
+                region, utility_type or "electricity"
+            )
         except Exception:
-            logger.warning("supplier_market_rate_lookup_failed", region=region, exc_info=True)
-            market_rate = None
-        if market_rate is not None:
-            est_cost = round(market_rate * annual_usage, 2) if annual_usage else None
-            for supplier in suppliers:
-                supplier.avg_price_per_kwh = market_rate
-                supplier.estimated_annual_cost = est_cost
+            logger.warning("supplier_offers_lookup_failed", region=region, exc_info=True)
+            offers = {}
+        for supplier in suppliers:
+            offer = offers.get(supplier.id) or offers.get(supplier.name)
+            if offer is None:
+                continue
+            supplier.avg_price_per_kwh = offer.rate_per_kwh
+            supplier.estimated_annual_cost = (
+                offer.annual_cost(annual_usage) if annual_usage else None
+            )
+            supplier.pricing_source = offer.source
+            supplier.is_estimate = offer.is_estimate
 
     return SuppliersResponse(
         suppliers=suppliers,
@@ -167,17 +181,52 @@ async def recommend_supplier(
 ):
     """Return a switching recommendation, or ``null`` when none can be computed.
 
-    Per-supplier tariff data does not exist yet (the ``tariffs`` table is empty
-    and not linked to ``supplier_registry``), so there is no basis for
-    supplier-specific savings — every supplier is priced at the same regional
-    market rate. We therefore return ``{"recommendation": null}`` (HTTP 200)
-    instead of fabricating a savings figure.
-
-    This route previously did not exist, so a POST fell through to
-    ``GET /{supplier_id}`` and returned 405. Defining it fixes the 405. When
-    real tariffs are seeded, compute and return the cheapest alternative here.
+    Driven by the vendor-neutral ``supplier_offers`` read model. A recommendation
+    is only produced from **real** offers (``is_estimate=false``) — estimates are
+    uniform regional figures and provide no basis for supplier-specific savings,
+    so when only estimates exist this returns ``{"recommendation": null}``
+    (HTTP 200). As real sources (rate boards, licensed APIs) are wired in, this
+    endpoint starts returning actionable recommendations with no code change.
     """
-    return {"recommendation": None}
+    if not body.region:
+        return {"recommendation": None}
+
+    offer_repo = SupplierOfferRepository(db, cache=redis)
+    offers = await offer_repo.cheapest_available_by_supplier(body.region)
+    real = {k: o for k, o in offers.items() if not o.is_estimate}
+    if not real:
+        return {"recommendation": None}
+
+    annual = body.annualUsage or DEFAULT_ANNUAL_USAGE_KWH
+    best_key, best = min(real.items(), key=lambda kv: kv[1].rate_per_kwh)
+
+    # Savings are only meaningful against a known current supplier's real offer.
+    current = real.get(body.currentSupplierId) if body.currentSupplierId else None
+    estimated_savings: float | None = None
+    if current is not None:
+        estimated_savings = round(current.annual_cost(annual) - best.annual_cost(annual), 2)
+        # Already on the cheapest (or current isn't beatable) — nothing to recommend.
+        if estimated_savings <= 0 or best_key == body.currentSupplierId:
+            return {"recommendation": None}
+
+    return {
+        "recommendation": {
+            "supplier": {
+                "id": best.supplier_id,
+                "name": best.supplier_name,
+                "avgPricePerKwh": best.rate_per_kwh,
+                "estimatedAnnualCost": best.annual_cost(annual),
+                "tariffType": best.tariff_type,
+                "greenEnergy": (best.renewable_pct or 0) >= 100,
+                "enrollUrl": best.enroll_url,
+            },
+            "estimatedSavings": estimated_savings,
+            "pricingSource": best.source,
+            "termMonths": best.intro_term_months,
+            "cancellationFee": best.cancellation_fee,
+            "expiresAt": best.expires_at.isoformat() if best.expires_at else None,
+        }
+    }
 
 
 @router.get("/registry", summary="List suppliers with API integration")
