@@ -1,0 +1,3 @@
+source: backend/repositories/supplier_offer_repository.py
+kind: object
+purpose: SupplierOfferRepository — source-agnostic read/write for supplier_offers.
