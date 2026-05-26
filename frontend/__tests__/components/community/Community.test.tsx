@@ -111,10 +111,11 @@ const mockPosts = {
 };
 
 const mockStats = {
-  user_count: 142,
+  total_users: 142,
+  region: "us_ct",
   avg_savings_pct: 18.5,
   post_count: 87,
-  since: "2025-06-01T00:00:00Z",
+  reporting_since: "2025-06-01T00:00:00Z",
   top_tip: { title: "Switch to off-peak hours", id: "tip-1" },
 };
 

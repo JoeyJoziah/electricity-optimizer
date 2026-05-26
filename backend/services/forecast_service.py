@@ -37,7 +37,7 @@ _ALLOWED_COLS = frozenset(
 # Allowlisted static WHERE clauses (defense-in-depth: prevents future callers
 # from accidentally passing user-controlled SQL fragments).
 _ALLOWED_WHERE_CLAUSES: frozenset[str | None] = frozenset(
-    {None, "utility_type = 'NATURAL_GAS'", "utility_type = 'ELECTRICITY'"}
+    {None, "utility_type = 'natural_gas'", "utility_type = 'electricity'"}
 )
 
 
@@ -88,7 +88,7 @@ class ForecastService:
                 table="electricity_prices",
                 price_col="price_per_kwh",
                 unit="$/therm",
-                where_clause="utility_type = 'NATURAL_GAS'",
+                where_clause="utility_type = 'natural_gas'",
                 state=state,
                 state_col="region",
                 state_prefix="us_",
@@ -139,7 +139,7 @@ class ForecastService:
                     AVG(price_per_kwh) AS price_per_kwh,
                     DATE_TRUNC('day', timestamp) AS timestamp
                 FROM electricity_prices
-                WHERE utility_type = 'ELECTRICITY'
+                WHERE utility_type = 'electricity'
                   AND timestamp >= NOW() - make_interval(days => :lookback_days)
                   {region_filter}
                 GROUP BY DATE_TRUNC('day', timestamp)

@@ -782,6 +782,7 @@ class TestCommunityStats:
         stats_result = MagicMock()
         stats_result.mappings.return_value.fetchone.return_value = {
             "total_users": 42,
+            "post_count": 87,
             "earliest_post": datetime(2026, 1, 1, tzinfo=UTC),
         }
 
@@ -802,6 +803,7 @@ class TestCommunityStats:
         stats = await service.get_stats(mock_db, region="us_ct")
 
         assert stats["total_users"] == 42
+        assert stats["post_count"] == 87
         assert stats["region"] == "us_ct"
         assert stats["reporting_since"] is not None
         assert stats["top_tip"] is not None

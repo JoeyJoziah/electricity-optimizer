@@ -44,10 +44,11 @@ function setup(statsOverrides: Record<string, unknown> = {}) {
 }
 
 const _stats = {
-  user_count: 142,
+  total_users: 142,
+  region: "us_ct",
   avg_savings_pct: 18.5,
   post_count: 87,
-  since: "2025-01-01T00:00:00Z",
+  reporting_since: "2025-01-01T00:00:00Z",
   top_tip: {
     id: "tip-1",
     title: "Switch to off-peak charging for EVs",
@@ -112,8 +113,8 @@ describe("CommunityStats", () => {
     );
   });
 
-  it("omits attribution when since is absent", () => {
-    setup({ data: { ..._stats, since: null } });
+  it("omits attribution when reporting_since is absent", () => {
+    setup({ data: { ..._stats, reporting_since: null } });
     render(<CommunityStats />);
     expect(screen.queryByTestId("stats-attribution")).not.toBeInTheDocument();
   });

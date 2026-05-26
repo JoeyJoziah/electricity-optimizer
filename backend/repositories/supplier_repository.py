@@ -225,6 +225,26 @@ class SupplierRegistryRepository:
         except Exception as e:
             raise RepositoryError(f"Failed to list suppliers: {str(e)}", e)
 
+    async def get_region_market_rate(self, region: str) -> float | None:
+        """Latest electricity market price for a region in $/kWh.
+
+        Used as an estimated supplier rate because per-supplier tariff data
+        does not yet exist (the tariffs table is empty and not linked to
+        supplier_registry). Returns None when no price rows exist for the
+        region. Raises on a genuine DB error rather than silently degrading.
+        The enum literal is lowercase to match the Postgres utility_type enum.
+        """
+        result = await self._db.execute(
+            text(
+                "SELECT price_per_kwh FROM electricity_prices"
+                " WHERE region = :region AND utility_type = 'electricity'"
+                " ORDER BY timestamp DESC LIMIT 1"
+            ),
+            {"region": region.lower()},
+        )
+        row = result.scalar()
+        return float(row) if row is not None else None
+
     async def get_by_id(self, supplier_id: str) -> dict | None:
         """
         Get a single supplier by its UUID.

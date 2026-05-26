@@ -144,3 +144,70 @@ class TestCompareSuppliers:
             resp = client.get(f"{_BASE}/compare/us_ct")
         assert resp.status_code == 200
         assert resp.json()["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# POST /suppliers/recommend  (audit 2026-05-21: was 405)
+# ---------------------------------------------------------------------------
+
+
+class TestRecommendEndpoint:
+    def test_post_recommend_returns_200_not_405(self, client):
+        """Regression: the route exists, so POST is no longer 405 (it used to
+        fall through to GET /{supplier_id})."""
+        resp = client.post(
+            f"{_BASE}/recommend",
+            json={
+                "currentSupplierId": "sup-001",
+                "annualUsage": 10500,
+                "region": "us_ct",
+            },
+        )
+        assert resp.status_code == 200
+        assert "recommendation" in resp.json()
+
+    def test_post_recommend_accepts_empty_body(self, client):
+        resp = client.post(f"{_BASE}/recommend", json={})
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# GET /suppliers/ estimated pricing  (audit 2026-05-21: all prices were $0.00)
+# ---------------------------------------------------------------------------
+
+
+class TestEstimatedPricing:
+    def test_annual_usage_param_accepted_and_cost_estimated(self, client):
+        with (
+            patch(
+                "repositories.supplier_repository.SupplierRegistryRepository.list_suppliers",
+                new=AsyncMock(return_value=([dict(_SUPPLIER_ROW)], 1)),
+            ),
+            patch(
+                "repositories.supplier_repository.SupplierRegistryRepository.get_region_market_rate",
+                new=AsyncMock(return_value=0.25),
+            ),
+        ):
+            resp = client.get(f"{_BASE}/?region=us_ct&annual_usage=10500")
+        assert resp.status_code == 200
+        supplier = resp.json()["suppliers"][0]
+        assert supplier["avg_price_per_kwh"] == 0.25
+        # 0.25 * 10500 = 2625.0 — no longer the $0.00 the audit observed.
+        assert supplier["estimated_annual_cost"] == 2625.0
+
+    def test_price_null_when_no_market_rate(self, client):
+        with (
+            patch(
+                "repositories.supplier_repository.SupplierRegistryRepository.list_suppliers",
+                new=AsyncMock(return_value=([dict(_SUPPLIER_ROW)], 1)),
+            ),
+            patch(
+                "repositories.supplier_repository.SupplierRegistryRepository.get_region_market_rate",
+                new=AsyncMock(return_value=None),
+            ),
+        ):
+            resp = client.get(f"{_BASE}/?region=us_ct&annual_usage=10500")
+        assert resp.status_code == 200
+        supplier = resp.json()["suppliers"][0]
+        assert supplier["avg_price_per_kwh"] is None
+        assert supplier["estimated_annual_cost"] is None
