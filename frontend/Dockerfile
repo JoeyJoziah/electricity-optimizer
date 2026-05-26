@@ -10,8 +10,15 @@ WORKDIR /app
 # Install libc6-compat for Alpine
 RUN apk add --no-cache libc6-compat
 
-# Copy package files
-COPY package.json package-lock.json* ./
+# Copy package files. .npmrc carries `legacy-peer-deps=true`, which the lockfile
+# was generated under — without it, `npm ci` runs strict and fails the
+# package.json<->lock sync check (EUSAGE: missing mongodb/sass/etc.).
+COPY package.json package-lock.json* .npmrc* ./
+
+# The `postinstall` hook runs scripts/patch-jsdom-location.js (a test-only
+# jsdom patch), so npm ci needs it present. The script is graceful when jsdom
+# is absent, so it's a safe no-op in production layers.
+COPY scripts ./scripts
 
 # Install dependencies with clean install
 RUN npm ci
