@@ -35,22 +35,23 @@ class TestRateLimitEnforcement:
         # At some point, should get 429 Too Many Requests
         assert 429 in responses, "Rate limiting should kick in after many requests"
 
-    def test_rate_limiting_on_auth_endpoint(self, client):
-        """Auth endpoints should have stricter rate limits."""
-        responses = []
+    def test_auth_endpoint_subject_to_per_ip_rate_limit(self, client):
+        """Auth endpoints are covered by the global per-IP limiter.
 
-        # Auth endpoints typically have lower limits (e.g., 10/min)
-        for i in range(20):
+        The limiter is per-IP (100/min), applied to all routes — there is no
+        separate, stricter per-auth-endpoint limit. So exceeding the per-IP
+        budget on an auth endpoint produces 429s like any other route.
+        """
+        responses = []
+        for i in range(150):  # exceed the per-IP per-minute limit (100)
             response = client.post(
                 "/api/v1/auth/signin",
                 json={"email": f"test{i}@example.com", "password": "test"},
             )
             responses.append(response.status_code)
 
-        # Should see rate limiting after a few attempts
-        rate_limited = sum(1 for r in responses if r == 429)
-        assert rate_limited > 0 or all(r in [401, 422] for r in responses), (
-            "Auth endpoint should be rate limited"
+        assert 429 in responses, (
+            "Auth endpoint should be rate limited by the global per-IP limiter"
         )
 
     def test_rate_limit_resets_after_window(self, client):
@@ -111,24 +112,29 @@ class TestRateLimitHeaders:
             )
 
 
-class TestPerUserRateLimiting:
-    """Tests for per-user rate limiting."""
+class TestPerIpRateLimiting:
+    """The limiter is per-IP (see middleware/rate_limiter.py): user-level
+    limiting is handled at the endpoint/service layer, not in this middleware."""
 
-    def test_different_users_have_separate_limits(self, client):
-        """Different users should have separate rate limits."""
+    def test_limit_is_shared_across_users_on_same_ip(self, client):
+        """Two users from the SAME client IP share one per-IP bucket.
+
+        Once the per-IP budget is exhausted by user 1, a second user on the
+        same IP is also limited — this is the actual (per-IP) protection, not
+        per-user separation.
+        """
         user1_headers = {"Authorization": "Bearer token_user_1"}
         user2_headers = {"Authorization": "Bearer token_user_2"}
 
-        # Hit limit for user 1
-        for _ in range(100):
+        # Exhaust the per-IP limit as user 1 (>100/min).
+        for _ in range(120):
             client.get("/api/v1/prices/current?region=UK", headers=user1_headers)
 
-        # User 2 should still be able to make requests
+        # User 2 shares the same IP bucket, so is also rate-limited.
         response = client.get("/api/v1/prices/current?region=UK", headers=user2_headers)
-
-        # User 2 should not be affected by user 1's rate limit
-        # (assuming per-user rate limiting)
-        assert response.status_code in [200, 401]
+        assert response.status_code == 429, (
+            "Per-IP limiter: a second user on the same IP shares the exhausted bucket"
+        )
 
 
 class TestRateLimitBypass:
@@ -189,13 +195,12 @@ class TestConcurrentRequests:
 
         status_codes = [r.status_code for r in responses]
 
-        # Should see some 429s from concurrent requests
-        # (depends on implementation)
+        # Under a concurrent flood (200 reqs > 100/min per-IP budget), the
+        # limiter must still enforce — at least some requests get 429.
         rate_limited_count = sum(1 for s in status_codes if s == 429)
-
-        # At least some requests should succeed
-        success_count = sum(1 for s in status_codes if s == 200)
-        assert success_count > 0, "Some requests should succeed"
+        assert rate_limited_count > 0, (
+            "Concurrent flood should be rate limited under the per-IP limiter"
+        )
 
 
 class TestRetryAfterHeader:
