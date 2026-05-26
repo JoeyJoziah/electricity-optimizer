@@ -99,4 +99,22 @@ describe("SupplierCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /switch to/i }));
     expect(onSelect).toHaveBeenCalledWith(baseSupplier);
   });
+
+  it("shows an Estimated badge when the price is an estimate", () => {
+    render(
+      <SupplierCard
+        supplier={{ ...baseSupplier, isEstimate: true } as unknown as Supplier}
+      />,
+    );
+    expect(screen.getByTestId("estimate-badge")).toBeInTheDocument();
+  });
+
+  it("hides the Estimated badge for a real offer", () => {
+    render(
+      <SupplierCard
+        supplier={{ ...baseSupplier, isEstimate: false } as unknown as Supplier}
+      />,
+    );
+    expect(screen.queryByTestId("estimate-badge")).not.toBeInTheDocument();
+  });
 });

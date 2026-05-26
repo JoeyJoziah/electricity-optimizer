@@ -1,0 +1,3 @@
+source: backend/models/supplier_offer.py
+kind: object
+purpose: SupplierOffer — normalized, source-agnostic supplier pricing.

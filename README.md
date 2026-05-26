@@ -32,7 +32,7 @@ RateShift is a full-stack multi-utility optimization platform that helps US cons
 |-------|-----------|
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | **Backend** | FastAPI, Python 3.12, asyncpg + SQLAlchemy ORM |
-| **Database** | Neon PostgreSQL (serverless), 66 migrations, 64 tables, UUID PKs |
+| **Database** | Neon PostgreSQL (serverless), 69 migrations, 70 tables, UUID PKs |
 | **Auth** | Neon Auth (Better Auth) — session-based, httpOnly cookies |
 | **Edge Layer** | Cloudflare Worker — 2-tier caching, native rate limiting, bot detection, CORS |
 | **ML** | Python ensemble predictor, HNSW vector store, XGBoost |
@@ -117,7 +117,7 @@ electricity-optimizer/
     services/                Business logic (52 services)
     repositories/            Data access layer
     integrations/            External APIs (weather, market research, utility sync, ...)
-    migrations/              SQL migrations (64 total, init_neon through 064)
+    migrations/              SQL migrations (69 total, init_neon through 069)
     tests/                   Unit and integration tests (2,976 total)
   frontend/                  Next.js 16 application
     app/                     App Router structure
@@ -242,13 +242,13 @@ See [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for the full workflow inven
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment guide (local, staging, production) |
 | [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Service catalog, CI/CD workflow inventory |
 | [TESTING.md](docs/TESTING.md) | Test suites, coverage targets, running tests |
-| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | All 58 tables, migration history |
+| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | All 70 tables, migration history |
 | [API_REFERENCE.md](docs/API_REFERENCE.md) | Complete API endpoint reference |
 | [OBSERVABILITY.md](docs/OBSERVABILITY.md) | OpenTelemetry tracing, Grafana Cloud |
 | [STRIPE_ARCHITECTURE.md](docs/STRIPE_ARCHITECTURE.md) | Payment flow, webhooks, dunning cycle |
 | [REDEPLOYMENT_RUNBOOK.md](docs/REDEPLOYMENT_RUNBOOK.md) | Emergency redeployment procedures |
 | [AUTOMATION_PLAN.md](docs/AUTOMATION_PLAN.md) | Cron workflow specifications and phase tracking |
-| [ADRs](docs/adr/) | 5 Architecture Decision Records |
+| [ADRs](docs/adr/) | 12 Architecture Decision Records |
 
 ## License
 

@@ -1,6 +1,6 @@
 # RateShift — System Architecture
 
-**Last Updated**: 2026-04-27 (Migration 066, 3,325 backend tests, 2,059 frontend tests, 35 GHA workflows, 64 tables = 55 public + 9 neon_auth)
+**Last Updated**: 2026-05-26 (Migration 069, 3,325 backend tests, 2,059 frontend tests, 35 GHA workflows, 70 tables = 61 public + 9 neon_auth)
 
 ## System Topology
 
@@ -37,8 +37,8 @@
       ┌──────────▼──┐    ┌──────────▼──┐    ┌──────────▼──┐
       │    Neon      │    │   Grafana   │    │  External   │
       │  PostgreSQL  │    │   Cloud     │    │   APIs      │
-      │  64 tables   │    │   Tempo     │    │ Stripe,     │
-      │  66 migrations│   │   (OTel)    │    │ Resend,     │
+      │  70 tables   │    │   Tempo     │    │ Stripe,     │
+      │  69 migrations│   │   (OTel)    │    │ Resend,     │
       └──────────────┘    └─────────────┘    │ Gemini,     │
                                              │ Groq, etc.  │
                                              └─────────────┘
@@ -160,7 +160,7 @@ RateShift supports 6 utility types, each following the same service/route/model 
 
 | Utility | Service | Table(s) | CTA | Tier |
 |---------|---------|----------|-----|------|
-| Electricity | `price_service` | `electricity_prices`, `suppliers` | Switch supplier | Free |
+| Electricity | `price_service` | `electricity_prices`, `suppliers`, `supplier_offers` | Switch supplier | Free |
 | Natural Gas | `gas_rate_service` | `gas_prices` | Switch supplier | Free |
 | Community Solar | `community_solar_service` | `community_solar_programs` | Enroll | Free |
 | Heating Oil | `heating_oil_service` | `heating_oil_prices`, `heating_oil_dealers` | Compare dealers | Free |
@@ -168,6 +168,7 @@ RateShift supports 6 utility types, each following the same service/route/model 
 | Water | `water_rate_service` | `water_rates` | Monitor only | Free |
 
 **Design principles**:
+- Electricity supplier pricing is read from the vendor-neutral `supplier_offers` read model (not the deprecated `tariffs` table)
 - Water is monitoring-only (geographic monopoly, no switching)
 - Each utility has its own service, API routes, frontend page, and sidebar nav item
 - `UtilityType` enum in `backend/models/utility.py` is the single source of truth
@@ -269,3 +270,10 @@ See `docs/adr/` for detailed Architecture Decision Records:
 - [ADR-003](adr/003-dual-provider-email.md): Dual-provider email system
 - [ADR-004](adr/004-multi-model-ai-agent.md): Multi-model AI agent
 - [ADR-005](adr/005-multi-utility-expansion.md): Multi-utility expansion pattern
+- [ADR-006](adr/006-circuit-breaker-pattern.md): Circuit breaker pattern
+- [ADR-007](adr/007-self-healing-ci-cd.md): Self-healing CI/CD
+- [ADR-008](adr/008-semantic-design-tokens.md): Semantic design tokens
+- [ADR-009](adr/009-atomic-rate-limiting.md): Atomic rate limiting
+- [ADR-010](adr/010-auto-rate-switcher.md): Auto rate switcher
+- [ADR-011](adr/011-silent-fallback-ban.md): Silent fallback ban
+- [ADR-012](adr/012-vendor-neutral-supplier-pricing.md): Vendor-neutral supplier pricing
