@@ -25,7 +25,7 @@ jobs:
         uses: ./.github/actions/setup-node-env
 
       - name: Install claude-flow
-        run: npm install -g claude-flow@5.53.0
+        run: npm install -g claude-flow@latest
 
       - name: Analyze diff risk
         run: |

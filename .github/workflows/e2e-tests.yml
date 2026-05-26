@@ -109,9 +109,12 @@ jobs:
 
       - name: Set up database
         run: |
-          # Apply ALL migrations in sequential order (not just the first 3).
-          # This ensures E2E tests run against the same schema as production.
-          for f in $(ls backend/migrations/[0-9]*.sql backend/migrations/init_neon.sql 2>/dev/null | sort); do
+          # Apply ALL migrations in production order: init_neon (the baseline)
+          # FIRST, then numbered migrations in sequence. A bare `sort` puts
+          # init_neon.sql last (alphabetical, after digits), which breaks
+          # reconciliation migrations (e.g. 003 renames deletion_logs.timestamp
+          # -> deleted_at, then init_neon's timestamp index fails). Match prod.
+          for f in backend/migrations/init_neon.sql $(ls backend/migrations/[0-9]*.sql 2>/dev/null | sort); do
             echo "Applying migration: $f"
             PGPASSWORD=postgres psql -h localhost -U postgres -d electricity_test -f "$f"
           done

@@ -79,7 +79,7 @@ def client():
             new_callable=AsyncMock,
             return_value=[{"1": 1}],
         ),
-        patch("config.database.db_manager.get_timescale_session") as mock_session_cm,
+        patch("config.database.db_manager.get_pg_session") as mock_session_cm,
     ):
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=None)
