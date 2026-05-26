@@ -153,7 +153,12 @@ jobs:
           npm run build
           npm run start &
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
+          # Match the app's intended design: relative /api/v1 (baked at build),
+          # proxied to the backend by Next rewrites (BACKEND_URL). A bare
+          # http://localhost:8000 base made every client call 404 — the backend
+          # mounts all routes under /api/v1.
+          NEXT_PUBLIC_API_URL: /api/v1
+          BACKEND_URL: http://localhost:8000
 
       - name: Wait for frontend
         uses: ./.github/actions/wait-for-service
@@ -275,12 +280,16 @@ jobs:
       - name: Build frontend
         run: cd frontend && npm run build
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
+          # Relative base (proxied via Next rewrites) — not a bare host, which
+          # would 404 against the backend's /api/v1 mount.
+          NEXT_PUBLIC_API_URL: /api/v1
 
       - name: Start frontend server
         run: |
           cd frontend
           npm run start &
+        env:
+          BACKEND_URL: http://localhost:8000
 
       - name: Wait for frontend
         uses: ./.github/actions/wait-for-service
