@@ -250,16 +250,15 @@ test.describe("API Contracts — Error States", () => {
     authenticatedPage,
   }) => {
     // Override the default mock with a 500 response (LIFO — registered after fixture)
-    await authenticatedPage.route(
-      "**/api/v1/prices/current**",
-      async (route) => {
+    await authenticatedPage
+      .context()
+      .route("**/api/v1/prices/current**", async (route) => {
         await route.fulfill({
           status: 500,
           contentType: "application/json",
           body: JSON.stringify({ detail: "Internal server error" }),
         });
-      },
-    );
+      });
 
     await authenticatedPage.goto("/prices", {
       waitUntil: "domcontentloaded",
@@ -280,16 +279,15 @@ test.describe("API Contracts — Error States", () => {
   test("dashboard shows error UI when prices/current returns 500 @regression", async ({
     authenticatedPage,
   }) => {
-    await authenticatedPage.route(
-      "**/api/v1/prices/current**",
-      async (route) => {
+    await authenticatedPage
+      .context()
+      .route("**/api/v1/prices/current**", async (route) => {
         await route.fulfill({
           status: 500,
           contentType: "application/json",
           body: JSON.stringify({ detail: "Internal server error" }),
         });
-      },
-    );
+      });
 
     await authenticatedPage.goto("/dashboard", {
       waitUntil: "domcontentloaded",
@@ -307,13 +305,15 @@ test.describe("API Contracts — Error States", () => {
   test("suppliers page shows error UI when suppliers returns 404 @regression", async ({
     authenticatedPage,
   }) => {
-    await authenticatedPage.route("**/api/v1/suppliers**", async (route) => {
-      await route.fulfill({
-        status: 404,
-        contentType: "application/json",
-        body: JSON.stringify({ detail: "Not found" }),
+    await authenticatedPage
+      .context()
+      .route("**/api/v1/suppliers**", async (route) => {
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Not found" }),
+        });
       });
-    });
 
     await authenticatedPage.goto("/suppliers", {
       waitUntil: "domcontentloaded",
@@ -331,9 +331,9 @@ test.describe("API Contracts — Error States", () => {
   test("gated forecast endpoint returns 403 and shows upgrade prompt @regression", async ({
     authenticatedPage,
   }) => {
-    await authenticatedPage.route(
-      "**/api/v1/prices/forecast**",
-      async (route) => {
+    await authenticatedPage
+      .context()
+      .route("**/api/v1/prices/forecast**", async (route) => {
         await route.fulfill({
           status: 403,
           contentType: "application/json",
@@ -343,8 +343,7 @@ test.describe("API Contracts — Error States", () => {
             required_tier: "pro",
           }),
         });
-      },
-    );
+      });
 
     await authenticatedPage.goto("/dashboard", {
       waitUntil: "domcontentloaded",
@@ -384,9 +383,9 @@ test.describe("API Contracts — Retry Behavior", () => {
     let callCount = 0;
 
     // Register override AFTER fixture mocks (LIFO — takes priority)
-    await authenticatedPage.route(
-      "**/api/v1/prices/current**",
-      async (route) => {
+    await authenticatedPage
+      .context()
+      .route("**/api/v1/prices/current**", async (route) => {
         callCount++;
         if (callCount === 1) {
           await route.fulfill({
@@ -423,8 +422,7 @@ test.describe("API Contracts — Retry Behavior", () => {
             }),
           });
         }
-      },
-    );
+      });
 
     await authenticatedPage.goto("/dashboard", {
       waitUntil: "domcontentloaded",
@@ -451,35 +449,37 @@ test.describe("API Contracts — Retry Behavior", () => {
   }) => {
     let callCount = 0;
 
-    await authenticatedPage.route("**/api/v1/suppliers**", async (route) => {
-      callCount++;
-      if (callCount === 1) {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ detail: "Transient failure" }),
-        });
-      } else {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            suppliers: [
-              {
-                id: "1",
-                name: "Eversource Energy",
-                avgPricePerKwh: 0.25,
-                standingCharge: 0.5,
-                greenEnergy: true,
-                rating: 4.5,
-                estimatedAnnualCost: 1200,
-                tariffType: "variable",
-              },
-            ],
-          }),
-        });
-      }
-    });
+    await authenticatedPage
+      .context()
+      .route("**/api/v1/suppliers**", async (route) => {
+        callCount++;
+        if (callCount === 1) {
+          await route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "Transient failure" }),
+          });
+        } else {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              suppliers: [
+                {
+                  id: "1",
+                  name: "Eversource Energy",
+                  avgPricePerKwh: 0.25,
+                  standingCharge: 0.5,
+                  greenEnergy: true,
+                  rating: 4.5,
+                  estimatedAnnualCost: 1200,
+                  tariffType: "variable",
+                },
+              ],
+            }),
+          });
+        }
+      });
 
     await authenticatedPage.goto("/suppliers", {
       waitUntil: "domcontentloaded",
@@ -511,9 +511,9 @@ test.describe("API Contracts — Community Page", () => {
     });
 
     // Override communityPosts mock so it returns data (default is undefined)
-    await authenticatedPage.route(
-      "**/api/v1/community/posts**",
-      async (route) => {
+    await authenticatedPage
+      .context()
+      .route("**/api/v1/community/posts**", async (route) => {
         if (route.request().method() === "GET") {
           await route.fulfill({
             status: 200,
@@ -528,8 +528,7 @@ test.describe("API Contracts — Community Page", () => {
         } else {
           await route.continue();
         }
-      },
-    );
+      });
 
     const postsPromise = authenticatedPage.waitForRequest(
       (req) => req.url().includes("/community/posts"),

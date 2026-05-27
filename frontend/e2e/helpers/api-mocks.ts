@@ -509,7 +509,10 @@ export async function createMockApi(
     });
   }
 
-  // --- Agent ---
+  // --- Agent usage ---
+  // getAgentUsage() reads the response as a flat AgentUsage ({used,limit,remaining}),
+  // so the default must NOT be wrapped in { usage: ... } or AgentChat renders
+  // "undefined/undefined queries today".
   if (overrides.agent !== false) {
     await ctx.route("**/api/v1/agent/**", async (route) => {
       tracker.record(route);
@@ -517,7 +520,7 @@ export async function createMockApi(
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(
-          overrides.agent ?? { usage: { used: 0, limit: 3, remaining: 3 } },
+          overrides.agent ?? { used: 0, limit: 3, remaining: 3 },
         ),
       });
     });

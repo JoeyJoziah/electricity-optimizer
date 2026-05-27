@@ -21,6 +21,7 @@ import {
   setAuthenticatedState,
   clearAuthState,
 } from "./helpers/auth";
+import { createMockApi } from "./helpers/api-mocks";
 
 // iPhone 14 Pro dimensions — matches Mobile Safari project device
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
@@ -52,189 +53,9 @@ async function setupMobilePage(page: import("@playwright/test").Page) {
     );
   });
 
-  // Register catch-all FIRST (lowest priority — LIFO)
-  await page.route("**/api/v1/**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({}),
-    });
-  });
-
-  await page.route("**/api/auth/get-session", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        user: {
-          id: "user_e2e_123",
-          email: "test@example.com",
-          name: "Test User",
-          emailVerified: true,
-        },
-        session: {
-          id: "session_e2e_123",
-          userId: "user_e2e_123",
-          token: "mock-session-token-e2e-test",
-          expiresAt: new Date(Date.now() + 86400000).toISOString(),
-        },
-      }),
-    });
-  });
-
-  await page.route("**/api/v1/prices/current**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        prices: [
-          {
-            ticker: "ELEC-US_CT",
-            current_price: "0.2500",
-            currency: "USD",
-            region: "US_CT",
-            supplier: "Eversource",
-            updated_at: new Date().toISOString(),
-            is_peak: false,
-            carbon_intensity: null,
-            price_change_24h: null,
-            price: 0.25,
-            timestamp: new Date().toISOString(),
-            trend: "stable",
-            changePercent: 0,
-          },
-        ],
-        price: null,
-        region: "US_CT",
-        timestamp: new Date().toISOString(),
-        source: "mock",
-      }),
-    });
-  });
-
-  await page.route("**/api/v1/prices/history**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        region: "US_CT",
-        prices: [],
-        total: 0,
-        page: 1,
-        page_size: 24,
-        pages: 1,
-        source: "mock",
-      }),
-    });
-  });
-
-  await page.route("**/api/v1/prices/forecast**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        region: "US_CT",
-        forecast: {
-          id: "mock-forecast",
-          region: "US_CT",
-          generated_at: new Date().toISOString(),
-          horizon_hours: 24,
-          prices: [],
-          confidence: 0.85,
-          model_version: "v1",
-          source_api: null,
-        },
-        generated_at: new Date().toISOString(),
-        horizon_hours: 24,
-        confidence: 0.85,
-        source: "mock",
-      }),
-    });
-  });
-
-  await page.route("**/api/v1/prices/optimal-periods**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ periods: [] }),
-    });
-  });
-
-  await page.route("**/api/v1/suppliers**", async (route) => {
-    const url = route.request().url();
-    if (url.includes("/recommendation") || url.includes("/compare")) {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ recommendation: null, comparisons: [] }),
-      });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        suppliers: [
-          {
-            id: "1",
-            name: "Eversource Energy",
-            avgPricePerKwh: 0.25,
-            standingCharge: 0.5,
-            greenEnergy: true,
-            rating: 4.5,
-            estimatedAnnualCost: 1200,
-            tariffType: "variable",
-          },
-        ],
-      }),
-    });
-  });
-
-  await page.route("**/api/v1/users/profile**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        email: "test@example.com",
-        name: "Test User",
-        region: "US_CT",
-        utility_types: ["electricity"],
-        current_supplier_id: null,
-        annual_usage_kwh: 10500,
-        onboarding_completed: true,
-      }),
-    });
-  });
-
-  await page.route("**/api/v1/user/supplier", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ supplier: null }),
-    });
-  });
-
-  await page.route("**/api/v1/savings/summary**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        total: 0,
-        monthly: 0,
-        weekly: 0,
-        streak_days: 0,
-        currency: "USD",
-      }),
-    });
-  });
-
-  await page.route("**/api/v1/alerts**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ alerts: [] }),
-    });
-  });
+  // All standard API mocks (context-level routing + SSE stream) come from
+  // the shared factory so the mobile dashboard renders like everywhere else.
+  await createMockApi(page, { authSession: false });
 }
 
 // ---------------------------------------------------------------------------
@@ -254,10 +75,11 @@ test.describe("Mobile Navigation", () => {
     });
     await page.waitForSelector("body");
 
-    // The desktop sidebar nav uses class "hidden sm:flex" — it is not
-    // visible at 390px wide (below the sm breakpoint of 640px).
-    const nav = page.getByRole("navigation");
-    await expect(nav).not.toBeVisible();
+    // The desktop sidebar is "hidden lg:flex" — not visible below 1024px.
+    // getByRole('navigation') is ambiguous (the dashboard-tabs nav is also a
+    // navigation landmark and IS visible at mobile), so assert a sidebar-only
+    // element — the sign-out button — is hidden instead.
+    await expect(page.getByTestId("sign-out-button")).not.toBeVisible();
   });
 
   test("hamburger menu button is visible on mobile @regression", async ({

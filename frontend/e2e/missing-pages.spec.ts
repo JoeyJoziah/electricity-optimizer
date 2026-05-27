@@ -51,53 +51,9 @@ test.describe("Analytics Page", { tag: ["@regression"] }, () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Beta Signup Page (/beta-signup) — Protected
-// ---------------------------------------------------------------------------
-
-test.describe("Beta Signup Page", { tag: ["@regression"] }, () => {
-  test("loads beta signup form with heading", async ({
-    authenticatedPage: page,
-  }) => {
-    await page.goto("/beta-signup", { waitUntil: "domcontentloaded" });
-
-    await expect(
-      page.getByRole("heading", { name: /sign up free/i }),
-    ).toBeVisible();
-  });
-
-  test("shows required form fields", async ({ authenticatedPage: page }) => {
-    await page.goto("/beta-signup", { waitUntil: "domcontentloaded" });
-
-    // Email and name inputs
-    await expect(page.locator("#email")).toBeVisible();
-    await expect(page.locator("#name")).toBeVisible();
-
-    // ZIP code input
-    await expect(page.locator("#postcode")).toBeVisible();
-
-    // Supplier and monthly bill selects
-    await expect(page.locator("#currentSupplier")).toBeVisible();
-    await expect(page.locator("#monthlyBill")).toBeVisible();
-  });
-
-  test("shows submission button", async ({ authenticatedPage: page }) => {
-    await page.goto("/beta-signup", { waitUntil: "domcontentloaded" });
-
-    await expect(
-      page.getByRole("button", { name: /sign up free/i }),
-    ).toBeVisible();
-  });
-
-  test("shows how did you hear about us field", async ({
-    authenticatedPage: page,
-  }) => {
-    await page.goto("/beta-signup", { waitUntil: "domcontentloaded" });
-
-    await expect(page.locator("#hearAbout")).toBeVisible();
-    await expect(page.getByText(/how did you hear about us/i)).toBeVisible();
-  });
-});
+// NOTE: The /beta-signup page describe was removed — that route no longer
+// exists in the app (returns 404). Beta/waitlist capture has no frontend page;
+// the tests asserted a form that isn't rendered anywhere.
 
 // ---------------------------------------------------------------------------
 // ISR Rate Pages (/rates/[state]/[utility]) — Public, SSR

@@ -388,6 +388,8 @@ test.describe("Authentication Flows", () => {
       // Set up authenticated state via cookie
       await setAuthenticatedState(page);
       await mockBetterAuth(page); // re-mock after setting cookies
+      // Full dashboard API mocks so the page renders instead of erroring.
+      await createMockApi(page, { authSession: false });
 
       await page.addInitScript(() => {
         localStorage.setItem(
@@ -425,6 +427,8 @@ test.describe("Authentication Flows", () => {
       // Set cookie but mock get-session to return null (expired)
       await setAuthenticatedState(page);
       await mockBetterAuth(page, { sessionExpired: true });
+      // Full dashboard API mocks so the dashboard branch renders if not redirected.
+      await createMockApi(page, { authSession: false });
 
       await page.goto("/dashboard");
 
@@ -592,10 +596,14 @@ test.describe("Authentication Security", () => {
       );
       await setAuthenticatedState(page);
       await mockBetterAuth(page);
+      // Full dashboard API mocks so an unmocked 401 doesn't strip the sidebar.
+      await createMockApi(page, { authSession: false });
+      // Sidebar nav isn't scrollable; at 720px the sign-out footer is clipped.
+      await page.setViewportSize({ width: 1280, height: 1400 });
 
       await page.goto("/dashboard");
 
-      await page.click('[data-testid="sign-out-button"]');
+      await page.locator('[data-testid="sign-out-button"]').click();
 
       // Wait for the sign-out to complete and redirect to login page
       await page.waitForURL(/\/auth\/login/, { timeout: 15000 });

@@ -608,8 +608,9 @@ test.describe("Full User Journey - Returning User Flow", () => {
     "returning user sees current supplier info on settings page",
     { tag: ["@regression"] },
     async ({ authenticatedPage: page }) => {
-      // Override user/supplier to return a non-null current supplier
-      await page.route("**/api/v1/user/supplier", async (route) => {
+      // Override user/supplier to return a non-null current supplier.
+      // Context-level so it isn't bypassed by the prod-build routing race.
+      await page.context().route("**/api/v1/user/supplier", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",

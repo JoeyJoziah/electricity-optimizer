@@ -90,7 +90,8 @@ test.describe("Billing Flow - Pricing Page", () => {
       await expect(page.getByText("Smart schedule optimization")).toBeVisible();
       await expect(page.getByText("Weather-aware predictions")).toBeVisible();
       await expect(page.getByText("Historical price data")).toBeVisible();
-      await expect(page.getByText("Email notifications")).toBeVisible();
+      // "Email notifications" appears in more than one tier column; scope to first.
+      await expect(page.getByText("Email notifications").first()).toBeVisible();
       await expect(
         page.getByText("Savings tracker & gamification"),
       ).toBeVisible();
@@ -107,7 +108,9 @@ test.describe("Billing Flow - Pricing Page", () => {
       await expect(page.getByText("Multi-property management")).toBeVisible();
       await expect(page.getByText("Priority email support")).toBeVisible();
       await expect(page.getByText("SSE real-time streaming")).toBeVisible();
-      await expect(page.getByText("Dedicated account manager")).toBeVisible();
+      // Business tier's final feature was renamed from "Dedicated account
+      // manager" to "White-glove onboarding".
+      await expect(page.getByText("White-glove onboarding")).toBeVisible();
     },
   );
 

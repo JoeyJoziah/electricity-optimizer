@@ -48,7 +48,8 @@ test.describe("Community Page", () => {
     apiMockConfig: {
       communityPosts: COMMUNITY_POSTS,
       communityStats: COMMUNITY_STATS,
-      communityVote: { voted: true },
+      // VoteButton sets its count from the response's upvote_count after click.
+      communityVote: { voted: true, upvote_count: 6 },
     },
   });
 
@@ -87,15 +88,15 @@ test.describe("Community Page", () => {
     async ({ authenticatedPage: page }) => {
       await page.goto("/community");
 
-      // Find the first vote button and click it
-      const voteButtons = page.getByTestId("vote-button");
-      const firstVote = voteButtons.first();
+      // Find the first vote button and click it. VoteButton's testid is
+      // `vote-btn-${postId}`, so match by prefix.
+      const firstVote = page.locator('[data-testid^="vote-btn-"]').first();
       await expect(firstVote).toBeVisible();
 
       // Click to vote
       await firstVote.click();
 
-      // Vote count should update (optimistic: 5 → 6)
+      // Vote count updates from the vote response's upvote_count (mocked to 6).
       await expect(firstVote).toContainText("6");
     },
   );
