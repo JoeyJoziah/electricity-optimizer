@@ -19,7 +19,7 @@ jobs:
             -X POST \
             -H "X-API-Key: ${{ secrets.INTERNAL_API_KEY }}" \
             -H "Content-Type: application/json" \
-            "${{ vars.BACKEND_URL }}/api/v1/internal/cost-caps/check")
+            "${{ secrets.BACKEND_URL }}/api/v1/internal/cost-caps/check")
 
           echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
 

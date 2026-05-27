@@ -126,7 +126,7 @@ class DripService:
                     ) AS has_connection,
                     EXISTS (
                         SELECT 1 FROM bill_uploads bu
-                        WHERE bu.user_id = ds.user_id AND bu.status = 'completed'
+                        WHERE bu.user_id = ds.user_id AND bu.parse_status = 'complete'
                         LIMIT 1
                     ) AS has_bill,
                     (
