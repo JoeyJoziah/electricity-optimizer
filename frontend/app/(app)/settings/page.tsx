@@ -319,6 +319,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <select
+                    aria-label="Region"
                     value={region || ""}
                     onChange={(e) => setRegion(e.target.value)}
                     className="rounded-lg border border-gray-300 bg-white text-gray-900 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
@@ -629,6 +630,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <select
+                  aria-label="Currency"
                   value={displayPreferences.currency}
                   onChange={(e) =>
                     setDisplayPreferences({
@@ -651,6 +653,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <select
+                  aria-label="Theme"
                   value={displayPreferences.theme}
                   onChange={(e) =>
                     setDisplayPreferences({
@@ -673,6 +676,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <select
+                  aria-label="Time format"
                   value={displayPreferences.timeFormat}
                   onChange={(e) =>
                     setDisplayPreferences({
