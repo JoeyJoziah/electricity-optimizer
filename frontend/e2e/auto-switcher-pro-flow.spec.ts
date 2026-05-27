@@ -124,65 +124,74 @@ async function setupAutoSwitcherRoutes(
   } = {},
 ) {
   // Settings
-  await page.route("**/api/v1/agent-switcher/settings", async (route) => {
-    if (route.request().method() === "PUT") {
-      const body = JSON.parse(route.request().postData() || "{}");
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/settings", async (route) => {
+      if (route.request().method() === "PUT") {
+        const body = JSON.parse(route.request().postData() || "{}");
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ...(overrides.settings ?? MOCK_SETTINGS),
+            ...body,
+          }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          ...(overrides.settings ?? MOCK_SETTINGS),
-          ...body,
-        }),
+        body: JSON.stringify(overrides.settings ?? MOCK_SETTINGS),
       });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(overrides.settings ?? MOCK_SETTINGS),
     });
-  });
 
-  // Activity
-  await page.route("**/api/v1/agent-switcher/activity**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(overrides.activity ?? MOCK_ACTIVITY),
+  // Activity — getActivity() reads `res.activity`, so return an envelope.
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/activity**", async (route) => {
+      const entries = overrides.activity ?? MOCK_ACTIVITY;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ activity: entries, total: entries.length }),
+      });
     });
-  });
 
-  // History
-  await page.route("**/api/v1/agent-switcher/history**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(overrides.history ?? MOCK_ACTIVITY),
+  // History — getHistory() reads `res.history`, so return an envelope.
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/history**", async (route) => {
+      const entries = overrides.history ?? MOCK_ACTIVITY;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ history: entries, total: entries.length }),
+      });
     });
-  });
 
   // Check now — single handler with optional callback
-  await page.route("**/api/v1/agent-switcher/check", async (route) => {
-    overrides.onCheck?.();
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(overrides.checkResult ?? MOCK_CHECK_RESULT),
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/check", async (route) => {
+      overrides.onCheck?.();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(overrides.checkResult ?? MOCK_CHECK_RESULT),
+      });
     });
-  });
 
   // Approve
-  await page.route(
-    "**/api/v1/agent-switcher/audit/*/approve",
-    async (route) => {
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/audit/*/approve", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(overrides.approveResult ?? MOCK_APPROVE_RESULT),
       });
-    },
-  );
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -380,20 +389,24 @@ test.describe("Auto Switcher — Pro Flow", () => {
     { tag: ["@regression"] },
     async ({ authenticatedPage: page }) => {
       // Override settings to return 500
-      await page.route("**/api/v1/agent-switcher/settings", async (route) => {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ detail: "Internal server error" }),
+      await page
+        .context()
+        .route("**/api/v1/agent-switcher/settings", async (route) => {
+          await route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "Internal server error" }),
+          });
         });
-      });
-      await page.route("**/api/v1/agent-switcher/activity**", async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([]),
+      await page
+        .context()
+        .route("**/api/v1/agent-switcher/activity**", async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+          });
         });
-      });
 
       await page.goto("/auto-switcher");
 
@@ -406,20 +419,24 @@ test.describe("Auto Switcher — Pro Flow", () => {
     "handles free tier 403 gracefully",
     { tag: ["@regression"] },
     async ({ authenticatedPage: page }) => {
-      await page.route("**/api/v1/agent-switcher/settings", async (route) => {
-        await route.fulfill({
-          status: 403,
-          contentType: "application/json",
-          body: JSON.stringify({ detail: "Pro tier required" }),
+      await page
+        .context()
+        .route("**/api/v1/agent-switcher/settings", async (route) => {
+          await route.fulfill({
+            status: 403,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "Pro tier required" }),
+          });
         });
-      });
-      await page.route("**/api/v1/agent-switcher/activity**", async (route) => {
-        await route.fulfill({
-          status: 403,
-          contentType: "application/json",
-          body: JSON.stringify({ detail: "Pro tier required" }),
+      await page
+        .context()
+        .route("**/api/v1/agent-switcher/activity**", async (route) => {
+          await route.fulfill({
+            status: 403,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "Pro tier required" }),
+          });
         });
-      });
 
       await page.goto("/auto-switcher");
 

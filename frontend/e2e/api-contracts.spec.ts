@@ -184,8 +184,11 @@ test.describe("API Contracts — Suppliers Page", () => {
       if (req.url().includes("/api/v1/")) calledUrls.push(req.url());
     });
 
+    // Match the API call, not the page navigation: goto("/suppliers") issues a
+    // document request whose URL also contains "/suppliers", which would
+    // resolve this wait before the client-side API call ever fires.
     const suppliersPromise = authenticatedPage.waitForRequest(
-      (req) => req.url().includes("/suppliers"),
+      (req) => req.url().includes("/api/v1/suppliers"),
       { timeout: 10000 },
     );
 
@@ -557,8 +560,11 @@ test.describe("API Contracts — Alerts Page", () => {
       if (req.url().includes("/api/v1/")) calledUrls.push(req.url());
     });
 
+    // Match the API call, not the page navigation: goto("/alerts") issues a
+    // document request whose URL also contains "/alerts", which would resolve
+    // this wait before the client-side API call ever fires.
     const alertsPromise = authenticatedPage.waitForRequest(
-      (req) => req.url().includes("/alerts"),
+      (req) => req.url().includes("/api/v1/alerts"),
       { timeout: 10000 },
     );
 

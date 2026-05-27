@@ -4,6 +4,7 @@ import {
   setAuthenticatedState,
   clearAuthState,
 } from "./helpers/auth";
+import { createMockApi } from "./helpers/api-mocks";
 
 test.describe("Authentication Flows", () => {
   // Tests in this block exercise the login page (unauthenticated), OAuth initiation,
@@ -15,7 +16,7 @@ test.describe("Authentication Flows", () => {
     await page.goto("/auth/login");
 
     await expect(
-      page.getByRole("heading", { name: /electricity optimizer/i }),
+      page.getByRole("heading", { name: /rateshift/i }),
     ).toBeVisible();
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.locator("#password")).toBeVisible();
@@ -29,6 +30,11 @@ test.describe("Authentication Flows", () => {
     { tag: ["@smoke"] },
     async ({ page }) => {
       await mockBetterAuth(page);
+      // Full dashboard mock coverage (incl. the SSE prices/stream mock) so the
+      // post-login dashboard renders instead of erroring. authSession:false
+      // leaves session handling to mockBetterAuth above. The test's own
+      // prices/current mock below is registered later and takes precedence.
+      await createMockApi(page, { authSession: false });
 
       await page.route("**/api/v1/prices/current**", async (route) => {
         await route.fulfill({
@@ -301,9 +307,16 @@ test.describe("Authentication Flows", () => {
       );
       await mockBetterAuth(page);
       await setAuthenticatedState(page);
+      // Mock dashboard APIs so an unmocked 401 doesn't auto-redirect to login
+      // (which would strip the sidebar sign-out button before we can click it).
+      await createMockApi(page, { authSession: false });
+      // The sidebar nav isn't scrollable; at the default 720px height its footer
+      // (the sign-out button) is clipped below the viewport and unclickable.
+      // Use a taller viewport so the button is reachable.
+      await page.setViewportSize({ width: 1280, height: 1400 });
       await page.goto("/dashboard");
 
-      await page.click('[data-testid="sign-out-button"]');
+      await page.locator('[data-testid="sign-out-button"]').click();
 
       await page.waitForURL("/auth/login", { timeout: 15000 });
     },

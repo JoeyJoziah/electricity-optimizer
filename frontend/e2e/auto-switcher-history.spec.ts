@@ -111,46 +111,54 @@ async function setupHistoryRoutes(
   } = {},
 ) {
   // Settings (needed for sidebar badge)
-  await page.route("**/api/v1/agent-switcher/settings", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        enabled: true,
-        savings_threshold_pct: 10,
-        savings_threshold_min: 10,
-        cooldown_days: 5,
-        paused_until: null,
-        loa_signed: false,
-        loa_revoked: false,
-        created_at: "2026-03-01T00:00:00Z",
-        updated_at: "2026-03-01T00:00:00Z",
-      }),
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/settings", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          savings_threshold_pct: 10,
+          savings_threshold_min: 10,
+          cooldown_days: 5,
+          paused_until: null,
+          loa_signed: false,
+          loa_revoked: false,
+          created_at: "2026-03-01T00:00:00Z",
+          updated_at: "2026-03-01T00:00:00Z",
+        }),
+      });
     });
-  });
 
-  // History
-  await page.route("**/api/v1/agent-switcher/history**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(overrides.history ?? MOCK_HISTORY),
+  // History — getHistory() reads `res.history`, so the endpoint must return
+  // a { history, total } envelope, not a bare array.
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/history**", async (route) => {
+      const entries = overrides.history ?? MOCK_HISTORY;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ history: entries, total: entries.length }),
+      });
     });
-  });
 
   // Activity (for sidebar badge)
-  await page.route("**/api/v1/agent-switcher/activity**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/activity**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
     });
-  });
 
   // Rollback
-  await page.route(
-    "**/api/v1/agent-switcher/executions/*/rollback",
-    async (route) => {
+  await page
+    .context()
+    .route("**/api/v1/agent-switcher/executions/*/rollback", async (route) => {
       if (overrides.rollbackError) {
         await route.fulfill({
           status: 400,
@@ -166,8 +174,7 @@ async function setupHistoryRoutes(
           overrides.rollbackResponse ?? MOCK_ROLLBACK_RESPONSE,
         ),
       });
-    },
-  );
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -409,27 +416,33 @@ test.describe("Auto Switcher — History", () => {
     "history 500 shows error boundary",
     { tag: ["@regression"] },
     async ({ authenticatedPage: page }) => {
-      await page.route("**/api/v1/agent-switcher/settings", async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({}),
+      await page
+        .context()
+        .route("**/api/v1/agent-switcher/settings", async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({}),
+          });
         });
-      });
-      await page.route("**/api/v1/agent-switcher/history**", async (route) => {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ detail: "Internal server error" }),
+      await page
+        .context()
+        .route("**/api/v1/agent-switcher/history**", async (route) => {
+          await route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "Internal server error" }),
+          });
         });
-      });
-      await page.route("**/api/v1/agent-switcher/activity**", async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([]),
+      await page
+        .context()
+        .route("**/api/v1/agent-switcher/activity**", async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+          });
         });
-      });
 
       await page.goto("/auto-switcher/history");
 
